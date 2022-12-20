@@ -1,0 +1,10 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+./data/trained_RNNs
+*.pyc
+*.xml
+.DS_Store
+.idea/*
+*.png
+

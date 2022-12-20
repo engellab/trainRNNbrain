@@ -1,0 +1,7 @@
+
+.DS_Store
+*.iml
+.idea/.name
+*.pkl
+*.png
+*.pyc

@@ -210,6 +210,6 @@ def run_training(max_iter,
     return rnn_trained, data
 
 if __name__ == '__main__':
-    config_file = "train_config_20122022_num_outputs=2_N=50_Nsteps=300_srec=0.03_sinp=0.03.pkl"
+    config_file = "train_config_20122022_num_outputs=2_N=50_Nsteps=450_srec=0.04_sinp=0.04.pkl"
     config_dict = pickle.load(open(os.path.join("../", "data", "configs", config_file), "rb+"))
     run_training(**config_dict)
