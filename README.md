@@ -6,6 +6,18 @@ It also implements a useful class for the post-training task-performance analysi
 
 ### Some examples:
 
+
+<p align="center">
+<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/fixed%20points%203BitFlipFlop%20task.gif?raw=true"/>
+</p>
+
+<center>
+
+*Fixed point structure revealed after training an RNN to perform a 3 bit flip-flop task*
+  
+</center>
+
+__________________________________
 <p align="center">
 <img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/random_trials_MemoryAnti_task.png?raw=true width="100""/>
 </p>
@@ -15,18 +27,12 @@ It also implements a useful class for the post-training task-performance analysi
 *Random trials after training the RNN on 2 bit flip-flop task*
 
 </center>
-
-<p align="center">
-<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/fixed%20points%203BitFlipFlop%20task.gif?raw=true"/>
-</p>
-<center>
-
-*Fixed point structure revealed after training an RNN to perform a 3 bit flip-flop task*
-
-</center>
+  
+__________________________________
 <p align="center">
 <img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/fixed%20points%20MemoryAnti%20task.gif?raw=true"/>
 </p>
+
 <center>
 
 *Fixed point structure in the MemoryAnti task*
