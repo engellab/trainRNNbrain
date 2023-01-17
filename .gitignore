@@ -2,5 +2,4 @@
 *.iml
 .idea/.name
 *.pkl
-*.png
 *.pyc
