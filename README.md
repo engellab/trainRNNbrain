@@ -7,7 +7,7 @@ It also implements a useful class for the post-training task-performance analysi
 ### Some examples:
 
 <p align="center">
-<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/random_trials_MemoryAnti_task.png?raw=true width="200""/>
+<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/random_trials_MemoryAnti_task.png?raw=true width="100""/>
 </p>
 
 <center>
