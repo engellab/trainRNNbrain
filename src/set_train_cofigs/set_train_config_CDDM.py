@@ -6,7 +6,7 @@ from datetime import date
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 50
+N = 75
 activation_name = 'relu'
 constrained = True
 seed = None
@@ -21,10 +21,10 @@ connectivity_density_rec = 1.0
 task_name = 'CDDM'
 n_inputs = 6
 n_outputs = 2
-T = 300
+T = 600
 n_steps = int(T / dt)
 max_coherence = 0.8
-coherence_lvls = 5
+coherence_lvls = 6
 
 mask = np.concatenate([np.arange(int(n_steps // 3)), int(2 * n_steps // 3) + np.arange(int(n_steps // 3))]).tolist()
 task_params = {"cue_on": 0, "cue_off": n_steps,
@@ -38,7 +38,7 @@ coherences = np.concatenate([-np.array(tmp[::-1]), np.array([0]), np.array(tmp)]
 task_params["coherences"] = coherences
 
 # training specific
-max_iter = 500
+max_iter = 1000
 tol = 1e-10
 lr = 0.02
 weight_decay = 5e-6

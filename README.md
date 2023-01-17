@@ -4,6 +4,35 @@ This project aims to establish a pipeline for seamlessly defining the behavioral
 
 It also implements a useful class for the post-training task-performance analysis, as well as a class for analysis of the RNN dynamics: computing its dynamics fixed-points structure for a given input.
 
+### Some examples:
+
+<p align="center">
+<img src="https://github.com/ptolmachev/RNN_training_pipeline/blob/master/img/random_trials_2BitFlipFlop task.png"/>
+</p>
+
+<center>
+
+*Random trials after training the RNN on 2 bit flip-flop task*
+
+</center>
+
+<p align="center">
+<img src="https://github.com/ptolmachev/RNN_training_pipeline/blob/master/img/fixed points 3BitFlipFlop task.gif"/>
+</p>
+<center>
+
+*Fixed point structure revealed after training an RNN to perform a 3 bit flip-flop task*
+
+</center>
+<p align="center">
+<img src="https://github.com/ptolmachev/RNN_training_pipeline/blob/master/img/fixed points MemoryAnti task.gif"/>
+</p>
+<center>
+
+*Fixed point structure in the MemoryAnti task*
+
+</center>
+
 ### Continuous-time RNN description
 
 The dynamics for RNN are captured by the following equations:

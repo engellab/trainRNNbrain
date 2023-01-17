@@ -283,7 +283,11 @@ class TaskNBitFlipFlop(Task):
 class TaskMemoryAnti(Task):
     def __init__(self, n_steps, n_inputs, n_outputs, task_params):
         '''
-        Received A cos(theta) and B sin (theta) as
+        Given an two-channel input A cos(theta) and Asin(theta) as inputs for some time
+        Output Acos(theta+pi), Asin(theta+pi) after a delay period, fiven a signal provided in the third channel.
+        Similar (but not exactly the same) to the task described in
+        "Flexible multitask computation in recurrent networks utilizes shared dynamical motifs"
+        Laura Driscoll1, Krishna Shenoy, David Sussillo
         '''
         Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
         self.n_steps = n_steps
