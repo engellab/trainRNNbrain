@@ -7,7 +7,7 @@ It also implements a useful class for the post-training task-performance analysi
 ### Some examples:
 
 <p align="center">
-<img src="https://github.com/ptolmachev/RNN_training_pipeline/blob/master/img/random_trials_2BitFlipFlop task.png"/>
+<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/fixed%20points%203BitFlipFlop%20task.gif?raw=true"/>
 </p>
 
 <center>
@@ -25,7 +25,7 @@ It also implements a useful class for the post-training task-performance analysi
 
 </center>
 <p align="center">
-<img src="https://github.com/ptolmachev/RNN_training_pipeline/blob/master/img/fixed points MemoryAnti task.gif"/>
+<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/fixed%20points%20MemoryAnti%20task.gif?raw=true"/>
 </p>
 <center>
 
