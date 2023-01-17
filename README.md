@@ -19,7 +19,7 @@ It also implements a useful class for the post-training task-performance analysi
 
 __________________________________
 <p align="center">
-<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/random_trials_MemoryAnti_task.png" width="250">
+<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/random_trials_MemoryAnti_task.png" width="500">
 </p>
 
 <center>
