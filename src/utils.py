@@ -8,14 +8,20 @@ from scipy.sparse import random
 from scipy.stats import uniform
 from numpy.linalg import eig
 from pathlib import Path
+from matplotlib.colors import hsv_to_rgb
+from matplotlib.colors import ListedColormap
+import torch
 
 def get_project_root():
     return Path(__file__).parent.parent
 
-def in_the_list(x, x_list, cutoff_diff=1e-6):
+def numpify(function_torch):
+    return lambda x: function_torch(torch.Tensor(x)).detach().numpy()
+
+def in_the_list(x, x_list, diff_cutoff=1e-6):
     for i in range(len(x_list)):
         diff = np.linalg.norm(x-x_list[i],2)
-        if diff < cutoff_diff:
+        if diff < diff_cutoff:
             return True
     return False
 
@@ -44,35 +50,45 @@ def sort_eigs(E, R):
     R = data[:, 1:].T
     return E, R
 
+def make_orientation_consistent(vectors, num_iter=10):
+    vectors = np.stack(np.stack(vectors))
+    for i in range(num_iter):  # np.min(dot_prod) < 0:
+        average_vect = np.mean(vectors, axis=0)
+        average_vect /= np.linalg.norm(average_vect)
+        dot_prod = vectors @ average_vect
+        vectors[np.where(dot_prod < 0)[0], :] *= -1
+    return vectors
+
 def cosine_sim(A, B):
     v1 = A.flatten()/np.linalg.norm(A.flatten())
     v2 = B.flatten()/np.linalg.norm(B.flatten())
     return np.round(np.dot(v1, v2),3)
 
-def plot_trial(inputs, output, condition):
-    # input vector:
-    # 0, 1 - motion context, color context
-    # 2, 3 - motion right, motion left
-    # 3, 4 - color right color left
-    # 5, 6 - output right, output left
+def get_colormaps():
+    # define colors
+    color1 = hsv_to_rgb([357.93 / 360, 84.06/100, 81.18/100]) # red
+    color2 = hsv_to_rgb([226.73 / 360, 65/100, 64/100]) #blue
+    color3 = hsv_to_rgb([246.16 / 360, 33 / 100, 74 / 100]) #bluish
+    color4 = hsv_to_rgb([145.14 / 360, 93/100,63/100]) # green
+    color5 = hsv_to_rgb([28.32 / 360, 87.35/100, 96.08/100]) # orange
+    color6 = hsv_to_rgb([196.11 / 360, 78 / 100, 93 / 100]) #light blue
+    color7 = hsv_to_rgb([305 / 360, 53.66 / 100, 64.31 / 100]) # magenta
 
-    fig, ax = plt.figure(figsize=(12, 3))
-    ctxt = "motion" if (inputs[0, 0] >= 1.0) else "color"
-    relevant_coherence = condition["motion_coh"] if ctxt == 'motion' else condition["color_coh"]
-    irrelevant_coherence = condition["color_coh"] if ctxt == 'motion' else condition["motion_coh"]
-    correct_choice = condition['correct_choice']
-    relevant_signals = inputs[:, 2:4] if ctxt == 'motion' else inputs[:, 4:6]
-    irrelevant_signals = inputs[:, 4:6] if ctxt == 'motion' else inputs[:, 2:4]
-    decision_output = (output[:, 0] - output[:, 1])
-    correctness = True if (np.sign(decision_output[-1]) == correct_choice) else False
-    plt.plot(decision_output, color="k", label='decision')
-    plt.suptitle(
-        f"Context = {ctxt}, correct choice = {correct_choice}, coherence = {np.round(relevant_coherence, 2)}",
-        color='green' if correctness else "red", fontsize=16)
-    plt.plot(relevant_signals[:, 0] - relevant_signals[:, 1], color='r', linewidth=2, label="relevant signal")
-    plt.plot(irrelevant_signals[:, 0] - irrelevant_signals[:, 1], color='b', label="irrelevant signal",
-             alpha=0.4)
-    plt.legend(fontsize=16, loc=3)
-    plt.grid(True)
-    plt.ylim([-1.1, 1.1])
-    return ax
+
+    colors = [color1, color2, color3, color4, color5, color6, color7]
+    white = (1, 1, 1, 1)
+
+    # for i in range(7):
+    #     plt.plot(np.arange(9)-1*i, color=eval(f"color{i+1}"), linewidth = 10)
+    # plt.show()
+
+    newcolors = np.zeros((256, 4))
+    newcolors[:, -1] = 1
+    newcolors[:128, 0] = np.linspace(color2[0], white[0], 128)
+    newcolors[128:, 0] = np.linspace(white[0], color1[0], 128)
+    newcolors[:128, 1] = np.linspace(color2[1], white[1], 128)
+    newcolors[128:, 1] = np.linspace(white[1], color1[1], 128)
+    newcolors[:128, 2] = np.linspace(color2[2], white[2], 128)
+    newcolors[128:, 2] = np.linspace(white[2], color1[2], 128)
+    cmp_light = ListedColormap(newcolors)
+    return colors, cmp_light
