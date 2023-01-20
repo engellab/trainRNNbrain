@@ -1,5 +1,7 @@
 import os
 import json
+import pickle
+
 from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM
 from src.PerformanceAnalyzer import AnalyzerCDDM
@@ -60,6 +62,7 @@ same_batch = config_dict["same_batch"]
 # General:
 tag = config_dict["tag"]
 timestr = time.strftime("%Y%m%d-%H%M%S")
+
 data_folder = os.path.join(config_dict["data_folder"], timestr)
 
 # # creating instances:
@@ -80,6 +83,7 @@ trainer = Trainer(RNN=rnn_torch, Task=task,
                   lambda_orth=lambda_orth, lambda_r=lambda_r)
 
 datasaver = DataSaver(data_folder)
+# datasaver = None
 
 try:
     # if run on the cluster
@@ -96,8 +100,8 @@ plt.grid(True)
 plt.legend(fontsize=16)
 if disp:
     plt.show()
-
 if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
+best_net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "CDDM", "20230117-175732", "params_CDDM_0.03556.pkl"), "rb+"))
 # validate
 RNN_valid = RNN_numpy(N=best_net_params["N"],
                       dt=best_net_params["dt"],
@@ -128,7 +132,8 @@ if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
 
-analyzer.calc_psychometric_data(task, mask, num_levels=11, num_repeats=31, sigma_rec=0.03, sigma_inp=0.03)
+num_levels = len(config_dict["task_params"]["coherences"])
+analyzer.calc_psychometric_data(task, mask, num_levels=num_levels, num_repeats=31, sigma_rec=0.03, sigma_inp=0.03)
 fig_psycho = analyzer.plot_psychometric_data()
 if disp:
     plt.show()

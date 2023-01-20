@@ -28,7 +28,8 @@ class DynamicSystemAnalyzer():
         self.objective = objective
         self.objective_grad = objective_grad
 
-    def get_fixed_points(self, Input,
+    def get_fixed_points(self,
+                         Input,
                          patience=100,
                          fun_tol=1e-12,
                          stop_length=100,
@@ -55,7 +56,6 @@ class DynamicSystemAnalyzer():
         :param mode: 'exact' or 'approx'. 'exact' - computes exact fixed points, with scipy.optimize.fsolve method
         'approx' finds 'slow points' - points with small |RHS|^2, with fun_tol controlling the cut-off |RHS|^2.
         '''
-
         unstable_fps = []; stable_fps = []; marginally_stable_fps = []; all_points = []
         N = self.RNN.W_rec.shape[0]
         cntr = 0 # counter parameter, keeps track of how many times in a row an optimizer didn't find any new fp
@@ -86,68 +86,63 @@ class DynamicSystemAnalyzer():
         # Saving the data in the internal dictionary accessible by the input vector turned into string:
         input_as_key = str(Input.tolist())
         self.fp_data[input_as_key] = {}
-        self.fp_data[input_as_key]["stable_fps"] = np.array(stable_fps)
-        self.fp_data[input_as_key]["unstable_fps"] = np.array(unstable_fps)
-        self.fp_data[input_as_key]["marginally_stable_fps"] = np.array(marginally_stable_fps)
-        return np.array(unstable_fps), np.array(stable_fps), np.array(marginally_stable_fps)
+        point_types = ["stable_fps", "unstable_fps", "marginally_stable_fps"]
+        for i, type in enumerate(point_types):
+            if len(eval(type)) != 0:
+                self.fp_data[input_as_key][type] = np.vstack(eval(point_types[i]))
+        return None
 
-    def plot_fixed_points(self, Input,
-                          patience=100,
-                          fun_tol=1e-12,
-                          stop_length=20,
-                          sigma_init_guess=10,
-                          eig_cutoff=1e-10,
-                          diff_cutoff=1e-7,
-                          projection='2D'):
+    def plot_fixed_points(self, projection='2D', P=None):
         '''
-        a function that calculated the fixed points if they are not yet calculated.
-        Performs PCA on them and then plots these points projected on the first PC
+        a function plots all the pre-calculated fixed-points
+        If projection matrix P is None it performs PCA on the points
+        and then plots these points projected on the first PCs
+        If P is supplied, projects the points using the matrix P
+        if not, performs PCA on the recovered points and uses first PCs for projecting.
 
-        same parameters as in 'get_fixed_points' function
         :param projection: to plot the FPs either on a plane (2D) or in 3D
+        :param P: projection matrix N x n_dim size
         :return: a figure of fixed points on the first
         '''
         n_dim = 2 if projection == '2D' else 3
-        input_as_key = str(Input.tolist())
-        # if the fixed points are not yet calculated:
-        if (len(list(self.fp_data[input_as_key].keys())) == 0):
-            self.get_fixed_points(Input=Input,
-                                  patience=patience,
-                                  fun_tol=fun_tol,
-                                  stop_length=stop_length,
-                                  sigma_init_guess=sigma_init_guess,
-                                  eig_cutoff=eig_cutoff,
-                                  diff_cutoff=diff_cutoff)
-        point_type_keys = ["stable_fps", "unstable_fps", "marginally_stable_fps"]
-        points_quantity = [self.fp_data[input_as_key][key].shape[0] for key in point_type_keys]
-        types_with_nonzero_points = []
-        for i in range(len(points_quantity)):
-            if points_quantity[i] != 0:
-                types_with_nonzero_points.append(point_type_keys[i])
-        if (len(types_with_nonzero_points) == 0):
-            raise ValueError("Didn't find any fixed points!")
-        points = np.vstack([self.fp_data[input_as_key][key].reshape(-1, self.RNN.N) for key in types_with_nonzero_points])
-        if points.shape[0] < n_dim:
+        inputs_as_key = list(self.fp_data.keys())
+        if len(inputs_as_key) == 0:
+            raise ValueError("To plot fixed points, one has to calculate them using 'get_fixed_point function' first!")
+        all_points = []
+        for input_as_key in inputs_as_key:
+            types = list(self.fp_data[input_as_key].keys())
+            points_per_input = np.vstack([self.fp_data[input_as_key][type] for type in types])
+            all_points.append(points_per_input)
+        all_points = np.vstack(all_points)
+        if all_points.shape[0] < n_dim:
             raise ValueError("The number of found fixed points is lesser than n_dim of projection!")
-        pca = PCA(n_components=n_dim)
-        pca.fit(points)
-        P = np.array(pca.components_)
+
+        if P is None:
+            pca = PCA(n_components=n_dim)
+            pca.fit(all_points)
+            P = np.array(pca.components_).T
         # projecting fixed points onto n_dim-subspace
         data_to_plot = {}
-        for key in types_with_nonzero_points:
-            data_to_plot[key] = self.fp_data[input_as_key][key] @ P.T
+        for input_as_key in inputs_as_key:
+            data_to_plot[input_as_key] = {}
+            types = list(self.fp_data[input_as_key].keys())
+            for type in types:
+                data_to_plot[input_as_key][type] = self.fp_data[input_as_key][type] @ P
+
+        color_sets = [["blue", "red", "black"], ["blueviolet", "tomato", "darkslategray"], ["green", "darkorange", "midnightblue"]]
 
         # Plotting the fixed points
         if n_dim == 2:
             fig = plt.figure(figsize=(7, 7))
             fig.suptitle(r"Fixed points projected on 2D PCA plane", fontsize=16)
-            markers = ["o", "x", "o"]; colors = ["blue", "red", "k"]
-            for k, key in enumerate(types_with_nonzero_points):
-                if self.fp_data[input_as_key][key].shape[0] != 0:
-                    for i in range(data_to_plot[key].shape[0]):
-                        plt.scatter(data_to_plot[key][i, 0],
-                                    data_to_plot[key][i, 1],
-                                    marker=markers[k], s=100, color=colors[k], edgecolors='k')
+            for j, input_as_key in enumerate(inputs_as_key):
+                markers = ["o", "x", "o"]; colors = color_sets[j]
+                types = list(data_to_plot[input_as_key].keys())
+                for t, type in enumerate(types):
+                    plt.scatter(data_to_plot[input_as_key][type][:, 0],
+                                data_to_plot[input_as_key][type][:, 1],
+                                marker=markers[t], s=100, color=colors[t],
+                                edgecolors='k')
             plt.ylabel("PC 1", fontsize=16)
             plt.xlabel("PC 2", fontsize=16)
             plt.grid(True)
@@ -162,14 +157,18 @@ class DynamicSystemAnalyzer():
             ax.set_ylabel("PC 2", fontsize=20)
             ax.set_zlabel("PC 3", fontsize=20)
             fig.suptitle(r"Fixed points projected on 3D PCA subspace", fontsize=16)
-            markers = ["o", "x", "o"]; colors = ["blue", "red", "k"]
-            for k, key in enumerate(types_with_nonzero_points):
-                if self.fp_data[input_as_key][key].shape[0] != 0:
-                    for i in range(data_to_plot[key].shape[0]):
-                        ax.scatter(data_to_plot[key][i, 0],
-                                    data_to_plot[key][i, 1],
-                                    data_to_plot[key][i, 2],
-                                    marker=markers[k], s=100, color=colors[k], edgecolors='k')
+            for j, input_as_key in enumerate(inputs_as_key):
+                markers = ["o", "x", "o"]; colors = color_sets[j]
+                types = list(data_to_plot[input_as_key].keys())
+                for t, type in enumerate(types):
+                    ax.scatter(data_to_plot[input_as_key][type][:, 0],
+                                data_to_plot[input_as_key][type][:, 1],
+                               data_to_plot[input_as_key][type][:, 2],
+                                marker=markers[t], s=100, color=colors[t],
+                                edgecolors='k')
+            plt.ylabel("PC 1", fontsize=16)
+            plt.xlabel("PC 2", fontsize=16)
+            plt.grid(True)
         return fig
 
     def compute_point_analytics(self, point, Input):
@@ -222,16 +221,16 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
             Input = deepcopy(default_input)
             Input[ctxt_ind] = 1
             # find fixed points for each input
-            unstable_fps, stable_fps, marginally_stable_fps = self.get_fixed_points(Input,
-                                                                                    patience=patience,
-                                                                                    fun_tol=fun_tol,
-                                                                                    stop_length=stop_length,
-                                                                                    sigma_init_guess=sigma_init_guess,
-                                                                                    eig_cutoff=eig_cutoff,
-                                                                                    diff_cutoff=diff_cutoff)
-            self.data[context]["unstable_fps"] = deepcopy(unstable_fps)
-            self.data[context]["stable_fps"] = deepcopy(stable_fps)
-            self.data[context]["marginally_stable_fps"] = deepcopy(marginally_stable_fps)
+            self.get_fixed_points(Input,
+                                patience=patience,
+                                fun_tol=fun_tol,
+                                stop_length=stop_length,
+                                sigma_init_guess=sigma_init_guess,
+                                eig_cutoff=eig_cutoff,
+                                diff_cutoff=diff_cutoff)
+            input_as_key = str(Input.tolist())
+            for type in ["stable_fps", "unstable_fps", "marginally_stable_fps"]:
+                self.data[context][type] = deepcopy(self.fp_data[input_as_key][type])
         return None
 
     def get_LineAttractor_endpoints(self, context, nudge=0.05, T_steps=1000, relax_steps=10):

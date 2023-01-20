@@ -91,8 +91,16 @@ The fixed-point analysis is implemented in the **DynamicSystemAnalyzer** class a
 
 The class contains three methods:
 
-- *get_fixed_points(Input_vector, mode\*\*kwargs)* -- calculates stable and unstable fixed points of the RNN's dynamics for a given input. It searches for exact fixed points if *mode = 'exact'* option, using *scipy.fsolve* methods applied to the right-hand side of the dynamics equations. Alternatively, if *mode = 'approx'* it searches for 'slow points' -- points where RHS of dynamics is approximately zero. In the latter case, the cut-off threshold for a point is controlled by the parameter *'fun_tol'*.
-- *plot_fixed_points(Input_vector, projection, \*\*kwargs)* -- internally evokes get_fixed_points function if there is no data yet, assembles the fixed points into an array, performs the PCA on them and projects the points on either first 2 (projection='2D') or first 3 (projection='3D') PCs, returning the figure with the projected fixed points.
+- *get_fixed_points(Input_vector, mode, \*\*kwargs)* -- calculates stable and unstable fixed points of the RNN's dynamics
+for a given input. It searches for exact fixed points if *mode = 'exact'* option, using *scipy.fsolve* methods applied 
+to the right-hand side of the dynamics equations.
+Alternatively, if *mode = 'approx'* it searches for 'slow points' -- points where RHS of dynamics is approximately zero.
+In the latter case, the cut-off threshold for a point is controlled by the parameter *'fun_tol'*.
+- *plot_fixed_points(projection, P)* -- assumes that the fixed points has been calculated with `get_fixed_points` method
+for maximum three input vectors, 
+If th projection matrix `P' is not specified, assembles the fixed points into an array, performs the PCA on them and projects
+the points on either first 2 (projection='2D') or first 3 (projection='3D') PCs, returning the figure with the projected 
+fixed points.
 - *compute_point_analytics(point, Input_vector, \*\*kwargs)* -- at a given point in the state-space, and given input to the RNN, calculate statistics of the point:
 value of the |RHS|^2, Jacobian, eigenvalues, and the principle left and right eigenvectors.
 

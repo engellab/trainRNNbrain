@@ -303,7 +303,6 @@ class TaskMemoryAnti(Task):
         target_stream = np.zeros((self.n_outputs, self.n_steps))
         input_stream[0, self.stim_on: self.stim_off] = 2 * np.cos(theta)
         input_stream[1, self.stim_on: self.stim_off] = 2 * np.sin(theta)
-        # input_stream[2, :] = 1.0
         input_stream[2, self.recall_on: self.recall_off] = 1
 
         # Supplying it with an explicit instruction to recall the theta + 180
@@ -383,14 +382,14 @@ if __name__ == '__main__':
     # inputs, targets, conditions = task.get_batch()
     # print(inputs.shape, targets.shape)
 
-    n_steps = 750
+    n_steps = 320
     n_inputs = 3
     n_outputs = 2
     task_params = dict()
-    task_params["stim_on"] = 0
-    task_params["stim_off"] = 750
-    task_params["recall_on"] = 500
-    task_params["recall_off"] = 750
+    task_params["stim_on"] = n_steps // 8
+    task_params["stim_off"] = 3 * n_steps//16
+    task_params["recall_on"] = 5 * n_steps//8
+    task_params["recall_off"] = n_steps
     task = TaskMemoryAnti(n_steps, n_inputs, n_outputs, task_params)
     inputs, targets, conditions = task.get_batch()
     print(inputs.shape, targets.shape)

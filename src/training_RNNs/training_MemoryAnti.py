@@ -1,16 +1,18 @@
 import os
 import json
+import pickle
 from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzer
 from src.PerformanceAnalyzer import PerformanceAnalyzer
 from src.RNN_numpy import RNN_numpy
-from src.utils import get_project_root, numpify
+from src.utils import get_project_root, numpify, orthonormalize
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
 from src.Task import *
 from matplotlib import pyplot as plt
 import torch
 import time
+from sklearn.decomposition import PCA
 
 disp = True
 activation = "tanh"
@@ -81,7 +83,7 @@ trainer = Trainer(RNN=rnn_torch, Task=task,
                   lambda_orth=lambda_orth, lambda_r=lambda_r)
 
 datasaver = DataSaver(data_folder)
-
+# datasaver = None
 try:
     # if run on the cluster
     SGE_TASK_ID = int(os.environ["SGE_TASK_ID"])
@@ -89,8 +91,6 @@ except:
     SGE_TASK_ID = None
 
 rnn_trained, train_losses, val_losses, best_net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
-
-
 fig_trainloss = plt.figure(figsize=(10, 3))
 plt.plot(train_losses, color='r', label='train loss (log scale)')
 plt.plot(val_losses, color='b', label='valid loss (log scale)')
@@ -100,6 +100,8 @@ plt.legend(fontsize=16)
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
+
+# best_net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "MemoryAnti", "20230119-222602", "params_MemoryAnti_0.00639.pkl"), "rb+"))
 
 # validate
 RNN_valid = RNN_numpy(N=best_net_params["N"],
@@ -132,16 +134,15 @@ if disp:
 if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
 
 dsa = DynamicSystemAnalyzer(RNN_valid)
-Input=np.zeros(input_size)
+dsa.get_fixed_points(Input=np.array([0, 0, 0]), fun_tol=0.05, diff_cutoff=1e-4, sigma_init_guess=15, patience=100, stop_length=100, mode="approx")
+dsa.get_fixed_points(Input=np.array([0, 0, 1]), fun_tol=0.05, diff_cutoff=1e-4, sigma_init_guess=15, patience=100, stop_length=100, mode="approx")
 
-dsa.get_fixed_points(Input=Input, fun_tol=0.03, diff_cutoff=1e-4, sigma_init_guess=15, patience=100, stop_length=100, mode="approx")
-fig_fp = dsa.plot_fixed_points(Input=Input, projection='2D')
+fig_fp = dsa.plot_fixed_points(projection='2D', P=RNN_valid.W_out.T)
 if disp:
     plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_fp, "fp_projection_minimize")
+if not (datasaver is None): datasaver.save_figure(fig_fp, "slow_points_projection_output")
 
-dsa.get_fixed_points(Input=Input, sigma_init_guess=15, patience=50, stop_length=50, mode="exact")
-fig_fp = dsa.plot_fixed_points(Input=Input, projection='2D')
+fig_fp = dsa.plot_fixed_points(projection='3D', P=RNN_valid.W_inp)
 if disp:
     plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_fp, "fp_projection")
+if not (datasaver is None): datasaver.save_figure(fig_fp, "slow_points_projection_3D")
