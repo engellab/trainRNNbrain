@@ -134,7 +134,7 @@ if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
 
 dsa = DynamicSystemAnalyzer(RNN_valid)
 dsa.get_fixed_points(Input=np.zeros(input_size))
-fig_fp = dsa.plot_fixed_points(Input=np.zeros(input_size), projection='2D')
+fig_fp = dsa.plot_fixed_points(projection='2D')
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_fp, "fp_projection")

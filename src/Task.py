@@ -280,12 +280,67 @@ class TaskNBitFlipFlop(Task):
             conditions = [conditions[index] for index in perm]
         return inputs, targets, conditions
 
-class TaskMemoryAnti(Task):
+
+class TaskMemoryAntiNumber(Task):
     def __init__(self, n_steps, n_inputs, n_outputs, task_params):
         '''
-        Given an two-channel input A cos(theta) and Asin(theta) as inputs for some time
-        Output Acos(theta+pi), Asin(theta+pi) after a delay period, fiven a signal provided in the third channel.
-        Similar (but not exactly the same) to the task described in
+        Given an one-channel input x in range (-2, 2) for a short period of time
+        Output -x after in the `recall' period signified by an additional input +1 in the second input channel.
+
+        '''
+        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
+        self.n_steps = n_steps
+        self.n_inputs = n_inputs
+        self.n_outputs = n_outputs
+        self.stim_on_range = task_params["stim_on_range"]
+        self.stim_duration = task_params["stim_duration"]
+        self.recall_on = task_params["recall_on"]
+        self.recall_off = task_params["recall_off"]
+
+    def generate_input_target_stream(self, number, generator_numpy=None):
+        if generator_numpy is None:
+            generator_numpy = np.random.default_rng
+        stim_on = int(generator_numpy().uniform(*self.stim_on_range))
+        duration = self.stim_duration
+        input_stream = np.zeros((self.n_inputs, self.n_steps))
+        target_stream = np.zeros((self.n_outputs, self.n_steps))
+        input_stream[0, stim_on: stim_on + duration] = number
+        input_stream[1, self.recall_on: self.recall_off] = 1
+
+        target_stream[0, self.recall_on: self.recall_off] = -number
+        condition = {"number": number}
+        return input_stream, target_stream, condition
+
+    def get_batch(self, shuffle=False, generator_numpy=None):
+        inputs = []
+        targets = []
+        conditions = []
+        numbers = np.linspace(-2, 2, 32)
+        for number in numbers:
+            input_stream, target_stream, condition = self.generate_input_target_stream(number)
+            inputs.append(deepcopy(input_stream))
+            targets.append(deepcopy(target_stream))
+            conditions.append(deepcopy(condition))
+        inputs = np.stack(inputs, axis=2)
+        targets = np.stack(targets, axis=2)
+        inputs = np.repeat(inputs, axis=2, repeats=11)
+        targets = np.repeat(targets, axis=2, repeats=11)
+        if shuffle:
+            if generator_numpy is None:
+                generator_numpy = np.random.default_rng()
+            perm = generator_numpy.permutation(len(inputs))
+            inputs = inputs[..., perm]
+            targets = targets[..., perm]
+            conditions = [conditions[index] for index in perm]
+        return inputs, targets, conditions
+
+
+class TaskMemoryAntiAngle(Task):
+    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
+        '''
+        Given a two-channel input 2 cos(theta) and 2 sin(theta) specifying an angle theta (present only for a short period of time),
+        Output Acos(theta+pi), Asin(theta+pi) in the recall period (signified by +1 provided in the third input-channel)
+        This task is similar (but not exactly the same) to the task described in
         "Flexible multitask computation in recurrent networks utilizes shared dynamical motifs"
         Laura Driscoll1, Krishna Shenoy, David Sussillo
         '''
@@ -293,16 +348,21 @@ class TaskMemoryAnti(Task):
         self.n_steps = n_steps
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
-        self.stim_on = task_params["stim_on"]
-        self.stim_off = task_params["stim_off"]
+        self.stim_on_range = task_params["stim_on_range"]
+        self.stim_duration = task_params["stim_duration"]
         self.recall_on = task_params["recall_on"]
         self.recall_off = task_params["recall_off"]
 
-    def generate_input_target_stream(self, theta):
+    def generate_input_target_stream(self, theta, generator_numpy=None):
         input_stream = np.zeros((self.n_inputs, self.n_steps))
         target_stream = np.zeros((self.n_outputs, self.n_steps))
-        input_stream[0, self.stim_on: self.stim_off] = 2 * np.cos(theta)
-        input_stream[1, self.stim_on: self.stim_off] = 2 * np.sin(theta)
+        if generator_numpy is None:
+            generator_numpy = np.random.default_rng
+        stim_on = int(generator_numpy().uniform(*self.stim_on_range))
+        duration = self.stim_duration
+
+        input_stream[0, stim_on: stim_on + duration] = 2 * np.cos(theta)
+        input_stream[1, stim_on: stim_on + duration] = 2 * np.sin(theta)
         input_stream[2, self.recall_on: self.recall_off] = 1
 
         # Supplying it with an explicit instruction to recall the theta + 180
@@ -310,6 +370,7 @@ class TaskMemoryAnti(Task):
         target_stream[1, self.recall_on: self.recall_off] = 2 * np.sin(theta + np.pi)
         condition = {"theta": theta}
         return input_stream, target_stream, condition
+
 
     def get_batch(self, shuffle=False, generator_numpy=None):
         inputs = []
@@ -382,14 +443,26 @@ if __name__ == '__main__':
     # inputs, targets, conditions = task.get_batch()
     # print(inputs.shape, targets.shape)
 
+    # n_steps = 320
+    # n_inputs = 3
+    # n_outputs = 2
+    # task_params = dict()
+    # task_params["stim_on"] = n_steps // 8
+    # task_params["stim_off"] = 3 * n_steps//16
+    # task_params["recall_on"] = 5 * n_steps//8
+    # task_params["recall_off"] = n_steps
+    # task = TaskMemoryAntiAngle(n_steps, n_inputs, n_outputs, task_params)
+    # inputs, targets, conditions = task.get_batch()
+    # print(inputs.shape, targets.shape)
+
     n_steps = 320
-    n_inputs = 3
-    n_outputs = 2
+    n_inputs = 2
+    n_outputs = 1
     task_params = dict()
     task_params["stim_on"] = n_steps // 8
     task_params["stim_off"] = 3 * n_steps//16
     task_params["recall_on"] = 5 * n_steps//8
     task_params["recall_off"] = n_steps
-    task = TaskMemoryAnti(n_steps, n_inputs, n_outputs, task_params)
+    task = TaskMemoryAntiNumber(n_steps, n_inputs, n_outputs, task_params)
     inputs, targets, conditions = task.get_batch()
     print(inputs.shape, targets.shape)

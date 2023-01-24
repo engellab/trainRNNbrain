@@ -189,7 +189,7 @@ if __name__ == '__main__':
 
 
     rnn_trained, train_losses, val_losses, best_net_params = trainer.run_training(train_mask=train_mask, same_batch=True)
-    # pickle.dump(best_net_params, open(os.path.join("../", "data", "trained_RNNs", "data_tanh.pkl"), "wb+"))
+    # pickle.dump(net_params, open(os.path.join("../", "data", "trained_RNNs", "data_tanh.pkl"), "wb+"))
 
     # plt.figure(figsize = (10, 3))
     # plt.plot(np.log(train_losses), color='r', label='train loss (log scale)')
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     # plt.legend(fontsize=16)
     # plt.show()
 
-    # best_net_params = pickle.load(open(os.path.join("../", "data", "trained_RNNs", "data_tanh.pkl"), "rb+"))
+    # net_params = pickle.load(open(os.path.join("../", "data", "trained_RNNs", "data_tanh.pkl"), "rb+"))
     # validate
     # show a bunch of trajectories
     RNN_valid = RNN_numpy(N=best_net_params["N"], dt=best_net_params["dt"], tau=best_net_params["tau"],

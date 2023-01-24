@@ -89,7 +89,7 @@ try:
 except:
     SGE_TASK_ID = None
 
-# best_net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "NBitFlipFlop", "good training", "params_NBitFlipFlop_0.08383.pkl"), "rb+"))
+# net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "NBitFlipFlop", "good training", "params_NBitFlipFlop_0.08383.pkl"), "rb+"))
 
 rnn_trained, train_losses, val_losses, best_net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
 

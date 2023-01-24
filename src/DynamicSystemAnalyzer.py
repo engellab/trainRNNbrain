@@ -64,9 +64,9 @@ class DynamicSystemAnalyzer():
             x0 = sigma_init_guess * np.random.randn(N)
             # finding the roots of RHS of the RNN
             if mode == 'exact':
-                x_root = fsolve(func=self.rhs, x0=x0, fprime=self.rhs_jac, args=(Input,))
+                x_root = fsolve(func=self.rhs, x0=x0, fprime=self.rhs_jac, args=(Input, ))
             elif mode == "approx":
-                res = scipy.optimize.minimize(fun=self.objective, x0=x0, args=(Input, ), jac=self.objective_grad, method='Powell')
+                res = scipy.optimize.minimize(fun=self.objective, x0=x0, args=(Input, ), method='Powell')
                 x_root = res.x
             else:
                 raise ValueError(f"Mode {mode} is not implemented!")
@@ -143,8 +143,8 @@ class DynamicSystemAnalyzer():
                                 data_to_plot[input_as_key][type][:, 1],
                                 marker=markers[t], s=100, color=colors[t],
                                 edgecolors='k')
-            plt.ylabel("PC 1", fontsize=16)
-            plt.xlabel("PC 2", fontsize=16)
+            plt.xlabel("PC 1", fontsize=16)
+            plt.ylabel("PC 2", fontsize=16)
             plt.grid(True)
         elif n_dim == 3:
             fig = plt.figure(figsize=(7, 7))
@@ -166,8 +166,6 @@ class DynamicSystemAnalyzer():
                                data_to_plot[input_as_key][type][:, 2],
                                 marker=markers[t], s=100, color=colors[t],
                                 edgecolors='k')
-            plt.ylabel("PC 1", fontsize=16)
-            plt.xlabel("PC 2", fontsize=16)
             plt.grid(True)
         return fig
 

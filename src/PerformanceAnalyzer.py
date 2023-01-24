@@ -50,7 +50,7 @@ class PerformanceAnalyzer():
             axes[k].spines.right.set_visible(False)
             axes[k].spines.top.set_visible(False)
 
-        axes[0].legend(fontsize=8, frameon=False, bbox_to_anchor=(1.0, 1.0))
+        axes[0].legend(fontsize=12, frameon=False, bbox_to_anchor=(1.0, 1.0))
         axes[batch_size // 2].set_ylabel("Output", fontsize=12)
         axes[-1].set_xlabel("time step, ms", fontsize=12)
         fig_output.tight_layout()
