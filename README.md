@@ -36,13 +36,9 @@ __________________________________
 
 <center>
 
-*
-Fixed point structure for MemoryAntiNumber task:
+*Fixed point structure for MemoryAntiNumber task:
 The first line attractor (blue-red points, appearing for the input during the stimulus-presentation stage) lies in the nullspace of the W_out.
 The second line-attractor (violet-tomato points, appearing for the input provided on the recall stage) has some projection on the output axes*
-
-*
-
 </center>
   
 __________________________________
@@ -55,8 +51,9 @@ __________________________________
 <center>
 
 *Fixed point structure in the MemoryAntiAngle task: 
-same as for the line attractors in MemoryAntiNumber task, but instead of the line attractors, the networks forms ring attractors.
+same as for the line attractors in MemoryAntiNumber task, but instead of the line attractors, the networks forms ring attractors.*
 </center>
+
 __________________________________
 
 ### Continuous-time RNN description
