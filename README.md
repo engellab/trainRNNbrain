@@ -30,7 +30,6 @@ __________________________________
   
 __________________________________
 
-__________________________________
 <p align="center">
 <img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/FixedPoints_MemoryAntiNumber.png" width="500">
 </p>
@@ -53,6 +52,7 @@ __________________________________
 *Fixed point structure in the MemoryAnti task*
 
 </center>
+__________________________________
 
 ### Continuous-time RNN description
 
