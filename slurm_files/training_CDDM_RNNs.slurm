@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --array=1-100%25
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem-per-cpu=16G
 #SBATCH --time=12:00:00
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
