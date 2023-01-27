@@ -8,8 +8,8 @@
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
 #SBATCH --mail-user=pt1290@princeton.edu
-#SBATCH --output=%x.%j.out
-#SBATCH --error=%x.%j.err
+#SBATCH --output=../log/%x.%j.out
+#SBATCH --error=../log/%x.%j.err
 
 # Load modules for CUDA, CUDNN, and conda
 module purge
