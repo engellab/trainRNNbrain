@@ -9,7 +9,8 @@ class DataSaver():
     '''
     def __init__(self, data_folder, dj_integration=False):
         # create data folder if doesn't exist
-        os.makedirs(data_folder, exist_ok=True)
+        os.umask(0)
+        os.makedirs(data_folder, exist_ok=True, mode=0o777)
         self.data_folder = data_folder
         self.date_tag = ''.join((list(str(date.today()).split("-"))[::-1]))
         self.dj_integration = dj_integration
