@@ -85,10 +85,11 @@ trainer = Trainer(RNN=rnn_torch, Task=task,
 # datasaver = DataSaver(data_folder)
 datasaver = None
 try:
-    # if run on the cluster
-    SGE_TASK_ID = int(os.environ["SGE_TASK_ID"])
+    SLURM_JOB_ID = int(os.environ["SLURM_JOB_ID"])
+    task_params["seed"] = SLURM_JOB_ID
+    seed = SLURM_JOB_ID
 except:
-    SGE_TASK_ID = None
+    SLURM_JOB_ID = None
 
 rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
 fig_trainloss = plt.figure(figsize=(10, 3))

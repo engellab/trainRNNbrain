@@ -78,7 +78,7 @@ class RNN_torch(torch.nn.Module):
             W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask =\
                 get_connectivity_Dale(device, self.N, num_inputs=self.input_size, num_outputs=self.output_size,
                                       radius=self.spectral_rad, generator=self.random_generator,
-                                 recurrent_density=self.connectivity_density_rec)
+                                      recurrent_density=self.connectivity_density_rec)
         else:
             W_rec, W_inp, W_out, self.recurrent_mask, self.output_mask, self.input_mask = \
                 get_connectivity(device, self.N, num_inputs=self.input_size, num_outputs=self.output_size, radius=self.spectral_rad,

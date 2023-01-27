@@ -1,6 +1,6 @@
 {
-    "N": 50,
-    "seed": 0,
+    "N": 100,
+    "seed": null,
     "activation": "relu",
     "sigma_inp": 0.03,
     "sigma_rec": 0.03,
@@ -11,7 +11,7 @@
     "tau": 10,
     "sr": 1.2,
     "connectivity_density_rec": 1.0,
-    "max_iter": 600,
+    "max_iter": 6,
     "n_steps": 750,
     "task_params": {
         "cue_on": 0,
@@ -36,7 +36,7 @@
             0.4,
             0.8
         ],
-        "seed": 0
+        "seed": null
     },
     "mask": [
         0,
@@ -546,7 +546,7 @@
     "weight_decay": 5e-06,
     "lambda_orth": 0.3,
     "lambda_r": 0.3,
-    "data_folder": "/Users/tolmach/Documents/GitHub/training_RNNs_pipeline/LA_data/trained_RNNs/CDDM",
+    "data_folder": "/Users/tolmach/Documents/GitHub/training_RNNs_pipeline/data/trained_RNNs/CDDM",
     "tag": "CDDM_relu",
     "shuffle": false
 }

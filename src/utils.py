@@ -3,7 +3,6 @@ import os
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, '../')
 import numpy as np
-from matplotlib import pyplot as plt
 from scipy.sparse import random
 from scipy.stats import uniform
 from numpy.linalg import eig

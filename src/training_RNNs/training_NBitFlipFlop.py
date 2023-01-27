@@ -84,12 +84,11 @@ trainer = Trainer(RNN=rnn_torch, Task=task,
 datasaver = DataSaver(data_folder)
 
 try:
-    # if run on the cluster
-    SGE_TASK_ID = int(os.environ["SGE_TASK_ID"])
+    SLURM_JOB_ID = int(os.environ["SLURM_JOB_ID"])
+    task_params["seed"] = SLURM_JOB_ID
+    seed = SLURM_JOB_ID
 except:
-    SGE_TASK_ID = None
-
-# net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "NBitFlipFlop", "good training", "params_NBitFlipFlop_0.08383.pkl"), "rb+"))
+    SLURM_JOB_ID = None
 
 rnn_trained, train_losses, val_losses, best_net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
 
@@ -135,7 +134,7 @@ if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
 
 dsa = DynamicSystemAnalyzer(RNN_valid)
 dsa.get_fixed_points(Input=np.zeros(input_size), sigma_init_guess=10, patience=50, stop_length=50)
-fig_fp = dsa.plot_fixed_points(Input=np.zeros(input_size), projection='2D')
+fig_fp = dsa.plot_fixed_points(projection='2D')
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_fp, "fp_projection")

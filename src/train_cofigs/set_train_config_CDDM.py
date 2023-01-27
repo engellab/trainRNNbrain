@@ -6,7 +6,7 @@ from datetime import date
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 50
+N = 100
 activation_name = 'relu'
 constrained = True
 seed = None
@@ -37,7 +37,7 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 600
+max_iter = 6
 tol = 1e-10
 lr = 0.02
 weight_decay = 5e-6
@@ -46,7 +46,7 @@ lambda_r = 0.3
 same_batch = True
 shuffle = False
 
-data_folder = os.path.abspath(os.path.join(get_project_root(), "LA_data", "trained_RNNs", f"{task_name}"))
+data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
 tag = f'{task_name}_{activation_name}'
 
 config_dict = {}

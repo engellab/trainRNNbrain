@@ -1,6 +1,5 @@
 import os
 import json
-import pickle
 from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM
 from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
@@ -62,6 +61,13 @@ same_batch = config_dict["same_batch"]
 # General:
 tag = config_dict["tag"]
 timestr = time.strftime("%Y%m%d-%H%M%S")
+# if run on the cluster
+try:
+    SLURM_JOB_ID = int(os.environ["SLURM_JOB_ID"])
+    task_params["seed"] = SLURM_JOB_ID
+    seed = SLURM_JOB_ID
+except:
+    SLURM_JOB_ID = None
 
 data_folder = os.path.join(config_dict["data_folder"], timestr)
 
@@ -84,12 +90,6 @@ trainer = Trainer(RNN=rnn_torch, Task=task,
 
 datasaver = DataSaver(data_folder)
 # datasaver = None
-
-try:
-    # if run on the cluster
-    SGE_TASK_ID = int(os.environ["SGE_TASK_ID"])
-except:
-    SGE_TASK_ID = None
 
 rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
 fig_trainloss = plt.figure(figsize=(10, 3))
@@ -206,7 +206,7 @@ cddm_analysis_dj_dict = {"task_name": taskname + "_" + str(task_id),
                          "mse_score": score,
                          "psycho_data": deepcopy(analyzer.psychometric_data),
                          "fp_data": deepcopy(dsa.fp_data),
-                         "la_data" : deepcopy(dsa.LA_data)}
+                         "la_data": deepcopy(dsa.LA_data)}
 
 task_dj.insert1(task_dj_dict, skip_duplicates=True)
 rnn_dj.insert1(rnn_dj_dict, skip_duplicates=True)

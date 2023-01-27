@@ -2,13 +2,9 @@
 Class which accepts RNN_torch and a task and has a mode to train RNN
 '''
 
-import os
-import pickle
-import sys
 import numpy as np
 import torch
 from copy import deepcopy
-from src.RNN_numpy import RNN_numpy
 
 
 def L2_ortho(rnn, X = None, y = None):
