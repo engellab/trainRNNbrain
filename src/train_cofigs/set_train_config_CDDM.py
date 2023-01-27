@@ -1,6 +1,8 @@
 import json
 import os
 import numpy as np
+import sys
+sys.path.insert(0, '../')
 from src.utils import get_project_root
 from datetime import date
 date = ''.join((list(str(date.today()).split("-"))[::-1]))

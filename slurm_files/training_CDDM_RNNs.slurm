@@ -13,12 +13,10 @@
 
 # Load modules for CUDA, CUDNN, and conda
 module purge
-module load cudatoolkit/12.0
-module load cudnn/cuda-11.x/8.2.0
-module load anaconda3/2022.5
+module load anacondapy/2022.5
 
 # Activate conda environment
 conda activate RNN_training_pipeline
 
-python ../src/train_configs/set_train_config_CDDM.py
-python ../src/training_RNNs/training_CDDM.py
+python /mnt/cup/people/pt1290/RNN_training_pipeline/src/train_configs/set_train_config_CDDM.py
+python /mnt/cup/people/pt1290/RNN_training_pipeline/src/training_RNNs/training_CDDM.py

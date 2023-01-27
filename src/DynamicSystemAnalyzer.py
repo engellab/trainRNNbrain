@@ -4,6 +4,8 @@ import scipy.optimize
 from matplotlib import pyplot as plt
 from scipy.optimize import fsolve, minimize
 from tqdm.auto import tqdm
+import sys
+sys.path.insert(0, '../')
 from src.utils import get_colormaps, in_the_list, sort_eigs, make_orientation_consistent
 import warnings
 warnings.filterwarnings("ignore")
