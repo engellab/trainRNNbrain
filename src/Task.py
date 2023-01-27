@@ -13,6 +13,11 @@ class Task():
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
         self.task_params = task_params
+        self.seed = task_params["seed"]
+        if not (self.seed is None):
+            self.rng = np.random.default_rng(seed=self.seed)
+        else:
+            self.rng = np.random.default_rng()
 
     def generate_input_target_stream(self, **kwargs):
         '''
@@ -100,7 +105,7 @@ class TaskCDDM(Task):
                 target_stream[ind, self.dec_on - 1:self.dec_off] = 1
         return input_stream, target_stream
 
-    def get_batch(self, shuffle=False, generator_numpy=None):
+    def get_batch(self, shuffle=False):
         '''
         coherences: list containing range of coherences for each channel (e.g. [-1, -0.5, -0.25,  0, 0.25, 0.5, 1]
         :param shuffle: shuffle the final array
@@ -111,7 +116,7 @@ class TaskCDDM(Task):
         inputs = []
         targets = []
         conditions = []
-        if generator_numpy is None:
+        if self.rng is None:
             generator_numpy = np.random.default_rng()
         for context in ["motion", "color"]:
             for c1 in coherences:
@@ -136,7 +141,7 @@ class TaskCDDM(Task):
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
         if shuffle:
-            perm = generator_numpy.permutation(len(inputs))
+            perm = self.rng.permutation(len(inputs))
             inputs = inputs[..., perm]
             targets = targets[..., perm]
             conditions = [conditions[index] for index in perm]
@@ -172,7 +177,7 @@ class TaskDMTS(Task):
             target_stream[1, self.dec_on: self.dec_off] = 1
         return input_stream, target_stream
 
-    def get_batch(self, shuffle=False, generator_numpy=None):
+    def get_batch(self, shuffle=False):
         # batch size = 256 for two inputs
         inputs = []
         targets = []
@@ -194,9 +199,7 @@ class TaskDMTS(Task):
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
         if shuffle:
-            if generator_numpy is None:
-                generator_numpy = np.random.default_rng()
-            perm = generator_numpy.permutation(len(inputs))
+            perm = self.rng.permutation(len(inputs))
             inputs = inputs[..., perm]
             targets = targets[..., perm]
             conditions = [conditions[index] for index in perm]
@@ -272,9 +275,7 @@ class TaskNBitFlipFlop(Task):
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
         if shuffle:
-            if generator_numpy is None:
-                generator_numpy = np.random.default_rng()
-            perm = generator_numpy.permutation(len(inputs))
+            perm = self.rng.permutation(len(inputs))
             inputs = inputs[..., perm]
             targets = targets[..., perm]
             conditions = [conditions[index] for index in perm]
@@ -297,10 +298,8 @@ class TaskMemoryAntiNumber(Task):
         self.recall_on = task_params["recall_on"]
         self.recall_off = task_params["recall_off"]
 
-    def generate_input_target_stream(self, number, generator_numpy=None):
-        if generator_numpy is None:
-            generator_numpy = np.random.default_rng
-        stim_on = int(generator_numpy().uniform(*self.stim_on_range))
+    def generate_input_target_stream(self, number):
+        stim_on = int(self.rng.uniform(*self.stim_on_range))
         duration = self.stim_duration
         input_stream = np.zeros((self.n_inputs, self.n_steps))
         target_stream = np.zeros((self.n_outputs, self.n_steps))
@@ -311,7 +310,7 @@ class TaskMemoryAntiNumber(Task):
         condition = {"number": number}
         return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False, generator_numpy=None):
+    def get_batch(self, shuffle=False):
         inputs = []
         targets = []
         conditions = []
@@ -326,9 +325,7 @@ class TaskMemoryAntiNumber(Task):
         inputs = np.repeat(inputs, axis=2, repeats=11)
         targets = np.repeat(targets, axis=2, repeats=11)
         if shuffle:
-            if generator_numpy is None:
-                generator_numpy = np.random.default_rng()
-            perm = generator_numpy.permutation(len(inputs))
+            perm = self.rng.permutation(len(inputs))
             inputs = inputs[..., perm]
             targets = targets[..., perm]
             conditions = [conditions[index] for index in perm]
@@ -353,12 +350,10 @@ class TaskMemoryAntiAngle(Task):
         self.recall_on = task_params["recall_on"]
         self.recall_off = task_params["recall_off"]
 
-    def generate_input_target_stream(self, theta, generator_numpy=None):
+    def generate_input_target_stream(self, theta):
         input_stream = np.zeros((self.n_inputs, self.n_steps))
         target_stream = np.zeros((self.n_outputs, self.n_steps))
-        if generator_numpy is None:
-            generator_numpy = np.random.default_rng
-        stim_on = int(generator_numpy().uniform(*self.stim_on_range))
+        stim_on = int(self.rng.uniform(*self.stim_on_range))
         duration = self.stim_duration
 
         input_stream[0, stim_on: stim_on + duration] = 2 * np.cos(theta)
@@ -372,7 +367,7 @@ class TaskMemoryAntiAngle(Task):
         return input_stream, target_stream, condition
 
 
-    def get_batch(self, shuffle=False, generator_numpy=None):
+    def get_batch(self, shuffle=False):
         inputs = []
         targets = []
         conditions = []
@@ -387,9 +382,7 @@ class TaskMemoryAntiAngle(Task):
         inputs = np.repeat(inputs, axis=2, repeats=11)
         targets = np.repeat(targets, axis=2, repeats=11)
         if shuffle:
-            if generator_numpy is None:
-                generator_numpy = np.random.default_rng()
-            perm = generator_numpy.permutation(len(inputs))
+            perm = self.rng.permutation(len(inputs))
             inputs = inputs[..., perm]
             targets = targets[..., perm]
             conditions = [conditions[index] for index in perm]

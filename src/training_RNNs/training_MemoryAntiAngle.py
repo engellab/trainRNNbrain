@@ -82,8 +82,8 @@ trainer = Trainer(RNN=rnn_torch, Task=task,
                   optimizer=optimizer, criterion=criterion,
                   lambda_orth=lambda_orth, lambda_r=lambda_r)
 
-datasaver = DataSaver(data_folder)
-# datasaver = None
+# datasaver = DataSaver(data_folder)
+datasaver = None
 try:
     # if run on the cluster
     SGE_TASK_ID = int(os.environ["SGE_TASK_ID"])

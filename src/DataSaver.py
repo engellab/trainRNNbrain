@@ -7,11 +7,12 @@ class DataSaver():
     '''
     Class which encapsulates creating data folders and saving information there afterwards
     '''
-    def __init__(self, data_folder):
+    def __init__(self, data_folder, dj_integration=False):
         # create data folder if doesn't exist
         os.makedirs(data_folder, exist_ok=True)
         self.data_folder = data_folder
         self.date_tag = ''.join((list(str(date.today()).split("-"))[::-1]))
+        self.dj_integration = dj_integration
 
     def save_data(self, data, file_name):
         '''save data as a pickle or json file, depending on the name'''
@@ -27,3 +28,5 @@ class DataSaver():
         '''saving an image as a png'''
         figure.savefig(os.path.join(self.data_folder, file_name), dpi=300, format='png')
         return None
+
+    # def save_to_dj(self, data_dict):

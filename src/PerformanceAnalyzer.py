@@ -58,20 +58,20 @@ class PerformanceAnalyzer():
         return fig_output
 
 
-class AnalyzerCDDM(PerformanceAnalyzer):
+class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
     def __init__(self, rnn_numpy):
         PerformanceAnalyzer.__init__(self, rnn_numpy)
 
     def calc_psychometric_data(self, task, mask, num_levels=7, num_repeats=7, sigma_rec=0.03, sigma_inp=0.03):
         coherence_lvls = np.linspace(-1, 1, num_levels)
-        res_dict = {}
-        res_dict["coherence_lvls"] = coherence_lvls
-        res_dict["motion"] = {}
-        res_dict["color"] = {}
-        res_dict["motion"]["right_choice_percentage"] = np.empty((num_levels, num_levels))
-        res_dict["color"]["right_choice_percentage"] = np.empty((num_levels, num_levels))
-        res_dict["motion"]["MSE"] = np.empty((num_levels, num_levels))
-        res_dict["color"]["MSE"] = np.empty((num_levels, num_levels))
+        psychometric_data = {}
+        psychometric_data["coherence_lvls"] = coherence_lvls
+        psychometric_data["motion"] = {}
+        psychometric_data["color"] = {}
+        psychometric_data["motion"]["right_choice_percentage"] = np.empty((num_levels, num_levels))
+        psychometric_data["color"]["right_choice_percentage"] = np.empty((num_levels, num_levels))
+        psychometric_data["motion"]["MSE"] = np.empty((num_levels, num_levels))
+        psychometric_data["color"]["MSE"] = np.empty((num_levels, num_levels))
 
         input_batch, target_batch, conditions = task.get_batch()
         batch_size = input_batch.shape[-1]
@@ -95,18 +95,18 @@ class AnalyzerCDDM(PerformanceAnalyzer):
         # If you mess up with a batch generation function it may affect the psychometric function
         mean_choices_to_right = np.mean(choices_to_right.reshape(2, num_levels, num_levels, num_repeats), axis=-1)
         mean_error = np.mean(errors.reshape(2, num_levels, num_levels, num_repeats), axis=-1)
-        res_dict["motion"]["right_choice_percentage"] = mean_choices_to_right[0, ...].T
-        res_dict["color"]["right_choice_percentage"] = mean_choices_to_right[1, ...]
-        res_dict["motion"]["MSE"] = mean_error[0, ...].T
-        res_dict["color"]["MSE"] = mean_error[1, ...]
-        self.psychometric_data = deepcopy(res_dict)
-        return res_dict
+        psychometric_data["motion"]["right_choice_percentage"] = mean_choices_to_right[0, ...].T
+        psychometric_data["color"]["right_choice_percentage"] = mean_choices_to_right[1, ...]
+        psychometric_data["motion"]["MSE"] = mean_error[0, ...].T
+        psychometric_data["color"]["MSE"] = mean_error[1, ...]
+        self.psychometric_data = deepcopy(psychometric_data)
+        return psychometric_data
 
     def plot_psychometric_data(self):
         coherence_lvls = self.psychometric_data["coherence_lvls"]
-        Motion_rght_prcntg = self.psychometric_data["motion"]["right_choice_percentage"]#[::-1, :]
+        Motion_rght_prcntg = self.psychometric_data["motion"]["right_choice_percentage"]
         Color_rght_prcntg = self.psychometric_data["color"]["right_choice_percentage"][::-1, :]
-        Motion_MSE = self.psychometric_data["motion"]["MSE"]#[::-1, :]
+        Motion_MSE = self.psychometric_data["motion"]["MSE"]
         Color_MSE = self.psychometric_data["color"]["MSE"][::-1, :]
         num_lvls = Color_rght_prcntg.shape[0]
 

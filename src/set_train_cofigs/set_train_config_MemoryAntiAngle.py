@@ -28,6 +28,7 @@ task_params["stim_on_range"] = [0, 8 * n_steps // 16 - 20]
 task_params["stim_duration"] = 10
 task_params["recall_on"] = 8 * n_steps // 16
 task_params["recall_off"] = n_steps
+task_params["seed"] = seed
 # mask = np.concatenate([np.arange(n_steps)]).tolist() # using the whole trial
 mask = np.concatenate([np.arange(task_params["recall_on"]), 9 * n_steps // 16 + np.arange(7 * n_steps // 16) ]).tolist() # using the whole trial
 

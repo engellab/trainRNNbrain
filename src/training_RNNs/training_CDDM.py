@@ -1,10 +1,9 @@
 import os
 import json
 import pickle
-
 from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM
-from src.PerformanceAnalyzer import AnalyzerCDDM
+from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
 from src.RNN_numpy import RNN_numpy
 from src.utils import get_project_root, numpify
 from src.Trainer import Trainer
@@ -13,6 +12,7 @@ from src.Task import *
 from matplotlib import pyplot as plt
 import torch
 import time
+from src.datajoint_config import *
 
 disp = True
 activation = "relu"
@@ -91,7 +91,7 @@ try:
 except:
     SGE_TASK_ID = None
 
-rnn_trained, train_losses, val_losses, best_net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
+rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
 fig_trainloss = plt.figure(figsize=(10, 3))
 plt.plot(train_losses, color='r', label='train loss (log scale)')
 plt.plot(val_losses, color='b', label='valid loss (log scale)')
@@ -101,26 +101,26 @@ plt.legend(fontsize=16)
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
-best_net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "CDDM", "20230117-175732", "params_CDDM_0.03556.pkl"), "rb+"))
+# net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "CDDM", "20230117-175732", "params_CDDM_0.03556.pkl"), "rb+"))
 # validate
-RNN_valid = RNN_numpy(N=best_net_params["N"],
-                      dt=best_net_params["dt"],
-                      tau=best_net_params["tau"],
+RNN_valid = RNN_numpy(N=net_params["N"],
+                      dt=net_params["dt"],
+                      tau=net_params["tau"],
                       activation=numpify(activation),
-                      W_inp=best_net_params["W_inp"],
-                      W_rec=best_net_params["W_rec"],
-                      W_out=best_net_params["W_out"],
-                      bias_rec=best_net_params["bias_rec"],
-                      y_init=best_net_params["y_init"])
+                      W_inp=net_params["W_inp"],
+                      W_rec=net_params["W_rec"],
+                      W_out=net_params["W_out"],
+                      bias_rec=net_params["bias_rec"],
+                      y_init=net_params["y_init"])
 
-analyzer = AnalyzerCDDM(RNN_valid)
+analyzer = PerformanceAnalyzerCDDM(RNN_valid)
 score_function = lambda x, y: np.mean((x - y) ** 2)
 input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
 score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid,
                                       mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
 print(f"MSE validation: {np.round(score, 5)}")
 if not (datasaver is None): datasaver.save_data(config_dict, "config.json")
-if not (datasaver is None):datasaver.save_data(best_net_params, f"params_{taskname}_{np.round(score, 5)}.pkl")
+if not (datasaver is None): datasaver.save_data(net_params, f"params_{taskname}_{np.round(score, 5)}.pkl")
 
 print(f"Plotting random trials")
 inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), 12)
@@ -140,7 +140,16 @@ if disp:
 if not (datasaver is None): datasaver.save_figure(fig_psycho, "psychometric_data")
 
 dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
-dsa.calc_fixed_points_CDDM()
+params = {"fun_tol": 0.05,
+          "diff_cutoff": 1e-4,
+          "sigma_init_guess": 15,
+          "patience": 100,
+          "stop_length": 100,
+          "mode":"approx"}
+dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
+dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
+dsa.calc_LineAttractor_analytics()
+
 fig_LA3D = dsa.plot_LineAttractor_3D()
 if disp:
     plt.show()
@@ -151,8 +160,55 @@ if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_RHS, "LA_RHS")
 
+rnn_dj = RNNDJ()
+task_dj = TaskDJ()
+trainer_dj = TrainerDJ()
+cddm_analysis_dj = CDDMRNNAnalysisDJ()
 
+task_id = 0
+trainer_id = 0
+rnn_timestamp = time.strftime("%Y%m%d%H%M%S")
 
+task_dj_dict = {"task_name": taskname + "_" + str(task_id),
+                "n_steps": config_dict["n_steps"],
+                "n_inputs": config_dict["num_inputs"],
+                "n_outputs": config_dict["num_outputs"],
+                "task_params": config_dict["task_params"],
+                "mask": mask}
+trainer_dj_dict = {"task_name": taskname + "_" + str(task_id),
+                   "trainer_id": trainer_id,
+                   "max_iter": config_dict["max_iter"],
+                   "tol": config_dict["tol"],
+                   "lr": config_dict["lr"],
+                   "lambda_orth": config_dict["lambda_orth"],
+                   "lambda_r": config_dict["lambda_r"],
+                   "same_batch" : config_dict["same_batch"],
+                   "shuffle" : False}
+rnn_dj_dict = {"task_name": taskname + "_" + str(task_id),
+               "rnn_timestamp" : rnn_timestamp,
+               "trainer_id" : trainer_id,
+               "n": config_dict["N"],
+               "activation_name": config_dict["activation"],
+               "constrained": config_dict["constrained"],
+               "dt": config_dict["dt"],
+               "tau": config_dict["tau"],
+               "sr": config_dict["sr"],
+               "connectivity_density_rec": config_dict["connectivity_density_rec"],
+               "sigma_rec" : config_dict["sigma_rec"],
+               "sigma_inp": config_dict["sigma_inp"],
+               "w_inp" : net_params["W_inp"],
+               "w_rec" : net_params["W_rec"],
+               "w_out" : net_params["W_out"],
+               "b_rec" : 0 if net_params["bias_rec"] is None else net_params["bias_rec"]}
+cddm_analysis_dj_dict = {"task_name": taskname + "_" + str(task_id),
+                         "rnn_timestamp" : rnn_timestamp,
+                         "trainer_id": trainer_id,
+                         "mse_score": score,
+                         "psycho_data": deepcopy(analyzer.psychometric_data),
+                         "fp_data": deepcopy(dsa.fp_data),
+                         "la_data" : deepcopy(dsa.LA_data)}
 
-
-
+task_dj.insert1(task_dj_dict, skip_duplicates=True)
+rnn_dj.insert1(rnn_dj_dict, skip_duplicates=True)
+trainer_dj.insert1(trainer_dj_dict, skip_duplicates=True)
+trainer_dj.insert1(trainer_dj_dict, skip_duplicates=True)

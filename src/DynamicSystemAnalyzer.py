@@ -198,38 +198,9 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         self.context_axis = self.RNN.W_inp[:, 0] - self.RNN.W_inp[:, 1]
         self.sensory_axis = np.sum([self.RNN.W_inp[:, i] for i in [2, 3, 4, 5]])
 
-        self.data = {}
-        self.data["motion"] = {}
-        self.data["color"] = {}
-
-    def calc_fixed_points_CDDM(self, patience=10,
-                              fun_tol=1e-12,
-                              stop_length=100,
-                              sigma_init_guess=10,
-                              eig_cutoff=1e-10,
-                              diff_cutoff=1e-7):
-        '''
-        Get fixed points for two different contexts: "motion" and "color",
-        each corresponding to a different input to the RNN
-        '''
-        default_input = np.array([0, 0, 0.5, 0.5, 0.5, 0.5])
-        for context in ["motion", "color"]:
-            ctxt_ind = 0 if context == 'motion' else 1
-            # generate context-relevant input
-            Input = deepcopy(default_input)
-            Input[ctxt_ind] = 1
-            # find fixed points for each input
-            self.get_fixed_points(Input,
-                                patience=patience,
-                                fun_tol=fun_tol,
-                                stop_length=stop_length,
-                                sigma_init_guess=sigma_init_guess,
-                                eig_cutoff=eig_cutoff,
-                                diff_cutoff=diff_cutoff)
-            input_as_key = str(Input.tolist())
-            for type in ["stable_fps", "unstable_fps", "marginally_stable_fps"]:
-                self.data[context][type] = deepcopy(self.fp_data[input_as_key][type])
-        return None
+        self.LA_data = {}
+        self.LA_data["motion"] = {}
+        self.LA_data["color"] = {}
 
     def get_LineAttractor_endpoints(self, context, nudge=0.05, T_steps=1000, relax_steps=10):
         '''
@@ -259,12 +230,6 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
 
     def calc_LineAttractor_analytics(self,
                                      N_points=31,
-                                     patience=10,
-                                     fun_tol=1e-12,
-                                     stop_length=20,
-                                     sigma_init_guess=10,
-                                     eig_cutoff=1e-10,
-                                     diff_cutoff=1e-7,
                                      obj_max_iter=100,
                                      nudge=0.05,
                                      T_steps=1000,
@@ -281,14 +246,6 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
             ctxt_ind = 0 if context == 'motion' else 1
             Input = deepcopy(default_input)
             Input[ctxt_ind] = 1
-            # if the fixed points are not yet calculated
-            if (len(list(self.data[context].keys())) == 0):
-                self.calc_fixed_points_CDDM(patience=patience,
-                                       fun_tol=fun_tol,
-                                       stop_length=stop_length,
-                                       sigma_init_guess=sigma_init_guess,
-                                       eig_cutoff=eig_cutoff,
-                                       diff_cutoff=diff_cutoff)
             #get the end points of the line attractor
             left_point, right_point = self.get_LineAttractor_endpoints(context,
                                                                        nudge=nudge,
@@ -324,74 +281,16 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
             selection_vects = make_orientation_consistent(selection_vects)
             principle_eigenvects = make_orientation_consistent(principle_eigenvects)
 
-            self.data[context]["slow_points"] = (np.array(slow_points))
-            self.data[context]["fun_val"] = (np.array(fun_vals))
-            self.data[context]["jac"] = (np.array(jacs))
-            self.data[context]["eigs"] = (np.array(eigs))
-            self.data[context]["l"] = (np.array(selection_vects))
-            self.data[context]["r"] = (np.array(principle_eigenvects))
-        return deepcopy(self.data)
-
-    def plot_fp_2D_CDDM(self,
-                        patience=10,
-                        fun_tol=1e-12,
-                        stop_length=20,
-                        sigma_init_guess=10,
-                        eig_cutoff=1e-10,
-                        diff_cutoff=1e-7):
-        '''
-        same params as in 'get_fixed_points'
-        :return: fig of projected FPs on a subspace spanned by choice and context axes
-        '''
-        default_input = np.array([0.0, 0.0, 0.5, 0.5, 0.5, 0.5])
-        P = np.hstack([self.choice_axis.reshape(-1, 1), self.context_axis.reshape(-1, 1)])
-        data_to_plot = {}; data_to_plot["motion"] = {}; data_to_plot["color"] = {}
-
-        for p, context in enumerate(["motion", "color"]):
-            ctxt_ind = 0 if context == 'motion' else 1
-            Input = deepcopy(default_input)
-            Input[ctxt_ind] = 1
-            # if the FPs are not yet calculated
-            if (len(list(self.data[context].keys())) == 0):
-                self.calc_fixed_points_CDDM(patience=patience,
-                                           fun_tol=fun_tol,
-                                           stop_length=stop_length,
-                                           sigma_init_guess=sigma_init_guess,
-                                           eig_cutoff=eig_cutoff,
-                                           diff_cutoff=diff_cutoff)
-            # projecting fixed points onto 2D space
-            for key in ["stable_fps", "unstable_fps", "marginally_stable_fps"]:
-                if self.data[context][key].shape[0] != 0:
-                    data_to_plot[context][key] = self.data[context][key] @ P
-
-        # plotting
-        fig = plt.figure(figsize=(6, 6))
-        fig.suptitle(r"Fixed points projected on (choice, context)", fontsize=16)
-        markers = ["o", "x", "o"]; colors = ["blue", "red", "k"]
-        for context in ["motion", "color"]:
-            for k, key in enumerate(["stable_fps", "unstable_fps", "marginally_stable_fps"]):
-                if self.data[context][key].shape[0] != 0:
-                    for i in range(data_to_plot[context][key].shape[0]):
-                        plt.scatter(data_to_plot[context][key][i, 0],
-                                    data_to_plot[context][key][i, 1],
-                                    marker=markers[k], s=100, color=colors[k])
-        plt.ylabel("Context", fontsize=16)
-        plt.xlabel("Choice", fontsize=16)
-        plt.grid(True)
-        return fig
+            self.LA_data[context]["slow_points"] = (np.array(slow_points))
+            self.LA_data[context]["fun_val"] = (np.array(fun_vals))
+            self.LA_data[context]["jac"] = (np.array(jacs))
+            self.LA_data[context]["eigs"] = (np.array(eigs))
+            self.LA_data[context]["l"] = (np.array(selection_vects))
+            self.LA_data[context]["r"] = (np.array(principle_eigenvects))
+        return None
 
     def plot_LineAttractor_3D(self,
-                              N_points=31,
-                              patience=30,
-                              fun_tol=1e-12,
-                              stop_length=20,
-                              sigma_init_guess=10,
-                              eig_cutoff=1e-10,
-                              diff_cutoff=1e-7,
                               nudge=0.05,
-                              obj_max_iter=100,
-                              T_steps=1000,
-                              relax_steps=10,
                               steps_stim_on=500,
                               steps_context_only_on=250):
         '''
@@ -409,19 +308,10 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         P_matrix[:, 0] = self.choice_axis
         P_matrix[:, 1] = self.context_axis
         P_matrix[:, 2] = self.sensory_axis
-        if not ("slow_points" in (list(self.data["motion"].keys()))):
-            data_dict = self.calc_LineAttractor_analytics(N_points=N_points,
-                                                          patience=patience,
-                                                          fun_tol=fun_tol,
-                                                          stop_length=stop_length,
-                                                          sigma_init_guess=sigma_init_guess,
-                                                          eig_cutoff=eig_cutoff,
-                                                          diff_cutoff=diff_cutoff,
-                                                          obj_max_iter=obj_max_iter,
-                                                          T_steps=T_steps,
-                                                          relax_steps=relax_steps)
+        if not ("slow_points" in (list(self.LA_data["motion"].keys()))):
+            raise ValueError("Need to run `calc_LineAttractor_analytics' first!")
         else:
-            data_dict = deepcopy(self.data)
+            LA_data_dict = deepcopy(self.LA_data)
 
         trajectories = dict()
         trajectories["motion"] = {}
@@ -499,16 +389,14 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         ax.scatter([0, 0], [0, 0], [0, 0], color='r', marker='o', s=10, alpha=0.9)
 
         for ctxt in ["motion", "color"]:
-            slow_points_projected = data_dict[ctxt]["slow_points"] @ P_matrix
-            ax.scatter(*(slow_points_projected[:, k] for k in range(nDim)), color=colors_LA[ctxt], marker='o', s=6, alpha=0.2)
+            slow_points_projected = LA_data_dict[ctxt]["slow_points"] @ P_matrix
+            ax.scatter(*(slow_points_projected[:, k] for k in range(nDim)), color=colors_LA[ctxt], marker='o', s=20, alpha=0.5)
             ax.plot(*(slow_points_projected[:, k] for k in range(nDim)), color=colors_LA[ctxt])
             for stim_status in ["relevant"]:
                 clr = colors_trajectories[ctxt][stim_status]
-
                 trajectory_projected = trajectories[ctxt][stim_status]["context_only_on"] @ P_matrix
                 ax.plot(*(trajectory_projected[:, t] for t in range(nDim)),
-                        linestyle='-', linewidth=1.5, color=clr, alpha=0.8)
-
+                        linestyle='-', linewidth=2, color=clr, alpha=0.8)
                 linestyles = ['-', ':', '-']
                 colors = [clr, clr, 'm']
                 for k, key in enumerate(["right", "left", "center"]):
@@ -522,38 +410,19 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         plt.tight_layout()
         return fig_3D
 
-    def plot_RHS_over_LA(self,
-                         N_points=31,
-                         patience=30,
-                         fun_tol=1e-12,
-                         stop_length=20,
-                         sigma_init_guess=10,
-                         eig_cutoff=1e-10,
-                         diff_cutoff=1e-7,
-                         obj_max_iter=100,
-                         T_steps=1000,
-                         relax_steps=10):
-        if not ("slow_points" in (list(self.data["motion"].keys()))):
-            data_dict = self.calc_LineAttractor_analytics(N_points=N_points,
-                                                          patience=patience,
-                                                          fun_tol=fun_tol,
-                                                          stop_length=stop_length,
-                                                          sigma_init_guess=sigma_init_guess,
-                                                          eig_cutoff=eig_cutoff,
-                                                          diff_cutoff=diff_cutoff,
-                                                          obj_max_iter=obj_max_iter,
-                                                          T_steps=T_steps,
-                                                          relax_steps=relax_steps)
+    def plot_RHS_over_LA(self):
+        if not ("slow_points" in (list(self.LA_data["motion"].keys()))):
+            raise ValueError("Need to run `calc_LineAttractor_analytics' first!")
         else:
-            data_dict = deepcopy(self.data)
+            LA_data_dict = deepcopy(self.LA_data)
         colors, cmp = get_colormaps()
         red, blue, bluish, green, orange, lblue, violet = colors
         fig_RHS = plt.figure(figsize=(12, 3))
         plt.suptitle(r"$\||RHS(x)\||^2$", fontsize = 16)
         plt.axhline(0, color="gray", linewidth=2, alpha=0.2)
-        x = np.linspace(0, 1, N_points)
-        plt.plot(x, np.array(data_dict["motion"]["fun_val"]), color=bluish, linewidth=3, linestyle='-', label="motion")
-        plt.plot(x, np.array(data_dict["color"]["fun_val"]), color=green, linewidth=3, linestyle='-', label="color")
+        x = np.linspace(0, 1, LA_data_dict['motion']["slow_points"].shape[0])
+        plt.plot(x, np.array(LA_data_dict["motion"]["fun_val"]), color=bluish, linewidth=3, linestyle='-', label="motion")
+        plt.plot(x, np.array(LA_data_dict["color"]["fun_val"]), color=green, linewidth=3, linestyle='-', label="color")
         plt.legend(fontsize=14)
         plt.xlabel("distance along the LA", fontsize=16)
         plt.ylabel(r"$\||RHS(x)\||$", fontsize=16)

@@ -18,7 +18,7 @@ disp = True
 activation = "relu"
 taskname = "DMTS"
 train_config_file = f"train_config_{taskname}_{activation}.json"
-config_dict = json.load(open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r"))
+config_dict = json.load(open(os.path.join(get_project_root(), "LA_data", "configs", train_config_file), mode="r"))
 
 # defining RNN:
 N = config_dict["N"]

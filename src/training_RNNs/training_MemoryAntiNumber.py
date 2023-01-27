@@ -90,29 +90,29 @@ try:
 except:
     SGE_TASK_ID = None
 
-# rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
-# fig_trainloss = plt.figure(figsize=(10, 3))
-# plt.plot(train_losses, color='r', label='train loss (log scale)')
-# plt.plot(val_losses, color='b', label='valid loss (log scale)')
-# plt.yscale("log")
-# plt.grid(True)
-# plt.legend(fontsize=16)
-# if disp:
-#     plt.show()
-# if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
+rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
+fig_trainloss = plt.figure(figsize=(10, 3))
+plt.plot(train_losses, color='r', label='train loss (log scale)')
+plt.plot(val_losses, color='b', label='valid loss (log scale)')
+plt.yscale("log")
+plt.grid(True)
+plt.legend(fontsize=16)
+if disp:
+    plt.show()
+if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
 
-best_net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "MemoryAntiNumber", "20230122-220547", "params_MemoryAntiNumber_0.02719.pkl"), "rb+"))
+# best_net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "MemoryAntiNumber", "20230122-220547", "params_MemoryAntiNumber_0.02719.pkl"), "rb+"))
 
 # validate
-RNN_valid = RNN_numpy(N=best_net_params["N"],
-                      dt=best_net_params["dt"],
-                      tau=best_net_params["tau"],
+RNN_valid = RNN_numpy(N=net_params["N"],
+                      dt=net_params["dt"],
+                      tau=net_params["tau"],
                       activation=numpify(activation),
-                      W_inp=best_net_params["W_inp"],
-                      W_rec=best_net_params["W_rec"],
-                      W_out=best_net_params["W_out"],
-                      bias_rec=best_net_params["bias_rec"],
-                      y_init=best_net_params["y_init"])
+                      W_inp=net_params["W_inp"],
+                      W_rec=net_params["W_rec"],
+                      W_out=net_params["W_out"],
+                      bias_rec=net_params["bias_rec"],
+                      y_init=net_params["y_init"])
 
 analyzer = PerformanceAnalyzer(RNN_valid)
 score_function = lambda x, y: np.mean((x - y) ** 2)
@@ -121,7 +121,7 @@ score = analyzer.get_validation_score(score_function, input_batch_valid, target_
                                       mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
 print(f"MSE validation: {np.round(score, 5)}")
 if not (datasaver is None): datasaver.save_data(config_dict, "config.json")
-if not (datasaver is None): datasaver.save_data(best_net_params, f"params_{taskname}_{np.round(score, 5)}.pkl")
+if not (datasaver is None): datasaver.save_data(net_params, f"params_{taskname}_{np.round(score, 5)}.pkl")
 
 print(f"Plotting random trials")
 inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), 12)

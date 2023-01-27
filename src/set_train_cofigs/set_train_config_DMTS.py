@@ -32,6 +32,7 @@ task_params["stim_on_match"] = 4 * n_steps // 8
 task_params["stim_off_match"] = 6 * n_steps // 8
 task_params["dec_on"] = 6 * n_steps // 8
 task_params["dec_off"] = n_steps
+task_params["seed"] = seed
 mask = np.concatenate([np.arange(int(4 * n_steps // 8)), int(6 * n_steps // 8) + np.arange(int(2 * n_steps // 8))]).tolist()
 
 # training specific

@@ -1,17 +1,17 @@
 {
     "N": 50,
-    "seed": 0,
+    "seed": null,
     "activation": "tanh",
-    "sigma_inp": 0.015,
-    "sigma_rec": 0.015,
-    "num_inputs": 2,
-    "num_outputs": 1,
+    "sigma_inp": 0.03,
+    "sigma_rec": 0.03,
+    "num_inputs": 3,
+    "num_outputs": 2,
     "constrained": false,
     "dt": 1,
     "tau": 10,
     "sr": 1.2,
     "connectivity_density_rec": 1.0,
-    "max_iter": 800,
+    "max_iter": 1500,
     "n_steps": 320,
     "task_params": {
         "stim_on_range": [
@@ -20,8 +20,7 @@
         ],
         "stim_duration": 10,
         "recall_on": 160,
-        "recall_off": 320,
-        "seed": 0
+        "recall_off": 320
     },
     "mask": [
         0,
@@ -331,6 +330,6 @@
     "weight_decay": 5e-06,
     "lambda_orth": 0.3,
     "lambda_r": 0.1,
-    "data_folder": "/Users/tolmach/Documents/GitHub/training_RNNs_pipeline/data/trained_RNNs/MemoryAntiNumber",
-    "tag": "MemoryAntiNumber_tanh"
+    "data_folder": "/Users/tolmach/Documents/GitHub/training_RNNs_pipeline/data/trained_RNNs/MemoryAntiAngle",
+    "tag": "MemoryAntiAngle_tanh"
 }

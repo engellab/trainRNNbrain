@@ -20,7 +20,8 @@
         ],
         "stim_duration": 10,
         "recall_on": 160,
-        "recall_off": 320
+        "recall_off": 320,
+        "seed": null
     },
     "mask": [
         0,

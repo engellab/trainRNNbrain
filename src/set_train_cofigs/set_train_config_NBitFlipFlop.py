@@ -26,6 +26,7 @@ n_steps = int(T / dt)
 task_params = dict()
 task_params["mu"] = 6 #average number of flips and flops
 task_params["n_flip_steps"] = 10 # a duration of a signal signifying either flip of a flop
+task_params["seed"] = seed
 mask = np.concatenate([np.arange(n_steps)]).tolist() # using the whole trial
 
 # training specific
