@@ -2,14 +2,15 @@
 #SBATCH --job-name=training_CDDM_RNNs
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
+#SBATCH --array=1-100%25
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
 #SBATCH --time=12:00:00
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
 #SBATCH --mail-user=pt1290@princeton.edu
-#SBATCH --output=../log/%x.%j.out
-#SBATCH --error=../log/%x.%j.err
+#SBATCH --output=../log/E-%x.%A_%a.out
+#SBATCH --error=../log/O-%x.%A_%a.err
 
 # Load modules for CUDA, CUDNN, and conda
 module purge

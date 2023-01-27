@@ -39,7 +39,7 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 6
+max_iter = 1000
 tol = 1e-10
 lr = 0.02
 weight_decay = 5e-6

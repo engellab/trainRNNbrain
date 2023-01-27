@@ -13,7 +13,7 @@ from src.Task import *
 from matplotlib import pyplot as plt
 import torch
 import time
-from src.datajoint_config import *
+# from src.datajoint_config import *
 
 disp = True
 activation = "relu"
@@ -65,7 +65,7 @@ tag = config_dict["tag"]
 timestr = time.strftime("%Y%m%d-%H%M%S")
 # if run on the cluster
 try:
-    SLURM_JOB_ID = int(os.environ["SLURM_JOB_ID"])
+    SLURM_JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
     task_params["seed"] = SLURM_JOB_ID
     seed = SLURM_JOB_ID
 except:
@@ -140,6 +140,7 @@ fig_psycho = analyzer.plot_psychometric_data()
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_psycho, "psychometric_data")
+if not (datasaver is None): datasaver.save_data(analyzer.psychometric_data, "psycho_data.pkl")
 
 dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
 params = {"fun_tol": 0.05,
@@ -156,61 +157,63 @@ fig_LA3D = dsa.plot_LineAttractor_3D()
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_LA3D, "LA_3D")
+if not (datasaver is None): datasaver.save_data(dsa.fp_data, "fp_data.pkl")
+if not (datasaver is None): datasaver.save_data(dsa.LA_data, "LA_data.pkl")
 
 fig_RHS = dsa.plot_RHS_over_LA()
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_RHS, "LA_RHS")
 
-rnn_dj = RNNDJ()
-task_dj = TaskDJ()
-trainer_dj = TrainerDJ()
-cddm_analysis_dj = CDDMRNNAnalysisDJ()
-
-task_id = 0
-trainer_id = 0
-rnn_timestamp = time.strftime("%Y%m%d%H%M%S")
-
-task_dj_dict = {"task_name": taskname + "_" + str(task_id),
-                "n_steps": config_dict["n_steps"],
-                "n_inputs": config_dict["num_inputs"],
-                "n_outputs": config_dict["num_outputs"],
-                "task_params": config_dict["task_params"],
-                "mask": mask}
-trainer_dj_dict = {"task_name": taskname + "_" + str(task_id),
-                   "trainer_id": trainer_id,
-                   "max_iter": config_dict["max_iter"],
-                   "tol": config_dict["tol"],
-                   "lr": config_dict["lr"],
-                   "lambda_orth": config_dict["lambda_orth"],
-                   "lambda_r": config_dict["lambda_r"],
-                   "same_batch" : config_dict["same_batch"],
-                   "shuffle" : False}
-rnn_dj_dict = {"task_name": taskname + "_" + str(task_id),
-               "rnn_timestamp" : rnn_timestamp,
-               "trainer_id" : trainer_id,
-               "n": config_dict["N"],
-               "activation_name": config_dict["activation"],
-               "constrained": config_dict["constrained"],
-               "dt": config_dict["dt"],
-               "tau": config_dict["tau"],
-               "sr": config_dict["sr"],
-               "connectivity_density_rec": config_dict["connectivity_density_rec"],
-               "sigma_rec" : config_dict["sigma_rec"],
-               "sigma_inp": config_dict["sigma_inp"],
-               "w_inp" : net_params["W_inp"],
-               "w_rec" : net_params["W_rec"],
-               "w_out" : net_params["W_out"],
-               "b_rec" : 0 if net_params["bias_rec"] is None else net_params["bias_rec"]}
-cddm_analysis_dj_dict = {"task_name": taskname + "_" + str(task_id),
-                         "rnn_timestamp" : rnn_timestamp,
-                         "trainer_id": trainer_id,
-                         "mse_score": score,
-                         "psycho_data": deepcopy(analyzer.psychometric_data),
-                         "fp_data": deepcopy(dsa.fp_data),
-                         "la_data": deepcopy(dsa.LA_data)}
-
-task_dj.insert1(task_dj_dict, skip_duplicates=True)
-rnn_dj.insert1(rnn_dj_dict, skip_duplicates=True)
-trainer_dj.insert1(trainer_dj_dict, skip_duplicates=True)
-trainer_dj.insert1(trainer_dj_dict, skip_duplicates=True)
+# rnn_dj = RNNDJ()
+# task_dj = TaskDJ()
+# trainer_dj = TrainerDJ()
+# cddm_analysis_dj = CDDMRNNAnalysisDJ()
+#
+# task_id = 0
+# trainer_id = 0
+# rnn_timestamp = time.strftime("%Y%m%d%H%M%S")
+#
+# task_dj_dict = {"task_name": taskname + "_" + str(task_id),
+#                 "n_steps": config_dict["n_steps"],
+#                 "n_inputs": config_dict["num_inputs"],
+#                 "n_outputs": config_dict["num_outputs"],
+#                 "task_params": config_dict["task_params"],
+#                 "mask": mask}
+# trainer_dj_dict = {"task_name": taskname + "_" + str(task_id),
+#                    "trainer_id": trainer_id,
+#                    "max_iter": config_dict["max_iter"],
+#                    "tol": config_dict["tol"],
+#                    "lr": config_dict["lr"],
+#                    "lambda_orth": config_dict["lambda_orth"],
+#                    "lambda_r": config_dict["lambda_r"],
+#                    "same_batch" : config_dict["same_batch"],
+#                    "shuffle" : False}
+# rnn_dj_dict = {"task_name": taskname + "_" + str(task_id),
+#                "rnn_timestamp" : rnn_timestamp,
+#                "trainer_id" : trainer_id,
+#                "n": config_dict["N"],
+#                "activation_name": config_dict["activation"],
+#                "constrained": config_dict["constrained"],
+#                "dt": config_dict["dt"],
+#                "tau": config_dict["tau"],
+#                "sr": config_dict["sr"],
+#                "connectivity_density_rec": config_dict["connectivity_density_rec"],
+#                "sigma_rec" : config_dict["sigma_rec"],
+#                "sigma_inp": config_dict["sigma_inp"],
+#                "w_inp" : net_params["W_inp"],
+#                "w_rec" : net_params["W_rec"],
+#                "w_out" : net_params["W_out"],
+#                "b_rec" : 0 if net_params["bias_rec"] is None else net_params["bias_rec"]}
+# cddm_analysis_dj_dict = {"task_name": taskname + "_" + str(task_id),
+#                          "rnn_timestamp" : rnn_timestamp,
+#                          "trainer_id": trainer_id,
+#                          "mse_score": score,
+#                          "psycho_data": deepcopy(analyzer.psychometric_data),
+#                          "fp_data": deepcopy(dsa.fp_data),
+#                          "la_data": deepcopy(dsa.LA_data)}
+#
+# task_dj.insert1(task_dj_dict, skip_duplicates=True)
+# rnn_dj.insert1(rnn_dj_dict, skip_duplicates=True)
+# trainer_dj.insert1(trainer_dj_dict, skip_duplicates=True)
+# trainer_dj.insert1(trainer_dj_dict, skip_duplicates=True)
