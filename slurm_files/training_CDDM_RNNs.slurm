@@ -8,12 +8,12 @@
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
 #SBATCH --mail-user=pt1290@princeton.edu
-#SBATCH --output=R-%x.%j.out
-#SBATCH --error=R-%x.%j.err
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
 
 # Load modules for CUDA, CUDNN, and conda
 module purge
-module load anacondapy/2022.5
+module load anacondapy/2022.05
 
 # Activate conda environment
 conda activate RNN_training_pipeline
