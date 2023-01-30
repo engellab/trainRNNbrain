@@ -64,12 +64,13 @@ class RNN_torch(torch.nn.Module):
             if torch.cuda.is_available():
                 self.device = torch.device('cuda')
             else:
-                self.device = torch.device('cpu')
+                self.device = torch.device('mps') if torch.backends.mps.is_available() else torch.device('cpu')
+                print(f"Using {self.device}!")
 
         self.random_generator = random_generator
-        self.recurrent_layer = torch.nn.Linear(self.N, self.N, bias=(False if (bias_rec is None) else bias_rec))
-        self.input_layer = (torch.nn.Linear(self.input_size, self.N, bias=False))
-        self.output_layer = torch.nn.Linear(self.N, self.output_size, bias=False)
+        self.recurrent_layer = torch.nn.Linear(self.N, self.N, bias=(False if (bias_rec is None) else bias_rec)).to(self.device)
+        self.input_layer = (torch.nn.Linear(self.input_size, self.N, bias=False)).to(self.device)
+        self.output_layer = torch.nn.Linear(self.N, self.output_size, bias=False).to(self.device)
 
         if self.constrained:
             # imposing a bunch of constraint on the connectivity:
@@ -84,9 +85,9 @@ class RNN_torch(torch.nn.Module):
                 get_connectivity(device, self.N, num_inputs=self.input_size, num_outputs=self.output_size, radius=self.spectral_rad,
                                       generator=self.random_generator,
                                       recurrent_density=self.connectivity_density_rec)
-        self.output_layer.weight.data = W_out
-        self.input_layer.weight.data = W_inp
-        self.recurrent_layer.weight.data = W_rec
+        self.output_layer.weight.data = W_out.to(self.device)
+        self.input_layer.weight.data = W_inp.to(self.device)
+        self.recurrent_layer.weight.data = W_rec.to(self.device)
 
         if bias_rec is None:
             self.recurrent_layer.bias = None
@@ -103,19 +104,19 @@ class RNN_torch(torch.nn.Module):
         batch_size = u.shape[-1]
         states = torch.zeros(self.N, 1, batch_size, device=self.device)
         states[:, 0, :] = deepcopy(self.y_init).reshape(-1, 1).repeat(1, batch_size)
-        rec_noise = torch.zeros(self.N, T_steps, batch_size).to(device=self.device)
-        inp_noise = torch.zeros(self.input_size, T_steps, batch_size).to(device=self.device)
+        rec_noise = torch.zeros(self.N, T_steps, batch_size, device=self.device)
+        inp_noise = torch.zeros(self.input_size, T_steps, batch_size)
         if w_noise:
             rec_noise = torch.sqrt((2 / self.alpha) * self.sigma_rec ** 2) \
-                    * torch.randn(*rec_noise.shape, generator=self.random_generator).to(device=self.device)
+                    * torch.randn(*rec_noise.shape, generator=self.random_generator)
             inp_noise = torch.sqrt((2 / self.alpha) * self.sigma_inp ** 2) \
-                        * torch.randn(*inp_noise.shape, generator=self.random_generator).to(device=self.device)
+                        * torch.randn(*inp_noise.shape, generator=self.random_generator)
         # passing thorugh layers require batch-first shape!
         # that's why we need to reshape the inputs and states!
         states = torch.swapaxes(states, 0, -1)
-        u = torch.swapaxes(u, 0, -1)
-        rec_noise = torch.swapaxes(rec_noise, 0, -1)
-        inp_noise = torch.swapaxes(inp_noise, 0, -1)
+        u = torch.swapaxes(u, 0, -1).to(self.device)
+        rec_noise = torch.swapaxes(rec_noise, 0, -1).to(self.device)
+        inp_noise = torch.swapaxes(inp_noise, 0, -1).to(self.device)
         for i in range(T_steps - 1):
             state_new = (1 - self.alpha) * states[:, i, :] + \
                         self.alpha * (
@@ -136,12 +137,12 @@ class RNN_torch(torch.nn.Module):
          number of nodes, dt and tau
         '''
         param_dict = {}
-        W_out = deepcopy(self.output_layer.weight.data.detach().numpy())
-        W_rec = deepcopy(self.recurrent_layer.weight.data.detach().numpy())
-        W_inp = deepcopy(self.input_layer.weight.data.detach().numpy())
-        y_init = deepcopy(self.y_init.detach().numpy())
+        W_out = deepcopy(self.output_layer.weight.data.cpu().detach().numpy())
+        W_rec = deepcopy(self.recurrent_layer.weight.data.cpu().detach().numpy())
+        W_inp = deepcopy(self.input_layer.weight.data.cpu().detach().numpy())
+        y_init = deepcopy(self.y_init.detach().cpu().numpy())
         if not (self.recurrent_layer.bias is None):
-            bias_rec = deepcopy(self.recurrent_layer.bias.data.detach().numpy())
+            bias_rec = deepcopy(self.recurrent_layer.bias.data.cpu().detach().numpy())
         else:
             bias_rec = None
         param_dict["W_out"] = W_out
@@ -155,12 +156,12 @@ class RNN_torch(torch.nn.Module):
         return param_dict
 
     def set_params(self, params):
-        self.output_layer.weight.data = torch.from_numpy(params["W_out"])
-        self.input_layer.weight.data = torch.from_numpy(params["W_inp"])
-        self.recurrent_layer.weight.data = torch.from_numpy(params["W_rec"])
+        self.output_layer.weight.data = torch.from_numpy(params["W_out"]).to(self.device)
+        self.input_layer.weight.data = torch.from_numpy(params["W_inp"]).to(self.device)
+        self.recurrent_layer.weight.data = torch.from_numpy(params["W_rec"]).to(self.device)
         if not (self.recurrent_layer.bias is None):
-            self.recurrent_layer.bias.data = torch.from_numpy(params["bias_rec"])
-        self.y_init = torch.from_numpy(params["y_init"])
+            self.recurrent_layer.bias.data = torch.from_numpy(params["bias_rec"]).to(self.device)
+        self.y_init = torch.from_numpy(params["y_init"]).to(self.device)
         return None
 
 if __name__ == '__main__':

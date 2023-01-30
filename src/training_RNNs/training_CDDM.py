@@ -2,6 +2,7 @@ import os
 import json
 import sys
 sys.path.insert(0, '../')
+sys.path.insert(0, '../../')
 from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM
 from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
@@ -40,6 +41,7 @@ spectral_rad = config_dict["sr"]
 sigma_inp = config_dict["sigma_inp"]
 sigma_rec = config_dict["sigma_rec"]
 seed = config_dict["seed"]
+
 rng = torch.Generator()
 if not seed is None:
     rng.manual_seed(seed)
@@ -134,6 +136,7 @@ if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
 
+print(f"Plotting psychometric data")
 num_levels = len(config_dict["task_params"]["coherences"])
 analyzer.calc_psychometric_data(task, mask, num_levels=num_levels, num_repeats=31, sigma_rec=0.03, sigma_inp=0.03)
 fig_psycho = analyzer.plot_psychometric_data()
@@ -142,6 +145,7 @@ if disp:
 if not (datasaver is None): datasaver.save_figure(fig_psycho, "psychometric_data")
 if not (datasaver is None): datasaver.save_data(analyzer.psychometric_data, "psycho_data.pkl")
 
+print(f"Analyzing fixed points")
 dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
 params = {"fun_tol": 0.05,
           "diff_cutoff": 1e-4,
@@ -151,6 +155,7 @@ params = {"fun_tol": 0.05,
           "mode":"approx"}
 dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
 dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
+print(f"Calculating Line Attractor analytics")
 dsa.calc_LineAttractor_analytics()
 
 fig_LA3D = dsa.plot_LineAttractor_3D()

@@ -69,7 +69,7 @@ class Trainer():
             val_loss = self.criterion(target_output[:, mask, :], predicted_output_val[:, mask, :]) + \
                        self.lambda_orth * L2_ortho(self.RNN) +\
                        self.lambda_r * torch.mean(states ** 2)
-            return float(val_loss.numpy())
+            return float(val_loss.cpu().numpy())
 
 
     def run_training(self, train_mask, same_batch=False):
@@ -104,7 +104,7 @@ class Trainer():
                 self.RNN.output_layer.weight.data = torch.maximum(self.RNN.output_layer.weight.data, torch.tensor(0))
                 self.RNN.input_layer.weight.data = torch.maximum(self.RNN.input_layer.weight.data, torch.tensor(0))
                 # Dale's law
-                self.RNN.recurrent_layer.weight.data = torch.maximum(self.RNN.recurrent_layer.weight.data * self.RNN.dale_mask, torch.tensor(0)) * self.RNN.dale_mask
+                self.RNN.recurrent_layer.weight.data = (torch.maximum(self.RNN.recurrent_layer.weight.data.cpu() * self.RNN.dale_mask.cpu(), torch.tensor(0)) * self.RNN.dale_mask).to(self.RNN.device)
 
             # validation
             val_loss = self.eval_step(input_val, target_output_val, train_mask)
