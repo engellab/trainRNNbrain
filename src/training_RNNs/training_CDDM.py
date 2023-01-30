@@ -73,7 +73,7 @@ try:
 except:
     SLURM_JOB_ID = None
 
-data_folder = os.path.join(config_dict["data_folder"], timestr)
+data_folder = os.path.join(config_dict["data_folder"], timestr + ('' if (SLURM_JOB_ID is None) else str(SLURM_JOB_ID)))
 
 # # creating instances:
 rnn_torch = RNN_torch(N=N, dt=dt, tau=tau, input_size=input_size, output_size=output_size,
@@ -96,15 +96,7 @@ datasaver = DataSaver(data_folder)
 # datasaver = None
 
 rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
-fig_trainloss = plt.figure(figsize=(10, 3))
-plt.plot(train_losses, color='r', label='train loss (log scale)')
-plt.plot(val_losses, color='b', label='valid loss (log scale)')
-plt.yscale("log")
-plt.grid(True)
-plt.legend(fontsize=16)
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
+
 # net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "CDDM", "20230117-175732", "params_CDDM_0.03556.pkl"), "rb+"))
 # validate
 RNN_valid = RNN_numpy(N=net_params["N"],
@@ -122,9 +114,20 @@ score_function = lambda x, y: np.mean((x - y) ** 2)
 input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
 score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid,
                                       mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
-print(f"MSE validation: {np.round(score, 5)}")
+score = np.round(score, 5)
+print(f"MSE validation: {score}")
 if not (datasaver is None): datasaver.save_data(config_dict, "config.json")
-if not (datasaver is None): datasaver.save_data(net_params, f"params_{taskname}_{np.round(score, 5)}.pkl")
+if not (datasaver is None): datasaver.save_data(net_params, f"params_{taskname}_{score}.pkl")
+
+fig_trainloss = plt.figure(figsize=(10, 3))
+plt.plot(train_losses, color='r', label='train loss (log scale)')
+plt.plot(val_losses, color='b', label='valid loss (log scale)')
+plt.yscale("log")
+plt.grid(True)
+plt.legend(fontsize=16)
+if disp:
+    plt.show()
+if not (datasaver is None): datasaver.save_figure(fig_trainloss, f"{score}_train&valid_loss")
 
 print(f"Plotting random trials")
 inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), 12)
@@ -134,7 +137,7 @@ targets = target_batch_valid[..., inds]
 fig_trials = analyzer.plot_trials(inputs, targets, mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
 if disp:
     plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
+if not (datasaver is None): datasaver.save_figure(fig_trials, f"{score}_random_trials")
 
 print(f"Plotting psychometric data")
 num_levels = len(config_dict["task_params"]["coherences"])
@@ -142,33 +145,33 @@ analyzer.calc_psychometric_data(task, mask, num_levels=num_levels, num_repeats=3
 fig_psycho = analyzer.plot_psychometric_data()
 if disp:
     plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_psycho, "psychometric_data")
-if not (datasaver is None): datasaver.save_data(analyzer.psychometric_data, "psycho_data.pkl")
+if not (datasaver is None): datasaver.save_figure(fig_psycho, f"{score}_psychometric_data")
+if not (datasaver is None): datasaver.save_data(analyzer.psychometric_data, f"{score}_psycho_data.pkl")
 
-print(f"Analyzing fixed points")
-dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
-params = {"fun_tol": 0.05,
-          "diff_cutoff": 1e-4,
-          "sigma_init_guess": 15,
-          "patience": 100,
-          "stop_length": 100,
-          "mode":"approx"}
-dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
-dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
-print(f"Calculating Line Attractor analytics")
-dsa.calc_LineAttractor_analytics()
-
-fig_LA3D = dsa.plot_LineAttractor_3D()
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_LA3D, "LA_3D")
-if not (datasaver is None): datasaver.save_data(dsa.fp_data, "fp_data.pkl")
-if not (datasaver is None): datasaver.save_data(dsa.LA_data, "LA_data.pkl")
-
-fig_RHS = dsa.plot_RHS_over_LA()
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_RHS, "LA_RHS")
+# print(f"Analyzing fixed points")
+# dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
+# params = {"fun_tol": 0.05,
+#           "diff_cutoff": 1e-4,
+#           "sigma_init_guess": 15,
+#           "patience": 100,
+#           "stop_length": 100,
+#           "mode":"approx"}
+# dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
+# dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
+# print(f"Calculating Line Attractor analytics")
+# dsa.calc_LineAttractor_analytics()
+#
+# fig_LA3D = dsa.plot_LineAttractor_3D()
+# if disp:
+#     plt.show()
+# if not (datasaver is None): datasaver.save_figure(fig_LA3D, f"{score}_LA_3D")
+# if not (datasaver is None): datasaver.save_data(dsa.fp_data, f"{score}_fp_data.pkl")
+# if not (datasaver is None): datasaver.save_data(dsa.LA_data, f"{score}_LA_data.pkl")
+#
+# fig_RHS = dsa.plot_RHS_over_LA()
+# if disp:
+#     plt.show()
+# if not (datasaver is None): datasaver.save_figure(fig_RHS, f"{score}_LA_RHS")
 
 # rnn_dj = RNNDJ()
 # task_dj = TaskDJ()

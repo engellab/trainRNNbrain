@@ -11,7 +11,7 @@
     "tau": 10,
     "sr": 1.2,
     "connectivity_density_rec": 1.0,
-    "max_iter": 400,
+    "max_iter": 10,
     "n_steps": 300,
     "task_params": {
         "cue_on": 0,
