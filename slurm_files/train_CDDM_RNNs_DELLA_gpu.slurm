@@ -2,11 +2,11 @@
 #SBATCH --job-name=training_CDDM_RNNs
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-100%13
+#SBATCH --array=1-10
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-cpu=16G
-#SBATCH --time=12:00:00
+#SBATCH --time=2:00:00
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
 #SBATCH --mail-user=pt1290@princeton.edu
