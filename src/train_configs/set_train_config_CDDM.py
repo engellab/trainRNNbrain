@@ -3,12 +3,13 @@ import os
 import numpy as np
 import sys
 sys.path.insert(0, '../')
+sys.path.insert(0, '../../')
 from src.utils import get_project_root
 from datetime import date
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 100
+N = 30
 activation_name = 'relu'
 constrained = True
 seed = None
@@ -23,7 +24,7 @@ connectivity_density_rec = 1.0
 task_name = 'CDDM'
 n_inputs = 6
 n_outputs = 2
-T = 750
+T = 120
 n_steps = int(T / dt)
 max_coherence = 0.8
 coherence_lvls = 5
@@ -39,7 +40,7 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 1000
+max_iter = 200
 tol = 1e-10
 lr = 0.02
 weight_decay = 5e-6

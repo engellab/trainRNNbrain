@@ -2,6 +2,7 @@ import os
 import json
 import sys
 sys.path.insert(0, '../')
+sys.path.insert(0, '../../')
 from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzer
 from src.PerformanceAnalyzer import PerformanceAnalyzer

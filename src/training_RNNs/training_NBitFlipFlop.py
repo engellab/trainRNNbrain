@@ -2,6 +2,7 @@ import os
 import pickle
 import sys
 sys.path.insert(0, '../')
+sys.path.insert(0, '../../')
 import json
 from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzer

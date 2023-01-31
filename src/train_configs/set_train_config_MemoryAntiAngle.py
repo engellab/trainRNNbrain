@@ -4,6 +4,7 @@ import numpy as np
 from datetime import date
 import sys
 sys.path.insert(0, '../')
+sys.path.insert(0, '../../')
 from src.utils import get_project_root
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 

@@ -60,6 +60,7 @@ class RNN_torch(torch.nn.Module):
             self.y_init = y_init
         else:
             self.y_init = torch.zeros(self.N)
+        # self.device = torch.device('cpu')
         if (device is None):
             if torch.cuda.is_available():
                 self.device = torch.device('cuda')
