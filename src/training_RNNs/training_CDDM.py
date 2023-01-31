@@ -104,7 +104,7 @@ RNN_valid = RNN_numpy(N=net_params["N"],
                       tau=net_params["tau"],
                       activation=numpify(activation),
                       W_inp=net_params["W_inp"],
-                      W_rec=net_params["W_recv"],
+                      W_rec=net_params["W_rec"],
                       W_out=net_params["W_out"],
                       bias_rec=net_params["bias_rec"],
                       y_init=net_params["y_init"])
