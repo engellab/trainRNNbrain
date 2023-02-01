@@ -68,8 +68,8 @@ timestr = time.strftime("%Y%m%d-%H%M%S")
 # if run on the cluster
 try:
     SLURM_JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
-    task_params["seed"] = SLURM_JOB_ID
-    seed = SLURM_JOB_ID
+    task_params["seed"] = np.random.randint(1000000)
+    seed = task_params["seed"]
 except:
     SLURM_JOB_ID = None
 
