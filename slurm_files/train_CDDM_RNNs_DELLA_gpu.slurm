@@ -2,7 +2,7 @@
 #SBATCH --job-name=training_CDDM_RNNs
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-100%13
+#SBATCH --array=1-100%25
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-cpu=16G
