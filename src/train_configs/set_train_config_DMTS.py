@@ -1,11 +1,14 @@
 import json
 import os
-import numpy as np
-from datetime import date
 import sys
+from datetime import date
+
+import numpy as np
+
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.utils import get_project_root
+
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
@@ -36,7 +39,8 @@ task_params["stim_off_match"] = 6 * n_steps // 8
 task_params["dec_on"] = 6 * n_steps // 8
 task_params["dec_off"] = n_steps
 task_params["seed"] = seed
-mask = np.concatenate([np.arange(int(4 * n_steps // 8)), int(6 * n_steps // 8) + np.arange(int(2 * n_steps // 8))]).tolist()
+mask = np.concatenate(
+    [np.arange(int(4 * n_steps // 8)), int(6 * n_steps // 8) + np.arange(int(2 * n_steps // 8))]).tolist()
 
 # training specific
 max_iter = 1000
@@ -80,4 +84,3 @@ config_dict["tag"] = tag
 json_obj = json.dumps(config_dict, indent=4)
 outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{tag}.json"), mode="w")
 outfile.write(json_obj)
-

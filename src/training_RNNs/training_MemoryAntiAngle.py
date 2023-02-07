@@ -1,9 +1,9 @@
-import os
 import json
+import os
 import sys
+
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
-from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzer
 from src.PerformanceAnalyzer import PerformanceAnalyzer
 from src.RNN_numpy import RNN_numpy
@@ -30,7 +30,7 @@ if activation_name == 'relu':
 elif activation_name == 'tanh':
     activation = torch.tanh
 elif activation_name == 'sigmoid':
-    activation = lambda x: 1/(1 + torch.exp(-x))
+    activation = lambda x: 1 / (1 + torch.exp(-x))
 elif activation_name == 'softplus':
     activation = lambda x: torch.log(1 + torch.exp(5 * x))
 
@@ -137,12 +137,12 @@ if disp:
 if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
 
 dsa = DynamicSystemAnalyzer(RNN_valid)
-params = {"fun_tol" : 0.05,
-          "diff_cutoff":1e-4,
-          "sigma_init_guess":15,
-          "patience":100,
-          "stop_length":100,
-          "mode":"approx"}
+params = {"fun_tol": 0.05,
+          "diff_cutoff": 1e-4,
+          "sigma_init_guess": 15,
+          "patience": 100,
+          "stop_length": 100,
+          "mode": "approx"}
 dsa.get_fixed_points(Input=np.array([0, 0, 0]), **params)
 dsa.get_fixed_points(Input=np.array([0, 0, 1]), **params)
 

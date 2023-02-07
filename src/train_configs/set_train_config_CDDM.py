@@ -1,11 +1,14 @@
 import json
 import os
-import numpy as np
 import sys
+
+import numpy as np
+
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.utils import get_project_root
 from datetime import date
+
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
@@ -34,7 +37,7 @@ task_params = {"cue_on": 0, "cue_off": n_steps,
                "stim_on": int(n_steps // 3), "stim_off": n_steps,
                "dec_on": int(2 * n_steps // 3), "dec_off": n_steps,
                "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
-tmp = max_coherence * np.logspace(-(coherence_lvls-1), 0, coherence_lvls, base=2)
+tmp = max_coherence * np.logspace(-(coherence_lvls - 1), 0, coherence_lvls, base=2)
 coherences = np.concatenate([-np.array(tmp[::-1]), np.array([0]), np.array(tmp)]).tolist()
 task_params["coherences"] = coherences
 task_params["seed"] = seed
@@ -82,4 +85,3 @@ config_dict["shuffle"] = shuffle
 json_obj = json.dumps(config_dict, indent=4)
 outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{tag}.json"), mode="w")
 outfile.write(json_obj)
-

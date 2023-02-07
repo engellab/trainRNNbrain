@@ -1,4 +1,5 @@
 import datajoint as dj
+
 # dj.config['database.host'] = 'localhost'
 # dj.config['database.user'] = 'ptolmachev'
 # dj.config['database.password'] = 'pawa'
@@ -24,6 +25,7 @@ class TaskDJ(dj.Manual):
     mask : blob
     """
 
+
 @schema
 class TrainerDJ(dj.Manual):
     definition = """
@@ -37,6 +39,7 @@ class TrainerDJ(dj.Manual):
        same_batch : tinyint
        shuffle : tinyint
     """
+
 
 @schema
 class RNNDJ(dj.Manual):

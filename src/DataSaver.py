@@ -1,12 +1,14 @@
 import json
 import os
-from datetime import date
 import pickle
+from datetime import date
+
 
 class DataSaver():
     '''
     Class which encapsulates creating data folders and saving information there afterwards
     '''
+
     def __init__(self, data_folder, dj_integration=False):
         # create data folder if doesn't exist
         os.umask(0)

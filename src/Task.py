@@ -1,8 +1,12 @@
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
+
 '''
 Class which generates the input time-series and the correct output for the CDDM task for multiple coherences
 '''
+
+
 class Task():
     def __init__(self, n_steps, n_inputs, n_outputs, task_params):
         '''
@@ -30,6 +34,7 @@ class Task():
 
     def get_batch(self, **kwargs):
         raise NotImplementedError("This is a generic Task class!")
+
 
 class TaskCDDM(Task):
 
@@ -93,7 +98,8 @@ class TaskCDDM(Task):
         # Target stream
         if self.n_outputs == 1:
             target_stream = np.zeros((1, self.n_steps))
-            target_stream[0, self.dec_on - 1:self.dec_off] = np.sign(motion_coh) if (context == 'motion') else np.sign(color_coh)
+            target_stream[0, self.dec_on - 1:self.dec_off] = np.sign(motion_coh) if (context == 'motion') else np.sign(
+                color_coh)
         elif self.n_outputs == 2:
             target_stream = np.zeros((2, self.n_steps))
             relevant_coh = motion_coh if (context == 'motion') else color_coh
@@ -128,7 +134,7 @@ class TaskCDDM(Task):
                     coh_pair = (relevant_coh, irrelevant_coh)
 
                     correct_choice = 1 if ((context == "motion" and motion_coh > 0) or (
-                                context == "color" and color_coh > 0)) else -1
+                            context == "color" and color_coh > 0)) else -1
                     conditions.append({'context': context,
                                        'motion_coh': motion_coh,
                                        'color_coh': color_coh,
@@ -137,7 +143,7 @@ class TaskCDDM(Task):
                     inputs.append(deepcopy(input_stream))
                     targets.append(deepcopy(target_stream))
 
-        #batch_size should be a last dimension
+        # batch_size should be a last dimension
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
         if shuffle:
@@ -146,6 +152,7 @@ class TaskCDDM(Task):
             targets = targets[..., perm]
             conditions = [conditions[index] for index in perm]
         return inputs, targets, conditions
+
 
 class TaskDMTS(Task):
 
@@ -217,7 +224,7 @@ class TaskNBitFlipFlop(Task):
         self.n_outputs = n_outputs
         self.mu = self.task_params["mu"]
         self.n_refractory = self.n_flip = self.task_params["n_flip_steps"]
-        self.lmbd = self.mu/self.n_steps
+        self.lmbd = self.mu / self.n_steps
 
     def generate_flipflop_times(self):
         inds = []
@@ -244,9 +251,9 @@ class TaskNBitFlipFlop(Task):
                 elif mask[i] == 1.0:
                     inds_flips.append(inds_flips_and_flops[i])
             for ind in inds_flips:
-                input_stream[n, ind: ind+self.n_refractory] = 1.0
+                input_stream[n, ind: ind + self.n_refractory] = 1.0
             for ind in inds_flops:
-                input_stream[n, ind: ind+self.n_refractory] = -1.0
+                input_stream[n, ind: ind + self.n_refractory] = -1.0
 
             last_flip_ind = 0
             last_flop_ind = 0
@@ -259,11 +266,10 @@ class TaskNBitFlipFlop(Task):
                     target_stream[n, i] = 1.0
                 elif last_flop_ind > last_flip_ind:
                     target_stream[n, i] = -1.0
-            condition[n] = {"inds_flips" : inds_flips, "inds_flops" : inds_flops}
+            condition[n] = {"inds_flips": inds_flips, "inds_flops": inds_flops}
         return input_stream, target_stream, condition
 
-
-    def get_batch(self, batch_size = 256, shuffle=False, generator_numpy=None):
+    def get_batch(self, batch_size=256, shuffle=False, generator_numpy=None):
         inputs = []
         targets = []
         conditions = []
@@ -366,7 +372,6 @@ class TaskMemoryAntiAngle(Task):
         condition = {"theta": theta}
         return input_stream, target_stream, condition
 
-
     def get_batch(self, shuffle=False):
         inputs = []
         targets = []
@@ -453,8 +458,8 @@ if __name__ == '__main__':
     n_outputs = 1
     task_params = dict()
     task_params["stim_on"] = n_steps // 8
-    task_params["stim_off"] = 3 * n_steps//16
-    task_params["recall_on"] = 5 * n_steps//8
+    task_params["stim_off"] = 3 * n_steps // 16
+    task_params["recall_on"] = 5 * n_steps // 8
     task_params["recall_off"] = n_steps
     task = TaskMemoryAntiNumber(n_steps, n_inputs, n_outputs, task_params)
     inputs, targets, conditions = task.get_batch()

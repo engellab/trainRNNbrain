@@ -1,6 +1,7 @@
-import os
 import json
+import os
 import sys
+
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.DataSaver import DataSaver
@@ -14,13 +15,15 @@ from src.Task import *
 from matplotlib import pyplot as plt
 import torch
 import time
+
 # from src.datajoint_config import *
 
 disp = True
 activation = "relu"
 taskname = "CDDM"
 train_config_file = f"train_config_{taskname}_{activation}.json"
-config_dict = json.load(open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r", encoding='utf-8'))
+config_dict = json.load(
+    open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r", encoding='utf-8'))
 
 # defining RNN:
 N = config_dict["N"]
@@ -30,7 +33,7 @@ if activation_name == 'relu':
 elif activation_name == 'tanh':
     activation = torch.tanh
 elif activation_name == 'sigmoid':
-    activation = lambda x: 1/(1 + torch.exp(-x))
+    activation = lambda x: 1 / (1 + torch.exp(-x))
 elif activation_name == 'softplus':
     activation = lambda x: torch.log(1 + torch.exp(5 * x))
 dt = config_dict["dt"]
@@ -158,7 +161,7 @@ params = {"fun_tol": 0.05,
           "sigma_init_guess": 15,
           "patience": 100,
           "stop_length": 100,
-          "mode":"approx"}
+          "mode": "approx"}
 dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
 dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
 print(f"Calculating Line Attractor analytics")

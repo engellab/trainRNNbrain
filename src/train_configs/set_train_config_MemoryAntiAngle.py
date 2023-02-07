@@ -1,11 +1,14 @@
 import json
 import os
-import numpy as np
-from datetime import date
 import sys
+from datetime import date
+
+import numpy as np
+
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.utils import get_project_root
+
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
@@ -33,7 +36,8 @@ task_params["recall_on"] = 8 * n_steps // 16
 task_params["recall_off"] = n_steps
 task_params["seed"] = seed
 # mask = np.concatenate([np.arange(n_steps)]).tolist() # using the whole trial
-mask = np.concatenate([np.arange(task_params["recall_on"]), 9 * n_steps // 16 + np.arange(7 * n_steps // 16) ]).tolist() # using the whole trial
+mask = np.concatenate([np.arange(task_params["recall_on"]),
+                       9 * n_steps // 16 + np.arange(7 * n_steps // 16)]).tolist()  # using the whole trial
 
 # training specific
 max_iter = 1500
@@ -42,7 +46,7 @@ lr = 0.005
 weight_decay = 5e-6
 lambda_orth = 0.3
 lambda_r = 0.1
-same_batch = False # generate new batch in each train loop
+same_batch = False  # generate new batch in each train loop
 shuffle = False
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
@@ -77,4 +81,3 @@ config_dict["tag"] = tag
 json_obj = json.dumps(config_dict, indent=4)
 outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{tag}.json"), mode="w")
 outfile.write(json_obj)
-

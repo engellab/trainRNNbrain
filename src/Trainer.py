@@ -2,15 +2,18 @@
 Class which accepts RNN_torch and a task and has a mode to train RNN
 '''
 
-import numpy as np
-import torch
 from copy import deepcopy
 
-def L2_ortho(rnn, X = None, y = None):
+import numpy as np
+import torch
+
+
+def L2_ortho(rnn, X=None, y=None):
     # regularization of the input and ouput matrices
     b = torch.cat((rnn.input_layer.weight, rnn.output_layer.weight.t()), dim=1)
     b = b / torch.norm(b, dim=0)
     return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
+
 
 def print_iteration_info(iter, train_loss, min_train_loss, val_loss, min_val_loss):
     gr_prfx = '\033[92m'
@@ -27,6 +30,7 @@ def print_iteration_info(iter, train_loss, min_train_loss, val_loss, min_val_los
     else:
         print(f"iteration {iter},"
               f" train loss: {train_prfx}{np.round(train_loss, 6)}{train_sfx}")
+
 
 class Trainer():
     def __init__(self, RNN, Task, max_iter, tol, criterion, optimizer, lambda_orth, lambda_r):
@@ -58,7 +62,8 @@ class Trainer():
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        error_vect = torch.sum(((target_output[:, mask, :] - predicted_output[:, mask, :]) ** 2).squeeze(), dim=1) / len(mask)
+        error_vect = torch.sum(((target_output[:, mask, :] - predicted_output[:, mask, :]) ** 2).squeeze(),
+                               dim=1) / len(mask)
         return loss.item(), error_vect
 
     def eval_step(self, input, target_output, mask):
@@ -66,15 +71,14 @@ class Trainer():
             self.RNN.eval()
             states, predicted_output_val = self.RNN(input, w_noise=False)
             val_loss = self.criterion(target_output[:, mask, :], predicted_output_val[:, mask, :]) + \
-                       self.lambda_orth * L2_ortho(self.RNN) +\
+                       self.lambda_orth * L2_ortho(self.RNN) + \
                        self.lambda_r * torch.mean(states ** 2)
             return float(val_loss.cpu().numpy())
-
 
     def run_training(self, train_mask, same_batch=False):
         train_losses = []
         val_losses = []
-        self.RNN.train() #puts the RNN into training mode (sets update_grad = True)
+        self.RNN.train()  # puts the RNN into training mode (sets update_grad = True)
         min_train_loss = np.inf
         min_val_loss = np.inf
         best_net_params = deepcopy(self.RNN.get_params())
@@ -103,7 +107,9 @@ class Trainer():
                 self.RNN.output_layer.weight.data = torch.maximum(self.RNN.output_layer.weight.data, torch.tensor(0))
                 self.RNN.input_layer.weight.data = torch.maximum(self.RNN.input_layer.weight.data, torch.tensor(0))
                 # Dale's law
-                self.RNN.recurrent_layer.weight.data = (torch.maximum(self.RNN.recurrent_layer.weight.data.cpu() * self.RNN.dale_mask.cpu(), torch.tensor(0)) * self.RNN.dale_mask).to(self.RNN.device)
+                self.RNN.recurrent_layer.weight.data = (
+                            torch.maximum(self.RNN.recurrent_layer.weight.data.cpu() * self.RNN.dale_mask.cpu(),
+                                          torch.tensor(0)) * self.RNN.dale_mask).to(self.RNN.device)
 
             # validation
             val_loss = self.eval_step(input_val, target_output_val, train_mask)

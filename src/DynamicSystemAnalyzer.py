@@ -1,20 +1,25 @@
+import sys
 from copy import deepcopy
+
 import numpy as np
 import scipy.optimize
 from matplotlib import pyplot as plt
 from scipy.optimize import fsolve, minimize
 from tqdm.auto import tqdm
-import sys
+
 sys.path.insert(0, '../')
 from src.utils import get_colormaps, in_the_list, sort_eigs, make_orientation_consistent
 import warnings
+
 warnings.filterwarnings("ignore")
 from sklearn.decomposition import PCA
+
 
 class DynamicSystemAnalyzer():
     '''
     Generic class for analysis of the RNN dynamics: finding fixed points and plotting them in 2D and 3D
     '''
+
     def __init__(self, RNN_numpy):
         self.RNN = RNN_numpy
         self.rhs = self.RNN.rhs_noisless
@@ -58,17 +63,20 @@ class DynamicSystemAnalyzer():
         :param mode: 'exact' or 'approx'. 'exact' - computes exact fixed points, with scipy.optimize.fsolve method
         'approx' finds 'slow points' - points with small |RHS|^2, with fun_tol controlling the cut-off |RHS|^2.
         '''
-        unstable_fps = []; stable_fps = []; marginally_stable_fps = []; all_points = []
+        unstable_fps = [];
+        stable_fps = [];
+        marginally_stable_fps = [];
+        all_points = []
         N = self.RNN.W_rec.shape[0]
-        cntr = 0 # counter parameter, keeps track of how many times in a row an optimizer didn't find any new fp
+        cntr = 0  # counter parameter, keeps track of how many times in a row an optimizer didn't find any new fp
         # proceed while (cntr <= patience) and unless one of the list start to overflow (because of a 2d attractor)
         while (cntr <= patience) and (len(all_points) < stop_length):
             x0 = sigma_init_guess * np.random.randn(N)
             # finding the roots of RHS of the RNN
             if mode == 'exact':
-                x_root = fsolve(func=self.rhs, x0=x0, fprime=self.rhs_jac, args=(Input, ))
+                x_root = fsolve(func=self.rhs, x0=x0, fprime=self.rhs_jac, args=(Input,))
             elif mode == "approx":
-                res = scipy.optimize.minimize(fun=self.objective, x0=x0, args=(Input, ), method='Powell')
+                res = scipy.optimize.minimize(fun=self.objective, x0=x0, args=(Input,), method='Powell')
                 x_root = res.x
             else:
                 raise ValueError(f"Mode {mode} is not implemented!")
@@ -81,7 +89,7 @@ class DynamicSystemAnalyzer():
                 if not in_the_list(x_root, all_points, diff_cutoff=diff_cutoff):
                     cntr = 0
                     all_points.append(x_root)
-                    if (np.abs(L_0) <= eig_cutoff): # marginally stable fixed point (belongs to 1D attractor)
+                    if (np.abs(L_0) <= eig_cutoff):  # marginally stable fixed point (belongs to 1D attractor)
                         marginally_stable_fps.append(x_root)
                     else:
                         stable_fps.append(x_root) if (L_0 < -eig_cutoff) else unstable_fps.append(x_root)
@@ -131,14 +139,16 @@ class DynamicSystemAnalyzer():
             for type in types:
                 data_to_plot[input_as_key][type] = self.fp_data[input_as_key][type] @ P
 
-        color_sets = [["blue", "red", "black"], ["blueviolet", "tomato", "darkslategray"], ["green", "darkorange", "midnightblue"]]
+        color_sets = [["blue", "red", "black"], ["blueviolet", "tomato", "darkslategray"],
+                      ["green", "darkorange", "midnightblue"]]
 
         # Plotting the fixed points
         if n_dim == 2:
             fig = plt.figure(figsize=(7, 7))
             fig.suptitle(r"Fixed points projected on 2D PCA plane", fontsize=16)
             for j, input_as_key in enumerate(inputs_as_key):
-                markers = ["o", "x", "o"]; colors = color_sets[j]
+                markers = ["o", "x", "o"];
+                colors = color_sets[j]
                 types = list(data_to_plot[input_as_key].keys())
                 for t, type in enumerate(types):
                     plt.scatter(data_to_plot[input_as_key][type][:, 0],
@@ -160,14 +170,15 @@ class DynamicSystemAnalyzer():
             ax.set_zlabel("PC 3", fontsize=20)
             fig.suptitle(r"Fixed points projected on 3D PCA subspace", fontsize=16)
             for j, input_as_key in enumerate(inputs_as_key):
-                markers = ["o", "x", "o"]; colors = color_sets[j]
+                markers = ["o", "x", "o"];
+                colors = color_sets[j]
                 types = list(data_to_plot[input_as_key].keys())
                 for t, type in enumerate(types):
                     ax.scatter(data_to_plot[input_as_key][type][:, 0],
-                                data_to_plot[input_as_key][type][:, 1],
+                               data_to_plot[input_as_key][type][:, 1],
                                data_to_plot[input_as_key][type][:, 2],
-                                marker=markers[t], s=100, color=colors[t],
-                                edgecolors='k')
+                               marker=markers[t], s=100, color=colors[t],
+                               edgecolors='k')
             plt.grid(True)
         return fig
 
@@ -188,11 +199,13 @@ class DynamicSystemAnalyzer():
         r = np.real(R[:, 0])
         return fun_val, J, E, l, r
 
+
 class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
     '''
     Class which is inрerited from the DynamicSystemAnalyzer base class,
     dedicated to processing of the RNNs trained on CDDM task
     '''
+
     def __init__(self, RNN):
         DynamicSystemAnalyzer.__init__(self, RNN)
         self.choice_axis = self.RNN.W_out.flatten() if self.RNN.W_out.shape[0] == 1 \
@@ -248,7 +261,7 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
             ctxt_ind = 0 if context == 'motion' else 1
             Input = deepcopy(default_input)
             Input[ctxt_ind] = 1
-            #get the end points of the line attractor
+            # get the end points of the line attractor
             left_point, right_point = self.get_LineAttractor_endpoints(context,
                                                                        nudge=nudge,
                                                                        T_steps=T_steps,
@@ -257,7 +270,12 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
             increment = (1 / (N_points - 1)) * (right_point - left_point)
             direction = deepcopy(increment)
             direction *= np.sign(np.dot(self.choice_axis, direction))
-            slow_points = []; fun_vals = []; eigs = []; jacs = []; selection_vects = []; principle_eigenvects = []
+            slow_points = [];
+            fun_vals = [];
+            eigs = [];
+            jacs = [];
+            selection_vects = [];
+            principle_eigenvects = []
             x_init = deepcopy(left_point)
             print(f"Analyzing points on a line attractor in {context} context...")
             for i in tqdm(range(N_points)):
@@ -272,7 +290,8 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
                 # compute analytics at the slow point:
                 fun_val, J, E, l, r = self.compute_point_analytics(slow_pt, Input)
                 k = np.sign(np.dot(r, direction))
-                l *= k; r *= k
+                l *= k;
+                r *= k
 
                 slow_points.append(deepcopy(slow_pt))
                 fun_vals.append(fun_val)
@@ -392,7 +411,8 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
 
         for ctxt in ["motion", "color"]:
             slow_points_projected = LA_data_dict[ctxt]["slow_points"] @ P_matrix
-            ax.scatter(*(slow_points_projected[:, k] for k in range(nDim)), color=colors_LA[ctxt], marker='o', s=20, alpha=0.5)
+            ax.scatter(*(slow_points_projected[:, k] for k in range(nDim)), color=colors_LA[ctxt], marker='o', s=20,
+                       alpha=0.5)
             ax.plot(*(slow_points_projected[:, k] for k in range(nDim)), color=colors_LA[ctxt])
             for stim_status in ["relevant"]:
                 clr = colors_trajectories[ctxt][stim_status]
@@ -420,10 +440,11 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         colors, cmp = get_colormaps()
         red, blue, bluish, green, orange, lblue, violet = colors
         fig_RHS = plt.figure(figsize=(12, 3))
-        plt.suptitle(r"$\||RHS(x)\||^2$", fontsize = 16)
+        plt.suptitle(r"$\||RHS(x)\||^2$", fontsize=16)
         plt.axhline(0, color="gray", linewidth=2, alpha=0.2)
         x = np.linspace(0, 1, LA_data_dict['motion']["slow_points"].shape[0])
-        plt.plot(x, np.array(LA_data_dict["motion"]["fun_val"]), color=bluish, linewidth=3, linestyle='-', label="motion")
+        plt.plot(x, np.array(LA_data_dict["motion"]["fun_val"]), color=bluish, linewidth=3, linestyle='-',
+                 label="motion")
         plt.plot(x, np.array(LA_data_dict["color"]["fun_val"]), color=green, linewidth=3, linestyle='-', label="color")
         plt.legend(fontsize=14)
         plt.xlabel("distance along the LA", fontsize=16)

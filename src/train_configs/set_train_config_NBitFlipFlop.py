@@ -1,11 +1,14 @@
 import json
 import os
-import numpy as np
-from datetime import date
 import sys
+from datetime import date
+
+import numpy as np
+
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.utils import get_project_root
+
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
@@ -27,10 +30,10 @@ n_outputs = 2
 T = 200
 n_steps = int(T / dt)
 task_params = dict()
-task_params["mu"] = 6 #average number of flips and flops
-task_params["n_flip_steps"] = 10 # a duration of a signal signifying either flip of a flop
+task_params["mu"] = 6  # average number of flips and flops
+task_params["n_flip_steps"] = 10  # a duration of a signal signifying either flip of a flop
 task_params["seed"] = seed
-mask = np.concatenate([np.arange(n_steps)]).tolist() # using the whole trial
+mask = np.concatenate([np.arange(n_steps)]).tolist()  # using the whole trial
 
 # training specific
 max_iter = 1000
@@ -39,7 +42,7 @@ lr = 0.02
 weight_decay = 5e-6
 lambda_orth = 0.3
 lambda_r = 0.1
-same_batch = False # generate new batch in each train loop
+same_batch = False  # generate new batch in each train loop
 shuffle = False
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
@@ -74,4 +77,3 @@ config_dict["tag"] = tag
 json_obj = json.dumps(config_dict, indent=4)
 outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{tag}.json"), mode="w")
 outfile.write(json_obj)
-

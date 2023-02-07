@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 import json
@@ -29,7 +30,7 @@ if activation_name == 'relu':
 elif activation_name == 'tanh':
     activation = torch.tanh
 elif activation_name == 'sigmoid':
-    activation = lambda x: 1/(1 + torch.exp(-x))
+    activation = lambda x: 1 / (1 + torch.exp(-x))
 elif activation_name == 'softplus':
     activation = lambda x: torch.log(1 + torch.exp(5 * x))
 
@@ -140,5 +141,3 @@ fig_fp = dsa.plot_fixed_points(projection='2D')
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_fp, "fp_projection")
-
-

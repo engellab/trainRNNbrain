@@ -1,11 +1,14 @@
 from copy import deepcopy
+
 import numpy as np
 from matplotlib import pyplot as plt
+
 
 class PerformanceAnalyzer():
     '''
     Generic class for analysis of the RNN performance on the given task
     '''
+
     def __init__(self, rnn_numpy, task=None):
         self.RNN = rnn_numpy
         self.Task = task
@@ -23,7 +26,8 @@ class PerformanceAnalyzer():
                                                                              sigma_rec=sigma_rec,
                                                                              sigma_inp=sigma_inp,
                                                                              generator_numpy=rng_numpy)
-        avg_score = np.mean([scoring_function(output_prediction[:, mask, i], target_batch[:, mask, i]) for i in range(batch_size)])
+        avg_score = np.mean(
+            [scoring_function(output_prediction[:, mask, i], target_batch[:, mask, i]) for i in range(batch_size)])
         return avg_score
 
     def plot_trials(self, input_batch, target_batch, mask, sigma_rec=0.03, sigma_inp=0.03, labels=None, rng_numpy=None):
@@ -108,8 +112,8 @@ class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
         Color_MSE = self.psychometric_data["color"]["MSE"][::-1, :]
         num_lvls = Color_rght_prcntg.shape[0]
 
-        fig, axes = plt.subplots(2,2, figsize = (10,8))
-        fig.suptitle("Psychometric data", fontsize = 14)
+        fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+        fig.suptitle("Psychometric data", fontsize=14)
         tag = ["Motion", "Color"]
         for i in range(2):
             axes[0, i].title.set_text(f"{tag[i]}, % right")
