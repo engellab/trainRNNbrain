@@ -6,7 +6,6 @@ import numpy as np
 import torch
 from copy import deepcopy
 
-
 def L2_ortho(rnn, X = None, y = None):
     # regularization of the input and ouput matrices
     b = torch.cat((rnn.input_layer.weight, rnn.output_layer.weight.t()), dim=1)

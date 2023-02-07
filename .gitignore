@@ -4,3 +4,6 @@
 *.pkl
 *.pyc
 /data/
+/src/datajoint/
+/slurm_files/
+/log/

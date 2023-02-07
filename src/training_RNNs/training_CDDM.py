@@ -114,7 +114,7 @@ score_function = lambda x, y: np.mean((x - y) ** 2)
 input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
 score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid,
                                       mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
-score = np.round(score, 5)
+score = np.round(score, 7)
 datasaver = DataSaver(data_folder)
 # datasaver = None
 
