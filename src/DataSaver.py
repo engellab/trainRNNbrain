@@ -3,7 +3,6 @@ import os
 import pickle
 from datetime import date
 
-
 class DataSaver():
     '''
     Class which encapsulates creating data folders and saving information there afterwards

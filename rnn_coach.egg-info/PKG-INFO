@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: rnn-coach
+Version: 0.1
+Summary: training RNNs with various activation functions on user-defined tasks. Anaylzing them with fixed and slow points analysis.
+Home-page: https://github.com/engellab/rnn-coach
+Author: Pavel Tolmachev
+Author-email: pt1290@princeton.edu
+License: MIT
+License-File: LICENSE

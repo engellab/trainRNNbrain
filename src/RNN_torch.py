@@ -1,9 +1,7 @@
 import sys
-
 sys.path.insert(0, "../")
 from copy import deepcopy
 import torch
-import math
 import numpy as np
 from numpy import linalg
 
@@ -30,7 +28,7 @@ def sparse(tensor, sparsity, mean=0, std=1, generator=None):
         raise ValueError("Only tensors with 2 dimensions are supported")
 
     rows, cols = tensor.shape
-    num_zeros = int(math.ceil(sparsity * rows))
+    num_zeros = int(np.ceil(sparsity * rows))
 
     with torch.no_grad():
         tensor.normal_(mean, std, generator=generator)
