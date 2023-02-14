@@ -123,7 +123,7 @@ datasaver = DataSaver(data_folder)
 
 print(f"MSE validation: {score}")
 if not (datasaver is None): datasaver.save_data(config_dict, f"{score}_config.json")
-if not (datasaver is None): datasaver.save_data(net_params, f"params_{taskname}_{score}.pkl")
+if not (datasaver is None): datasaver.save_data(net_params, f"{score}_params_{taskname}.pkl")
 
 fig_trainloss = plt.figure(figsize=(10, 3))
 plt.plot(train_losses, color='r', label='train loss (log scale)')

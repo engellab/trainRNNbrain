@@ -1,5 +1,4 @@
 import sys
-
 sys.path.insert(0, "../")
 import numpy as np
 from copy import deepcopy
@@ -8,7 +7,6 @@ import numdifftools as nd
 '''
 lightweight numpy implementation of RNN for validation and quick testing and plotting
 '''
-
 
 def ReLU(x):
     return np.maximum(x, 0)
@@ -95,7 +93,7 @@ class RNN_numpy():
         return None
 
     def get_history(self):
-        return np.array(self.y_history)
+        return np.swapaxes(np.array(self.y_history), 0, 1)
 
     def clear_history(self):
         self.y_history = []

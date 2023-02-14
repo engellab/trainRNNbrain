@@ -311,12 +311,12 @@ class RNN_torch(torch.nn.Module):
         return param_dict
 
     def set_params(self, params):
-        self.output_layer.weight.data = torch.from_numpy(params["W_out"]).to(self.device)
-        self.input_layer.weight.data = torch.from_numpy(params["W_inp"]).to(self.device)
-        self.recurrent_layer.weight.data = torch.from_numpy(params["W_rec"]).to(self.device)
+        self.output_layer.weight.data = torch.from_numpy(np.float32(params["W_out"])).to(self.device)
+        self.input_layer.weight.data = torch.from_numpy(np.float32(params["W_inp"])).to(self.device)
+        self.recurrent_layer.weight.data = torch.from_numpy(np.float32(params["W_rec"])).to(self.device)
         if not (self.recurrent_layer.bias is None):
             self.recurrent_layer.bias.data = torch.from_numpy(params["bias_rec"]).to(self.device)
-        self.y_init = torch.from_numpy(params["y_init"]).to(self.device)
+        self.y_init = torch.from_numpy(np.float32(params["y_init"])).to(self.device)
         return None
 
 

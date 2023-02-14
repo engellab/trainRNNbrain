@@ -1,11 +1,11 @@
 import datajoint as dj
 
-dj.config['database.host'] = 'localhost'
-dj.config['database.user'] = 'ptolmachev'
-dj.config['database.password'] = 'pawa'
-# dj.config['database.host'] = 'datajoint-tengel.pni.princeton.edu'
-# dj.config['database.user'] = 'pt1290'
-# dj.config['database.password'] = 'a9Ab?spCKz$Zh@24h'
+# dj.config['database.host'] = 'localhost'
+# dj.config['database.user'] = 'ptolmachev'
+# dj.config['database.password'] = 'pawa'
+dj.config['database.host'] = 'datajoint-tengel.pni.princeton.edu'
+dj.config['database.user'] = 'pt1290'
+dj.config['database.password'] = 'a9Ab?spCKz$Zh@24h'
 dj.config['display.limit'] = 500
 dj.config["enable_python_native_blobs"] = True
 dj.conn(reset=True)
