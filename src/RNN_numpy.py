@@ -47,7 +47,7 @@ class RNN_numpy():
             bias_rec = self.bias_rec
 
         if ((sigma_rec is None) and (sigma_inp is None)) or ((sigma_rec == 0) and (sigma_inp == 0)):
-            return -y + self.activation(self.W_rec @ y + self.W_inp @ input + self.bias_rec)
+            return -y + self.activation(self.W_rec @ y + self.W_inp @ input + bias_rec)
         else:
             rec_noise_term = np.sqrt((2 / self.alpha) * sigma_rec ** 2) * generator_numpy.standard_normal(y.shape) \
                 if (not (sigma_rec is None)) else np.zeros(x.shape)

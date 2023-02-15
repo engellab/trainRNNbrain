@@ -371,7 +371,7 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
                 trajectories[ctxt][stim_status]["context_only_on"] = x_trajectory_context_only_on
                 self.RNN.clear_history()
 
-                x0 = deepcopy(x_trajectory_context_only_on[-1, :])
+                x0 = deepcopy(x_trajectory_context_only_on[:, -1])
                 for direction in ['left', 'right', 'center']:
                     input = deepcopy(np.array([val, 1 - val, 0.5, 0.5, 0.5, 0.5]))
                     if direction == 'left':
@@ -416,13 +416,13 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
             ax.plot(*(slow_points_projected[:, k] for k in range(nDim)), color=colors_LA[ctxt])
             for stim_status in ["relevant"]:
                 clr = colors_trajectories[ctxt][stim_status]
-                trajectory_projected = trajectories[ctxt][stim_status]["context_only_on"] @ P_matrix
+                trajectory_projected = trajectories[ctxt][stim_status]["context_only_on"].T @ P_matrix
                 ax.plot(*(trajectory_projected[:, t] for t in range(nDim)),
                         linestyle='-', linewidth=2, color=clr, alpha=0.8)
                 linestyles = ['-', ':', '-']
                 colors = [clr, clr, 'm']
                 for k, key in enumerate(["right", "left", "center"]):
-                    trajectory_projected = trajectories[ctxt][stim_status]["stim_on"][key] @ P_matrix
+                    trajectory_projected = trajectories[ctxt][stim_status]["stim_on"][key].T @ P_matrix
                     ax.plot(*(trajectory_projected[:, t] for t in range(nDim)),
                             linestyle=linestyles[k], linewidth=3, color=colors[k], alpha=0.8)
 
