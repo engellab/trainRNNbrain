@@ -242,8 +242,9 @@ class RNN_torch(torch.nn.Module):
         states = torch.zeros(self.N, 1, batch_size, device=self.device)
         states[:, 0, :] = deepcopy(self.y_init).reshape(-1, 1).repeat(1, batch_size)
         rec_noise = torch.zeros(self.N, T_steps, batch_size, device=self.device)
-        inp_noise = torch.zeros(self.input_size, T_steps, batch_size)
+        inp_noise = torch.zeros(self.input_size, T_steps, batch_size, device=self.device)
         if w_noise:
+            print(self.alpha.device, self.sigma_rec.device, self.random_generator.device)
             rec_noise = torch.sqrt((2 / self.alpha) * self.sigma_rec ** 2) \
                         * torch.randn(*rec_noise.shape, generator=self.random_generator, device=self.device)
             inp_noise = torch.sqrt((2 / self.alpha) * self.sigma_inp ** 2) \
