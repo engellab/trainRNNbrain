@@ -1,5 +1,4 @@
 from copy import deepcopy
-
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -15,7 +14,7 @@ class PerformanceAnalyzer():
 
     def get_validation_score(self, scoring_function,
                              input_batch, target_batch, mask,
-                             sigma_rec=0.03, sigma_inp=0.03,
+                             sigma_rec=0, sigma_inp=0,
                              rng_numpy=None):
         n_inputs = input_batch.shape[0]
         n_steps = input_batch.shape[1]

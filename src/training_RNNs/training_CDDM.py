@@ -1,21 +1,19 @@
 import json
 import os
 import sys
-
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM
 from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
 from src.RNN_numpy import RNN_numpy
-from src.utils import get_project_root, numpify
+from src.utils import get_project_root, numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
 from src.Task import *
 from matplotlib import pyplot as plt
 import torch
 import time
-
 # from src.datajoint_config import *
 
 disp = True
@@ -24,6 +22,11 @@ taskname = "CDDM"
 train_config_file = f"train_config_{taskname}_{activation}.json"
 config_dict = json.load(
     open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r", encoding='utf-8'))
+
+seed = np.random.randint(1000000)
+rng = torch.Generator()
+if not seed is None:
+    rng.manual_seed(seed)
 
 # defining RNN:
 N = config_dict["N"]
@@ -36,6 +39,7 @@ elif activation_name == 'sigmoid':
     activation = lambda x: 1 / (1 + torch.exp(-x))
 elif activation_name == 'softplus':
     activation = lambda x: torch.log(1 + torch.exp(5 * x))
+
 dt = config_dict["dt"]
 tau = config_dict["tau"]
 constrained = config_dict["constrained"]
@@ -43,17 +47,15 @@ connectivity_density_rec = config_dict["connectivity_density_rec"]
 spectral_rad = config_dict["sr"]
 sigma_inp = config_dict["sigma_inp"]
 sigma_rec = config_dict["sigma_rec"]
-seed = config_dict["seed"]
+# seed = config_dict["seed"]
 
-rng = torch.Generator()
-if not seed is None:
-    rng.manual_seed(seed)
 input_size = config_dict["num_inputs"]
 output_size = config_dict["num_outputs"]
 
 # Task:
 n_steps = config_dict["n_steps"]
 task_params = config_dict["task_params"]
+task_params["seed"] = seed
 
 # Trainer:
 lambda_orth = config_dict["lambda_orth"]
@@ -68,15 +70,6 @@ same_batch = config_dict["same_batch"]
 # General:
 tag = config_dict["tag"]
 timestr = time.strftime("%Y%m%d-%H%M%S")
-# if run on the cluster
-try:
-    SLURM_JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
-    task_params["seed"] = np.random.randint(1000000)
-    seed = task_params["seed"]
-except:
-    SLURM_JOB_ID = None
-
-data_folder = os.path.join(config_dict["data_folder"], timestr + ('' if (SLURM_JOB_ID is None) else str(SLURM_JOB_ID)))
 
 # # creating instances:
 rnn_torch = RNN_torch(N=N, dt=dt, tau=tau, input_size=input_size, output_size=output_size,
@@ -100,12 +93,25 @@ rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_m
 toc = time.perf_counter()
 print(f"Executed training in {toc - tic:0.4f} seconds")
 
-# net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "CDDM", "20230117-175732", "params_CDDM_0.03556.pkl"), "rb+"))
 # validate
+coherences_valid = np.linspace(-1, 1, 11)
+task_params_valid = deepcopy(task_params)
+task_params_valid["coherences"] = coherences_valid
+task = TaskCDDM(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params_valid)
+
+if activation_name == 'relu':
+    activation_np = lambda x: np.maximum(x, 0)
+elif activation_name == 'tanh':
+    activation_np = np.tanh
+elif activation_name == 'sigmoid':
+    activation_np = lambda x: 1 / (1 + np.exp(-x))
+elif activation_name == 'softplus':
+    activation_np = lambda x: np.log(1 + np.exp(5 * x))
+
 RNN_valid = RNN_numpy(N=net_params["N"],
                       dt=net_params["dt"],
                       tau=net_params["tau"],
-                      activation=numpify(activation),
+                      activation=activation_np,
                       W_inp=net_params["W_inp"],
                       W_rec=net_params["W_rec"],
                       W_out=net_params["W_out"],
@@ -115,15 +121,14 @@ RNN_valid = RNN_numpy(N=net_params["N"],
 analyzer = PerformanceAnalyzerCDDM(RNN_valid)
 score_function = lambda x, y: np.mean((x - y) ** 2)
 input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
-score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid,
-                                      mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
+score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid, mask, sigma_rec=0, sigma_inp=0)
 score = np.round(score, 7)
+data_folder = os.path.join(config_dict["data_folder"], str(score) + "_" + timestr)
 datasaver = DataSaver(data_folder)
-# datasaver = None
 
 print(f"MSE validation: {score}")
-if not (datasaver is None): datasaver.save_data(config_dict, f"{score}_config.json")
-if not (datasaver is None): datasaver.save_data(net_params, f"{score}_params_{taskname}.pkl")
+if not (datasaver is None): datasaver.save_data(jsonify(config_dict), f"{score}_config.json")
+if not (datasaver is None): datasaver.save_data(jsonify(net_params), f"{score}_params_{taskname}.json")
 
 fig_trainloss = plt.figure(figsize=(10, 3))
 plt.plot(train_losses, color='r', label='train loss (log scale)')
@@ -146,21 +151,21 @@ if disp:
 if not (datasaver is None): datasaver.save_figure(fig_trials, f"{score}_random_trials.png")
 
 print(f"Plotting psychometric data")
-num_levels = len(config_dict["task_params"]["coherences"])
+num_levels = len(task_params_valid["coherences"])
 analyzer.calc_psychometric_data(task, mask, num_levels=num_levels, num_repeats=31, sigma_rec=0.03, sigma_inp=0.03)
 fig_psycho = analyzer.plot_psychometric_data()
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_psycho, f"{score}_psychometric_data.png")
-if not (datasaver is None): datasaver.save_data(analyzer.psychometric_data, f"{score}_psycho_data.pkl")
+if not (datasaver is None): datasaver.save_data(jsonify(analyzer.psychometric_data), f"{score}_psycho_data.json")
 
 print(f"Analyzing fixed points")
 dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
 params = {"fun_tol": 0.05,
           "diff_cutoff": 1e-4,
-          "sigma_init_guess": 15,
-          "patience": 100,
-          "stop_length": 100,
+          "sigma_init_guess": 5,
+          "patience": 50,
+          "stop_length": 50,
           "mode": "approx"}
 dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
 dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
@@ -171,7 +176,7 @@ fig_LA3D = dsa.plot_LineAttractor_3D()
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_LA3D, f"{score}_LA_3D.png")
-if not (datasaver is None): datasaver.save_data(dsa.fp_data, f"{score}_fp_data.pkl")
+if not (datasaver is None): datasaver.save_data(jsonify(dsa.fp_data), f"{score}_fp_data.json")
 if not (datasaver is None): datasaver.save_data(dsa.LA_data, f"{score}_LA_data.pkl")
 
 fig_RHS = dsa.plot_RHS_over_LA()

@@ -16,8 +16,8 @@ N = 100
 activation_name = 'relu'
 constrained = True
 seed = None
-sigma_inp = 0.03
-sigma_rec = 0.03
+sigma_inp = 0.05
+sigma_rec = 0.05
 dt = 1
 tau = 10
 sr = 1.2
@@ -30,7 +30,7 @@ n_outputs = 2
 T = 750
 n_steps = int(T / dt)
 max_coherence = 0.8
-coherence_lvls = 5
+coherence_lvls = 7
 
 mask = np.concatenate([np.arange(int(n_steps // 3)), int(2 * n_steps // 3) + np.arange(int(n_steps // 3))]).tolist()
 task_params = {"cue_on": 0, "cue_off": n_steps,
@@ -43,14 +43,13 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 1000
+max_iter = 3000
 tol = 1e-10
-lr = 0.02
+lr = 0.002
 weight_decay = 5e-6
 lambda_orth = 0.3
-lambda_r = 0.3
+lambda_r = 0.1
 same_batch = True
-shuffle = False
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
 tag = f'{task_name}_{activation_name}'
@@ -80,7 +79,6 @@ config_dict["lambda_orth"] = lambda_orth
 config_dict["lambda_r"] = lambda_r
 config_dict["data_folder"] = data_folder
 config_dict["tag"] = tag
-config_dict["shuffle"] = shuffle
 
 json_obj = json.dumps(config_dict, indent=4)
 outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{tag}.json"), mode="w")

@@ -12,6 +12,17 @@ from matplotlib.colors import ListedColormap
 import torch
 
 
+def jsonify(dct):
+    dct_jsonified = {}
+    for key in list(dct.keys()):
+        if type(dct[key]) == type({}):
+            dct_jsonified[key] = jsonify(dct[key])
+        elif type(dct[key]) == np.ndarray:
+            dct_jsonified[key] = dct[key].tolist()
+        else:
+            dct_jsonified[key] = dct[key]
+    return dct_jsonified
+
 def get_project_root():
     return Path(__file__).parent.parent
 

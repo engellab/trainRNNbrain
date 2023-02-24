@@ -3,44 +3,29 @@ sys.path.insert(0, "../")
 from copy import deepcopy
 import torch
 import numpy as np
-from numpy import linalg
 
 
 # Connectivity defining methods
 
-def sparse(tensor, sparsity, mean=0, std=1, generator=None):
-    r"""Fills the 2D input `Tensor` as a sparse matrix, where the
-    non-zero elements will be drawn from the normal distribution
-    :math:`\mathcal{N}(0, 0.01)`, as described in `Deep learning via
-    Hessian-free optimization` - Martens, J. (2010).
-
-    Args:
-        tensor: an n-dimensional `torch.Tensor`
-        sparsity: The fraction of elements in each column to be set to zero
-        std: the standard deviation of the normal distribution used to generate
-            the non-zero values
-
-    Examples:
-        >>> w = torch.empty(3, 5)
-        >>> nn.init.sparse_(w, sparsity=0.1)
-    """
-    if tensor.ndimension() != 2:
+def sparse(tnsr, sparsity, mean=0, std=1, generator=None):
+    if tnsr.ndimension() != 2:
         raise ValueError("Only tensors with 2 dimensions are supported")
 
-    rows, cols = tensor.shape
+    rows, cols = tnsr.shape
     num_zeros = int(np.ceil(sparsity * rows))
 
     with torch.no_grad():
-        tensor.normal_(mean, std, generator=generator)
+        tnsr = torch.normal(torch.tensor(mean).to(generator.device), torch.tensor(std).to(generator.device),
+                            (rows, cols)).to(generator.device)
         for col_idx in range(cols):
-            row_indices = torch.randperm(rows, generator=generator)
+            row_indices = torch.randperm(rows, generator=generator, device=generator.device)
             zero_indices = row_indices[:num_zeros]
-            tensor[zero_indices, col_idx] = 0
-    return tensor
+            tnsr[zero_indices, col_idx] = 0
+    return tnsr
 
 
-def get_connectivity(device, N, num_inputs, num_outputs, radius=1.5, recurrent_density=1, input_density=1,
-                     output_density=1, generator=None):
+def get_connectivity(device, N, num_inputs, num_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
+                     output_density=1.0, generator=None):
     '''
     generates W_inp, W_rec and W_out matrices of RNN, with specified parameters
     :param device: torch related: CPU or GPU
@@ -63,15 +48,15 @@ def get_connectivity(device, N, num_inputs, num_outputs, radius=1.5, recurrent_d
     var = 1 / N
 
     recurrent_sparsity = 1 - recurrent_density
-    W_rec = sparse(torch.empty(N, N), recurrent_sparsity, mu, var, generator)
+    W_rec = sparse(torch.empty(N, N, device=device), recurrent_sparsity, mu, var, generator)
 
     # spectral radius adjustment
     W_rec = W_rec - torch.diag(torch.diag(W_rec))
-    w, v = linalg.eig(W_rec)
-    spec_radius = np.max(np.absolute(w))
+    w, v = torch.linalg.eig(W_rec)
+    spec_radius = torch.max(torch.absolute(w))
     W_rec = radius * W_rec / spec_radius
 
-    W_inp = torch.zeros([N, num_inputs]).float()
+    W_inp = torch.zeros([N, num_inputs], device=device).float()
     input_sparsity = 1 - input_density
     W_inp = sparse(W_inp, input_sparsity, mu_pos, var, generator)
 
@@ -114,29 +99,29 @@ def get_connectivity_Dale(device, N, num_inputs, num_outputs, radius=1.5, recurr
     Ni = int(N * 0.2)
 
     # Initialize W_rec
-    W_rec = torch.empty([0, N])
+    W_rec = torch.empty([0, N], device=device)
 
     # Balancing parameters
-    mu_E = 1 / np.sqrt(N)
-    mu_I = 4 / np.sqrt(N)
+    mu_E = 1 / torch.sqrt(torch.tensor(N, device=device))
+    mu_I = 4 / torch.sqrt(torch.tensor(N, device=device))
 
     var = 1 / N
     # generating excitatory part of connectivity and an inhibitory part of connectivity:
-    rowE = torch.empty([Ne, 0])
-    rowI = torch.empty([Ni, 0])
+    rowE = torch.empty([Ne, 0], device=device)
+    rowI = torch.empty([Ni, 0], device=device)
     recurrent_sparsity = 1 - recurrent_density
-    rowE = torch.cat((rowE, torch.abs(sparse(torch.empty(Ne, Ne), recurrent_sparsity, mu_E, var, generator))), 1)
-    rowE = torch.cat((rowE, -torch.abs(sparse(torch.empty(Ne, Ni), recurrent_sparsity, mu_I, var, generator))), 1)
-    rowI = torch.cat((rowI, torch.abs(sparse(torch.empty(Ni, Ne), recurrent_sparsity, mu_E, var, generator))), 1)
-    rowI = torch.cat((rowI, -torch.abs(sparse(torch.empty(Ni, Ni), recurrent_sparsity, mu_I, var, generator))), 1)
+    rowE = torch.cat((rowE, torch.abs(sparse(torch.empty(Ne, Ne, device=device), recurrent_sparsity, mu_E, var, generator))), 1)
+    rowE = torch.cat((rowE, -torch.abs(sparse(torch.empty(Ne, Ni, device=device), recurrent_sparsity, mu_I, var, generator))), 1)
+    rowI = torch.cat((rowI, torch.abs(sparse(torch.empty(Ni, Ne, device=device), recurrent_sparsity, mu_E, var, generator))), 1)
+    rowI = torch.cat((rowI, -torch.abs(sparse(torch.empty(Ni, Ni, device=device), recurrent_sparsity, mu_I, var, generator))), 1)
 
     W_rec = torch.cat((W_rec, rowE), 0)
     W_rec = torch.cat((W_rec, rowI), 0)
 
     #  spectral radius adjustment
     W_rec = W_rec - torch.diag(torch.diag(W_rec))
-    w, v = linalg.eig(W_rec)
-    spec_radius = np.max(np.absolute(w))
+    w, v = torch.linalg.eig(W_rec)
+    spec_radius = torch.max(torch.absolute(w))
     W_rec = radius * W_rec / spec_radius
 
     W_inp = torch.zeros([N, num_inputs]).float()
@@ -194,13 +179,19 @@ class RNN_torch(torch.nn.Module):
         :param device:
         '''
         super(RNN_torch, self).__init__()
+        # self.device = torch.device('mps')
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        else:
+            self.device = torch.device('cpu')
+        print(f"Using {self.device} for RNN!")
         self.N = N
         self.activation = activation
         self.tau = tau
         self.dt = dt
-        self.alpha = (dt / tau)
-        self.sigma_rec = torch.tensor(sigma_rec)
-        self.sigma_inp = torch.tensor(sigma_inp)
+        self.alpha = torch.tensor((dt / tau)).to(self.device)
+        self.sigma_rec = torch.tensor(sigma_rec).to(self.device)
+        self.sigma_inp = torch.tensor(sigma_inp).to(self.device)
         self.input_size = input_size
         self.output_size = output_size
         self.spectral_rad = spectral_rad
@@ -212,15 +203,6 @@ class RNN_torch(torch.nn.Module):
             self.y_init = y_init
         else:
             self.y_init = torch.zeros(self.N)
-        # self.device = torch.device('cpu')
-        if (device is None):
-            if torch.cuda.is_available():
-                self.device = torch.device('cuda')
-            else:
-                self.device = torch.device('mps') if torch.backends.mps.is_available() else torch.device('cpu')
-        else:
-            self.device = torch.device(device)
-        print(f"Using {self.device} for RNN!")
 
         self.random_generator = random_generator
         self.input_layer = (torch.nn.Linear(self.input_size, self.N, bias=False)).to(self.device)
@@ -263,9 +245,9 @@ class RNN_torch(torch.nn.Module):
         inp_noise = torch.zeros(self.input_size, T_steps, batch_size)
         if w_noise:
             rec_noise = torch.sqrt((2 / self.alpha) * self.sigma_rec ** 2) \
-                        * torch.randn(*rec_noise.shape, generator=self.random_generator)
+                        * torch.randn(*rec_noise.shape, generator=self.random_generator, device=self.device)
             inp_noise = torch.sqrt((2 / self.alpha) * self.sigma_inp ** 2) \
-                        * torch.randn(*inp_noise.shape, generator=self.random_generator)
+                        * torch.randn(*inp_noise.shape, generator=self.random_generator, device=self.device)
         # passing through layers require batch-first shape!
         # that's why we need to reshape the inputs and states!
         states = torch.swapaxes(states, 0, -1)

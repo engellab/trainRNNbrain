@@ -111,19 +111,15 @@ class TaskCDDM(Task):
                 target_stream[ind, self.dec_on - 1:self.dec_off] = 1
         return input_stream, target_stream
 
-    def get_batch(self, shuffle=False):
+    def get_batch(self):
         '''
         coherences: list containing range of coherences for each channel (e.g. [-1, -0.5, -0.25,  0, 0.25, 0.5, 1]
-        :param shuffle: shuffle the final array
-        :param generator_numpy: the random generator (for reproducibility, if using shuffle=True)
         :return: array of inputs, array of targets, and the conditions (context, coherences and the correct choice)
         '''
         coherences = self.task_params["coherences"]
         inputs = []
         targets = []
         conditions = []
-        if self.rng is None:
-            generator_numpy = np.random.default_rng()
         for context in ["motion", "color"]:
             for c1 in coherences:
                 for c2 in coherences:
@@ -146,11 +142,6 @@ class TaskCDDM(Task):
         # batch_size should be a last dimension
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
-        if shuffle:
-            perm = self.rng.permutation(len(inputs))
-            inputs = inputs[..., perm]
-            targets = targets[..., perm]
-            conditions = [conditions[index] for index in perm]
         return inputs, targets, conditions
 
 
