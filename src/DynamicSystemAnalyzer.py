@@ -212,12 +212,17 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
             else (self.RNN.W_out[0, :] - self.RNN.W_out[1, :])
         self.context_axis = self.RNN.W_inp[:, 0] - self.RNN.W_inp[:, 1]
         self.sensory_axis = np.sum([self.RNN.W_inp[:, i] for i in [2, 3, 4, 5]])
-
+        self.context_inds = [0, 1]
+        self.sensory_inds_motion = [2, 3]
+        self.sensory_inds_color = [4, 5]
+        self.nudge_value = 0.05
+        self.nudge = np.array([self.nudge_value, -self.nudge_value])
+        self.neutral_input = np.array([0, 0, 0.5, 0.5, 0.5, 0.5])
         self.LA_data = {}
         self.LA_data["motion"] = {}
         self.LA_data["color"] = {}
 
-    def get_LineAttractor_endpoints(self, context, nudge=0.05, T_steps=1000, relax_steps=10):
+    def get_LineAttractor_endpoints(self, context, T_steps=1000, relax_steps=10):
         '''
         :param context: "motion" or "color"
         :param nudge: an additional input, creating a bias either to the right choice, or to the left choice
@@ -226,13 +231,13 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         :return: left-most and right-most points of a presupposed line attractor
         '''
         ctxt_ind = 0 if context == 'motion' else 1
-        sensory_inds = [2, 3] if context == 'motion' else [4, 5]
-        default_input = np.array([0, 0, 0.5, 0.5, 0.5, 0.5])
+        sensory_inds = self.sensory_inds_motion if context == 'motion' else self.sensory_inds_color
+        default_input = deepcopy(self.neutral_input)
         default_input[ctxt_ind] = 1.0
         input_right_decision = deepcopy(default_input)
         input_left_decision = deepcopy(default_input)
-        input_right_decision[sensory_inds] += np.array([nudge, -nudge])
-        input_left_decision[sensory_inds] -= np.array([nudge, -nudge])
+        input_right_decision[sensory_inds] += self.nudge
+        input_left_decision[sensory_inds] -= self.nudge
         points = []
         # find left and right points
         for inp in [input_left_decision, input_right_decision]:
@@ -246,7 +251,6 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
     def calc_LineAttractor_analytics(self,
                                      N_points=31,
                                      obj_max_iter=100,
-                                     nudge=0.05,
                                      T_steps=1000,
                                      relax_steps=10):
         '''
@@ -256,14 +260,13 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         :return: a dictionary with "color" and "motion" contexts, each containing sub-dictionary with:
         'slow points', |RHS|^2 value, Jacobian, eigenvalues, the principal left and right eigenvectors over these points
         '''
-        default_input = np.array([0, 0, 0.5, 0.5, 0.5, 0.5])
+        default_input = deepcopy(self.neutral_input)
         for context in ["motion", "color"]:
             ctxt_ind = 0 if context == 'motion' else 1
             Input = deepcopy(default_input)
             Input[ctxt_ind] = 1
             # get the end points of the line attractor
             left_point, right_point = self.get_LineAttractor_endpoints(context,
-                                                                       nudge=nudge,
                                                                        T_steps=T_steps,
                                                                        relax_steps=relax_steps)
             # define the starting direction for search
@@ -311,7 +314,6 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         return None
 
     def plot_LineAttractor_3D(self,
-                              nudge=0.05,
                               steps_stim_on=500,
                               steps_context_only_on=250):
         '''
@@ -358,12 +360,13 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
             val = 1 if ctxt == 'motion' else 0
             for stim_status in ["relevant", "irrelevant"]:
                 self.RNN.clear_history()
-                rel_inds = [2, 3] if ctxt == 'motion' else [4, 5]
-                irrel_inds = [4, 5] if ctxt == 'motion' else [2, 3]
+                rel_inds = self.sensory_inds_motion if ctxt == 'motion' else self.sensory_inds_color
+                irrel_inds = self.sensory_inds_color if ctxt == 'motion' else self.sensory_inds_motion
                 nudge_inds = rel_inds if stim_status == 'relevant' else irrel_inds
 
                 x0 = 0.00 * np.random.randn(self.RNN.N)
-                input = np.array([val, 1 - val, 0.0, 0.0, 0.0, 0.0])
+                input = deepcopy(self.neutral_input)
+                input[:2] = np.array([val, 1 - val])
                 input_timeseries = np.repeat(input[:, np.newaxis], axis=1, repeats=steps_context_only_on)
                 self.RNN.y = deepcopy(x0)
                 self.RNN.run(input_timeseries=input_timeseries, save_history=True)
@@ -373,11 +376,12 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
 
                 x0 = deepcopy(x_trajectory_context_only_on[:, -1])
                 for direction in ['left', 'right', 'center']:
-                    input = deepcopy(np.array([val, 1 - val, 0.5, 0.5, 0.5, 0.5]))
+                    input = deepcopy(self.neutral_input)
+                    input[:2] = np.array([val, 1 - val])
                     if direction == 'left':
-                        input[nudge_inds] -= np.array([nudge, -nudge])
+                        input[nudge_inds] -= self.nudge
                     elif direction == 'right':
-                        input[nudge_inds] += np.array([nudge, -nudge])
+                        input[nudge_inds] += self.nudge
                     input_timeseries = np.repeat(input[:, np.newaxis], axis=1, repeats=steps_stim_on)
                     self.RNN.y = deepcopy(x0)
                     self.RNN.run(input_timeseries=input_timeseries, save_history=True)
@@ -451,3 +455,24 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         plt.ylabel(r"$\||RHS(x)\||$", fontsize=16)
         plt.grid(True)
         return fig_RHS
+
+class DynamicSystemAnalyzerCDDM_tanh(DynamicSystemAnalyzerCDDM):
+    '''
+    Class which is inрerited from the DynamicSystemAnalyzer base class,
+    dedicated to processing of the RNNs trained on CDDM task
+    '''
+
+    def __init__(self, RNN):
+        DynamicSystemAnalyzer.__init__(self, RNN)
+        self.choice_axis = self.RNN.W_out.flatten() if self.RNN.W_out.shape[0] == 1 \
+            else (self.RNN.W_out[0, :] - self.RNN.W_out[1, :])
+        self.context_axis = self.RNN.W_inp[:, 0] - self.RNN.W_inp[:, 1]
+        self.sensory_axis = np.sum([self.RNN.W_inp[:, i] for i in [2, 3]])
+        self.sensory_inds_motion = [2]
+        self.sensory_inds_color = [3]
+        self.nudge_value = 0.05
+        self.nudge = np.array([self.nudge_value])
+        self.neutral_input = np.array([0, 0, 0.0, 0.0])
+        self.LA_data = {}
+        self.LA_data["motion"] = {}
+        self.LA_data["color"] = {}

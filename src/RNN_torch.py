@@ -10,25 +10,31 @@ import numpy as np
 def sparse(tnsr, sparsity, mean=0, std=1, generator=None):
     if tnsr.ndimension() != 2:
         raise ValueError("Only tensors with 2 dimensions are supported")
+    if not (generator is None):
+        device = generator.device
+    else:
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+        else:
+            device = torch.device('cpu')
 
     rows, cols = tnsr.shape
     num_zeros = int(np.ceil(sparsity * rows))
 
     with torch.no_grad():
-        tnsr = torch.normal(torch.tensor(mean).to(generator.device), torch.tensor(std).to(generator.device),
-                            (rows, cols)).to(generator.device)
+        tnsr = torch.normal(torch.tensor(mean).to(device), torch.tensor(std).to(device),
+                            (rows, cols)).to(device)
         for col_idx in range(cols):
-            row_indices = torch.randperm(rows, generator=generator, device=generator.device)
+            row_indices = torch.randperm(rows, generator=generator, device=device)
             zero_indices = row_indices[:num_zeros]
             tnsr[zero_indices, col_idx] = 0
     return tnsr
 
 
-def get_connectivity(device, N, num_inputs, num_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
+def get_connectivity(N, num_inputs, num_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
                      output_density=1.0, generator=None):
     '''
     generates W_inp, W_rec and W_out matrices of RNN, with specified parameters
-    :param device: torch related: CPU or GPU
     :param N: number of neural nodes
     :param num_inputs: number of input channels, input dimension
     :param num_outputs: number of output channels, output dimension
@@ -41,7 +47,13 @@ def get_connectivity(device, N, num_inputs, num_outputs, radius=1.5, recurrent_d
     :param generator: torch random generator, for reproducibility
     :return:
     '''
-
+    if not (generator is None):
+        device = generator.device
+    else:
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+        else:
+            device = torch.device('cpu')
     # Balancing parameters
     mu = 0
     mu_pos = 1 / np.sqrt(N)
@@ -74,15 +86,14 @@ def get_connectivity(device, N, num_inputs, num_outputs, radius=1.5, recurrent_d
            input_mask.to(device=device).float()
 
 
-def get_connectivity_Dale(device, N, num_inputs, num_outputs, radius=1.5, recurrent_density=1, input_density=1,
-                          output_density=1, generator=None):
+def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
+                          output_density=1.0, generator=None):
     '''
     generates W_inp, W_rec and W_out matrices of RNN, with specified parameters, subject to a Dales law,
     and about 20:80 ratio of inhibitory neurons to exchitatory ones.
     Following the paper "Training Excitatory-Inhibitory Recurrent Neural Networks for Cognitive Tasks:
     A Simple and Flexible Framework" - Song et al. (2016)
 
-    :param device: torch related: CPU or GPU
     :param N: number of neural nodes
     :param num_inputs: number of input channels, input dimension
     :param num_outputs: number of output channels, output dimension
@@ -95,6 +106,13 @@ def get_connectivity_Dale(device, N, num_inputs, num_outputs, radius=1.5, recurr
     :param generator: torch random generator, for reproducibility
     :return:
     '''
+    if not (generator is None):
+        device = generator.device
+    else:
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+        else:
+            device = torch.device('cpu')
     Ne = int(N * 0.8)
     Ni = int(N * 0.2)
 
@@ -105,7 +123,7 @@ def get_connectivity_Dale(device, N, num_inputs, num_outputs, radius=1.5, recurr
     mu_E = 1 / torch.sqrt(torch.tensor(N, device=device))
     mu_I = 4 / torch.sqrt(torch.tensor(N, device=device))
 
-    var = 1 / N
+    var = torch.tensor(1 / N, device=device)
     # generating excitatory part of connectivity and an inhibitory part of connectivity:
     rowE = torch.empty([Ne, 0], device=device)
     rowI = torch.empty([Ni, 0], device=device)
@@ -192,9 +210,9 @@ class RNN_torch(torch.nn.Module):
         self.alpha = torch.tensor((dt / tau)).to(self.device)
         self.sigma_rec = torch.tensor(sigma_rec).to(self.device)
         self.sigma_inp = torch.tensor(sigma_inp).to(self.device)
-        self.input_size = input_size
-        self.output_size = output_size
-        self.spectral_rad = spectral_rad
+        self.input_size = torch.tensor(input_size).to(self.device)
+        self.output_size = torch.tensor(output_size).to(self.device)
+        self.spectral_rad = torch.tensor(spectral_rad).to(self.device)
         self.connectivity_density_rec = connectivity_density_rec
         self.constrained = constrained
         self.dale_mask = None
@@ -215,12 +233,12 @@ class RNN_torch(torch.nn.Module):
             # positivity of W_inp, W_out,
             # W_rec has to be subject to Dale's law
             W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
-                get_connectivity_Dale(device, self.N, num_inputs=self.input_size, num_outputs=self.output_size,
+                get_connectivity_Dale(N=self.N, num_inputs=self.input_size, num_outputs=self.output_size,
                                       radius=self.spectral_rad, generator=self.random_generator,
                                       recurrent_density=self.connectivity_density_rec)
         else:
             W_rec, W_inp, W_out, self.recurrent_mask, self.output_mask, self.input_mask = \
-                get_connectivity(device, self.N, num_inputs=self.input_size, num_outputs=self.output_size,
+                get_connectivity(N=self.N, num_inputs=self.input_size, num_outputs=self.output_size,
                                  radius=self.spectral_rad,
                                  generator=self.random_generator,
                                  recurrent_density=self.connectivity_density_rec)
@@ -244,7 +262,6 @@ class RNN_torch(torch.nn.Module):
         rec_noise = torch.zeros(self.N, T_steps, batch_size, device=self.device)
         inp_noise = torch.zeros(self.input_size, T_steps, batch_size, device=self.device)
         if w_noise:
-            print(self.alpha.device, self.sigma_rec.device, self.random_generator.device)
             rec_noise = torch.sqrt((2 / self.alpha) * self.sigma_rec ** 2) \
                         * torch.randn(*rec_noise.shape, generator=self.random_generator, device=self.device)
             inp_noise = torch.sqrt((2 / self.alpha) * self.sigma_inp ** 2) \

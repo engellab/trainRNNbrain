@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.DataSaver import DataSaver
-from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM
+from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM, DynamicSystemAnalyzerCDDM_tanh
 from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
 from src.RNN_numpy import RNN_numpy
 from src.utils import get_project_root, numpify, jsonify
@@ -17,29 +17,26 @@ import time
 # from src.datajoint_config import *
 
 disp = True
-activation = "relu"
-taskname = "CDDM"
+activation = "tanh"
+taskname = "CDDM_tanh"
 train_config_file = f"train_config_{taskname}_{activation}.json"
 config_dict = json.load(
     open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r", encoding='utf-8'))
 
 seed = np.random.randint(1000000)
-rng = torch.Generator()
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
+# device = torch.device('mps')
+rng = torch.Generator(device=torch.device(device))
 if not seed is None:
     rng.manual_seed(seed)
 
 # defining RNN:
 N = config_dict["N"]
 activation_name = config_dict["activation"]
-if activation_name == 'relu':
-    activation = lambda x: torch.maximum(x, torch.tensor(0))
-elif activation_name == 'tanh':
-    activation = torch.tanh
-elif activation_name == 'sigmoid':
-    activation = lambda x: 1 / (1 + torch.exp(-x))
-elif activation_name == 'softplus':
-    activation = lambda x: torch.log(1 + torch.exp(5 * x))
-
+activation = torch.tanh
 dt = config_dict["dt"]
 tau = config_dict["tau"]
 constrained = config_dict["constrained"]
@@ -78,7 +75,7 @@ rnn_torch = RNN_torch(N=N, dt=dt, tau=tau, input_size=input_size, output_size=ou
                       connectivity_density_rec=connectivity_density_rec,
                       spectral_rad=spectral_rad,
                       random_generator=rng)
-task = TaskCDDM(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
+task = eval("Task"+taskname)(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
 criterion = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(rnn_torch.parameters(),
                              lr=lr,
@@ -97,21 +94,12 @@ print(f"Executed training in {toc - tic:0.4f} seconds")
 coherences_valid = np.linspace(-1, 1, 11)
 task_params_valid = deepcopy(task_params)
 task_params_valid["coherences"] = coherences_valid
-task = TaskCDDM(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params_valid)
-
-if activation_name == 'relu':
-    activation_np = lambda x: np.maximum(x, 0)
-elif activation_name == 'tanh':
-    activation_np = np.tanh
-elif activation_name == 'sigmoid':
-    activation_np = lambda x: 1 / (1 + np.exp(-x))
-elif activation_name == 'softplus':
-    activation_np = lambda x: np.log(1 + np.exp(5 * x))
+task = eval("Task"+taskname)(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params_valid)
 
 RNN_valid = RNN_numpy(N=net_params["N"],
                       dt=net_params["dt"],
                       tau=net_params["tau"],
-                      activation=activation_np,
+                      activation=np.tanh,
                       W_inp=net_params["W_inp"],
                       W_rec=net_params["W_rec"],
                       W_out=net_params["W_out"],
@@ -160,15 +148,22 @@ if not (datasaver is None): datasaver.save_figure(fig_psycho, f"{score}_psychome
 if not (datasaver is None): datasaver.save_data(jsonify(analyzer.psychometric_data), f"{score}_psycho_data.json")
 
 print(f"Analyzing fixed points")
-dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
+if activation_name == 'tanh':
+    dsa = DynamicSystemAnalyzerCDDM_tanh(RNN_valid)
+else:
+    dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
 params = {"fun_tol": 0.05,
           "diff_cutoff": 1e-4,
           "sigma_init_guess": 5,
           "patience": 50,
           "stop_length": 50,
           "mode": "approx"}
-dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
-dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
+if activation_name == 'tanh':
+    dsa.get_fixed_points(Input=np.array([1, 0, 0.0, 0.0]), **params)
+    dsa.get_fixed_points(Input=np.array([0, 1, 0.0, 0.0]), **params)
+else:
+    dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
+    dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
 print(f"Calculating Line Attractor analytics")
 dsa.calc_LineAttractor_analytics()
 
