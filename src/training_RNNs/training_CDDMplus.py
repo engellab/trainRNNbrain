@@ -18,8 +18,8 @@ import time
 
 disp = True
 activation = "relu"
-taskname = "CDDM"
-train_config_file = f"train_config_CDDM_relu;N=100;lmbdr=5;lmbdo=0.3.json"
+taskname = "CDDMplus"
+train_config_file = f"train_config_CDDMplus_relu;N=100;lmbdr=0.3;lmbdo=0.3.json"
 config_dict = json.load(
     open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r", encoding='utf-8'))
 
@@ -129,11 +129,9 @@ task = eval("Task"+taskname)(n_steps=n_steps, n_inputs=input_size, n_outputs=out
 
 
 if activation_name == 'relu':
-    def activation(x):
-        return np.maximum(0, x)
+    activation = lambda x: np.maximum(0.0, x)
 elif activation_name == 'tanh':
-    def activation(x):
-        return np.tanh(x)
+    activation = np.tanh
 
 RNN_valid = RNN_numpy(N=net_params["N"],
                       dt=net_params["dt"],

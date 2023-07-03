@@ -24,6 +24,7 @@ class DynamicSystemAnalyzer():
         self.RNN = RNN_numpy
         self.rhs = self.RNN.rhs_noisless
         self.rhs_jac = self.RNN.rhs_jac
+        self.rhs_jac_h = self.RNN.rhs_jac_h
         self.fp_data = {}
 
         def objective(x, Input):
@@ -191,13 +192,15 @@ class DynamicSystemAnalyzer():
         '''
         self.RNN.y = deepcopy(point)
         fun_val = self.objective(point, Input)
-        J = self.rhs_jac(point, Input)
-        E, R = np.linalg.eig(J)
+        # inputs to each neuron
+        h = self.RNN.W_rec @ point + self.RNN.W_inp @ Input + self.RNN.bias_rec
+        J_h = self.rhs_jac_h(h, Input)
+        E, R = np.linalg.eig(J_h)
         E, R = sort_eigs(E, R)
         L = np.linalg.inv(R)
         l = np.real(L[0, :])
         r = np.real(R[:, 0])
-        return fun_val, J, E, l, r
+        return fun_val, J_h, E, l, r
 
 
 class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
@@ -406,9 +409,9 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
         ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
         ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-        ax.set_xlabel("Choice", fontsize=20)
-        ax.set_ylabel("Context", fontsize=20)
-        ax.set_zlabel("Sensory", fontsize=20)
+        # ax.set_xlabel("Choice", fontsize=20)
+        # ax.set_ylabel("Context", fontsize=20)
+        # ax.set_zlabel("Sensory", fontsize=20)
 
         # initial point trajectory
         ax.scatter([0, 0], [0, 0], [0, 0], color='r', marker='o', s=10, alpha=0.9)
@@ -429,11 +432,10 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
                     trajectory_projected = trajectories[ctxt][stim_status]["stim_on"][key].T @ P_matrix
                     ax.plot(*(trajectory_projected[:, t] for t in range(nDim)),
                             linestyle=linestyles[k], linewidth=3, color=colors[k], alpha=0.8)
-
         fig_3D.subplots_adjust()
         ax.view_init(12, 228)
         fig_3D.subplots_adjust()
-        plt.tight_layout()
+        # plt.tight_layout()
         return fig_3D
 
     def plot_RHS_over_LA(self):

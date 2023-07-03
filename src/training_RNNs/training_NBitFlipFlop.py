@@ -62,7 +62,7 @@ weight_decay = config_dict["weight_decay"]
 same_batch = config_dict["same_batch"]
 
 # General:
-tag = config_dict["tag"]
+folder_tag = config_dict["folder_tag"]
 timestr = time.strftime("%Y%m%d-%H%M%S")
 data_folder = os.path.join(config_dict["data_folder"], timestr)
 

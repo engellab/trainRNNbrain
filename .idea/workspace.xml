@@ -5,16 +5,63 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/experiments_and_analysis/creating_RNN_dataframe.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/configs/train_config_CDDM_relu.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/configs/train_config_CDDM_relu.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/Analyzing CDDM.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/Analyzing CDDM.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/.ipynb_checkpoints/Analyzing CDDM-checkpoint.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/.ipynb_checkpoints/Clustering of the neurons-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/.ipynb_checkpoints/Clustering of the neurons-checkpoint.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/.ipynb_checkpoints/Untitled-checkpoint.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/RHS_norm_color_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/RHS_norm_motion_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/fixed_points_1D_color_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/fixed_points_1D_motion_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/psychometric_function_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/psychometric_function_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/psychometric_function_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/psychometric_function_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018_3.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_0_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_10_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_11_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_12_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_13_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_14_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_15_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_16_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_17_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_18_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_19_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_1_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_2_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_3_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_4_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_5_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_6_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_7_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_8_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/random_trial_9_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018/slow_points_20102022_num_outputs=2_N=100_Nsteps=750_srec=0.05_sinp=0.05_date=2022-10-21_SGE_TASK_ID=103_MSEout=0.0313018.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/Analyzing CDDM.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/Clustering of the neurons.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/Clustering of the neurons.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/Untitled.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/slurm_files/train_CDDM_RNNs_DELLA_gpu.slurm" beforeDir="false" afterPath="$PROJECT_DIR$/slurm_files/train_CDDM_RNNs_DELLA_gpu.slurm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slurm_files/train_CDDM_RNNs_DELLA_test.slurm" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/DynamicSystemAnalyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/DynamicSystemAnalyzer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/PerformanceAnalyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/PerformanceAnalyzer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/RNN_numpy.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_numpy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/RNN_torch.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_torch.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Task.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Task.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Trainer.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiNumber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_NBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_NBitFlipFlop.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -62,27 +109,27 @@
     <property name="ASKED_MARK_IGNORED_FILES_AS_EXCLUDED" value="true" />
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/src/train_configs" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/slurm_files" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PythonContentEntriesConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/src/train_configs" />
-      <recent name="$PROJECT_DIR$/src/datajoint" />
-      <recent name="$PROJECT_DIR$/src/training_RNNs" />
-      <recent name="$PROJECT_DIR$/src" />
       <recent name="$PROJECT_DIR$/slurm_files" />
+      <recent name="$PROJECT_DIR$/src/train_configs" />
+      <recent name="$PROJECT_DIR$/src/training_RNNs" />
+      <recent name="$PROJECT_DIR$/src/datajoint" />
+      <recent name="$PROJECT_DIR$/src" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/data/clustering_data" />
       <recent name="$PROJECT_DIR$/src/training_RNNs" />
       <recent name="$PROJECT_DIR$/src/datajoint" />
       <recent name="$PROJECT_DIR$/src/set_train_cofigs" />
       <recent name="$PROJECT_DIR$" />
-      <recent name="$PROJECT_DIR$/src" />
     </key>
   </component>
   <component name="RunManager" selected="Python.training_CDDM">
-    <configuration name="RNN_torch" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="RNN_numpy" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -94,7 +141,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/RNN_torch.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/RNN_numpy.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -103,7 +150,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="hyperparam_search" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="creating_RNN_dataframe" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -111,11 +158,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training_RNNs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/experiments_and_analysis" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/hyperparam_search.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/experiments_and_analysis/creating_RNN_dataframe.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -124,7 +171,28 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="set_train_config_CDDM (2)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="jax_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="rnn_coach" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/experiments_and_analysis" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/experiments_and_analysis/jax_test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="set_train_config_CDDM" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -137,27 +205,6 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="set_train_config_CDDM_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/train_configs" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -188,19 +235,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.set_train_config_CDDM (2)" />
+      <item itemvalue="Python.set_train_config_CDDM" />
+      <item itemvalue="Python.RNN_numpy" />
+      <item itemvalue="Python.jax_test" />
       <item itemvalue="Python.training_CDDM" />
-      <item itemvalue="Python.RNN_torch" />
-      <item itemvalue="Python.hyperparam_search" />
-      <item itemvalue="Python.set_train_config_CDDM_tanh" />
+      <item itemvalue="Python.creating_RNN_dataframe" />
     </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.training_CDDM" />
-        <item itemvalue="Python.set_train_config_CDDM_tanh" />
-        <item itemvalue="Python.set_train_config_CDDM (2)" />
-        <item itemvalue="Python.hyperparam_search" />
-        <item itemvalue="Python.RNN_torch" />
+        <item itemvalue="Python.set_train_config_CDDM" />
+        <item itemvalue="Python.creating_RNN_dataframe" />
+        <item itemvalue="Python.RNN_numpy" />
+        <item itemvalue="Python.jax_test" />
       </list>
     </recent_temporary>
   </component>
@@ -267,7 +314,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>455</line>
+          <line>570</line>
           <option name="timeStamp" value="307" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -281,39 +328,49 @@
           <option name="timeStamp" value="327" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM.py</url>
-          <line>178</line>
-          <option name="timeStamp" value="328" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py</url>
-          <line>41</line>
-          <option name="timeStamp" value="336" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM.py</url>
-          <line>174</line>
-          <option name="timeStamp" value="343" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM.py</url>
-          <line>173</line>
-          <option name="timeStamp" value="344" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/DynamicSystemAnalyzer.py</url>
-          <line>268</line>
+          <line>271</line>
           <option name="timeStamp" value="353" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM.py</url>
-          <line>169</line>
-          <option name="timeStamp" value="357" />
+          <url>file://$PROJECT_DIR$/src/DynamicSystemAnalyzer.py</url>
+          <line>243</line>
+          <option name="timeStamp" value="359" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/DynamicSystemAnalyzer.py</url>
-          <line>240</line>
-          <option name="timeStamp" value="359" />
+          <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM.py</url>
+          <line>156</line>
+          <option name="timeStamp" value="369" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py</url>
+          <line>86</line>
+          <option name="timeStamp" value="386" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py</url>
+          <line>82</line>
+          <option name="timeStamp" value="411" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/clustering.py</url>
+          <line>189</line>
+          <option name="timeStamp" value="415" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/clustering.py</url>
+          <line>171</line>
+          <option name="timeStamp" value="416" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$APPLICATION_HOME_DIR$/plugins/python-ce/helpers/pydev/pydevd.py</url>
+          <line>1482</line>
+          <option name="timeStamp" value="448" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/RNN_numpy.py</url>
+          <line>191</line>
+          <option name="timeStamp" value="450" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

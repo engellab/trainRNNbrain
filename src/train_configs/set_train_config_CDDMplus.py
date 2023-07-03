@@ -12,9 +12,9 @@ from datetime import date
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 300
-activation_name = 'tanh'
-constrained = False
+N = 200
+activation_name = 'relu'
+constrained = True
 seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
@@ -24,10 +24,10 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-task_name = 'CDDM_tanh'
-n_inputs = 4
-n_outputs = 2
-T = 330
+task_name = 'CDDMplus'
+n_inputs = 6
+n_outputs = 6
+T = 750
 n_steps = int(T / dt)
 max_coherence = 0.8
 coherence_lvls = 7
@@ -43,16 +43,16 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 3000
+max_iter = 5000
 tol = 1e-10
 lr = 0.002
 weight_decay = 5e-6
-lambda_orth = 0.0
+lambda_orth = 0.3
 lambda_r = 0.3
 same_batch = True
-
+extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth}'
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
-config_tag = f'{task_name}_{activation_name}'
+config_tag = f'{task_name}_{extra_info}'
 
 config_dict = {}
 config_dict["N"] = N

@@ -6,8 +6,7 @@ import numpy as np
 
 
 # Connectivity defining methods
-
-def sparse(tnsr, sparsity, mean=0, std=1, generator=None):
+def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
     if tnsr.ndimension() != 2:
         raise ValueError("Only tensors with 2 dimensions are supported")
     if not (generator is None):
@@ -31,7 +30,7 @@ def sparse(tnsr, sparsity, mean=0, std=1, generator=None):
     return tnsr
 
 
-def get_connectivity(N, num_inputs, num_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
+def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1.0, input_density=1.0,
                      output_density=1.0, generator=None):
     '''
     generates W_inp, W_rec and W_out matrices of RNN, with specified parameters
@@ -113,8 +112,8 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
             device = torch.device('cuda')
         else:
             device = torch.device('cpu')
-    Ne = int(N * 0.8)
-    Ni = int(N * 0.2)
+    Ne = int(np.ceil(N * 0.8))
+    Ni = int(np.floor(N * 0.2))
 
     # Initialize W_rec
     W_rec = torch.empty([0, N], device=device)
@@ -141,21 +140,23 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     w, v = torch.linalg.eig(W_rec)
     spec_radius = torch.max(torch.absolute(w))
     W_rec = radius * W_rec / spec_radius
+    W_rec = W_rec.float()
 
     W_inp = torch.zeros([N, num_inputs]).float()
     input_sparsity = 1 - input_density
-    W_inp = torch.abs(sparse(W_inp, input_sparsity, mu_E, var, generator))
+    W_inp = torch.abs(sparse(W_inp, input_sparsity, mu_E, var, generator)).float()
 
-    W_out = torch.zeros([num_outputs, N])
+    W_out = torch.zeros([num_outputs, Ne]).float()
     output_sparsity = 1 - output_density
     W_out = torch.abs(sparse(W_out, output_sparsity, mu_E, var, generator))
+    W_out = torch.hstack([W_out, torch.zeros([num_outputs, Ni], device=device)]).float()
 
     dale_mask = torch.sign(W_rec).to(device=device).float()
     output_mask = (W_out != 0).to(device=device).float()
     input_mask = (W_inp != 0).to(device=device).float()
+    # No self connectivity constraint
     recurrent_mask = torch.ones(N, N) - torch.eye(N)
-    return W_rec.to(device=device).float(), W_inp.to(device=device).float(), W_out.to(
-        device=device).float(), recurrent_mask.to(device=device).float(), dale_mask, output_mask, input_mask
+    return W_rec, W_inp, W_out, recurrent_mask.to(device=device).float(), dale_mask, output_mask, input_mask
 
 
 '''
@@ -216,6 +217,7 @@ class RNN_torch(torch.nn.Module):
         self.connectivity_density_rec = connectivity_density_rec
         self.constrained = constrained
         self.dale_mask = None
+        self.output_mask = None
 
         if not (y_init is None):
             self.y_init = y_init
@@ -311,6 +313,7 @@ class RNN_torch(torch.nn.Module):
         return param_dict
 
     def set_params(self, params):
+        self.N = params["W_rec"].shape[0]
         self.output_layer.weight.data = torch.from_numpy(np.float32(params["W_out"])).to(self.device)
         self.input_layer.weight.data = torch.from_numpy(np.float32(params["W_inp"])).to(self.device)
         self.recurrent_layer.weight.data = torch.from_numpy(np.float32(params["W_rec"])).to(self.device)

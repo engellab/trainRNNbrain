@@ -1,7 +1,12 @@
 import sys
 sys.path.insert(0, "../")
 import numpy as np
+# import jax.numpy as jnp
+# import jax
+import inspect
+import re
 from copy import deepcopy
+import textwrap
 import numdifftools as nd
 
 '''
@@ -32,6 +37,14 @@ class RNN_numpy():
         self.y = deepcopy(self.y_init)
         self.y_history = []
         self.activation = activation
+
+        # activation_function_code = inspect.getsource(self.activation)
+        # jnp_activation_str = re.sub(r"np", "jnp", activation_function_code)
+        # jnp_activation_str = re.sub(r"def\s+(\w+)", r"def activation_jax", jnp_activation_str)
+        # jnp_activation_str = textwrap.dedent(jnp_activation_str)
+        # exec(jnp_activation_str)
+        # self.activation_jax = eval("activation_jax")
+
 
     def rhs(self, y, input, sigma_rec=None, sigma_inp=None, generator_numpy=None):
         if (generator_numpy is None): generator_numpy = np.random.default_rng(np.random.randint(10000))
@@ -64,13 +77,47 @@ class RNN_numpy():
         return -y + self.activation(self.W_rec @ y + self.W_inp @ input + self.bias_rec)
 
     def rhs_jac(self, y, input):
-        # efficient calculation of Jacobian using a finite difference (lesser hustle than with autograd!)
+        if len(input.shape) > 1:
+            raise ValueError("Jacobian computations work only for single point and a single input-vector. It doesn't yet work in the batch mode")
+        # efficient calculation of Jacobian using a finite difference
         return nd.Jacobian(self.rhs_noisless)(y, input)
+
+    # def jax_rhs_noisless(self, y, input):
+    #     '''
+    #     Bare version of RHS for efficient fixed point analysis
+    #     supposed to work only with one point at the state-space at the time (no batches!)
+    #     '''
+    #     return -y + self.activation_jax(jnp.array(self.W_rec) @ y + jnp.array(self.W_inp) @ input + jnp.array(self.bias_rec))
+    #
+    # def jax_rhs_jac(self, y, input):
+    #     if len(input.shape) > 1:
+    #         raise ValueError("Jacobian computations work only for single point and a single input-vector. It doesn't yet work in the batch mode")
+    #     jac_fun = jax.jacfwd(self.jax_rhs_noisless, argnums=0)
+    #     return jac_fun(jnp.array(y), jnp.array(input))
+
+    def rhs_noisless_h(self, h, input):
+        '''
+        h = W_rec y + W_inp u + b_rec
+        '''
+        return -h + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias_rec
+
+    def rhs_jac_h(self, h, input):
+        if len(input.shape) > 1:
+            raise ValueError(
+                "Jacobian computations work only for single point and a single input-vector. It doesn't yet work in the batch mode")
+        return nd.Jacobian(self.rhs_noisless_h)(h, input)
+
+    # def rhs_jac_explicit(self, y, input): #explicit Jacobian computation for RELU ONLY
+    #     arg = ((self.W_rec @ y).flatten() + (self.W_inp @ input.reshape(-1, 1)).flatten())
+    #     m = 0.5
+    #     D = np.diag(np.heaviside(arg, m))
+    #     J = -np.eye(self.N) + D @ self.W_rec
+    #     return J
 
     def step(self, input, sigma_rec=None, sigma_inp=None, generator_numpy=None):
         self.y += (self.dt / self.tau) * self.rhs(self.y, input, sigma_rec, sigma_inp, generator_numpy)
 
-    def run(self, input_timeseries, save_history=False, sigma_rec=None, sigma_inp=None, generator_numpy=None):
+    def run(self, input_timeseries, save_history=True, sigma_rec=None, sigma_inp=None, generator_numpy=None):
         '''
         :param Inputs: an array, has to be iether (n_inputs x n_steps) dimensions or (n_inputs x n_steps x batch_batch_size)
         :param save_history: bool, whether to save the resulting trajectory
@@ -85,6 +132,9 @@ class RNN_numpy():
             # if the state is a 1D vector, repeat it batch_size number of times to match with Input dimension
             if len(self.y.shape) == 1:
                 self.y = np.repeat(deepcopy(self.y)[:, np.newaxis], axis=1, repeats=batch_size)
+            if len(self.y.shape) == 2:
+                pass
+
         for i in range(num_steps):
             if save_history == True:
                 self.y_history.append(deepcopy(self.y))
@@ -93,37 +143,25 @@ class RNN_numpy():
         return None
 
     def get_history(self):
+        # N x T x Batch_size or N x T if Batch_size = 1
         return np.swapaxes(np.array(self.y_history), 0, 1)
+
+    def reset_state(self):
+        self.y = deepcopy(self.y_init)
 
     def clear_history(self):
         self.y_history = []
-
-    def reset_state(self):
-        self.y = np.zeros(self.N)
+        self.y = deepcopy(self.y_init)
 
     def get_output(self):
         y_history = np.stack(self.y_history, axis=0)
-        output = np.swapaxes((self.W_out @ y_history), 0, 1)
+        if len(y_history.shape) == 3:
+            output = np.swapaxes((self.W_out @ y_history), 0, 1)
+        elif len(y_history.shape) == 2:
+            output = self.W_out @ y_history.T
+        else:
+            raise ValueError("y_history variable has to have either 2 or 3 dimensions!")
         return output
-
-    def run_multiple_trajectories(self, input_timeseries, sigma_rec, sigma_inp, generator_numpy=None):
-        if type(input_timeseries) == list:
-            input_timeseries = np.array(input_timeseries)
-        # Check that inputs have 3 dimensions: n_inputs x n_steps x batch_size
-        if len(input_timeseries.shape) != 3:
-            raise ValueError("Inputs dimension have to be n_inputs x n_steps x batch_size!")
-        self.clear_history()
-        batch_size = input_timeseries.shape[-1]
-        self.y = np.repeat(deepcopy(self.y_init)[:, np.newaxis], axis=-1, repeats=batch_size)
-        self.run(input_timeseries=input_timeseries,
-                 sigma_rec=sigma_rec,
-                 sigma_inp=sigma_inp,
-                 save_history=True,
-                 generator_numpy=generator_numpy)
-        trajectories = np.stack(self.y_history, axis=1)  # N x n_steps x batch_size
-        outputs = self.get_output()  # n_outputs x n_steps x batch_size
-        return trajectories, outputs
-
 
 if __name__ == '__main__':
     N = 100
@@ -136,13 +174,23 @@ if __name__ == '__main__':
     # Input = np.ones(6)
     dt = 0.1
     tau = 10
-    batch_size = 1
-    input = np.ones((6, batch_size))
-    activation_fun = np.tanh
-    rnn = RNN_numpy(N=N, W_rec=W_rec, W_inp=W_inp, W_out=W_out, dt=dt, tau=tau, activation=activation_fun)
+    batch_size = 11
+    input = np.ones((6))
+
+    def activation(x):
+        return np.tanh(x)
+
+    rnn = RNN_numpy(N=N, W_rec=W_rec, W_inp=W_inp, W_out=W_out, dt=dt, tau=tau, activation=activation)
+
     rnn.y = np.random.randn(N)
-    print(rnn.rhs_noisless(rnn.y, input=input).shape)
-    print((rnn.rhs_jac(rnn.y, input=input)))
+    input_timeseries = 0.1 * np.ones((6, 301))
+    rnn.run(input_timeseries=input_timeseries)
+    output = rnn.get_output()
+
+    # J_jax = np.array(rnn.jax_rhs_jac(y=jnp.array(rnn.y), input=jnp.array(input)))
+    # J_fd = rnn.rhs_jac(y=rnn.y, input=input)
+    # print(np.linalg.norm((J_jax - J_fd), 2))
+
     # generate multidimensional inputs
     # input_timeseries = 0.1 * np.ones((6, 301, 32))
     # rnn.run(input_timeseries=input_timeseries, sigma_rec=0.03, sigma_inp=0.03)

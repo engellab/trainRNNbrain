@@ -46,7 +46,7 @@ same_batch = False  # generate new batch in each train loop
 shuffle = False
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
-tag = f'{task_name}_{activation_name}'
+config_tag = f'{task_name}_{activation_name}'
 
 config_dict = {}
 config_dict["N"] = N
@@ -72,8 +72,8 @@ config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
 config_dict["lambda_r"] = lambda_r
 config_dict["data_folder"] = data_folder
-config_dict["tag"] = tag
+config_dict["folder_tag"] = ''
 
 json_obj = json.dumps(config_dict, indent=4)
-outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{tag}.json"), mode="w")
+outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{config_tag}.json"), mode="w")
 outfile.write(json_obj)

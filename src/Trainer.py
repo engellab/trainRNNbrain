@@ -10,7 +10,13 @@ import torch
 
 def L2_ortho(rnn, X=None, y=None):
     # regularization of the input and ouput matrices
-    b = torch.cat((rnn.input_layer.weight, rnn.output_layer.weight.t()), dim=1)
+    # Pair-wise orthogonalization of both the input columns and output rows
+    # b = torch.cat((rnn.input_layer.weight, rnn.output_layer.weight.t()), dim=1)
+    # b = b / torch.norm(b, dim=0)
+    # return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
+
+    # Pair-wise orthogonalization input columns only
+    b = rnn.input_layer.weight
     b = b / torch.norm(b, dim=0)
     return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
 
@@ -59,6 +65,7 @@ class Trainer():
         loss = self.criterion(target_output[:, mask, :], predicted_output[:, mask, :]) + \
                self.lambda_orth * L2_ortho(self.RNN) + \
                self.lambda_r * torch.mean(torch.abs(states) ** 2)
+
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -88,6 +95,7 @@ class Trainer():
             target_batch = torch.from_numpy(target_batch.astype("float32")).to(self.RNN.device)
             input_val = deepcopy(input_batch)
             target_output_val = deepcopy(target_batch)
+
             # input_val, target_output_val, conditions_val = self.Task.get_batch()
             # input_val = torch.from_numpy(input_val.astype("float32")).to(self.RNN.device)
             # target_output_val = torch.from_numpy(target_output_val.astype("float32")).to(self.RNN.device)
@@ -107,6 +115,7 @@ class Trainer():
                 self.RNN.output_layer.weight.data = torch.maximum(self.RNN.output_layer.weight.data, torch.tensor(0))
                 self.RNN.input_layer.weight.data = torch.maximum(self.RNN.input_layer.weight.data, torch.tensor(0))
                 # Dale's law
+                self.RNN.output_layer.weight.data *= self.RNN.output_mask.to(self.RNN.device)
                 self.RNN.recurrent_layer.weight.data = (
                         torch.maximum(self.RNN.recurrent_layer.weight.data * self.RNN.dale_mask,
                                       torch.tensor(0)) * self.RNN.dale_mask).to(self.RNN.device)

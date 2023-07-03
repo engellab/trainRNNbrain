@@ -21,10 +21,12 @@ class PerformanceAnalyzer():
         batch_size = input_batch.shape[2]
         self.RNN.clear_history()
         # self.RNN.y = np.repeat(deepcopy(self.RNN.y)[:, np.newaxis], axis=-1, repeats=batch_size)
-        trajectories, output_prediction = self.RNN.run_multiple_trajectories(input_timeseries=input_batch,
-                                                                             sigma_rec=sigma_rec,
-                                                                             sigma_inp=sigma_inp,
-                                                                             generator_numpy=rng_numpy)
+        self.RNN.run(input_timeseries=input_batch,
+                     sigma_rec=sigma_rec,
+                     sigma_inp=sigma_inp,
+                     generator_numpy=rng_numpy)
+        # trajectories = self.RNN.get_history()
+        output_prediction = self.RNN.get_output()
         avg_score = np.mean(
             [scoring_function(output_prediction[:, mask, i], target_batch[:, mask, i]) for i in range(batch_size)])
         return avg_score
@@ -36,10 +38,10 @@ class PerformanceAnalyzer():
         fig_output, axes = plt.subplots(batch_size, 1, figsize=(7, 8))
         self.RNN.clear_history()
         self.RNN.y = deepcopy(self.RNN.y_init)
-        self.RNN.run_multiple_trajectories(input_timeseries=input_batch,
-                                           sigma_rec=sigma_rec,
-                                           sigma_inp=sigma_inp,
-                                           generator_numpy=rng_numpy)
+        self.RNN.run(input_timeseries=input_batch,
+                    sigma_rec=sigma_rec,
+                    sigma_inp=sigma_inp,
+                    generator_numpy=rng_numpy)
         predicted_output = self.RNN.get_output()
         colors = ["r", "b", "g", "c", "m", "y", 'k']
         n_outputs = self.RNN.W_out.shape[0]
@@ -85,10 +87,10 @@ class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
                      sigma_inp=sigma_inp,
                      save_history=True)
         output = self.RNN.get_output()
-        if output.shape[0] == 2:
-            choices = np.sign(output[0, -1, :] - output[1, -1, :])
-        elif output.shape[0] == 1:
+        if output.shape[0] == 1:
             choices = np.sign(output[0, -1, :])
+        else:
+            choices = np.sign(output[0, -1, :] - output[1, -1, :])
         errors = np.sum(np.sum((target_batch[:, mask, :] - output[:, mask, :]) ** 2, axis=0), axis=0) / mask.shape[0]
 
         choices_to_right = (choices + 1) / 2
