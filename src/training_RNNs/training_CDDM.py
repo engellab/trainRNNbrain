@@ -7,7 +7,7 @@ from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM, DynamicSystemAnalyzerCDDM_tanh
 from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
 from src.RNN_numpy import RNN_numpy
-from src.utils import get_project_root, numpify, jsonify
+from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
 from src.Task import *
@@ -16,19 +16,31 @@ import torch
 import time
 # from src.datajoint_config import *
 
+taskname = 'CDDM'
+from pathlib import Path
+home = str(Path.home())
+if home == '/home/pt1290':
+    projects_folder = home
+    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{taskname}'
+    RNN_configs_path = home + '/rnn_coach/data/configs'
+elif home == '/Users/tolmach':
+    projects_folder = home + '/Documents/GitHub/'
+    data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{taskname}'
+    RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
+else:
+    pass
+
 disp = True
 activation = "relu"
-taskname = "CDDM"
 train_config_file = f"train_config_CDDM_relu;N=100;lmbdr=0.5;lmbdo=0.3.json"
 config_dict = json.load(
-    open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r", encoding='utf-8'))
+    open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 
 seed = np.random.randint(1000000)
 if torch.cuda.is_available():
     device = torch.device('cuda')
 else:
     device = torch.device('cpu')
-# device = torch.device('mps')
 rng = torch.Generator(device=torch.device(device))
 if not seed is None:
     rng.manual_seed(seed)
@@ -40,6 +52,7 @@ if activation_name == 'relu':
     activation = lambda x: torch.maximum(torch.tensor(0.0), x)
 elif activation_name == 'tanh':
     activation = torch.tanh
+
 dt = config_dict["dt"]
 tau = config_dict["tau"]
 constrained = config_dict["constrained"]
@@ -153,7 +166,7 @@ score = np.round(score, 7)
 data_folder = f'{score}_{taskname};{activation_name};N={N_reduced};lmbdo={lambda_orth};lmbdr={lambda_r};lr={lr};maxiter={max_iter}'
 if folder_tag != '':
     data_folder+=f";tag={folder_tag}"
-full_data_folder = os.path.join(config_dict["data_folder"], data_folder)
+full_data_folder = os.path.join(data_save_path, data_folder)
 datasaver = DataSaver(full_data_folder)
 
 print(f"MSE validation: {score}")

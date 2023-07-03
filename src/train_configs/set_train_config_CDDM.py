@@ -1,13 +1,23 @@
 import json
 import os
 import sys
-
 import numpy as np
-
-sys.path.insert(0, '../')
-sys.path.insert(0, '../../')
-from src.utils import get_project_root
 from datetime import date
+
+
+taskname = 'CDDM'
+from pathlib import Path
+home = str(Path.home())
+if home == '/home/pt1290':
+    projects_folder = home
+    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{taskname}'
+    RNN_configs_path = home + '/rnn_coach/data/configs'
+elif home == '/Users/tolmach':
+    projects_folder = home + '/Documents/GitHub/'
+    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{taskname}'
+    RNN_configs_path = home + '/rnn_coach/data/configs'
+else:
+    pass
 
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
@@ -24,7 +34,6 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-task_name = 'CDDM'
 n_inputs = 6
 n_outputs = 2
 T = 300
@@ -50,7 +59,7 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 1000
+max_iter = 3000
 tol = 1e-10
 lr = 0.002
 weight_decay = 1e-3
@@ -58,8 +67,7 @@ lambda_orth = 0.3
 lambda_r = 0.5
 same_batch = True
 extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth}'
-data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
-name_tag = f'{task_name}_{extra_info}'
+name_tag = f'{taskname}_{extra_info}'
 
 config_dict = {}
 config_dict["N"] = N
@@ -84,9 +92,8 @@ config_dict["same_batch"] = same_batch
 config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
 config_dict["lambda_r"] = lambda_r
-config_dict["data_folder"] = data_folder
 config_dict["folder_tag"] = ''
 
 json_obj = json.dumps(config_dict, indent=4)
-outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{name_tag}.json"), mode="w")
+outfile = open(os.path.join(RNN_configs_path, f"train_config_{name_tag}.json"), mode="w")
 outfile.write(json_obj)
