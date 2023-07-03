@@ -19,7 +19,7 @@ import time
 disp = True
 activation = "relu"
 taskname = "CDDM"
-train_config_file = f"train_config_CDDM_relu;N=100;lmbdr=5;lmbdo=0.3.json"
+train_config_file = f"train_config_CDDM_relu;N=100;lmbdr=0.5;lmbdo=0.3.json"
 config_dict = json.load(
     open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r", encoding='utf-8'))
 

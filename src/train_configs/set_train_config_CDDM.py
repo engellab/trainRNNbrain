@@ -53,9 +53,9 @@ task_params["seed"] = seed
 max_iter = 1000
 tol = 1e-10
 lr = 0.002
-weight_decay = 5e-6
+weight_decay = 1e-3
 lambda_orth = 0.3
-lambda_r = 5
+lambda_r = 0.5
 same_batch = True
 extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth}'
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
