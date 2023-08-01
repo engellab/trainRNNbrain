@@ -12,7 +12,7 @@ from datetime import date
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 300
+N = 100
 activation_name = 'tanh'
 constrained = False
 seed = None
@@ -24,10 +24,10 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-task_name = 'CDDM_tanh'
+task_name = 'CDDM'
 n_inputs = 4
 n_outputs = 2
-T = 330
+T = 300
 n_steps = int(T / dt)
 max_coherence = 0.8
 coherence_lvls = 7
@@ -43,12 +43,12 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 3000
+max_iter = 1000
 tol = 1e-10
 lr = 0.002
-weight_decay = 5e-6
-lambda_orth = 0.0
-lambda_r = 0.3
+weight_decay = 1e-3
+lambda_orth = 0.3
+lambda_r = 0.5
 same_batch = True
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))

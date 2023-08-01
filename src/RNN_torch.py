@@ -21,7 +21,8 @@ def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
     num_zeros = int(np.ceil(sparsity * rows))
 
     with torch.no_grad():
-        tnsr = torch.normal(torch.tensor(mean).to(device), torch.tensor(std).to(device),
+        tnsr = torch.normal(torch.from_numpy(np.array(mean)).to(device),
+                            torch.from_numpy(np.array(std)).to(device),
                             (rows, cols)).to(device)
         for col_idx in range(cols):
             row_indices = torch.randperm(rows, generator=generator, device=device)
@@ -151,7 +152,7 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     W_out = torch.abs(sparse(W_out, output_sparsity, mu_E, var, generator))
     W_out = torch.hstack([W_out, torch.zeros([num_outputs, Ni], device=device)]).float()
 
-    dale_mask = torch.sign(W_rec).to(device=device).float()
+    dale_mask = torch.concatenate([torch.ones(Ne), -torch.ones(Ni)])
     output_mask = (W_out != 0).to(device=device).float()
     input_mask = (W_inp != 0).to(device=device).float()
     # No self connectivity constraint
@@ -209,11 +210,11 @@ class RNN_torch(torch.nn.Module):
         self.tau = tau
         self.dt = dt
         self.alpha = torch.tensor((dt / tau)).to(self.device)
-        self.sigma_rec = torch.tensor(sigma_rec).to(self.device)
-        self.sigma_inp = torch.tensor(sigma_inp).to(self.device)
-        self.input_size = torch.tensor(input_size).to(self.device)
-        self.output_size = torch.tensor(output_size).to(self.device)
-        self.spectral_rad = torch.tensor(spectral_rad).to(self.device)
+        self.sigma_rec = torch.from_numpy(np.array(sigma_rec)).to(self.device)
+        self.sigma_inp = torch.from_numpy(np.array(sigma_inp)).to(self.device)
+        self.input_size = torch.from_numpy(np.array(input_size)).to(self.device)
+        self.output_size = torch.from_numpy(np.array(output_size)).to(self.device)
+        self.spectral_rad = torch.from_numpy(np.array(spectral_rad)).to(self.device)
         self.connectivity_density_rec = connectivity_density_rec
         self.constrained = constrained
         self.dale_mask = None

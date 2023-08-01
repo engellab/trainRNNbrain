@@ -110,15 +110,19 @@ class Trainer():
                 target_output_val = torch.from_numpy(target_output_val.astype("float32")).to(self.RNN.device)
 
             train_loss, error_vect = self.train_step(input=input_batch, target_output=target_batch, mask=train_mask)
+
+            # positivity of entries of W_inp and W_out
+            self.RNN.input_layer.weight.data = torch.maximum(self.RNN.input_layer.weight.data, torch.tensor(0))
+            self.RNN.output_layer.weight.data = torch.maximum(self.RNN.output_layer.weight.data, torch.tensor(0))
+
             if self.RNN.constrained:
-                # positivity of entries of W_inp and W_out
-                self.RNN.output_layer.weight.data = torch.maximum(self.RNN.output_layer.weight.data, torch.tensor(0))
-                self.RNN.input_layer.weight.data = torch.maximum(self.RNN.input_layer.weight.data, torch.tensor(0))
                 # Dale's law
                 self.RNN.output_layer.weight.data *= self.RNN.output_mask.to(self.RNN.device)
-                self.RNN.recurrent_layer.weight.data = (
-                        torch.maximum(self.RNN.recurrent_layer.weight.data * self.RNN.dale_mask,
-                                      torch.tensor(0)) * self.RNN.dale_mask).to(self.RNN.device)
+                self.RNN.inpput_layer.weight.data *= self.RNN.input_mask.to(self.RNN.device)
+                self.RNN.recurrent_layer.weight.data = torch.maximum(self.RNN.recurrent_layer.weight.data, torch.tensor(0))
+                self.RNN.recurrent_layer.weight.data *= self.RNN.dale_mask
+                # self.RNN.recurrent_layer.weight.data = (torch.maximum(self.RNN.recurrent_layer.weight.data * self.RNN.dale_mask,
+                #                       torch.tensor(0)) * self.RNN.dale_mask).to(self.RNN.device)
 
             # validation
             val_loss = self.eval_step(input_val, target_output_val, train_mask)

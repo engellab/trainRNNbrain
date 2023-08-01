@@ -16,7 +16,7 @@ import torch
 import time
 # from src.datajoint_config import *
 
-taskname = 'CDDM'
+taskname = 'CDDM_tanh'
 from pathlib import Path
 home = str(Path.home())
 if home == '/home/pt1290':
@@ -31,8 +31,8 @@ else:
     pass
 
 disp = True
-activation = "relu"
-train_config_file = f"train_config_CDDM_relu;N=16;lmbdr=0.5;lmbdo=0.3.json"
+activation = "tanh"
+train_config_file = f"train_config_CDDM_tanh.json"
 config_dict = json.load(
     open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 

@@ -75,7 +75,8 @@ import gc
 # for num_rnn in range(len(top_RNNs)):
 task_name = "CDDM"
 RNNs_path = os.path.join('../', '../', '../', "rnn_coach", "data", "trained_RNNs", task_name)
-RNN_folder = sys.argv[1]
+# RNN_folder = sys.argv[1]
+RNN_folder = '0.0113247_CDDM;relu;N=99;lmbdo=0.3;lmbdr=0.5;lr=0.002;maxiter=3000'
 RNN_score = float(RNN_folder.split("_")[0])
 RNN_path = os.path.join('../', '../', '../', "rnn_coach", "data", "trained_RNNs", task_name, RNN_folder)
 RNN_data = json.load(open(os.path.join(RNN_path, f"{RNN_score}_params_{task_name}.json"), "rb+"))

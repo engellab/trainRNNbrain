@@ -14,15 +14,15 @@ if home == '/home/pt1290':
     RNN_configs_path = home + '/rnn_coach/data/configs'
 elif home == '/Users/tolmach':
     projects_folder = home + '/Documents/GitHub/'
-    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{taskname}'
-    RNN_configs_path = home + '/rnn_coach/data/configs'
+    data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{taskname}'
+    RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
 else:
     pass
 
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 100
+N = 16
 activation_name = 'relu'
 constrained = True
 seed = None
@@ -59,9 +59,9 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 3000
+max_iter = 1000
 tol = 1e-10
-lr = 0.002
+lr = 0.005
 weight_decay = 1e-3
 lambda_orth = 0.3
 lambda_r = 0.5
