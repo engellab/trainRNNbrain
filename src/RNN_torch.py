@@ -66,7 +66,7 @@ def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1
     W_rec = W_rec - torch.diag(torch.diag(W_rec))
     w, v = torch.linalg.eig(W_rec)
     spec_radius = torch.max(torch.absolute(w))
-    W_rec = radius * W_rec / spec_radius
+    W_rec = torch.tensor(radius).to(device=device) * W_rec.to(device=device) / spec_radius.to(device=device)
 
     W_inp = torch.zeros([N, num_inputs], device=device).float()
     input_sparsity = 1 - input_density
@@ -140,7 +140,7 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     W_rec = W_rec - torch.diag(torch.diag(W_rec))
     w, v = torch.linalg.eig(W_rec)
     spec_radius = torch.max(torch.absolute(w))
-    W_rec = radius * W_rec / spec_radius
+    W_rec = torch.tensor(radius).to(device=device) * W_rec.to(device=device) / spec_radius.to(device=device)
     W_rec = W_rec.float()
 
     W_inp = torch.zeros([N, num_inputs]).float()

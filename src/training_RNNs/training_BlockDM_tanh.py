@@ -4,8 +4,8 @@ import sys
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.DataSaver import DataSaver
-from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM, DynamicSystemAnalyzerCDDM_tanh
-from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
+from src.DynamicSystemAnalyzer import DynamicSystemAnalyzer
+from src.PerformanceAnalyzer import PerformanceAnalyzer
 from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
@@ -16,7 +16,7 @@ import torch
 import time
 # from src.datajoint_config import *
 
-taskname = 'CDDM_tanh'
+taskname = 'BlockDMtanh'
 from pathlib import Path
 home = str(Path.home())
 if home == '/home/pt1290':
@@ -32,7 +32,7 @@ else:
 
 disp = True
 activation = "tanh"
-train_config_file = f"train_config_CDDM_tanh.json"
+train_config_file = f"train_config_BlockDM_tanh.json"
 config_dict = json.load(
     open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 
@@ -91,11 +91,7 @@ rnn_torch = RNN_torch(N=N, dt=dt, tau=tau, input_size=input_size, output_size=ou
                       spectral_rad=spectral_rad,
                       random_generator=rng)
 
-input_mask = torch.zeros(N, 4)
-input_mask[:4, :4] = torch.eye(4)
-rnn_torch.input_layer.weight.data = deepcopy(input_mask)
-rnn_torch.input_mask = deepcopy(input_mask)
-task = eval("Task"+taskname)(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
+task = eval("Task"+taskname)(n_steps=n_steps, task_params=task_params)
 criterion = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(rnn_torch.parameters(),
                              lr=lr,
@@ -123,6 +119,7 @@ config_dict["N"] = N_reduced
 N = N_reduced
 W_rec = net_params["W_rec"][inds_fr, :]
 W_rec = W_rec[:, inds_fr]
+
 net_params["W_rec"] = deepcopy(W_rec)
 W_out = net_params["W_out"][:, inds_fr]
 net_params["W_out"] = deepcopy(W_out)
@@ -143,8 +140,7 @@ rnn_trained.set_params(RNN_params)
 coherences_valid = np.linspace(-1, 1, 11)
 task_params_valid = deepcopy(task_params)
 task_params_valid["coherences"] = coherences_valid
-task = eval("Task"+taskname)(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params_valid)
-
+task = eval("Task"+taskname)(n_steps=n_steps, task_params=task_params_valid)
 
 if activation_name == 'relu':
     def activation(x):
@@ -163,7 +159,7 @@ RNN_valid = RNN_numpy(N=net_params["N"],
                       bias_rec=net_params["bias_rec"],
                       y_init=net_params["y_init"])
 
-analyzer = PerformanceAnalyzerCDDM(RNN_valid)
+analyzer = PerformanceAnalyzer(RNN_valid)
 score_function = lambda x, y: np.mean((x - y) ** 2)
 input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
 score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid, mask, sigma_rec=0, sigma_inp=0)
@@ -198,96 +194,7 @@ if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_trials, f"{score}_random_trials.png")
 
-print(f"Plotting psychometric data")
-num_levels = len(task_params_valid["coherences"])
-analyzer.calc_psychometric_data(task, mask, num_levels=num_levels, num_repeats=31, sigma_rec=0.03, sigma_inp=0.03)
-fig_psycho = analyzer.plot_psychometric_data()
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_psycho, f"{score}_psychometric_data.png")
-if not (datasaver is None): datasaver.save_data(jsonify(analyzer.psychometric_data), f"{score}_psycho_data.json")
 
-print(f"Analyzing fixed points")
-if activation_name == 'tanh':
-    dsa = DynamicSystemAnalyzerCDDM_tanh(RNN_valid)
-else:
-    dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
-params = {"fun_tol": 0.05,
-          "diff_cutoff": 1e-4,
-          "sigma_init_guess": 5,
-          "patience": 50,
-          "stop_length": 50,
-          "mode": "approx"}
-if activation_name == 'tanh':
-    dsa.get_fixed_points(Input=np.array([1, 0, 0.0, 0.0]), **params)
-    dsa.get_fixed_points(Input=np.array([0, 1, 0.0, 0.0]), **params)
-else:
-    dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
-    dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
-print(f"Calculating Line Attractor analytics")
-dsa.calc_LineAttractor_analytics()
 
-fig_LA3D = dsa.plot_LineAttractor_3D()
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_LA3D, f"{score}_LA_3D.png")
-if not (datasaver is None): datasaver.save_data(jsonify(dsa.fp_data), f"{score}_fp_data.json")
-if not (datasaver is None): datasaver.save_data(dsa.LA_data, f"{score}_LA_data.pkl")
 
-fig_RHS = dsa.plot_RHS_over_LA()
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_RHS, f"{score}_LA_RHS.png")
 
-# rnn_dj = RNNDJ()
-# task_dj = TaskDJ()
-# trainer_dj = TrainerDJ()
-# cddm_analysis_dj = CDDMRNNAnalysisDJ()
-#
-# task_id = 0
-# trainer_id = 0
-# rnn_timestamp = time.strftime("%Y%m%d%H%M%S")
-#
-# task_dj_dict = {"task_name": taskname + "_" + str(task_id),
-#                 "n_steps": config_dict["n_steps"],
-#                 "n_inputs": config_dict["num_inputs"],
-#                 "n_outputs": config_dict["num_outputs"],
-#                 "task_params": config_dict["task_params"],
-#                 "mask": mask}
-# trainer_dj_dict = {"task_name": taskname + "_" + str(task_id),
-#                    "trainer_id": trainer_id,
-#                    "max_iter": config_dict["max_iter"],
-#                    "tol": config_dict["tol"],
-#                    "lr": config_dict["lr"],
-#                    "lambda_orth": config_dict["lambda_orth"],
-#                    "lambda_r": config_dict["lambda_r"],
-#                    "same_batch" : config_dict["same_batch"],
-#                    "shuffle" : False}
-# rnn_dj_dict = {"task_name": taskname + "_" + str(task_id),
-#                "rnn_timestamp" : rnn_timestamp,
-#                "trainer_id" : trainer_id,
-#                "n": config_dict["N"],
-#                "activation_name": config_dict["activation"],
-#                "constrained": config_dict["constrained"],
-#                "dt": config_dict["dt"],
-#                "tau": config_dict["tau"],
-#                "sr": config_dict["sr"],
-#                "connectivity_density_rec": config_dict["connectivity_density_rec"],
-#                "sigma_rec" : config_dict["sigma_rec"],
-#                "sigma_inp": config_dict["sigma_inp"],
-#                "w_inp" : net_params["W_inp"],
-#                "w_rec" : net_params["W_rec"],
-#                "w_out" : net_params["W_out"],
-#                "b_rec" : 0 if net_params["bias_rec"] is None else net_params["bias_rec"]}
-# cddm_analysis_dj_dict = {"task_name": taskname + "_" + str(task_id),
-#                          "rnn_timestamp" : rnn_timestamp,
-#                          "trainer_id": trainer_id,
-#                          "mse_score": score,
-#                          "psycho_data": deepcopy(analyzer.psychometric_data),
-#                          "fp_data": deepcopy(dsa.fp_data),
-#                          "la_data": deepcopy(dsa.LA_data)}
-#
-# task_dj.insert1(task_dj_dict, skip_duplicates=True)
-# rnn_dj.insert1(rnn_dj_dict, skip_duplicates=True)
-# trainer_dj.insert1(trainer_dj_dict, skip_duplicates=True)
-# trainer_dj.insert1(trainer_dj_dict, skip_duplicates=True)

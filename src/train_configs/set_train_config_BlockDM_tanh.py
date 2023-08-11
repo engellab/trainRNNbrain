@@ -12,7 +12,7 @@ from datetime import date
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 8
+N = 100
 activation_name = 'tanh'
 constrained = False
 seed = None
@@ -24,14 +24,13 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-task_name = 'CDDM'
-n_inputs = 4
+task_name = 'BlockDM'
+n_inputs = 2
 n_outputs = 1
 T = 300
 n_steps = int(T / dt)
 max_coherence = 0.8
 coherence_lvls = 7
-
 mask = np.concatenate([np.arange(int(n_steps // 3)), int(2 * n_steps // 3) + np.arange(int(n_steps // 3))]).tolist()
 task_params = {"cue_on": 0, "cue_off": n_steps,
                "stim_on": int(n_steps // 3), "stim_off": n_steps,
