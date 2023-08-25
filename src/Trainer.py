@@ -21,7 +21,7 @@ def L2_ortho(rnn, X=None, y=None):
     return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
 
 
-def print_iteration_info(iter, train_loss, min_train_loss, val_loss, min_val_loss):
+def print_iteration_info(iter, train_loss, min_train_loss, val_loss=None, min_val_loss=None):
     gr_prfx = '\033[92m'
     gr_sfx = '\033[0m'
 
@@ -118,11 +118,9 @@ class Trainer():
             if self.RNN.constrained:
                 # Dale's law
                 self.RNN.output_layer.weight.data *= self.RNN.output_mask.to(self.RNN.device)
-                self.RNN.inpput_layer.weight.data *= self.RNN.input_mask.to(self.RNN.device)
-                self.RNN.recurrent_layer.weight.data = torch.maximum(self.RNN.recurrent_layer.weight.data, torch.tensor(0))
-                self.RNN.recurrent_layer.weight.data *= self.RNN.dale_mask
-                # self.RNN.recurrent_layer.weight.data = (torch.maximum(self.RNN.recurrent_layer.weight.data * self.RNN.dale_mask,
-                #                       torch.tensor(0)) * self.RNN.dale_mask).to(self.RNN.device)
+                self.RNN.input_layer.weight.data *= self.RNN.input_mask.to(self.RNN.device)
+                self.RNN.recurrent_layer.weight.data = (torch.maximum(self.RNN.recurrent_layer.weight.data * self.RNN.dale_mask,
+                                      torch.tensor(0)) * self.RNN.dale_mask).to(self.RNN.device)
 
             # validation
             val_loss = self.eval_step(input_val, target_output_val, train_mask)

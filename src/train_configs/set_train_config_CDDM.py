@@ -22,7 +22,7 @@ else:
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 16
+N = 50
 activation_name = 'relu'
 constrained = True
 seed = None
