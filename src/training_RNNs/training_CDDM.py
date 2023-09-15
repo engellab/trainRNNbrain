@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.DataSaver import DataSaver
-from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM, DynamicSystemAnalyzerCDDM_tanh
+from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM
 from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
 from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
@@ -31,8 +31,8 @@ else:
     pass
 
 disp = True
-activation = "relu"
-train_config_file = f"train_config_CDDM_relu;N=16;lmbdr=0.5;lmbdo=0.3.json"
+activation = "tanh"
+train_config_file = f"train_config_CDDM_tanh;N=100;lmbdr=0.5;lmbdo=0.3.json"
 config_dict = json.load(
     open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 
@@ -51,7 +51,7 @@ activation_name = config_dict["activation"]
 if activation_name == 'relu':
     activation = lambda x: torch.maximum(torch.tensor(0.0), x)
 elif activation_name == 'tanh':
-    activation = torch.tanh
+    activation = lambda x: torch.tanh(x)
 
 dt = config_dict["dt"]
 tau = config_dict["tau"]
@@ -203,22 +203,15 @@ if not (datasaver is None): datasaver.save_figure(fig_psycho, f"{score}_psychome
 if not (datasaver is None): datasaver.save_data(jsonify(analyzer.psychometric_data), f"{score}_psycho_data.json")
 
 print(f"Analyzing fixed points")
-if activation_name == 'tanh':
-    dsa = DynamicSystemAnalyzerCDDM_tanh(RNN_valid)
-else:
-    dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
+dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
 params = {"fun_tol": 0.05,
           "diff_cutoff": 1e-4,
           "sigma_init_guess": 5,
           "patience": 50,
           "stop_length": 50,
           "mode": "approx"}
-if activation_name == 'tanh':
-    dsa.get_fixed_points(Input=np.array([1, 0, 0.0, 0.0]), **params)
-    dsa.get_fixed_points(Input=np.array([0, 1, 0.0, 0.0]), **params)
-else:
-    dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
-    dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
+dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
+dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
 print(f"Calculating Line Attractor analytics")
 dsa.calc_LineAttractor_analytics()
 

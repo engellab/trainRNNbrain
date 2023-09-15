@@ -5,7 +5,7 @@ import numpy as np
 from datetime import date
 
 
-taskname = 'CDDM'
+taskname = 'ColorDiscrimination'
 from pathlib import Path
 home = str(Path.home())
 if home == '/home/pt1290':
@@ -23,8 +23,8 @@ date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
 N = 50
-activation_name = 'tanh'
-constrained = False
+activation_name = 'relu'
+constrained = True
 seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
@@ -34,32 +34,21 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-n_inputs = 6
-n_outputs = 2
-T = 300
+n_inputs = 3
+n_outputs = 12
+T = 120
 n_steps = int(T / dt)
 max_coherence = 1
 coherence_lvls = 7
 
-mask = np.concatenate([np.arange(int(n_steps // 3)), int(2 * n_steps // 3) + np.arange(int(n_steps // 3))]).tolist()
+mask = np.arange(int(n_steps // 3), n_steps).tolist()
 
-# task_params = {"cue_on": int(0.1 * n_steps), "cue_off": n_steps//3,
-#                "stim_on": int(0.4 * n_steps), "stim_off": n_steps,
-#                "dec_on": int(3 * n_steps // 4), "dec_off": n_steps,
-#                "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
-
-task_params = {"cue_on": 0, "cue_off": n_steps,
-               "stim_on": int(n_steps // 3), "stim_off": n_steps,
-               "dec_on": int(2 * n_steps // 3), "dec_off": n_steps,
-               "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
-
-tmp = max_coherence * np.logspace(-(coherence_lvls - 1), 0, coherence_lvls, base=2)
-coherences = np.concatenate([-np.array(tmp[::-1]), np.array([0]), np.array(tmp)]).tolist()
-task_params["coherences"] = coherences
+task_params = {"color_on": int(n_steps // 3), "color_off": n_steps,
+               "n_steps": n_steps}
 task_params["seed"] = seed
 
 # training specific
-max_iter = 1000
+max_iter = 3000
 tol = 1e-10
 lr = 0.005
 weight_decay = 1e-3

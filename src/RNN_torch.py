@@ -120,10 +120,10 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     W_rec = torch.empty([0, N], device=device)
 
     # Balancing parameters
-    mu_E = 1 / torch.sqrt(torch.tensor(N, device=device))
-    mu_I = 4 / torch.sqrt(torch.tensor(N, device=device))
+    mu_E = 1 / np.sqrt(N)
+    mu_I = 4 / np.sqrt(N)
 
-    var = torch.tensor(1 / N, device=device)
+    var = 1 / N
     # generating excitatory part of connectivity and an inhibitory part of connectivity:
     rowE = torch.empty([Ne, 0], device=device)
     rowI = torch.empty([Ni, 0], device=device)
@@ -152,7 +152,7 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     W_out = torch.abs(sparse(W_out, output_sparsity, mu_E, var, generator))
     W_out = torch.hstack([W_out, torch.zeros([num_outputs, Ni], device=device)]).float()
 
-    dale_mask = torch.concatenate([torch.ones(Ne), -torch.ones(Ni)])
+    dale_mask = torch.cat([torch.ones(Ne), -torch.ones(Ni)])
     output_mask = (W_out != 0).to(device=device).float()
     input_mask = (W_inp != 0).to(device=device).float()
     # No self connectivity constraint

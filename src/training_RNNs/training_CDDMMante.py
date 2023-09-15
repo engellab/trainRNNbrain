@@ -32,7 +32,7 @@ else:
 
 disp = True
 activation = "tanh"
-train_config_file = f"train_config_CDDM_tanh.json"
+train_config_file = f"train_config_CDDMMante.json"
 config_dict = json.load(
     open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 
