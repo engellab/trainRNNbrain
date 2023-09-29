@@ -16,7 +16,6 @@ lightweight numpy implementation of RNN for validation and quick testing and plo
 def ReLU(x):
     return np.maximum(x, 0)
 
-
 class RNN_numpy():
     def __init__(self, N, dt, tau, W_inp, W_rec, W_out, bias_rec=None, activation=ReLU, y_init=None):
         self.N = N

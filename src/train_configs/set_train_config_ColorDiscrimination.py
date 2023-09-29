@@ -22,7 +22,7 @@ else:
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 50
+N = 100
 activation_name = 'relu'
 constrained = True
 seed = None
@@ -35,27 +35,26 @@ connectivity_density_rec = 1.0
 
 # task specific
 n_inputs = 3
-n_outputs = 12
+n_outputs = 7
 T = 120
 n_steps = int(T / dt)
-max_coherence = 1
-coherence_lvls = 7
-
 mask = np.arange(int(n_steps // 3), n_steps).tolist()
 
-task_params = {"color_on": int(n_steps // 3), "color_off": n_steps,
+task_params = {"color_on": 0,
+               "color_off": n_steps,
                "n_steps": n_steps}
 task_params["seed"] = seed
 
 # training specific
-max_iter = 3000
+max_iter = 1000
 tol = 1e-10
 lr = 0.005
 weight_decay = 1e-3
 lambda_orth = 0.3
 lambda_r = 0.5
+lambda_smooth = 0.1
 same_batch = True
-extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth}'
+extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};lmbds={lambda_smooth}'
 name_tag = f'{taskname}_{extra_info}'
 
 config_dict = {}
@@ -81,6 +80,7 @@ config_dict["same_batch"] = same_batch
 config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
 config_dict["lambda_r"] = lambda_r
+config_dict["lambda_smooth"] = lambda_smooth
 config_dict["folder_tag"] = ''
 
 json_obj = json.dumps(config_dict, indent=4)

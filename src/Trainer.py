@@ -60,11 +60,16 @@ class Trainer():
         self.lambda_orth = lambda_orth
         self.lambda_r = lambda_r
 
-    def train_step(self, input, target_output, mask):
+    def train_step(self, input, target_output, mask, penalty_dict = None):
         states, predicted_output = self.RNN(input)
         loss = self.criterion(target_output[:, mask, :], predicted_output[:, mask, :]) + \
                self.lambda_orth * L2_ortho(self.RNN) + \
                self.lambda_r * torch.mean(torch.abs(states) ** 2)
+
+        # if you want some extra penalty you can define it in the dictionary `penalty_dict'
+        if not (penalty_dict is None):
+            penalty_function = penalty_dict["penalty_function"]
+            loss += penalty_dict["lambda_smooth"] * penalty_function(states)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -82,7 +87,7 @@ class Trainer():
                        self.lambda_r * torch.mean(torch.abs(states) ** 2)
             return float(val_loss.cpu().numpy())
 
-    def run_training(self, train_mask, same_batch=False):
+    def run_training(self, train_mask, same_batch=False, penalty_dict = None):
         train_losses = []
         val_losses = []
         self.RNN.train()  # puts the RNN into training mode (sets update_grad = True)
@@ -109,7 +114,10 @@ class Trainer():
                 input_val = torch.from_numpy(input_val.astype("float32")).to(self.RNN.device)
                 target_output_val = torch.from_numpy(target_output_val.astype("float32")).to(self.RNN.device)
 
-            train_loss, error_vect = self.train_step(input=input_batch, target_output=target_batch, mask=train_mask)
+            train_loss, error_vect = self.train_step(input=input_batch,
+                                                     target_output=target_batch,
+                                                     mask=train_mask,
+                                                     penalty_dict=penalty_dict)
 
             # positivity of entries of W_inp and W_out
             self.RNN.input_layer.weight.data = torch.maximum(self.RNN.input_layer.weight.data, torch.tensor(0))
@@ -119,8 +127,9 @@ class Trainer():
                 # Dale's law
                 self.RNN.output_layer.weight.data *= self.RNN.output_mask.to(self.RNN.device)
                 self.RNN.input_layer.weight.data *= self.RNN.input_mask.to(self.RNN.device)
-                self.RNN.recurrent_layer.weight.data = (torch.maximum(self.RNN.recurrent_layer.weight.data * self.RNN.dale_mask,
-                                      torch.tensor(0)) * self.RNN.dale_mask).to(self.RNN.device)
+                self.RNN.recurrent_layer.weight.data = (torch.maximum(
+                    self.RNN.recurrent_layer.weight.data * self.RNN.dale_mask.to(self.RNN.device),
+                                      torch.tensor(0)) * self.RNN.dale_mask.to(self.RNN.device)).to(self.RNN.device)
 
             # validation
             val_loss = self.eval_step(input_val, target_output_val, train_mask)

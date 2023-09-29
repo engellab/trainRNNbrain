@@ -664,7 +664,7 @@ class TaskBlockDMtanh(Task):
 
 
 class TaskColorDiscrimination(Task):
-    def __init__(self, n_steps,n_inputs=3, n_outputs=12, task_params=None):
+    def __init__(self, n_steps,n_inputs=3, n_outputs=7, task_params=None):
 
         '''
         Given a rgb color get lms representation and then get the hsv representation
@@ -677,28 +677,28 @@ class TaskColorDiscrimination(Task):
         Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
         self.n_steps = n_steps
         self.n_inputs = 3
-        self.n_outputs = 12
+        self.n_outputs = 7
         self.color_on = task_params["color_on"]
         self.color_off = task_params["color_off"]
-        #rgb to xyz
-        self.A = np.array([[0.4124564, 0.3575761, 0.1804375],
-                           [0.2126729, 0.7151522, 0.0721750],
-                           [0.0193339, 0.1191920, 0.9503041]])
-        # self.A = np.linalg.inv(self.A_inv)
-        #xyz to lms
-        self.B = np.array([[0.4002, 0.7076, 0.0808],
-                           [-0.2263, 1.1653, 0.0457],
-                            [0, 0, 0.9182]])
+        #xyz to rgb:
+        self.Mxyzrgb = np.array([[0.401288, 0.650173, -0.051561],
+                                 [-0.250268, 1.204414, 0.045854],
+                                 [-0.002079, 0.048952, 0.953127]])
+        self.Mrgbxyz = np.linalg.inv(self.Mxyzrgb)
+        self.Mxyzlms = np.array([[0.4002, 0.7076, -0.0808],
+                                 [-0.2263, 1.1653, 0.0457],
+                                 [0.0000, 0.0000, 0.9182]])
 
-        self.colors = ["red", "vermillion", "orange", "amber",
-                       "yellow", "chartreuse", "green", "cyan",
-                       "blue", "indigo", "violet", "magenta"]
+        # self.colors = ["red", "vermillion", "orange", "amber",
+        #                "yellow", "chartreuse", "green", "cyan",
+        #                "blue", "indigo", "violet", "magenta"]
+        self.colors = ["red", "orange", "yellow", "green", "cyan", "blue", "magenta"]
         self.rgb_to_hsv = colorsys.rgb_to_hsv
         self.hsv_to_rgb = colorsys.hsv_to_rgb
 
     def generate_input_target_stream(self, rgb):
         target_stream = np.zeros((self.n_outputs, self.n_steps))
-        lms = self.B @ self.A @ (np.array(rgb))
+        lms = np.clip(self.Mxyzlms @ self.Mrgbxyz @ (np.array(rgb)), 0, 1)
         input_stream = np.hstack([lms.reshape(-1, 1)] * self.n_steps)
         hue = self.rgb_to_hsv(*rgb)[0]
         # bin hue into 12 colors
