@@ -33,7 +33,7 @@ else:
 
 disp = True
 activation = "relu"
-train_config_file = f"train_config_{taskname}_{activation};N=150;lmbdr=0.5;lmbdo=0.3;lmbds=0.03.json"
+train_config_file = f"train_config_{taskname}_{activation};N=70;lmbdr=0.5;lmbdo=0.3;lmbds=0.00.json"
 config_dict = json.load(
     open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 

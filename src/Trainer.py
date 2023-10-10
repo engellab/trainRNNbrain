@@ -66,10 +66,10 @@ class Trainer():
                self.lambda_orth * L2_ortho(self.RNN) + \
                self.lambda_r * torch.mean(torch.abs(states) ** 2)
 
-        # if you want some extra penalty you can define it in the dictionary `penalty_dict'
-        if not (penalty_dict is None):
-            penalty_function = penalty_dict["penalty_function"]
-            loss += penalty_dict["lambda_smooth"] * penalty_function(states)
+        # # if you want some extra penalty you can define it in the dictionary `penalty_dict'
+        # if not (penalty_dict is None):
+        #     penalty_function = penalty_dict["penalty_function"]
+        #     loss += penalty_dict["lambda_smooth"] * penalty_function(states)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -87,7 +87,7 @@ class Trainer():
                        self.lambda_r * torch.mean(torch.abs(states) ** 2)
             return float(val_loss.cpu().numpy())
 
-    def run_training(self, train_mask, same_batch=False, penalty_dict = None):
+    def run_training(self, train_mask, same_batch=False, shuffle=False, penalty_dict = None):
         train_losses = []
         val_losses = []
         self.RNN.train()  # puts the RNN into training mode (sets update_grad = True)
@@ -95,7 +95,7 @@ class Trainer():
         min_val_loss = np.inf
         best_net_params = deepcopy(self.RNN.get_params())
         if same_batch:
-            input_batch, target_batch, conditions_batch = self.Task.get_batch()
+            input_batch, target_batch, conditions_batch = self.Task.get_batch(shuffle=shuffle)
             input_batch = torch.from_numpy(input_batch.astype("float32")).to(self.RNN.device)
             target_batch = torch.from_numpy(target_batch.astype("float32")).to(self.RNN.device)
             input_val = deepcopy(input_batch)
@@ -107,12 +107,11 @@ class Trainer():
 
         for iter in range(self.max_iter):
             if not same_batch:
-                input_batch, target_batch, conditions_batch = self.Task.get_batch()
+                input_batch, target_batch, conditions_batch = self.Task.get_batch(shuffle=shuffle)
                 input_batch = torch.from_numpy(input_batch.astype("float32")).to(self.RNN.device)
                 target_batch = torch.from_numpy(target_batch.astype("float32")).to(self.RNN.device)
-                input_val, target_output_val, conditions_val = self.Task.get_batch()
-                input_val = torch.from_numpy(input_val.astype("float32")).to(self.RNN.device)
-                target_output_val = torch.from_numpy(target_output_val.astype("float32")).to(self.RNN.device)
+                input_val = deepcopy(input_batch)
+                target_output_val = deepcopy(target_batch)
 
             train_loss, error_vect = self.train_step(input=input_batch,
                                                      target_output=target_batch,

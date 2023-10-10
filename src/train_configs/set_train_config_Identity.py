@@ -1,62 +1,50 @@
 import json
 import os
 import sys
-import numpy as np
 from datetime import date
 
+import numpy as np
 
-taskname = 'ColorDiscrimination'
-from pathlib import Path
-home = str(Path.home())
-if home == '/home/pt1290':
-    projects_folder = home
-    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{taskname}'
-    RNN_configs_path = home + '/rnn_coach/data/configs'
-elif home == '/Users/tolmach':
-    projects_folder = home + '/Documents/GitHub/'
-    data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{taskname}'
-    RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
-else:
-    pass
+sys.path.insert(0, '../../')
+sys.path.insert(0, '../../../')
+from src.utils import get_project_root
 
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 150
+N = 50
 activation_name = 'relu'
 constrained = True
 seed = None
-sigma_inp = 0.05
-sigma_rec = 0.05
+sigma_inp = 0.03
+sigma_rec = 0.03
 dt = 1
 tau = 10
 sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
+task_name = 'Identity'
 n_inputs = 3
-n_outputs = 12
-T = 120
+n_outputs = 3
+T = 30
 n_steps = int(T / dt)
-mask = np.arange(int(n_steps // 3), n_steps).tolist()
-
-task_params = {"color_on": 0,
-               "color_off": n_steps,
-               "n_steps": n_steps}
+task_params = dict()
 task_params["seed"] = seed
+mask = np.concatenate([np.arange(n_steps)]).tolist()  # using the whole trial
 
 # training specific
-max_iter = 1000
+max_iter = 200
 tol = 1e-10
-lr = 0.01
-weight_decay = 1e-3
+lr = 0.02
+weight_decay = 5e-6
 lambda_orth = 0.3
-lambda_r = 0.5
-lambda_smooth = 0.0
-same_batch = True
+lambda_r = 0.1
+same_batch = False  # generate new batch in each train loop
 shuffle = False
-extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};lmbds={lambda_smooth}'
-name_tag = f'{taskname}_{extra_info}'
+
+data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
+config_tag = f'{task_name}_{activation_name}'
 
 config_dict = {}
 config_dict["N"] = N
@@ -78,13 +66,12 @@ config_dict["mask"] = mask
 config_dict["tol"] = tol
 config_dict["lr"] = lr
 config_dict["same_batch"] = same_batch
-config_dict["shuffle"] = shuffle
 config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
 config_dict["lambda_r"] = lambda_r
-config_dict["lambda_smooth"] = lambda_smooth
+config_dict["data_folder"] = data_folder
 config_dict["folder_tag"] = ''
 
 json_obj = json.dumps(config_dict, indent=4)
-outfile = open(os.path.join(RNN_configs_path, f"train_config_{name_tag}.json"), mode="w")
+outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{config_tag}.json"), mode="w")
 outfile.write(json_obj)
