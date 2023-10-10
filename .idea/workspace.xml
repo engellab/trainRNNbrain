@@ -5,14 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Identity.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/Analyzing MemoryAntiAngle.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/Analyzing MemoryAntiAngle.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Task.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Task.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/configs/train_config_NBitFlipFlop_tanh.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/configs/train_config_NBitFlipFlop_tanh.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/RNN_torch.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_torch.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Trainer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_ColorDiscrimination.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_ColorDiscrimination.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -80,7 +78,7 @@
     </key>
   </component>
   <component name="RunManager" selected="Python.training_Identity">
-    <configuration name="set_train_config_ColorDiscrimination" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="RNN_torch" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -88,11 +86,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/train_configs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_ColorDiscrimination.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/RNN_torch.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -122,7 +120,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="test (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="set_train_config_NBitFlipFlop" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -130,32 +128,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training_RNNs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/train_configs" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/test.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="training_ColorDiscrimination" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training_RNNs" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_NBitFlipFlop.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -185,20 +162,41 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="training_NBitFlipFlop" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="rnn_coach" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training_RNNs" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <list>
-      <item itemvalue="Python.set_train_config_ColorDiscrimination" />
-      <item itemvalue="Python.training_ColorDiscrimination" />
-      <item itemvalue="Python.test (1)" />
       <item itemvalue="Python.set_train_config_Identity" />
       <item itemvalue="Python.training_Identity" />
+      <item itemvalue="Python.RNN_torch" />
+      <item itemvalue="Python.training_NBitFlipFlop" />
+      <item itemvalue="Python.set_train_config_NBitFlipFlop" />
     </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.training_Identity" />
+        <item itemvalue="Python.training_NBitFlipFlop" />
+        <item itemvalue="Python.set_train_config_NBitFlipFlop" />
+        <item itemvalue="Python.RNN_torch" />
         <item itemvalue="Python.set_train_config_Identity" />
-        <item itemvalue="Python.set_train_config_ColorDiscrimination" />
-        <item itemvalue="Python.test (1)" />
-        <item itemvalue="Python.training_ColorDiscrimination" />
       </list>
     </recent_temporary>
   </component>

@@ -112,7 +112,6 @@ RNN_valid = RNN_numpy(N=best_net_params["N"],
                       W_inp=best_net_params["W_inp"],
                       W_rec=best_net_params["W_rec"],
                       W_out=best_net_params["W_out"],
-                      bias_rec=best_net_params["bias_rec"],
                       y_init=best_net_params["y_init"])
 
 analyzer = PerformanceAnalyzer(RNN_valid)

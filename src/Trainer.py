@@ -16,7 +16,7 @@ def L2_ortho(rnn, X=None, y=None):
     # return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
 
     # Pair-wise orthogonalization input columns only
-    b = rnn.input_layer.weight
+    b = rnn.W_inp
     b = b / torch.norm(b, dim=0)
     return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
 
@@ -119,15 +119,15 @@ class Trainer():
                                                      penalty_dict=penalty_dict)
 
             # positivity of entries of W_inp and W_out
-            self.RNN.input_layer.weight.data = torch.maximum(self.RNN.input_layer.weight.data, torch.tensor(0))
-            self.RNN.output_layer.weight.data = torch.maximum(self.RNN.output_layer.weight.data, torch.tensor(0))
+            self.RNN.W_inp.data = torch.maximum(self.RNN.W_inp.data, torch.tensor(0))
+            self.RNN.W_out.data = torch.maximum(self.RNN.W_out.data, torch.tensor(0))
 
             if self.RNN.constrained:
                 # Dale's law
-                self.RNN.output_layer.weight.data *= self.RNN.output_mask.to(self.RNN.device)
-                self.RNN.input_layer.weight.data *= self.RNN.input_mask.to(self.RNN.device)
-                self.RNN.recurrent_layer.weight.data = (torch.maximum(
-                    self.RNN.recurrent_layer.weight.data * self.RNN.dale_mask.to(self.RNN.device),
+                self.RNN.W_out.data *= self.RNN.output_mask.to(self.RNN.device)
+                self.RNN.W_inp.data *= self.RNN.input_mask.to(self.RNN.device)
+                self.RNN.W_rec.data = (torch.maximum(
+                    self.RNN.W_rec.data * self.RNN.dale_mask.to(self.RNN.device),
                                       torch.tensor(0)) * self.RNN.dale_mask.to(self.RNN.device)).to(self.RNN.device)
 
             # validation

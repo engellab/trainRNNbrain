@@ -226,10 +226,7 @@ class RNN_torch(torch.nn.Module):
             self.y_init = torch.zeros(self.N)
 
         self.random_generator = random_generator
-        self.input_layer = (torch.nn.Linear(self.input_size, self.N, bias=False)).to(self.device)
-        self.recurrent_layer = torch.nn.Linear(self.N, self.N, bias=(False if (bias_rec is None) else bias_rec)).to(
-            self.device)
-        self.output_layer = torch.nn.Linear(self.N, self.output_size, bias=False).to(self.device)
+
 
         if self.constrained:
             # imposing a bunch of constraint on the connectivity:
@@ -245,11 +242,12 @@ class RNN_torch(torch.nn.Module):
                                  radius=self.spectral_rad,
                                  generator=self.random_generator,
                                  recurrent_density=self.connectivity_density_rec)
-        self.output_layer.weight.data = W_out.to(self.device)
-        self.input_layer.weight.data = W_inp.to(self.device)
-        self.recurrent_layer.weight.data = W_rec.to(self.device)
-        if bias_rec is None:
-            self.recurrent_layer.bias = None
+        self.W_out = torch.nn.Parameter(W_out.to(self.device))
+        self.W_rec = torch.nn.Parameter(W_rec.to(self.device))
+        self.W_inp = torch.nn.Parameter(W_inp.to(self.device))
+
+    def rhs(self, s, I, i_noise, r_noise):
+        return -s + self.activation(self.W_rec @ s + self.W_inp @ (I + i_noise)) + r_noise
 
     def forward(self, u, w_noise=True):
         '''
@@ -269,23 +267,21 @@ class RNN_torch(torch.nn.Module):
                         * torch.randn(*rec_noise.shape, generator=self.random_generator, device=self.device)
             inp_noise = torch.sqrt((2 / self.alpha) * self.sigma_inp ** 2) \
                         * torch.randn(*inp_noise.shape, generator=self.random_generator, device=self.device)
-        # passing through layers require batch-first shape!
-        # that's why we need to reshape the inputs and states!
-        states = torch.swapaxes(states, 0, -1)
-        u = torch.swapaxes(u, 0, -1).to(self.device)
-        rec_noise = torch.swapaxes(rec_noise, 0, -1).to(self.device)
-        inp_noise = torch.swapaxes(inp_noise, 0, -1).to(self.device)
+
         for i in range(T_steps - 1):
-            state_new = (1 - self.alpha) * states[:, i, :] + \
-                        self.alpha * (
-                                self.activation(
-                                    self.recurrent_layer(states[:, i, :]) +
-                                    self.input_layer(u[:, i, :] + inp_noise[:, i, :])) +
-                                rec_noise[:, i, :]
-                        )
+            # state_new = (1 - self.alpha) * states[:, i, :] + \
+            #             self.alpha * (
+            #                     self.activation(
+            #                         self.W_rec @ states[:, i, :] +
+            #                         self.W_inp @ (u[:, i, :] + inp_noise[:, i, :])) +
+            #                     rec_noise[:, i, :]
+            #             )
+            state_new = states[:, i, :] + self.alpha * self.rhs(states[:, i, :],
+                                                                u[:, i, :],
+                                                                inp_noise[:, i, :],
+                                                                rec_noise[:, i, :])
             states = torch.cat((states, state_new.unsqueeze_(1)), 1)
-        outputs = torch.swapaxes(self.output_layer(states), 0, -1)
-        states = torch.swapaxes(states, 0, -1)
+        outputs = torch.einsum("oj, jtk -> otk", self.W_out, states)
         return states, outputs
 
     def get_params(self):
@@ -295,18 +291,13 @@ class RNN_torch(torch.nn.Module):
          number of nodes, dt and tau
         '''
         param_dict = {}
-        W_out = deepcopy(self.output_layer.weight.data.cpu().detach().numpy())
-        W_rec = deepcopy(self.recurrent_layer.weight.data.cpu().detach().numpy())
-        W_inp = deepcopy(self.input_layer.weight.data.cpu().detach().numpy())
+        W_out = deepcopy(self.W_out.data.cpu().detach().numpy())
+        W_rec = deepcopy(self.W_rec.data.cpu().detach().numpy())
+        W_inp = deepcopy(self.W_inp.data.cpu().detach().numpy())
         y_init = deepcopy(self.y_init.detach().cpu().numpy())
-        if not (self.recurrent_layer.bias is None):
-            bias_rec = deepcopy(self.recurrent_layer.bias.data.cpu().detach().numpy())
-        else:
-            bias_rec = None
         param_dict["W_out"] = W_out
         param_dict["W_inp"] = W_inp
         param_dict["W_rec"] = W_rec
-        param_dict["bias_rec"] = bias_rec
         param_dict["y_init"] = y_init
         param_dict["N"] = self.N
         param_dict["dt"] = self.dt
@@ -315,11 +306,9 @@ class RNN_torch(torch.nn.Module):
 
     def set_params(self, params):
         self.N = params["W_rec"].shape[0]
-        self.output_layer.weight.data = torch.from_numpy(np.float32(params["W_out"])).to(self.device)
-        self.input_layer.weight.data = torch.from_numpy(np.float32(params["W_inp"])).to(self.device)
-        self.recurrent_layer.weight.data = torch.from_numpy(np.float32(params["W_rec"])).to(self.device)
-        if not (self.recurrent_layer.bias is None):
-            self.recurrent_layer.bias.data = torch.from_numpy(params["bias_rec"]).to(self.device)
+        self.W_out.data = torch.from_numpy(np.float32(params["W_out"])).to(self.device)
+        self.W_inp.data = torch.from_numpy(np.float32(params["W_inp"])).to(self.device)
+        self.W_rec.data = torch.from_numpy(np.float32(params["W_rec"])).to(self.device)
         self.y_init = torch.from_numpy(np.float32(params["y_init"])).to(self.device)
         return None
 
