@@ -16,10 +16,10 @@ import torch
 import time
 # from src.datajoint_config import *
 
-disp = True
-activation = "relu"
 taskname = "CDDMplus"
-train_config_file = f"train_config_CDDMplus_relu;N=100;lmbdr=0.3;lmbdo=0.3.json"
+activation = "relu"
+disp = True
+train_config_file = f"train_config_{taskname}_{activation};N=100;lmbdr=0.3;lmbdo=0.3;orth_inp_only=True.json"
 config_dict = json.load(
     open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r", encoding='utf-8'))
 
@@ -36,10 +36,11 @@ if not seed is None:
 # defining RNN:
 N = config_dict["N"]
 activation_name = config_dict["activation"]
-if activation_name == 'relu':
-    activation = lambda x: torch.maximum(torch.tensor(0.0), x)
-elif activation_name == 'tanh':
-    activation = torch.tanh
+match activation_name:
+    case 'relu': activation = lambda x: torch.maximum(torch.tensor(0.0), x)
+    case 'tanh': activation = lambda x: torch.tanh(x)
+    case 'sigmoid': activation = lambda x: 1 / (1 + torch.exp(-x))
+    case 'softplus': activation = lambda x: torch.log(1 + torch.exp(5 * x))
 dt = config_dict["dt"]
 tau = config_dict["tau"]
 constrained = config_dict["constrained"]
@@ -58,6 +59,7 @@ task_params["seed"] = seed
 
 # Trainer:
 lambda_orth = config_dict["lambda_orth"]
+orth_input_only = config_dict["orth_input_only"]
 lambda_r = config_dict["lambda_r"]
 mask = np.array(config_dict["mask"])
 max_iter = config_dict["max_iter"]
@@ -85,7 +87,8 @@ optimizer = torch.optim.Adam(rnn_torch.parameters(),
 trainer = Trainer(RNN=rnn_torch, Task=task,
                   max_iter=max_iter, tol=tol,
                   optimizer=optimizer, criterion=criterion,
-                  lambda_orth=lambda_orth, lambda_r=lambda_r)
+                  lambda_orth=lambda_orth, orth_input_only=orth_input_only,
+                  lambda_r=lambda_r)
 
 tic = time.perf_counter()
 rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
@@ -127,16 +130,10 @@ task_params_valid = deepcopy(task_params)
 task_params_valid["coherences"] = coherences_valid
 task = eval("Task"+taskname)(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params_valid)
 
-
-if activation_name == 'relu':
-    activation = lambda x: np.maximum(0.0, x)
-elif activation_name == 'tanh':
-    activation = np.tanh
-
 RNN_valid = RNN_numpy(N=net_params["N"],
                       dt=net_params["dt"],
                       tau=net_params["tau"],
-                      activation=activation,
+                      activation=numpify(activation),
                       W_inp=net_params["W_inp"],
                       W_rec=net_params["W_rec"],
                       W_out=net_params["W_out"],
@@ -148,7 +145,7 @@ score_function = lambda x, y: np.mean((x - y) ** 2)
 input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
 score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid, mask, sigma_rec=0, sigma_inp=0)
 score = np.round(score, 7)
-data_folder = f'{score}_{taskname};{activation_name};N={N_reduced};lmbdo={lambda_orth};lmbdr={lambda_r};lr={lr};maxiter={max_iter}'
+data_folder = f'{score}_{taskname};{activation_name};N={N_reduced};lmbdo={lambda_orth};orth_inp_only={orth_input_only};lmbdr={lambda_r};lr={lr};maxiter={max_iter}'
 if folder_tag != '':
     data_folder+=f";tag={folder_tag}"
 full_data_folder = os.path.join(config_dict["data_folder"], data_folder)

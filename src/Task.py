@@ -54,7 +54,7 @@ class TaskIdentity(Task):
         condition = {"values" : values}
         return input_stream, target_stream, condition
 
-    def get_batch(self, batch_size=256, shuffle=False, generator_numpy=None):
+    def get_batch(self, batch_size=256, shuffle=False):
         inputs = []
         targets = []
         conditions = []
@@ -150,7 +150,7 @@ class TaskCDDM(Task):
                 target_stream[ind, self.dec_on - 1:self.dec_off] = 1
         return input_stream, target_stream
 
-    def get_batch(self):
+    def get_batch(self, shuffle=False):
         '''
         coherences: list containing range of coherences for each channel (e.g. [-1, -0.5, -0.25,  0, 0.25, 0.5, 1]
         :return: array of inputs, array of targets, and the conditions (context, coherences and the correct choice)
@@ -181,6 +181,12 @@ class TaskCDDM(Task):
         # batch_size should be a last dimension
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
+        if shuffle:
+            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
+            inputs = inputs[..., perm]
+            targets = targets[..., perm]
+            conditions = [conditions[index] for index in perm]
+
         return inputs, targets, conditions
 
 
@@ -264,7 +270,7 @@ class TaskCDDMplus(Task):
         target_stream[5, self.dec_on - 1:self.dec_off] = color_l
         return input_stream, target_stream
 
-    def get_batch(self):
+    def get_batch(self, shuffle=False):
         '''
         coherences: list containing range of coherences for each channel (e.g. [-1, -0.5, -0.25,  0, 0.25, 0.5, 1]
         :return: array of inputs, array of targets, and the conditions (context, coherences and the correct choice)
@@ -295,6 +301,11 @@ class TaskCDDMplus(Task):
         # batch_size should be a last dimension
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
+        if shuffle:
+            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
+            inputs = inputs[..., perm]
+            targets = targets[..., perm]
+            conditions = [conditions[index] for index in perm]
         return inputs, targets, conditions
 
 
@@ -364,7 +375,7 @@ class TaskCDDMMante(Task):
                 target_stream[ind, self.dec_on - 1:self.dec_off] = 1
         return input_stream, target_stream
 
-    def get_batch(self):
+    def get_batch(self, shuffle=False):
         '''
         coherences: list containing range of coherences for each channel (e.g. [-1, -0.5, -0.25,  0, 0.25, 0.5, 1]
         :return: array of inputs, array of targets, and the conditions (context, coherences and the correct choice)
@@ -395,6 +406,11 @@ class TaskCDDMMante(Task):
         # batch_size should be a last dimension
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
+        if shuffle:
+            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
+            inputs = inputs[..., perm]
+            targets = targets[..., perm]
+            conditions = [conditions[index] for index in perm]
         return inputs, targets, conditions
 
 class TaskDMTS(Task):
@@ -512,7 +528,7 @@ class TaskNBitFlipFlop(Task):
             condition[n] = {"inds_flips": inds_flips, "inds_flops": inds_flops}
         return input_stream, target_stream, condition
 
-    def get_batch(self, batch_size=256, shuffle=False, generator_numpy=None):
+    def get_batch(self, batch_size=256, shuffle=False):
         inputs = []
         targets = []
         conditions = []
@@ -637,7 +653,7 @@ class TaskMemoryAntiAngle(Task):
         return inputs, targets, conditions
 
 
-class TaskBlockDMtanh(Task):
+class TaskBlockDM(Task):
 
     def __init__(self, n_steps, task_params):
         '''
@@ -681,7 +697,7 @@ class TaskBlockDMtanh(Task):
         target_stream[0, self.dec_on - 1:self.dec_off] = 0 if block else np.sign(coherence)
         return input_stream, target_stream
 
-    def get_batch(self):
+    def get_batch(self, shuffle=False):
         '''
         coherences: list containing range of coherences for each channel (e.g. [-1, -0.5, -0.25,  0, 0.25, 0.5, 1]
         :return: array of inputs, array of targets, and the conditions (context, coherences and the correct choice)
@@ -699,6 +715,11 @@ class TaskBlockDMtanh(Task):
         # batch_size should be a last dimension
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
+        if shuffle:
+            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
+            inputs = inputs[..., perm]
+            targets = targets[..., perm]
+            conditions = [conditions[index] for index in perm]
         return inputs, targets, conditions
 
 

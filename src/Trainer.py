@@ -8,16 +8,17 @@ import numpy as np
 import torch
 
 
-def L2_ortho(rnn, X=None, y=None):
+def L2_ortho(rnn, X=None, y=None, orth_input_only = True):
     # regularization of the input and ouput matrices
     # Pair-wise orthogonalization of both the input columns and output rows
-    # b = torch.cat((rnn.input_layer.weight, rnn.output_layer.weight.t()), dim=1)
-    # b = b / torch.norm(b, dim=0)
-    # return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
-
-    # Pair-wise orthogonalization input columns only
-    b = rnn.W_inp
-    b = b / torch.norm(b, dim=0)
+    if not orth_input_only:
+        b = torch.cat((rnn.input_layer.weight, rnn.output_layer.weight.t()), dim=1)
+        b = b / torch.norm(b, dim=0)
+        return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
+    else:
+        # Pair-wise orthogonalization input columns only
+        b = rnn.W_inp
+        b = b / torch.norm(b, dim=0)
     return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
 
 
@@ -39,7 +40,12 @@ def print_iteration_info(iter, train_loss, min_train_loss, val_loss=None, min_va
 
 
 class Trainer():
-    def __init__(self, RNN, Task, max_iter, tol, criterion, optimizer, lambda_orth, lambda_r):
+    def __init__(self, RNN, Task, criterion, optimizer,
+                 max_iter=1000,
+                 tol=1e-12,
+                 lambda_orth=0.3,
+                 orth_input_only=True,
+                 lambda_r=0.5):
         '''
         :param RNN: pytorch RNN (specific template class)
         :param Task: task (specific template class)
@@ -49,6 +55,8 @@ class Trainer():
         :param optimizer: pytorch optimizer (Adam, SGD, etc.)
         :param lambda_ort: float, regularization softly imposing a pair-wise orthogonality
          on columns of W_inp and rows of W_out
+        :param orth_input_only: bool, if impose penalties only on the input columns,
+         or extend the penalty onto the output rows as well
         :param lambda_r: float, regularization of the mean firing rates during the trial
         '''
         self.RNN = RNN
@@ -58,24 +66,19 @@ class Trainer():
         self.criterion = criterion
         self.optimizer = optimizer
         self.lambda_orth = lambda_orth
+        self.orth_input_only = orth_input_only
         self.lambda_r = lambda_r
 
-    def train_step(self, input, target_output, mask, penalty_dict = None):
+    def train_step(self, input, target_output, mask):
         states, predicted_output = self.RNN(input)
         loss = self.criterion(target_output[:, mask, :], predicted_output[:, mask, :]) + \
-               self.lambda_orth * L2_ortho(self.RNN) + \
+               self.lambda_orth * L2_ortho(self.RNN, orth_input_only=self.orth_input_only) + \
                self.lambda_r * torch.mean(torch.abs(states) ** 2)
-
-        # # if you want some extra penalty you can define it in the dictionary `penalty_dict'
-        # if not (penalty_dict is None):
-        #     penalty_function = penalty_dict["penalty_function"]
-        #     loss += penalty_dict["lambda_smooth"] * penalty_function(states)
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        error_vect = torch.sum(((target_output[:, mask, :] - predicted_output[:, mask, :]) ** 2).squeeze(),
-                               dim=1) / len(mask)
+        error_vect = torch.sum(((target_output[:, mask, :] - predicted_output[:, mask, :]) ** 2).squeeze(), dim=1) / len(mask)
         return loss.item(), error_vect
 
     def eval_step(self, input, target_output, mask):
@@ -83,11 +86,11 @@ class Trainer():
             self.RNN.eval()
             states, predicted_output_val = self.RNN(input, w_noise=False)
             val_loss = self.criterion(target_output[:, mask, :], predicted_output_val[:, mask, :]) + \
-                       self.lambda_orth * L2_ortho(self.RNN) + \
+                       self.lambda_orth * L2_ortho(self.RNN, orth_input_only=self.orth_input_only) + \
                        self.lambda_r * torch.mean(torch.abs(states) ** 2)
             return float(val_loss.cpu().numpy())
 
-    def run_training(self, train_mask, same_batch=False, shuffle=False, penalty_dict = None):
+    def run_training(self, train_mask, same_batch=False, shuffle=False):
         train_losses = []
         val_losses = []
         self.RNN.train()  # puts the RNN into training mode (sets update_grad = True)
@@ -101,10 +104,6 @@ class Trainer():
             input_val = deepcopy(input_batch)
             target_output_val = deepcopy(target_batch)
 
-            # input_val, target_output_val, conditions_val = self.Task.get_batch()
-            # input_val = torch.from_numpy(input_val.astype("float32")).to(self.RNN.device)
-            # target_output_val = torch.from_numpy(target_output_val.astype("float32")).to(self.RNN.device)
-
         for iter in range(self.max_iter):
             if not same_batch:
                 input_batch, target_batch, conditions_batch = self.Task.get_batch(shuffle=shuffle)
@@ -115,8 +114,7 @@ class Trainer():
 
             train_loss, error_vect = self.train_step(input=input_batch,
                                                      target_output=target_batch,
-                                                     mask=train_mask,
-                                                     penalty_dict=penalty_dict)
+                                                     mask=train_mask)
 
             # positivity of entries of W_inp and W_out
             self.RNN.W_inp.data = torch.maximum(self.RNN.W_inp.data, torch.tensor(0))

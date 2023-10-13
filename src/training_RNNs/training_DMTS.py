@@ -25,14 +25,12 @@ config_dict = json.load(open(os.path.join(get_project_root(), "LA_data", "config
 # defining RNN:
 N = config_dict["N"]
 activation_name = config_dict["activation"]
-if activation_name == 'relu':
-    activation = lambda x: torch.maximum(x, torch.tensor(0))
-elif activation_name == 'tanh':
-    activation = torch.tanh
-elif activation_name == 'sigmoid':
-    activation = lambda x: 1 / (1 + torch.exp(-x))
-elif activation_name == 'softplus':
-    activation = lambda x: torch.log(1 + torch.exp(5 * x))
+match activation_name:
+    case 'relu': activation = lambda x: torch.maximum(torch.tensor(0.0), x)
+    case 'tanh': activation = lambda x: torch.tanh(x)
+    case 'sigmoid': activation = lambda x: 1 / (1 + torch.exp(-x))
+    case 'softplus': activation = lambda x: torch.log(1 + torch.exp(5 * x))
+
 
 dt = config_dict["dt"]
 tau = config_dict["tau"]
@@ -54,6 +52,7 @@ task_params = config_dict["task_params"]
 
 # Trainer:
 lambda_orth = config_dict["lambda_orth"]
+orth_input_only = config_dict["orth_input_only"]
 lambda_r = config_dict["lambda_r"]
 mask = np.array(config_dict["mask"])
 max_iter = config_dict["max_iter"]
@@ -64,8 +63,7 @@ same_batch = config_dict["same_batch"]
 
 # General:
 folder_tag = config_dict["folder_tag"]
-timestr = time.strftime("%Y%m%d-%H%M%S")
-data_folder = os.path.join(config_dict["data_folder"], timestr)
+data_folder = f'{score}_{taskname};{activation_name};N={N_reduced};lmbdo={lambda_orth};orth_inp_only={orth_input_only};lmbdr={lambda_r};lr={lr};maxiter={max_iter}'
 
 # # creating instances:
 rnn_torch = RNN_torch(N=N, dt=dt, tau=tau, input_size=input_size, output_size=output_size,
@@ -82,7 +80,8 @@ optimizer = torch.optim.Adam(rnn_torch.parameters(),
 trainer = Trainer(RNN=rnn_torch, Task=task,
                   max_iter=max_iter, tol=tol,
                   optimizer=optimizer, criterion=criterion,
-                  lambda_orth=lambda_orth, lambda_r=lambda_r)
+                  lambda_orth=lambda_orth, orth_input_only=orth_input_only,
+                  lambda_r=lambda_r)
 
 datasaver = DataSaver(data_folder)
 

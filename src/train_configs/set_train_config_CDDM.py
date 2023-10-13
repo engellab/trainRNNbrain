@@ -4,8 +4,8 @@ import sys
 import numpy as np
 from datetime import date
 
-
 taskname = 'CDDM'
+
 from pathlib import Path
 home = str(Path.home())
 if home == '/home/pt1290':
@@ -23,7 +23,7 @@ date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
 N = 50
-activation_name = 'tanh'
+activation_name = 'relu'
 constrained = False
 seed = None
 sigma_inp = 0.05
@@ -64,9 +64,10 @@ tol = 1e-10
 lr = 0.005
 weight_decay = 1e-3
 lambda_orth = 0.3
+orth_input_only = True
 lambda_r = 0.5
 same_batch = True
-extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth}'
+extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}'
 name_tag = f'{taskname}_{extra_info}'
 
 config_dict = {}
@@ -91,6 +92,7 @@ config_dict["lr"] = lr
 config_dict["same_batch"] = same_batch
 config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
+config_dict["orth_input_only"] = orth_input_only
 config_dict["lambda_r"] = lambda_r
 config_dict["folder_tag"] = ''
 

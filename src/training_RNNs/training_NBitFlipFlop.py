@@ -25,14 +25,12 @@ config_dict = json.load(open(os.path.join(get_project_root(), "data", "configs",
 # defining RNN:
 N = config_dict["N"]
 activation_name = config_dict["activation"]
-if activation_name == 'relu':
-    activation = lambda x: torch.maximum(x, torch.tensor(0))
-elif activation_name == 'tanh':
-    activation = torch.tanh
-elif activation_name == 'sigmoid':
-    activation = lambda x: 1 / (1 + torch.exp(-x))
-elif activation_name == 'softplus':
-    activation = lambda x: torch.log(1 + torch.exp(5 * x))
+match activation_name:
+    case 'relu': activation = lambda x: torch.maximum(torch.tensor(0.0), x)
+    case 'tanh': activation = lambda x: torch.tanh(x)
+    case 'sigmoid': activation = lambda x: 1 / (1 + torch.exp(-x))
+    case 'softplus': activation = lambda x: torch.log(1 + torch.exp(5 * x))
+
 dt = config_dict["dt"]
 tau = config_dict["tau"]
 constrained = config_dict["constrained"]
@@ -53,6 +51,7 @@ task_params = config_dict["task_params"]
 
 # Trainer:
 lambda_orth = config_dict["lambda_orth"]
+orth_input_only = config_dict["orth_input_only"]
 lambda_r = config_dict["lambda_r"]
 mask = np.array(config_dict["mask"])
 max_iter = config_dict["max_iter"]
@@ -81,7 +80,8 @@ optimizer = torch.optim.Adam(rnn_torch.parameters(),
 trainer = Trainer(RNN=rnn_torch, Task=task,
                   max_iter=max_iter, tol=tol,
                   optimizer=optimizer, criterion=criterion,
-                  lambda_orth=lambda_orth, lambda_r=lambda_r)
+                  lambda_orth=lambda_orth, orth_input_only=orth_input_only,
+                  lambda_r=lambda_r)
 
 datasaver = DataSaver(data_folder)
 
@@ -135,7 +135,7 @@ if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
 
 dsa = DynamicSystemAnalyzer(RNN_valid)
 dsa.get_fixed_points(Input=np.zeros(input_size), sigma_init_guess=10, patience=50, stop_length=50)
-fig_fp = dsa.plot_fixed_points(projection='2D')
+fig_fp = dsa.plot_fixed_points(projection='3D')
 if disp:
     plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_fp, "fp_projection")

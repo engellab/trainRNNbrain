@@ -25,6 +25,7 @@ connectivity_density_rec = 1.0
 
 # task specific
 task_name = 'BlockDM'
+
 n_inputs = 2
 n_outputs = 1
 T = 300
@@ -47,6 +48,7 @@ tol = 1e-10
 lr = 0.002
 weight_decay = 1e-3
 lambda_orth = 0.3
+orth_input_only = True
 lambda_r = 0.5
 same_batch = True
 
@@ -75,6 +77,7 @@ config_dict["lr"] = lr
 config_dict["same_batch"] = same_batch
 config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
+config_dict["orth_input_only"] = orth_input_only
 config_dict["lambda_r"] = lambda_r
 config_dict["data_folder"] = data_folder
 config_dict["folder_tag"] = ''

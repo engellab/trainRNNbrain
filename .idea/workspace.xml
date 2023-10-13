@@ -6,10 +6,33 @@
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/configs/train_config_NBitFlipFlop_tanh.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/configs/train_config_NBitFlipFlop_tanh.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RNN_torch.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_torch.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/configs/train_config_CDDM_relu.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/configs/train_config_DMTS_relu.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/configs/train_config_MemoryAntiAngle_tanh.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/configs/train_config_MemoryAntiNumber_tanh.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/configs/train_config_NBitFlipFlop_tanh.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jupyter/Connectivity and activity based clustering of tanh networks.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/Connectivity and activity based clustering of tanh networks.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Task.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Task.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Trainer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_BlockDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_BlockDM_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDMplus.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDMplus.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_ColorDiscrimination.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_ColorDiscrimination.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Identity.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Identity.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiNumber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_NBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_NBitFlipFlop.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_BlockDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_BlockDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMplus.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDMplus.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -77,29 +100,8 @@
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.training_Identity">
-    <configuration name="RNN_torch" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/RNN_torch.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="set_train_config_Identity" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.training_CDDM">
+    <configuration name="set_train_config_CDDM" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -111,7 +113,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_Identity.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -133,6 +135,27 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_NBitFlipFlop.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="training_CDDM" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="rnn_coach" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training_RNNs" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_CDDM.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -184,19 +207,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.set_train_config_Identity" />
       <item itemvalue="Python.training_Identity" />
-      <item itemvalue="Python.RNN_torch" />
       <item itemvalue="Python.training_NBitFlipFlop" />
       <item itemvalue="Python.set_train_config_NBitFlipFlop" />
+      <item itemvalue="Python.set_train_config_CDDM" />
+      <item itemvalue="Python.training_CDDM" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.training_Identity" />
+        <item itemvalue="Python.training_CDDM" />
+        <item itemvalue="Python.set_train_config_CDDM" />
         <item itemvalue="Python.training_NBitFlipFlop" />
         <item itemvalue="Python.set_train_config_NBitFlipFlop" />
-        <item itemvalue="Python.RNN_torch" />
-        <item itemvalue="Python.set_train_config_Identity" />
+        <item itemvalue="Python.training_Identity" />
       </list>
     </recent_temporary>
   </component>
@@ -258,22 +281,22 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle.py</url>
-          <line>142</line>
+          <line>141</line>
           <option name="timeStamp" value="306" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>609</line>
+          <line>625</line>
           <option name="timeStamp" value="307" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py</url>
-          <line>156</line>
+          <line>155</line>
           <option name="timeStamp" value="308" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py</url>
-          <line>153</line>
+          <line>152</line>
           <option name="timeStamp" value="327" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -288,7 +311,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM.py</url>
-          <line>169</line>
+          <line>170</line>
           <option name="timeStamp" value="369" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -323,7 +346,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM.py</url>
-          <line>110</line>
+          <line>114</line>
           <option name="timeStamp" value="451" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -333,27 +356,27 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py</url>
-          <line>97</line>
+          <line>96</line>
           <option name="timeStamp" value="459" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>830</line>
+          <line>851</line>
           <option name="timeStamp" value="461" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>771</line>
+          <line>792</line>
           <option name="timeStamp" value="465" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>865</line>
+          <line>886</line>
           <option name="timeStamp" value="473" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>879</line>
+          <line>900</line>
           <option name="timeStamp" value="475" />
         </line-breakpoint>
       </breakpoints>
