@@ -6,34 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/configs/train_config_CDDM_relu.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/configs/train_config_DMTS_relu.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/configs/train_config_MemoryAntiAngle_tanh.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/configs/train_config_MemoryAntiNumber_tanh.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/configs/train_config_NBitFlipFlop_tanh.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/Connectivity and activity based clustering of tanh networks.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/Connectivity and activity based clustering of tanh networks.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Task.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Task.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Trainer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_BlockDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_BlockDM_tanh.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDMplus.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDMplus.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_ColorDiscrimination.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_ColorDiscrimination.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Identity.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Identity.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiNumber.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_NBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_NBitFlipFlop.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_BlockDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_BlockDM.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMplus.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDMplus.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -311,7 +285,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM.py</url>
-          <line>170</line>
+          <line>171</line>
           <option name="timeStamp" value="369" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">

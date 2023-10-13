@@ -70,7 +70,14 @@ same_batch = True
 extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}'
 name_tag = f'{taskname}_{extra_info}'
 
+now = datetime.datetime.now()
+year = now.year
+month = now.month
+day = now.day
+timestr = f"{year}/{month}/{day}"
+
 config_dict = {}
+config_dict["time"] = timestr
 config_dict["N"] = N
 config_dict["seed"] = seed
 config_dict["activation"] = activation_name

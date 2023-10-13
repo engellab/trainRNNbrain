@@ -159,6 +159,7 @@ RNN_valid = RNN_numpy(N=net_params["N"],
                       bias_rec=net_params["bias_rec"],
                       y_init=net_params["y_init"])
 
+
 analyzer = PerformanceAnalyzerCDDM(RNN_valid)
 score_function = lambda x, y: np.mean((x - y) ** 2)
 input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
@@ -182,6 +183,20 @@ plt.grid(True)
 plt.legend(fontsize=16)
 if disp: plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_trainloss, f"{score}_train&valid_loss.png")
+
+
+batch_size = input_batch_valid.shape[2]
+RNN.clear_history()
+RNN.run(input_timeseries=input_batch_valid, sigma_rec=0, sigma_inp=0)
+RNN_trajectories = RNN.get_history()
+RNN_output = RNN.get_output()
+trajecory_data = {}
+trajecory_data["inputs"] = input_batch_valid
+trajecory_data["trajectories"] = RNN_trajectories
+trajecory_data["outputs"] = RNN_output
+trajecory_data["targets"] = target_batch_valid
+trajecory_data["conditions"] = conditions_valid
+datasaver.save_data(trajecory_data, f"{mse_score_RNN}_RNNtrajdata_{taskname}.pkl")
 
 print(f"Plotting random trials")
 inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), 12)
