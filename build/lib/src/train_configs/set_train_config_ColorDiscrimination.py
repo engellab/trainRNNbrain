@@ -2,10 +2,10 @@ import json
 import os
 import sys
 import numpy as np
-from datetime import date, datetime
+from datetime import date
 
-taskname = 'CDDM'
 
+taskname = 'ColorDiscrimination'
 from pathlib import Path
 home = str(Path.home())
 if home == '/home/pt1290':
@@ -17,15 +17,14 @@ elif home == '/Users/tolmach':
     data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{taskname}'
     RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
 else:
-    projects_folder = home + '/Documents/code_base'
-    RNN_configs_path = projects_folder + '/rnn-coach/data/configs'
+    pass
 
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 50
+N = 150
 activation_name = 'relu'
-constrained = False
+constrained = True
 seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
@@ -35,50 +34,32 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-n_inputs = 6
-n_outputs = 2
-T = 300
+n_inputs = 3
+n_outputs = 12
+T = 120
 n_steps = int(T / dt)
-max_coherence = 1
-coherence_lvls = 7
+mask = np.arange(int(n_steps // 3), n_steps).tolist()
 
-mask = np.concatenate([np.arange(int(n_steps // 3)), int(2 * n_steps // 3) + np.arange(int(n_steps // 3))]).tolist()
-
-# task_params = {"cue_on": int(0.1 * n_steps), "cue_off": n_steps//3,
-#                "stim_on": int(0.4 * n_steps), "stim_off": n_steps,
-#                "dec_on": int(3 * n_steps // 4), "dec_off": n_steps,
-#                "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
-
-task_params = {"cue_on": 0, "cue_off": n_steps,
-               "stim_on": int(n_steps // 3), "stim_off": n_steps,
-               "dec_on": int(2 * n_steps // 3), "dec_off": n_steps,
-               "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
-
-tmp = max_coherence * np.logspace(-(coherence_lvls - 1), 0, coherence_lvls, base=2)
-coherences = np.concatenate([-np.array(tmp[::-1]), np.array([0]), np.array(tmp)]).tolist()
-task_params["coherences"] = coherences
+task_params = {"color_on": 0,
+               "color_off": n_steps,
+               "n_steps": n_steps}
 task_params["seed"] = seed
 
 # training specific
 max_iter = 1000
 tol = 1e-10
-lr = 0.005
+lr = 0.01
 weight_decay = 1e-3
 lambda_orth = 0.3
 orth_input_only = True
 lambda_r = 0.5
+lambda_smooth = 0.0
 same_batch = True
-extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}'
+shuffle = False
+extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};lmbds={lambda_smooth}'
 name_tag = f'{taskname}_{extra_info}'
 
-now = datetime.now()
-year = now.year
-month = now.month
-day = now.day
-timestr = f"{year}/{month}/{day}"
-
 config_dict = {}
-config_dict["time"] = timestr
 config_dict["N"] = N
 config_dict["seed"] = seed
 config_dict["activation"] = activation_name
@@ -98,10 +79,12 @@ config_dict["mask"] = mask
 config_dict["tol"] = tol
 config_dict["lr"] = lr
 config_dict["same_batch"] = same_batch
+config_dict["shuffle"] = shuffle
 config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
 config_dict["orth_input_only"] = orth_input_only
 config_dict["lambda_r"] = lambda_r
+config_dict["lambda_smooth"] = lambda_smooth
 config_dict["folder_tag"] = ''
 
 json_obj = json.dumps(config_dict, indent=4)

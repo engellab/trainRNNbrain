@@ -75,9 +75,9 @@ class TaskIdentity(Task):
         return inputs, targets, conditions
 
 # short-term memory guided decision task
-class TaskALM(Task):
+class TaskDecision(Task):
     def __init__(self, n_steps, n_inputs, n_outputs, task_params):
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
+        Task().__init__(n_steps, n_inputs, n_outputs, task_params)
         self.n_steps = n_steps
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
@@ -108,14 +108,14 @@ class TaskALM(Task):
         targets = []
 
         for d in directions:
-            input, output = self.generate_input_target_stream(d)
+            input, output = self.generate_input_target_stream(self, d)
             inputs.append(deepcopy(input))
             targets.append(deepcopy(output))
 
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
-        # assert(inputs.shape[-1] == self.batch_size)
-        # assert(targets.shape[-1] == self.batch_size)
+        assert(inputs.shape[-1] == self.batch_size)
+        assert(targets.shape[-1] == self.batch_size)
 
         if (shuffle):
             perm = self.rng.permutation(np.arange((inputs.shape[-1])))

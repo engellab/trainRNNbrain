@@ -199,29 +199,18 @@ class RNN_torch(torch.nn.Module):
         :param device:
         '''
         super(RNN_torch, self).__init__()
-        try:
-            self.device = torch.device("cpu")
-        except:
-            if torch.backends.mps.is_available():
-                self.device = torch.device('mps')
-            elif torch.cuda.is_available():
-                self.device = torch.device('cuda')
-            else:
-                self.device = torch.device('cpu')
+        # self.device = torch.device('mps')
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        else:
+            self.device = torch.device('cpu')
         print(f"Using {self.device} for RNN!")
         self.N = N
         self.activation = activation
         self.tau = tau
         self.dt = dt
         self.alpha = torch.tensor((dt / tau)).to(self.device)
-        # data_type = np.float32 # for mps
-        # self.sigma_rec = torch.from_numpy(np.array(sigma_rec, dtype=data_type)).to(self.device)
-        # self.sigma_inp = torch.from_numpy(np.array(sigma_inp, dtype=data_type)).to(self.device)
-        # self.input_size = torch.from_numpy(np.array(input_size, dtype=data_type)).to(self.device)
-        # self.output_size = torch.from_numpy(np.array(output_size, dtype=data_type)).to(self.device)
-        # self.spectral_rad = torch.from_numpy(np.array(spectral_rad, dtype=data_type)).to(self.device)
-
-        self.sigma_rec = torch.from_numpy(np.array(sigma_rec, dtype=np.float32)).to(self.device)
+        self.sigma_rec = torch.from_numpy(np.array(sigma_rec)).to(self.device)
         self.sigma_inp = torch.from_numpy(np.array(sigma_inp)).to(self.device)
         self.input_size = torch.from_numpy(np.array(input_size)).to(self.device)
         self.output_size = torch.from_numpy(np.array(output_size)).to(self.device)

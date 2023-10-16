@@ -2,7 +2,7 @@ import json
 import os
 import sys
 import numpy as np
-from datetime import date, datetime
+from datetime import date
 
 taskname = 'CDDM'
 
@@ -17,8 +17,7 @@ elif home == '/Users/tolmach':
     data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{taskname}'
     RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
 else:
-    projects_folder = home + '/Documents/code_base'
-    RNN_configs_path = projects_folder + '/rnn-coach/data/configs'
+    pass
 
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
@@ -71,7 +70,7 @@ same_batch = True
 extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}'
 name_tag = f'{taskname}_{extra_info}'
 
-now = datetime.now()
+now = datetime.datetime.now()
 year = now.year
 month = now.month
 day = now.day

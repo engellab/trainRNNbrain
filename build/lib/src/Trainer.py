@@ -98,7 +98,7 @@ class Trainer():
         min_val_loss = np.inf
         best_net_params = deepcopy(self.RNN.get_params())
         if same_batch:
-            input_batch, target_batch = self.Task.get_batch(shuffle=shuffle)
+            input_batch, target_batch, conditions_batch = self.Task.get_batch(shuffle=shuffle)
             input_batch = torch.from_numpy(input_batch.astype("float32")).to(self.RNN.device)
             target_batch = torch.from_numpy(target_batch.astype("float32")).to(self.RNN.device)
             input_val = deepcopy(input_batch)
