@@ -1,0 +1,13 @@
+name: rnn_coach
+channels:
+  - defaults
+dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  - pytorch
+  - tqdm
+  - scikit-learn
+  - numdifftools
+  - datetime
+  
