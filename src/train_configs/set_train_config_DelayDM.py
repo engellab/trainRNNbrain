@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import datetime
 
-taskname = 'CDDM'
+taskname = 'DelayDM'
 
 from pathlib import Path
 home = str(Path.home())
@@ -34,38 +34,41 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-n_inputs = 6
+n_inputs = 3
 n_outputs = 2
-T = 300
+T = 157
 n_steps = int(T / dt)
-max_coherence = 1
-coherence_lvls = 7
+cue_on, cue_off = 7, 36
+go_on = 110
+mask = np.arange(n_steps).tolist()
 
-mask = np.concatenate([np.arange(int(n_steps // 3)), int(2 * n_steps // 3) + np.arange(int(n_steps // 3))]).tolist()
+task_params = {"cue_on": cue_on,
+               "cue_off": cue_off,
+               "go_on": go_on,
+               "n_steps": n_steps,
+               "n_inputs": n_inputs,
+               "n_outputs": n_outputs}
 
-# task_params = {"cue_on": int(0.1 * n_steps), "cue_off": n_steps//3,
-#                "stim_on": int(0.4 * n_steps), "stim_off": n_steps,
-#                "dec_on": int(3 * n_steps // 4), "dec_off": n_steps,
-#                "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
+n_rights = n_lefts = 10
+n_catches = 1
+directions = np.zeros(n_rights + n_lefts + n_catches)
+directions[:n_rights] = 1 # right: channel 1
+directions[-n_catches:] = -1 # catch: -1
+assert(np.sum(directions) == n_rights - n_catches)
+print(directions)
+directions = directions.astype(int).tolist()
 
-task_params = {"cue_on": 0, "cue_off": n_steps,
-               "stim_on": int(n_steps // 3), "stim_off": n_steps,
-               "dec_on": int(2 * n_steps // 3), "dec_off": n_steps,
-               "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
-
-tmp = max_coherence * np.logspace(-(coherence_lvls - 1), 0, coherence_lvls, base=2)
-coherences = np.concatenate([-np.array(tmp[::-1]), np.array([0]), np.array(tmp)]).tolist()
-task_params["coherences"] = coherences
+task_params["directions"] = directions
 task_params["seed"] = seed
 
 # training specific
 max_iter = 1000
 tol = 1e-10
 lr = 0.005
-weight_decay = 1e-3
+weight_decay = 5e-6
 lambda_orth = 0.3
 orth_input_only = True
-lambda_r = 0.5
+lambda_r = 0.02
 same_batch = True
 extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}'
 name_tag = f'{taskname}_{extra_info}'

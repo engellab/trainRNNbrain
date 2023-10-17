@@ -16,9 +16,9 @@ import torch
 import time
 # from src.datajoint_config import *
 
-taskname = 'CDDM'
+taskname = 'DelayDM'
 activation = "relu"
-train_config_file = f"train_config_CDDM_{activation};N=100;lmbdr=0.5;lmbdo=0.3;orth_inp_only=True.json"
+train_config_file = f"train_config_{taskname}_{activation};N=100;lmbdr=0.02;lmbdo=0.3;orth_inp_only=True.json"
 
 from pathlib import Path
 home = str(Path.home())
@@ -139,9 +139,7 @@ rnn_trained.set_params(RNN_params)
 ########
 
 # validate
-coherences_valid = np.linspace(-1, 1, 11)
 task_params_valid = deepcopy(task_params)
-task_params_valid["coherences"] = coherences_valid
 task = eval("Task"+taskname)(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params_valid)
 
 match activation_name:
@@ -207,39 +205,6 @@ fig_trials = analyzer.plot_trials(inputs, targets, mask, sigma_rec=sigma_rec, si
 if disp: plt.show()
 if not (datasaver is None): datasaver.save_figure(fig_trials, f"{score}_random_trials.png")
 
-print(f"Plotting psychometric data")
-num_levels = len(task_params_valid["coherences"])
-analyzer.calc_psychometric_data(task, mask, num_levels=num_levels, num_repeats=31, sigma_rec=0.03, sigma_inp=0.03)
-fig_psycho = analyzer.plot_psychometric_data()
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_psycho, f"{score}_psychometric_data.png")
-if not (datasaver is None): datasaver.save_data(jsonify(analyzer.psychometric_data), f"{score}_psycho_data.json")
-
-print(f"Analyzing fixed points")
-dsa = DynamicSystemAnalyzerCDDM(RNN_valid)
-params = {"fun_tol": 0.05,
-          "diff_cutoff": 1e-4,
-          "sigma_init_guess": 5,
-          "patience": 50,
-          "stop_length": 50,
-          "mode": "approx"}
-dsa.get_fixed_points(Input=np.array([1, 0, 0.5, 0.5, 0.5, 0.5]), **params)
-dsa.get_fixed_points(Input=np.array([0, 1, 0.5, 0.5, 0.5, 0.5]), **params)
-print(f"Calculating Line Attractor analytics")
-dsa.calc_LineAttractor_analytics()
-
-fig_LA3D = dsa.plot_LineAttractor_3D()
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_LA3D, f"{score}_LA_3D.png")
-if not (datasaver is None): datasaver.save_data(jsonify(dsa.fp_data), f"{score}_fp_data.json")
-if not (datasaver is None): datasaver.save_data(dsa.LA_data, f"{score}_LA_data.pkl")
-
-fig_RHS = dsa.plot_RHS_over_LA()
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_RHS, f"{score}_LA_RHS.png")
 
 # rnn_dj = RNNDJ()
 # task_dj = TaskDJ()
