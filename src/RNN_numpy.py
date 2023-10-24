@@ -17,7 +17,7 @@ def ReLU(x):
     return np.maximum(x, 0)
 
 class RNN_numpy():
-    def __init__(self, N, dt, tau, W_inp, W_rec, W_out, bias_rec=None, activation=ReLU, y_init=None):
+    def __init__(self, N, dt, tau, W_inp, W_rec, W_out, bias_rec=None, activation=ReLU, y_init=None, seed=None):
         self.N = N
         self.W_inp = W_inp
         self.W_rec = W_rec
@@ -36,6 +36,10 @@ class RNN_numpy():
         self.y = deepcopy(self.y_init)
         self.y_history = []
         self.activation = activation
+        if seed is None:
+            self.rng = np.random.default_rng(np.random.randint(10000))
+        else:
+            self.rng = np.random.default_rng(seed)
 
         # activation_function_code = inspect.getsource(self.activation)
         # jnp_activation_str = re.sub(r"np", "jnp", activation_function_code)
@@ -45,8 +49,7 @@ class RNN_numpy():
         # self.activation_jax = eval("activation_jax")
 
 
-    def rhs(self, y, input, sigma_rec=None, sigma_inp=None, generator_numpy=None):
-        if (generator_numpy is None): generator_numpy = np.random.default_rng(np.random.randint(10000))
+    def rhs(self, y, input, sigma_rec=None, sigma_inp=None):
         if len(y.shape) == 2:
             # Check that the batch_size (last dimension) is the same as the Input's last dimension
             if y.shape[-1] != input.shape[-1]:
@@ -61,9 +64,9 @@ class RNN_numpy():
         if ((sigma_rec is None) and (sigma_inp is None)) or ((sigma_rec == 0) and (sigma_inp == 0)):
             return -y + self.activation(self.W_rec @ y + self.W_inp @ input + bias_rec)
         else:
-            rec_noise_term = np.sqrt((2 / self.alpha) * sigma_rec ** 2) * generator_numpy.standard_normal(y.shape) \
+            rec_noise_term = np.sqrt((2 / self.alpha) * sigma_rec ** 2) * self.rng.standard_normal(y.shape) \
                 if (not (sigma_rec is None)) else np.zeros(x.shape)
-            inp_noise_term = np.sqrt((2 / self.alpha) * sigma_inp ** 2) * generator_numpy.standard_normal(input.shape) \
+            inp_noise_term = np.sqrt((2 / self.alpha) * sigma_inp ** 2) * self.rng.standard_normal(input.shape) \
                 if (not (sigma_inp is None)) else np.zeros(input.shape)
             return -y + self.activation(
                 self.W_rec @ y + self.W_inp @ (input + inp_noise_term) + bias_rec + rec_noise_term)
@@ -113,16 +116,15 @@ class RNN_numpy():
     #     J = -np.eye(self.N) + D @ self.W_rec
     #     return J
 
-    def step(self, input, sigma_rec=None, sigma_inp=None, generator_numpy=None):
-        self.y += (self.dt / self.tau) * self.rhs(self.y, input, sigma_rec, sigma_inp, generator_numpy)
+    def step(self, input, sigma_rec=None, sigma_inp=None):
+        self.y += (self.dt / self.tau) * self.rhs(self.y, input, sigma_rec, sigma_inp)
 
-    def run(self, input_timeseries, save_history=True, sigma_rec=None, sigma_inp=None, generator_numpy=None):
+    def run(self, input_timeseries, save_history=True, sigma_rec=None, sigma_inp=None):
         '''
         :param Inputs: an array, has to be iether (n_inputs x n_steps) dimensions or (n_inputs x n_steps x batch_batch_size)
         :param save_history: bool, whether to save the resulting trajectory
         :param sigma_rec: noise parameter in the recurrent dynamics
         :param sigma_inp: noise parameter in the input channel
-        :param generator_numpy: numpy random number generator, for reproducibility
         :return: None
         '''
         num_steps = input_timeseries.shape[1]  # second dimension
@@ -137,8 +139,7 @@ class RNN_numpy():
         for i in range(num_steps):
             if save_history == True:
                 self.y_history.append(deepcopy(self.y))
-            self.step(input_timeseries[:, i, ...], sigma_rec=sigma_rec, sigma_inp=sigma_inp,
-                      generator_numpy=generator_numpy)
+            self.step(input_timeseries[:, i, ...], sigma_rec=sigma_rec, sigma_inp=sigma_inp)
         return None
 
     def get_history(self):

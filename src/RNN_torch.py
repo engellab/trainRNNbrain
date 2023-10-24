@@ -21,9 +21,11 @@ def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
     num_zeros = int(np.ceil(sparsity * rows))
 
     with torch.no_grad():
+
         tnsr = torch.normal(torch.from_numpy(np.array(mean)).to(device),
                             torch.from_numpy(np.array(std)).to(device),
-                            (rows, cols)).to(device)
+                            (rows, cols), generator=generator).to(device)
+
         for col_idx in range(cols):
             row_indices = torch.randperm(rows, generator=generator, device=device)
             zero_indices = row_indices[:num_zeros]
@@ -58,7 +60,6 @@ def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1
     mu = 0
     mu_pos = 1 / np.sqrt(N)
     var = 1 / N
-
     recurrent_sparsity = 1 - recurrent_density
     W_rec = sparse(torch.empty(N, N, device=device), recurrent_sparsity, mu, var, generator)
 
@@ -78,6 +79,7 @@ def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1
     output_mask = (W_out != 0).to(device=device).float()
     input_mask = (W_inp != 0).to(device=device).float()
     recurrent_mask = torch.ones(N, N) - torch.eye(N)
+
     return W_rec.to(device=device).float(), \
            W_inp.to(device=device).float(), \
            W_out.to(device=device).float(), \
@@ -113,6 +115,7 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
             device = torch.device('cuda')
         else:
             device = torch.device('cpu')
+
     Ne = int(np.ceil(N * 0.8))
     Ni = int(np.floor(N * 0.2))
 
