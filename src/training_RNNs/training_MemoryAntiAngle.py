@@ -1,13 +1,13 @@
 import json
 import os
 import sys
-
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
+from src.DataSaver import DataSaver
 from src.DynamicSystemAnalyzer import DynamicSystemAnalyzer
 from src.PerformanceAnalyzer import PerformanceAnalyzer
 from src.RNN_numpy import RNN_numpy
-from src.utils import get_project_root, numpify, orthonormalize
+from src.utils import numpify, jsonify, orthonormalize
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
 from src.Task import *
@@ -15,12 +15,27 @@ from matplotlib import pyplot as plt
 import torch
 import time
 from sklearn.decomposition import PCA
+from pathlib import Path
+
+taskname = 'MemoryAntiAngle'
+activation = "tanh"
+train_config_file = f"train_config_{taskname}_{activation}.json"
+
+home = str(Path.home())
+if home == '/home/pt1290':
+    projects_folder = home
+    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{taskname}'
+    RNN_configs_path = home + '/rnn_coach/data/configs'
+elif home == '/Users/tolmach':
+    projects_folder = home + '/Documents/GitHub/'
+    data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{taskname}'
+    RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
+else:
+    pass
 
 disp = True
-activation = "tanh"
-taskname = "MemoryAntiAngle"
-train_config_file = f"train_config_{taskname}_{activation}.json"
-config_dict = json.load(open(os.path.join(get_project_root(), "data", "configs", train_config_file), mode="r"))
+config_dict = json.load(
+    open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 
 # defining RNN:
 N = config_dict["N"]
@@ -38,10 +53,16 @@ connectivity_density_rec = config_dict["connectivity_density_rec"]
 spectral_rad = config_dict["sr"]
 sigma_inp = config_dict["sigma_inp"]
 sigma_rec = config_dict["sigma_rec"]
-seed = config_dict["seed"]
-rng = torch.Generator()
+
+seed = np.random.randint(1000000)
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
+rng = torch.Generator(device=torch.device(device))
 if not seed is None:
     rng.manual_seed(seed)
+
 input_size = config_dict["num_inputs"]
 output_size = config_dict["num_outputs"]
 
@@ -83,27 +104,39 @@ trainer = Trainer(RNN=rnn_torch, Task=task,
                   lambda_orth=lambda_orth, orth_input_only=orth_input_only,
                   lambda_r=lambda_r)
 
-# datasaver = DataSaver(data_folder)
-datasaver = None
-try:
-    SLURM_JOB_ID = int(os.environ["SLURM_JOB_ID"])
-    task_params["seed"] = SLURM_JOB_ID
-    seed = SLURM_JOB_ID
-except:
-    SLURM_JOB_ID = None
-
+tic = time.perf_counter()
 rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
-fig_trainloss = plt.figure(figsize=(10, 3))
-plt.plot(train_losses, color='r', label='train loss (log scale)')
-plt.plot(val_losses, color='b', label='valid loss (log scale)')
-plt.yscale("log")
-plt.grid(True)
-plt.legend(fontsize=16)
-if disp:
-    plt.show()
-if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
+toc = time.perf_counter()
+print(f"Executed training in {toc - tic:0.4f} seconds")
 
-# net_params = pickle.load(open(os.path.join(get_project_root(), "data", "trained_RNNs", "MemoryAnti", "20230119-222602", "params_MemoryAnti_0.00639.pkl"), "rb+"))
+# throw out all the silent neurons!
+######### clean the RNN from silent neurons!
+input_batch, target_batch, conditions = task.get_batch()
+rnn_torch.sigma_rec = rnn_torch.sigma_inp = torch.tensor(0, device=rnn_torch.device)
+y, predicted_output_rnn = rnn_torch(torch.from_numpy(input_batch.astype("float32")).to(rnn_torch.device))
+Y = torch.hstack([y.detach()[:, :, i] for i in range(y.shape[-1])]).T
+Y_mean = torch.mean(torch.abs(Y), axis=0)
+inds_fr = (torch.where(Y_mean > 0)[0]).tolist()
+N_reduced = len(inds_fr)
+config_dict["N"] = N_reduced
+N = N_reduced
+W_rec = net_params["W_rec"][inds_fr, :]
+W_rec = W_rec[:, inds_fr]
+net_params["W_rec"] = deepcopy(W_rec)
+W_out = net_params["W_out"][:, inds_fr]
+net_params["W_out"] = deepcopy(W_out)
+W_inp = net_params["W_inp"][inds_fr, :]
+net_params["W_inp"] = deepcopy(W_inp)
+net_params["bias_rec"] = None
+net_params["y_init"] = np.zeros(N_reduced)
+RNN_params = {"W_inp": np.array(net_params["W_inp"]),
+              "W_rec": np.array(net_params["W_rec"]),
+              "W_out": np.array(net_params["W_out"]),
+              "b_rec": np.array(net_params["bias_rec"]),
+              "y_init": np.zeros(N)}
+net_params["N"] = N_reduced
+rnn_trained.set_params(RNN_params)
+########
 
 # validate
 RNN_valid = RNN_numpy(N=net_params["N"],
@@ -119,8 +152,24 @@ RNN_valid = RNN_numpy(N=net_params["N"],
 analyzer = PerformanceAnalyzer(RNN_valid)
 score_function = lambda x, y: np.mean((x - y) ** 2)
 input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
-score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid,
-                                      mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
+score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid, mask, sigma_rec=0, sigma_inp=0)
+score = np.round(score, 7)
+data_folder = f'{score}_{taskname};{activation_name};N={N_reduced};lmbdo={lambda_orth};orth_inp_only={orth_input_only};lmbdr={lambda_r};lr={lr};maxiter={max_iter}'
+if folder_tag != '':
+    data_folder+=f";tag={folder_tag}"
+full_data_folder = os.path.join(data_save_path, data_folder)
+datasaver = DataSaver(full_data_folder)
+
+fig_trainloss = plt.figure(figsize=(10, 3))
+plt.plot(train_losses, color='r', label='train loss (log scale)')
+plt.plot(val_losses, color='b', label='valid loss (log scale)')
+plt.yscale("log")
+plt.grid(True)
+plt.legend(fontsize=16)
+if disp:
+    plt.show()
+if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
+
 print(f"MSE validation: {np.round(score, 5)}")
 if not (datasaver is None): datasaver.save_data(config_dict, "config.json")
 if not (datasaver is None): datasaver.save_data(net_params, f"params_{taskname}_{np.round(score, 5)}.pkl")

@@ -13,11 +13,11 @@ date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
 N = 50
-activation_name = 'tanh'
+activation_name = 'relu'
 constrained = False
 seed = None
-sigma_inp = 0.03
-sigma_rec = 0.03
+sigma_inp = 0.05
+sigma_rec = 0.05
 dt = 1
 tau = 10
 sr = 1.2
@@ -40,13 +40,13 @@ mask = np.concatenate([np.arange(task_params["recall_on"]),
                        9 * n_steps // 16 + np.arange(7 * n_steps // 16)]).tolist()  # using the whole trial
 
 # training specific
-max_iter = 1500
+max_iter = 2000
 tol = 1e-10
-lr = 0.005
+lr = 0.002
 weight_decay = 5e-6
 lambda_orth = 0.3
 orth_input_only = True
-lambda_r = 0.1
+lambda_r = 0.3
 same_batch = False  # generate new batch in each train loop
 shuffle = False
 
