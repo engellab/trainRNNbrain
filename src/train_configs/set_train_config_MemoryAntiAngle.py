@@ -12,7 +12,7 @@ from src.utils import get_project_root
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 20
+N = 100
 activation_name = 'tanh'
 constrained = False
 seed = None
@@ -27,7 +27,7 @@ connectivity_density_rec = 1.0
 task_name = 'MemoryAntiAngle'
 n_inputs = 3
 n_outputs = 2
-T = 90
+T = 320
 n_steps = int(T / dt)
 task_params = dict()
 task_params["stim_on_range"] = [0, 8 * n_steps // 16 - 20]
@@ -40,7 +40,7 @@ mask = np.concatenate([np.arange(task_params["recall_on"]),
                        9 * n_steps // 16 + np.arange(7 * n_steps // 16)]).tolist()  # using the whole trial
 
 # training specific
-max_iter = 20
+max_iter = 1500
 tol = 1e-10
 lr = 0.002
 weight_decay = 5e-6

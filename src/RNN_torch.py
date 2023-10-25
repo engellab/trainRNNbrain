@@ -9,6 +9,7 @@ import numpy as np
 def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
     if tnsr.ndimension() != 2:
         raise ValueError("Only tensors with 2 dimensions are supported")
+
     if not (generator is None):
         device = generator.device
     else:
@@ -21,10 +22,15 @@ def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
     num_zeros = int(np.ceil(sparsity * rows))
 
     with torch.no_grad():
-
-        tnsr = torch.normal(torch.from_numpy(np.array(mean)).to(device),
-                            torch.from_numpy(np.array(std)).to(device),
-                            (rows, cols), generator=generator).to(device)
+        device_cpu = torch.device('cpu')
+        m = torch.from_numpy(np.array(mean)).to(device_cpu)
+        std = torch.from_numpy(np.array(std)).to(device_cpu)
+        (rows, cols) = (torch.tensor(rows).to(device_cpu), torch.tensor(cols).to(device_cpu))
+        # it seems it can only use generator on CPU?
+        generator_cpu = torch.Generator(device=torch.device(device_cpu))
+        generator_cpu.manual_seed(int(generator.initial_seed()))
+        # first create tensor on CPU then move it to gpu
+        tnsr = torch.normal(m, std, (rows, cols), generator=generator_cpu).to(device)
 
         for col_idx in range(cols):
             row_indices = torch.randperm(rows, generator=generator, device=device)

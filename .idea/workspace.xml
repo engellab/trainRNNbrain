@@ -5,12 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/PerformanceAnalyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/PerformanceAnalyzer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RNN_numpy.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_numpy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/MemoryAntiAngle_hyperparam_optimization/MemoryAntiAngle_importance.pdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/img/MemoryAntiAngle_hyperparam_optimization/MemoryAntiAngle_optimization_history.pdf" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/RNN_torch.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_torch.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/hyperparam_search.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

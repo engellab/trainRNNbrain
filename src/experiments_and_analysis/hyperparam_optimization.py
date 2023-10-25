@@ -2,14 +2,12 @@ import sys
 import optuna
 from optuna.visualization.matplotlib import plot_optimization_history, plot_param_importances
 from functools import partial
-from src.PerformanceAnalyzer import PerformanceAnalyzer
-from src.RNN_numpy import RNN_numpy
 sys.path.insert(0, "../")
 sys.path.insert(0, "../../")
-from src.DataSaver import DataSaver
+from src.PerformanceAnalyzer import PerformanceAnalyzer
+from src.RNN_numpy import RNN_numpy
 import numpy as np
 np.set_printoptions(suppress=True)
-from src.utils import get_project_root
 import warnings
 from src.utils import numpify, jsonify, orthonormalize
 warnings.simplefilter("ignore", UserWarning)
@@ -29,15 +27,22 @@ def objective(trial, taskname, activation, num_repeats=7):
     train_config_file = f"train_config_{taskname}_{activation}.json"
 
     home = str(Path.home())
-    RNN_configs_path = home + '/Documents/GitHub/rnn_coach/data/configs'
+    if home == '/home/pt1290':
+        RNN_configs_path = home + '/rnn_coach/data/configs'
+    elif home == '/Users/tolmach':
+        projects_folder = home + '/Documents/GitHub/'
+        RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
+    else:
+        pass
+
     seeds = np.arange(num_repeats)
 
     # define params to be varied
-    lr = trial.suggest_loguniform('lr', 0.001, 0.05)
-    lmbd_orth = trial.suggest_uniform('lmbd_orth', 0.0, 0.5)
-    lmbd_r = trial.suggest_uniform('lmbd_r', 0.0, 0.5)
-    spectral_rad = trial.suggest_uniform('spectral_rad', 0.8, 1.5)
-    weight_decay = trial.suggest_uniform('weight_decay', 0.0, 0.2)
+    lr = trial.suggest_float('lr', 0.001, 0.05)
+    lmbd_orth = trial.suggest_float('lmbd_orth', 0.0, 0.5)
+    lmbd_r = trial.suggest_float('lmbd_r', 0.0, 0.5)
+    spectral_rad = trial.suggest_float('spectral_rad', 0.8, 1.5)
+    weight_decay = trial.suggest_float('weight_decay', 0.0, 0.2)
 
     config_dict = json.load(
         open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
@@ -167,25 +172,30 @@ def objective(trial, taskname, activation, num_repeats=7):
 if __name__ == '__main__':
     taskname = 'MemoryAntiAngle'
     activation = 'tanh'
-    num_repeats = 1
-    n_trials = 5
+    num_repeats = 3
+    n_trials = 50
+
+    home = str(Path.home())
+    if home == '/home/pt1290':
+        data_save_path = home + f'/rnn_coach/img/{taskname}_hprprm'
+        RNN_configs_path = home + '/rnn_coach/data/configs'
+    elif home == '/Users/tolmach':
+        projects_folder = home + '/Documents/GitHub/'
+        RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
+        data_save_path = projects_folder + f'/rnn_coach/img/{taskname}_hprprm'
+    else:
+        pass
 
     os.umask(0)
-    img_path = os.path.abspath(os.path.join(get_project_root(), "img", f"{taskname}_hyperparam_optimization"))
-    os.makedirs(img_path, exist_ok=True, mode=0o777)
-    print(img_path)
+    os.makedirs(data_save_path, exist_ok=True, mode=0o777)
     #set up img folder
-
-
     study = optuna.create_study(direction="maximize")
     objective = partial(objective, taskname=taskname, activation=activation, num_repeats=num_repeats)
     study.optimize(objective, n_trials=n_trials)
     print(f"best parameters : {study.best_params}")
 
-
-
     fig_history = optuna.visualization.plot_optimization_history(study)
-    fig_history.write_image(os.path.join(img_path,f"{taskname}_optimization_history.pdf"), width=1920, height=1080)
+    fig_history.write_image(os.path.join(data_save_path,f"{taskname}_optimization_history.pdf"), width=1920, height=1080)
 
     fig_importance = optuna.visualization.plot_param_importances(study)
-    fig_importance.write_image(os.path.join(img_path, f"{taskname}_importance.pdf"), width=1920, height=1080)
+    fig_importance.write_image(os.path.join(data_save_path, f"{taskname}_importance.pdf"), width=1920, height=1080)
