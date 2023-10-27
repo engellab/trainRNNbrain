@@ -25,8 +25,8 @@ connectivity_density_rec = 1.0
 #Trial 22 finished with value: 0.0037636 and parameters: {'lr': 0.0022975299091267066, 'lmbd_orth': 0.1000504771878649, 'lmbd_r': 0.002122537293968812, 'spectral_rad': 1.3136631625741721, 'weight_decay': 1.1496845347878425e-05}. Best is trial 22 with value: 0.0037636.[0m
 # task specific
 task_name = 'MemoryAntiAngle'
-n_inputs = 5
-n_outputs = 4
+n_inputs = 4
+n_outputs = 3
 T = 320
 n_steps = int(T / dt)
 task_params = dict()
@@ -40,7 +40,7 @@ mask = np.concatenate([np.arange(task_params["recall_on"]),
                        9 * n_steps // 16 + np.arange(7 * n_steps // 16)]).tolist()  # using the whole trial
 
 # training specific
-max_iter = 2500
+max_iter = 3000
 tol = 1e-10
 lr = 0.002
 weight_decay = 1e-5

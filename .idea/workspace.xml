@@ -5,13 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_DMTS.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_relu.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_relu.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/trained_RNNs/DMTS/20230116-171848/config.json" beforeDir="false" />
@@ -118,15 +111,9 @@
       <change beforePath="$PROJECT_DIR$/data/trained_RNNs/MemoryAntiAngle/5/fp_projection_minimize" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/data/trained_RNNs/MemoryAntiAngle/5/random_trials" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/data/trained_RNNs/MemoryAntiAngle/5/train&amp;valid_loss" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/PerformanceAnalyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/PerformanceAnalyzer.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Task.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Task.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_MemoryAntiAngle.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiNumber.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_tanh.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -201,8 +188,8 @@
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.training_MemoryAntiAngle_tanh">
-    <configuration name="set_train_config_DMTS_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.set_train_config_MemoryAntiAngle_tanh">
+    <configuration name="set_train_config_MemoryAntiAngle_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -214,7 +201,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -265,7 +252,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="training_DMTS_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="training_MemoryAntiAngle_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -277,7 +264,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_DMTS_tanh.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -309,18 +296,18 @@
     </configuration>
     <list>
       <item itemvalue="Python.set_train_config_MemoryAntiNumber" />
-      <item itemvalue="Python.training_DMTS_tanh" />
       <item itemvalue="Python.training_MemoryAntiAngle_tanh" />
-      <item itemvalue="Python.set_train_config_DMTS_relu" />
       <item itemvalue="Python.set_train_config_MemoryAntiAngle_tanh" />
+      <item itemvalue="Python.set_train_config_MemoryAntiAngle_relu" />
+      <item itemvalue="Python.training_MemoryAntiAngle_relu" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.training_MemoryAntiAngle_tanh" />
         <item itemvalue="Python.set_train_config_MemoryAntiAngle_tanh" />
+        <item itemvalue="Python.set_train_config_MemoryAntiAngle_relu" />
+        <item itemvalue="Python.training_MemoryAntiAngle_relu" />
+        <item itemvalue="Python.training_MemoryAntiAngle_tanh" />
         <item itemvalue="Python.set_train_config_MemoryAntiNumber" />
-        <item itemvalue="Python.training_DMTS_tanh" />
-        <item itemvalue="Python.set_train_config_DMTS_relu" />
       </list>
     </recent_temporary>
   </component>
@@ -384,11 +371,6 @@
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py</url>
           <line>195</line>
           <option name="timeStamp" value="306" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>677</line>
-          <option name="timeStamp" value="307" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py</url>
@@ -462,22 +444,22 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>904</line>
+          <line>911</line>
           <option name="timeStamp" value="461" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>845</line>
+          <line>852</line>
           <option name="timeStamp" value="465" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>939</line>
+          <line>946</line>
           <option name="timeStamp" value="473" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>953</line>
+          <line>960</line>
           <option name="timeStamp" value="475" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -494,6 +476,11 @@
           <url>file://$PROJECT_DIR$/src/Task.py</url>
           <line>516</line>
           <option name="timeStamp" value="479" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/Task.py</url>
+          <line>687</line>
+          <option name="timeStamp" value="487" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

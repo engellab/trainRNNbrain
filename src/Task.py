@@ -668,22 +668,29 @@ class TaskMemoryAntiAngle(Task):
     def generate_input_target_stream(self, theta):
         input_stream = np.zeros((self.n_inputs, self.n_steps))
         target_stream = np.zeros((self.n_outputs, self.n_steps))
+
         stim_on = int(self.rng.uniform(*self.stim_on_range))
         duration = self.stim_duration
+        num_angle_encoding_inps = (self.n_inputs - 1)
+        num_angle_encoding_outs = (self.n_inputs - 1)
+        arc = 2 * np.pi / num_angle_encoding_inps
+        ind_channel = int(theta // arc)
+        v = theta % arc
 
-        input_stream[0, stim_on: stim_on + duration] = np.maximum(2 * np.cos(theta), 0)
-        input_stream[1, stim_on: stim_on + duration] = np.maximum(-2 * np.cos(theta), 0)
-        input_stream[2, stim_on: stim_on + duration] = np.maximum(2 * np.sin(theta), 0)
-        input_stream[3, stim_on: stim_on + duration] = np.maximum(-2 * np.sin(theta), 0)
-        input_stream[4, self.recall_on: self.recall_off] = 1
+        input_stream[ind_channel, stim_on: stim_on + duration] = (1 - v/arc)
+        input_stream[(ind_channel + 1) % num_angle_encoding_inps, stim_on: stim_on + duration] = v/arc
+        input_stream[-1, self.recall_on: self.recall_off] = 1
 
         # Supplying it with an explicit instruction to recall the theta + 180
-        target_stream[0, self.recall_on: self.recall_off] = np.maximum(2 * np.cos(theta + np.pi), 0)
-        target_stream[1, self.recall_on: self.recall_off] = np.maximum(- 2 * np.cos(theta + np.pi), 0)
-        target_stream[2, self.recall_on: self.recall_off] = np.maximum(2 * np.sin(theta + np.pi), 0)
-        target_stream[3, self.recall_on: self.recall_off] = np.maximum(-2 * np.sin(theta + np.pi), 0)
+        theta_hat = (theta + np.pi) % (2 * np.pi)
+        arc_hat = (2 * np.pi) / num_angle_encoding_outs
+        ind_channel = int(theta_hat // arc_hat)
+        w = theta_hat % arc_hat
 
-        condition = {"theta": theta, "stim_on" : stim_on, "duration" : duration}
+        target_stream[ind_channel, self.recall_on: self.recall_off] = 1 - w/arc_hat
+        target_stream[(ind_channel + 1) % num_angle_encoding_outs, self.recall_on: self.recall_off] = w/arc_hat
+
+        condition = {"theta": theta, "stim_on": stim_on, "duration" : duration}
         return input_stream, target_stream, condition
 
     def get_batch(self, shuffle=False):
