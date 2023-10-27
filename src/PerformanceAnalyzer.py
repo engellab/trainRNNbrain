@@ -28,7 +28,7 @@ class PerformanceAnalyzer():
             [scoring_function(output_prediction[:, mask, i], target_batch[:, mask, i]) for i in range(batch_size)])
         return avg_score
 
-    def plot_trials(self, input_batch, target_batch, mask, sigma_rec=0.03, sigma_inp=0.03, labels=None, seed=None):
+    def plot_trials(self, input_batch, target_batch, mask, sigma_rec=0.03, sigma_inp=0.03, labels=None):
         n_inputs = input_batch.shape[0]
         n_steps = input_batch.shape[1]
         batch_size = input_batch.shape[2]
@@ -37,8 +37,7 @@ class PerformanceAnalyzer():
         self.RNN.y = deepcopy(self.RNN.y_init)
         self.RNN.run(input_timeseries=input_batch,
                     sigma_rec=sigma_rec,
-                    sigma_inp=sigma_inp,
-                    seed=seed)
+                    sigma_inp=sigma_inp)
         predicted_output = self.RNN.get_output()
         colors = ["r", "b", "g", "c", "m", "y", 'k']
         n_outputs = self.RNN.W_out.shape[0]

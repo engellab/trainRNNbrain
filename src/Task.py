@@ -477,11 +477,15 @@ class TaskDMTS(Task):
         self.stim_off_match = self.task_params["stim_off_match"]
         self.dec_on = self.task_params["dec_on"]
         self.dec_off = self.task_params["dec_off"]
+        self.random_window = self.task_params["random_window"]
 
     def generate_input_target_stream(self, num_sample_channel, num_match_channel):
+        random_window_1 = self.rng.integers(-self.random_window, self.random_window)
+        random_window_2 = self.rng.integers(-self.random_window, self.random_window)
         input_stream = np.zeros([self.n_inputs, self.n_steps])
-        input_stream[num_sample_channel, self.stim_on_sample:self.stim_off_sample] = 1.0
-        input_stream[num_match_channel, self.stim_on_match:self.stim_off_match] = 1.0
+        input_stream[num_sample_channel, self.stim_on_sample + random_window_1:self.stim_off_sample + random_window_1] = 1.0
+        input_stream[num_match_channel, self.stim_on_match + random_window_2:self.stim_off_match + random_window_2] = 1.0
+        input_stream[2, self.dec_on:self.dec_off] = 1.0 # to signify the decision period
 
         # Target stream
         target_stream = np.zeros((2, self.n_steps))
@@ -489,6 +493,7 @@ class TaskDMTS(Task):
             target_stream[0, self.dec_on: self.dec_off] = 1
         elif (num_sample_channel != num_match_channel):
             target_stream[1, self.dec_on: self.dec_off] = 1
+
         return input_stream, target_stream
 
     def get_batch(self, shuffle=False):
@@ -496,19 +501,16 @@ class TaskDMTS(Task):
         inputs = []
         targets = []
         conditions = []
-        for num_sample_channel in range(self.n_inputs):
-            for num_match_channel in range(self.n_inputs):
-                correct_choice = 1 if (num_sample_channel == num_match_channel) else -1
-                conditions.append({'num_sample_channel': num_sample_channel,
-                                   'num_match_channel': num_match_channel,
-                                   'correct_choice': correct_choice})
-                input_stream, target_stream = self.generate_input_target_stream(num_sample_channel, num_match_channel)
-                inputs.append(deepcopy(input_stream))
-                targets.append(deepcopy(target_stream))
-
-        inputs = 64 * inputs
-        targets = 64 * targets
-        conditions = 64 * conditions
+        for i in range(64):
+            for num_sample_channel in range(self.n_inputs - 1):
+                for num_match_channel in range(self.n_inputs - 1):
+                    correct_choice = 1 if (num_sample_channel == num_match_channel) else -1
+                    conditions.append({'num_sample_channel': num_sample_channel,
+                                       'num_match_channel': num_match_channel,
+                                       'correct_choice': correct_choice})
+                    input_stream, target_stream = self.generate_input_target_stream(num_sample_channel, num_match_channel)
+                    inputs.append(deepcopy(input_stream))
+                    targets.append(deepcopy(target_stream))
 
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
@@ -616,18 +618,20 @@ class TaskMemoryAntiNumber(Task):
         duration = self.stim_duration
         input_stream = np.zeros((self.n_inputs, self.n_steps))
         target_stream = np.zeros((self.n_outputs, self.n_steps))
-        input_stream[0, stim_on: stim_on + duration] = number
-        input_stream[1, self.recall_on: self.recall_off] = 1
+        input_stream[0, stim_on: stim_on + duration] = np.maximum(number, 0)
+        input_stream[1, stim_on: stim_on + duration] = np.maximum(-number, 0)
+        input_stream[2, self.recall_on: self.recall_off] = 1
 
-        target_stream[0, self.recall_on: self.recall_off] = -number
-        condition = {"number": number}
+        target_stream[0, self.recall_on: self.recall_off] = np.maximum(-number, 0)
+        target_stream[1, self.recall_on: self.recall_off] = np.maximum(number, 0)
+        condition = {"number": number, "stim_on" : stim_on, "duration" : duration}
         return input_stream, target_stream, condition
 
     def get_batch(self, shuffle=False):
         inputs = []
         targets = []
         conditions = []
-        numbers = np.linspace(-2, 2, 32)
+        numbers = np.linspace(-2, 2, 128)
         for number in numbers:
             input_stream, target_stream, condition = self.generate_input_target_stream(number)
             inputs.append(deepcopy(input_stream))
@@ -635,8 +639,6 @@ class TaskMemoryAntiNumber(Task):
             conditions.append(deepcopy(condition))
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
-        inputs = np.repeat(inputs, axis=2, repeats=11)
-        targets = np.repeat(targets, axis=2, repeats=11)
         if shuffle:
             perm = self.rng.permutation(np.arange((inputs.shape[-1])))
             inputs = inputs[..., perm]
@@ -648,7 +650,7 @@ class TaskMemoryAntiNumber(Task):
 class TaskMemoryAntiAngle(Task):
     def __init__(self, n_steps, n_inputs, n_outputs, task_params):
         '''
-        Given a two-channel input 2*cos(theta) and 2*sin(theta) specifying an angle theta (present only for a short period of time),
+        Given a four-channel input 2*cos(theta) and 2*sin(theta) specifying an angle theta (present only for a short period of time),
         Output 2*cos(theta+pi), 2*sin(theta+pi) in the recall period (signified by +1 provided in the third input-channel)
         This task is similar (but not exactly the same) to the task described in
         "Flexible multitask computation in recurrent networks utilizes shared dynamical motifs"
@@ -669,21 +671,26 @@ class TaskMemoryAntiAngle(Task):
         stim_on = int(self.rng.uniform(*self.stim_on_range))
         duration = self.stim_duration
 
-        input_stream[0, stim_on: stim_on + duration] = 2 * np.cos(theta)
-        input_stream[1, stim_on: stim_on + duration] = 2 * np.sin(theta)
-        input_stream[2, self.recall_on: self.recall_off] = 1
+        input_stream[0, stim_on: stim_on + duration] = np.maximum(2 * np.cos(theta), 0)
+        input_stream[1, stim_on: stim_on + duration] = np.maximum(-2 * np.cos(theta), 0)
+        input_stream[2, stim_on: stim_on + duration] = np.maximum(2 * np.sin(theta), 0)
+        input_stream[3, stim_on: stim_on + duration] = np.maximum(-2 * np.sin(theta), 0)
+        input_stream[4, self.recall_on: self.recall_off] = 1
 
         # Supplying it with an explicit instruction to recall the theta + 180
-        target_stream[0, self.recall_on: self.recall_off] = 2 * np.cos(theta + np.pi)
-        target_stream[1, self.recall_on: self.recall_off] = 2 * np.sin(theta + np.pi)
-        condition = {"theta": theta}
+        target_stream[0, self.recall_on: self.recall_off] = np.maximum(2 * np.cos(theta + np.pi), 0)
+        target_stream[1, self.recall_on: self.recall_off] = np.maximum(- 2 * np.cos(theta + np.pi), 0)
+        target_stream[2, self.recall_on: self.recall_off] = np.maximum(2 * np.sin(theta + np.pi), 0)
+        target_stream[3, self.recall_on: self.recall_off] = np.maximum(-2 * np.sin(theta + np.pi), 0)
+
+        condition = {"theta": theta, "stim_on" : stim_on, "duration" : duration}
         return input_stream, target_stream, condition
 
     def get_batch(self, shuffle=False):
         inputs = []
         targets = []
         conditions = []
-        thetas = 2 * np.pi * np.linspace(0, 1, 37)[:-1]
+        thetas = 2 * np.pi * np.linspace(0, 1, 73)[:-1]
         for theta in thetas:
             input_stream, target_stream, condition = self.generate_input_target_stream(theta)
             inputs.append(deepcopy(input_stream))
@@ -691,8 +698,6 @@ class TaskMemoryAntiAngle(Task):
             conditions.append(deepcopy(condition))
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
-        inputs = np.repeat(inputs, axis=2, repeats=11)
-        targets = np.repeat(targets, axis=2, repeats=11)
         if shuffle:
             perm = self.rng.permutation(np.arange((inputs.shape[-1])))
             inputs = inputs[..., perm]
@@ -1026,10 +1031,11 @@ if __name__ == '__main__':
     n_inputs = 2
     n_outputs = 1
     task_params = dict()
-    task_params["stim_on"] = n_steps // 8
-    task_params["stim_off"] = 3 * n_steps // 16
+    task_params["stim_on_range"] = [n_steps // 8,  3 * n_steps // 16]
+    task_params["stim_duration"] = 15
     task_params["recall_on"] = 5 * n_steps // 8
     task_params["recall_off"] = n_steps
+    task_params["seed"] = 0
     task = TaskMemoryAntiNumber(n_steps, n_inputs, n_outputs, task_params)
     inputs, targets, conditions = task.get_batch()
     print(inputs.shape, targets.shape)

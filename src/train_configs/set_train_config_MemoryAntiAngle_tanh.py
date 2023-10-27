@@ -20,18 +20,18 @@ sigma_inp = 0.05
 sigma_rec = 0.05
 dt = 1
 tau = 10
-sr = 1.2
+sr = 1.3
 connectivity_density_rec = 1.0
-
+#Trial 22 finished with value: 0.0037636 and parameters: {'lr': 0.0022975299091267066, 'lmbd_orth': 0.1000504771878649, 'lmbd_r': 0.002122537293968812, 'spectral_rad': 1.3136631625741721, 'weight_decay': 1.1496845347878425e-05}. Best is trial 22 with value: 0.0037636.[0m
 # task specific
 task_name = 'MemoryAntiAngle'
-n_inputs = 3
-n_outputs = 2
+n_inputs = 5
+n_outputs = 4
 T = 320
 n_steps = int(T / dt)
 task_params = dict()
 task_params["stim_on_range"] = [0, 8 * n_steps // 16 - 20]
-task_params["stim_duration"] = 10
+task_params["stim_duration"] = 15
 task_params["recall_on"] = 8 * n_steps // 16
 task_params["recall_off"] = n_steps
 task_params["seed"] = seed
@@ -40,13 +40,13 @@ mask = np.concatenate([np.arange(task_params["recall_on"]),
                        9 * n_steps // 16 + np.arange(7 * n_steps // 16)]).tolist()  # using the whole trial
 
 # training specific
-max_iter = 1500
+max_iter = 2500
 tol = 1e-10
 lr = 0.002
-weight_decay = 5e-6
-lambda_orth = 0.3
+weight_decay = 1e-5
+lambda_orth = 0.1
 orth_input_only = True
-lambda_r = 0.3
+lambda_r = 0.002
 same_batch = False  # generate new batch in each train loop
 shuffle = False
 

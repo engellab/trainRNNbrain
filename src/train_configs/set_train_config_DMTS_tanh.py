@@ -12,42 +12,46 @@ from src.utils import get_project_root
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 50
-activation_name = 'relu'
-constrained = False
-seed = None
-sigma_inp = 0.015
-sigma_rec = 0.015
+N = 100
+activation_name = 'tanh'
+constrained = True
+seed = 0
+sigma_inp = 0.05
+sigma_rec = 0.05
 dt = 1
 tau = 10
-sr = 1.2
+sr = 1.3
 connectivity_density_rec = 1.0
 
-# task specific
-task_name = 'MemoryAntiNumber'
+task_name = 'DMTS'
 n_inputs = 3
 n_outputs = 2
-T = 320
+T = 120
 n_steps = int(T / dt)
 task_params = dict()
-task_params["stim_on_range"] = [0, 8 * n_steps // 16 - 20]
-task_params["stim_duration"] = 15
-task_params["recall_on"] = 8 * n_steps // 16
-task_params["recall_off"] = n_steps
+task_params["n_steps"] = n_steps
+task_params["n_inputs"] = n_inputs
+task_params["n_outputs"] = n_outputs
+task_params["stim_on_sample"] = n_steps // 10
+task_params["stim_off_sample"] = 2 * n_steps // 10
+task_params["stim_on_match"] = 3 * n_steps // 10
+task_params["stim_off_match"] = 4 * n_steps // 10
+task_params["dec_on"] = 5 * n_steps // 10
+task_params["dec_off"] = n_steps
+task_params["random_window"] = n_steps // 10
 task_params["seed"] = seed
-# mask = np.concatenate([np.arange(n_steps)]).tolist() # using the whole trial
-mask = np.concatenate([np.arange(task_params["recall_on"]),
-                       9 * n_steps // 16 + np.arange(7 * n_steps // 16)]).tolist()  # using the whole trial
+mask = np.concatenate(
+    [np.arange(int(5 * n_steps // 10)), int(6 * n_steps // 10) + np.arange(int(4 * n_steps // 10))]).tolist()
 
 # training specific
-max_iter = 1500
+max_iter = 2500
 tol = 1e-10
-lr = 0.002
-weight_decay = 1e-5
-lambda_orth = 0.1
+lr = 0.01
+weight_decay = 5e-6
+lambda_orth = 0.3
 orth_input_only = True
-lambda_r = 0.002
-same_batch = False  # generate new batch in each train loop
+lambda_r = 0.00
+same_batch = False
 shuffle = False
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))

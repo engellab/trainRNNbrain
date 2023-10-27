@@ -38,11 +38,11 @@ def objective(trial, taskname, activation, num_repeats=7):
     seeds = np.arange(num_repeats)
 
     # define params to be varied
-    lr = trial.suggest_float('lr', 0.001, 0.05)
+    lr = trial.suggest_float('lr', 0.001, 0.01, log=True)
     lmbd_orth = trial.suggest_float('lmbd_orth', 0.0, 0.5)
     lmbd_r = trial.suggest_float('lmbd_r', 0.0, 0.5)
     spectral_rad = trial.suggest_float('spectral_rad', 0.8, 1.5)
-    weight_decay = trial.suggest_float('weight_decay', 0.0, 0.2)
+    weight_decay = trial.suggest_float('weight_decay', 1e-6, 0.1, log=True)
 
     config_dict = json.load(
         open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
@@ -189,7 +189,7 @@ if __name__ == '__main__':
     os.umask(0)
     os.makedirs(data_save_path, exist_ok=True, mode=0o777)
     #set up img folder
-    study = optuna.create_study(direction="maximize")
+    study = optuna.create_study(direction="minimize")
     objective = partial(objective, taskname=taskname, activation=activation, num_repeats=num_repeats)
     study.optimize(objective, n_trials=n_trials)
     print(f"best parameters : {study.best_params}")
