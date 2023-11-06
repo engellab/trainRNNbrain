@@ -81,9 +81,9 @@ class TaskALM(Task):
         self.n_steps = n_steps
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
-        self.cue_on = self.task_params["cue_on"]
-        self.cue_off = self.task_params["cue_off"]
-        self.go_on = self.task_params["go_on"]
+        self.cue_on = self.task_params["cue_on"] # onset of auditory cue
+        self.cue_off = self.task_params["cue_off"] # offset of cue
+        self.go_on = self.task_params["go_on"] # onset of go cue
 
     def generate_input_target_stream(self, direction):
         input_stream = np.zeros((self.n_inputs, self.n_steps))
@@ -92,12 +92,9 @@ class TaskALM(Task):
         # add auditory cue to input
         if (direction != -1): # no stim for catch trials 
             input_stream[direction, self.cue_on:self.cue_off+1] = 1
-        
-        # add go cue to input to channel 2 of input
-        input_stream[2, self.go_on:] = 1
-
-        # add target to output
-        if (direction != -1):
+            # add go cue to input to channel 2 of input
+            input_stream[2, self.go_on:] = 1
+            # add target to output
             output_stream[direction, self.go_on:] = 1
 
         return input_stream, output_stream
@@ -114,8 +111,6 @@ class TaskALM(Task):
 
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
-        # assert(inputs.shape[-1] == self.batch_size)
-        # assert(targets.shape[-1] == self.batch_size)
 
         if (shuffle):
             perm = self.rng.permutation(np.arange((inputs.shape[-1])))
