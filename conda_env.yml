@@ -1,13 +1,4 @@
-name: rnn_coach
-channels:
-  - defaults
-dependencies:
-  - numpy
-  - scipy
-  - matplotlib
-  - pytorch
-  - tqdm
-  - scikit-learn
-  - numdifftools
-  - datetime
-  
+conda create --name rnn_test python=3.9
+conda activate rnn_test
+conda install -c conda-forge numpy scipy matplotlib pytorch tqdm scikit-learn
+conda install -c conda-forge numdifftools
