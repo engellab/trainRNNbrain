@@ -12,7 +12,7 @@ def L2_ortho(rnn, X=None, y=None, orth_input_only = True):
     # regularization of the input and ouput matrices
     # Pair-wise orthogonalization of both the input columns and output rows
     if not orth_input_only:
-        b = torch.cat((rnn.input_layer.weight, rnn.output_layer.weight.t()), dim=1)
+        b = torch.cat((rnn.W_inp, rnn.W_out.t()), dim=1)
         b = b / torch.norm(b, dim=0)
         return torch.norm(b.t() @ b - torch.diag(torch.diag(b.t() @ b)), p=2)
     else:
