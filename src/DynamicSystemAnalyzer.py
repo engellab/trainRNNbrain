@@ -1,14 +1,13 @@
 import sys
 from copy import deepcopy
-
 import numpy as np
 import scipy.optimize
 from matplotlib import pyplot as plt
 from scipy.optimize import fsolve, minimize
 from tqdm.auto import tqdm
-
 sys.path.insert(0, '../')
-from src.utils import get_colormaps, in_the_list, sort_eigs, make_orientation_consistent
+sys.path.insert(0, '../../')
+from rnn_coach.src.utils import in_the_list, sort_eigs, make_orientation_consistent
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -101,7 +100,7 @@ class DynamicSystemAnalyzer():
         for i, type in enumerate(point_types):
             if len(eval(type)) != 0:
                 self.fp_data[input_as_key][type] = np.vstack(eval(point_types[i]))
-        return None
+        return deepcopy(self.fp_data)
 
     def plot_fixed_points(self, projection='2D', P=None):
         '''
@@ -349,6 +348,7 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
                 for period in ["context_only_on", "stim_on", "stim_off"]:
                     trajectories[ctxt][stim_status][period] = {}
 
+        from src.utils import get_colormaps
         colors, cmp = get_colormaps()
         red, blue, bluish, green, orange, lblue, violet = colors
         colors_trajectories = dict()

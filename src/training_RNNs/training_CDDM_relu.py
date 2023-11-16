@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 import json
@@ -18,8 +19,8 @@ import time
 for tries in range(10):
     disp = True
     activation = "relu"
-    taskname = "DMTS"
-    train_config_file = f"train_config_{taskname}_{activation}.json"
+    taskname = "CDDM"
+    train_config_file = f"train_config_{taskname}_{activation};N={100};lmbdr={0.3};lmbdo={0.3};orth_inp_only={True}.json"
 
     from pathlib import Path
     home = str(Path.home())
@@ -97,7 +98,7 @@ for tries in range(10):
                           connectivity_density_rec=connectivity_density_rec,
                           spectral_rad=spectral_rad,
                           random_generator=rng)
-    task = TaskDMTS(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
+    task = eval(f"Task{taskname}")(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(rnn_torch.parameters(),
                                  lr=lr,
@@ -163,7 +164,6 @@ for tries in range(10):
         data_folder+=f";tag={folder_tag}"
     full_data_folder = os.path.join(data_save_path, data_folder)
     datasaver = DataSaver(full_data_folder)
-
 
     print(f"MSE validation: {score}")
     if not (datasaver is None): datasaver.save_data(jsonify(config_dict), f"{score}_config.json")

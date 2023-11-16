@@ -14,7 +14,7 @@ date = ''.join((list(str(date.today()).split("-"))[::-1]))
 # RNN specific
 N = 100
 activation_name = 'relu'
-constrained = False
+constrained = True
 seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
@@ -27,22 +27,23 @@ connectivity_density_rec = 1.0
 task_name = 'MemoryAntiAngle'
 n_inputs = 4
 n_outputs = 3
-T = 320
+T = 120
 n_steps = int(T / dt)
 task_params = dict()
-task_params["stim_on_range"] = [0, 8 * n_steps // 16 - 20]
-task_params["stim_duration"] = 15
+task_params["stim_on"] = 2 * n_steps // 12
+task_params["stim_off"] = 3 * n_steps // 12
+task_params["random_window"] = n_steps // 12
 task_params["recall_on"] = 8 * n_steps // 16
 task_params["recall_off"] = n_steps
 task_params["seed"] = seed
 # mask = np.concatenate([np.arange(n_steps)]).tolist() # using the whole trial
 mask = np.concatenate([np.arange(task_params["recall_on"]),
-                       9 * n_steps // 16 + np.arange(7 * n_steps // 16)]).tolist()  # using the whole trial
+                       9 * n_steps // 16 + np.arange(7 * n_steps // 16)]).tolist()
 
 # training specific
 max_iter = 3000
 tol = 1e-10
-lr = 0.002
+lr = 0.005
 weight_decay = 1e-5
 lambda_orth = 0.1
 orth_input_only = True

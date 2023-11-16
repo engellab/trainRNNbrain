@@ -15,43 +15,36 @@ date = ''.join((list(str(date.today()).split("-"))[::-1]))
 N = 100
 activation_name = 'tanh'
 constrained = False
-seed = 0
+seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
 dt = 1
 tau = 10
 sr = 1.3
 connectivity_density_rec = 1.0
-
-task_name = 'DMTS'
+# task specific
+task_name = 'AngleIntegration'
 n_inputs = 3
-n_outputs = 2
-T = 120
+n_outputs = 6
+T = 320
 n_steps = int(T / dt)
 task_params = dict()
-task_params["n_steps"] = n_steps
-task_params["n_inputs"] = n_inputs
-task_params["n_outputs"] = n_outputs
-task_params["stim_on_sample"] = n_steps // 10
-task_params["stim_off_sample"] = 2 * n_steps // 10
-task_params["stim_on_match"] = 3 * n_steps // 10
-task_params["stim_off_match"] = 4 * n_steps // 10
-task_params["dec_on"] = 5 * n_steps // 10
-task_params["dec_off"] = n_steps
-task_params["random_window"] = n_steps // 10
-task_params["seed"] = seed
-mask = np.concatenate(
-    [np.arange(int(5 * n_steps // 10)), int(6 * n_steps // 10) + np.arange(int(4 * n_steps // 10))]).tolist()
+task_params["w"] = 0.1 / (2 * np.pi)
+task_params["amp_range"] = (-1, 1)
+task_params["mu_blocks"] = 10
+task_params["min_block_length"] = 10
+task_params["seed"] = None
+mask = np.concatenate([np.arange(10, n_steps)]).tolist() # using the whole trial
 
 # training specific
-max_iter = 2500
+max_iter = 2000
 tol = 1e-10
-lr = 0.01
-weight_decay = 5e-6
-lambda_orth = 0.3
+lr = 0.005
+weight_decay = 1e-5
+lambda_orth = 0.1
 orth_input_only = True
-lambda_r = 0.00
-same_batch = False
+lambda_r = 0.005
+same_batch = False  # generate new batch in each train loop
 shuffle = False
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))

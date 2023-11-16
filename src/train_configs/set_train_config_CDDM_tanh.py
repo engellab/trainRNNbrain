@@ -1,18 +1,28 @@
 import json
 import os
 import sys
-
 import numpy as np
+import datetime
 
-sys.path.insert(0, '../')
-sys.path.insert(0, '../../')
-from src.utils import get_project_root
-from datetime import date
+taskname = 'CDDM'
 
-date = ''.join((list(str(date.today()).split("-"))[::-1]))
+from pathlib import Path
+home = str(Path.home())
+if home == '/home/pt1290':
+    projects_folder = home
+    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{taskname}'
+    RNN_configs_path = home + '/rnn_coach/data/configs'
+elif home == '/Users/tolmach':
+    projects_folder = home + '/Documents/GitHub/'
+    data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{taskname}'
+    RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
+else:
+    pass
+
+# date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 8
+N = 100
 activation_name = 'tanh'
 constrained = False
 seed = None
@@ -24,38 +34,50 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-task_name = 'CDDM'
-n_inputs = 4
-n_outputs = 1
+n_inputs = 6
+n_outputs = 2
 T = 300
 n_steps = int(T / dt)
-max_coherence = 0.8
+max_coherence = 1
 coherence_lvls = 7
 
 mask = np.concatenate([np.arange(int(n_steps // 3)), int(2 * n_steps // 3) + np.arange(int(n_steps // 3))]).tolist()
+
+# task_params = {"cue_on": int(0.1 * n_steps), "cue_off": n_steps//3,
+#                "stim_on": int(0.4 * n_steps), "stim_off": n_steps,
+#                "dec_on": int(3 * n_steps // 4), "dec_off": n_steps,
+#                "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
+
 task_params = {"cue_on": 0, "cue_off": n_steps,
                "stim_on": int(n_steps // 3), "stim_off": n_steps,
                "dec_on": int(2 * n_steps // 3), "dec_off": n_steps,
                "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
+
 tmp = max_coherence * np.logspace(-(coherence_lvls - 1), 0, coherence_lvls, base=2)
 coherences = np.concatenate([-np.array(tmp[::-1]), np.array([0]), np.array(tmp)]).tolist()
 task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 3000
+max_iter = 6000
 tol = 1e-10
 lr = 0.002
-weight_decay = 1e-3
+weight_decay = 5e-06
 lambda_orth = 0.3
 orth_input_only = True
-lambda_r = 0.5
+lambda_r = 0.3
 same_batch = True
+extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}'
+name_tag = f'{taskname}_{extra_info}'
 
-data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
-config_tag = f'{task_name}_{activation_name}'
+now = datetime.datetime.now()
+year = now.year
+month = now.month
+day = now.day
+timestr = f"{year}/{month}/{day}"
 
 config_dict = {}
+config_dict["time"] = timestr
 config_dict["N"] = N
 config_dict["seed"] = seed
 config_dict["activation"] = activation_name
@@ -79,9 +101,8 @@ config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
 config_dict["orth_input_only"] = orth_input_only
 config_dict["lambda_r"] = lambda_r
-config_dict["data_folder"] = data_folder
 config_dict["folder_tag"] = ''
 
 json_obj = json.dumps(config_dict, indent=4)
-outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{config_tag}.json"), mode="w")
+outfile = open(os.path.join(RNN_configs_path, f"train_config_{name_tag}.json"), mode="w")
 outfile.write(json_obj)

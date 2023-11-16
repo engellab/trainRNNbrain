@@ -480,12 +480,24 @@ class TaskDMTS(Task):
         self.random_window = self.task_params["random_window"]
 
     def generate_input_target_stream(self, num_sample_channel, num_match_channel):
-        random_window_1 = self.rng.integers(-self.random_window, self.random_window)
-        random_window_2 = self.rng.integers(-self.random_window, self.random_window)
+        if self.random_window == 0:
+            random_offset_1 = random_offset_2 = 0
+        else:
+            random_offset_1 = self.rng.integers(-self.random_window, self.random_window)
+            random_offset_2 = self.rng.integers(-self.random_window, self.random_window)
         input_stream = np.zeros([self.n_inputs, self.n_steps])
-        input_stream[num_sample_channel, self.stim_on_sample + random_window_1:self.stim_off_sample + random_window_1] = 1.0
-        input_stream[num_match_channel, self.stim_on_match + random_window_2:self.stim_off_match + random_window_2] = 1.0
+        input_stream[num_sample_channel, self.stim_on_sample + random_offset_1:self.stim_off_sample + random_offset_1] = 1.0
+        input_stream[num_match_channel, self.stim_on_match + random_offset_2:self.stim_off_match + random_offset_2] = 1.0
         input_stream[2, self.dec_on:self.dec_off] = 1.0 # to signify the decision period
+
+        condition = {"num_sample_channel" : num_sample_channel,
+                     "num_match_channel" : num_match_channel,
+                     "sample_on" : self.stim_on_sample + random_offset_1,
+                     "sample_off" : self.stim_off_sample + random_offset_1,
+                     "match_on" : self.stim_on_match + random_offset_2,
+                     "match_off": self.stim_off_match + random_offset_2,
+                     "dec_on" : self.dec_on,
+                     "dec_off" : self.dec_off}
 
         # Target stream
         target_stream = np.zeros((2, self.n_steps))
@@ -494,23 +506,21 @@ class TaskDMTS(Task):
         elif (num_sample_channel != num_match_channel):
             target_stream[1, self.dec_on: self.dec_off] = 1
 
-        return input_stream, target_stream
+        return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False):
+    def get_batch(self, shuffle=False, num_rep = 64):
         # batch size = 256 for two inputs
         inputs = []
         targets = []
         conditions = []
-        for i in range(64):
+        for i in range(num_rep):
             for num_sample_channel in range(self.n_inputs - 1):
                 for num_match_channel in range(self.n_inputs - 1):
                     correct_choice = 1 if (num_sample_channel == num_match_channel) else -1
-                    conditions.append({'num_sample_channel': num_sample_channel,
-                                       'num_match_channel': num_match_channel,
-                                       'correct_choice': correct_choice})
-                    input_stream, target_stream = self.generate_input_target_stream(num_sample_channel, num_match_channel)
+                    input_stream, target_stream, condition = self.generate_input_target_stream(num_sample_channel, num_match_channel)
                     inputs.append(deepcopy(input_stream))
                     targets.append(deepcopy(target_stream))
+                    conditions.append(deepcopy(condition))
 
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
@@ -539,7 +549,7 @@ class TaskNBitFlipFlop(Task):
         inds = []
         last_ind = 0
         while last_ind < self.n_steps:
-            r = np.random.rand()
+            r = self.rng.random()
             ind = last_ind + self.n_refractory + int(-(1 / self.lmbd) * np.log(r))
             if (ind < self.n_steps): inds.append(ind)
             last_ind = ind
@@ -660,8 +670,9 @@ class TaskMemoryAntiAngle(Task):
         self.n_steps = n_steps
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
-        self.stim_on_range = task_params["stim_on_range"]
-        self.stim_duration = task_params["stim_duration"]
+        self.stim_on = task_params["stim_on"]
+        self.stim_off = task_params["stim_off"]
+        self.random_window = task_params["random_window"]
         self.recall_on = task_params["recall_on"]
         self.recall_off = task_params["recall_off"]
 
@@ -669,28 +680,30 @@ class TaskMemoryAntiAngle(Task):
         input_stream = np.zeros((self.n_inputs, self.n_steps))
         target_stream = np.zeros((self.n_outputs, self.n_steps))
 
-        stim_on = int(self.rng.uniform(*self.stim_on_range))
-        duration = self.stim_duration
+        random_offset = self.rng.integers(-self.random_window, self.random_window) if (self.random_window != 0) else 0
+        stim_on = self.stim_on + random_offset
+        stim_off = self.stim_off + random_offset
         num_angle_encoding_inps = (self.n_inputs - 1)
         num_angle_encoding_outs = (self.n_inputs - 1)
         arc = 2 * np.pi / num_angle_encoding_inps
-        ind_channel = int(theta // arc)
+        ind_channel = int(np.floor(theta / arc))
         v = theta % arc
 
-        input_stream[ind_channel, stim_on: stim_on + duration] = (1 - v/arc)
-        input_stream[(ind_channel + 1) % num_angle_encoding_inps, stim_on: stim_on + duration] = v/arc
+        input_stream[ind_channel % num_angle_encoding_inps, stim_on: stim_off] = (1 - v/arc)
+        input_stream[(ind_channel + 1) % num_angle_encoding_inps, stim_on: stim_off] = v/arc
         input_stream[-1, self.recall_on: self.recall_off] = 1
 
         # Supplying it with an explicit instruction to recall the theta + 180
         theta_hat = (theta + np.pi) % (2 * np.pi)
         arc_hat = (2 * np.pi) / num_angle_encoding_outs
-        ind_channel = int(theta_hat // arc_hat)
+        ind_channel = int(np.floor(theta_hat / arc_hat))
         w = theta_hat % arc_hat
 
-        target_stream[ind_channel, self.recall_on: self.recall_off] = 1 - w/arc_hat
+        target_stream[ind_channel % num_angle_encoding_outs, self.recall_on: self.recall_off] = 1 - w/arc_hat
         target_stream[(ind_channel + 1) % num_angle_encoding_outs, self.recall_on: self.recall_off] = w/arc_hat
 
-        condition = {"theta": theta, "stim_on": stim_on, "duration" : duration}
+        condition = {"theta": theta, "stim_on": stim_on, "stim_off" : stim_off,
+                     "recall_on" : self.recall_on, "recall_off" : self.recall_off}
         return input_stream, target_stream, condition
 
     def get_batch(self, shuffle=False):
@@ -703,6 +716,217 @@ class TaskMemoryAntiAngle(Task):
             inputs.append(deepcopy(input_stream))
             targets.append(deepcopy(target_stream))
             conditions.append(deepcopy(condition))
+        inputs = np.stack(inputs, axis=2)
+        targets = np.stack(targets, axis=2)
+        if shuffle:
+            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
+            inputs = inputs[..., perm]
+            targets = targets[..., perm]
+            conditions = [conditions[index] for index in perm]
+        return inputs, targets, conditions
+
+
+class TaskMemoryAngle(Task):
+    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
+        '''
+
+        '''
+        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
+        self.n_steps = n_steps
+        self.n_inputs = n_inputs
+        self.n_outputs = n_outputs
+        self.stim_on = task_params["stim_on"]
+        self.stim_off = task_params["stim_off"]
+        self.random_window = task_params["random_window"]
+        self.recall_on = task_params["recall_on"]
+        self.recall_off = task_params["recall_off"]
+
+    def generate_input_target_stream(self, theta):
+        input_stream = np.zeros((self.n_inputs, self.n_steps))
+        target_stream = np.zeros((self.n_outputs, self.n_steps))
+
+        random_offset = self.rng.integers(-self.random_window, self.random_window) if (self.random_window != 0) else 0
+        stim_on = self.stim_on + random_offset
+        stim_off = self.stim_off + random_offset
+        num_angle_encoding_inps = (self.n_inputs - 1)
+        num_angle_encoding_outs = (self.n_inputs - 1)
+        arc = 2 * np.pi / num_angle_encoding_inps
+        ind_channel = int(np.floor(theta / arc))
+        v = theta % arc
+
+        input_stream[ind_channel, stim_on: stim_off] = (1 - v/arc)
+        input_stream[(ind_channel + 1) % num_angle_encoding_inps, stim_on: stim_off] = v/arc
+        input_stream[-1, self.recall_on: self.recall_off] = 1
+
+        # Supplying it with an explicit instruction to recall the theta + 180
+        theta_hat = (theta) % (2 * np.pi)
+        arc_hat = (2 * np.pi) / num_angle_encoding_outs
+        ind_channel = int(np.floor(theta_hat / arc_hat))
+        w = theta_hat % arc_hat
+
+        target_stream[ind_channel, self.recall_on: self.recall_off] = 1 - w/arc_hat
+        target_stream[(ind_channel + 1) % num_angle_encoding_outs, self.recall_on: self.recall_off] = w/arc_hat
+
+        condition = {"theta": theta, "stim_on": stim_on, "stim_off" : stim_off,
+                     "recall_on" : self.recall_on, "recall_off" : self.recall_off}
+        return input_stream, target_stream, condition
+
+    def get_batch(self, shuffle=False):
+        inputs = []
+        targets = []
+        conditions = []
+        thetas = 2 * np.pi * np.linspace(0, 1, 73)[:-1]
+        for theta in thetas:
+            input_stream, target_stream, condition = self.generate_input_target_stream(theta)
+            inputs.append(deepcopy(input_stream))
+            targets.append(deepcopy(target_stream))
+            conditions.append(deepcopy(condition))
+        inputs = np.stack(inputs, axis=2)
+        targets = np.stack(targets, axis=2)
+        if shuffle:
+            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
+            inputs = inputs[..., perm]
+            targets = targets[..., perm]
+            conditions = [conditions[index] for index in perm]
+        return inputs, targets, conditions
+
+
+class TaskAngleIntegration(Task):
+    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
+        '''
+        Two channels representing stirring to the left and to the right.
+        By default, if no input is present, the network outputs in a channel corresponding to 0 degrees.
+        when the input comes (the inputs are mutually exclusive), the angle should be integrated and the new output
+        channel should start to be active (corresponding to the integrated angle)
+        '''
+        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
+        self.n_steps = n_steps
+        self.n_inputs = n_inputs
+        self.n_outputs = n_outputs
+        # the rate with which the angle is integrated per 10 ms of time :
+        # say the right channel is active with strength A, and after 20 ms of constant input to the right channel,
+        # the integrated angle should be A * w * (20/10) = 2Aw.
+        self.w = task_params["w"]
+        # a tuple which defines the range for the inputs
+        self.Amp_range = task_params["amp_range"]
+        # the number of blocks during the trial
+        self.mu = task_params["mu_blocks"]
+        self.lmbd = self.mu / self.n_steps
+        self.n_min_block_length = task_params["min_block_length"]
+
+    def generate_switch_times(self):
+        inds = [0]
+        last_ind = 0
+        while last_ind < self.n_steps:
+            r = self.rng.random()
+            ind = last_ind + self.n_min_block_length + int(-(1 / self.lmbd) * np.log(r))
+            if (ind < self.n_steps): inds.append(ind)
+            last_ind = ind
+        return inds
+
+    def generate_input_target_stream(self):
+        input_stream = np.zeros((self.n_inputs, self.n_steps))
+        target_stream = np.zeros((self.n_outputs, self.n_steps))
+
+        # generate timings for blocks
+        inds = self.generate_switch_times()
+        n_blocks = len(inds)
+        if self.Amp_range[0] == self.Amp_range[1]:
+            amps = [self.Amp_range[0] for i in range(n_blocks)]
+        else:
+            amps = [self.Amp_range[0] + self.rng.random() * (self.Amp_range[1] - self.Amp_range[0]) for i in range(n_blocks)]
+
+        for i, amp in enumerate(amps):
+            t1 = inds[i]
+            t2 = self.n_steps if (i == len(inds) - 1) else inds[i + 1]
+            ind_channel = 0 if amp >= 0 else 1
+            input_stream[ind_channel, t1:t2] = amp
+        input_stream[-1, :] = 1
+        signal = np.sum(input_stream, axis=0)
+        integrated_theta = np.cumsum(signal) * self.w
+        # converting integrated theta to outputs:
+
+        arc = 2 * np.pi / self.n_outputs
+        for t, theta in enumerate(integrated_theta):
+            ind_channel = int(np.floor(theta / arc))
+            v = theta % arc
+            target_stream[ind_channel % self.n_outputs, t] = 1 - v/arc
+            target_stream[(ind_channel + 1) % self.n_outputs, t] = v/arc
+
+        condition = {"amps": amps, "block_starts": inds, "integrated_theta": integrated_theta, "signal" : signal}
+        return input_stream, target_stream, condition
+
+    def get_batch(self, shuffle=False, batch_size = 256):
+        inputs = []
+        targets = []
+        conditions = []
+        for i in range(batch_size):
+            input_stream, target_stream, condition = self.generate_input_target_stream()
+            inputs.append(deepcopy(input_stream))
+            targets.append(deepcopy(target_stream))
+            conditions.append(deepcopy(condition))
+
+        inputs = np.stack(inputs, axis=2)
+        targets = np.stack(targets, axis=2)
+        if shuffle:
+            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
+            inputs = inputs[..., perm]
+            targets = targets[..., perm]
+            conditions = [conditions[index] for index in perm]
+        return inputs, targets, conditions
+
+
+class TaskAngleIntegrationSimplified(Task):
+    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
+        '''
+        Two channels representing stirring to the left and to the right.
+        By default, if no input is present, the network outputs in a channel corresponding to 0 degrees.
+        when the input comes (the inputs are mutually exclusive), the angle should be integrated and the new output
+        channel should start to be active (corresponding to the integrated angle)
+        '''
+        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
+        self.n_steps = n_steps
+        self.n_inputs = n_inputs
+        self.n_outputs = n_outputs
+        # the rate with which the angle is integrated per 10 ms of time :
+        # say the right channel is active with strength A, and after 20 ms of constant input to the right channel,
+        # the integrated angle should be A * w * (20/10) = 2Aw.
+        self.w = task_params["w"]
+        # a tuple which defines the range for the inputs
+
+    def generate_input_target_stream(self, ind_channel, InputDuration):
+
+        input_stream = np.zeros((self.n_inputs, self.n_steps))
+        target_stream = np.zeros((self.n_outputs, self.n_steps))
+        input_stream[ind_channel, 10:InputDuration+10] = 1
+        input_stream[-1, :] = 1
+        signal = np.sum(input_stream, axis=0)
+        integrated_theta = np.cumsum(signal) * self.w
+        # converting integrated theta to outputs:
+
+        arc = 2 * np.pi / self.n_outputs
+        for t, theta in enumerate(integrated_theta):
+            ind_channel = int(np.floor(theta / arc))
+            v = theta % arc
+            target_stream[ind_channel % self.n_outputs, t] = 1 - v/arc
+            target_stream[(ind_channel + 1) % self.n_outputs, t] = v/arc
+
+        condition = {"ind_channel": ind_channel, "integrated_theta": integrated_theta, "signal" : signal}
+        return input_stream, target_stream, condition
+
+    def get_batch(self, shuffle=False, batch_size = 120):
+        inputs = []
+        targets = []
+        conditions = []
+        for ind_channel in [0, 1]:
+            for i in range(batch_size//2):
+                t_max = (self.n_steps//2-10)
+                InputDuration = int((float(i) / float(batch_size//2)) * t_max)
+                input_stream, target_stream, condition = self.generate_input_target_stream(ind_channel, InputDuration)
+                inputs.append(deepcopy(input_stream))
+                targets.append(deepcopy(target_stream))
+                conditions.append(deepcopy(condition))
+
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
         if shuffle:
@@ -783,78 +1007,6 @@ class TaskBlockDM(Task):
         return inputs, targets, conditions
 
 
-class TaskColorDiscrimination(Task):
-    def __init__(self, n_steps,n_inputs=3, n_outputs=12, task_params=None):
-
-        '''
-        Given a rgb color get lms representation and then get the hsv representation
-        # bin hue into 12 colors:
-        # red, red-orange, orange, orange-yellow
-        # yellow, yellow-green, green, cyan
-        # blue, blue-violet, violet, magenta
-        '''
-        import colorsys
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
-        self.n_steps = n_steps
-        self.n_inputs = 3
-        self.n_outputs = 12
-        self.color_on = task_params["color_on"]
-        self.color_off = task_params["color_off"]
-        #xyz to rgb:
-        self.Mxyzrgb = np.array([[0.401288, 0.650173, -0.051561],
-                                 [-0.250268, 1.204414, 0.045854],
-                                 [-0.002079, 0.048952, 0.953127]])
-        self.Mrgbxyz = np.linalg.inv(self.Mxyzrgb)
-        self.Mxyzlms = np.array([[0.4002, 0.7076, -0.0808],
-                                 [-0.2263, 1.1653, 0.0457],
-                                 [0.0000, 0.0000, 0.9182]])
-
-        self.colors = ["red", "vermillion", "orange", "amber",
-                       "yellow", "chartreuse", "green", "cyan",
-                       "blue", "indigo", "violet", "magenta"]
-        # self.colors = ["red", "orange", "yellow", "green", "cyan", "blue", "magenta"]
-        self.rgb_to_hsv = colorsys.rgb_to_hsv
-        self.hsv_to_rgb = colorsys.hsv_to_rgb
-
-    def generate_input_target_stream(self, rgb):
-        target_stream = np.zeros((self.n_outputs, self.n_steps))
-        lms = np.clip(self.Mxyzlms @ self.Mrgbxyz @ (np.array(rgb)), 0, 1)
-        input_stream = np.hstack([lms.reshape(-1, 1)] * self.n_steps)
-        hue = self.rgb_to_hsv(*rgb)[0]
-        # bin hue into 12 colors
-        color_ind = int(((hue + 1.0 / (2 * self.n_outputs)) % 1) // (1.0 / self.n_outputs))
-        target_stream[color_ind, self.color_on: self.color_off] = 1.0
-        condition = {"rgb": np.round(np.array(rgb), 4),
-                     "color": self.colors[color_ind],
-                     "hue": 360 * np.round(hue, 4),
-                     "color_bin": color_ind}
-        return input_stream, target_stream, condition
-
-    def get_batch(self, shuffle=False):
-        inputs = []
-        targets = []
-        conditions = []
-        batch_size = 360
-
-        for i in range(batch_size):
-            hsv = (i * (1./batch_size), 1, 1)
-            rgb = self.hsv_to_rgb(*hsv)
-            input_stream, target_stream, condition = self.generate_input_target_stream(rgb)
-            inputs.append(deepcopy(input_stream))
-            targets.append(deepcopy(target_stream))
-            conditions.append(deepcopy(condition))
-
-        inputs = np.stack(inputs, axis=2)
-        targets = np.stack(targets, axis=2)
-        # inputs = np.repeat(inputs, axis=2, repeats=11)
-        # targets = np.repeat(targets, axis=2, repeats=11)
-        if shuffle:
-            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
-            inputs = inputs[..., perm]
-            targets = targets[..., perm]
-            conditions = [conditions[index] for index in perm]
-        return inputs, targets, conditions
-
 class TaskColorDiscriminationRGB(Task):
     def __init__(self, n_steps,n_inputs=3, n_outputs=12, task_params=None):
 
@@ -906,74 +1058,12 @@ class TaskColorDiscriminationRGB(Task):
 
         inputs = np.stack(inputs, axis=2)
         targets = np.stack(targets, axis=2)
-        # inputs = np.repeat(inputs, axis=2, repeats=11)
-        # targets = np.repeat(targets, axis=2, repeats=11)
         if shuffle:
             perm = self.rng.permutation(np.arange((inputs.shape[-1])))
             inputs = inputs[..., perm]
             targets = targets[..., perm]
             conditions = [conditions[index] for index in perm]
         return inputs, targets, conditions
-
-
-class TaskColorDiscriminationHue(Task):
-    def __init__(self, n_steps,n_inputs=2, n_outputs=12, task_params=None):
-
-        '''
-        Given a rgb color get lms representation and then get the hsv representation
-        # bin hue into 12 colors:
-        # red, red-orange, orange, orange-yellow
-        # yellow, yellow-green, green, cyan
-        # blue, blue-violet, violet, magenta
-        '''
-        import colorsys
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
-        self.n_steps = n_steps
-        self.n_inputs = 1
-        self.n_outputs = 12
-        self.color_on = task_params["color_on"]
-        self.color_off = task_params["color_off"]
-        self.colors = ["red", "vermillion", "orange", "amber",
-                       "yellow", "chartreuse", "green", "cyan",
-                       "blue", "indigo", "violet", "magenta"]
-        self.rgb_to_hsv = colorsys.rgb_to_hsv
-        self.hsv_to_rgb = colorsys.hsv_to_rgb
-
-    def generate_input_target_stream(self, hue):
-        target_stream = np.zeros((self.n_outputs, self.n_steps))
-        hue_input = np.array([hue[0], 1 - hue[0]])
-        input_stream = np.hstack([hue_input.reshape(-1, 1)] * self.n_steps)
-        # bin hue into 12 colors
-        color_ind = int(((hue[0] + 1.0 / (2 * self.n_outputs)) % 1) // (1.0 / self.n_outputs))
-        target_stream[color_ind, self.color_on: self.color_off] = 1.0
-        condition = {"color": self.colors[color_ind],
-                     "hue": 360 * np.round(hue, 4),
-                     "color_bin": color_ind}
-        return input_stream, target_stream, condition
-
-    def get_batch(self, shuffle=False):
-        inputs = []
-        targets = []
-        conditions = []
-        batch_size = 360
-        for i in range(batch_size):
-            hue = np.array([i * (1./batch_size)])
-            input_stream, target_stream, condition = self.generate_input_target_stream(hue)
-            inputs.append(deepcopy(input_stream))
-            targets.append(deepcopy(target_stream))
-            conditions.append(deepcopy(condition))
-
-        inputs = np.stack(inputs, axis=2)
-        targets = np.stack(targets, axis=2)
-        # inputs = np.repeat(inputs, axis=2, repeats=11)
-        # targets = np.repeat(targets, axis=2, repeats=11)
-        if shuffle:
-            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
-            inputs = inputs[..., perm]
-            targets = targets[..., perm]
-            conditions = [conditions[index] for index in perm]
-        return inputs, targets, conditions
-
 
 if __name__ == '__main__':
     # n_steps = 750
@@ -1034,15 +1124,28 @@ if __name__ == '__main__':
     # inputs, targets, conditions = task.get_batch()
     # print(inputs.shape, targets.shape)
 
+    # n_steps = 320
+    # n_inputs = 2
+    # n_outputs = 4
+    # task_params = dict()
+    # task_params["stim_on_range"] = [n_steps // 8,  3 * n_steps // 16]
+    # task_params["stim_duration"] = 15
+    # task_params["recall_on"] = 5 * n_steps // 8
+    # task_params["recall_off"] = n_steps
+    # task_params["seed"] = 0
+    # task = TaskMemoryAntiNumber(n_steps, n_inputs, n_outputs, task_params)
+    # inputs, targets, conditions = task.get_batch()
+    # print(inputs.shape, targets.shape)
+
     n_steps = 320
     n_inputs = 2
-    n_outputs = 1
+    n_outputs = 4
     task_params = dict()
-    task_params["stim_on_range"] = [n_steps // 8,  3 * n_steps // 16]
-    task_params["stim_duration"] = 15
-    task_params["recall_on"] = 5 * n_steps // 8
-    task_params["recall_off"] = n_steps
+    task_params["w"] = 0.1 / (2 * np.pi)
+    task_params["amp_range"] = (-1, 1)
+    task_params["mu_blocks"] = 8
+    task_params["min_block_length"] = 10
     task_params["seed"] = 0
-    task = TaskMemoryAntiNumber(n_steps, n_inputs, n_outputs, task_params)
+    task = TaskAngleIntegration(n_steps, n_inputs, n_outputs, task_params)
     inputs, targets, conditions = task.get_batch()
     print(inputs.shape, targets.shape)

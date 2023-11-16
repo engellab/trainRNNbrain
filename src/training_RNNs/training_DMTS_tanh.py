@@ -200,7 +200,7 @@ for tries in range(10):
     fig_trials = analyzer.plot_trials(inputs, targets, mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
     if disp:
         plt.show()
-    if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
+    if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials.png")
 
     # dsa = DynamicSystemAnalyzer(RNN_valid)
     # params = {"fun_tol": 0.05,

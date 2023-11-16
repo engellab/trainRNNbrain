@@ -175,9 +175,9 @@ for tries in range(10):
         plt.show()
     if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
 
-    print(f"MSE validation: {np.round(score, 5)}")
-    if not (datasaver is None): datasaver.save_data(config_dict, "config.json")
-    if not (datasaver is None): datasaver.save_data(net_params, f"params_{taskname}_{np.round(score, 5)}.pkl")
+    print(f"MSE validation: {score}")
+    if not (datasaver is None): datasaver.save_data(jsonify(config_dict), f"{score}_config.json")
+    if not (datasaver is None): datasaver.save_data(jsonify(net_params), f"{score}_params_{taskname}.json")
 
     print(f"Plotting random trials")
     inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), 12)
@@ -187,7 +187,7 @@ for tries in range(10):
     fig_trials = analyzer.plot_trials(inputs, targets, mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
     if disp:
         plt.show()
-    if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials")
+    if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials.png")
 
     # dsa = DynamicSystemAnalyzer(RNN_valid)
     # params = {"fun_tol": 0.05,

@@ -28,7 +28,10 @@ def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
         (rows, cols) = (torch.tensor(rows).to(device_cpu), torch.tensor(cols).to(device_cpu))
         # it seems it can only use generator on CPU?
         generator_cpu = torch.Generator(device=torch.device(device_cpu))
-        generator_cpu.manual_seed(int(generator.initial_seed()))
+        if not (generator is None):
+            generator_cpu.manual_seed(int(generator.initial_seed()))
+        else:
+            generator_cpu.manual_seed(np.random.randint(100000))
         # first create tensor on CPU then move it to gpu
         tnsr = torch.normal(m, std, (rows, cols), generator=generator_cpu).to(device)
 

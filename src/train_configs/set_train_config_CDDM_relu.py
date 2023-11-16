@@ -24,7 +24,7 @@ else:
 # RNN specific
 N = 100
 activation_name = 'relu'
-constrained = False
+constrained = True
 seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
@@ -43,10 +43,6 @@ coherence_lvls = 7
 
 mask = np.concatenate([np.arange(int(n_steps // 3)), int(2 * n_steps // 3) + np.arange(int(n_steps // 3))]).tolist()
 
-# task_params = {"cue_on": int(0.1 * n_steps), "cue_off": n_steps//3,
-#                "stim_on": int(0.4 * n_steps), "stim_off": n_steps,
-#                "dec_on": int(3 * n_steps // 4), "dec_off": n_steps,
-#                "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
 
 task_params = {"cue_on": 0, "cue_off": n_steps,
                "stim_on": int(n_steps // 3), "stim_off": n_steps,
@@ -59,13 +55,13 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 1000
+max_iter = 6000
 tol = 1e-10
-lr = 0.005
-weight_decay = 1e-3
+lr = 0.002
+weight_decay = 5e-06
 lambda_orth = 0.3
 orth_input_only = True
-lambda_r = 0.5
+lambda_r = 0.3
 same_batch = True
 extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}'
 name_tag = f'{taskname}_{extra_info}'
