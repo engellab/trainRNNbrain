@@ -7,7 +7,7 @@ sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.utils import get_project_root
 import datetime
-task_name = 'Modulo3Addition'
+task_name = 'Modulo1Addition'
 
 from pathlib import Path
 home = str(Path.home())
@@ -26,8 +26,8 @@ else:
 
 # RNN specific
 N = 100
-activation_name = 'tanh'
-constrained = False
+activation_name = 'relu'
+constrained = True
 seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
@@ -37,8 +37,8 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-n_inputs = 4
-n_outputs = 2
+n_inputs = 3
+n_outputs = 1
 T = 150
 n_steps = int(T / dt)
 

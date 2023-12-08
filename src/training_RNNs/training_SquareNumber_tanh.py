@@ -9,12 +9,12 @@ from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Tasks.TaskXOR import *
+from src.Tasks.TaskSquareNumber import *
 from matplotlib import pyplot as plt
 import torch
 import time
 
-for tries in range(1):
+for tries in range(10):
     disp = True
     activation = "tanh"
     taskname = "SquareNumber"
@@ -96,7 +96,7 @@ for tries in range(1):
                           connectivity_density_rec=connectivity_density_rec,
                           spectral_rad=spectral_rad,
                           random_generator=rng)
-    task = TaskXOR(n_steps=n_steps, task_params=task_params)
+    task = eval(f"Task{taskname}")(n_steps=n_steps, task_params=task_params)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(rnn_torch.parameters(),
                                  lr=lr,

@@ -2,12 +2,12 @@ from copy import deepcopy
 import numpy as np
 from src.Tasks.TaskBase import Task
 
-class TaskSquareNumber(Task):
+class TaskModulo1Addition(Task):
     def __init__(self, n_steps, task_params):
         '''
-        3 inputs: two for the two number to be added module 3, another one - constant input (bias)
-        The output should be the module 3 addition of the two numbers
-        the input to the first two channel belongs to (0, 3)
+        3 inputs: two for the two number to be added modulo 1, another one - constant input (bias)
+        The output should be the modul0 1 addition of the two numbers
+        the input to the first two channel belongs to (0, 1)
         '''
         Task.__init__(self, n_steps=n_steps, n_inputs=2, n_outputs=1, task_params=task_params)
         self.task_params = task_params
@@ -31,8 +31,8 @@ class TaskSquareNumber(Task):
 
         # Target stream
         target_stream = np.zeros((self.n_outputs, self.n_steps))
-        target_stream[0, self.dec_on:self.dec_off] = (inp_vals[0] + inp_vals[1]) % 3.0
-        condition = {"inp_vals": inp_vals, "out_val" : (inp_vals[0] + inp_vals[1]) % 3.0}
+        target_stream[0, self.dec_on:self.dec_off] = (inp_vals[0] + inp_vals[1]) % 1.0
+        condition = {"inp_vals": inp_vals, "out_val" : (inp_vals[0] + inp_vals[1]) % 1.0}
         return input_stream, target_stream, condition
 
     def get_batch(self, shuffle=False):
@@ -42,8 +42,8 @@ class TaskSquareNumber(Task):
         inputs = []
         targets = []
         conditions = []
-        for inp_val1 in np.linspace(0, 3, 16):
-            for inp_val2 in np.linspace(0, 3, 16):
+        for inp_val1 in np.linspace(0, 1, 16):
+            for inp_val2 in np.linspace(0, 1, 16):
                 input_stream, target_stream, condition = self.generate_input_target_stream(np.array([inp_val1, inp_val2]))
                 inputs.append(deepcopy(input_stream))
                 targets.append(deepcopy(target_stream))

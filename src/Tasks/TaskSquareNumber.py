@@ -40,7 +40,7 @@ class TaskSquareNumber(Task):
         inputs = []
         targets = []
         conditions = []
-        for inp_val in np.linspace(0, 2, batch_size):
+        for inp_val in np.linspace(0, 1, batch_size):
             input_stream, target_stream, condition = self.generate_input_target_stream(inp_val)
             inputs.append(deepcopy(input_stream))
             targets.append(deepcopy(target_stream))

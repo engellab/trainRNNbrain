@@ -37,8 +37,8 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-n_inputs = 4
-n_outputs = 2
+n_inputs = 2
+n_outputs = 1
 T = 150
 n_steps = int(T / dt)
 

@@ -9,15 +9,15 @@ from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Tasks.TaskXOR import *
+from src.Tasks.TaskModulo1Addition import *
 from matplotlib import pyplot as plt
 import torch
 import time
 
 for tries in range(10):
     disp = True
-    activation = "relu"
-    taskname = "Modulo3Addition"
+    activation = "tanh"
+    taskname = "Modulo1Addition"
     train_config_file = f"train_config_{taskname}_{activation}.json"
 
     from pathlib import Path
@@ -96,7 +96,7 @@ for tries in range(10):
                           connectivity_density_rec=connectivity_density_rec,
                           spectral_rad=spectral_rad,
                           random_generator=rng)
-    task = TaskXOR(n_steps=n_steps, task_params=task_params)
+    task = eval(f"Task{taskname}")(n_steps=n_steps, task_params=task_params)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(rnn_torch.parameters(),
                                  lr=lr,
@@ -113,7 +113,6 @@ for tries in range(10):
     print(f"Executed training in {toc - tic:0.4f} seconds")
 
     # throw out all the silent neurons!
-    
     ######### clean the RNN from silent neurons!
     input_batch, target_batch, conditions = task.get_batch()
     rnn_torch.sigma_rec = rnn_torch.sigma_inp = torch.tensor(0, device=rnn_torch.device)
