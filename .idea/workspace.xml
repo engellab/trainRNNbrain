@@ -5,65 +5,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskAngleIntegration.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskAngleToSineCosine.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskBase.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskBlockDM.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskCDDM.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskCDDMMante.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskColorDiscriminationRGB.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskDMTS.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskDelayDM.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskIdentity.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskMemoryAngle.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskMemoryAntiAngle.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskMemoryAntiNumber.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskNBitFlipFlop.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskXOR.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Tasks/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_relu.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_sigmoid.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_test.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_XOR_relu.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_XOR_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_relu.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_sigmoid.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_test.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_XOR_relu.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_XOR_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskModulo3Addition.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskSquareNumber.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo3Addition_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo3Addition_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_Modulo3Addition_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_Modulo3Addition_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_tanh.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/DynamicSystemAnalyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/DynamicSystemAnalyzer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RNN_torch.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_torch.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Task.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Trainer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/clustering.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/clustering.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_DMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_DMTS.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_MemoryAntiAngle.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/test_figure.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/test_figure.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_BlockDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_BlockDM.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMplus.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDMplus.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DelayDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_DelayDM.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAngle_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAngle_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -118,16 +70,16 @@
     <property name="ASKED_MARK_IGNORED_FILES_AS_EXCLUDED" value="true" />
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/slurm_files" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/src/training_RNNs" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PythonContentEntriesConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/slurm_files" />
       <recent name="$PROJECT_DIR$/src/training_RNNs" />
       <recent name="$PROJECT_DIR$/src/train_configs" />
+      <recent name="$PROJECT_DIR$/src/Tasks" />
+      <recent name="$PROJECT_DIR$/slurm_files" />
       <recent name="$PROJECT_DIR$/src/datajoint" />
-      <recent name="$PROJECT_DIR$/src" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/src/Tasks" />
@@ -137,8 +89,8 @@
       <recent name="$PROJECT_DIR$/src/set_train_cofigs" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.training_MemoryAntiNumber">
-    <configuration name="set_train_config_AngleToSineCosine_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.training_Modulo3Addition_relu">
+    <configuration name="set_train_config_Modulo3Addition_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -150,7 +102,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_relu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo3Addition_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -159,7 +111,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="set_train_config_AngleToSineCosine_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="set_train_config_SquareNumber_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -171,7 +123,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_tanh.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -180,7 +132,28 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="training_AngleToSineCosine_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="set_train_config_SquareNumber_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="rnn_coach" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/train_configs" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_tanh.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="training_Modulo3Addition_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -192,7 +165,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_relu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_Modulo3Addition_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -201,7 +174,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="training_AngleToSineCosine_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="training_SquareNumber_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -213,28 +186,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_tanh.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="training_MemoryAntiNumber" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training_RNNs" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -244,19 +196,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.set_train_config_AngleToSineCosine_relu" />
-      <item itemvalue="Python.set_train_config_AngleToSineCosine_tanh" />
-      <item itemvalue="Python.training_AngleToSineCosine_relu" />
-      <item itemvalue="Python.training_AngleToSineCosine_tanh" />
-      <item itemvalue="Python.training_MemoryAntiNumber" />
+      <item itemvalue="Python.set_train_config_SquareNumber_relu" />
+      <item itemvalue="Python.training_SquareNumber_relu" />
+      <item itemvalue="Python.set_train_config_SquareNumber_tanh" />
+      <item itemvalue="Python.set_train_config_Modulo3Addition_relu" />
+      <item itemvalue="Python.training_Modulo3Addition_relu" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.training_MemoryAntiNumber" />
-        <item itemvalue="Python.set_train_config_AngleToSineCosine_tanh" />
-        <item itemvalue="Python.set_train_config_AngleToSineCosine_relu" />
-        <item itemvalue="Python.training_AngleToSineCosine_tanh" />
-        <item itemvalue="Python.training_AngleToSineCosine_relu" />
+        <item itemvalue="Python.training_Modulo3Addition_relu" />
+        <item itemvalue="Python.set_train_config_Modulo3Addition_relu" />
+        <item itemvalue="Python.training_SquareNumber_relu" />
+        <item itemvalue="Python.set_train_config_SquareNumber_tanh" />
+        <item itemvalue="Python.set_train_config_SquareNumber_relu" />
       </list>
     </recent_temporary>
   </component>
