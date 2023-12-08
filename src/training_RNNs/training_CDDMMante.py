@@ -10,7 +10,7 @@ from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Task import *
+from src.Tasks.TaskCDDMMante import *
 from matplotlib import pyplot as plt
 import torch
 import time

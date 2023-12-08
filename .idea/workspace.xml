@@ -5,30 +5,65 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_relu.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAngle_relu.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAngle_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_relu.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAngle_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskAngleIntegration.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskAngleToSineCosine.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskBase.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskBlockDM.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskCDDM.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskCDDMMante.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskColorDiscriminationRGB.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskDMTS.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskDelayDM.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskIdentity.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskMemoryAngle.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskMemoryAntiAngle.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskMemoryAntiNumber.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskNBitFlipFlop.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskXOR.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_sigmoid.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_XOR_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_XOR_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_sigmoid.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_XOR_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_XOR_tanh.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slurm_files/train_CDDM_RNNs_DELLA_gpu.slurm" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/DynamicSystemAnalyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/DynamicSystemAnalyzer.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/RNN_torch.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_torch.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Task.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Task.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Task.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Trainer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/clustering.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/clustering.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_DMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_DMTS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_MemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/hyperparam_optimization_MemoryAntiAngle.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/experiments_and_analysis/test_figure.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/experiments_and_analysis/test_figure.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_tanh.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_relu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_BlockDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_BlockDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMplus.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDMplus.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_relu.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DelayDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_DelayDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAngle_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAngle_relu.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_relu.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -61,7 +96,6 @@
     <setting file="file://$PROJECT_DIR$/slurm_files/train_MemoryAntiAngle_tanh_RNNs_DELLA_gpu.slurm" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/slurm_files/train_DMTS_relu_RNNs_DELLA_gpu.slurm" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/src/Task.py" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/Trainer.py" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/src/DynamicSystemAnalyzer.py" root0="FORCE_HIGHLIGHTING" />
@@ -90,42 +124,21 @@
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/slurm_files" />
-      <recent name="$PROJECT_DIR$/src/train_configs" />
       <recent name="$PROJECT_DIR$/src/training_RNNs" />
+      <recent name="$PROJECT_DIR$/src/train_configs" />
       <recent name="$PROJECT_DIR$/src/datajoint" />
       <recent name="$PROJECT_DIR$/src" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/Tasks" />
       <recent name="$PROJECT_DIR$/data/clustering_data" />
       <recent name="$PROJECT_DIR$/src/training_RNNs" />
       <recent name="$PROJECT_DIR$/src/datajoint" />
       <recent name="$PROJECT_DIR$/src/set_train_cofigs" />
-      <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.training_AngleIntegration_tanh">
-    <configuration name="Task" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/Task.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="set_train_config_AngleIntegration_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.training_MemoryAntiNumber">
+    <configuration name="set_train_config_AngleToSineCosine_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -137,7 +150,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_relu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -146,7 +159,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="set_train_config_AngleIntegration_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="set_train_config_AngleToSineCosine_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -158,7 +171,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_tanh.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_tanh.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -167,7 +180,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="training_AngleIntegration_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="training_AngleToSineCosine_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -179,7 +192,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_relu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -188,7 +201,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="training_AngleIntegration_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="training_AngleToSineCosine_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -200,7 +213,28 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_tanh.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_tanh.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="training_MemoryAntiNumber" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="rnn_coach" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training_RNNs" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -210,19 +244,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.Task" />
-      <item itemvalue="Python.training_AngleIntegration_relu" />
-      <item itemvalue="Python.set_train_config_AngleIntegration_relu" />
-      <item itemvalue="Python.set_train_config_AngleIntegration_tanh" />
-      <item itemvalue="Python.training_AngleIntegration_tanh" />
+      <item itemvalue="Python.set_train_config_AngleToSineCosine_relu" />
+      <item itemvalue="Python.set_train_config_AngleToSineCosine_tanh" />
+      <item itemvalue="Python.training_AngleToSineCosine_relu" />
+      <item itemvalue="Python.training_AngleToSineCosine_tanh" />
+      <item itemvalue="Python.training_MemoryAntiNumber" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.training_AngleIntegration_tanh" />
-        <item itemvalue="Python.set_train_config_AngleIntegration_tanh" />
-        <item itemvalue="Python.training_AngleIntegration_relu" />
-        <item itemvalue="Python.set_train_config_AngleIntegration_relu" />
-        <item itemvalue="Python.Task" />
+        <item itemvalue="Python.training_MemoryAntiNumber" />
+        <item itemvalue="Python.set_train_config_AngleToSineCosine_tanh" />
+        <item itemvalue="Python.set_train_config_AngleToSineCosine_relu" />
+        <item itemvalue="Python.training_AngleToSineCosine_tanh" />
+        <item itemvalue="Python.training_AngleToSineCosine_relu" />
       </list>
     </recent_temporary>
   </component>
@@ -284,17 +318,17 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py</url>
-          <line>195</line>
+          <line>193</line>
           <option name="timeStamp" value="306" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py</url>
-          <line>206</line>
+          <line>204</line>
           <option name="timeStamp" value="308" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py</url>
-          <line>202</line>
+          <line>200</line>
           <option name="timeStamp" value="327" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -309,27 +343,27 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py</url>
-          <line>171</line>
+          <line>170</line>
           <option name="timeStamp" value="369" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py</url>
-          <line>86</line>
+          <line>81</line>
           <option name="timeStamp" value="386" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py</url>
-          <line>82</line>
+          <line>77</line>
           <option name="timeStamp" value="411" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/experiments_and_analysis/clustering.py</url>
-          <line>189</line>
+          <line>167</line>
           <option name="timeStamp" value="415" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/experiments_and_analysis/clustering.py</url>
-          <line>171</line>
+          <line>149</line>
           <option name="timeStamp" value="416" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -344,7 +378,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py</url>
-          <line>114</line>
+          <line>113</line>
           <option name="timeStamp" value="451" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -359,7 +393,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/training_RNNs/training_DelayDM.py</url>
-          <line>95</line>
+          <line>94</line>
           <option name="timeStamp" value="476" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -368,19 +402,23 @@
           <option name="timeStamp" value="477" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>526</line>
+          <url>file://$PROJECT_DIR$/src/Tasks/Task.py</url>
+          <line>525</line>
           <option name="timeStamp" value="479" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>725</line>
-          <option name="timeStamp" value="494" />
+          <url>file://$PROJECT_DIR$/src/Tasks/Task.py</url>
+          <line>1274</line>
+          <option name="timeStamp" value="501" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Task.py</url>
-          <line>1150</line>
-          <option name="timeStamp" value="501" />
+          <url>file://$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_tanh.py</url>
+          <option name="timeStamp" value="503" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/training_MemoryAntiAngle_multiple.py</url>
+          <line>116</line>
+          <option name="timeStamp" value="505" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

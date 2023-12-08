@@ -1,6 +1,5 @@
 import sys
 import optuna
-from optuna.visualization.matplotlib import plot_optimization_history, plot_param_importances
 from functools import partial
 sys.path.insert(0, "../")
 sys.path.insert(0, "../../")
@@ -9,7 +8,8 @@ from src.RNN_numpy import RNN_numpy
 import numpy as np
 np.set_printoptions(suppress=True)
 import warnings
-from src.utils import numpify, jsonify, orthonormalize
+from src.utils import numpify
+
 warnings.simplefilter("ignore", UserWarning)
 import json
 import os
@@ -18,7 +18,7 @@ sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Task import *
+from src.Tasks.Task import *
 import torch
 from pathlib import Path
 

@@ -1,12 +1,3 @@
-from matplotlib import pyplot as plt
-import numpy as np
-from matplotlib.colors import hsv_to_rgb
-from matplotlib import cm
-from matplotlib.colors import ListedColormap, LinearSegmentedColormap
-import pickle
-from copy import deepcopy
-import os
-import sys
 from src.utils import get_colormaps
 colors, cmp = get_colormaps()
 red, blue, bluish, green, orange, lblue, violet = colors
@@ -18,27 +9,12 @@ from matplotlib import pyplot as plt
 np.set_printoptions(suppress=True)
 import os
 import sys
-import pickle
 import json
 sys.path.insert(0, "../")
 sys.path.insert(0, "../../")
-from matplotlib import image as mpimg
-import torch
-from scipy.stats import zscore
-from src.Task import TaskCDDM
-from src.RNN_torch import RNN_torch
-from src.RNN_numpy import RNN_numpy
-from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
-from src.DynamicSystemAnalyzer import DynamicSystemAnalyzerCDDM
-from scipy.sparse.linalg import lsqr
-from copy import deepcopy
-from sklearn.decomposition import PCA
 import pandas as pd
 import datetime
 import pickle
-from scipy.signal import savgol_filter
-from scipy.optimize import minimize
-from tqdm.auto import tqdm
 
 task_name = "CDDM"
 RNNs_path = os.path.join('../', '../', "data", "trained_RNNs", task_name)

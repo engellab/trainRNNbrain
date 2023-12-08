@@ -12,46 +12,43 @@ from src.utils import get_project_root
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 100
-activation_name = 'tanh'
-constrained = False
-seed = 0
+N = 50
+activation_name = 'cubic_sigmoid'
+constrained = True
+seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
 dt = 1
 tau = 10
 sr = 1.3
 connectivity_density_rec = 1.0
-
-task_name = 'DMTS'
-n_inputs = 3
-n_outputs = 2
+#Trial 22 finished with value: 0.0037636 and parameters: {'lr': 0.0022975299091267066, 'lmbd_orth': 0.1000504771878649, 'lmbd_r': 0.002122537293968812, 'spectral_rad': 1.3136631625741721, 'weight_decay': 1.1496845347878425e-05}. Best is trial 22 with value: 0.0037636.[0m
+# task specific
+task_name = 'MemoryAntiAngle'
+n_outputs = 3
+n_inputs = n_outputs + 2
 T = 120
 n_steps = int(T / dt)
 task_params = dict()
-task_params["n_steps"] = n_steps
-task_params["n_inputs"] = n_inputs
-task_params["n_outputs"] = n_outputs
-task_params["stim_on_sample"] = n_steps // 12
-task_params["stim_off_sample"] = 2 * n_steps // 12
-task_params["stim_on_match"] = 3 * n_steps // 12
-task_params["stim_off_match"] = 4 * n_steps // 12
-task_params["dec_on"] = 9 * n_steps // 12
-task_params["dec_off"] = n_steps
-task_params["random_window"] = n_steps // 12
+task_params["stim_on"] = 1 * n_steps // 12
+task_params["stim_off"] = 2 * n_steps // 12
+task_params["random_window"] = 1 * n_steps // 12
+task_params["recall_on"] = 9 * n_steps // 12
+task_params["recall_off"] = n_steps
 task_params["seed"] = seed
-mask = np.concatenate(
-    [np.arange(int(9 * n_steps // 12)), int(10 * n_steps // 12) + np.arange(int(2 * n_steps // 12))]).tolist()
+# mask = np.concatenate([np.arange(n_steps)]).tolist() # using the whole trial
+mask = np.concatenate([np.arange(task_params["recall_on"]),
+                       10 * n_steps // 12 + np.arange(2 * n_steps // 12)]).tolist()
 
 # training specific
-max_iter = 3500
+max_iter = 5000
 tol = 1e-10
 lr = 0.01
-weight_decay = 5e-6
-lambda_orth = 0.3
+weight_decay = 4e-6
+lambda_orth = 0.25
 orth_input_only = True
-lambda_r = 0.00
-same_batch = False
+lambda_r = 0.01 #0.0003
+same_batch = False  # generate new batch in each train loop
 shuffle = False
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))

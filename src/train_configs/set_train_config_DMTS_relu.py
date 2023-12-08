@@ -32,19 +32,19 @@ task_params = dict()
 task_params["n_steps"] = n_steps
 task_params["n_inputs"] = n_inputs
 task_params["n_outputs"] = n_outputs
-task_params["stim_on_sample"] = n_steps // 10
-task_params["stim_off_sample"] = 2 * n_steps // 10
-task_params["stim_on_match"] = 3 * n_steps // 10
-task_params["stim_off_match"] = 4 * n_steps // 10
-task_params["dec_on"] = 5 * n_steps // 10
+task_params["stim_on_sample"] = n_steps // 12
+task_params["stim_off_sample"] = 2 * n_steps // 12
+task_params["stim_on_match"] = 3 * n_steps // 12
+task_params["stim_off_match"] = 4 * n_steps // 12
+task_params["dec_on"] = 9 * n_steps // 12
 task_params["dec_off"] = n_steps
-task_params["random_window"] = n_steps // 10
+task_params["random_window"] = n_steps // 12
 task_params["seed"] = seed
 mask = np.concatenate(
-    [np.arange(int(5 * n_steps // 10)), int(6 * n_steps // 10) + np.arange(int(4 * n_steps // 10))]).tolist()
+    [np.arange(int(9 * n_steps // 12)), int(10 * n_steps // 12) + np.arange(int(2 * n_steps // 12))]).tolist()
 
 # training specific
-max_iter = 2500
+max_iter = 3500
 tol = 1e-10
 lr = 0.01
 weight_decay = 5e-6

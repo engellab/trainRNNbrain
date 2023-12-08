@@ -9,7 +9,7 @@ from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Tasks.TaskDMTS import *
+from src.Tasks.TaskAngleToSineCosine import *
 from matplotlib import pyplot as plt
 import torch
 import time
@@ -17,7 +17,7 @@ import time
 for tries in range(10):
     disp = True
     activation = "relu"
-    taskname = "DMTS"
+    taskname = "AngleToSineCosine"
     train_config_file = f"train_config_{taskname}_{activation}.json"
 
     from pathlib import Path
@@ -33,7 +33,7 @@ for tries in range(10):
     else:
         pass
 
-    disp = True
+    disp = False
     config_dict = json.load(
         open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 
@@ -96,7 +96,7 @@ for tries in range(10):
                           connectivity_density_rec=connectivity_density_rec,
                           spectral_rad=spectral_rad,
                           random_generator=rng)
-    task = TaskDMTS(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
+    task = TaskAngleToSineCosine(n_steps=n_steps, task_params=task_params)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(rnn_torch.parameters(),
                                  lr=lr,

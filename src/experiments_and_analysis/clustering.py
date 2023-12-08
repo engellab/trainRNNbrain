@@ -1,45 +1,23 @@
 import os
-import json
 import pickle
 import sys
 sys.path.insert(0, "../")
 sys.path.insert(0, "../../")
 sys.path.insert(0, "../../../")
-from src.DataSaver import DataSaver
-from src.DynamicSystemAnalyzer import *
-from src.PerformanceAnalyzer import *
-from src.RNN_numpy import RNN_numpy
-from src.utils import get_project_root, numpify, orthonormalize
-from src.Trainer import Trainer
-from src.RNN_torch import RNN_torch
-from src.PerformanceAnalyzer import PerformanceAnalyzerCDDM
-from src.Task import *
-from matplotlib import pyplot as plt
-import torch
-import time
-from sklearn.decomposition import IncrementalPCA as iPCA
+from src.Tasks.Task import *
 from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans, SpectralClustering, DBSCAN
-from sklearn.decomposition import TruncatedSVD
-from sklearn.mixture import GaussianMixture
+
 np.set_printoptions(suppress = True)
-import plotly.express as px
 import numpy as np
-from matplotlib import pyplot as plt
+
 np.set_printoptions(suppress=True)
 import json
-from matplotlib import image as mpimg
 import torch
-from scipy.stats import zscore
-from rnn_coach.src.Task import TaskCDDM, TaskCDDMplus
+from rnn_coach.src.Task import TaskCDDM
 from rnn_coach.src.RNN_torch import RNN_torch
-from rnn_coach.src.RNN_numpy import RNN_numpy
-from scipy.sparse.linalg import lsqr
 from copy import deepcopy
 import pandas as pd
 import datetime
-import hdbscan
-import umap
 from tqdm.auto import tqdm
 
 

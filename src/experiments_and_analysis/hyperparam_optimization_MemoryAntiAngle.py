@@ -1,6 +1,5 @@
 import sys
 import optuna
-from optuna.visualization.matplotlib import plot_optimization_history, plot_param_importances
 from functools import partial
 sys.path.insert(0, "../")
 sys.path.insert(0, "../../")
@@ -9,7 +8,8 @@ from src.RNN_numpy import RNN_numpy
 import numpy as np
 np.set_printoptions(suppress=True)
 import warnings
-from src.utils import numpify, jsonify, orthonormalize
+from src.utils import numpify
+
 warnings.simplefilter("ignore", UserWarning)
 import json
 import os
@@ -18,7 +18,7 @@ sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Task import *
+from src.Tasks.Task import *
 import torch
 from pathlib import Path
 
@@ -38,11 +38,10 @@ def objective(trial, taskname, activation, num_repeats=7):
     seeds = np.arange(num_repeats)
 
     # define params to be varied
-    lr = trial.suggest_float('lr', 0.001, 0.01, log=True)
     lmbd_orth = trial.suggest_float('lmbd_orth', 0.0, 0.5)
     lmbd_r = trial.suggest_float('lmbd_r', 0.0, 0.5)
     spectral_rad = trial.suggest_float('spectral_rad', 0.8, 1.5)
-    weight_decay = trial.suggest_float('weight_decay', 1e-6, 0.1, log=True)
+    weight_decay = trial.suggest_float('weight_decay', 1e-7, 0.1, log=True)
 
     config_dict = json.load(
         open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
@@ -84,7 +83,7 @@ def objective(trial, taskname, activation, num_repeats=7):
     mask = np.array(config_dict["mask"])
     max_iter = config_dict["max_iter"]
     tol = config_dict["tol"]
-    # lr = config_dict["lr"]
+    lr = config_dict["lr"]
     # weight_decay = config_dict["weight_decay"]
     same_batch = config_dict["same_batch"]
 
@@ -171,7 +170,7 @@ def objective(trial, taskname, activation, num_repeats=7):
 
 if __name__ == '__main__':
     taskname = 'MemoryAntiAngle'
-    activation = 'tanh'
+    activation = 'relu'
     num_repeats = 3
     n_trials = 50
 

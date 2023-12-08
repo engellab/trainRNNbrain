@@ -117,16 +117,21 @@ class Trainer():
                                                      mask=train_mask)
 
             # positivity of entries of W_inp and W_out
-            self.RNN.W_inp.data = torch.maximum(self.RNN.W_inp.data, torch.tensor(0))
-            self.RNN.W_out.data = torch.maximum(self.RNN.W_out.data, torch.tensor(0))
+            self.RNN.W_inp.data = torch.maximum(self.RNN.W_inp.data, torch.tensor(0.0))
+            self.RNN.W_out.data = torch.maximum(self.RNN.W_out.data, torch.tensor(0.0))
 
             if self.RNN.constrained:
                 # Dale's law
                 self.RNN.W_out.data *= self.RNN.output_mask.to(self.RNN.device)
                 self.RNN.W_inp.data *= self.RNN.input_mask.to(self.RNN.device)
-                self.RNN.W_rec.data = (torch.maximum(
-                    self.RNN.W_rec.data * self.RNN.dale_mask.to(self.RNN.device),
-                                      torch.tensor(0)) * self.RNN.dale_mask.to(self.RNN.device)).to(self.RNN.device)
+
+                incorrect_vals_mask = (self.RNN.W_rec.data.to(self.RNN.device) * self.RNN.dale_mask.to(self.RNN.device) < 0).to(self.RNN.device)
+                # self.RNN.W_rec.data[incorrect_vals_mask] = torch.sign(self.RNN.W_rec.data[incorrect_vals_mask]).to(self.RNN.device) * torch.tensor(-0.0001).to(self.RNN.device)
+                self.RNN.W_rec.data[incorrect_vals_mask] = torch.tensor(0.0).to(self.RNN.device)
+
+                # self.RNN.W_rec.data = (torch.maximum(
+                #     self.RNN.W_rec.data * self.RNN.dale_mask.to(self.RNN.device),
+                #                       torch.tensor(0.0)) * self.RNN.dale_mask.to(self.RNN.device)).to(self.RNN.device)
 
             # validation
             val_loss = self.eval_step(input_val, target_output_val, train_mask)

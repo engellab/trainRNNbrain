@@ -3,21 +3,16 @@ plotting neurons from multiple RNNs as points in the PC space
 '''
 
 import os
-import json
 import pickle
 import sys
 sys.path.insert(0, "../")
 sys.path.insert(0, "../../")
 sys.path.insert(0, "../../../")
-from src.Task import *
+from src.Tasks.Task import *
 np.set_printoptions(suppress = True)
-import plotly.express as px
 import numpy as np
 import hdbscan
-import plotly.io as pio
-from matplotlib import pyplot as plt
 import plotly.graph_objects as go
-from sklearn.cluster import KMeans
 
 data_dict = pickle.load(open(os.path.join('../', '../', '../', "rnn_coach", "data", "many_neurons_>05182023_exc.pkl"), "rb+"))
 feature_mat_reduced = data_dict["features"]

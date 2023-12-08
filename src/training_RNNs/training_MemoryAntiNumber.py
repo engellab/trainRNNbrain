@@ -4,17 +4,15 @@ import sys
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.DataSaver import DataSaver
-from src.DynamicSystemAnalyzer import DynamicSystemAnalyzer
 from src.PerformanceAnalyzer import PerformanceAnalyzer
 from src.RNN_numpy import RNN_numpy
-from src.utils import numpify, jsonify, orthonormalize
+from src.utils import numpify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Task import *
+from src.Tasks.TaskMemoryAntiNumber import *
 from matplotlib import pyplot as plt
 import torch
 import time
-from sklearn.decomposition import PCA
 from pathlib import Path
 
 taskname = 'MemoryAntiNumber'
