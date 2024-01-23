@@ -25,8 +25,8 @@ connectivity_density_rec = 1.0
 # task specific
 task_name = 'AngleIntegration'
 n_inputs = 3
-n_outputs = 6
-T = 320
+n_outputs = 3
+T = 220
 n_steps = int(T / dt)
 task_params = dict()
 task_params["w"] = 0.1 / (2 * np.pi)

@@ -1,59 +1,52 @@
 import json
 import os
 import sys
+from datetime import date
 
 import numpy as np
 
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.utils import get_project_root
-from datetime import date
 
 date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
-N = 200
+N = 100
 activation_name = 'relu'
 constrained = True
 seed = None
-sigma_inp = 0.05
-sigma_rec = 0.05
+sigma_inp = 0.03
+sigma_rec = 0.03
 dt = 1
 tau = 10
-sr = 1.2
+sr = 1.3
 connectivity_density_rec = 1.0
-
 # task specific
-task_name = 'CDDMplus'
-n_inputs = 6
-n_outputs = 6
-T = 750
+task_name = 'IntegrationPositive'
+n_inputs = 2
+n_outputs = 1
+T = 350
 n_steps = int(T / dt)
-max_coherence = 0.8
-coherence_lvls = 7
-
-mask = np.concatenate([np.arange(int(n_steps // 3)), int(2 * n_steps // 3) + np.arange(int(n_steps // 3))]).tolist()
-task_params = {"cue_on": 0, "cue_off": n_steps,
-               "stim_on": int(n_steps // 3), "stim_off": n_steps,
-               "dec_on": int(2 * n_steps // 3), "dec_off": n_steps,
-               "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
-tmp = max_coherence * np.logspace(-(coherence_lvls - 1), 0, coherence_lvls, base=2)
-coherences = np.concatenate([-np.array(tmp[::-1]), np.array([0]), np.array(tmp)]).tolist()
-task_params["coherences"] = coherences
-task_params["seed"] = seed
+task_params = dict()
+task_params["w"] = 0.005
+task_params["random_offset_range"] = 100
+task_params["seed"] = None
+mask = np.concatenate([np.arange(10, n_steps)]).tolist() # using the whole trial
 
 # training specific
 max_iter = 5000
 tol = 1e-10
-lr = 0.002
-weight_decay = 5e-6
+lr = 0.005
+weight_decay = 1e-5
 lambda_orth = 0.3
 orth_input_only = True
 lambda_r = 0.3
-same_batch = True
-extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth}'
+same_batch = False  # generate new batch in each train loop
+shuffle = False
+
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
-config_tag = f'{task_name}_{extra_info}'
+config_tag = f'{task_name}_{activation_name}'
 
 config_dict = {}
 config_dict["N"] = N

@@ -59,17 +59,18 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 6000
+max_iter = 5000
 tol = 1e-10
 lr = 0.002
 weight_decay = 5e-06
 lambda_orth = 0.3
 orth_input_only = True
-lambda_r = 0.3
+lambda_r = 1.0
+p = 1
 same_batch = True
-extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}'
-name_tag = f'{taskname}_{extra_info}'
-
+# extra_info =  f'{activation_name}';N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}
+# config_tag = f'{taskname}_{extra_info}'
+config_tag = f'{taskname}_{activation_name}'
 now = datetime.datetime.now()
 year = now.year
 month = now.month
@@ -101,8 +102,9 @@ config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
 config_dict["orth_input_only"] = orth_input_only
 config_dict["lambda_r"] = lambda_r
+config_dict["p"] = p
 config_dict["folder_tag"] = ''
 
 json_obj = json.dumps(config_dict, indent=4)
-outfile = open(os.path.join(RNN_configs_path, f"train_config_{name_tag}.json"), mode="w")
+outfile = open(os.path.join(RNN_configs_path, f"train_config_{config_tag}.json"), mode="w")
 outfile.write(json_obj)

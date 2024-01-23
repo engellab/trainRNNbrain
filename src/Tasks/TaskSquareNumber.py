@@ -7,7 +7,7 @@ class TaskSquareNumber(Task):
         '''
         2 inputs: one for the number, another one - constant input (bias)
         The output should be the squared input in the first channel
-        the input to the first channel belongs to (0, 2)
+        the input to the first channel belongs to (0, 1)
         '''
         Task.__init__(self, n_steps=n_steps, n_inputs=2, n_outputs=1, task_params=task_params)
         self.task_params = task_params

@@ -45,7 +45,8 @@ class Trainer():
                  tol=1e-12,
                  lambda_orth=0.3,
                  orth_input_only=True,
-                 lambda_r=0.5):
+                 lambda_r=0.5,
+                 p = 2):
         '''
         :param RNN: pytorch RNN (specific template class)
         :param Task: task (specific template class)
@@ -68,12 +69,13 @@ class Trainer():
         self.lambda_orth = lambda_orth
         self.orth_input_only = orth_input_only
         self.lambda_r = lambda_r
+        self.p = p
 
     def train_step(self, input, target_output, mask):
         states, predicted_output = self.RNN(input)
         loss = self.criterion(target_output[:, mask, :], predicted_output[:, mask, :]) + \
                self.lambda_orth * L2_ortho(self.RNN, orth_input_only=self.orth_input_only) + \
-               self.lambda_r * torch.mean(torch.abs(states) ** 2)
+               self.lambda_r * torch.mean(torch.abs(states) ** self.p)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -87,7 +89,7 @@ class Trainer():
             states, predicted_output_val = self.RNN(input, w_noise=False)
             val_loss = self.criterion(target_output[:, mask, :], predicted_output_val[:, mask, :]) + \
                        self.lambda_orth * L2_ortho(self.RNN, orth_input_only=self.orth_input_only) + \
-                       self.lambda_r * torch.mean(torch.abs(states) ** 2)
+                       self.lambda_r * torch.mean(torch.abs(states) ** self.p)
             return float(val_loss.cpu().numpy())
 
     def run_training(self, train_mask, same_batch=False, shuffle=False):

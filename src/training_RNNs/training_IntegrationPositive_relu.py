@@ -1,27 +1,25 @@
+import json
 import os
 import sys
-
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
-import json
 from src.DataSaver import DataSaver
 from src.PerformanceAnalyzer import PerformanceAnalyzer
 from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Tasks.TaskCDDM import *
+from src.Tasks.TaskIntegrationPositive import *
 from matplotlib import pyplot as plt
 import torch
 import time
+from pathlib import Path
 
 for tries in range(10):
-    disp = True
-    activation = "tanh"
-    taskname = "CDDM"
+    taskname = 'IntegrationPositive'
+    activation = "relu"
     train_config_file = f"train_config_{taskname}_{activation}.json"
 
-    from pathlib import Path
     home = str(Path.home())
     if home == '/home/pt1290':
         projects_folder = home
@@ -46,7 +44,6 @@ for tries in range(10):
         case 'tanh': activation = lambda x: torch.tanh(x)
         case 'sigmoid': activation = lambda x: 1 / (1 + torch.exp(-x))
         case 'softplus': activation = lambda x: torch.log(1 + torch.exp(5 * x))
-
 
     dt = config_dict["dt"]
     tau = config_dict["tau"]
@@ -80,7 +77,6 @@ for tries in range(10):
     lambda_orth = config_dict["lambda_orth"]
     orth_input_only = config_dict["orth_input_only"]
     lambda_r = config_dict["lambda_r"]
-    p = config_dict["p"]
     mask = np.array(config_dict["mask"])
     max_iter = config_dict["max_iter"]
     tol = config_dict["tol"]
@@ -90,6 +86,8 @@ for tries in range(10):
 
     # General:
     folder_tag = config_dict["folder_tag"]
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    data_folder = os.path.join(config_dict["data_folder"], timestr)
 
     # # creating instances:
     rnn_torch = RNN_torch(N=N, dt=dt, tau=tau, input_size=input_size, output_size=output_size,
@@ -107,7 +105,7 @@ for tries in range(10):
                       max_iter=max_iter, tol=tol,
                       optimizer=optimizer, criterion=criterion,
                       lambda_orth=lambda_orth, orth_input_only=orth_input_only,
-                      lambda_r=lambda_r, p=p)
+                      lambda_r=lambda_r)
 
     tic = time.perf_counter()
     rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
@@ -165,31 +163,19 @@ for tries in range(10):
     full_data_folder = os.path.join(data_save_path, data_folder)
     datasaver = DataSaver(full_data_folder)
 
-    print(f"MSE validation: {score}")
-    if not (datasaver is None): datasaver.save_data(jsonify(config_dict), f"{score}_config.json")
-    if not (datasaver is None): datasaver.save_data(jsonify(net_params), f"{score}_params_{taskname}.json")
-
     fig_trainloss = plt.figure(figsize=(10, 3))
     plt.plot(train_losses, color='r', label='train loss (log scale)')
     plt.plot(val_losses, color='b', label='valid loss (log scale)')
     plt.yscale("log")
     plt.grid(True)
     plt.legend(fontsize=16)
-    if disp: plt.show()
-    if not (datasaver is None): datasaver.save_figure(fig_trainloss, f"{score}_train&valid_loss.png")
+    if disp:
+        plt.show()
+    if not (datasaver is None): datasaver.save_figure(fig_trainloss, "train&valid_loss")
 
-    batch_size = input_batch_valid.shape[2]
-    RNN_valid.clear_history()
-    RNN_valid.run(input_timeseries=input_batch_valid, sigma_rec=0, sigma_inp=0)
-    RNN_trajectories = RNN_valid.get_history()
-    RNN_output = RNN_valid.get_output()
-    trajecory_data = {}
-    trajecory_data["inputs"] = input_batch_valid
-    trajecory_data["trajectories"] = RNN_trajectories
-    trajecory_data["outputs"] = RNN_output
-    trajecory_data["targets"] = target_batch_valid
-    trajecory_data["conditions"] = conditions_valid
-    datasaver.save_data(trajecory_data, f"{score}_RNNtrajdata_{taskname}.pkl")
+    print(f"MSE validation: {score}")
+    if not (datasaver is None): datasaver.save_data(jsonify(config_dict), f"{score}_config.json")
+    if not (datasaver is None): datasaver.save_data(jsonify(net_params), f"{score}_params_{taskname}.json")
 
     print(f"Plotting random trials")
     inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), 12)
@@ -204,12 +190,22 @@ for tries in range(10):
     # dsa = DynamicSystemAnalyzer(RNN_valid)
     # params = {"fun_tol": 0.05,
     #           "diff_cutoff": 1e-4,
-    #           "sigma_init_guess": 5,
-    #           "patience": 50,
-    #           "stop_length": 50,
+    #           "sigma_init_guess": 15,
+    #           "patience": 100,
+    #           "stop_length": 100,
     #           "mode": "approx"}
-    # dsa.get_fixed_points(Input=np.zeros(input_size), **params)
-    # fig_fp = dsa.plot_fixed_points(projection='2D')
+    # dsa.get_fixed_points(Input=np.array([0, 0, 0, 0, 0]), **params)
+    # dsa.get_fixed_points(Input=np.array([0, 0, 0, 0, 1]), **params)
+    #
+    # all_points = np.vstack([dsa.fp_data[str([0, 0, 0, 0, 0])][type] for type in list(dsa.fp_data[str([0, 0, 0, 0, 1])].keys())])
+    # pca = PCA(n_components=2)
+    # pca.fit(all_points)
+    # P = np.zeros((RNN_valid.N, 3))
+    # P[:, 0] = RNN_valid.W_out[0, :]
+    # P[:, 1:] = pca.components_.T
+    # P = orthonormalize(P)
+    #
+    # fig_fp = dsa.plot_fixed_points(projection='3D', P=P)
     # if disp:
     #     plt.show()
-    # if not (datasaver is None): datasaver.save_figure(fig_fp, "fp_projection")
+    # if not (datasaver is None): datasaver.save_figure(fig_fp, "slow_points_projection_output")

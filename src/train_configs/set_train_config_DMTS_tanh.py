@@ -26,25 +26,26 @@ connectivity_density_rec = 1.0
 task_name = 'DMTS'
 n_inputs = 3
 n_outputs = 2
-T = 120
+T = 140
 n_steps = int(T / dt)
 task_params = dict()
 task_params["n_steps"] = n_steps
 task_params["n_inputs"] = n_inputs
 task_params["n_outputs"] = n_outputs
-task_params["stim_on_sample"] = n_steps // 12
-task_params["stim_off_sample"] = 2 * n_steps // 12
-task_params["stim_on_match"] = 3 * n_steps // 12
-task_params["stim_off_match"] = 4 * n_steps // 12
-task_params["dec_on"] = 9 * n_steps // 12
+task_params["stim_on_sample"] = 10
+task_params["stim_off_sample"] = 20
+task_params["stim_on_match"] = 75
+task_params["stim_off_match"] = 85
+task_params["dec_on"] = 100
 task_params["dec_off"] = n_steps
-task_params["random_window"] = n_steps // 12
+task_params["random_window"] = 10
 task_params["seed"] = seed
+n_steps_out = (task_params["dec_on"] + 10)
 mask = np.concatenate(
-    [np.arange(int(9 * n_steps // 12)), int(10 * n_steps // 12) + np.arange(int(2 * n_steps // 12))]).tolist()
+    [np.arange(task_params["dec_on"]), n_steps_out + np.arange(n_steps - n_steps_out)]).tolist()
 
 # training specific
-max_iter = 3500
+max_iter = 5000
 tol = 1e-10
 lr = 0.01
 weight_decay = 5e-6

@@ -7,7 +7,7 @@ sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.utils import get_project_root
 import datetime
-task_name = 'Modulo1Addition'
+task_name = 'HalfAdder'
 
 from pathlib import Path
 home = str(Path.home())
@@ -37,9 +37,9 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-n_inputs = 3
+n_inputs = 2
 n_outputs = 1
-T = 80
+T = 150
 n_steps = int(T / dt)
 
 mask = (int(2 * n_steps // 10) + np.arange(int(8 * n_steps // 10))).tolist()
@@ -50,14 +50,14 @@ task_params = {"stim_on": 0, "stim_off": n_steps,
 task_params["seed"] = seed
 
 # training specific
-max_iter = 2000
+max_iter = 5000
 tol = 1e-10
-lr = 0.01
+lr = 0.005
 weight_decay = 5e-06
 lambda_orth = 0.3
 orth_input_only = True
 lambda_r = 0.3
-same_batch = True
+same_batch = False
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
 config_tag = f'{task_name}_{activation_name}'

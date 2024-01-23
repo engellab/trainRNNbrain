@@ -5,17 +5,35 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskHalfAdder.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskIntegration.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tasks/TaskIntegrationPositive.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_HalfAdder_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_HalfAdder_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_IntegrationPositive_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Integration_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh_additional.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_relu_additional.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_HalfAdder_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_HalfAdder_tanh.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_IntegrationPositive_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_Integration_relu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/training_RNNs/training_Integration_tanh.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskModulo3Addition.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskModulo1Addition.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskAngleIntegration.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskAngleIntegration.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskColorDiscriminationRGB.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskModulo1Addition.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskModulo1Addition.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Tasks/TaskSquareNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskSquareNumber.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo3Addition_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo1Addition_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo3Addition_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo1Addition_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Modulo3Addition_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_Modulo1Addition_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Modulo3Addition_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_Modulo1Addition_tanh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_relu.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskXOR.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskXOR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Trainer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_relu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDMplus.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Integration_relu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo1Addition_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo1Addition_tanh.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -89,8 +107,8 @@
       <recent name="$PROJECT_DIR$/src/set_train_cofigs" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.training_Modulo1Addition_relu">
-    <configuration name="set_train_config_Modulo1Addition_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.training_CDDM_tanh">
+    <configuration name="set_train_config_CDDM_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -102,7 +120,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo1Addition_relu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -111,7 +129,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="set_train_config_Modulo1Addition_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="set_train_config_DMTS_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -123,7 +141,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo1Addition_tanh.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -132,7 +150,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="set_train_config_SquareNumber_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="set_train_config_IntegrationPositive_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -144,7 +162,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_tanh.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_IntegrationPositive_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -153,7 +171,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="training_Modulo1Addition_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="training_CDDM_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -165,7 +183,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_Modulo1Addition_relu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -174,7 +192,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="training_SquareNumber_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="training_IntegrationPositive_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="rnn_coach" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -186,7 +204,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_relu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_IntegrationPositive_relu.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -196,19 +214,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.training_SquareNumber_relu" />
-      <item itemvalue="Python.set_train_config_SquareNumber_tanh" />
-      <item itemvalue="Python.training_Modulo1Addition_relu" />
-      <item itemvalue="Python.set_train_config_Modulo1Addition_relu" />
-      <item itemvalue="Python.set_train_config_Modulo1Addition_tanh" />
+      <item itemvalue="Python.training_IntegrationPositive_relu" />
+      <item itemvalue="Python.set_train_config_IntegrationPositive_relu" />
+      <item itemvalue="Python.set_train_config_DMTS_relu" />
+      <item itemvalue="Python.set_train_config_CDDM_tanh" />
+      <item itemvalue="Python.training_CDDM_tanh" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.training_Modulo1Addition_relu" />
-        <item itemvalue="Python.set_train_config_Modulo1Addition_tanh" />
-        <item itemvalue="Python.set_train_config_Modulo1Addition_relu" />
-        <item itemvalue="Python.training_SquareNumber_relu" />
-        <item itemvalue="Python.set_train_config_SquareNumber_tanh" />
+        <item itemvalue="Python.training_CDDM_tanh" />
+        <item itemvalue="Python.set_train_config_CDDM_tanh" />
+        <item itemvalue="Python.set_train_config_DMTS_relu" />
+        <item itemvalue="Python.training_IntegrationPositive_relu" />
+        <item itemvalue="Python.set_train_config_IntegrationPositive_relu" />
       </list>
     </recent_temporary>
   </component>
@@ -350,7 +368,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py</url>
-          <line>46</line>
+          <line>47</line>
           <option name="timeStamp" value="477" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -371,6 +389,26 @@
           <url>file://$PROJECT_DIR$/src/experiments_and_analysis/training_MemoryAntiAngle_multiple.py</url>
           <line>116</line>
           <option name="timeStamp" value="505" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/Tasks/TaskIntegration.py</url>
+          <line>63</line>
+          <option name="timeStamp" value="512" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/training_RNNs/training_DMTS_relu_additional.py</url>
+          <line>248</line>
+          <option name="timeStamp" value="516" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/Tasks/TaskIntegrationPositive.py</url>
+          <line>51</line>
+          <option name="timeStamp" value="521" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/Tasks/TaskHalfAdder.py</url>
+          <line>52</line>
+          <option name="timeStamp" value="526" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

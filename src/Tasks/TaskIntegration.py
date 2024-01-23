@@ -2,13 +2,12 @@ from copy import deepcopy
 import numpy as np
 from src.Tasks.TaskBase import Task
 
-class TaskAngleIntegration(Task):
+class TaskIntegration(Task):
     def __init__(self, n_steps, n_inputs, n_outputs, task_params):
         '''
-        Two channels representing stirring to the left and to the right.
-        By default, if no input is present, the network outputs in a channel corresponding to 0 degrees.
-        when the input comes (the inputs are mutually exclusive), the angle should be integrated and the new output
-        channel should start to be active (corresponding to the integrated angle)
+        Two input channels representing velocities of moving to the left and to the right.
+        By default, if no input is present, the network outputs in a channel corresponding to 0 coordinate.
+        when the input comes (the inputs are mutually exclusive), the coordinate should be integrated
         '''
         Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
         self.n_steps = n_steps
@@ -16,12 +15,13 @@ class TaskAngleIntegration(Task):
         self.n_outputs = n_outputs
         # the rate with which the angle is integrated per 10 ms of time :
         # say the right channel is active with strength A, and after 20 ms of constant input to the right channel,
-        # the integrated angle should be A * w * (20/10) = 2Aw.
+        # the integrated x should be A * w * (20/10) = 2Aw.
         self.w = task_params["w"]
         # a tuple which defines the range for the inputs
         self.Amp_range = task_params["amp_range"]
         # the number of blocks during the trial
         self.mu = task_params["mu_blocks"]
+        self.refractory_period = task_params["refractory_period"]
         self.lmbd = self.mu / self.n_steps
         self.n_min_block_length = task_params["min_block_length"]
 
@@ -30,7 +30,7 @@ class TaskAngleIntegration(Task):
         last_ind = 0
         while last_ind < self.n_steps:
             r = self.rng.random()
-            ind = last_ind + self.n_min_block_length + int(-(1 / self.lmbd) * np.log(r))
+            ind = last_ind + self.n_min_block_length + int(-(1 / self.lmbd) * np.log(r)) + self.refractory_period
             if (ind < self.n_steps): inds.append(ind)
             last_ind = ind
         return inds
@@ -49,22 +49,18 @@ class TaskAngleIntegration(Task):
 
         for i, amp in enumerate(amps):
             t1 = inds[i]
-            t2 = self.n_steps if (i == len(inds) - 1) else inds[i + 1]
-            ind_inp_channel = 0 if amp >= 0 else 1
-            input_stream[ind_inp_channel, t1:t2] = np.abs(amp)
+            t2 = self.n_steps if (i == len(inds) - 1) else (inds[i + 1] - self.refractory_period)
+            ind_channel = 0 if amp >= 0 else 1
+            input_stream[ind_channel, t1: t2] = np.abs(amp)
+            input_stream[ind_channel, t2: (t2 + self.refractory_period)] = 0
         input_stream[-1, :] = 1
         signal = input_stream[0, :] - input_stream[1, :]
-        integrated_theta = np.cumsum(signal) * self.w
-        # converting integrated theta to outputs:
-
-        arc = 2 * np.pi / self.n_outputs
-        for t, theta in enumerate(integrated_theta):
-            ind_channel = int(np.floor(theta / arc))
-            v = theta % arc
-            target_stream[ind_channel % self.n_outputs, t] = 1 - v/arc
-            target_stream[(ind_channel + 1) % self.n_outputs, t] = v/arc
-
-        condition = {"amps": amps, "block_starts": inds, "integrated_theta": integrated_theta, "signal" : signal}
+        integrated_signal = np.cumsum(signal) * self.w
+        # converting integrated x to outputs:
+        for t, x in enumerate(integrated_signal):
+            ind_channel = 0 if x > 0 else 1
+            target_stream[ind_channel, t] = np.abs(x)
+        condition = {"amps": amps, "block_starts": inds, "integrated_signal": integrated_signal, "signal" : signal}
         return input_stream, target_stream, condition
 
     def get_batch(self, shuffle=False, batch_size = 256):
@@ -87,21 +83,14 @@ class TaskAngleIntegration(Task):
         return inputs, targets, conditions
 
 
-class TaskAngleIntegrationSimplified(Task):
+class TaskIntegrationSimplified(Task):
     def __init__(self, n_steps, n_inputs, n_outputs, task_params):
         '''
-        Two channels representing stirring to the left and to the right.
-        By default, if no input is present, the network outputs in a channel corresponding to 0 degrees.
-        when the input comes (the inputs are mutually exclusive), the angle should be integrated and the new output
-        channel should start to be active (corresponding to the integrated angle)
         '''
         Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
         self.n_steps = n_steps
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
-        # the rate with which the angle is integrated per 10 ms of time :
-        # say the right channel is active with strength A, and after 20 ms of constant input to the right channel,
-        # the integrated angle should be A * w * (20/10) = 2Aw.
         self.w = task_params["w"]
         # a tuple which defines the range for the inputs
 
@@ -112,23 +101,18 @@ class TaskAngleIntegrationSimplified(Task):
         input_stream[ind_inp_channel, 10:InputDuration+10] = 1
         input_stream[-1, :] = 1
         signal = input_stream[0, :] - input_stream[1, :]
-        integrated_theta = np.cumsum(signal) * self.w
-        # converting integrated theta to outputs:
-
-        arc = 2 * np.pi / self.n_outputs
-        for t, theta in enumerate(integrated_theta):
-            ind_channel = int(np.floor(theta / arc))
-            v = theta % arc
-            target_stream[ind_channel % self.n_outputs, t] = 1 - v/arc
-            target_stream[(ind_channel + 1) % self.n_outputs, t] = v/arc
+        integrated_signal = np.cumsum(signal) * self.w
+        for t, x in enumerate(integrated_signal):
+            ind_channel = 0 if x > 0 else 1
+            target_stream[ind_channel, t] = np.abs(x)
 
         condition = {"ind_channel": ind_channel,
                      "InputDuration" : InputDuration,
-                     "integrated_theta": integrated_theta,
+                     "integrated_signal": integrated_signal,
                      "signal" : signal}
         return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False, batch_size = 120):
+    def get_batch(self, shuffle=False, batch_size = 200):
         inputs = []
         targets = []
         conditions = []

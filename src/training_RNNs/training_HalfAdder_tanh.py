@@ -1,6 +1,5 @@
 import os
 import sys
-
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 import json
@@ -10,7 +9,7 @@ from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Tasks.TaskCDDM import *
+from src.Tasks.TaskHalfAdder import *
 from matplotlib import pyplot as plt
 import torch
 import time
@@ -18,7 +17,7 @@ import time
 for tries in range(10):
     disp = True
     activation = "tanh"
-    taskname = "CDDM"
+    taskname = "HalfAdder"
     train_config_file = f"train_config_{taskname}_{activation}.json"
 
     from pathlib import Path
@@ -34,7 +33,7 @@ for tries in range(10):
     else:
         pass
 
-    disp = True
+    disp = False
     config_dict = json.load(
         open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 
@@ -80,7 +79,6 @@ for tries in range(10):
     lambda_orth = config_dict["lambda_orth"]
     orth_input_only = config_dict["orth_input_only"]
     lambda_r = config_dict["lambda_r"]
-    p = config_dict["p"]
     mask = np.array(config_dict["mask"])
     max_iter = config_dict["max_iter"]
     tol = config_dict["tol"]
@@ -98,7 +96,7 @@ for tries in range(10):
                           connectivity_density_rec=connectivity_density_rec,
                           spectral_rad=spectral_rad,
                           random_generator=rng)
-    task = eval(f"Task{taskname}")(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
+    task = TaskHalfAdder(n_steps=n_steps, task_params=task_params)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(rnn_torch.parameters(),
                                  lr=lr,
@@ -107,7 +105,7 @@ for tries in range(10):
                       max_iter=max_iter, tol=tol,
                       optimizer=optimizer, criterion=criterion,
                       lambda_orth=lambda_orth, orth_input_only=orth_input_only,
-                      lambda_r=lambda_r, p=p)
+                      lambda_r=lambda_r)
 
     tic = time.perf_counter()
     rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
@@ -164,6 +162,7 @@ for tries in range(10):
         data_folder+=f";tag={folder_tag}"
     full_data_folder = os.path.join(data_save_path, data_folder)
     datasaver = DataSaver(full_data_folder)
+
 
     print(f"MSE validation: {score}")
     if not (datasaver is None): datasaver.save_data(jsonify(config_dict), f"{score}_config.json")

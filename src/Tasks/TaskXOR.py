@@ -26,7 +26,7 @@ class TaskXOR(Task):
         input_stream = np.zeros((self.n_inputs, self.n_steps))
 
         ind1 = 0 if v1 == 0 else 1
-        ind2 = 0 if v2 == 0 else 1
+        ind2 = 2 if v2 == 0 else 3
 
         input_stream[ind1, self.stim_on:self.stim_off] = 1
         input_stream[ind2, self.stim_on:self.stim_off] = 1
