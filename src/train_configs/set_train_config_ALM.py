@@ -54,7 +54,7 @@ task_params = {"cue_on": 7, "cue_off": 36,
                "seed": seed}
 
 # training specific
-max_iter = 8000
+max_iter = 5000
 tol = 1e-10
 lr = 0.005
 weight_decay = 1e-6
