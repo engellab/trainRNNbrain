@@ -17,7 +17,7 @@ sigma_rec = 0.05
 constrained = True # enforce Dale's law
 dt = 1
 tau = 10 
-sr = 1.2 # spectral radius
+sr = 1.5 # spectral radius
 connectivity_density_rec = 1.0
 
 # task specific
@@ -33,9 +33,9 @@ go_on = 110
 #        np.arange(go_on, n_steps).astype(int).tolist()
 mask = np.arange(0, n_steps).astype(int).tolist()
 print(mask, len(mask))
-n_rights = 100
-n_lefts = 100
-n_catches = 100 # can't set it to 0
+n_rights = 10
+n_lefts = 10
+n_catches = 10 # can't set it to 0
 n_trials = n_rights + n_lefts + n_catches
 directions = np.zeros(n_trials)
 
@@ -58,8 +58,8 @@ max_iter = 8000
 tol = 1e-10
 lr = 0.005
 weight_decay = 1e-6
-lambda_orth = 0
-orth_input_only = True
+lambda_orth = 1
+orth_input_only = False
 lambda_r = 0.005
 same_batch = True
 
@@ -98,5 +98,5 @@ config_dict["last_compiled"] = date
 out_dir = "/Users/jiayizhang/Documents/code_base/rnn-coach/"
 
 json_obj = json.dumps(config_dict, indent=4)
-outfile = open(os.path.join(out_dir, "data", "configs", f"train_config_{config_tag}_more_trials.json"), mode="w")
+outfile = open(os.path.join(out_dir, "data", "configs", f"train_config_{config_tag}_lambda_orth=1_in_out_orth.json"), mode="w")
 outfile.write(json_obj)
