@@ -1,0 +1,5 @@
+_target_: rnn_coach.src.Tasks.TaskXOR.TaskXOR
+n_inputs: 4
+n_outputs: 2
+T: 150
+dt: 1

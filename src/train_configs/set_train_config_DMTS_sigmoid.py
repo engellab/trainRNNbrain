@@ -2,75 +2,66 @@ import json
 import os
 import sys
 from datetime import date
+
 import numpy as np
+
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.utils import get_project_root
-import datetime
-task_name = 'XOR'
 
-from pathlib import Path
-home = str(Path.home())
-if home == '/home/pt1290':
-    projects_folder = home
-    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{task_name}'
-    RNN_configs_path = home + '/rnn_coach/data/configs'
-elif home == '/Users/tolmach':
-    projects_folder = home + '/Documents/GitHub/'
-    data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{task_name}'
-    RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
-else:
-    pass
-
-# date = ''.join((list(str(date.today()).split("-"))[::-1]))
+date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
 N = 100
-activation_name = 'tanh'
+activation_name = 'sigmoid'
 constrained = True
-exc_to_inh_ratio = 1
-seed = None
-sigma_inp = 0.05
-sigma_rec = 0.05
+exc_to_inh_ratio = 4
+seed = 0
+sigma_inp = 0.03
+sigma_rec = 0.03
 dt = 1
 tau = 10
-sr = 1.2
+sr = 1.3
 connectivity_density_rec = 1.0
 
-# task specific
-n_inputs = 4
-n_outputs = 2
-T = 150
+task_name = 'DMTS'
+n_inputs = 3
+n_outputs = 1
+T = 140
 n_steps = int(T / dt)
-
-mask = (int(2 * n_steps // 10) + np.arange(int(8 * n_steps // 10))).tolist()
-task_params = {"stim_on": 0, "stim_off": n_steps,
-               "dec_on": int(n_steps//10), "dec_off": n_steps,
-               "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
-
+task_params = dict()
+task_params["n_steps"] = n_steps
+task_params["n_inputs"] = n_inputs
+task_params["n_outputs"] = n_outputs
+task_params["stim_on_sample"] = 10
+task_params["stim_off_sample"] = 20
+task_params["stim_on_match"] = 80
+task_params["stim_off_match"] = 90
+task_params["dec_on"] = 100
+task_params["dec_off"] = n_steps
+task_params["random_window"] = 10
 task_params["seed"] = seed
+n_steps_out = (task_params["dec_on"] + 10)
+mask = np.concatenate(
+    [np.arange(task_params["dec_on"]), n_steps_out + np.arange(n_steps - n_steps_out)]).tolist()
 
 # training specific
-max_iter = 5000
+max_iter_1 = 10000
+max_iter_2 = 10000
 tol = 1e-10
-lr = 0.005
-weight_decay = 5e-06
+lr = 0.001
+weight_decay = 5e-6
 lambda_orth = 0.3
 orth_input_only = True
-lambda_r = 0.5
-same_batch = True
+lambda_r_1 = 0.0
+lambda_r_2 = 0.3
+same_batch = False
+shuffle = False
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
-config_tag = f'{task_name}_{activation_name}_constrained={constrained}'
-
-now = datetime.datetime.now()
-year = now.year
-month = now.month
-day = now.day
-timestr = f"{year}/{month}/{day}"
+config_tag = f'{task_name}_{activation_name}'
 
 config_dict = {}
-config_dict["time"] = timestr
 config_dict["N"] = N
 config_dict["seed"] = seed
 config_dict["activation"] = activation_name
@@ -84,7 +75,8 @@ config_dict["dt"] = dt
 config_dict["tau"] = tau
 config_dict["sr"] = sr
 config_dict["connectivity_density_rec"] = connectivity_density_rec
-config_dict["max_iter"] = max_iter
+config_dict["max_iter_1"] = max_iter_1
+config_dict["max_iter_2"] = max_iter_2
 config_dict["n_steps"] = n_steps
 config_dict["task_params"] = task_params
 config_dict["mask"] = mask
@@ -94,7 +86,9 @@ config_dict["same_batch"] = same_batch
 config_dict["weight_decay"] = weight_decay
 config_dict["lambda_orth"] = lambda_orth
 config_dict["orth_input_only"] = orth_input_only
-config_dict["lambda_r"] = lambda_r
+config_dict["lambda_r_1"] = lambda_r_1
+config_dict["lambda_r_2"] = lambda_r_2
+config_dict["data_folder"] = data_folder
 config_dict["folder_tag"] = ''
 
 json_obj = json.dumps(config_dict, indent=4)

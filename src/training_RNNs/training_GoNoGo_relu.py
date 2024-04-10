@@ -10,69 +10,45 @@ from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Tasks.TaskXOR import *
+from src.Tasks.TaskGoNoGo import *
 from matplotlib import pyplot as plt
 import torch
 import time
 
-activation = "tanh"
-constrained = True
-disp = False
-taskname = "XOR"
-info_tag = f'{taskname}_{activation}_constrained={constrained}'
-train_config_file = f"train_config_{info_tag}.json"
-save_folder_name = info_tag
-home, data_save_path, RNN_configs_path = set_paths(save_folder_name)
+for tries in range(1):
+    activation = "relu"
+    constrained = True
+    disp = False
+    taskname = "GoNoGo"
+    info_tag = f'{taskname}_{activation}_constrained={constrained}'
+    train_config_file = f"train_config_{info_tag}.json"
+    save_folder_name = info_tag
+    home, data_save_path, RNN_configs_path = set_paths(save_folder_name)
 
-config_dict = json.load(
-    open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
+    config_dict = json.load(
+        open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 
-# defining RNN:
-N = config_dict["N"]
-activation_name = config_dict["activation"]
-match activation_name:
-    case 'relu':
-        activation = lambda x: torch.maximum(torch.tensor(0.0), x)
-    case 'tanh':
-        activation = lambda x: torch.tanh(x)
-    case 'sigmoid':
-        activation = lambda x: 1 / (1 + torch.exp(-x))
-    case 'softplus':
-        activation = lambda x: torch.log(1 + torch.exp(5 * x))
+    # defining RNN:
+    N = config_dict["N"]
+    activation_name = config_dict["activation"]
+    match activation_name:
+        case 'relu': activation = lambda x: torch.maximum(torch.tensor(0.0), x)
+        case 'tanh': activation = lambda x: torch.tanh(x)
+        case 'sigmoid': activation = lambda x: 1 / (1 + torch.exp(-x))
+        case 'softplus': activation = lambda x: torch.log(1 + torch.exp(5 * x))
 
-dt = config_dict["dt"]
-tau = config_dict["tau"]
-constrained = config_dict["constrained"]
-exc_to_inh_ratio = config_dict["exc_to_inh_ratio"]
-connectivity_density_rec = config_dict["connectivity_density_rec"]
-spectral_rad = config_dict["sr"]
-sigma_inp = config_dict["sigma_inp"]
-sigma_rec = config_dict["sigma_rec"]
 
-input_size = config_dict["num_inputs"]
-output_size = config_dict["num_outputs"]
-
-# Task:
-n_steps = config_dict["n_steps"]
-task_params = config_dict["task_params"]
-
-# Trainer:
-lambda_orth = config_dict["lambda_orth"]
-orth_input_only = config_dict["orth_input_only"]
-lambda_r = config_dict["lambda_r"]
-mask = np.array(config_dict["mask"])
-max_iter = config_dict["max_iter"]
-tol = config_dict["tol"]
-lr = config_dict["lr"]
-weight_decay = config_dict["weight_decay"]
-same_batch = config_dict["same_batch"]
-
-# General:
-folder_tag = config_dict["folder_tag"]
-
-for tries in range(10):
-
+    dt = config_dict["dt"]
+    tau = config_dict["tau"]
+    constrained = config_dict["constrained"]
+    exc_to_inh_ratio = config_dict["exc_to_inh_ratio"]
+    connectivity_density_rec = config_dict["connectivity_density_rec"]
+    spectral_rad = config_dict["sr"]
+    sigma_inp = config_dict["sigma_inp"]
+    sigma_rec = config_dict["sigma_rec"]
+    # seed = config_dict["seed"]
     seed = None
+
     if torch.cuda.is_available():
         device = torch.device('cuda')
     else:
@@ -84,6 +60,27 @@ for tries in range(10):
     else:
         rng.manual_seed(np.random.randint(100000))
 
+    input_size = config_dict["num_inputs"]
+    output_size = config_dict["num_outputs"]
+
+    # Task:
+    n_steps = config_dict["n_steps"]
+    task_params = config_dict["task_params"]
+
+    # Trainer:
+    lambda_orth = config_dict["lambda_orth"]
+    orth_input_only = config_dict["orth_input_only"]
+    lambda_r = config_dict["lambda_r"]
+    mask = np.array(config_dict["mask"])
+    max_iter = config_dict["max_iter"]
+    tol = config_dict["tol"]
+    lr = config_dict["lr"]
+    weight_decay = config_dict["weight_decay"]
+    same_batch = config_dict["same_batch"]
+
+    # General:
+    folder_tag = config_dict["folder_tag"]
+
     # # creating instances:
     rnn_torch = RNN_torch(N=N, dt=dt, tau=tau, input_size=input_size, output_size=output_size,
                           activation=activation, constrained=constrained,
@@ -93,8 +90,7 @@ for tries in range(10):
                           spectral_rad=spectral_rad,
                           random_generator=rng)
     try:
-        task = eval(f"Task{taskname}")(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size,
-                                       task_params=task_params)
+        task = eval(f"Task{taskname}")(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
     except TypeError:
         task = eval(f"Task{taskname}")(n_steps=n_steps, task_params=task_params)
 
@@ -169,21 +165,9 @@ for tries in range(10):
     inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), 12)
     inputs = input_batch_valid[..., inds]
     targets = target_batch_valid[..., inds]
+    conditions = [conditions_valid[ind] for ind in inds]
 
-    fig_trials = analyzer.plot_trials(inputs, targets, mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
+    fig_trials = analyzer.plot_trials(inputs, targets, mask, sigma_rec=sigma_rec, sigma_inp=sigma_inp, conditions=conditions)
     if disp:
         plt.show()
     if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials.png")
-
-    # dsa = DynamicSystemAnalyzer(RNN_valid)
-    # params = {"fun_tol": 0.05,
-    #           "diff_cutoff": 1e-4,
-    #           "sigma_init_guess": 5,
-    #           "patience": 50,
-    #           "stop_length": 50,
-    #           "mode": "approx"}
-    # dsa.get_fixed_points(Input=np.zeros(input_size), **params)
-    # fig_fp = dsa.plot_fixed_points(projection='2D')
-    # if disp:
-    #     plt.show()
-    # if not (datasaver is None): datasaver.save_figure(fig_fp, "fp_projection")

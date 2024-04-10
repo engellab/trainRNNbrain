@@ -1,6 +1,6 @@
 from copy import deepcopy
 import numpy as np
-from src.Tasks.TaskBase import Task
+from rnn_coach.src.Tasks.TaskBase import Task
 
 class TaskXOR(Task):
     def __init__(self, n_steps, task_params):

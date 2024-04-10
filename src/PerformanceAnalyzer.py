@@ -2,7 +2,6 @@ from copy import deepcopy
 import numpy as np
 from matplotlib import pyplot as plt
 
-
 class PerformanceAnalyzer():
     '''
     Generic class for analysis of the RNN performance on the given task
@@ -28,7 +27,7 @@ class PerformanceAnalyzer():
             [scoring_function(output_prediction[:, mask, i], target_batch[:, mask, i]) for i in range(batch_size)])
         return avg_score
 
-    def plot_trials(self, input_batch, target_batch, mask, sigma_rec=0.03, sigma_inp=0.03, labels=None):
+    def plot_trials(self, input_batch, target_batch, mask, sigma_rec=0.03, sigma_inp=0.03, labels=None, conditions=None):
         n_inputs = input_batch.shape[0]
         n_steps = input_batch.shape[1]
         batch_size = input_batch.shape[2]
@@ -42,10 +41,14 @@ class PerformanceAnalyzer():
         colors = ["r", "b", "g", "c", "m", "y", 'k']
         n_outputs = self.RNN.W_out.shape[0]
         for k in range(batch_size):
+            if not (conditions is None):
+                axes[k].text(0.1, 0.9, conditions[k], size=6, color='purple')
+
             for i in range(n_outputs):
                 tag = labels[i] if not (labels is None) else ''
                 axes[k].plot(predicted_output[i, :, k], color=colors[i], label=f'predicted {tag}')
                 axes[k].plot(mask, target_batch[i, mask, k], color=colors[i], linestyle='--', label=f'target {tag}')
+            axes[k].set_ylim([-0.1, 1.1])
             axes[k].spines.right.set_visible(False)
             axes[k].spines.top.set_visible(False)
 

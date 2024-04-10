@@ -7,28 +7,15 @@ sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
 from src.utils import get_project_root
 import datetime
-task_name = 'XOR'
-
-from pathlib import Path
-home = str(Path.home())
-if home == '/home/pt1290':
-    projects_folder = home
-    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{task_name}'
-    RNN_configs_path = home + '/rnn_coach/data/configs'
-elif home == '/Users/tolmach':
-    projects_folder = home + '/Documents/GitHub/'
-    data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{task_name}'
-    RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
-else:
-    pass
+task_name = 'GoNoGo'
 
 # date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
 N = 100
-activation_name = 'tanh'
+activation_name = 'relu'
 constrained = True
-exc_to_inh_ratio = 1
+exc_to_inh_ratio = 4
 seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
@@ -38,16 +25,21 @@ sr = 1.2
 connectivity_density_rec = 1.0
 
 # task specific
-n_inputs = 4
-n_outputs = 2
-T = 150
+n_inputs = 3
+n_outputs = 1
+T = 60
 n_steps = int(T / dt)
 
-mask = (int(2 * n_steps // 10) + np.arange(int(8 * n_steps // 10))).tolist()
+
 task_params = {"stim_on": 0, "stim_off": n_steps,
-               "dec_on": int(n_steps//10), "dec_off": n_steps,
+               "cue_on": int(2 * n_steps//3), "cue_off": n_steps,
                "n_steps": n_steps, "n_inputs": n_inputs, "n_outputs": n_outputs}
 
+start = int(1 * n_steps // 6)
+pause = task_params["cue_on"]
+resume = task_params["cue_on"] + int(1 * n_steps // 6)
+stop = n_steps
+mask = np.concatenate([start + np.arange(pause - start), resume + np.arange(stop - resume)]).tolist()
 task_params["seed"] = seed
 
 # training specific

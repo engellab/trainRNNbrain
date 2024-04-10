@@ -10,69 +10,46 @@ from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Tasks.TaskXOR import *
+# TODO: Do the dynamic import
+from src.Tasks.TaskCDDM import *
 from matplotlib import pyplot as plt
 import torch
 import time
 
-activation = "tanh"
-constrained = True
-disp = False
-taskname = "XOR"
-info_tag = f'{taskname}_{activation}_constrained={constrained}'
-train_config_file = f"train_config_{info_tag}.json"
-save_folder_name = info_tag
-home, data_save_path, RNN_configs_path = set_paths(save_folder_name)
-
-config_dict = json.load(
-    open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
-
-# defining RNN:
-N = config_dict["N"]
-activation_name = config_dict["activation"]
-match activation_name:
-    case 'relu':
-        activation = lambda x: torch.maximum(torch.tensor(0.0), x)
-    case 'tanh':
-        activation = lambda x: torch.tanh(x)
-    case 'sigmoid':
-        activation = lambda x: 1 / (1 + torch.exp(-x))
-    case 'softplus':
-        activation = lambda x: torch.log(1 + torch.exp(5 * x))
-
-dt = config_dict["dt"]
-tau = config_dict["tau"]
-constrained = config_dict["constrained"]
-exc_to_inh_ratio = config_dict["exc_to_inh_ratio"]
-connectivity_density_rec = config_dict["connectivity_density_rec"]
-spectral_rad = config_dict["sr"]
-sigma_inp = config_dict["sigma_inp"]
-sigma_rec = config_dict["sigma_rec"]
-
-input_size = config_dict["num_inputs"]
-output_size = config_dict["num_outputs"]
-
-# Task:
-n_steps = config_dict["n_steps"]
-task_params = config_dict["task_params"]
-
-# Trainer:
-lambda_orth = config_dict["lambda_orth"]
-orth_input_only = config_dict["orth_input_only"]
-lambda_r = config_dict["lambda_r"]
-mask = np.array(config_dict["mask"])
-max_iter = config_dict["max_iter"]
-tol = config_dict["tol"]
-lr = config_dict["lr"]
-weight_decay = config_dict["weight_decay"]
-same_batch = config_dict["same_batch"]
-
-# General:
-folder_tag = config_dict["folder_tag"]
-
 for tries in range(10):
+    activation = "relu"
+    constrained = True
+    disp = False
+    taskname = "CDDM"
+    info_tag = f'{taskname}_{activation}_constrained={constrained}'
+    train_config_file = f"train_config_{info_tag}.json"
+    save_folder_name = info_tag
+    home, data_save_path, RNN_configs_path = set_paths(save_folder_name)
 
+    config_dict = json.load(
+        open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
+
+    # defining RNN:
+    N = config_dict["N"]
+    activation_name = config_dict["activation"]
+    match activation_name:
+        case 'relu': activation = lambda x: torch.maximum(torch.tensor(0.0), x)
+        case 'tanh': activation = lambda x: torch.tanh(x)
+        case 'sigmoid': activation = lambda x: 1 / (1 + torch.exp(-x))
+        case 'softplus': activation = lambda x: torch.log(1 + torch.exp(5 * x))
+
+
+    dt = config_dict["dt"]
+    tau = config_dict["tau"]
+    constrained = config_dict["constrained"]
+    exc_to_inh_ratio = config_dict["exc_to_inh_ratio"]
+    connectivity_density_rec = config_dict["connectivity_density_rec"]
+    spectral_rad = config_dict["sr"]
+    sigma_inp = config_dict["sigma_inp"]
+    sigma_rec = config_dict["sigma_rec"]
+    # seed = config_dict["seed"]
     seed = None
+
     if torch.cuda.is_available():
         device = torch.device('cuda')
     else:
@@ -84,6 +61,27 @@ for tries in range(10):
     else:
         rng.manual_seed(np.random.randint(100000))
 
+    input_size = config_dict["num_inputs"]
+    output_size = config_dict["num_outputs"]
+
+    # Task:
+    n_steps = config_dict["n_steps"]
+    task_params = config_dict["task_params"]
+
+    # Trainer:
+    lambda_orth = config_dict["lambda_orth"]
+    orth_input_only = config_dict["orth_input_only"]
+    lambda_r = config_dict["lambda_r"]
+    mask = np.array(config_dict["mask"])
+    max_iter = config_dict["max_iter"]
+    tol = config_dict["tol"]
+    lr = config_dict["lr"]
+    weight_decay = config_dict["weight_decay"]
+    same_batch = config_dict["same_batch"]
+
+    # General:
+    folder_tag = config_dict["folder_tag"]
+
     # # creating instances:
     rnn_torch = RNN_torch(N=N, dt=dt, tau=tau, input_size=input_size, output_size=output_size,
                           activation=activation, constrained=constrained,
@@ -92,12 +90,7 @@ for tries in range(10):
                           connectivity_density_rec=connectivity_density_rec,
                           spectral_rad=spectral_rad,
                           random_generator=rng)
-    try:
-        task = eval(f"Task{taskname}")(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size,
-                                       task_params=task_params)
-    except TypeError:
-        task = eval(f"Task{taskname}")(n_steps=n_steps, task_params=task_params)
-
+    task = eval(f"Task{taskname}")(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(rnn_torch.parameters(),
                                  lr=lr,
@@ -114,8 +107,8 @@ for tries in range(10):
     print(f"Executed training in {toc - tic:0.4f} seconds")
 
     rnn_torch, net_params = remove_silent_nodes(rnn_torch=rnn_trained,
-                                                 task=task,
-                                                 net_params=net_params)
+                                                             task=task,
+                                                             net_params=net_params)
 
     # validate
     RNN_valid = RNN_numpy(N=net_params["N"],

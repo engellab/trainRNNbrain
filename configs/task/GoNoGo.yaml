@@ -1,0 +1,4 @@
+n_inputs: 3
+n_outputs: 1
+T: 60
+dt: 1

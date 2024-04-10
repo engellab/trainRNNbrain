@@ -1,8 +1,8 @@
 import os
 import sys
-
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
+from src.training_RNNs.training_utils import remove_silent_nodes, set_paths
 import json
 from src.DataSaver import DataSaver
 from src.PerformanceAnalyzer import PerformanceAnalyzer
@@ -16,25 +16,15 @@ import torch
 import time
 
 for tries in range(10):
-    disp = True
     activation = "relu"
+    constrained = True
+    disp = False
     taskname = "CDDM"
-    train_config_file = f"train_config_{taskname}_{activation};N={100};lmbdr={0.3};lmbdo={0.3};orth_inp_only={True}.json"
+    info_tag = f'{taskname}_{activation}_constrained={constrained}'
+    train_config_file = f"train_config_{info_tag}.json"
+    save_folder_name = info_tag
+    home, data_save_path, RNN_configs_path = set_paths(save_folder_name)
 
-    from pathlib import Path
-    home = str(Path.home())
-    if home == '/home/pt1290':
-        projects_folder = home
-        data_save_path = home + f'/rnn_coach/data/trained_RNNs/{taskname}'
-        RNN_configs_path = home + '/rnn_coach/data/configs'
-    elif home == '/Users/tolmach':
-        projects_folder = home + '/Documents/GitHub/'
-        data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{taskname}'
-        RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
-    else:
-        pass
-
-    disp = True
     config_dict = json.load(
         open(os.path.join(RNN_configs_path, train_config_file), mode="r", encoding='utf-8'))
 
@@ -51,6 +41,7 @@ for tries in range(10):
     dt = config_dict["dt"]
     tau = config_dict["tau"]
     constrained = config_dict["constrained"]
+    exc_to_inh_ratio = config_dict["exc_to_inh_ratio"]
     connectivity_density_rec = config_dict["connectivity_density_rec"]
     spectral_rad = config_dict["sr"]
     sigma_inp = config_dict["sigma_inp"]
@@ -93,6 +84,7 @@ for tries in range(10):
     # # creating instances:
     rnn_torch = RNN_torch(N=N, dt=dt, tau=tau, input_size=input_size, output_size=output_size,
                           activation=activation, constrained=constrained,
+                          exc_to_inh_ratio=exc_to_inh_ratio,
                           sigma_inp=sigma_inp, sigma_rec=sigma_rec,
                           connectivity_density_rec=connectivity_density_rec,
                           spectral_rad=spectral_rad,
@@ -113,34 +105,9 @@ for tries in range(10):
     toc = time.perf_counter()
     print(f"Executed training in {toc - tic:0.4f} seconds")
 
-    # throw out all the silent neurons!
-    ######### clean the RNN from silent neurons!
-    input_batch, target_batch, conditions = task.get_batch()
-    rnn_torch.sigma_rec = rnn_torch.sigma_inp = torch.tensor(0, device=rnn_torch.device)
-    y, predicted_output_rnn = rnn_torch(torch.from_numpy(input_batch.astype("float32")).to(rnn_torch.device))
-    Y = torch.hstack([y.detach()[:, :, i] for i in range(y.shape[-1])]).T
-    Y_mean = torch.mean(torch.abs(Y), axis=0)
-    inds_fr = (torch.where(Y_mean > 0)[0]).tolist()
-    N_reduced = len(inds_fr)
-    config_dict["N"] = N_reduced
-    N = N_reduced
-    W_rec = net_params["W_rec"][inds_fr, :]
-    W_rec = W_rec[:, inds_fr]
-    net_params["W_rec"] = deepcopy(W_rec)
-    W_out = net_params["W_out"][:, inds_fr]
-    net_params["W_out"] = deepcopy(W_out)
-    W_inp = net_params["W_inp"][inds_fr, :]
-    net_params["W_inp"] = deepcopy(W_inp)
-    net_params["bias_rec"] = None
-    net_params["y_init"] = np.zeros(N_reduced)
-    RNN_params = {"W_inp": np.array(net_params["W_inp"]),
-                  "W_rec": np.array(net_params["W_rec"]),
-                  "W_out": np.array(net_params["W_out"]),
-                  "b_rec": np.array(net_params["bias_rec"]),
-                  "y_init": np.zeros(N)}
-    net_params["N"] = N_reduced
-    rnn_trained.set_params(RNN_params)
-    ########
+    rnn_torch, net_params = remove_silent_nodes(rnn_torch=rnn_trained,
+                                                             task=task,
+                                                             net_params=net_params)
 
     # validate
     RNN_valid = RNN_numpy(N=net_params["N"],
@@ -158,7 +125,7 @@ for tries in range(10):
     input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
     score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid, mask, sigma_rec=0, sigma_inp=0)
     score = np.round(score, 7)
-    data_folder = f'{score}_{taskname};{activation_name};N={N_reduced};lmbdo={lambda_orth};orth_inp_only={orth_input_only};lmbdr={lambda_r};lr={lr};maxiter={max_iter}'
+    data_folder = f'{score}_{taskname};{activation_name};N={net_params["N"]};lmbdo={lambda_orth};orth_inp_only={orth_input_only};lmbdr={lambda_r};lr={lr};maxiter={max_iter}'
     if folder_tag != '':
         data_folder+=f";tag={folder_tag}"
     full_data_folder = os.path.join(data_save_path, data_folder)

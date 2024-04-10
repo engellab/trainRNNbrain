@@ -1,6 +1,6 @@
 from copy import deepcopy
 import numpy as np
-from src.Tasks.TaskBase import Task
+from rnn_coach.src.Tasks.TaskBase import Task
 
 class TaskDelayDM(Task):
     '''Delayed decision making task: get the stimulus, wait and then make a decision after the cue comes in'''

@@ -1,9 +1,13 @@
 from copy import deepcopy
 import numpy as np
-from src.Tasks.TaskBase import Task
+import sys
+sys.path.insert(0, '../')
+sys.path.insert(0, '../../')
+sys.path.insert(0, '../../../')
+from rnn_coach.src.Tasks.TaskBase import Task
 
 class TaskDMTS(Task):
-    def __init__(self, n_steps, n_inputs, task_params, n_outputs=2):
+    def __init__(self, n_steps, n_inputs, task_params, n_outputs):
         '''
         Delayed match to sample task: if the two subsequent stimuli were the same - match (make the choice to the right), if not - to the left
         '''
@@ -19,9 +23,13 @@ class TaskDMTS(Task):
         self.dec_off = self.task_params["dec_off"]
         self.random_window = self.task_params["random_window"]
 
-    def generate_input_target_stream(self, num_sample_channel, num_match_channel):
+    def generate_input_target_stream(self, num_sample_channel, num_match_channel, offests = None):
         if self.random_window == 0:
-            random_offset_1 = random_offset_2 = 0
+            if offests != None:
+                random_offset_1 = random_offset_2 = 0
+            else:
+                random_offset_1 = offests[0]
+                random_offset_2 = offests[1]
         else:
             random_offset_1 = self.rng.integers(-self.random_window, self.random_window)
             random_offset_2 = self.rng.integers(-self.random_window, self.random_window)
@@ -29,6 +37,7 @@ class TaskDMTS(Task):
         input_stream[num_sample_channel, self.stim_on_sample + random_offset_1:self.stim_off_sample + random_offset_1] = 1.0
         input_stream[num_match_channel, self.stim_on_match + random_offset_2:self.stim_off_match + random_offset_2] = 1.0
         input_stream[2, self.dec_on:self.dec_off] = 1.0 # to signify the decision period
+        # input_stream[3, :] = 1.0  # constant bias
 
         condition = {"num_sample_channel" : num_sample_channel,
                      "num_match_channel" : num_match_channel,
@@ -40,19 +49,25 @@ class TaskDMTS(Task):
                      "dec_off" : self.dec_off}
 
         # Target stream
-        target_stream = np.zeros((2, self.n_steps))
-        if (num_sample_channel == num_match_channel):
-            target_stream[0, self.dec_on: self.dec_off] = 1
-        elif (num_sample_channel != num_match_channel):
-            target_stream[1, self.dec_on: self.dec_off] = 1
+        target_stream = np.zeros((self.n_outputs, self.n_steps))
+        if self.n_outputs == 2:
+            if (num_sample_channel == num_match_channel):
+                target_stream[0, self.dec_on: self.dec_off] = 1
+            elif (num_sample_channel != num_match_channel):
+                target_stream[1, self.dec_on: self.dec_off] = 1
+        else:
+            if (num_sample_channel == num_match_channel):
+                target_stream[0, self.dec_on: self.dec_off] = 1
 
         return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False, num_rep = 64):
+    def get_batch(self, shuffle=False, num_rep = 64, offsets_list = None):
+
         # batch size = 256 for two inputs
         inputs = []
         targets = []
         conditions = []
+
         for i in range(num_rep):
             for num_sample_channel in range(self.n_inputs - 1):
                 for num_match_channel in range(self.n_inputs - 1):

@@ -3,28 +3,17 @@ import os
 import sys
 import numpy as np
 import datetime
+from src.utils import get_project_root
+
 
 taskname = 'CDDM'
-
-from pathlib import Path
-home = str(Path.home())
-if home == '/home/pt1290':
-    projects_folder = home
-    data_save_path = home + f'/rnn_coach/data/trained_RNNs/{taskname}'
-    RNN_configs_path = home + '/rnn_coach/data/configs'
-elif home == '/Users/tolmach':
-    projects_folder = home + '/Documents/GitHub/'
-    data_save_path = projects_folder + f'/rnn_coach/data/trained_RNNs/{taskname}'
-    RNN_configs_path = projects_folder + '/rnn_coach/data/configs'
-else:
-    pass
-
 # date = ''.join((list(str(date.today()).split("-"))[::-1]))
 
 # RNN specific
 N = 100
 activation_name = 'relu'
 constrained = True
+exc_to_inh_ratio = 4
 seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
@@ -55,16 +44,16 @@ task_params["coherences"] = coherences
 task_params["seed"] = seed
 
 # training specific
-max_iter = 6000
+max_iter = 5000
 tol = 1e-10
 lr = 0.002
 weight_decay = 5e-06
 lambda_orth = 0.3
 orth_input_only = True
-lambda_r = 0.3
+lambda_r = 0.5
 same_batch = True
-extra_info = f'{activation_name};N={N};lmbdr={lambda_r};lmbdo={lambda_orth};orth_inp_only={orth_input_only}'
-name_tag = f'{taskname}_{extra_info}'
+config_tag = f'{taskname}_{activation_name}_constrained={constrained}'
+name_tag = f'{taskname}_{config_tag}'
 
 now = datetime.datetime.now()
 year = now.year
@@ -82,6 +71,7 @@ config_dict["sigma_rec"] = sigma_rec
 config_dict["num_inputs"] = n_inputs
 config_dict["num_outputs"] = n_outputs
 config_dict["constrained"] = constrained
+config_dict["exc_to_inh_ratio"] = exc_to_inh_ratio
 config_dict["dt"] = dt
 config_dict["tau"] = tau
 config_dict["sr"] = sr
@@ -100,5 +90,6 @@ config_dict["lambda_r"] = lambda_r
 config_dict["folder_tag"] = ''
 
 json_obj = json.dumps(config_dict, indent=4)
-outfile = open(os.path.join(RNN_configs_path, f"train_config_{name_tag}.json"), mode="w")
+outfile = open(os.path.join(get_project_root(), "data", "configs", f"train_config_{config_tag}.json"), mode="w")
 outfile.write(json_obj)
+

@@ -1,12 +1,5 @@
-import sys
-sys.path.insert(0, "../")
 import numpy as np
-# import jax.numpy as jnp
-# import jax
-import inspect
-import re
 from copy import deepcopy
-import textwrap
 import numdifftools as nd
 
 '''

@@ -2,23 +2,24 @@ import os
 import sys
 sys.path.insert(0, '../')
 sys.path.insert(0, '../../')
-from src.training_RNNs.training_utils import remove_silent_nodes, set_paths
 import json
+from src.training_RNNs.training_utils import remove_silent_nodes, set_paths
 from src.DataSaver import DataSaver
 from src.PerformanceAnalyzer import PerformanceAnalyzer
 from src.RNN_numpy import RNN_numpy
 from src.utils import numpify, jsonify
 from src.Trainer import Trainer
 from src.RNN_torch import RNN_torch
-from src.Tasks.TaskXOR import *
+from src.Tasks.TaskDMTS import *
 from matplotlib import pyplot as plt
 import torch
 import time
 
-activation = "tanh"
-constrained = True
+
 disp = False
-taskname = "XOR"
+activation = "sigmoid"
+constrained = True
+taskname = "DMTS"
 info_tag = f'{taskname}_{activation}_constrained={constrained}'
 train_config_file = f"train_config_{info_tag}.json"
 save_folder_name = info_tag
@@ -48,6 +49,8 @@ connectivity_density_rec = config_dict["connectivity_density_rec"]
 spectral_rad = config_dict["sr"]
 sigma_inp = config_dict["sigma_inp"]
 sigma_rec = config_dict["sigma_rec"]
+# seed = config_dict["seed"]
+seed = None
 
 input_size = config_dict["num_inputs"]
 output_size = config_dict["num_outputs"]
@@ -59,9 +62,11 @@ task_params = config_dict["task_params"]
 # Trainer:
 lambda_orth = config_dict["lambda_orth"]
 orth_input_only = config_dict["orth_input_only"]
-lambda_r = config_dict["lambda_r"]
+lambda_r_1 = config_dict["lambda_r_1"]
+lambda_r_2 = config_dict["lambda_r_2"]
 mask = np.array(config_dict["mask"])
-max_iter = config_dict["max_iter"]
+max_iter_1 = config_dict["max_iter_1"]
+max_iter_2 = config_dict["max_iter_2"]
 tol = config_dict["tol"]
 lr = config_dict["lr"]
 weight_decay = config_dict["weight_decay"]
@@ -70,15 +75,13 @@ same_batch = config_dict["same_batch"]
 # General:
 folder_tag = config_dict["folder_tag"]
 
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
+
 for tries in range(10):
-
-    seed = None
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-    else:
-        device = torch.device('cpu')
     rng = torch.Generator(device=torch.device(device))
-
     if not seed is None:
         rng.manual_seed(seed)
     else:
@@ -92,30 +95,37 @@ for tries in range(10):
                           connectivity_density_rec=connectivity_density_rec,
                           spectral_rad=spectral_rad,
                           random_generator=rng)
-    try:
-        task = eval(f"Task{taskname}")(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size,
-                                       task_params=task_params)
-    except TypeError:
-        task = eval(f"Task{taskname}")(n_steps=n_steps, task_params=task_params)
 
+    task = TaskDMTS(n_steps=n_steps, n_inputs=input_size, n_outputs=output_size, task_params=task_params)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(rnn_torch.parameters(),
                                  lr=lr,
                                  weight_decay=weight_decay)
     trainer = Trainer(RNN=rnn_torch, Task=task,
-                      max_iter=max_iter, tol=tol,
+                      max_iter=max_iter_1, tol=tol,
                       optimizer=optimizer, criterion=criterion,
                       lambda_orth=lambda_orth, orth_input_only=orth_input_only,
-                      lambda_r=lambda_r)
+                      lambda_r=lambda_r_1)
 
     tic = time.perf_counter()
-    rnn_trained, train_losses, val_losses, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
+    #multistage training
+
+    rnn_trained_1, train_losses_1, val_losses_1, _ = trainer.run_training(train_mask=mask, same_batch=same_batch)
+    trainer.lambda_r = lambda_r_2
+    trainer.max_iter = max_iter_2
+    trainer.RNN = rnn_trained_1
+
+    rnn_trained_2, train_losses_2, val_losses_2, net_params = trainer.run_training(train_mask=mask, same_batch=same_batch)
+    train_losses = train_losses_1 + train_losses_2
+    val_losses = val_losses_1 + val_losses_2
+
+
     toc = time.perf_counter()
     print(f"Executed training in {toc - tic:0.4f} seconds")
 
-    rnn_torch, net_params = remove_silent_nodes(rnn_torch=rnn_trained,
-                                                 task=task,
-                                                 net_params=net_params)
+    rnn_torch, net_params = remove_silent_nodes(rnn_torch=rnn_trained_2,
+                                                task=task,
+                                                net_params=net_params)
 
     # validate
     RNN_valid = RNN_numpy(N=net_params["N"],
@@ -133,7 +143,7 @@ for tries in range(10):
     input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
     score = analyzer.get_validation_score(score_function, input_batch_valid, target_batch_valid, mask, sigma_rec=0, sigma_inp=0)
     score = np.round(score, 7)
-    data_folder = f'{score}_{taskname};{activation_name};N={net_params["N"]};lmbdo={lambda_orth};orth_inp_only={orth_input_only};lmbdr={lambda_r};lr={lr};maxiter={max_iter}'
+    data_folder = f'{score}_{taskname};{activation_name};N={net_params["N"]};lmbdo={lambda_orth};orth_inp_only={orth_input_only};lmbdr={lambda_r_2};lr={lr};maxiter={max_iter_2}'
     if folder_tag != '':
         data_folder+=f";tag={folder_tag}"
     full_data_folder = os.path.join(data_save_path, data_folder)
@@ -174,16 +184,3 @@ for tries in range(10):
     if disp:
         plt.show()
     if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials.png")
-
-    # dsa = DynamicSystemAnalyzer(RNN_valid)
-    # params = {"fun_tol": 0.05,
-    #           "diff_cutoff": 1e-4,
-    #           "sigma_init_guess": 5,
-    #           "patience": 50,
-    #           "stop_length": 50,
-    #           "mode": "approx"}
-    # dsa.get_fixed_points(Input=np.zeros(input_size), **params)
-    # fig_fp = dsa.plot_fixed_points(projection='2D')
-    # if disp:
-    #     plt.show()
-    # if not (datasaver is None): datasaver.save_figure(fig_fp, "fp_projection")

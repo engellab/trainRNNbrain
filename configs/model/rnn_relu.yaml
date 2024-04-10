@@ -1,0 +1,8 @@
+activation_name: 'relu'
+constrained: True
+N: 100
+exc_to_inh_ratio: 4
+
+
+
+

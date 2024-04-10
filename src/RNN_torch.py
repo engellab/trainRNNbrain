@@ -1,5 +1,4 @@
 import sys
-sys.path.insert(0, "../")
 from copy import deepcopy
 import torch
 import numpy as np
@@ -99,7 +98,7 @@ def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1
 
 
 def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
-                          output_density=1.0, generator=None):
+                          output_density=1.0, exc_to_inh_ratio=4, generator=None):
     '''
     generates W_inp, W_rec and W_out matrices of RNN, with specified parameters, subject to a Dales law,
     and about 20:80 ratio of inhibitory neurons to exchitatory ones.
@@ -126,15 +125,17 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
         else:
             device = torch.device('cpu')
 
-    Ne = int(np.ceil(N * 0.8))
-    Ni = int(np.floor(N * 0.2))
+
+    exc_percentage = exc_to_inh_ratio / (exc_to_inh_ratio + 1)
+    Ne = int(np.ceil(N * exc_percentage))
+    Ni = N - Ne
 
     # Initialize W_rec
     W_rec = torch.empty([0, N], device=device)
 
     # Balancing parameters
     mu_E = 1 / np.sqrt(N)
-    mu_I = 4 / np.sqrt(N)
+    mu_I = exc_to_inh_ratio / np.sqrt(N)
 
     var = 1 / N
     # generating excitatory part of connectivity and an inhibitory part of connectivity:
@@ -186,16 +187,15 @@ class RNN_torch(torch.nn.Module):
                  dt=1,
                  tau=10,
                  constrained=True,
+                 exc_to_inh_ratio=None,
                  connectivity_density_rec=1.0,
                  spectral_rad=1.2,
                  sigma_rec=.03,
                  sigma_inp=.03,
-                 bias_rec=None,
                  y_init=None,
                  random_generator=None,
                  input_size=6,
-                 output_size=2,
-                 device=None):
+                 output_size=2):
         '''
         :param N: int, number of neural nodes in the RNN
         :param activation: torch function, activation function in the dynamics of the RNN
@@ -231,6 +231,7 @@ class RNN_torch(torch.nn.Module):
         self.spectral_rad = torch.from_numpy(np.array(spectral_rad)).to(self.device)
         self.connectivity_density_rec = connectivity_density_rec
         self.constrained = constrained
+        self.exc_to_inh_ratio = exc_to_inh_ratio
         self.dale_mask = None
         self.output_mask = None
 
@@ -248,7 +249,8 @@ class RNN_torch(torch.nn.Module):
             # W_rec has to be subject to Dale's law
             W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
                 get_connectivity_Dale(N=self.N, num_inputs=self.input_size, num_outputs=self.output_size,
-                                      radius=self.spectral_rad, generator=self.random_generator,
+                                      radius=self.spectral_rad, exc_to_inh_ratio=self.exc_to_inh_ratio,
+                                      generator=self.random_generator,
                                       recurrent_density=self.connectivity_density_rec)
         else:
             W_rec, W_inp, W_out, self.recurrent_mask, self.output_mask, self.input_mask = \
@@ -309,6 +311,7 @@ class RNN_torch(torch.nn.Module):
         W_rec = deepcopy(self.W_rec.data.cpu().detach().numpy())
         W_inp = deepcopy(self.W_inp.data.cpu().detach().numpy())
         y_init = deepcopy(self.y_init.detach().cpu().numpy())
+        param_dict["activation"] = W_out
         param_dict["W_out"] = W_out
         param_dict["W_inp"] = W_inp
         param_dict["W_rec"] = W_rec

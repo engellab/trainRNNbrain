@@ -3,7 +3,6 @@ Class which accepts RNN_torch and a task and has a mode to train RNN
 '''
 
 from copy import deepcopy
-
 import numpy as np
 import torch
 

@@ -1,6 +1,6 @@
 from copy import deepcopy
 import numpy as np
-from src.Tasks.TaskBase import Task
+from rnn_coach.src.Tasks.TaskBase import Task
 
 class TaskHalfAdder(Task):
     def __init__(self, n_steps, task_params):
@@ -10,8 +10,8 @@ class TaskHalfAdder(Task):
         Task.__init__(self, n_steps=n_steps, n_inputs=2, n_outputs=1, task_params=task_params)
         self.task_params = task_params
         self.n_steps = n_steps
-        self.n_inputs = 2
-        self.n_outputs = 1
+        self.n_inputs = n_inputs
+        self.n_outputs = n_outputs
         self.stim_on = self.task_params["stim_on"]
         self.stim_off = self.task_params["stim_off"]
         self.dec_on = self.task_params["dec_on"]
@@ -30,7 +30,10 @@ class TaskHalfAdder(Task):
 
         # Target stream
         target_stream = np.zeros((self.n_outputs, self.n_steps))
-        target_stream[0, self.dec_on:self.dec_off] = (v1 + v2) % 2
+        if self.n_oututs == 1:
+            target_stream[0, self.dec_on:self.dec_off] = (v1 + v2) % 2
+        elif self.n_outputs == 2:
+            target_stream[int((v1 + v2) % 2), self.dec_on:self.dec_off] = 1
         condition = {"v1": v1, "v2": v2, "output" : (v1 + v2) % 2}
         return input_stream, target_stream, condition
 

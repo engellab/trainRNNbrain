@@ -28,6 +28,7 @@ else:
 N = 100
 activation_name = 'relu'
 constrained = True
+exc_to_inh_ratio = 4
 seed = None
 sigma_inp = 0.05
 sigma_rec = 0.05
@@ -50,17 +51,17 @@ task_params = {"stim_on": 0, "stim_off": n_steps,
 task_params["seed"] = seed
 
 # training specific
-max_iter = 2000
+max_iter = 5000
 tol = 1e-10
 lr = 0.005
 weight_decay = 5e-06
 lambda_orth = 0.3
 orth_input_only = True
-lambda_r = 0.3
+lambda_r = 0.5
 same_batch = True
 
 data_folder = os.path.abspath(os.path.join(get_project_root(), "data", "trained_RNNs", f"{task_name}"))
-config_tag = f'{task_name}_{activation_name}'
+config_tag = f'{task_name}_{activation_name}_constrained={constrained}'
 
 now = datetime.datetime.now()
 year = now.year
@@ -78,6 +79,7 @@ config_dict["sigma_rec"] = sigma_rec
 config_dict["num_inputs"] = n_inputs
 config_dict["num_outputs"] = n_outputs
 config_dict["constrained"] = constrained
+config_dict["exc_to_inh_ratio"] = exc_to_inh_ratio
 config_dict["dt"] = dt
 config_dict["tau"] = tau
 config_dict["sr"] = sr

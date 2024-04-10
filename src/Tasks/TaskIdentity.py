@@ -1,6 +1,6 @@
 from copy import deepcopy
 import numpy as np
-from src.Tasks.TaskBase import Task
+from rnn_coach.src.Tasks.TaskBase import Task
 
 '''
 Task defined as follows: output whatever comes as an input (identity transformation)
