@@ -75,8 +75,8 @@ def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1
     W_rec = W_rec - torch.diag(torch.diag(W_rec))
     w, v = torch.linalg.eig(W_rec)
     spec_radius = torch.max(torch.absolute(w))
-    W_rec = torch.tensor(radius).to(device=device) * W_rec.to(device=device) / spec_radius.to(device=device)
-
+    # W_rec = torch.tensor(radius).to(device=device) * W_rec.to(device=device) / spec_radius.to(device=device)
+    W_rec = torch.tensor(radius/spec_radius).to(device=device) * W_rec.to(device=device)
     W_inp = torch.zeros([N, num_inputs], device=device).float()
     input_sparsity = 1 - input_density
     W_inp = sparse(W_inp, input_sparsity, mu_pos, var, generator)
@@ -154,7 +154,8 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     W_rec = W_rec - torch.diag(torch.diag(W_rec))
     w, v = torch.linalg.eig(W_rec)
     spec_radius = torch.max(torch.absolute(w))
-    W_rec = torch.tensor(radius).to(device=device) * W_rec.to(device=device) / spec_radius.to(device=device)
+    # W_rec = torch.tensor(radius).to(device=device) * W_rec.to(device=device) / spec_radius.to(device=device)
+    W_rec = torch.tensor(radius / spec_radius).to(device=device) * W_rec.to(device=device)
     W_rec = W_rec.float()
 
     W_inp = torch.zeros([N, num_inputs]).float()
@@ -183,7 +184,7 @@ Continuous-time RNN class implemented in pytorch to train with BPTT
 class RNN_torch(torch.nn.Module):
     def __init__(self,
                  N,
-                 activation,
+                 activation_name,
                  dt=1,
                  tau=10,
                  constrained=True,
@@ -193,12 +194,12 @@ class RNN_torch(torch.nn.Module):
                  sigma_rec=.03,
                  sigma_inp=.03,
                  y_init=None,
-                 random_generator=None,
+                 seed=None,
                  input_size=6,
                  output_size=2):
         '''
         :param N: int, number of neural nodes in the RNN
-        :param activation: torch function, activation function in the dynamics of the RNN
+        :param activation_name: name of the activation function in the dynamics of the RNN
         :param constrained: whether the connectivity is constrained to comply with Dales law and elements of W_inp, W_out > 0
         :param connectivity_density_rec: float, defines the sparcity of the connectivity
         :param spectral_rad: float, spectral radius of the initial connectivity matrix W_rec
@@ -208,7 +209,7 @@ class RNN_torch(torch.nn.Module):
         :param sigma_inp: float, std of the gaussian noise in the input to the RNN
         :param bias_rec: array of N values, (inhibition/excitation of neural nodes from outside of the network)
         :param y_init: array of N values, initial value of the RNN dynamics
-        :param random_generator: torch random generator, for reproducibility
+        :param seed: seed for torch random generator, for reproducibility
         :param output_size: number of the output channels of the RNN
         :param device:
         '''
@@ -220,7 +221,16 @@ class RNN_torch(torch.nn.Module):
             self.device = torch.device('cpu')
         print(f"Using {self.device} for RNN!")
         self.N = N
-        self.activation = activation
+        self.activation_name = activation_name
+        if activation_name == 'relu':
+            self.activation = lambda x: torch.maximum(torch.tensor(0.), x)
+        elif activation_name == 'tanh':
+            self.activation = lambda x: torch.tanh(x)
+        elif activation_name == 'sigmoid':
+            self.activation = lambda x: torch.sigmoid(x)
+        elif activation_name == 'softplus':
+            self.activation = lambda x: torch.nn.Softplus(beta = 10)(x)
+
         self.tau = tau
         self.dt = dt
         self.alpha = torch.tensor((dt / tau)).to(self.device)
@@ -240,7 +250,9 @@ class RNN_torch(torch.nn.Module):
         else:
             self.y_init = torch.zeros(self.N)
 
-        self.random_generator = random_generator
+        self.random_generator = torch.Generator(device=self.device)
+        if not (seed is None):
+            self.random_generator.manual_seed(seed)
 
 
         if self.constrained:
@@ -311,7 +323,7 @@ class RNN_torch(torch.nn.Module):
         W_rec = deepcopy(self.W_rec.data.cpu().detach().numpy())
         W_inp = deepcopy(self.W_inp.data.cpu().detach().numpy())
         y_init = deepcopy(self.y_init.detach().cpu().numpy())
-        param_dict["activation"] = W_out
+        param_dict["activation_name"] = self.activation_name
         param_dict["W_out"] = W_out
         param_dict["W_inp"] = W_inp
         param_dict["W_rec"] = W_rec
@@ -332,7 +344,7 @@ class RNN_torch(torch.nn.Module):
 
 if __name__ == '__main__':
     N = 100
-    activation = lambda x: torch.maximum(x, torch.tensor(0))
-    rnn_torch = RNN_torch(N=N, activation=activation, constrained=True)
+    activation_name = 'tanh'
+    rnn_torch = RNN_torch(N=N, activation_name=activation_name, constrained=True)
     param_dict = rnn_torch.get_params()
     print(param_dict)

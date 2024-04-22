@@ -1,0 +1,15 @@
+# @package task
+taskname: "MemoryNumber"
+_target_: src.Tasks.Task${.taskname}.Task${.taskname}
+T: 320
+seed: null
+T_stim_on_range: '${eval: (0, 8 * ${.T} // 16 - 20})'
+T_stim_duration: 15
+T_recall_on: '${eval: 8 * ${.T}//16}'
+T_recall_off: ${.T}
+T_random_window: '${eval:${.T}//16}'
+n_inputs: 3
+n_outputs: 2
+mask_params:
+  - (0, ${..T_recall_on})
+  - ('${eval:9 * ${.T}//16}', ${..T_recall_off})

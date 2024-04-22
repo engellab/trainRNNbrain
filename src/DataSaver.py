@@ -1,8 +1,9 @@
 import json
+import yaml
 import os
 import pickle
 from datetime import date
-
+from omegaconf import OmegaConf
 class DataSaver():
     '''
     Class which encapsulates creating data folders and saving information there afterwards
@@ -24,6 +25,9 @@ class DataSaver():
             json_obj = json.dumps(data, indent=4)
             outfile = open(os.path.join(self.data_folder, file_name), mode="w")
             outfile.write(json_obj)
+        elif 'yaml' in file_name:
+            outfile = open(os.path.join(self.data_folder, file_name), mode="w")
+            OmegaConf.save(data, outfile)
         return None
 
     def save_figure(self, figure, file_name):

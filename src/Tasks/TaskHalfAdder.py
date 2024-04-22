@@ -1,21 +1,21 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskHalfAdder(Task):
-    def __init__(self, n_steps, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 stim_on, stim_off, dec_on, dec_off,
+                 n_reps=64,
+                 seed=None):
         '''
         :param n_steps: number of steps in the trial
         '''
-        Task.__init__(self, n_steps=n_steps, n_inputs=2, n_outputs=1, task_params=task_params)
-        self.task_params = task_params
-        self.n_steps = n_steps
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
-        self.stim_on = self.task_params["stim_on"]
-        self.stim_off = self.task_params["stim_off"]
-        self.dec_on = self.task_params["dec_on"]
-        self.dec_off = self.task_params["dec_off"]
+        Task.__init__(self, n_steps=n_steps, n_inputs=n_inputs, n_outputs=n_outputs, seed=seed)
+        self.stim_on = stim_on
+        self.stim_off = stim_off
+        self.dec_on = dec_on
+        self.dec_off = dec_off
+        self.n_reps = n_reps
 
     def generate_input_target_stream(self, logical_values):
         '''
@@ -30,20 +30,17 @@ class TaskHalfAdder(Task):
 
         # Target stream
         target_stream = np.zeros((self.n_outputs, self.n_steps))
-        if self.n_oututs == 1:
-            target_stream[0, self.dec_on:self.dec_off] = (v1 + v2) % 2
-        elif self.n_outputs == 2:
-            target_stream[int((v1 + v2) % 2), self.dec_on:self.dec_off] = 1
+        target_stream[0, self.dec_on:self.dec_off] = (v1 + v2) % 2
         condition = {"v1": v1, "v2": v2, "output" : (v1 + v2) % 2}
         return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False, num_rep=64):
+    def get_batch(self, shuffle=False):
         '''
         '''
         inputs = []
         targets = []
         conditions = []
-        for i in range(num_rep):
+        for i in range(self.n_reps):
             for logical_values in [(0, 0), (0, 1), (1, 0), (1, 1)]:
                 input_stream, target_stream, condition = self.generate_input_target_stream(logical_values)
                 inputs.append(deepcopy(input_stream))

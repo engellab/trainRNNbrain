@@ -1,23 +1,22 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskSquareNumber(Task):
-    def __init__(self, n_steps, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 stim_on, stim_off, dec_on, dec_off,
+                 batch_size=256, seed=None):
         '''
         2 inputs: one for the number, another one - constant input (bias)
         The output should be the squared input in the first channel
         the input to the first channel belongs to (0, 1)
         '''
-        Task.__init__(self, n_steps=n_steps, n_inputs=2, n_outputs=1, task_params=task_params)
-        self.task_params = task_params
-        self.n_steps = n_steps
-        self.n_inputs = 2
-        self.n_outputs = 1
-        self.stim_on = self.task_params["stim_on"]
-        self.stim_off = self.task_params["stim_off"]
-        self.dec_on = self.task_params["dec_on"]
-        self.dec_off = self.task_params["dec_off"]
+        Task.__init__(self, n_steps=n_steps, n_inputs=n_inputs, n_outputs=n_outputs, seed=seed)
+        self.stim_on = stim_on
+        self.stim_off = stim_off
+        self.dec_on = dec_on
+        self.dec_off = dec_off
+        self.batch_size = batch_size
 
     def generate_input_target_stream(self, inp_val):
         '''
@@ -34,13 +33,13 @@ class TaskSquareNumber(Task):
         condition = {"inp_val": inp_val, "out_val" : inp_val ** 2}
         return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False, batch_size=256):
+    def get_batch(self, shuffle=False):
         '''
         '''
         inputs = []
         targets = []
         conditions = []
-        for inp_val in np.linspace(0, 1, batch_size):
+        for inp_val in np.linspace(0, 1, self.batch_size):
             input_stream, target_stream, condition = self.generate_input_target_stream(inp_val)
             inputs.append(deepcopy(input_stream))
             targets.append(deepcopy(target_stream))

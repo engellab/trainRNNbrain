@@ -5,9 +5,12 @@
 *.pyc
 /data/
 /src/datajoint/
-/slurm_files/
+/slurm/
 /data/*
 /log/
 *.png
 *.json
 data/trained_RNNs/*
+/src/outputs
+/src/training/outputs
+/src/training/multirun

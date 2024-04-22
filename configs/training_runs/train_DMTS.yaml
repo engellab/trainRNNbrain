@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - ../task: DMTS
+  - ../model: rnn_relu_Dale
+  - ../trainer: trainer_sequential
+  - _self_
+display_figures: False
+n_nets: 10
+
+model:
+  sigma_rec : 0.03
+  sigma_inp : 0.03

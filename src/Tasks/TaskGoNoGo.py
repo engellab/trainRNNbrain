@@ -1,21 +1,19 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskGoNoGo(Task):
-    def __init__(self, n_steps, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 stim_on, stim_off, cue_on, cue_off, batch_size=256, seed=None):
         '''
         :param n_steps: number of steps in the trial
         '''
-        Task.__init__(self, n_steps=n_steps, n_inputs=3, n_outputs=1, task_params=task_params)
-        self.task_params = task_params
-        self.n_steps = n_steps
-        self.n_inputs = 3
-        self.n_outputs = 1
-        self.stim_on = self.task_params["stim_on"]
-        self.stim_off = self.task_params["stim_off"]
-        self.cue_on = self.task_params["cue_on"]
-        self.cue_off = self.task_params["cue_off"]
+        Task.__init__(self, n_steps=n_steps, n_inputs=n_inputs, n_outputs=n_outputs, seed=seed)
+        self.stim_on = stim_on
+        self.stim_off = stim_off
+        self.cue_on = cue_on
+        self.cue_off = cue_off
+        self.batch_size = batch_size
 
     def generate_input_target_stream(self, input_value):
         '''
@@ -39,7 +37,7 @@ class TaskGoNoGo(Task):
         inputs = []
         targets = []
         conditions = []
-        for input_value in np.linspace(0, 1, 256):
+        for input_value in np.linspace(0, 1, self.batch_size):
             input_stream, target_stream, condition = self.generate_input_target_stream(input_value)
             inputs.append(deepcopy(input_stream))
             targets.append(deepcopy(target_stream))

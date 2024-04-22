@@ -1,9 +1,11 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskMemoryAntiAngle(Task):
-    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 stim_on, stim_off, random_window, recall_on, recall_off,
+                 batch_size=72, seed=None):
         '''
         Given a four-channel input 2*cos(theta) and 2*sin(theta) specifying an angle theta (present only for a short period of time),
         Output 2*cos(theta+pi), 2*sin(theta+pi) in the recall period (signified by +1 provided in the third input-channel)
@@ -11,15 +13,13 @@ class TaskMemoryAntiAngle(Task):
         "Flexible multitask computation in recurrent networks utilizes shared dynamical motifs"
         Laura Driscoll1, Krishna Shenoy, David Sussillo
         '''
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
-        self.n_steps = n_steps
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
-        self.stim_on = task_params["stim_on"]
-        self.stim_off = task_params["stim_off"]
-        self.random_window = task_params["random_window"]
-        self.recall_on = task_params["recall_on"]
-        self.recall_off = task_params["recall_off"]
+        Task.__init__(self, n_steps, n_inputs, n_outputs, seed)
+        self.stim_on = stim_on
+        self.stim_off = stim_off
+        self.random_window = random_window
+        self.recall_on = recall_on
+        self.recall_off = recall_off
+        self.batch_size = batch_size
 
     def generate_input_target_stream(self, theta):
         input_stream = np.zeros((self.n_inputs, self.n_steps))
@@ -56,7 +56,7 @@ class TaskMemoryAntiAngle(Task):
         inputs = []
         targets = []
         conditions = []
-        thetas = 2 * np.pi * np.linspace(0, 1, 73)[:-1]
+        thetas = 2 * np.pi * np.linspace(0, 1, self.batch_size - 1)[:-1]
         for theta in thetas:
             input_stream, target_stream, condition = self.generate_input_target_stream(theta)
             inputs.append(deepcopy(input_stream))

@@ -1,18 +1,17 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 
 class TaskIntegrationPositive(Task):
-    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs, w, random_offset_range,
+                 batch_size=200, seed=None):
         '''
         '''
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
-        self.n_steps = n_steps
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
-        self.w = task_params["w"]
-        self.random_offset_range = task_params["random_offset_range"]
+        Task.__init__(self, n_steps, n_inputs, n_outputs, seed)
+        self.w = w
+        self.random_offset_range = random_offset_range
+        self.batch_size = batch_size
         # a tuple which defines the range for the inputs
 
     def generate_input_target_stream(self, InputDuration):
@@ -35,12 +34,11 @@ class TaskIntegrationPositive(Task):
                      "offset" : r}
         return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False, batch_size = 200):
+    def get_batch(self, shuffle=False):
         inputs = []
         targets = []
         conditions = []
-        for i in range(batch_size):
-            t_max = batch_size
+        for i in range(self.batch_size):
             InputDuration = i
             input_stream, target_stream, condition = self.generate_input_target_stream(InputDuration)
             inputs.append(deepcopy(input_stream))

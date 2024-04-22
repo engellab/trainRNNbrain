@@ -1,4 +1,8 @@
-task: ???
-model: ???
-trainer: ???
-foo: 1
+# @package _global_
+defaults:
+  - task: ???
+  - model: ???
+  - trainer: trainer
+  - _self_
+display_figures: False
+n_nets: 1

@@ -1,27 +1,24 @@
 from copy import deepcopy
 import numpy as np
-import sys
-sys.path.insert(0, '../')
-sys.path.insert(0, '../../')
-sys.path.insert(0, '../../../')
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskDMTS(Task):
-    def __init__(self, n_steps, n_inputs, task_params, n_outputs):
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 stim_on_sample, stim_off_sample,
+                 stim_on_match, stim_off_match,
+                 dec_on, dec_off,
+                 random_window, seed=None):
         '''
         Delayed match to sample task: if the two subsequent stimuli were the same - match (make the choice to the right), if not - to the left
         '''
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
-        self.n_steps = n_steps
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
-        self.stim_on_sample = self.task_params["stim_on_sample"]
-        self.stim_off_sample = self.task_params["stim_off_sample"]
-        self.stim_on_match = self.task_params["stim_on_match"]
-        self.stim_off_match = self.task_params["stim_off_match"]
-        self.dec_on = self.task_params["dec_on"]
-        self.dec_off = self.task_params["dec_off"]
-        self.random_window = self.task_params["random_window"]
+        Task.__init__(self, n_steps, n_inputs, n_outputs, seed)
+        self.stim_on_sample = stim_on_sample
+        self.stim_off_sample = stim_off_sample
+        self.stim_on_match = stim_on_match
+        self.stim_off_match = stim_off_match
+        self.dec_on = dec_on
+        self.dec_off = dec_off
+        self.random_window = random_window
 
     def generate_input_target_stream(self, num_sample_channel, num_match_channel, offests = None):
         if self.random_window == 0:
@@ -37,7 +34,6 @@ class TaskDMTS(Task):
         input_stream[num_sample_channel, self.stim_on_sample + random_offset_1:self.stim_off_sample + random_offset_1] = 1.0
         input_stream[num_match_channel, self.stim_on_match + random_offset_2:self.stim_off_match + random_offset_2] = 1.0
         input_stream[2, self.dec_on:self.dec_off] = 1.0 # to signify the decision period
-        # input_stream[3, :] = 1.0  # constant bias
 
         condition = {"num_sample_channel" : num_sample_channel,
                      "num_match_channel" : num_match_channel,

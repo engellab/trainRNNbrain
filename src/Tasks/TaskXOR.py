@@ -1,21 +1,19 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskXOR(Task):
-    def __init__(self, n_steps, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 stim_on, stim_off, dec_on, dec_off, n_rep=64, seed=None):
         '''
         :param n_steps: number of steps in the trial
         '''
-        Task.__init__(self, n_steps=n_steps, n_inputs=4, n_outputs=2, task_params=task_params)
-        self.task_params = task_params
-        self.n_steps = n_steps
-        self.n_inputs = 4
-        self.n_outputs = 2
-        self.stim_on = self.task_params["stim_on"]
-        self.stim_off = self.task_params["stim_off"]
-        self.dec_on = self.task_params["dec_on"]
-        self.dec_off = self.task_params["dec_off"]
+        Task.__init__(self, n_steps, n_inputs=n_inputs, n_outputs=n_outputs, seed=seed)
+        self.stim_on = stim_on
+        self.stim_off = stim_off
+        self.dec_on = dec_on
+        self.dec_off = dec_off
+        self.n_rep = n_rep
 
     def generate_input_target_stream(self, logical_values):
         '''
@@ -38,17 +36,18 @@ class TaskXOR(Task):
         condition = {"v1": v1, "v2": v2, "match" : bool(out_ind)}
         return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False, num_rep=64):
+    def get_batch(self, shuffle=False):
         '''
         '''
         inputs = []
         targets = []
         conditions = []
-        for i in range(num_rep):
+        for i in range(self.n_rep):
             for logical_values in [(0, 0), (0, 1), (1, 0), (1, 1)]:
                 input_stream, target_stream, condition = self.generate_input_target_stream(logical_values)
                 inputs.append(deepcopy(input_stream))
                 targets.append(deepcopy(target_stream))
+                conditions.append(deepcopy(condition))
 
         # batch_size should be a last dimension
         inputs = np.stack(inputs, axis=2)

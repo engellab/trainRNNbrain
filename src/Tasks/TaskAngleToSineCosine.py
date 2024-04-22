@@ -1,24 +1,23 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskAngleToSineCosine(Task):
-    def __init__(self, n_steps, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 stim_on, stim_off, dec_on, dec_off,
+                 batch_size=360, seed=None):
         '''
          n_inputs encoding an angle + 1 constant input
          4 outputs: 2 reserved for cosine, 2 reserved for sine.
          the outputs can only be positive, hence cosine is represented by two output channels:
           one is activa when cosine is positive, another one when it is negative. Analogously for sine.
         '''
-        Task.__init__(self, n_steps=n_steps, n_inputs=5, n_outputs=4, task_params=task_params)
-        self.task_params = task_params
-        self.n_steps = n_steps
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
-        self.stim_on = self.task_params["stim_on"]
-        self.stim_off = self.task_params["stim_off"]
-        self.dec_on = self.task_params["dec_on"]
-        self.dec_off = self.task_params["dec_off"]
+        Task.__init__(self, n_steps=n_steps, n_inputs=n_inputs, n_outputs=n_outputs, seed=seed)
+        self.stim_on = stim_on
+        self.stim_off = stim_off
+        self.dec_on = dec_on
+        self.dec_off = dec_off
+        self.batch_size = batch_size
 
     def generate_input_target_stream(self, angle):
         '''
@@ -53,7 +52,7 @@ class TaskAngleToSineCosine(Task):
         inputs = []
         targets = []
         conditions = []
-        for angle in np.linspace(0, 2 * np.pi, 360):
+        for angle in np.linspace(0, 2 * np.pi, self.batch_size):
             input_stream, target_stream, condition = self.generate_input_target_stream(angle)
             inputs.append(deepcopy(input_stream))
             targets.append(deepcopy(target_stream))

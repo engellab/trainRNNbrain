@@ -1,0 +1,23 @@
+# @package task
+taskname: "DMTS"
+_target_: src.Tasks.Task${.taskname}.Task${.taskname}
+T: 140
+seed: null
+T_stim_on_sample: 10
+T_stim_off_sample: 20
+T_stim_on_match: 80
+T_stim_off_match: 90
+T_dec_on: 100
+T_dec_off: ${.T}
+T_random_window: 10
+n_inputs: 3
+n_outputs: 1
+mask_params:
+  - (0, ${..T_dec_on})
+  - (110, ${..T_dec_off})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "stim_on_sample", "stim_off_sample",
+              "stim_on_match", "stim_off_match",
+              "dec_on", "dec_off",
+              "random_window"]

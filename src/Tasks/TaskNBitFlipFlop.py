@@ -1,19 +1,19 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskNBitFlipFlop(Task):
-    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 mu, n_flip_steps,
+                 batch_size=256, seed=None):
         '''
         for tanh neurons only
         '''
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
-        self.n_steps = n_steps
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
-        self.mu = self.task_params["mu"]
-        self.n_refractory = self.n_flip = self.task_params["n_flip_steps"]
+        Task.__init__(self, n_steps, n_inputs, n_outputs, seed)
+        self.mu = mu
+        self.n_refractory = self.n_flip = n_flip_steps
         self.lmbd = self.mu / self.n_steps
+        self.batch_size = batch_size
 
     def generate_flipflop_times(self):
         inds = []
@@ -58,11 +58,11 @@ class TaskNBitFlipFlop(Task):
             condition[n] = {"inds_flips": inds_flips, "inds_flops": inds_flops}
         return input_stream, target_stream, condition
 
-    def get_batch(self, batch_size=256, shuffle=False):
+    def get_batch(self, shuffle=False):
         inputs = []
         targets = []
         conditions = []
-        for i in range(batch_size):
+        for i in range(self.batch_size):
             input_stream, target_stream, condition = self.generate_input_target_stream()
             inputs.append(deepcopy(input_stream))
             targets.append(deepcopy(target_stream))

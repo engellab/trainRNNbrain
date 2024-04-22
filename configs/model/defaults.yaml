@@ -1,6 +1,0 @@
-sigma_inp: 0.05
-sigma_rec: 0.05
-dt: 1
-tau: 10
-sr: 1.2
-connectivity_density_rec: 1.0

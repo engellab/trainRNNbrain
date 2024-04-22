@@ -1,4 +1,19 @@
+# @package task
+taskname: "GoNoGo"
+_target_: src.Tasks.Task${.taskname}.Task${.taskname}
+T: 60
+seed: null
+T_stim_on: 0
+T_stim_off: ${.T}
+T_cue_on: 30
+T_cue_off: ${.T}
 n_inputs: 3
 n_outputs: 1
-T: 60
-dt: 1
+mask_params:
+  - (10, ${..T_cue_on})
+  - (40, ${..T_cue_off})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "stim_on", "stim_off",
+              "cue_on", "cue_off",
+              "batch_size"]

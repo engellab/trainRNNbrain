@@ -1,0 +1,16 @@
+# @package model
+_target_: src.RNN_torch.RNN_torch
+activation_name: 'sigmoid'
+constrained: True
+N: 100
+dt: 1
+tau: 10
+exc_to_inh_ratio: 4
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+
+
+
+

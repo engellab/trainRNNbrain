@@ -1,29 +1,29 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskIntegration(Task):
-    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 w, amp_range, mu_blocks, refractory_period, min_block_length,
+                 batch_size=256, seed=None):
         '''
         Two input channels representing velocities of moving to the left and to the right.
         By default, if no input is present, the network outputs in a channel corresponding to 0 coordinate.
         when the input comes (the inputs are mutually exclusive), the coordinate should be integrated
         '''
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
-        self.n_steps = n_steps
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
+        Task.__init__(self, n_steps, n_inputs, n_outputs, seed)
         # the rate with which the angle is integrated per 10 ms of time :
         # say the right channel is active with strength A, and after 20 ms of constant input to the right channel,
         # the integrated x should be A * w * (20/10) = 2Aw.
-        self.w = task_params["w"]
+        self.w = w
         # a tuple which defines the range for the inputs
-        self.Amp_range = task_params["amp_range"]
+        self.Amp_range = amp_range
         # the number of blocks during the trial
-        self.mu = task_params["mu_blocks"]
-        self.refractory_period = task_params["refractory_period"]
+        self.mu = mu_blocks
+        self.refractory_period = refractory_period
         self.lmbd = self.mu / self.n_steps
-        self.n_min_block_length = task_params["min_block_length"]
+        self.n_min_block_length = min_block_length
+        self.batch_size = batch_size
 
     def generate_switch_times(self):
         inds = [0]
@@ -63,11 +63,11 @@ class TaskIntegration(Task):
         condition = {"amps": amps, "block_starts": inds, "integrated_signal": integrated_signal, "signal" : signal}
         return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False, batch_size = 256):
+    def get_batch(self, shuffle=False):
         inputs = []
         targets = []
         conditions = []
-        for i in range(batch_size):
+        for i in range(self.batch_size):
             input_stream, target_stream, condition = self.generate_input_target_stream()
             inputs.append(deepcopy(input_stream))
             targets.append(deepcopy(target_stream))
@@ -84,14 +84,12 @@ class TaskIntegration(Task):
 
 
 class TaskIntegrationSimplified(Task):
-    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
+    def __init__(self, n_steps, n_inputs, n_outputs, w, batch_size=256, seed=None):
         '''
         '''
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
-        self.n_steps = n_steps
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
-        self.w = task_params["w"]
+        Task.__init__(self, n_steps, n_inputs, n_outputs, seed=seed)
+        self.w = w
+        self.batch_size = batch_size
         # a tuple which defines the range for the inputs
 
     def generate_input_target_stream(self, ind_inp_channel, InputDuration):
@@ -112,14 +110,14 @@ class TaskIntegrationSimplified(Task):
                      "signal" : signal}
         return input_stream, target_stream, condition
 
-    def get_batch(self, shuffle=False, batch_size = 200):
+    def get_batch(self, shuffle=False):
         inputs = []
         targets = []
         conditions = []
         for inp_ind_channel in [0, 1]:
-            for i in range(batch_size//2):
+            for i in range(self.batch_size//2):
                 t_max = (self.n_steps//2-10)
-                InputDuration = int((float(i) / float(batch_size//2)) * t_max)
+                InputDuration = int((float(i) / float(self.batch_size//2)) * t_max)
                 input_stream, target_stream, condition = self.generate_input_target_stream(inp_ind_channel, InputDuration)
                 inputs.append(deepcopy(input_stream))
                 targets.append(deepcopy(target_stream))

@@ -1,21 +1,21 @@
 from copy import deepcopy
 import numpy as np
-from rnn_coach.src.Tasks.TaskBase import Task
+from src.Tasks.TaskBase import Task
 
 class TaskCDDMMante(Task):
     '''Use with the tanh activation function only, as in the original paper Mante et al. (2013)'''
-    def __init__(self, n_steps, n_inputs, n_outputs, task_params):
-        Task.__init__(self, n_steps, n_inputs, n_outputs, task_params)
-        self.n_steps = n_steps
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
-        self.cue_on = self.task_params["cue_on"]
-        self.cue_off = self.task_params["cue_off"]
-        self.stim_on = self.task_params["stim_on"]
-        self.stim_off = self.task_params["stim_off"]
-        self.dec_on = self.task_params["dec_on"]
-        self.dec_off = self.task_params["dec_off"]
-        self.coherences = self.task_params["coherences"]
+    def __init__(self, n_steps, n_inputs, n_outputs,
+                 cue_on, cue_off, stim_on, stim_off, dec_on, dec_off,
+                 coherences, seed=None):
+        Task.__init__(self, n_steps, n_inputs, n_outputs, seed)
+        self.cue_on = cue_on
+        self.cue_off = cue_off
+        self.stim_on = stim_on
+        self.stim_off = stim_off
+        self.dec_on = dec_on
+        self.dec_off = dec_off
+        self.coherences = coherences
+
 
     def generate_input_target_stream(self, context, motion_coh, color_coh):
         '''
@@ -70,13 +70,12 @@ class TaskCDDMMante(Task):
         coherences: list containing range of coherences for each channel (e.g. [-1, -0.5, -0.25,  0, 0.25, 0.5, 1]
         :return: array of inputs, array of targets, and the conditions (context, coherences and the correct choice)
         '''
-        coherences = self.task_params["coherences"]
         inputs = []
         targets = []
         conditions = []
         for context in ["motion", "color"]:
-            for c1 in coherences:
-                for c2 in coherences:
+            for c1 in self.coherences:
+                for c2 in self.coherences:
                     relevant_coh = c1 if context == 'motion' else c2
                     irrelevant_coh = c2 if context == 'motion' else c1
                     motion_coh = c1 if context == 'motion' else c2

@@ -1,0 +1,12 @@
+# @package trainer
+max_iter: 10
+tol: 1e-10
+lr: 0.002
+weight_decay: 5e-06
+lambda_orth: 0.3
+orth_input_only: True
+lambda_r: 0.5
+p: 2
+same_batch: True
+
+

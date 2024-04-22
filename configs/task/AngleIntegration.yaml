@@ -1,0 +1,13 @@
+# @package task
+_target_: src.Tasks.TaskAngleIntegration.TaskAngleIntegration
+taskname: "AngleIntegration"
+T: 220
+w: 0.15
+amp_range: (-1, 1)
+mu_blocks: 10
+T_min_block_length: 10
+seed: None
+n_inputs: 3
+n_outputs: 3
+mask_params:
+  - (10, 220)

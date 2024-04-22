@@ -1,0 +1,15 @@
+# @package task
+taskname: "MemoryAngle"
+_target_: src.Tasks.Task${.taskname}.Task${.taskname}
+T: 120
+seed: null
+T_stim_on: '${eval:${.T}//12}'
+T_stim_off: '${eval:2 * ${.T}//12}'
+T_recall_on: '${eval:9 * ${.T}//12}'
+T_recall_off: ${.T}
+T_random_window: '${eval:${.T}//12}'
+n_inputs: 3
+n_outputs: '${eval:${.n_inputs} + 2}'
+mask_params:
+  - (0, ${..T_recall_on})
+  - ('${eval:10 * ${.T}//12}', ${..T_recall_off})

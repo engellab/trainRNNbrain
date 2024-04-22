@@ -6,11 +6,8 @@ import numdifftools as nd
 lightweight numpy implementation of RNN for validation and quick testing and plotting
 '''
 
-def ReLU(x):
-    return np.maximum(x, 0)
-
 class RNN_numpy():
-    def __init__(self, N, dt, tau, W_inp, W_rec, W_out, bias_rec=None, activation=ReLU, y_init=None, seed=None):
+    def __init__(self, N, dt, tau, W_inp, W_rec, W_out, activation_name, bias_rec=None, y_init=None, seed=None):
         self.N = N
         self.W_inp = W_inp
         self.W_rec = W_rec
@@ -28,18 +25,21 @@ class RNN_numpy():
             self.y_init = np.zeros(self.N)
         self.y = deepcopy(self.y_init)
         self.y_history = []
-        self.activation = activation
+
+        if activation_name == 'relu':
+            self.activation = lambda x: np.maximum(0, x)
+        elif activation_name == 'sigmoid':
+            self.activation = lambda x: 1.0 / (1 + np.exp(x))
+        elif activation_name == 'tanh':
+            self.activation = lambda x: np.tanh(x)
+        elif activation_name == 'softplus':
+            self.activation = lambda x: np.log(1 + np.exp(5 * x))
+
         if seed is None:
             self.rng = np.random.default_rng(np.random.randint(10000))
         else:
             self.rng = np.random.default_rng(seed)
 
-        # activation_function_code = inspect.getsource(self.activation)
-        # jnp_activation_str = re.sub(r"np", "jnp", activation_function_code)
-        # jnp_activation_str = re.sub(r"def\s+(\w+)", r"def activation_jax", jnp_activation_str)
-        # jnp_activation_str = textwrap.dedent(jnp_activation_str)
-        # exec(jnp_activation_str)
-        # self.activation_jax = eval("activation_jax")
 
 
     def rhs(self, y, input, sigma_rec=None, sigma_inp=None):
@@ -153,11 +153,12 @@ class RNN_numpy():
         elif len(y_history.shape) == 2:
             output = self.W_out @ y_history.T
         else:
-            raise ValueError("y_history variable has to have either 2 or 3 dimensions!")
+            raise ValueError("y_history variable should have either 2 or 3 dimensions!")
         return output
 
 if __name__ == '__main__':
     N = 100
+    activation_name = 'relu'
     x = np.random.randn(N)
     W_rec = np.random.randn(N, N)
     W_inp = np.random.randn(N, 6)
@@ -170,25 +171,9 @@ if __name__ == '__main__':
     batch_size = 11
     input = np.ones((6))
 
-    def activation(x):
-        return np.tanh(x)
-
-    rnn = RNN_numpy(N=N, W_rec=W_rec, W_inp=W_inp, W_out=W_out, dt=dt, tau=tau, activation=activation)
+    rnn = RNN_numpy(N=N, W_rec=W_rec, W_inp=W_inp, W_out=W_out, dt=dt, tau=tau, activation_name=activation_name)
 
     rnn.y = np.random.randn(N)
     input_timeseries = 0.1 * np.ones((6, 301))
     rnn.run(input_timeseries=input_timeseries)
     output = rnn.get_output()
-
-    # J_jax = np.array(rnn.jax_rhs_jac(y=jnp.array(rnn.y), input=jnp.array(input)))
-    # J_fd = rnn.rhs_jac(y=rnn.y, input=input)
-    # print(np.linalg.norm((J_jax - J_fd), 2))
-
-    # generate multidimensional inputs
-    # input_timeseries = 0.1 * np.ones((6, 301, 32))
-    # rnn.run(input_timeseries=input_timeseries, sigma_rec=0.03, sigma_inp=0.03)
-    # trajectories, outputs = rnn.run_multiple_trajectories(input_timeseries=input_timeseries,
-    #                                                       sigma_rec=0.03,
-    #                                                       sigma_inp=0.03)
-    # print(trajectories.shape)
-    # print(outputs.shape)

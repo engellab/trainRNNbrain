@@ -1,17 +1,18 @@
 # @package task
-taskname: "XOR"
+taskname: "HalfAdder"
 _target_: src.Tasks.Task${.taskname}.Task${.taskname}
 T: 150
 seed: null
 T_stim_on: 0
 T_stim_off: ${.T}
-T_dec_on: '${eval:${.T}//10}'
-T_dec_off: ${.T}
-n_inputs: 4
-n_outputs: 2
+T_dec_on: '${eval:2*${.T}//10}'
+T_dec_off: 120
+n_inputs: 2
+n_outputs: 1
 mask_params:
   - (${..T_dec_on}, ${..T})
 task_params: ["n_steps",
               "n_inputs", "n_outputs",
-              "stim_on", "stim_off", "dec_on", "dec_off",
-              "n_rep"]
+              "stim_on", "stim_off",
+              "dec_on", "dec_off",
+              "n_reps"]
