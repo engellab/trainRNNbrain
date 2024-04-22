@@ -5,139 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/configs/model/rnn_relu_Dale.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/model/rnn_relu_noDale.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/model/rnn_sigmoid_Dale.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/model/rnn_sigmoid_noDale.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/model/rnn_tanh_Dale.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/model/rnn_tanh_noDale.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/task/AngleIntegration.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/task/CDDM.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/task/DMTS.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/task/HalfAdder.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/task/MemoryAngle.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/task/MemoryAntiAngle.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/task/MemoryNumber.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/task/NBitFlipFlop.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/trainer/trainer_debug.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/trainer/trainer_sequential.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/training_runs/train_CDDM.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/training_runs/train_DMTS.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/training_runs/train_GoNoGo.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/training_runs/train_HalfAdder.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/training_runs/train_MemoryAngle.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/training_runs/train_MemoryAntiAngle.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/training_runs/train_MemoryNumber.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/training_runs/train_NBitFlipFlop.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/configs/training_runs/train_XOR.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training/run_training.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/training/run_training_sequential.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/configs/base.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/configs/base.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/configs/experiments/experiment_1.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/configs/model/defaults.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/configs/model/rnn_relu.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/configs/task/GoNoGo.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/configs/task/GoNoGo.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/configs/task/XOR.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/configs/task/XOR.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slurm_files/training_CDDM_RNNs_Spock.slurm" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/DataSaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/DataSaver.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RNN_numpy.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_numpy.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RNN_torch.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RNN_torch.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskAngleIntegration.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskAngleIntegration.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskAngleToSineCosine.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskAngleToSineCosine.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskBase.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskBase.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskBlockDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskBlockDM.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskCDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskCDDM.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskCDDMMante.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskCDDMMante.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskDMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskDMTS.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskDelayDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskDelayDM.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskGoNoGo.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskGoNoGo.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskHalfAdder.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskHalfAdder.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskIdentity.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskIdentity.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskIntegration.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskIntegration.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskIntegrationPositive.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskIntegrationPositive.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskMemoryAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskMemoryAngle.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskMemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskMemoryAntiAngle.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskMemoryAntiNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskMemoryNumber.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskModulo1Addition.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskNBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskNBitFlipFlop.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskSquareNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskSquareNumber.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Tasks/TaskXOR.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tasks/TaskXOR.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/datajoint/datajoint_config.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/hydra_test.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleIntegration_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_AngleToSineCosine_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_BlockDM_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_CDDM_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_ColorDiscrimination.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_sigmoid.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DMTS_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_DelayDM.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_GoNoGo_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_GoNoGo_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_HalfAdder_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_HalfAdder_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Identity.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_IntegrationPositive_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Integration_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Integration_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAngle_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAngle_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_sigmoid.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiAngle_test.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_MemoryAntiNumber.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo1Addition_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_Modulo1Addition_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_NBitFlipFlop.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_SquareNumber_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_XOR_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/train_configs/set_train_config_XOR_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_AngleIntegration_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_AngleToSineCosine_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_BlockDM.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDM_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_CDDMplus.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_ColorDiscrimination.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_sigmoid.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DMTS_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_DelayDM.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_GoNoGo_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_GoNoGo_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_HalfAdder_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_HalfAdder_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Identity.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_IntegrationPositive_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Integration_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Integration_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAngle_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_sigmoid.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_test.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Modulo1Addition_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_Modulo1Addition_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_NBitFlipFlop.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_SquareNumber_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_XOR_relu.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_XOR_tanh.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_script.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/training_RNNs/training_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/training/training_utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -451,7 +321,7 @@
       <workItem from="1712792604309" duration="7760000" />
       <workItem from="1712840212072" duration="9161000" />
       <workItem from="1712948215394" duration="598000" />
-      <workItem from="1713468572226" duration="28588000" />
+      <workItem from="1713468572226" duration="29143000" />
     </task>
     <servers />
   </component>

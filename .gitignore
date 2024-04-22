@@ -5,7 +5,6 @@
 *.pyc
 /data/
 /src/datajoint/
-/slurm/
 /data/*
 /log/
 *.png

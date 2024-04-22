@@ -5,4 +5,4 @@ defaults:
   - trainer: trainer
   - _self_
 display_figures: False
-n_nets: 1
+n_nets: 10
