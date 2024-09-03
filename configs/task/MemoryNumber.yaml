@@ -1,15 +1,20 @@
 # @package task
 taskname: "MemoryNumber"
-_target_: src.Tasks.Task${.taskname}.Task${.taskname}
-T: 320
+_target_: trainRNNbrain.tasks.Task${.taskname}.Task${.taskname}
+T: 120
 seed: null
-T_stim_on_range: '${eval: (0, 8 * ${.T} // 16 - 20})'
-T_stim_duration: 15
-T_recall_on: '${eval: 8 * ${.T}//16}'
-T_recall_off: ${.T}
-T_random_window: '${eval:${.T}//16}'
+T_stim_on: 20
+T_stim_duration: 10
+T_random_window: 20
+T_recall_on: 60
+T_recall_off: 120
 n_inputs: 3
-n_outputs: 2
+n_outputs: 1
 mask_params:
-  - (0, ${..T_recall_on})
-  - ('${eval:9 * ${.T}//16}', ${..T_recall_off})
+  - (0, 60)
+  - (80, 120)
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "stim_on", "stim_duration",
+              "recall_on", "recall_off",
+              "batch_size"]

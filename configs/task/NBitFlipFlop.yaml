@@ -1,6 +1,6 @@
 # @package task
 taskname: "NBitFlipFlop"
-_target_: src.Tasks.Task${.taskname}.Task${.taskname}
+_target_: trainRNNbrain.tasks.Task${.taskname}.Task${.taskname}
 T: 100
 seed: null
 mu_blocks: 10

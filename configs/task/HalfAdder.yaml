@@ -1,6 +1,6 @@
 # @package task
 taskname: "HalfAdder"
-_target_: src.Tasks.Task${.taskname}.Task${.taskname}
+_target_: trainRNNbrain.tasks.Task${.taskname}.Task${.taskname}
 T: 150
 seed: null
 T_stim_on: 0

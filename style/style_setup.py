@@ -2,7 +2,7 @@ import typing as T
 import os
 import matplotlib.colors as mcolors
 import matplotlib.font_manager as mfonts
-from src.utils import get_project_root
+from trainRNNbrain.utils import get_project_root
 from matplotlib import pyplot as plt
 
 def setup_fonts(fontpaths, verbose: bool = False, **kwargs):

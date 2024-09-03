@@ -4,12 +4,12 @@
 *.pkl
 *.pyc
 /data/
-/src/datajoint/
+/trainRNNbrain/datajoint/
 /data/*
 /log/
 *.png
 *.json
 data/trained_RNNs/*
-/src/outputs
-/src/training/outputs
-/src/training/multirun
+/trainRNNbrain/outputs
+/trainRNNbrain/training/outputs
+/trainRNNbrain/training/multirun

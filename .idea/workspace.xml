@@ -5,9 +5,114 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4f3f0723-de9b-4e8a-9f1d-08ba3527850e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/configs/base.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/configs/base.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/rnns/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/trainer/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_relu_Dale.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_relu_Dale.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_relu_noDale.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_relu_noDale.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_sigmoid_Dale.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_sigmoid_Dale.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_sigmoid_noDale.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_sigmoid_noDale.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_tanh_Dale.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_tanh_Dale.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_tanh_noDale.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/model/rnn_tanh_noDale.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/AngleIntegration.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/AngleIntegration.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/CDDM.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/CDDM.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/DMTS.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/DMTS.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/GoNoGo.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/GoNoGo.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/HalfAdder.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/HalfAdder.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/MemoryAngle.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/MemoryAngle.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/MemoryAntiAngle.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/MemoryAntiAngle.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/MemoryNumber.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/MemoryNumber.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/NBitFlipFlop.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/NBitFlipFlop.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/task/XOR.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/task/XOR.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/trainer/trainer.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/trainer/trainer.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/trainer/trainer_sequential.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/trainer/trainer_sequential.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/training_runs/train_MemoryNumber.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/training_runs/train_MemoryNumber.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/configs/training_runs/train_XOR.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/configs/training_runs/train_XOR.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/MemoryAntiNumber/20230122-214116/config.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/MemoryAntiNumber/20230122-214116/random_trials" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/MemoryAntiNumber/20230122-214116/train&amp;valid_loss" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/MemoryAntiNumber/20230122-220547/config.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/MemoryAntiNumber/20230122-220547/random_trials" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/MemoryAntiNumber/20230122-220547/slow_points_projection_3D_PCA" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/MemoryAntiNumber/20230122-220547/slow_points_projection_output" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/MemoryAntiNumber/20230122-220547/train&amp;valid_loss" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/0/Screen Recording 2023-01-14 at 13.35.15.mov" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/0/config.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/0/fixed points 3BitFlipFlop task.gif" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/0/fp_projection" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/0/fp_projection 2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/0/random_trials" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/0/train&amp;valid_loss" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/1/config.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/1/fp_projection" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/1/random_trials" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/1/train&amp;valid_loss" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/2/config.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/2/fp_projection" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/2/random_trials.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/data/trained_RNNs/NBitFlipFlop/2/train&amp;valid_loss" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/img/MemoryAntiAngle_hprprm/MemoryAntiAngle_importance.pdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/img/MemoryAntiAngle_hprprm/MemoryAntiAngle_optimization_history.pdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/img/fp_projection_approx_MemoryAnti task" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/img/random_trials_2BitFlipFlop task" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/jupyter/.ipynb_checkpoints/Training and analyzing CDDM-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/jupyter/.ipynb_checkpoints/Training and analyzing CDDM-checkpoint.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/jupyter/Analyzing BlockDM tanh circuit.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/jupyter/Analyzing BlockDM tanh circuit.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/jupyter/PCA on a simplex.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/jupyter/Training and analyzing CDDM.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/jupyter/Training and analyzing CDDM.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/rnn_coach.egg-info/PKG-INFO" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/rnn_coach.egg-info/SOURCES.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/rnn_coach.egg-info/dependency_links.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/rnn_coach.egg-info/not-zip-safe" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/rnn_coach.egg-info/top_level.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/setup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/slurm/train_DELLA_gpu_multirun.slurm" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/slurm/train_DELLA_gpu_multirun.slurm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/DataSaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/datasaver/DataSaver.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/DynamicSystemAnalyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/analyzers/DynamicSystemAnalyzer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/PerformanceAnalyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/analyzers/PerformanceAnalyzer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/RNN_numpy.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/rnns/RNN_numpy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/RNN_torch.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/rnns/RNN_torch.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskAngleIntegration.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskAngleIntegration.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskAngleToSineCosine.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskAngleToSineCosine.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskBase.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskBase.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskBlockDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskBlockDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskCDDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskCDDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskCDDMMante.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskCDDMMante.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskDMTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskDMTS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskDelayDM.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskDelayDM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskGoNoGo.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskGoNoGo.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskHalfAdder.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskHalfAdder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskIdentity.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskIdentity.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskIntegration.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskIntegration.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskIntegrationPositive.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskIntegrationPositive.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskMemoryAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskMemoryAngle.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskMemoryAntiAngle.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskMemoryAntiAngle.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskMemoryNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskMemoryNumber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskNBitFlipFlop.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskNBitFlipFlop.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskSquareNumber.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskSquareNumber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/TaskXOR.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskXOR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Tasks/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/analyzers/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/Trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/trainer/Trainer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/datasaver/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/analysis_GoNoGo_taks.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/experiments_and_analysis/analysis_GoNoGo_taks.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/analyzing_unsuppressed_info.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/experiments_and_analysis/analyzing_unsuppressed_info.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/clustering.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/experiments_and_analysis/clustering.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/creating_RNN_dataframe.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/experiments_and_analysis/creating_RNN_dataframe.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/hyperparam_optimization_DMTS.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/hyperparam_optimization_MemoryAntiAngle.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/loop.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/plotting_neuron_space.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/experiments_and_analysis/plotting_neuron_space.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/test_figure.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/experiments_and_analysis/training_MemoryAntiAngle_multiple.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/training/run_training.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training/run_training.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/training/run_training_sequential.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training/run_training_sequential.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/training/training_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training/training_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/src/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../trainRNNbrain/style/style_setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/../trainRNNbrain/style/style_setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,8 +198,10 @@
     "Python.TaskGoNoGo.executor": "Debug",
     "Python.analysis_GoNoGo_taks.executor": "Run",
     "Python.hydra_test.executor": "Run",
+    "Python.run_training (1).executor": "Run",
     "Python.run_training.executor": "Run",
     "Python.run_training_DMTS.executor": "Run",
+    "Python.run_training_sequential (1).executor": "Run",
     "Python.run_training_sequential.executor": "Run",
     "Python.set_train_config_CDDM_relu.executor": "Run",
     "Python.set_train_config_CDDM_tanh.executor": "Run",
@@ -103,6 +210,8 @@
     "Python.set_train_config_GoNoGo_relu.executor": "Run",
     "Python.set_train_config_GoNoGo_tanh.executor": "Run",
     "Python.set_train_config_HalfAdder_relu_2o.executor": "Run",
+    "Python.test (1).executor": "Debug",
+    "Python.test.executor": "Run",
     "Python.training_CDDM_relu.executor": "Run",
     "Python.training_CDDM_tanh.executor": "Run",
     "Python.training_DMTS_relu.executor": "Run",
@@ -112,13 +221,13 @@
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/tolmach/Documents/GitHub/rnn_coach/configs/model",
+    "last_opened_file_path": "/Users/tolmach/Documents/GitHub/rnn_coach/configs/training_runs",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.fileTypes",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
     "vue.rearranger.settings.migration": "true"
   },
   "keyToStringList": {
@@ -129,23 +238,23 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/configs/training_runs" />
+      <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/configs/model" />
       <recent name="$PROJECT_DIR$/slurm" />
-      <recent name="$PROJECT_DIR$/configs/training_runs" />
       <recent name="$PROJECT_DIR$/configs/task" />
-      <recent name="$PROJECT_DIR$/src" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/rnn_coach/trainer" />
+      <recent name="$PROJECT_DIR$/rnn_coach/RNNs" />
+      <recent name="$PROJECT_DIR$/rnn_coach/analyzers" />
+      <recent name="$PROJECT_DIR$/rnn_coach/datasaver" />
       <recent name="$PROJECT_DIR$/src/training" />
-      <recent name="$PROJECT_DIR$/src" />
-      <recent name="$PROJECT_DIR$/src/train_configs" />
-      <recent name="$PROJECT_DIR$/src/Tasks" />
-      <recent name="$PROJECT_DIR$/data/clustering_data" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.run_training">
-    <configuration name="run_training" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
+  <component name="RunManager" selected="Python.test (1)">
+    <configuration default="true" type="DjangoTestsConfigurationType">
+      <module name="trainRNNbrain" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -153,7 +262,65 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="TARGET" value="" />
+      <option name="SETTINGS_FILE" value="" />
+      <option name="CUSTOM_SETTINGS" value="false" />
+      <option name="USE_OPTIONS" value="false" />
+      <option name="OPTIONS" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="PyBehaveRunConfigurationType" factoryName="Behave">
+      <module name="trainRNNbrain" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="ADDITIONAL_ARGS" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
+      <module name="trainRNNbrain" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="run_training (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="trainRNNbrain" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/rnn_coach/training" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
@@ -168,7 +335,7 @@
           <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
         </ENTRIES>
       </EXTENSION>
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training/run_training.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/rnn_coach/training/run_training.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -177,8 +344,8 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="run_training_sequential" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
+    <configuration name="run_training" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="trainRNNbrain" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -186,12 +353,22 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/rnn_coach/training" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training/run_training_sequential.py" />
+      <EXTENSION ID="net.ashald.envfile">
+        <option name="IS_ENABLED" value="false" />
+        <option name="IS_SUBST" value="false" />
+        <option name="IS_PATH_MACRO_SUPPORTED" value="false" />
+        <option name="IS_IGNORE_MISSING_FILES" value="false" />
+        <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
+        <ENTRIES>
+          <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
+        </ENTRIES>
+      </EXTENSION>
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/rnn_coach/training/run_training.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -200,8 +377,8 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="set_train_config_GoNoGo_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
+    <configuration name="run_training_sequential (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="trainRNNbrain" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -209,12 +386,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/train_configs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/rnn_coach/training" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_configs/set_train_config_GoNoGo_tanh.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/rnn_coach/training/run_training_sequential.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -223,8 +400,8 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="training_GoNoGo_relu" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
+    <configuration name="test (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="trainRNNbrain" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -232,12 +409,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training_RNNs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../trainRNNbrain/jupyter" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_GoNoGo_relu.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../trainRNNbrain/jupyter/test.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -246,8 +423,8 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="training_GoNoGo_tanh" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="rnn_coach" />
+    <configuration name="test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="trainRNNbrain" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -255,34 +432,133 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/training_RNNs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/rnn_coach/training" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/training_RNNs/training_GoNoGo_tanh.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/rnn_coach/training/test.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
       <option name="REDIRECT_INPUT" value="false" />
       <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="Python.FlaskServer">
+      <module name="trainRNNbrain" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="launchJavascriptDebuger" value="false" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="Tox" factoryName="Tox">
+      <module name="trainRNNbrain" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="docs" factoryName="Docutils task">
+      <module name="trainRNNbrain" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="docutils_input_file" value="" />
+      <option name="docutils_output_file" value="" />
+      <option name="docutils_params" value="" />
+      <option name="docutils_task" value="" />
+      <option name="docutils_open_in_browser" value="false" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="docs" factoryName="Sphinx task">
+      <module name="trainRNNbrain" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="docutils_input_file" value="" />
+      <option name="docutils_output_file" value="" />
+      <option name="docutils_params" value="" />
+      <option name="docutils_task" value="" />
+      <option name="docutils_open_in_browser" value="false" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="Autodetect">
+      <module name="trainRNNbrain" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="Doctests">
+      <module name="trainRNNbrain" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="CLASS_NAME" value="" />
+      <option name="METHOD_NAME" value="" />
+      <option name="FOLDER_NAME" value="" />
+      <option name="TEST_TYPE" value="TEST_SCRIPT" />
+      <option name="PATTERN" value="" />
+      <option name="USE_PATTERN" value="false" />
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.run_training_sequential" />
+      <item itemvalue="Python.test (1)" />
+      <item itemvalue="Python.run_training (1)" />
       <item itemvalue="Python.run_training" />
-      <item itemvalue="Python.set_train_config_GoNoGo_tanh" />
-      <item itemvalue="Python.training_GoNoGo_tanh" />
-      <item itemvalue="Python.training_GoNoGo_relu" />
+      <item itemvalue="Python.run_training_sequential (1)" />
+      <item itemvalue="Python.test" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.test (1)" />
+        <item itemvalue="Python.test" />
+        <item itemvalue="Python.run_training_sequential (1)" />
+        <item itemvalue="Python.run_training (1)" />
         <item itemvalue="Python.run_training" />
-        <item itemvalue="Python.run_training_sequential" />
-        <item itemvalue="Python.training_GoNoGo_tanh" />
-        <item itemvalue="Python.set_train_config_GoNoGo_tanh" />
-        <item itemvalue="Python.training_GoNoGo_relu" />
       </list>
     </recent_temporary>
   </component>
@@ -321,7 +597,40 @@
       <workItem from="1712792604309" duration="7760000" />
       <workItem from="1712840212072" duration="9161000" />
       <workItem from="1712948215394" duration="598000" />
-      <workItem from="1713468572226" duration="29143000" />
+      <workItem from="1713468572226" duration="37282000" />
+      <workItem from="1713971565049" duration="17265000" />
+      <workItem from="1714073331755" duration="912000" />
+      <workItem from="1714074365803" duration="994000" />
+      <workItem from="1714075366697" duration="772000" />
+      <workItem from="1714076343207" duration="4313000" />
+      <workItem from="1714138120343" duration="664000" />
+      <workItem from="1714149835815" duration="639000" />
+      <workItem from="1714150651503" duration="4885000" />
+      <workItem from="1714250374848" duration="645000" />
+      <workItem from="1714407364673" duration="3358000" />
+      <workItem from="1715249134848" duration="8414000" />
+      <workItem from="1715690672757" duration="1239000" />
+      <workItem from="1716460318302" duration="9266000" />
+      <workItem from="1716902363356" duration="7861000" />
+      <workItem from="1718695783213" duration="4801000" />
+      <workItem from="1718883021134" duration="597000" />
+      <workItem from="1719299512434" duration="13573000" />
+      <workItem from="1719423379569" duration="719000" />
+      <workItem from="1719475406839" duration="1751000" />
+      <workItem from="1719572472619" duration="1880000" />
+      <workItem from="1719818208351" duration="2830000" />
+      <workItem from="1720169493319" duration="3622000" />
+      <workItem from="1720425003877" duration="6100000" />
+      <workItem from="1720510216805" duration="2251000" />
+      <workItem from="1721053530016" duration="1237000" />
+      <workItem from="1721380668452" duration="114000" />
+      <workItem from="1721645033291" duration="1934000" />
+      <workItem from="1721908147304" duration="598000" />
+      <workItem from="1722419958244" duration="3590000" />
+      <workItem from="1722423816650" duration="1388000" />
+      <workItem from="1723116805892" duration="2782000" />
+      <workItem from="1723547648553" duration="153000" />
+      <workItem from="1725006387642" duration="5943000" />
     </task>
     <servers />
   </component>
@@ -351,74 +660,69 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/plots/local_analysis_3D.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/plots/local_analysis_3D.py</url>
           <line>174</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/plots/local_analysis_1D.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/plots/local_analysis_1D.py</url>
           <line>72</line>
           <option name="timeStamp" value="3" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/find_fp.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/find_fp.py</url>
           <line>64</line>
           <option name="timeStamp" value="41" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/train_RNNs.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/train_RNNs.py</url>
           <line>173</line>
           <option name="timeStamp" value="44" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiAngle_tanh.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_MemoryAntiAngle_tanh.py</url>
           <line>193</line>
           <option name="timeStamp" value="306" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_MemoryAntiNumber.py</url>
           <line>204</line>
           <option name="timeStamp" value="308" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_MemoryAntiNumber.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_MemoryAntiNumber.py</url>
           <line>200</line>
           <option name="timeStamp" value="327" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/DynamicSystemAnalyzer.py</url>
-          <line>268</line>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/analyzers/DynamicSystemAnalyzer.py</url>
+          <line>277</line>
           <option name="timeStamp" value="353" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/DynamicSystemAnalyzer.py</url>
-          <line>240</line>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/analyzers/DynamicSystemAnalyzer.py</url>
+          <line>249</line>
           <option name="timeStamp" value="359" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_CDDM_relu.py</url>
           <line>137</line>
           <option name="timeStamp" value="369" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/experiments_and_analysis/plotting_neuron_space.py</url>
           <line>81</line>
           <option name="timeStamp" value="386" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/plotting_neuron_space.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/experiments_and_analysis/plotting_neuron_space.py</url>
           <line>77</line>
           <option name="timeStamp" value="411" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/clustering.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/experiments_and_analysis/clustering.py</url>
           <line>167</line>
           <option name="timeStamp" value="415" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/clustering.py</url>
-          <line>149</line>
-          <option name="timeStamp" value="416" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$APPLICATION_HOME_DIR$/plugins/python-ce/helpers/pydev/pydevd.py</url>
@@ -426,122 +730,146 @@
           <option name="timeStamp" value="448" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDM_relu.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_CDDM_relu.py</url>
           <line>105</line>
           <option name="timeStamp" value="451" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_CDDMMante.py</url>
           <line>108</line>
           <option name="timeStamp" value="458" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_CDDMMante.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_CDDMMante.py</url>
           <line>96</line>
           <option name="timeStamp" value="459" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_DelayDM.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_DelayDM.py</url>
           <line>94</line>
           <option name="timeStamp" value="476" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Tasks/Task.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/Task.py</url>
           <line>525</line>
           <option name="timeStamp" value="479" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Tasks/Task.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/Task.py</url>
           <line>1274</line>
           <option name="timeStamp" value="501" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/training_MemoryAntiAngle_multiple.py</url>
-          <line>116</line>
-          <option name="timeStamp" value="505" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Tasks/TaskIntegration.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskIntegration.py</url>
           <line>63</line>
           <option name="timeStamp" value="512" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Tasks/TaskIntegrationPositive.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskIntegrationPositive.py</url>
           <line>49</line>
           <option name="timeStamp" value="521" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Tasks/TaskHalfAdder.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskHalfAdder.py</url>
           <line>52</line>
           <option name="timeStamp" value="526" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_GoNoGo_relu.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_GoNoGo_relu.py</url>
           <line>135</line>
           <option name="timeStamp" value="531" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_GoNoGo_relu.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_GoNoGo_relu.py</url>
           <line>27</line>
           <option name="timeStamp" value="533" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/PerformanceAnalyzer.py</url>
-          <line>40</line>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/analyzers/PerformanceAnalyzer.py</url>
+          <line>44</line>
           <option name="timeStamp" value="537" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/experiments_and_analysis/analysis_GoNoGo_taks.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/experiments_and_analysis/analysis_GoNoGo_taks.py</url>
           <line>80</line>
           <option name="timeStamp" value="542" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/Tasks/TaskGoNoGo.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskGoNoGo.py</url>
           <line>39</line>
           <option name="timeStamp" value="543" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training_RNNs/training_GoNoGo_relu.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training_RNNs/training_GoNoGo_relu.py</url>
           <line>167</line>
           <option name="timeStamp" value="545" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training/run_training_sequential.py</url>
-          <line>27</line>
-          <option name="timeStamp" value="610" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/training/run_training.py</url>
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training/run_training.py</url>
           <line>94</line>
           <option name="timeStamp" value="611" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/PerformanceAnalyzer.py</url>
-          <option name="timeStamp" value="612" />
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training/run_training.py</url>
+          <line>52</line>
+          <option name="timeStamp" value="614" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training/training_utils.py</url>
+          <line>59</line>
+          <option name="timeStamp" value="617" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/training/run_training.py</url>
+          <line>8</line>
+          <option name="timeStamp" value="618" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskHalfAdder.py</url>
+          <option name="timeStamp" value="620" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/analyzers/DynamicSystemAnalyzer.py</url>
+          <line>77</line>
+          <option name="timeStamp" value="623" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/rnns/RNN_numpy.py</url>
+          <line>144</line>
+          <option name="timeStamp" value="624" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../trainRNNbrain/trainRNNbrain/tasks/TaskCDDM.py</url>
+          <line>47</line>
+          <option name="timeStamp" value="626" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/rnn_coach$set_train_config_GoNoGo_relu.coverage" NAME="set_train_config_GoNoGo_relu Coverage Results" MODIFIED="1712692416809" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
-    <SUITE FILE_PATH="coverage/rnn_coach$set_train_config_CDDM_tanh.coverage" NAME="set_train_config_CDDM_tanh Coverage Results" MODIFIED="1712250337449" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
-    <SUITE FILE_PATH="coverage/rnn_coach$run_training.coverage" NAME="run_training Coverage Results" MODIFIED="1713558492169" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/training" />
+    <SUITE FILE_PATH="coverage/rnn_coach$run_training.coverage" NAME="run_training Coverage Results" MODIFIED="1714076713339" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/rnn_coach/training" />
     <SUITE FILE_PATH="coverage/rnn_coach$hydra_test.coverage" NAME="run_training Coverage Results" MODIFIED="1712785985146" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
+    <SUITE FILE_PATH="coverage/rnn_coach$test__1_.coverage" NAME="test (1) Coverage Results" MODIFIED="1725010712771" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../trainRNNbrain/jupyter" />
     <SUITE FILE_PATH="coverage/rnn_coach$set_train_config_CDDM_relu.coverage" NAME="set_train_config_CDDM_relu Coverage Results" MODIFIED="1712258216681" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
     <SUITE FILE_PATH="coverage/rnn_coach$run_training_DMTS.coverage" NAME="run_training_DMTS Coverage Results" MODIFIED="1712780395376" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
-    <SUITE FILE_PATH="coverage/rnn_coach$training_GoNoGo_relu.coverage" NAME="training_GoNoGo_relu Coverage Results" MODIFIED="1712692420775" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/training_RNNs" />
     <SUITE FILE_PATH="coverage/rnn_coach$training_DMTS_tanh.coverage" NAME="training_DMTS_tanh Coverage Results" MODIFIED="1711842509337" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/training_RNNs" />
     <SUITE FILE_PATH="coverage/rnn_coach$training_GoNoGo_tanh.coverage" NAME="training_GoNoGo_tanh Coverage Results" MODIFIED="1712693837731" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/training_RNNs" />
+    <SUITE FILE_PATH="coverage/rnn_coach$run_training__1_.coverage" NAME="run_training (1) Coverage Results" MODIFIED="1714149947169" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/rnn_coach/training" />
     <SUITE FILE_PATH="coverage/rnn_coach$set_train_config_DMTS_tanh.coverage" NAME="set_train_config_DMTS_tanh Coverage Results" MODIFIED="1712181742608" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
-    <SUITE FILE_PATH="coverage/rnn_coach$training_DMTS_relu.coverage" NAME="training_DMTS_relu Coverage Results" MODIFIED="1712175729634" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/training_RNNs" />
-    <SUITE FILE_PATH="coverage/rnn_coach$run_training_sequential.coverage" NAME="run_training_sequential Coverage Results" MODIFIED="1712850338980" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
     <SUITE FILE_PATH="coverage/rnn_coach$set_train_config_HalfAdder_relu_2o.coverage" NAME="set_train_config_HalfAdder_relu_2o Coverage Results" MODIFIED="1709228095815" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
     <SUITE FILE_PATH="coverage/rnn_coach$set_train_config_DMTS_relu.coverage" NAME="set_train_config_DMTS_relu Coverage Results" MODIFIED="1712257353377" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
-    <SUITE FILE_PATH="coverage/rnn_coach$set_train_config_GoNoGo_tanh.coverage" NAME="set_train_config_GoNoGo_tanh Coverage Results" MODIFIED="1712693833643" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
     <SUITE FILE_PATH="coverage/rnn_coach$training_CDDM_relu.coverage" NAME="training_CDDM_relu Coverage Results" MODIFIED="1712250304864" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/training_RNNs" />
     <SUITE FILE_PATH="coverage/rnn_coach$TaskDMTS.coverage" NAME="TaskDMTS Coverage Results" MODIFIED="1708646758016" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/Tasks" />
     <SUITE FILE_PATH="coverage/rnn_coach$training_CDDM_tanh.coverage" NAME="training_CDDM_tanh Coverage Results" MODIFIED="1712250360060" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/training_RNNs" />
     <SUITE FILE_PATH="coverage/rnn_coach$analysis_GoNoGo_taks.coverage" NAME="analysis_GoNoGo_taks Coverage Results" MODIFIED="1712691606060" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/experiments_and_analysis" />
+    <SUITE FILE_PATH="coverage/rnn_coach$set_train_config_CDDM_tanh.coverage" NAME="set_train_config_CDDM_tanh Coverage Results" MODIFIED="1712250337449" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
+    <SUITE FILE_PATH="coverage/rnn_coach$test.coverage" NAME="test Coverage Results" MODIFIED="1719394026500" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/rnn_coach/training" />
+    <SUITE FILE_PATH="coverage/rnn_coach$training_GoNoGo_relu.coverage" NAME="training_GoNoGo_relu Coverage Results" MODIFIED="1712692420775" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/training_RNNs" />
+    <SUITE FILE_PATH="coverage/rnn_coach$training_DMTS_relu.coverage" NAME="training_DMTS_relu Coverage Results" MODIFIED="1712175729634" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/training_RNNs" />
+    <SUITE FILE_PATH="coverage/rnn_coach$run_training_sequential.coverage" NAME="run_training_sequential Coverage Results" MODIFIED="1712850338980" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/rnn_coach$run_training_sequential__1_.coverage" NAME="run_training_sequential (1) Coverage Results" MODIFIED="1714153192855" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/rnn_coach/training" />
+    <SUITE FILE_PATH="coverage/rnn_coach$set_train_config_GoNoGo_tanh.coverage" NAME="set_train_config_GoNoGo_tanh Coverage Results" MODIFIED="1712693833643" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/train_configs" />
     <SUITE FILE_PATH="coverage/rnn_coach$TaskGoNoGo.coverage" NAME="TaskGoNoGo Coverage Results" MODIFIED="1712686651182" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/Tasks" />
   </component>
 </project>

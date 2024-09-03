@@ -1,7 +1,7 @@
 # @package trainer
-max_iter: [5000, 5000]
+max_iter: [6000, 6000]
 tol: 1e-10
-lr: 0.002
+lr: 0.005
 weight_decay: 5e-06
 lambda_orth: 0.3
 orth_input_only: True

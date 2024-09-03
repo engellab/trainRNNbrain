@@ -1,8 +1,9 @@
 # @package model
-_target_: src.RNN_torch.RNN_torch
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
 activation_name: 'relu'
+activation_slope: 1.0
 constrained: True
-N: 100
+N: 50
 dt: 1
 tau: 10
 exc_to_inh_ratio: 4

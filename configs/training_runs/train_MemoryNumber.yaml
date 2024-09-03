@@ -1,14 +1,15 @@
 # @package _global_
+
 defaults:
-  - /base
-  - /task: MemoryNumber
-  - /trainer: trainer
-  - /model: rnn_relu_Dale
+  - ../task@task: MemoryNumber
+  - ../trainer@trainer: trainer
+  - ../model@model: rnn_relu_Dale
   - _self_
 
   # OVERRIDES
-#  - override /model: rnn_tanh_Dale
-  - override /trainer.lambda_r: 0.002
+  - override ../model@model: rnn_relu_Dale
+  - override ../task@task: MemoryNumber
+  - override ../trainer@trainer: trainer
 
 display_figures: False
-n_nets: 10
+n_nets: 1

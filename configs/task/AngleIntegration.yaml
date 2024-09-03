@@ -1,5 +1,5 @@
 # @package task
-_target_: src.Tasks.TaskAngleIntegration.TaskAngleIntegration
+_target_: trainRNNbrain.tasks.TaskAngleIntegration.TaskAngleIntegration
 taskname: "AngleIntegration"
 T: 220
 w: 0.15

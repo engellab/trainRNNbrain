@@ -13,8 +13,6 @@
 #SBATCH --output=../log/%x.%A_%a.out
 #SBATCH --error=../log/%x.%A_%a.err
 
-
-
 # Load modules for CUDA, CUDNN, and conda
 module purge
 module load cudatoolkit/12.0
