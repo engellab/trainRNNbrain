@@ -1,8 +1,8 @@
 Metadata-Version: 2.1
 Name: trainRNNbrain
 Version: 1.0
-Summary: training RNNs with various activation functions on user-defined tasks. Anaylzing them with fixed and slow points analysis.
-Home-page: https://github.com/engellab/rnn-coach
+Summary: training rnns with various activation functions on user-defined tasks. Anaylzing them with fixed and slow points analysis.
+Home-page: https://github.com/engellab/trainRNNbrain/
 Author: Pavel Tolmachev
 Author-email: pt1290@princeton.edu
 License: MIT

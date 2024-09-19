@@ -1,10 +1,9 @@
 # @package _global_
 
 defaults:
-  - /base
-  - /task: CDDM
-  - /trainer: trainer
-  - /model: rnn_relu_Dale
+  - ../task: CDDM
+  - ../trainer: trainer
+  - ../model: rnn_relu_Dale
   - _self_
 
   # OVERRIDES

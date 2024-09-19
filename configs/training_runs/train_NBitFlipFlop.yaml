@@ -1,10 +1,9 @@
 # @package _global_
 
 defaults:
-  - /base
-  - /task: NBitFlipFLop
-  - /trainer: trainer
-  - /model: rnn_tanh
+  - ../task: NBitFlipFLop
+  - ../trainer: trainer
+  - ../model: rnn_tanh
   - _self_
 
   # OVERRIDES

@@ -1,10 +1,9 @@
 # @package _global_
 
 defaults:
-  - /base
-  - /task: MemoryAntiAngle
-  - /trainer: trainer
-  - /model: rnn_tanh
+  - ../task: MemoryAntiAngle
+  - ../trainer: trainer
+  - ../model: rnn_tanh
   - _self_
 
   # OVERRIDES

@@ -10,9 +10,9 @@ from matplotlib import pyplot as plt
 
 OmegaConf.register_new_resolver("eval", eval)
 os.environ['HYDRA_FULL_ERROR'] = '1'
-# taskname = "XOR"
-# @hydra.main(version_base="1.3", config_path="../../configs/training_runs/", config_name=f"train_{taskname}")
-@hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
+taskname = "CDDM"
+@hydra.main(version_base="1.3", config_path="../../configs/training_runs/", config_name=f"train_{taskname}")
+# @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
 def run_training(cfg: DictConfig) -> None:
     taskname = cfg.task.taskname
     tag = f"{cfg.model.activation_name}_constrained={cfg.model.constrained}"
