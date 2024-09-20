@@ -58,5 +58,4 @@ trainRNNbrain/trainer/__init__.py
 trainRNNbrain/training/__init__.py
 trainRNNbrain/training/run_training.py
 trainRNNbrain/training/run_training_sequential.py
-trainRNNbrain/training/test.py
 trainRNNbrain/training/training_utils.py

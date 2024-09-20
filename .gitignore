@@ -13,3 +13,4 @@ data/trained_RNNs/*
 /trainRNNbrain/outputs
 /trainRNNbrain/training/outputs
 /trainRNNbrain/training/multirun
+/slurm/
