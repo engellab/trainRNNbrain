@@ -150,4 +150,4 @@ Integration with DataJoint is coming
 
 
 ### Where to get started
-I suggest starting at this Jupyter notebook to get the idea how to use the package: [Jupyter example: training RNN to perform context-dependent decision-making](/jupyter/Training CDDM.ipynb)
+I suggest starting at this Jupyter notebook to get the idea how to use the package: [training RNN to perform context-dependent decision-making](jupyter/Training CDDM.ipynb)
