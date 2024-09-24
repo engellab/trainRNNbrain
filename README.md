@@ -1,10 +1,8 @@
 ## Training continuous time Recurrent Neural Networks (RNNs) on various behavioral tasks
 
-This project aims to establish a pipeline for seamlessly defining the behavioral task and training RNNs on it using
-backpropagation (BPTT) on *PyTorch*.
+This project established a pipeline for seamlessly defining time-constrained behavioral task and training RNNs on it using backpropagation (BPTT) on *PyTorch*.
 
-It also implements a class for the post-training task-performance analysis, as well as a class for analysis of
-the RNN dynamics: computing the fixed-points of the dynamics for a given input.
+Further, it contains additional post-training task-performance [analysis classes](trainRNNbrain/analyzers), as well as a class for analysis of the RNN dynamics: computing the fixed-points of the dynamics for a given input.
 
 ### Some examples:
 
