@@ -3,8 +3,8 @@
 This project aims to establish a pipeline for seamlessly defining the behavioral task and training RNNs on it using
 backpropagation (BPTT) on *PyTorch*.
 
-It also implements a useful class for the post-training task-performance analysis, as well as a class for analysis of
-the RNN dynamics: computing its dynamics fixed-points structure for a given input.
+It also implements a class for the post-training task-performance analysis, as well as a class for analysis of
+the RNN dynamics: computing the fixed-points of the dynamics for a given input.
 
 ### Some examples:
 
@@ -14,7 +14,7 @@ the RNN dynamics: computing its dynamics fixed-points structure for a given inpu
 
 <center>
 
-*Fixed point structure revealed after training an RNN to perform a 3 bit flip-flop task*
+*Fixed point structure revealed after training an RNN with Tanh activation function to perform a 3 bit flip-flop task*
 
 </center>
 
@@ -63,7 +63,7 @@ __________________________________
 
 The dynamics for RNN are captured by the following equations:
 
-<img src="https://latex.codecogs.com/svg.image?\begin{align*}\tau&space;\mathbf{\dot{x}}&space;&=&space;-\mathbf{x}&space;&plus;&space;[W_{rec}\mathbf{x}&space;&plus;&space;W_{inp}&space;(\mathbf{u}&space;&plus;&space;\xi_{inp})&space;&plus;&space;\mathbf{b}_{rec}&space;&plus;&space;\xi_{rec}]_&plus;&space;\\\text{out}&space;&=&space;W_{out}&space;\mathbf{x}&space;\end{align*}&space;" title="https://latex.codecogs.com/svg.image?\begin{align*}\tau \mathbf{\dot{x}} &= -\mathbf{x} + [W_{rec}\mathbf{x} + W_{inp} (\mathbf{u} + \xi_{inp}) + \mathbf{b}_{rec} + \xi_{rec}]_+ \\\text{out} &= W_{out} \mathbf{x} \end{align*} " />
+<img src="https://latex.codecogs.com/svg.image?\begin{align*}\tau&space;\mathbf{\dot{x}}&space;&=&space;-\mathbf{x}&space;&plus;&space;f(W_{rec}\mathbf{x}&space;&plus;&space;W_{inp}&space;(\mathbf{u}&space;&plus;&space;\xi_{inp})&space;&plus;&space;\mathbf{b}_{rec}&space;&plus;&space;\xi_{rec});&space;\\\text{out}&space;&=&space;W_{out}&space;\mathbf{x}&space;\end{align*}&space;" title="https://latex.codecogs.com/svg.image?\begin{align*}\tau \mathbf{\dot{x}} &= -\mathbf{x} + (W_{rec}\mathbf{x} + W_{inp} (\mathbf{u} + \xi_{inp}) + \mathbf{b}_{rec} + \xi_{rec}) \\\text{out} &= W_{out} \mathbf{x} \end{align*} " />
 
 Where "\tau" is the time constant, "x" is the state vector of the RNN, "u" is an input vector, "W rec" is the recurrent
 connectivity of the RNN, "W inp" - matrix of input connectivities distributing input vector "u" to the neural nodes, "b
@@ -149,3 +149,7 @@ two methods:
 - `save_figure(figure, filename)` -- saves a figure as a png-file into the 'data_folder'
 
 Integration with DataJoint is coming
+
+
+### Where to get started
+I suggest starting at this Jupyter notebook to get the idea how to use the package: [Jupyter example: training RNN to perform context-dependent decision-making](/jupyter/Training CDDM.ipynb)

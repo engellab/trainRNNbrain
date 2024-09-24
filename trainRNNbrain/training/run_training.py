@@ -11,6 +11,10 @@ from matplotlib import pyplot as plt
 OmegaConf.register_new_resolver("eval", eval)
 os.environ['HYDRA_FULL_ERROR'] = '1'
 taskname = "CDDM"
+
+# Either run the script with the first decorator (from IDE), or use the second decorator to run from shell
+# specifying the arguments:
+# 'python run_training.py model=rnn_relu_Dale task=CDDM' from the terminal in the folder containing this script
 @hydra.main(version_base="1.3", config_path="../../configs/training_runs/", config_name=f"train_{taskname}")
 # @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
 def run_training(cfg: DictConfig) -> None:

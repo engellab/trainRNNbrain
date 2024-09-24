@@ -13,6 +13,10 @@ OmegaConf.register_new_resolver("eval", eval)
 os.environ['HYDRA_FULL_ERROR'] = '1'
 taskname = "DMTS"
 
+# Either run the script with the first decorator (from IDE), or use the second decorator to run from shell
+# specifying the arguments:
+# 'python run_training.py model=rnn_relu_Dale task=DMTS trainer=trainer_sequential'
+# from the terminal in the folder containing this script
 # @hydra.main(version_base=None, config_path="../../configs", config_name=f"training_runs/train_{taskname}")
 @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
 def run_training(cfg: DictConfig) -> None:
