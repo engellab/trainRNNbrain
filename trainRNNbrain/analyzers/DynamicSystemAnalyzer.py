@@ -5,7 +5,7 @@ import scipy.optimize
 from matplotlib import pyplot as plt
 from scipy.optimize import fsolve, minimize
 from tqdm.auto import tqdm
-from trainRNNbrain.utils import in_the_list, sort_eigs, make_orientation_consistent
+from trainRNNbrain.utils import in_the_list, sort_eigs, make_orientation_consistent, get_colormaps
 import warnings
 warnings.filterwarnings("ignore")
 from sklearn.decomposition import PCA
@@ -42,7 +42,7 @@ class DynamicSystemAnalyzer():
                          patience=100,
                          fun_tol=1e-12,
                          stop_length=100,
-                         sigma_init_guess=2,
+                         sigma_init_guess=0.01,
                          eig_cutoff=1e-10,
                          diff_cutoff=1e-7,
                          mode='exact'):
@@ -153,7 +153,7 @@ class DynamicSystemAnalyzer():
             fig = plt.figure(figsize=(7, 7))
             fig.suptitle(r"Fixed points projected on 2D PCA plane", fontsize=16)
             for j, input_as_key in enumerate(inputs_as_key):
-                markers = ["o", "x", "o"];
+                markers = ["o", "x", "o"]
                 colors = color_sets[j]
                 types = list(data_to_plot[input_as_key].keys())
                 for t, type in enumerate(types):
@@ -281,11 +281,11 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
             increment = (1 / (N_points - 1)) * (right_point - left_point)
             direction = deepcopy(increment)
             direction *= np.sign(np.dot(self.choice_axis, direction))
-            slow_points = [];
-            fun_vals = [];
-            eigs = [];
-            jacs = [];
-            selection_vects = [];
+            slow_points = []
+            fun_vals = []
+            eigs = []
+            jacs = []
+            selection_vects = []
             principle_eigenvects = []
             x_init = deepcopy(left_point)
             print(f"Analyzing points on a line attractor in {context} context...")
@@ -354,7 +354,6 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
                 for period in ["context_only_on", "stim_on", "stim_off"]:
                     trajectories[ctxt][stim_status][period] = {}
 
-        from trainRNNbrain.utils import get_colormaps
         colors, cmp = get_colormaps()
         red, blue, bluish, green, orange, lblue, violet = colors
         colors_trajectories = dict()
@@ -464,23 +463,3 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
         plt.grid(True)
         return fig_RHS
 
-class DynamicSystemAnalyzerCDDM_tanh(DynamicSystemAnalyzerCDDM):
-    '''
-    Class which is inрerited from the DynamicSystemAnalyzer base class,
-    dedicated to processing of the rnns trained on CDDM task
-    '''
-
-    def __init__(self, RNN):
-        DynamicSystemAnalyzer.__init__(self, RNN)
-        self.choice_axis = self.RNN.W_out.flatten() if self.RNN.W_out.shape[0] == 1 \
-            else (self.RNN.W_out[0, :] - self.RNN.W_out[1, :])
-        self.context_axis = self.RNN.W_inp[:, 0] - self.RNN.W_inp[:, 1]
-        self.sensory_axis = np.sum([self.RNN.W_inp[:, i] for i in [2, 3]])
-        self.sensory_inds_motion = [2]
-        self.sensory_inds_color = [3]
-        self.nudge_value = 0.05
-        self.nudge = np.array([self.nudge_value])
-        self.neutral_input = np.array([0, 0, 0.0, 0.0])
-        self.LA_data = {}
-        self.LA_data["motion"] = {}
-        self.LA_data["color"] = {}

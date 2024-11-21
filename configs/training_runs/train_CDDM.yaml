@@ -6,10 +6,6 @@ defaults:
   - ../model: rnn_relu_Dale
   - _self_
 
-  # OVERRIDES
-#  - override /model: rnn_tanh_Dale
-#  - override /trainer: trainer_debug
-
 display_figures: False
 n_nets: 10
 

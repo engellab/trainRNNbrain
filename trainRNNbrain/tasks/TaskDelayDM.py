@@ -3,7 +3,7 @@ import numpy as np
 from trainRNNbrain.tasks.TaskBase import Task
 
 class TaskDelayDM(Task):
-    '''Delayed decision making task: get the stimulus, wait and then make a decision after the dec_on cue comes in'''
+    '''Delayed decision-making task: get the stimulus, wait and then make a decision after the dec_on cue comes in'''
     def __init__(self, n_steps, n_inputs, n_outputs, stim_on, stim_off, dec_on, dec_off, directions, seed=None):
         Task.__init__(self, n_steps, n_inputs, n_outputs, seed)
         self.stim_on = stim_on

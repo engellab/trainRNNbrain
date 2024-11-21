@@ -126,7 +126,7 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
 
 
     exc_percentage = exc_to_inh_ratio / (exc_to_inh_ratio + 1)
-    Ne = int(np.ceil(N * exc_percentage))
+    Ne = int(np.floor(N * exc_percentage))
     Ni = N - Ne
 
     # Initialize W_rec
@@ -166,7 +166,7 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     W_out = torch.abs(sparse(W_out, output_sparsity, mu_E, var, generator))
     W_out = torch.hstack([W_out, torch.zeros([num_outputs, Ni], device=device)]).float()
 
-    dale_mask = torch.cat([torch.ones(Ne), -torch.ones(Ni)])
+    dale_mask = torch.cat([torch.ones(Ne), -torch.ones(Ni)]).to(device)
     output_mask = (W_out != 0).to(device=device).float()
     input_mask = (W_inp != 0).to(device=device).float()
     # No self connectivity constraint
@@ -265,7 +265,8 @@ class RNN_torch(torch.nn.Module):
             # W_rec has to be subject to Dale's law
             W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
                 get_connectivity_Dale(N=self.N, num_inputs=self.input_size, num_outputs=self.output_size,
-                                      radius=self.spectral_rad, exc_to_inh_ratio=self.exc_to_inh_ratio,
+                                      radius=self.spectral_rad,
+                                      exc_to_inh_ratio=self.exc_to_inh_ratio,
                                       generator=self.random_generator,
                                       recurrent_density=self.connectivity_density_rec)
         else:

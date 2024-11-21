@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 from matplotlib import pyplot as plt
 import os
-os.system('python ../../style/style_setup.py')
+# os.system('python ../../style/style_setup.py')
 mm = 1.0/25.4
 
 class PerformanceAnalyzer():
@@ -82,8 +82,8 @@ class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
                                num_repeats=7,
                                sigma_rec=0.03,
                                sigma_inp=0.03,
-                               coh_bouds=(-1, 1)):
-        coherence_lvls = np.linspace(coh_bouds[0], coh_bouds[1], num_levels)
+                               coh_bounds=(-1, 1)):
+        coherence_lvls = np.linspace(coh_bounds[0], coh_bounds[1], num_levels)
         psychometric_data = {}
         psychometric_data["coherence_lvls"] = coherence_lvls
         psychometric_data["motion"] = {}

@@ -7,11 +7,13 @@
 /trainRNNbrain/datajoint/
 /data/*
 /log/
+/slurm/
+/style/
 *.png
 *.json
 data/trained_RNNs/*
 /trainRNNbrain/outputs
 /trainRNNbrain/training/outputs
 /trainRNNbrain/training/multirun
-/slurm/
-
+/img/dimensionality_reduction/
+/trainRNNbrain/experiments_and_analysis/
