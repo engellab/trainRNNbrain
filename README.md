@@ -4,6 +4,7 @@ This project established a pipeline for seamlessly defining time-constrained beh
 
 Further, it contains additional post-training task-performance [analysis classes](trainRNNbrain/analyzers), as well as a class for analysis of the RNN dynamics: computing the fixed-points of the dynamics for a given input.
 
+Dependencies:`matplotlib numpy torch hydra-core scikit-learn tqdm`
 ### Some examples:
 
 <p align="center">
