@@ -70,20 +70,6 @@ def remove_silent_nodes(rnn_torch, task, net_params, thr=1e-10):
     rnn_torch.set_params(RNN_params)
     return rnn_torch, net_params
 
-
-def set_paths(taskname, tag):
-    from pathlib import Path
-    home = str(Path.home())
-    if home == '/home/pt1290':
-        data_save_path = f'/../../../../scratch/gpfs/pt1290/trainRNNbrain/data/trained_RNNs/{taskname}_{tag}'
-    elif home == '/Users/tolmach':
-        projects_folder = home + '/Documents/GitHub'
-        data_save_path = os.path.join(projects_folder, f'trainRNNbrain/data/trained_RNNs/{taskname}_{tag}')
-    else:
-        pass
-    os.makedirs(data_save_path, exist_ok=True)
-    return data_save_path
-
 def plot_train_val_losses(train_losses, val_losses):
     fig_trainloss, ax = plt.subplots(1, 1, figsize=(8, 4))
 

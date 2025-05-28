@@ -22,7 +22,8 @@ taskname = "DMTS"
 def run_training(cfg: DictConfig) -> None:
     taskname = cfg.task.taskname
     tag = f"{cfg.model.activation_name}_constrained={cfg.model.constrained}"
-    data_save_path = set_paths(taskname=taskname, tag=tag)
+    data_save_path = os.path.join(cfg.paths.save_to, f"{taskname}_{tag}")
+    os.makedirs(data_save_path, exist_ok=True)
     disp = cfg.display_figures
 
     # defining the task

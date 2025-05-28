@@ -3,6 +3,7 @@ defaults:
   - _self_
   - task: CDDM
   - model: rnn_relu_Dale
-  - trainer: trainer_debug
+  - trainer: trainer
+  - paths: paths_local
 display_figures: False
 n_nets: 1
