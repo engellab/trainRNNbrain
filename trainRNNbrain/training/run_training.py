@@ -10,16 +10,11 @@ from matplotlib import pyplot as plt
 
 OmegaConf.register_new_resolver("eval", eval)
 os.environ['HYDRA_FULL_ERROR'] = '1'
-taskname = "CDDM"
-
-# Either run the script with the first decorator (from IDE), or use the second decorator to run from shell
-# specifying the arguments:
-# 'python run_training.py model=rnn_relu_Dale task=CDDM' from the terminal in the folder containing this script
-@hydra.main(version_base="1.3", config_path="../../configs/training_runs/", config_name=f"train_{taskname}")
-# @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
+@hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
 def run_training(cfg: DictConfig) -> None:
     taskname = cfg.task.taskname
-    tag = f"{cfg.model.activation_name}_constrained={cfg.model.constrained}"
+    tag = f"{cfg.model.activation_name}_constrained={cfg.model.constrained}_v3"
+    print(f"training {taskname}, {tag}")
     data_save_path = set_paths(taskname=taskname, tag=tag)
     disp = cfg.display_figures
 
@@ -40,8 +35,10 @@ def run_training(cfg: DictConfig) -> None:
         trainer = Trainer(RNN=rnn_torch, Task=task,
                           max_iter=cfg.trainer.max_iter, tol=cfg.trainer.tol,
                           optimizer=optimizer, criterion=criterion,
-                          lambda_orth=cfg.trainer.lambda_orth, orth_input_only=cfg.trainer.orth_input_only,
-                          lambda_r=cfg.trainer.lambda_r)
+                          lambda_orth=cfg.trainer.lambda_orth,
+                          orth_input_only=cfg.trainer.orth_input_only,
+                          lambda_r=cfg.trainer.lambda_r,
+                          lambda_z=cfg.trainer.lambda_z)
 
         mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
 
@@ -52,16 +49,22 @@ def run_training(cfg: DictConfig) -> None:
         toc = time.perf_counter()
         print(f"Executed training in {toc - tic:0.4f} seconds")
 
+        losses_history = trainer.loss_monitor
+        # At the end of training, convert everything to CPU and numpy
+        for key in trainer.loss_monitor:
+            # Convert each list of tensors to a single tensor
+            loss_tensor = torch.stack(trainer.loss_monitor[key])
+            # Move to CPU and convert to numpy at once
+            trainer.loss_monitor[key] = loss_tensor.cpu().numpy()
 
         # postprocessing and analysis
         rnn_torch, net_params = remove_silent_nodes(rnn_torch=rnn_trained,
                                                     task=task,
                                                     net_params=net_params)
-
-        # validate
         RNN_valid = RNN_numpy(**net_params)
+        # validate
         analyzer = PerformanceAnalyzer(RNN_valid)
-        score_function = lambda x, y: np.mean((x - y) ** 2)
+        score_function = lambda x, y: 1 - (np.mean((x - y) ** 2) / np.mean(y ** 2))
         input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
         score = analyzer.get_validation_score(score_function,
                                               input_batch_valid, target_batch_valid,
@@ -71,15 +74,16 @@ def run_training(cfg: DictConfig) -> None:
 
         data_folder = (f'{score}_{taskname}_{net_params["activation_name"]};'
                        f'N={net_params["N"]};'
-                       f'lmbdo={cfg.trainer.lambda_orth};'
-                       f'orth_inp_only={cfg.trainer.orth_input_only};'
-                       f'lmbdr={cfg.trainer.lambda_r};'
-                       f'lr={cfg.trainer.lr};'
-                       f'maxiter={cfg.trainer.max_iter}')
+                       f'lmbdO={cfg.trainer.lambda_orth};'
+                       f'OrthInpOnly={cfg.trainer.orth_input_only};'
+                       f'lmbdR={cfg.trainer.lambda_r};'
+                       f'lmbdZ={cfg.trainer.lambda_z};'
+                       f'LR={cfg.trainer.lr};'
+                       f'MaxIter={cfg.trainer.max_iter}')
 
         full_data_folder = os.path.join(data_save_path, data_folder)
         datasaver = DataSaver(full_data_folder)
-        print(f"MSE validation: {score}")
+        print(f"r2 validation: {score}")
 
         if not (datasaver is None): datasaver.save_data(cfg, f"{score}_config.yaml")
         if not (datasaver is None): datasaver.save_data(jsonify(net_params), f"{score}_params_{taskname}.json")
@@ -88,9 +92,10 @@ def run_training(cfg: DictConfig) -> None:
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_trainloss, f"{score}_train&valid_loss.png")
 
-        # OPTIONAL
-        # trajecory_data = get_trajectories(RNN_valid, input_batch_valid, target_batch_valid, conditions_valid)
-        # datasaver.save_data(trajecory_data, f"{score}_RNNtrajdata_{taskname}.pkl")
+        if not (datasaver is None): datasaver.save_data(jsonify(trainer.loss_monitor), f"{score}_loss_breakdown.json")
+        fig_loss_breakdown = plot_loss_breakdown(trainer.loss_monitor)
+        if disp: plt.show()
+        if not (datasaver is None): datasaver.save_figure(fig_loss_breakdown, f"{score}_loss_breakdown.png")
 
         print(f"Plotting random trials")
         inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), np.minimum(input_batch_valid.shape[-1], 12))
@@ -104,7 +109,6 @@ def run_training(cfg: DictConfig) -> None:
                                           conditions=conditions)
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials.png")
-
 
 if __name__ == "__main__":
     run_training()

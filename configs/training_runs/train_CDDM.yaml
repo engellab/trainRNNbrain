@@ -7,5 +7,5 @@ defaults:
   - _self_
 
 display_figures: False
-n_nets: 10
+n_nets: 1
 

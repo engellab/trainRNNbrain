@@ -6,6 +6,7 @@ weight_decay: 5e-06
 lambda_orth: 0.3
 orth_input_only: True
 lambda_r: [0, 0.3]
+lambda_var: 0.0
 p: 2
 same_batch: True
 

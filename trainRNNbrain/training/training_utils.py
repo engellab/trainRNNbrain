@@ -7,7 +7,11 @@ import ast
 from matplotlib import pyplot as plt
 
 def prepare_task_arguments(cfg_task, dt):
-    n_steps = int(cfg_task.T / dt)
+    if "T" in list(cfg_task.keys()):
+        n_steps = int(cfg_task.T / dt)
+    elif "n_steps" in list(cfg_task.keys()):
+        n_steps = cfg_task.n_steps
+
     conf = {"_target_": cfg_task._target_, "n_steps" : n_steps, "seed": cfg_task.seed}
     task_params = cfg_task.task_params
     for key in cfg_task.keys():
@@ -38,13 +42,12 @@ def get_training_mask(cfg_task, dt):
         mask_part_list.append(t1 + np.arange(t2 - t1))
     return np.concatenate(mask_part_list)
 
-def remove_silent_nodes(rnn_torch, task, net_params):
+def remove_silent_nodes(rnn_torch, task, net_params, thr=1e-10):
     input_batch, target_batch, conditions = task.get_batch()
     rnn_torch.sigma_rec = rnn_torch.sigma_inp = torch.tensor(0, device=rnn_torch.device)
     y, predicted_output_rnn = rnn_torch(torch.from_numpy(input_batch.astype("float32")).to(rnn_torch.device))
-    Y = torch.hstack([y.detach()[:, :, i] for i in range(y.shape[-1])]).T
-    Y_mean = torch.mean(torch.abs(Y), axis=0)
-    inds_fr = (torch.where(Y_mean > 0)[0]).tolist()
+    Y_mean = torch.mean(torch.abs(y), dim=(1, 2))
+    inds_fr = (torch.where(Y_mean > thr)[0]).tolist()
     N_reduced = len(inds_fr)
     N = N_reduced
     W_rec = rnn_torch.W_rec.data.cpu().detach().numpy()[inds_fr, :]
@@ -72,10 +75,10 @@ def set_paths(taskname, tag):
     from pathlib import Path
     home = str(Path.home())
     if home == '/home/pt1290':
-        data_save_path = f'/../../../../scratch/gpfs/pt1290/rnn_coach/data/trained_RNNs/{taskname}_{tag}'
+        data_save_path = f'/../../../../scratch/gpfs/pt1290/trainRNNbrain/data/trained_RNNs/{taskname}_{tag}'
     elif home == '/Users/tolmach':
         projects_folder = home + '/Documents/GitHub'
-        data_save_path = os.path.join(projects_folder, f'rnn_coach/data/trained_RNNs/{taskname}_{tag}')
+        data_save_path = os.path.join(projects_folder, f'trainRNNbrain/data/trained_RNNs/{taskname}_{tag}')
     else:
         pass
     os.makedirs(data_save_path, exist_ok=True)
@@ -84,11 +87,27 @@ def set_paths(taskname, tag):
 def plot_train_val_losses(train_losses, val_losses):
     fig_trainloss = plt.figure(figsize=(10, 3))
     plt.plot(train_losses, color='r', label='train loss (log scale)')
-    plt.plot(val_losses, color='b', label='valid loss (log scale)')
+    if len(val_losses) != 0:
+        plt.plot(val_losses, color='b', label='valid loss (log scale)')
     plt.yscale("log")
     plt.grid(True)
     plt.legend(fontsize=16)
     return fig_trainloss
+
+def plot_loss_breakdown(loss_monitor):
+    fig_loss_breakdown, ax = plt.subplots(figsize=(10, 3))
+    ax.set_yscale('log')
+    for key in loss_monitor:
+        ax.plot(loss_monitor[key], label=key)
+    # ax.set_ylim([0, 1])
+    ax.set_xlabel("Training Step")
+    ax.set_ylabel("Loss Value")
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=5, frameon=False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.grid(True)
+    plt.tight_layout()
+    return fig_loss_breakdown
 
 def get_trajectories(RNN_valid, input_batch_valid, target_batch_valid, conditions_valid):
     RNN_valid.clear_history()

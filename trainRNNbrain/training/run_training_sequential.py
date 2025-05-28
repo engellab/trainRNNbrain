@@ -42,8 +42,10 @@ def run_training(cfg: DictConfig) -> None:
         trainer = Trainer(RNN=rnn_torch, Task=task,
                           max_iter=cfg.trainer.max_iter[0], tol=cfg.trainer.tol,
                           optimizer=optimizer, criterion=criterion,
-                          lambda_orth=cfg.trainer.lambda_orth, orth_input_only=cfg.trainer.orth_input_only,
-                          lambda_r=cfg.trainer.lambda_r[0])
+                          lambda_orth=cfg.trainer.lambda_orth,
+                          orth_input_only=cfg.trainer.orth_input_only,
+                          lambda_r=cfg.trainer.lambda_r[0],
+                          lambda_z=cfg.trainer.lambda_z)
 
         mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
 

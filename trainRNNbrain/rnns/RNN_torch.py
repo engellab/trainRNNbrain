@@ -66,9 +66,9 @@ def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1
     # Balancing parameters
     mu = 0
     mu_pos = 1 / np.sqrt(N)
-    var = 1 / N
+    std = 1 / N
     recurrent_sparsity = 1 - recurrent_density
-    W_rec = sparse(torch.empty(N, N, device=device), recurrent_sparsity, mu, var, generator)
+    W_rec = sparse(torch.empty(N, N, device=device), recurrent_sparsity, mu, std, generator)
 
     # spectral radius adjustment
     W_rec = W_rec - torch.diag(torch.diag(W_rec))
@@ -78,10 +78,10 @@ def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1
     W_rec = torch.tensor(radius/spec_radius).to(device=device) * W_rec.to(device=device)
     W_inp = torch.zeros([N, num_inputs], device=device).float()
     input_sparsity = 1 - input_density
-    W_inp = sparse(W_inp, input_sparsity, mu_pos, var, generator)
+    W_inp = sparse(W_inp, input_sparsity, mu_pos, std, generator)
 
     output_sparsity = 1 - output_density
-    W_out = sparse(torch.empty(num_outputs, N), output_sparsity, mu_pos, var, generator)
+    W_out = sparse(torch.empty(num_outputs, N), output_sparsity, mu_pos, std, generator)
 
     output_mask = (W_out != 0).to(device=device).float()
     input_mask = (W_inp != 0).to(device=device).float()
@@ -136,15 +136,15 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     mu_E = 1 / np.sqrt(N)
     mu_I = exc_to_inh_ratio / np.sqrt(N)
 
-    var = 1 / N
+    std = 1 / N
     # generating excitatory part of connectivity and an inhibitory part of connectivity:
     rowE = torch.empty([Ne, 0], device=device)
     rowI = torch.empty([Ni, 0], device=device)
     recurrent_sparsity = 1 - recurrent_density
-    rowE = torch.cat((rowE, torch.abs(sparse(torch.empty(Ne, Ne, device=device), recurrent_sparsity, mu_E, var, generator))), 1)
-    rowE = torch.cat((rowE, -torch.abs(sparse(torch.empty(Ne, Ni, device=device), recurrent_sparsity, mu_I, var, generator))), 1)
-    rowI = torch.cat((rowI, torch.abs(sparse(torch.empty(Ni, Ne, device=device), recurrent_sparsity, mu_E, var, generator))), 1)
-    rowI = torch.cat((rowI, -torch.abs(sparse(torch.empty(Ni, Ni, device=device), recurrent_sparsity, mu_I, var, generator))), 1)
+    rowE = torch.cat((rowE, torch.abs(sparse(torch.empty(Ne, Ne, device=device), recurrent_sparsity, mu_E, std, generator))), 1)
+    rowE = torch.cat((rowE, -torch.abs(sparse(torch.empty(Ne, Ni, device=device), recurrent_sparsity, mu_I, std, generator))), 1)
+    rowI = torch.cat((rowI, torch.abs(sparse(torch.empty(Ni, Ne, device=device), recurrent_sparsity, mu_E, std, generator))), 1)
+    rowI = torch.cat((rowI, -torch.abs(sparse(torch.empty(Ni, Ni, device=device), recurrent_sparsity, mu_I, std, generator))), 1)
 
     W_rec = torch.cat((W_rec, rowE), 0)
     W_rec = torch.cat((W_rec, rowI), 0)
@@ -159,11 +159,11 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
 
     W_inp = torch.zeros([N, num_inputs]).float()
     input_sparsity = 1 - input_density
-    W_inp = torch.abs(sparse(W_inp, input_sparsity, mu_E, var, generator)).float()
+    W_inp = torch.abs(sparse(W_inp, input_sparsity, mu_E, std, generator)).float()
 
     W_out = torch.zeros([num_outputs, Ne]).float()
     output_sparsity = 1 - output_density
-    W_out = torch.abs(sparse(W_out, output_sparsity, mu_E, var, generator))
+    W_out = torch.abs(sparse(W_out, output_sparsity, mu_E, std, generator))
     W_out = torch.hstack([W_out, torch.zeros([num_outputs, Ni], device=device)]).float()
 
     dale_mask = torch.cat([torch.ones(Ne), -torch.ones(Ni)]).to(device)
@@ -207,7 +207,6 @@ class RNN_torch(torch.nn.Module):
         :param tau: float, internal time constant of the RNN-neural nodes
         :param sigma_rec: float, std of the gaussian noise in the recurrent dynamics
         :param sigma_inp: float, std of the gaussian noise in the input to the RNN
-        :param bias_rec: array of N values, (inhibition/excitation of neural nodes from outside of the network)
         :param y_init: array of N values, initial value of the RNN dynamics
         :param seed: seed for torch random generator, for reproducibility
         :param output_size: number of the output channels of the RNN
@@ -301,14 +300,28 @@ class RNN_torch(torch.nn.Module):
             inp_noise = torch.sqrt((2 / self.alpha) * self.sigma_inp ** 2) \
                         * torch.randn(*inp_noise.shape, generator=self.random_generator, device=self.device)
 
-        for i in range(T_steps - 1):
-            state_new = states[:, i, :] + self.alpha * self.rhs(states[:, i, :],
-                                                                u[:, i, :],
-                                                                inp_noise[:, i, :],
-                                                                rec_noise[:, i, :])
-            states = torch.cat((states, state_new.unsqueeze_(1)), 1)
-        outputs = torch.einsum("oj, jtk -> otk", self.W_out, states)
-        return states, outputs
+        # for i in range(T_steps - 1):
+        #     state_new = states[:, i, :] + self.alpha * self.rhs(states[:, i, :],
+        #                                                         u[:, i, :],
+        #                                                         inp_noise[:, i, :],
+        #                                                         rec_noise[:, i, :])
+        #     states = torch.cat((states, state_new.unsqueeze_(1)), 1)
+        # outputs = torch.einsum("oj, jtk -> otk", self.W_out, states)
+        # return states, outputs
+
+        states_list = [states[:, 0, :]]
+        for i in range(1, T_steps):
+            rhs_val = self.rhs(states_list[-1],
+                               u[:, i - 1, :],
+                               inp_noise[:, i - 1, :],
+                               rec_noise[:, i - 1, :])
+            next_state = states_list[-1] + self.alpha * rhs_val
+            states_list.append(next_state)
+
+        states_new = torch.stack(states_list, dim=1)  # shape (batch, T_steps, N)
+        outputs = torch.einsum("oj,jtk->otk", self.W_out, states_new)
+        return states_new, outputs
+
 
     def get_params(self):
         '''

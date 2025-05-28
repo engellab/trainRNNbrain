@@ -1,0 +1,17 @@
+# @package task
+_target_: trainRNNbrain.tasks.TaskReferenceFrame.TaskReferenceFrame
+taskname: "AngleAddition"
+T: 120
+T_stim_on: 0
+T_stim_off: 20
+seed: null
+n_inputs_retina: 6
+n_inputs_head: 6
+n_inputs: 12
+n_outputs: 6
+batch_size: 16
+mask_params:
+  - (30, 120)
+task_params: ["n_steps", "batch_size",
+              "n_inputs_retina", "n_inputs_head", "n_outputs",
+              "stim_on", "stim_off"]

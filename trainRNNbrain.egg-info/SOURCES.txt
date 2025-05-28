@@ -48,8 +48,10 @@ trainRNNbrain/tasks/TaskHalfAdder.py
 trainRNNbrain/tasks/TaskIdentity.py
 trainRNNbrain/tasks/TaskIntegration.py
 trainRNNbrain/tasks/TaskMemoryAntiAngle.py
+trainRNNbrain/tasks/TaskMemoryDM.py
 trainRNNbrain/tasks/TaskMemoryNumber.py
 trainRNNbrain/tasks/TaskNBitFlipFlop.py
+trainRNNbrain/tasks/TaskReferenceFrame.py
 trainRNNbrain/tasks/TaskSquareNumber.py
 trainRNNbrain/tasks/TaskXOR.py
 trainRNNbrain/tasks/__init__.py

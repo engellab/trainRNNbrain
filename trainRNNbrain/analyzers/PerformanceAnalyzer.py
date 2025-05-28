@@ -1,9 +1,8 @@
 from copy import deepcopy
 import numpy as np
 from matplotlib import pyplot as plt
+import math
 import os
-# os.system('python ../../style/style_setup.py')
-mm = 1.0/25.4
 
 class PerformanceAnalyzer():
     '''
@@ -17,22 +16,18 @@ class PerformanceAnalyzer():
     def get_validation_score(self, scoring_function,
                              input_batch, target_batch, mask,
                              sigma_rec=0, sigma_inp=0):
-        n_inputs = input_batch.shape[0]
-        n_steps = input_batch.shape[1]
         batch_size = input_batch.shape[2]
         self.RNN.clear_history()
-        # self.RNN.y = np.repeat(deepcopy(self.RNN.y)[:, np.newaxis], axis=-1, repeats=batch_size)
         self.RNN.run(input_timeseries=input_batch,
                      sigma_rec=sigma_rec,
                      sigma_inp=sigma_inp)
         output_prediction = self.RNN.get_output()
+
         if mask is None:
-            avg_score = np.mean(
-                [scoring_function(output_prediction[:, :, i], target_batch[:, :, i]) for i in range(batch_size)])
-        else:
-            avg_score = np.mean(
-                [scoring_function(output_prediction[:, mask, i], target_batch[:, mask, i]) for i in range(batch_size)])
-        return avg_score
+            mask = np.arange(output_prediction.shape[1])
+        scores = [scoring_function(output_prediction[:, mask, i], target_batch[:, mask, i]) for i in range(batch_size)]
+        scores = [v for v in scores if not math.isnan(v) and not math.isinf(v)]
+        return np.mean(scores)
 
     def plot_trials(self, input_batch, target_batch, mask, sigma_rec=0.03, sigma_inp=0.03, labels=None, conditions=None):
         n_inputs = input_batch.shape[0]
@@ -113,8 +108,7 @@ class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
         else:
             choices = np.sign(output[0, -1, ...] - output[1, -1, ...])
 
-        errors = np.sum(np.sum((target_batch[:, mask, ...] - output[:, mask, ...]) ** 2, axis=0), axis=0) / mask.shape[
-            0]
+        errors = np.sum(np.sum((target_batch[:, mask, ...] - output[:, mask, ...]) ** 2, axis=0), axis=0) / mask.shape[0]
 
         choices_to_right = (choices + 1) / 2
         # This reshaping pattern relies on the batch-structure from the CDDM task.
@@ -133,7 +127,7 @@ class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
     def plot_psychometric_data(self,
                                show_MSE_surface=True,
                                show_colorbar=False,
-                               show_axeslabels=True):
+                               show_axeslabels=True, cmap='bwr'):
         coherence_lvls = self.psychometric_data["coherence_lvls"]
 
         # invert cause of the axes running from the bottom to the top
@@ -145,23 +139,29 @@ class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
 
         n_rows = 2 if show_MSE_surface else 1
 
-        fig, axes = plt.subplots(n_rows, 2, figsize=(n_rows * 80 * mm, 160 * mm))
+        fig, axes = plt.subplots(n_rows, 2, figsize=(80 * mm, n_rows * 80 * mm))
 
         if n_rows == 1:
             axes = axes[np.newaxis, :]
 
         # the plots themselves:
         for i, ctxt in enumerate(["Motion", "Color"]):
-            im1 = axes[0, i].imshow(eval(f"{ctxt}_rght_prcntg"), cmap="bwr", interpolation="bicubic")
+            im1 = axes[0, i].imshow(eval(f"{ctxt}_rght_prcntg"), cmap=cmap, interpolation="bicubic")
             if show_MSE_surface:
-                im2 = axes[1, i].imshow(eval(f"{ctxt}_MSE"), cmap="bwr", interpolation="bicubic")
+                im2 = axes[1, i].imshow(eval(f"{ctxt}_MSE"), cmap=cmap, interpolation="bicubic")
 
         # axes labels:
         if show_axeslabels == False:
             for i, ctxt in enumerate(["Motion", "Color"]):
                 for j in range(axes.shape[0]):
-                    axes[j, i].set_xticks([], labels=[])
-                    axes[j, i].set_yticks([], labels=[])
+                    if len(coherence_lvls) % 2 == 0:
+                       tick_positions = [0, len(coherence_lvls)//2, len(coherence_lvls)//2 +1, len(coherence_lvls)-1]
+                    else:
+                        tick_positions = [0, len(coherence_lvls) // 2, len(coherence_lvls)-1]
+                    axes[j, i].set_xticks(tick_positions)
+                    axes[j, i].set_xticklabels([])
+                    axes[j, i].set_yticks(tick_positions)
+                    axes[j, i].set_yticklabels([])
 
         if show_axeslabels:
             fig.suptitle("Psychometric data")
@@ -178,17 +178,19 @@ class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
                 for i, ctxt in enumerate(["Motion", "Color"]):
                     for j in range(axes.shape[0]):
                         if j == axes.shape[0] - 1:
-                            axes[j, i].set_xticks(np.arange(num_lvls),
-                                                  labels=np.round(coherence_lvls, 2), rotation=50)
+                            axes[j, i].set_xticks(np.arange(num_lvls))
+                            axes[j, i].set_xticklabels(np.round(coherence_lvls, 2))
                             axes[j, i].set_xlabel("Motion coherence")
                         else:
-                            axes[j, i].set_xticks(np.arange(num_lvls), labels=[])
+                            axes[j, i].set_xticks(np.arange(num_lvls))
+                            axes[j, i].set_xticklabels([])
                         if i == 0:
-                            axes[j, i].set_yticks(np.arange(num_lvls),
-                                                  labels=np.round(coherence_lvls, 2)[::-1])
+                            axes[j, i].set_yticks(np.arange(num_lvls))
+                            axes[j, i].set_yticklabels(labels=np.round(coherence_lvls, 2)[::-1])
                             axes[j, i].set_ylabel("Color coherence")
                         else:
-                            axes[j, i].set_yticks(np.arange(num_lvls), labels=[])
+                            axes[j, i].set_yticks(np.arange(num_lvls))
+                            axes[j, i].set_yticklabels([])
 
         # fig.tight_layout()
         # plt.subplots_adjust(wspace=0.125, hspace=0.15)

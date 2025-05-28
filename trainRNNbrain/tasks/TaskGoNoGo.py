@@ -41,7 +41,7 @@ class TaskGoNoGo(Task):
             input_stream, target_stream, condition = self.generate_input_target_stream(input_value)
             inputs.append(deepcopy(input_stream))
             targets.append(deepcopy(target_stream))
-            conditions.append(np.copy(condition))
+            conditions.append(deepcopy(condition))
 
         # batch_size should be a last dimension
         inputs = np.stack(inputs, axis=2)

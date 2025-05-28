@@ -1,6 +1,5 @@
 import numpy as np
 from copy import deepcopy
-import numdifftools as nd
 
 '''
 lightweight numpy implementation of RNN for validation and quick testing and plotting
@@ -117,19 +116,6 @@ class RNN_numpy():
         h = W_rec y + W_inp u + b_rec
         '''
         return -h + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias_rec
-
-    def rhs_jac_h(self, h, input):
-        if len(input.shape) > 1:
-            raise ValueError(
-                "Jacobian computations work only for single point and a single input-vector. It doesn't yet work in the batch mode")
-        return nd.Jacobian(self.rhs_noisless_h)(h, input)
-
-    # def rhs_jac_explicit(self, y, input): #explicit Jacobian computation for RELU ONLY
-    #     arg = ((self.W_rec @ y).flatten() + (self.W_inp @ input.reshape(-1, 1)).flatten())
-    #     m = 0.5
-    #     D = np.diag(np.heaviside(arg, m))
-    #     J = -np.eye(self.N) + D @ self.W_rec
-    #     return J
 
     def step(self, input, sigma_rec=None, sigma_inp=None):
         self.y += (self.dt / self.tau) * self.rhs(self.y, input, sigma_rec, sigma_inp)
