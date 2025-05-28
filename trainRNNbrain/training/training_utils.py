@@ -85,17 +85,26 @@ def set_paths(taskname, tag):
     return data_save_path
 
 def plot_train_val_losses(train_losses, val_losses):
-    fig_trainloss = plt.figure(figsize=(10, 3))
-    plt.plot(train_losses, color='r', label='train loss (log scale)')
+    fig_trainloss, ax = plt.subplots(1, 1, figsize=(8, 4))
+
+    ax.plot(train_losses, color='r', label='train loss (log scale)')
     if len(val_losses) != 0:
-        plt.plot(val_losses, color='b', label='valid loss (log scale)')
-    plt.yscale("log")
-    plt.grid(True)
-    plt.legend(fontsize=16)
+        ax.plot(val_losses, color='b', label='valid loss (log scale)')
+
+    ax.set_yscale("log")
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.grid(True)
+
+    ax.legend(frameon=False)
+
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss")
+
     return fig_trainloss
 
 def plot_loss_breakdown(loss_monitor):
-    fig_loss_breakdown, ax = plt.subplots(figsize=(10, 3))
+    fig_loss_breakdown, ax = plt.subplots(figsize=(8, 4))
     ax.set_yscale('log')
     for key in loss_monitor:
         ax.plot(loss_monitor[key], label=key)

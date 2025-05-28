@@ -1,8 +1,13 @@
 from copy import deepcopy
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.animation import FuncAnimation
 import math
 import os
+
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+
 
 class PerformanceAnalyzer():
     '''
@@ -12,6 +17,10 @@ class PerformanceAnalyzer():
     def __init__(self, rnn_numpy, task=None):
         self.RNN = rnn_numpy
         self.Task = task
+        self.colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+                       '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+                       '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
+                       '#c49c94', '#f7b6d2', '#c7c7c7', '#dbdb8d', '#9edae5']
 
     def get_validation_score(self, scoring_function,
                              input_batch, target_batch, mask,
@@ -64,6 +73,278 @@ class PerformanceAnalyzer():
         fig_output.tight_layout()
         plt.subplots_adjust(hspace=0.15, wspace=0.15)
         return fig_output
+
+    def animate_trajectories(self, trajectories):
+        # Flatten and apply PCA
+        F = trajectories.reshape(trajectories.shape[0], -1)
+        pca = PCA(n_components=3)
+        pca.fit_transform(F.T)  # Note: fitting on F.T
+        P = pca.components_.T
+        T = P.T @ F
+        T = T.reshape(-1, trajectories.shape[1], trajectories.shape[2])  # Shape: (3, T, batch_size)
+
+        # Prepare figure and axis
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+        ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+        ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+        # Hide default axes and ticks
+
+        # Plot all trajectories
+        for k in range(T.shape[-1]):
+            ax.plot(T[0, :, k], T[1, :, k], T[2, :, k], color='r', alpha=0.1)
+
+        # Keep only the last tick on each axis
+        ax.set_xticks([ax.get_xlim()[0], ax.get_xlim()[-1]])
+        ax.set_yticks([ax.get_ylim()[0], ax.get_ylim()[-1]])
+        ax.set_zticks([ax.get_zlim()[0], ax.get_zlim()[-1]])
+        # Remove the tick labels
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_zticklabels([])
+
+        # Set up animation update function
+        def update(frame):
+            azim = frame
+            elev = frame / 10 + frame / 60
+            ax.view_init(elev=elev, azim=azim)
+            fig.canvas.draw()
+            return []
+
+        # Create animation
+        num_frames = 360 * 2
+        ani = FuncAnimation(fig, update, frames=np.arange(0, num_frames, 2), interval=1, blit=False)
+        return ani
+
+    def animate_selectivity(self, trajectories, axes=(0,1,2), labels=None):
+        # Flatten and apply PCA
+        F = trajectories.reshape(trajectories.shape[0], -1)
+        pca = PCA(n_components=10)
+        pca.fit_transform(F)
+        P = pca.components_
+        S = F @ P.T
+
+        # Prepare the figure and axis
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+
+        # Choose colors
+        if labels is not None:
+            unique_labels = np.unique(labels)
+            colors = [self.colors[i % len(self.colors)] for i in range(len(unique_labels))]
+            point_colors = [colors[np.where(unique_labels == l)[0][0]] for l in labels]
+        else:
+            point_colors = ['r'] * S.shape[0]
+
+        # Initial scatter plot
+        scatter = ax.scatter(*(S[:, j] for j in axes), c=point_colors, marker='o', s=40, edgecolor='k')
+
+        # Keep only the last tick on each axis
+        ax.set_xticks([ax.get_xlim()[0], ax.get_xlim()[-1]])
+        ax.set_yticks([ax.get_ylim()[0], ax.get_ylim()[-1]])
+        ax.set_zticks([ax.get_zlim()[0], ax.get_zlim()[-1]])
+        # Remove the tick labels
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_zticklabels([])
+
+        # Set up animation update function
+        def update(frame):
+            azim = frame
+            elev = frame / 10 + frame / 60
+            ax.view_init(elev=elev, azim=azim)
+            fig.canvas.draw()
+            return scatter,
+
+        # Animation setup
+        num_frames = 360 * 2
+        ani = FuncAnimation(fig, update, frames=np.arange(0, num_frames, 2), interval=1, blit=False)
+        return ani
+
+    def plot_matrices(self):
+        import matplotlib.pyplot as plt
+
+        fig_matrices, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+        # Plot input weights
+        im0 = axes[0].imshow(self.RNN.W_inp.T, vmin=-1, vmax=1, cmap='bwr')
+        axes[0].set_title("W_inp.T")
+
+        # Plot recurrent weights
+        im1 = axes[1].imshow(self.RNN.W_rec, vmin=-1, vmax=1, cmap='bwr')
+        axes[1].set_title("W_rec")
+
+        # Plot output weights
+        im2 = axes[2].imshow(self.RNN.W_out, vmin=-1, vmax=1, cmap='bwr')
+        axes[2].set_title("W_out")
+
+        # Remove ticks
+        for ax in axes:
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+        # Adjust layout first
+        fig_matrices.tight_layout(rect=[0, 0.05, 1, 1])  # Leave space at bottom for colorbar
+
+        # Add horizontal colorbar below all plots
+        cbar_ax = fig_matrices.add_axes([0.25, 0.04, 0.5, 0.03])  # [left, bottom, width, height]
+        fig_matrices.colorbar(im2, cax=cbar_ax, orientation='horizontal')
+
+        return fig_matrices
+
+    def composite_lexicographic_sort(self, matrix1, matrix2, dale_mask):
+        """
+        Sorts rows by:
+        1. Lexicographic order of matrix1
+        2. Then matrix2
+        3. Then dale_mask (-1 before +1)
+        Args:
+            matrix1 (np.ndarray): shape (N, D1), one-hot rows
+            matrix2 (np.ndarray): shape (N, D2), one-hot rows
+            dale_mask (np.ndarray): shape (N,), values in {-1, +1}
+        Returns:
+            perm (np.ndarray): permutation of row indices
+        """
+        assert matrix1.shape[0] == matrix2.shape[0] == dale_mask.shape[0], "Mismatch in row count"
+        idx1 = np.argmax(matrix1, axis=1)  # primary key
+        idx2 = np.argmax(matrix2, axis=1)  # secondary key
+        perm = np.lexsort((dale_mask, idx2, idx1))
+        return perm
+
+    def compute_intercluster_weights(self, W_inp, W_rec, W_out, labels):
+        """
+        Compute average inter-cluster connectivity matrices.
+
+        Args:
+            W_inp: (N, I)
+            W_rec: (N, N)
+            W_out: (O, N)
+            labels: (N,) array of integers in [0, C-1]
+
+        Returns:
+            w_inp: (C, I)
+            w_rec: (C, C)
+            w_out: (O, C)
+        """
+        N = labels.shape[0]
+        C = np.max(labels) + 1  # number of clusters
+
+        w_inp = np.zeros((C, W_inp.shape[1]))
+        w_rec = np.zeros((C, C))
+        w_out = np.zeros((W_out.shape[0], C))
+
+        for i in range(C):
+            idx_i = np.where(labels == i)[0]
+            if len(idx_i) == 0:
+                continue
+            # Average input into cluster i
+            w_inp[i] = W_inp[idx_i].mean(axis=0)
+
+            for j in range(C):
+                idx_j = np.where(labels == j)[0]
+                if len(idx_j) == 0:
+                    continue
+                # Average recurrent weight from cluster j to i
+                submatrix = W_rec[np.ix_(idx_i, idx_j)]
+                w_rec[i, j] = submatrix.mean()
+
+        # Average output from each cluster
+        for j in range(C):
+            idx_j = np.where(labels == j)[0]
+            if len(idx_j) == 0:
+                continue
+            w_out[:, j] = W_out[:, idx_j].mean(axis=1)
+
+        return w_inp, w_rec, w_out
+
+    def permute_matrices(self, W_inp, W_rec, W_out, dale_mask, perm):
+        W_inp_ = W_inp[perm, :]
+        W_rec_ = W_rec[perm, :]
+        W_rec_ = W_rec_[:, perm]
+        W_out_ = W_out[:, perm]
+        dale_mask_ = dale_mask[perm]
+        return W_inp_, W_rec_, W_out_, dale_mask_
+
+    def cluster_neurons(self, trajectories, dale_mask=None, n_clusters=(8, 4)):
+        if dale_mask is None:
+            F = trajectories.reshape(trajectories.shape[0], -1)
+            pca = PCA(n_components=10)
+            pca.fit_transform(F)
+            P = pca.components_.T
+            D = F @ P
+            cl = KMeans(n_clusters=n_clusters)
+            cl.fit(D)
+            labels = cl.labels_
+        else:
+            idx_pos = np.where(dale_mask==True)[0]
+            idx_neg = np.where(dale_mask==False)[0]
+            trajectories_pos = trajectories[idx_pos, ...]
+            trajectories_neg = trajectories[idx_neg, ...]
+            labels_pos = self.cluster_neurons(trajectories_pos, dale_mask=None, n_clusters=n_clusters[0])
+            labels_neg = self.cluster_neurons(trajectories_neg, dale_mask=None, n_clusters=n_clusters[1])
+
+            labels = np.zeros(dale_mask.shape)
+            labels_neg = len(np.unique(labels_pos)) + np.array(labels_neg)
+            labels[idx_pos] = labels_pos
+            labels[idx_neg] = labels_neg
+        return labels
+
+
+    def get_averaged_responses(self, trajectories, dale_mask, labels):
+        averaged_responses = np.zeros((len(np.unique(labels)), trajectories.shape[1], trajectories.shape[2]))
+        new_dale_mask = np.zeros(len(np.unique(labels)))
+
+        for lbl in np.unique(labels):
+            inds = np.where(labels == lbl)[0]
+            i = int(lbl)
+            averaged_responses[i, ...] = np.mean(trajectories[inds, ...], axis=0)
+            new_dale_mask[i] = (np.mean(dale_mask[inds]) >= 0.5)
+        return averaged_responses, new_dale_mask.astype(bool)
+
+    def plot_averaged_responses(self, averaged_responses, average_dale_mask=None, show=True, save=False, name=None):
+        n = averaged_responses.shape[0]
+        nr = int(np.floor(np.sqrt(n)))
+        nc = int(np.ceil(n / nr))
+        fig, ax = plt.subplots(nr, nc, figsize=(nc * 2, nr * 2))
+        ax = np.atleast_2d(ax)
+
+        for i in range(nr):
+            for j in range(nc):
+                k = i * nc + j
+                # print(f"Plotting responses of cluster {k}")
+                ax[i, j].spines['right'].set_visible(False)
+                ax[i, j].spines['top'].set_visible(False)
+
+                if k >= n:
+                    ax[i, j].imshow(np.zeros_like(averaged_responses[-1].T), cmap='bwr', vmin=-1, vmax=1)
+                else:
+                    if average_dale_mask is not None:
+                        s = 2 * (average_dale_mask[k].astype(float) - 0.5)
+                    else:
+                        s = 1.0
+                    ax[i, j].imshow(s * averaged_responses[k].T, cmap='bwr', vmin=-1, vmax=1)
+
+                if i != nr - 1:
+                    ax[i, j].set_xticklabels([])
+                if j != 0:
+                    ax[i, j].set_yticklabels([])
+
+        plt.tight_layout()
+        return fig
+
+
+    def get_trajectories(self, inputs):
+        self.RNN.clear_history()
+        self.RNN.y = self.RNN.y_init
+        self.RNN.run(input_timeseries=inputs, sigma_rec=0, sigma_inp=0)
+        trajectories = self.RNN.get_history()
+        outputs = self.RNN.get_output()
+        return trajectories, outputs
 
 
 class PerformanceAnalyzerCDDM(PerformanceAnalyzer):

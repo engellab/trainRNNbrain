@@ -13,7 +13,7 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
 def run_training(cfg: DictConfig) -> None:
     taskname = cfg.task.taskname
-    tag = f"{cfg.model.activation_name}_constrained={cfg.model.constrained}_v3"
+    tag = f"{cfg.model.activation_name}_constrained={cfg.model.constrained}"
     print(f"training {taskname}, {tag}")
     data_save_path = set_paths(taskname=taskname, tag=tag)
     disp = cfg.display_figures
@@ -97,18 +97,59 @@ def run_training(cfg: DictConfig) -> None:
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_loss_breakdown, f"{score}_loss_breakdown.png")
 
-        print(f"Plotting random trials")
         inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), np.minimum(input_batch_valid.shape[-1], 12))
         inputs = input_batch_valid[..., inds]
         targets = target_batch_valid[..., inds]
         conditions = [conditions_valid[ind] for ind in inds]
-
         fig_trials = analyzer.plot_trials(inputs, targets, mask,
                                           sigma_rec=cfg.model.sigma_rec,
                                           sigma_inp=cfg.model.sigma_inp,
                                           conditions=conditions)
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials.png")
+
+        trajectories, outputs = analyzer.get_trajectories(input_batch_valid)
+        # # animating trajectories:
+        ani_trajectories = analyzer.animate_trajectories(trajectories)
+        if disp: plt.show()
+        if not (datasaver is None): datasaver.save_animation(ani_trajectories, "animated_trajectories.mp4")
+
+        if cfg.model.constrained:
+            dale_mask = ((np.sign(np.sum(RNN_valid.W_rec, axis = 0)) + 1) / 2).astype(bool)
+            perm = analyzer.composite_lexicographic_sort(RNN_valid.W_inp, RNN_valid.W_rec, dale_mask)
+            W_inp_, W_rec_, W_out_, dale_mask_ = analyzer.permute_matrices(RNN_valid.W_inp,
+                                                                           RNN_valid.W_rec,
+                                                                           RNN_valid.W_out,
+                                                                           dale_mask, perm)
+            analyzer.RNN.W_inp = W_inp_
+            analyzer.RNN.W_rec = W_rec_
+            analyzer.RNN.W_out = W_out_
+            analyzer.RNN.dale_mask = dale_mask_
+            trajectories_, _ = analyzer.get_trajectories(input_batch_valid) # get sorted trajectories
+
+            fig_matrices = analyzer.plot_matrices()
+            if disp: plt.show()
+            if not (datasaver is None): datasaver.save_figure(fig_matrices, "sorted_matrices.png")
+
+            labels_ = analyzer.cluster_neurons(trajectories_, dale_mask_)
+            averaged_responses, grouped_dale_mask = analyzer.get_averaged_responses(trajectories_,
+                                                                                    dale_mask=dale_mask_,
+                                                                                    labels=labels_)
+            avg_responses = analyzer.plot_averaged_responses(averaged_responses, grouped_dale_mask)
+            if disp: plt.show()
+            if not (datasaver is None): datasaver.save_figure(avg_responses, "avg_responses.png")
+        else:
+            dale_mask_ = None
+            labels_ = None
+            trajectories_ = trajectories
+
+        # animating selectivity:
+        ani_selectivity = analyzer.animate_selectivity(trajectories=trajectories_,
+                                                       axes=(0,1,2),
+                                                       labels=labels_)
+        if disp: plt.show()
+        if not (datasaver is None): datasaver.save_animation(ani_selectivity, "animated_selectivity.mp4")
+
 
 if __name__ == "__main__":
     run_training()

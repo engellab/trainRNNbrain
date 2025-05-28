@@ -1,5 +1,5 @@
 # @package trainer
-max_iter: 500 # 6000
+max_iter: 100 # 6000
 tol: 1e-10
 lr: 0.005
 weight_decay: 5e-06

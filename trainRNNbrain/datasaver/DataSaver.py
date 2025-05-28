@@ -35,4 +35,8 @@ class DataSaver():
         figure.savefig(os.path.join(self.data_folder, file_name), dpi=300, format='png')
         return None
 
-    # def save_to_dj(self, data_dict):
+    def save_animation(self, ani, file_name):
+        '''saving an animation as a mp4'''
+        ani.save(os.path.join(self.data_folder, file_name), writer='ffmpeg', fps=30, dpi=300)
+        return None
+
