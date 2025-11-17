@@ -45,7 +45,8 @@ class DynamicSystemAnalyzer():
                          sigma_init_guess=0.01,
                          eig_cutoff=1e-10,
                          diff_cutoff=1e-7,
-                         mode='exact'):
+                         mode='exact',
+                         seed=42):
         '''
         calculates fixed points (stable, unstable and marginally stable)
         :param Input: np.array, input to the RNN at which the fixed points are calculated
@@ -70,19 +71,19 @@ class DynamicSystemAnalyzer():
         marginally_stable_fps = []
         all_points = []
         N = self.RNN.W_rec.shape[0]
+        rng = np.random.default_rng(seed)  # Create a local RNG
         cntr = 0  # counter parameter, keeps track of how many times in a row an optimizer didn't find any new fp
         # proceed while (cntr <= patience) and unless one of the list start to overflow (because of a 2d attractor)
         while (cntr <= patience) and (len(all_points) < stop_length):
-            # x0 = sigma_init_guess * np.random.randn(N)
-            t = np.random.randint(self.trajectories.shape[1] // 2, self.trajectories.shape[1])
-            k = np.random.randint(self.trajectories.shape[2])
-            x0 = self.trajectories[:, t, k] + sigma_init_guess * np.random.randn(N)
+            t = rng.integers(self.trajectories.shape[1] // 2, self.trajectories.shape[1])
+            k = rng.integers(self.trajectories.shape[2])
+            x0 = self.trajectories[:, t, k] + sigma_init_guess * rng.standard_normal(N)
 
             # finding the roots of RHS of the RNN
             if mode == 'exact':
                 x_root = fsolve(func=self.rhs, x0=x0, fprime=self.rhs_jac, args=(Input,))
             elif mode == "approx":
-                res = scipy.optimize.minimize(fun=self.objective, x0=x0, args=(Input,), method='Powell')
+                res = scipy.optimize.minimize(fun=self.objective, x0=x0, args=(Input,), method='Powell', seed=seed)
                 x_root = res.x
             else:
                 raise ValueError(f"Mode {mode} is not implemented!")
@@ -372,7 +373,7 @@ class DynamicSystemAnalyzerCDDM(DynamicSystemAnalyzer):
                 irrel_inds = self.sensory_inds_color if ctxt == 'motion' else self.sensory_inds_motion
                 nudge_inds = rel_inds if stim_status == 'relevant' else irrel_inds
 
-                x0 = 0.00 * np.random.randn(self.RNN.N)
+                x0 = 0.00 * rng.standard_normal(self.RNN.N)
                 input = deepcopy(self.neutral_input)
                 input[:2] = np.array([val, 1 - val])
                 input_timeseries = np.repeat(input[:, np.newaxis], axis=1, repeats=steps_context_only_on)

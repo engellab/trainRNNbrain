@@ -3,19 +3,17 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 import math
-import os
-
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-
+import os
 
 class PerformanceAnalyzer():
     '''
     Generic class for analysis of the RNN performance on the given task
     '''
-
-    def __init__(self, rnn_numpy, task=None):
+    def __init__(self, rnn_numpy, task=None, seed=42):
         self.RNN = rnn_numpy
+        self.RNN.rng = np.random.default_rng(seed)
         self.Task = task
         self.colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
                        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
@@ -24,9 +22,10 @@ class PerformanceAnalyzer():
 
     def get_validation_score(self, scoring_function,
                              input_batch, target_batch, mask,
-                             sigma_rec=0, sigma_inp=0):
+                             sigma_rec=0, sigma_inp=0, seed=42):
         batch_size = input_batch.shape[2]
         self.RNN.clear_history()
+        self.RNN.rng = np.random.default_rng(seed)
         self.RNN.run(input_timeseries=input_batch,
                      sigma_rec=sigma_rec,
                      sigma_inp=sigma_inp)
@@ -56,7 +55,7 @@ class PerformanceAnalyzer():
         for k in range(batch_size):
             if not (conditions is None):
                 condition_str = ''.join([f"{key}: {conditions[k][key] if type(conditions[k][key]) == str else np.round(conditions[k][key], 3)}\n" for key in conditions[k].keys()])
-                axes[k].text(s=condition_str, x=n_steps // 10, y=0.05, color='darkviolet')
+                axes[k].text(s=condition_str, x=n_steps // 15, y=0.05, color='darkviolet')
 
             for i in range(n_outputs):
                 tag = labels[i] if not (labels is None) else ''
@@ -67,7 +66,7 @@ class PerformanceAnalyzer():
             axes[k].spines.top.set_visible(False)
             if k != batch_size - 1:
                 axes[k].set_xticks([])
-        axes[0].legend(frameon=False, loc=(0.05, 1.1), ncol=2)
+        axes[0].legend(frameon=False, loc=(0.01, 1.0), ncol=2)
         axes[batch_size // 2].set_ylabel("Output")
         axes[-1].set_xlabel("time step, ms")
         fig_output.tight_layout()
@@ -166,54 +165,112 @@ class PerformanceAnalyzer():
         ani = FuncAnimation(fig, update, frames=np.arange(0, num_frames, 2), interval=1, blit=False)
         return ani
 
-    def plot_matrices(self):
-        import matplotlib.pyplot as plt
+    def plot_matrices(self, W_inp=None, W_rec=None, W_out=None):
+        W_inp = self.RNN.W_inp if (W_inp is None) else W_inp
+        W_rec = self.RNN.W_rec if (W_rec is None) else W_rec
+        W_out = self.RNN.W_out if (W_out is None) else W_out
 
-        fig_matrices, axes = plt.subplots(1, 3, figsize=(15, 5))
+        # --- limits like before ---
+        lim_full = np.max(np.abs(W_rec))  # for W_inp_.T and W_out_
+        lim_rec = np.quantile(np.abs(W_rec), 0.99)  # for W_rec_
 
-        # Plot input weights
-        im0 = axes[0].imshow(self.RNN.W_inp.T, vmin=-1, vmax=1, cmap='bwr')
-        axes[0].set_title("W_inp.T")
+        # --- shapes + common x-range ---
+        r_inp, c_inp = W_inp.T.shape
+        r_rec, c_rec = W_rec.shape  # should be square (N x N)
+        r_out, c_out = W_out.shape
+        xmax = max(c_inp, c_rec, c_out)
 
-        # Plot recurrent weights
-        im1 = axes[1].imshow(self.RNN.W_rec, vmin=-1, vmax=1, cmap='bwr')
-        axes[1].set_title("W_rec")
+        # --- figure + gridspec with tiny vertical spacing ---
+        fig_matrices = plt.figure(figsize=(4, 6), dpi=150, constrained_layout=False)
 
-        # Plot output weights
-        im2 = axes[2].imshow(self.RNN.W_out, vmin=-1, vmax=1, cmap='bwr')
-        axes[2].set_title("W_out")
+        # Height ratios that match your aspects:
+        # axes_height / axes_width  ≈  aspect * (rows / cols)
+        hr0 = 10.0 * (r_inp / c_inp)  # top: aspect=10
+        hr1 = 1.0 * (r_rec / c_rec)  # middle: 'equal' ⇒ square; if r_rec==c_rec ⇒ 1.0
+        hr2 = 10.0 * (r_out / c_out)  # bottom: aspect=10
 
-        # Remove ticks
-        for ax in axes:
-            ax.set_xticks([])
-            ax.set_yticks([])
+        gs = fig_matrices.add_gridspec(
+            nrows=3, ncols=1,
+            height_ratios=[hr0, hr1, hr2],
+            hspace=0.01,  # minimal gap
+            left=0.15, right=0.98, top=0.98, bottom=0.07
+        )
 
-        # Adjust layout first
-        fig_matrices.tight_layout(rect=[0, 0.05, 1, 1])  # Leave space at bottom for colorbar
+        ax0 = fig_matrices.add_subplot(gs[0])
+        ax1 = fig_matrices.add_subplot(gs[1], sharex=ax0)
+        ax2 = fig_matrices.add_subplot(gs[2], sharex=ax0)
 
-        # Add horizontal colorbar below all plots
-        cbar_ax = fig_matrices.add_axes([0.25, 0.04, 0.5, 0.03])  # [left, bottom, width, height]
-        fig_matrices.colorbar(im2, cax=cbar_ax, orientation='horizontal')
+        # --- Panel 1: W_inp^T (aspect=10) ---
+        im0 = ax0.imshow(
+            W_inp.T, cmap='bwr',
+            vmin=-lim_full, vmax=lim_full,
+            aspect=10,
+            extent=(0, c_inp, r_inp, 0)
+        )
+        ax0.set_title(r"$W_{\mathrm{inp}}^\top$", pad=2)
+        ax0.set_xlim(0, xmax)
+
+        # --- Panel 2: W_rec (square) ---
+        im1 = ax1.imshow(
+            W_rec, cmap='bwr',
+            vmin=-lim_rec, vmax=lim_rec,
+            aspect='equal',  # square pixels
+            extent=(0, c_rec, r_rec, 0)
+        )
+        ax1.set_aspect('equal', adjustable='box')  # force square within the axes box
+        ax1.set_title(r"$W_{\mathrm{rec}}$ (|.| clipped at 99th pct)", pad=2)
+        ax1.set_xlim(0, xmax)
+
+        # --- Panel 3: W_out (aspect=10) ---
+        im2 = ax2.imshow(
+            W_out, cmap='bwr',
+            vmin=-lim_full, vmax=lim_full,
+            aspect=10,
+            extent=(0, c_out, r_out, 0)
+        )
+        ax2.set_title(r"$W_{\mathrm{out}}$", pad=2)
+        ax2.set_xlim(0, xmax)
+        ax2.set_xlabel("Column index", labelpad=2)
+
+        # Cosmetics
+        for ax in (ax0, ax1, ax2):
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.set_ylabel("Row index", labelpad=2)
+        for ax in (ax0, ax1):
+            ax.label_outer()  # hide x tick labels on top/middle
 
         return fig_matrices
 
-    def composite_lexicographic_sort(self, matrix1, matrix2, dale_mask):
-        """
-        Sorts rows by:
-        1. Lexicographic order of matrix1
-        2. Then matrix2
-        3. Then dale_mask (-1 before +1)
-        Args:
-            matrix1 (np.ndarray): shape (N, D1), one-hot rows
-            matrix2 (np.ndarray): shape (N, D2), one-hot rows
-            dale_mask (np.ndarray): shape (N,), values in {-1, +1}
-        Returns:
-            perm (np.ndarray): permutation of row indices
-        """
-        assert matrix1.shape[0] == matrix2.shape[0] == dale_mask.shape[0], "Mismatch in row count"
-        idx1 = np.argmax(matrix1, axis=1)  # primary key
-        idx2 = np.argmax(matrix2, axis=1)  # secondary key
-        perm = np.lexsort((dale_mask, idx2, idx1))
+    def composite_lexicographic_sort(self, matrix1, matrix2, dale_mask, thr=1e-3):
+        N, D1 = matrix1.shape
+        _, D2 = matrix2.shape
+
+        M1_clean = np.zeros((N, D1 + 1), dtype=int)
+        M2_clean = np.zeros((N, D2 + 1), dtype=int)
+
+        # build cleaned/thresholded one-hots for matrix1
+        m1_max = np.max(matrix1, axis=1)
+        m1_arg = np.argmax(matrix1, axis=1)
+        weak1 = m1_max < thr
+        M1_clean[np.arange(N), np.where(weak1, D1, m1_arg)] = 1
+
+        # build cleaned/thresholded one-hots for matrix2
+        m2_max = np.max(matrix2, axis=1)
+        m2_arg = np.argmax(matrix2, axis=1)
+        weak2 = m2_max < thr
+        M2_clean[np.arange(N), np.where(weak2, D2, m2_arg)] = 1
+
+        # now get class indices from cleaned matrices
+        m1_idx = np.argmax(M1_clean, axis=1)
+        m2_idx = np.argmax(M2_clean, axis=1)
+
+        # stack sort keys
+        keys = np.column_stack([dale_mask, m1_idx, m2_idx])
+
+        # dale_mask -> m1_idx -> m2_idx
+        perm = np.lexsort(keys.T[::-1])
+
         return perm
 
     def compute_intercluster_weights(self, W_inp, W_rec, W_out, labels):
@@ -232,7 +289,7 @@ class PerformanceAnalyzer():
             w_out: (O, C)
         """
         N = labels.shape[0]
-        C = np.max(labels) + 1  # number of clusters
+        C = int(np.max(labels)) + 1  # number of clusters
 
         w_inp = np.zeros((C, W_inp.shape[1]))
         w_rec = np.zeros((C, C))
@@ -338,13 +395,27 @@ class PerformanceAnalyzer():
         return fig
 
 
-    def get_trajectories(self, inputs):
+    def get_trajectories(self, inputs, sigma_rec=0, sigma_inp=0, seed=42):
         self.RNN.clear_history()
+        self.RNN.rng = np.random.default_rng(seed)
         self.RNN.y = self.RNN.y_init
-        self.RNN.run(input_timeseries=inputs, sigma_rec=0, sigma_inp=0)
+        self.RNN.run(input_timeseries=inputs, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
         trajectories = self.RNN.get_history()
         outputs = self.RNN.get_output()
         return trajectories, outputs
+
+    def plot_participation(self, trajectories):
+        participation = np.std(trajectories, axis=(1, 2)) + np.quantile(np.abs(trajectories), axis=(1, 2), q=0.9)
+        fig, ax = plt.subplots()  # Create figure and axes
+        ax.hist(participation, bins=50, edgecolor='black', color='deepskyblue')  # Plot histogram on the axes
+        ax.axvline(np.quantile(participation, 0.2), linestyle='--', color='k')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.set_xlabel("Participation (Std + Mean)")
+        ax.set_ylabel("Number of units")
+        ax.set_xlim([-0.01, max(participation)])
+        plt.tight_layout()
+        return fig
 
 
 class PerformanceAnalyzerCDDM(PerformanceAnalyzer):

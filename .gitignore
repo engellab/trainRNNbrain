@@ -1,25 +1,58 @@
+# OS-specific junk
 .DS_Store
+
+# IDE / editor files
 *.iml
-.idea/.name
-*.pkl
+.idea/
+.vscode/
+venv/
+
+# Python artifacts
+__pycache__/
 *.pyc
+*.pkl
+.ipynb_checkpoints/
+*.egg-info/
+
+# Hydra outputs
+**/multirun/
+**/outputs/
+
+# Data and model artifacts
 /data/
-/trainRNNbrain/datajoint/
-/data/*
-/slurm/*
-/slurm/
+data/trained_RNNs/
+trainRNNbrain/datajoint/
+trainRNNbrain/outputs
+trainRNNbrain/training/outputs
+trainRNNbrain/training/multirun
+
+# Logs, Slurm, and run metadata
 /log/
+/slurm/
+*.slurm
+*.log
+
+# Style / figures / media / JSON
 /style/
 *.png
-*.json
-*.mp4
 *.gif
+*.svg
+*.jpg
+*.jpeg
+*.tiff
+*.bmp
+*.pdf
+*.mp4
+*.mov
+*.avi
+*.mp3
+*.wav
+*.json
+/img/
 
-*.slurm
-data/trained_RNNs/*
-/trainRNNbrain/outputs
-/trainRNNbrain/training/outputs
-/trainRNNbrain/training/multirun
-/img/dimensionality_reduction/
-/trainRNNbrain/experiments_and_analysis/
 
+# ignore any files and folders that contain 'test'
+# ignore files/folders that have `_test` in their name
+*_test*
+# or with multiple possible delimiters:
+*[_-]test*

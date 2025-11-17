@@ -61,13 +61,12 @@ class TaskCDDM(Task):
         # Target stream
         if self.n_outputs == 1:
             target_stream = np.zeros((1, self.n_steps))
-            target_stream[0, self.dec_on - 1:self.dec_off] = np.sign(motion_coh) if (context == 'motion') else np.sign(
-                color_coh)
+            target_stream[0, self.dec_on - 1:self.dec_off] = np.sign(motion_coh) if (context == 'motion') else np.sign(color_coh)
         else:
             target_stream = np.zeros((self.n_outputs, self.n_steps))
             relevant_coh = motion_coh if (context == 'motion') else color_coh
             if relevant_coh == 0.0:
-                pass
+                target_stream[:, self.dec_on - 1:self.dec_off] = 0.5
             else:
                 decision = np.sign(relevant_coh)
                 ind = 0 if (decision == 1.0) else 1

@@ -3,6 +3,7 @@ import os
 import pickle
 from datetime import date
 from omegaconf import OmegaConf
+from trainRNNbrain.utils import jsonify
 
 class DataSaver():
     '''
@@ -18,16 +19,21 @@ class DataSaver():
         self.dj_integration = dj_integration
 
     def save_data(self, data, file_name):
-        '''save data as a pickle or json file, depending on the name'''
+        '''save data as pkl, json, yaml or txt'''
         if 'pkl' in file_name:
             pickle.dump(data, open(os.path.join(self.data_folder, file_name), "wb+"))
         elif 'json' in file_name:
+            data = jsonify(data) # make sure data is json/yaml serializable
             json_obj = json.dumps(data, indent=4)
             outfile = open(os.path.join(self.data_folder, file_name), mode="w")
             outfile.write(json_obj)
         elif 'yaml' in file_name:
+            data = jsonify(data) # make sure data is json/yaml serializable
             outfile = open(os.path.join(self.data_folder, file_name), mode="w")
             OmegaConf.save(data, outfile)
+        elif 'txt' in file_name:
+            outfile = open(os.path.join(self.data_folder, file_name), mode="w")
+            outfile.write(data)
         return None
 
     def save_figure(self, figure, file_name):

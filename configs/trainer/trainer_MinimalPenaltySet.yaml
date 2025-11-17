@@ -1,0 +1,28 @@
+# @package trainer
+max_iter: 4000
+tol: 1e-10
+lr: 0.001
+weight_decay: 1e-6
+orth_input_only: True
+lambda_orth: 0.3
+lambda_iwm: 0
+lambda_rwm: 0
+lambda_ow: 0
+lambda_met: 0
+lambda_rws: 0 # sparsity
+lambda_sm: 0.01 # magnitude of firing rates
+lambda_tv: 0 # trial output variability (across trials)
+lambda_si: 0 
+lambda_hi: 0
+lambda_htvar: 0
+lambda_hlvar: 0
+lambda_cl: 0
+cap_s : 0.7
+cap_low : 0.05
+cap_high: 0.7
+p: 2
+same_batch: True
+dropout: False
+drop_rate: 0
+inequality_method: 'hhi'
+

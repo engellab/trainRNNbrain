@@ -1,2 +1,2 @@
 # @package paths
-save_to: "/../../../../scratch/gpfs/pt1290/trainRNNbrain/data/trained_RNNs"
+save_to: "/home/pt1290/trainRNNbrain/data/trained_RNNs"

@@ -1,32 +1,16 @@
+import textwrap
 import numpy as np
-from scipy.sparse import random
-from scipy.stats import uniform
-from numpy.linalg import eig
 from pathlib import Path
-from matplotlib.colors import hsv_to_rgb
-from matplotlib.colors import ListedColormap
 import torch
-
-def jsonify(dct):
-    dct_jsonified = {}
-    for key in list(dct.keys()):
-        if type(dct[key]) == type({}):
-            dct_jsonified[key] = jsonify(dct[key])
-        elif type(dct[key]) == np.ndarray:
-            dct_jsonified[key] = dct[key].tolist()
-        else:
-            dct_jsonified[key] = dct[key]
-    return dct_jsonified
-
-def get_project_root():
-    return Path(__file__).parent.parent
-
-
-def numpify(function_torch):
-    return lambda x: function_torch(torch.Tensor(x)).detach().numpy()
+import ast
+import inspect, importlib.util, pathlib
+from pathlib import Path
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
 
 
 def in_the_list(x, x_list, diff_cutoff=1e-6):
+    ''' Check if x is in x_list within a certain L2 norm cutoff. '''
     for i in range(len(x_list)):
         diff = np.linalg.norm(x - x_list[i], 2)
         if diff < diff_cutoff:
@@ -34,25 +18,132 @@ def in_the_list(x, x_list, diff_cutoff=1e-6):
     return False
 
 
+def count_return_values(func):
+    ''' Count the number of return values of a function. '''
+    try:
+        source = inspect.getsource(func)
+        source = textwrap.dedent(source)  # <-- fix
+        tree = ast.parse(source)
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Return):
+                if isinstance(node.value, ast.Tuple):
+                    return len(node.value.elts)
+                elif node.value is not None:
+                    return 1
+                else:
+                    return 0
+        return None
+    except Exception as e:
+        print(f"Error in count_return_values: {e}")
+        return None
+    
+
+# DATA ANALYSIS UTILITIES
+def composite_lexicographic_sort(matrix1, matrix2, dale_mask):
+    """
+    Sorts rows by:
+    1. Lexicographic order of matrix1
+    2. Then matrix2
+    3. Then dale_mask (-1 before +1)
+    Args:
+        matrix1 (np.ndarray): shape (N, D1), one-hot rows
+        matrix2 (np.ndarray): shape (N, D2), one-hot rows
+        dale_mask (np.ndarray): shape (N,), values in {-1, +1}
+    Returns:
+        perm (np.ndarray): permutation of row indices
+    """
+    assert matrix1.shape[0] == matrix2.shape[0] == dale_mask.shape[0], "Mismatch in row count"
+    idx1 = np.argmax(matrix1, axis=1)  # primary key
+    idx2 = np.argmax(matrix2, axis=1)  # secondary key
+    sort_keys = np.lexsort((dale_mask, idx2, idx1))
+    return sort_keys
+
+def compute_intercluster_weights(W_inp, W_rec, W_out, labels):
+    """
+    Compute average inter-cluster connectivity matrices.
+
+    Args:
+        W_inp: (N, I)
+        W_rec: (N, N)
+        W_out: (O, N)
+        labels: (N,) array of integers in [0, C-1]
+
+    Returns:
+        w_inp: (C, I)
+        w_rec: (C, C)
+        w_out: (O, C)
+    """
+    N = labels.shape[0]
+    C = np.max(labels) + 1  # number of clusters
+
+    w_inp = np.zeros((C, W_inp.shape[1]))
+    w_rec = np.zeros((C, C))
+    w_out = np.zeros((W_out.shape[0], C))
+
+    for i in range(C):
+        idx_i = np.where(labels == i)[0]
+        if len(idx_i) == 0:
+            continue
+        # Average input into cluster i
+        w_inp[i] = W_inp[idx_i].mean(axis=0)
+
+        for j in range(C):
+            idx_j = np.where(labels == j)[0]
+            if len(idx_j) == 0:
+                continue
+            # Average recurrent weight from cluster j to i
+            submatrix = W_rec[np.ix_(idx_i, idx_j)]
+            w_rec[i, j] = submatrix.mean()
+
+    # Average output from each cluster
+    for j in range(C):
+        idx_j = np.where(labels == j)[0]
+        if len(idx_j) == 0:
+            continue
+        w_out[:, j] = W_out[:, idx_j].mean(axis=1)
+
+    return w_inp, w_rec, w_out
+
+def permute_matrices(W_inp, W_rec, W_out, perm):
+    W_inp_ = W_inp[perm, :]
+    W_rec_ = W_rec[perm, :]
+    W_rec_ = W_rec_[:, perm]
+    W_out_ = W_out[:, perm]
+    return W_inp_, W_rec_, W_out_
+
+def cluster_neurons(trajectories, dale_mask=None, n_clusters=(8, 4)):
+    if dale_mask is None:
+        F = trajectories.reshape(trajectories.shape[0], -1)
+        pca = PCA(n_components=10)
+        pca.fit_transform(F)
+        P = pca.components_.T
+        D = F @ P
+        cl = KMeans(n_clusters=n_clusters)
+        cl.fit(D)
+        labels = cl.labels_
+    else:
+        idx_pos = np.where(dale_mask > 0)[0]
+        idx_neg = np.where(dale_mask < 0)[0]
+        trajectories_pos = trajectories[idx_pos, ...]
+        trajectories_neg = trajectories[idx_neg, ...]
+        labels_pos = cluster_neurons(trajectories_pos, dale_mask=None, n_clusters=n_clusters[0])
+        labels_neg = cluster_neurons(trajectories_neg, dale_mask=None, n_clusters=n_clusters[1])
+
+        labels = np.zeros_like(dale_mask)
+        labels_neg = len(np.unique(labels_pos)) + np.array(labels_neg)
+        labels[np.where(dale_mask==1)[0]] = labels_pos
+        labels[np.where(dale_mask == -1)[0]] = labels_neg
+    return labels
+
+# MATH UTILITIES
+
 def orthonormalize(W):
     for i in range(W.shape[-1]):
         for j in range(i):
             W[:, i] = W[:, i] - W[:, j] * np.dot(W[:, i], W[:, j])
         W[:, i] = W[:, i] / np.linalg.norm(W[:, i])
     return W
-
-
-def ReLU(x):
-    return np.maximum(x, 0)
-
-
-def generate_recurrent_weights(N, density, sr):
-    A = (1.0 / (density * np.sqrt(N))) * np.array(random(N, N, density, data_rvs=uniform(-1, 2).rvs).todense())
-    # get eigenvalues
-    w, v = eig(A)
-    A = A * (sr / np.max(np.abs(w)))
-    return A
-
 
 def sort_eigs(E, R):
     # sort eigenvectors
@@ -72,37 +163,104 @@ def make_orientation_consistent(vectors, num_iter=10):
         vectors[np.where(dot_prod < 0)[0], :] *= -1
     return vectors
 
-
 def cosine_sim(A, B):
     v1 = A.flatten() / np.linalg.norm(A.flatten())
     v2 = B.flatten() / np.linalg.norm(B.flatten())
     return np.round(np.dot(v1, v2), 3)
 
 
-def get_colormaps():
-    # define colors
-    color1 = hsv_to_rgb([357.93 / 360, 84.06 / 100, 81.18 / 100])  # red
-    color2 = hsv_to_rgb([226.73 / 360, 65 / 100, 64 / 100])  # blue
-    color3 = hsv_to_rgb([246.16 / 360, 33 / 100, 74 / 100])  # bluish
-    color4 = hsv_to_rgb([145.14 / 360, 93 / 100, 63 / 100])  # green
-    color5 = hsv_to_rgb([28.32 / 360, 87.35 / 100, 96.08 / 100])  # orange
-    color6 = hsv_to_rgb([196.11 / 360, 78 / 100, 93 / 100])  # light blue
-    color7 = hsv_to_rgb([305 / 360, 53.66 / 100, 64.31 / 100])  # magenta
+# FILE IMPORTING UTILITIES
+def import_any(target):
+    ''' Import a module or class from a dotted path or file path. '''
+    # file path
+    p = pathlib.Path(str(target))
+    if p.suffix == ".py" and p.exists():                       # file path
+        spec = importlib.util.spec_from_file_location(p.stem, str(p))
+        mod  = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+        return mod
+    # dotted path: module or module.Class
+    try:
+        return importlib.import_module(target)                 # module
+    except Exception:
+        mod_name, attr = target.rsplit(".", 1)                 # module.Class
+        mod = importlib.import_module(mod_name)
+        return getattr(mod, attr)
+    
+def get_source_code(obj_or_mod):
+    m = obj_or_mod if inspect.ismodule(obj_or_mod) else inspect.getmodule(obj_or_mod)
+    try:
+        return inspect.getsource(m)
+    except OSError:
+        # fallback if loaded from .pyc
+        import importlib.util, pathlib
+        path = pathlib.Path(getattr(m, "__file__", ""))
+        if path.suffix == ".pyc":
+            path = pathlib.Path(importlib.util.source_from_cache(str(path)))
+        return path.read_text()
+    
+def filter_kwargs(callable_obj, params: dict):
+    ''' Filter a dict of parameters to only those accepted by the callable_obj. '''
+    sig = inspect.signature(callable_obj)
+    # if it accepts **kwargs, pass everything through
+    if any(p.kind == p.VAR_KEYWORD for p in sig.parameters.values()):
+        return params
+    allowed = {name for name, p in sig.parameters.items()
+               if name != 'self' and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)}
+    return {k: v for k, v in params.items() if k in allowed}
+    
+def jsonify(x):
+    if isinstance(x, dict):
+        return {k: jsonify(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [jsonify(v) for v in x]
+    if isinstance(x, np.ndarray):
+        return x.tolist()
+    if isinstance(x, np.generic):
+        return x.item()
+    if torch is not None and isinstance(x, torch.Tensor):
+        return x.item() if x.numel() == 1 else x.detach().cpu().tolist()
+    return x
 
-    colors = [color1, color2, color3, color4, color5, color6, color7]
-    white = (1, 1, 1, 1)
+def unjsonify(dct):
+    dct_unjsonified = {}
+    for key in dct:
+        val = dct[key]
+        if isinstance(val, dict):
+            dct_unjsonified[key] = unjsonify(val)
+        elif isinstance(val, list):
+            try:
+                dct_unjsonified[key] = np.array(val)
+            except:
+                # Leave as list if it can't be safely converted
+                dct_unjsonified[key] = val
+        elif torch.is_tensor(val):
+            dct_unjsonified[key] = val.detach().cpu().numpy()
+        else:
+            dct_unjsonified[key] = val
+    return dct_unjsonified
 
-    # for i in range(7):
-    #     plt.plot(np.arange(9)-1*i, color=eval(f"color{i+1}"), linewidth = 10)
-    # plt.show()
+def get_project_root():
+    return Path(__file__).parent.parent
 
-    newcolors = np.zeros((256, 4))
-    newcolors[:, -1] = 1
-    newcolors[:128, 0] = np.linspace(color2[0], white[0], 128)
-    newcolors[128:, 0] = np.linspace(white[0], color1[0], 128)
-    newcolors[:128, 1] = np.linspace(color2[1], white[1], 128)
-    newcolors[128:, 1] = np.linspace(white[1], color1[1], 128)
-    newcolors[:128, 2] = np.linspace(color2[2], white[2], 128)
-    newcolors[128:, 2] = np.linspace(white[2], color1[2], 128)
-    cmp_light = ListedColormap(newcolors)
-    return colors, cmp_light
+def numpify(function_torch):
+    return lambda x: function_torch(torch.Tensor(x)).detach().numpy()
+
+def make_tag(cfg, net_params, score, taskname):
+    ''' Create a concise tag string summarizing the training configuration. '''
+    t = cfg.trainer
+    def abbr(k):
+        return 'L'+k[7:] if k.startswith('lambda_') else ''.join(w[0].upper() for w in k.split('_') if w)
+    def fmt(v):
+        return f"{v:.3g}" if isinstance(v, float) else str(int(v)) if isinstance(v, bool) else str(v)
+
+    td = {k: getattr(t, k) for k in dir(t) if not k.startswith('_') and not callable(getattr(t, k))}
+    lambdas = {k: v for k, v in td.items() if k.startswith('lambda_') and v is not None}
+    core_keys = [k for k in ('learning_rate','lr','max_iter','dropout','drop_rate','weight_decay','orth_input_only') if k in td]
+
+    parts = [
+        f'{score}_{taskname}_{net_params["activation_name"]}',
+        f'N={net_params["N"]}',
+        *[f'{abbr(k)}={fmt(td[k])}' for k in core_keys],
+        *[f'{abbr(k)}={fmt(lambdas[k])}' for k in sorted(lambdas)]
+    ]
+    return ';'.join(parts)

@@ -2,6 +2,9 @@ from copy import deepcopy
 import torch
 import numpy as np
 
+'''
+forward pass return 3 arguments instead of 2
+'''
 
 # Connectivity defining methods
 def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
@@ -278,50 +281,57 @@ class RNN_torch(torch.nn.Module):
         self.W_rec = torch.nn.Parameter(W_rec.to(self.device))
         self.W_inp = torch.nn.Parameter(W_inp.to(self.device))
 
-    def rhs(self, s, I, i_noise, r_noise):
-        return -s + self.activation(self.W_rec @ s + self.W_inp @ (I + i_noise)) + r_noise
+    def rhs(self, s, I, i_noise, r_noise, dropout_mask=None):
+        # s: (N, B)
+        # dropout_mask: (N, B) or (N, 1), 1=active, 0=muted
+        if dropout_mask is not None:
+            # Mask outgoing connections: zero out columns of W_rec for muted neurons
+            W_rec_masked = self.W_rec * dropout_mask.view(1, -1)  # (N, N) * (1, N)
+            h = W_rec_masked @ s + self.W_inp @ (I + i_noise)
+        else:
+            h = self.W_rec @ s + self.W_inp @ (I + i_noise)
+        return -s + self.activation(h) + r_noise
 
-    def forward(self, u, w_noise=True):
-        '''
-        forward dynamics of the RNN (full trial)
-        :param u: array of input vectors (self.input_size, T_steps, batch_size)
-        :param w_noise: bool, pass forward with or without noise
-        :return: the full history of the internal variables and the outputs
-        '''
+    def forward(self, u, w_noise=True, dropout=False, drop_rate=0.3):
         T_steps = u.shape[1]
         batch_size = u.shape[-1]
+
         states = torch.zeros(self.N, 1, batch_size, device=self.device)
-        states[:, 0, :] = deepcopy(self.y_init).reshape(-1, 1).repeat(1, batch_size)
+        states[:, 0, :] = self.y_init.reshape(-1, 1).repeat(1, batch_size)
+
         rec_noise = torch.zeros(self.N, T_steps, batch_size, device=self.device)
         inp_noise = torch.zeros(self.input_size, T_steps, batch_size, device=self.device)
         if w_noise:
-            rec_noise = torch.sqrt((2 / self.alpha) * self.sigma_rec ** 2) \
-                        * torch.randn(*rec_noise.shape, generator=self.random_generator, device=self.device)
-            inp_noise = torch.sqrt((2 / self.alpha) * self.sigma_inp ** 2) \
-                        * torch.randn(*inp_noise.shape, generator=self.random_generator, device=self.device)
-
-        # for i in range(T_steps - 1):
-        #     state_new = states[:, i, :] + self.alpha * self.rhs(states[:, i, :],
-        #                                                         u[:, i, :],
-        #                                                         inp_noise[:, i, :],
-        #                                                         rec_noise[:, i, :])
-        #     states = torch.cat((states, state_new.unsqueeze_(1)), 1)
-        # outputs = torch.einsum("oj, jtk -> otk", self.W_out, states)
-        # return states, outputs
+            rec_noise = torch.sqrt((2 / self.alpha) * self.sigma_rec ** 2) * \
+                        torch.randn(*rec_noise.shape, generator=self.random_generator, device=self.device)
+            inp_noise = torch.sqrt((2 / self.alpha) * self.sigma_inp ** 2) * \
+                        torch.randn(*inp_noise.shape, generator=self.random_generator, device=self.device)
 
         states_list = [states[:, 0, :]]
-        for i in range(1, T_steps):
-            rhs_val = self.rhs(states_list[-1],
-                               u[:, i - 1, :],
-                               inp_noise[:, i - 1, :],
-                               rec_noise[:, i - 1, :])
+
+        for t in range(1, T_steps):
+            if dropout:
+                # At each step, sample a dropout mask (N, 1) or (N, B)
+                dropout_mask = torch.bernoulli(
+                    torch.full((self.N, 1), 1 - drop_rate, device=self.device),
+                    generator=self.random_generator
+                ) / (1 - drop_rate)  # rescale for expectation
+            else:
+                dropout_mask = None
+
+            rhs_val = self.rhs(
+                s=states_list[-1],
+                I=u[:, t - 1, :],
+                i_noise=inp_noise[:, t - 1, :],
+                r_noise=rec_noise[:, t - 1, :],
+                dropout_mask=dropout_mask
+            )
             next_state = states_list[-1] + self.alpha * rhs_val
             states_list.append(next_state)
 
-        states_new = torch.stack(states_list, dim=1)  # shape (batch, T_steps, N)
+        states_new = torch.stack(states_list, dim=1)  # (N, T, B)
         outputs = torch.einsum("oj,jtk->otk", self.W_out, states_new)
         return states_new, outputs
-
 
     def get_params(self):
         '''

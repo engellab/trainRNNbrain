@@ -1,0 +1,21 @@
+# @package model
+_target_: trainRNNbrain.rnns.RNN_torch_spatial.RNN_torch
+activation_name: 'relu'
+activation_slope: 1.0
+#constrained: True
+# connectivity_density_rec: 1.0
+N: 150
+dt: 1.0
+tau: 10.0
+d: 0
+exc_to_inh_ratio: 4.0
+spectral_rad: 1.2
+cdeg: 12
+sigma_rec: .05
+sigma_inp: .05
+
+
+
+
+
+

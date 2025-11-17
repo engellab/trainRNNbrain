@@ -1,13 +1,17 @@
 # @package trainer
-max_iter: 5000
+max_iter: 15
 tol: 1e-10
 lr: 0.005
 weight_decay: 5e-06
-lambda_orth: 0.3
 orth_input_only: True
-lambda_r: 0.5
-lambda_z: 0.01
+lambda_orth: 0.3
+lambda_r: 0.1
+lambda_z: 0.3
+lambda_m: 0.1
+lambda_p: 0.1
 p: 2
 same_batch: True
+dropout: True
+drop_rate: 0.1
 
 

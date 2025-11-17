@@ -1,6 +1,6 @@
 from trainRNNbrain.datasaver.DataSaver import DataSaver
 from trainRNNbrain.analyzers.PerformanceAnalyzer import PerformanceAnalyzer
-from trainRNNbrain.trainer.Trainer import Trainer
+from trainRNNbrain.trainer.Trainer_v7 import Trainer
 from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.training.training_utils import *
 from trainRNNbrain.utils import jsonify
@@ -13,7 +13,7 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
 def run_training(cfg: DictConfig) -> None:
     taskname = cfg.task.taskname
-    tag = f"{cfg.model.activation_name}_constrained={cfg.model.constrained}"
+    tag = f"{cfg.model.activation_name}_constrained={cfg.model.constrained}_ActivityVsMetabolic"
     print(f"training {taskname}, {tag}")
     data_save_path = os.path.join(cfg.paths.save_to, f"{taskname}_{tag}")
     os.makedirs(data_save_path, exist_ok=True)
@@ -40,7 +40,10 @@ def run_training(cfg: DictConfig) -> None:
                           lambda_orth=cfg.trainer.lambda_orth,
                           orth_input_only=cfg.trainer.orth_input_only,
                           lambda_r=cfg.trainer.lambda_r,
-                          lambda_z=cfg.trainer.lambda_z)
+                          lambda_z=cfg.trainer.lambda_z,
+                          lambda_m=cfg.trainer.lambda_m,
+                          dropout=cfg.trainer.dropout,
+                          drop_rate=cfg.trainer.drop_rate)
 
         mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
 
@@ -80,7 +83,10 @@ def run_training(cfg: DictConfig) -> None:
                        f'OrthInpOnly={cfg.trainer.orth_input_only};'
                        f'lmbdR={cfg.trainer.lambda_r};'
                        f'lmbdZ={cfg.trainer.lambda_z};'
+                       f'lmbdM={cfg.trainer.lambda_m};'
                        f'LR={cfg.trainer.lr};'
+                       f'DropOut={cfg.trainer.dropout};'
+                       f'DropRate={cfg.trainer.drop_rate};'
                        f'MaxIter={cfg.trainer.max_iter}')
 
         full_data_folder = os.path.join(data_save_path, data_folder)
@@ -111,14 +117,9 @@ def run_training(cfg: DictConfig) -> None:
         if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials.png")
 
         trajectories, outputs = analyzer.get_trajectories(input_batch_valid)
-        # # animating trajectories:
-        ani_trajectories = analyzer.animate_trajectories(trajectories)
-        if disp: plt.show()
-        if not (datasaver is None): datasaver.save_animation(ani_trajectories, "animated_trajectories.mp4")
-
         if cfg.model.constrained:
             dale_mask = ((np.sign(np.sum(RNN_valid.W_rec, axis = 0)) + 1) / 2).astype(bool)
-            perm = analyzer.composite_lexicographic_sort(RNN_valid.W_inp, RNN_valid.W_rec, dale_mask)
+            perm = analyzer.composite_lexicographic_sort(RNN_valid.W_inp, RNN_valid.W_rec, dale_mask.astype(int))
             W_inp_, W_rec_, W_out_, dale_mask_ = analyzer.permute_matrices(RNN_valid.W_inp,
                                                                            RNN_valid.W_rec,
                                                                            RNN_valid.W_out,
@@ -140,10 +141,21 @@ def run_training(cfg: DictConfig) -> None:
             avg_responses = analyzer.plot_averaged_responses(averaged_responses, grouped_dale_mask)
             if disp: plt.show()
             if not (datasaver is None): datasaver.save_figure(avg_responses, "avg_responses.png")
+
+            w_inp, w_rec, w_out = analyzer.compute_intercluster_weights(W_inp_, W_rec_, W_out_, labels_)
+            fig_matrices = analyzer.plot_matrices(w_inp, w_rec, w_out)
+            if disp: plt.show()
+            if not (datasaver is None): datasaver.save_figure(fig_matrices, "intercluster_connectivity_matrices.png")
         else:
             dale_mask_ = None
             labels_ = None
             trajectories_ = trajectories
+
+        ## ANIMATIONS
+        # # animating trajectories:
+        ani_trajectories = analyzer.animate_trajectories(trajectories)
+        if disp: plt.show()
+        if not (datasaver is None): datasaver.save_animation(ani_trajectories, "animated_trajectories.mp4")
 
         # animating selectivity:
         ani_selectivity = analyzer.animate_selectivity(trajectories=trajectories_,

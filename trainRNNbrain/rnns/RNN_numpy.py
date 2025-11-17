@@ -1,5 +1,7 @@
 import numpy as np
 from copy import deepcopy
+import jax
+import jax.numpy as jnp
 
 '''
 lightweight numpy implementation of RNN for validation and quick testing and plotting
@@ -10,7 +12,10 @@ class RNN_numpy():
                  N, dt, tau,
                  W_inp, W_rec, W_out,
                  activation_name, activation_slope,
-                 bias_rec=None, y_init=None, seed=None, beta=None):
+                 gamma=0.1,
+                 d=0,
+                 bias_rec=None,
+                 y_init=None, seed=None, beta=None):
         self.N = N
         self.W_inp = W_inp
         self.W_rec = W_rec
@@ -39,48 +44,33 @@ class RNN_numpy():
         elif activation_name == 'softplus':
             self.beta = beta
             self.activation = np.log(1 + np.exp(self.beta * x))/self.beta
+        self.gamma = gamma
+        self.d = d
 
         if seed is None:
             self.rng = np.random.default_rng(np.random.randint(10000))
         else:
             self.rng = np.random.default_rng(seed)
 
-
-
     def rhs(self, y, input, sigma_rec=None, sigma_inp=None):
-        if len(y.shape) == 2:
-            # Check that the batch_size (last dimension) is the same as the Input's last dimension
-            if y.shape[-1] != input.shape[-1]:
-                raise ValueError(
-                    f"The last dimension of the RNN state and the Input (representing batch size) should be equal!" +
-                    f" {y.shape[-1]} != {input.shape[-1]}")
-            batch_size = y.shape[-1]
-            bias_rec = np.repeat(self.bias_rec[:, np.newaxis], repeats=batch_size, axis=-1)
-        else:
-            bias_rec = self.bias_rec
+        sr = 0.0 if sigma_rec is None else float(sigma_rec)
+        si = 0.0 if sigma_inp is None else float(sigma_inp)
+        if sr == 0.0 and si == 0.0:
+            h = self.W_rec @ y + self.W_inp @ input
+            return -y + self.activation(h) - self.gamma * y ** 3
+        a = float(self.alpha)
+        rec_noise = ((2.0 / a) ** 0.5 * sr) * self.rng.standard_normal(y.shape, dtype=y.dtype)
+        inp_noise = ((2.0 / a) ** 0.5 * si) * self.rng.standard_normal(input.shape, dtype=input.dtype)
+        h = self.W_rec @ y + self.W_inp @ (input + inp_noise)
+        return -(y - self.d) + self.activation(h) + rec_noise - self.gamma * y ** 3
 
-        if ((sigma_rec is None) and (sigma_inp is None)) or ((sigma_rec == 0) and (sigma_inp == 0)):
-            return -y + self.activation(self.W_rec @ y + self.W_inp @ input + bias_rec)
-        else:
-            rec_noise_term = np.sqrt((2 / self.alpha) * sigma_rec ** 2) * self.rng.standard_normal(y.shape) \
-                if (not (sigma_rec is None)) else np.zeros(x.shape)
-            inp_noise_term = np.sqrt((2 / self.alpha) * sigma_inp ** 2) * self.rng.standard_normal(input.shape) \
-                if (not (sigma_inp is None)) else np.zeros(input.shape)
-            return -y + self.activation(
-                self.W_rec @ y + self.W_inp @ (input + inp_noise_term) + bias_rec + rec_noise_term)
-
-    def rhs_noisless(self, y, input):
+    def rhs_noiseless(self, y, input):
         '''
         Bare version of RHS for efficient fixed point analysis
         supposed to work only with one point at the state-space at the time (no batches!)
         '''
-        return -y + self.activation(self.W_rec @ y + self.W_inp @ input + self.bias_rec)
+        return - (y - self.d) + self.activation(self.W_rec @ y + self.W_inp @ input + self.bias_rec) - self.gamma * y ** 3
 
-    # def rhs_jac(self, y, input):
-    #     if len(input.shape) > 1:
-    #         raise ValueError("Jacobian computations work only for single point and a single input-vector. It doesn't yet work in the batch mode")
-    #     # efficient calculation of Jacobian using a finite difference
-    #     return nd.Jacobian(self.rhs_noisless)(y, input)
 
     def rhs_jac(self, y, input):
         if len(input.shape) > 1:
@@ -95,27 +85,29 @@ class RNN_numpy():
             f_prime = self.activation_slope * (sigmoid(self.activation_slope * arg)) * (1.0 - sigmoid(self.activation_slope * arg))
         elif self.activation_name == 'softplus':
             f_prime = lambda x: np.exp(self.beta * x)/(np.exp(self.beta * x) + 1)
-        return -np.eye(self.N) + np.diag(f_prime) @ self.W_rec
+        return - (1 - self.d) * np.eye(self.N) + np.diag(f_prime) @ self.W_rec
 
+    def rhs_jac_h(self, h, input):
+        """
+        Computes the Jacobian of rhs_noisless_h with respect to h at the given h and input.
+        Returns a NumPy array.
+        """
 
-    # def jax_rhs_noisless(self, y, input):
-    #     '''
-    #     Bare version of RHS for efficient fixed point analysis
-    #     supposed to work only with one point at the state-space at the time (no batches!)
-    #     '''
-    #     return -y + self.activation_jax(jnp.array(self.W_rec) @ y + jnp.array(self.W_inp) @ input + jnp.array(self.bias_rec))
-    #
-    # def jax_rhs_jac(self, y, input):
-    #     if len(input.shape) > 1:
-    #         raise ValueError("Jacobian computations work only for single point and a single input-vector. It doesn't yet work in the batch mode")
-    #     jac_fun = jax.jacfwd(self.jax_rhs_noisless, argnums=0)
-    #     return jac_fun(jnp.array(y), jnp.array(input))
+        # Wrap the function so JAX knows to differentiate with respect to h
+        def fun(h_):
+            return self.rhs_noiseless_h(h_, input)
 
-    def rhs_noisless_h(self, h, input):
+        # JAX expects jnp arrays
+        h_jax = jnp.asarray(h)
+        jac = jax.jacfwd(fun)(h_jax)
+        # Optionally convert to np if needed downstream
+        return np.asarray(jac)
+
+    def rhs_noiseless_h(self, h, input):
         '''
         h = W_rec y + W_inp u + b_rec
         '''
-        return -h + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias_rec
+        return -(h - self.d) + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias_rec
 
     def step(self, input, sigma_rec=None, sigma_inp=None):
         self.y += (self.dt / self.tau) * self.rhs(self.y, input, sigma_rec, sigma_inp)
