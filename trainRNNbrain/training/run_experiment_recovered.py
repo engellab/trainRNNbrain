@@ -1,6 +1,6 @@
 from trainRNNbrain.datasaver.DataSaver import DataSaver
 from trainRNNbrain.analyzers.PerformanceAnalyzer import PerformanceAnalyzer
-from trainRNNbrain.trainer.Trainer_v39recovered import Trainer
+from trainRNNbrain.trainer.Trainer_v42 import Trainer
 from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.training.training_utils import *
 from trainRNNbrain.utils import jsonify, unjsonify

@@ -18,6 +18,7 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"experimental")
 def run_training(cfg: DictConfig) -> None:
+    monitor = False
     print(f"Training started at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     taskname = cfg.task.taskname
     seed = 'random'
@@ -58,6 +59,7 @@ def run_training(cfg: DictConfig) -> None:
         trainer = Trainer(
             RNN=rnn_torch, Task=task,
             optimizer=optimizer,
+            monitor=monitor,
             **kwargs
         )
 
@@ -71,18 +73,18 @@ def run_training(cfg: DictConfig) -> None:
         print(f"Executed training in {toc - tic:0.4f} seconds")
 
         ###########################################################################
-
-        # At the end of training, convert everything to CPU and numpy
-        for key in trainer.loss_monitor:
-            # Convert each list of tensors to a single tensor
-            loss_tensor = torch.tensor(trainer.loss_monitor[key])
-            # Move to CPU and convert to numpy at once
-            trainer.loss_monitor[key] = loss_tensor.cpu().numpy()
-        for key in trainer.gradients_monitor:
-            # Convert each list of tensors to a single tensor
-            indicators_tensor = torch.tensor(trainer.gradients_monitor[key])
-            # Move to CPU and convert to numpy at once
-            trainer.gradients_monitor[key] = indicators_tensor.cpu().numpy()
+        if monitor:
+            # At the end of training, convert everything to CPU and numpy
+            for key in trainer.loss_monitor:
+                # Convert each list of tensors to a single tensor
+                loss_tensor = torch.tensor(trainer.loss_monitor[key])
+                # Move to CPU and convert to numpy at once
+                trainer.loss_monitor[key] = loss_tensor.cpu().numpy()
+            for key in trainer.gradients_monitor:
+                # Convert each list of tensors to a single tensor
+                indicators_tensor = torch.tensor(trainer.gradients_monitor[key])
+                # Move to CPU and convert to numpy at once
+                trainer.gradients_monitor[key] = indicators_tensor.cpu().numpy()
 
         last_net_params = unjsonify(last_net_params)
         best_net_params = unjsonify(best_net_params)
@@ -126,20 +128,21 @@ def run_training(cfg: DictConfig) -> None:
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_trainloss, f"{score}_TrainLoss.png")
 
-        if not (datasaver is None): datasaver.save_data(jsonify(trainer.loss_monitor), f"{score}_LossBreakdown.json")
-        fig_loss_breakdown = plot_loss_breakdown(trainer.loss_monitor)
-        if disp: plt.show()
-        if not (datasaver is None): datasaver.save_figure(fig_loss_breakdown, f"{score}_LossBreakdown.png")
+        if monitor:
+            if not (datasaver is None): datasaver.save_data(jsonify(trainer.loss_monitor), f"{score}_LossBreakdown.json")
+            fig_loss_breakdown = plot_loss_breakdown(trainer.loss_monitor)
+            if disp: plt.show()
+            if not (datasaver is None): datasaver.save_figure(fig_loss_breakdown, f"{score}_LossBreakdown.png")
 
-        if not (datasaver is None): datasaver.save_data(jsonify(trainer.gradients_monitor), f"{score}_GradsRaw.json")
-        if not (datasaver is None): datasaver.save_data(jsonify(trainer.scaled_gradients_monitor), f"{score}_GradsScaled.json")
+            if not (datasaver is None): datasaver.save_data(jsonify(trainer.gradients_monitor), f"{score}_GradsRaw.json")
+            if not (datasaver is None): datasaver.save_data(jsonify(trainer.scaled_gradients_monitor), f"{score}_GradsScaled.json")
 
-        fig_grads_raw = plot_loss_breakdown(trainer.gradients_monitor)
-        if disp: plt.show()
-        if not (datasaver is None): datasaver.save_figure(fig_grads_raw, f"{score}_GradsRaw.png")
-        fig_grads_scaled = plot_loss_breakdown(trainer.scaled_gradients_monitor)
-        if disp: plt.show()
-        if not (datasaver is None): datasaver.save_figure(fig_grads_scaled, f"{score}_GradsScaled.png")
+            fig_grads_raw = plot_loss_breakdown(trainer.gradients_monitor)
+            if disp: plt.show()
+            if not (datasaver is None): datasaver.save_figure(fig_grads_raw, f"{score}_GradsRaw.png")
+            fig_grads_scaled = plot_loss_breakdown(trainer.scaled_gradients_monitor)
+            if disp: plt.show()
+            if not (datasaver is None): datasaver.save_figure(fig_grads_scaled, f"{score}_GradsScaled.png")
 
         inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), np.minimum(input_batch_valid.shape[-1], 12))
         inputs = input_batch_valid[..., inds]
@@ -158,14 +161,13 @@ def run_training(cfg: DictConfig) -> None:
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_participation, "participation.png")
 
-
         dale_mask_bool = ((np.sign(np.sum(RNN_valid.W_rec, axis = 0)) + 1) / 2).astype(bool)
-        dale_mask_int = (np.sign(np.sum(RNN_valid.W_rec, axis=0)) + 1)
-        perm = analyzer.composite_lexicographic_sort(RNN_valid.W_inp, RNN_valid.W_rec, dale_mask_int)
+        dale_mask_int = (np.sign(np.sum(RNN_valid.W_rec, axis=0)) + 1).astype(int)
+        perm = analyzer.composite_lexicographic_sort(RNN_valid.W_inp, RNN_valid.W_out.T, dale_mask_int)
         W_inp_, W_rec_, W_out_, dale_mask_bool_ = analyzer.permute_matrices(RNN_valid.W_inp,
-                                                                       RNN_valid.W_rec,
-                                                                       RNN_valid.W_out,
-                                                                       dale_mask_bool, perm)
+                                                                            RNN_valid.W_rec,
+                                                                            RNN_valid.W_out,
+                                                                            dale_mask_bool, perm)
         analyzer.RNN.W_inp = W_inp_
         analyzer.RNN.W_rec = W_rec_
         analyzer.RNN.W_out = W_out_
