@@ -481,6 +481,7 @@ class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
                                show_colorbar=False,
                                show_axeslabels=True, cmap='bwr'):
         coherence_lvls = self.psychometric_data["coherence_lvls"]
+        mm = 1 / 25.4  # inches to mm
 
         # invert cause of the axes running from the bottom to the top
         Motion_rght_prcntg = self.psychometric_data["motion"]["right_choice_percentage"][::-1, :]
