@@ -5,14 +5,9 @@ from copy import deepcopy
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torcheval.metrics.functional import r2_score, mean_squared_error
 import time
-import math
-from tqdm.auto import tqdm
-import json
 from trainRNNbrain.training.training_utils import multi_iqr_scale
-from trainRNNbrain.utils import jsonify
-from pathlib import Path
+
 
 class Trainer():
     def __init__(self,
@@ -33,12 +28,12 @@ class Trainer():
                  lambda_htvar=0.05,
                  lambda_hlvar=0.9,
                  lambda_cl=0.05,
-                 cap_s =0.7,
+                 cap_s=0.7,
                  inequality_method='hhi',
                  dropout=False,
                  drop_rate=0.05,
                  p=2):
-        self.UpV = 100 # units per unit of volume, hard constant!
+        self.UpV = 100 # N units per unit of volume, hard constant!
         self.RNN = RNN
         self.max_sigma_rec = self.RNN.sigma_rec
         self.max_sigma_inp = self.RNN.sigma_inp
@@ -263,6 +258,9 @@ class Trainer():
         return (over * over).mean() / (tg_deg * tg_deg)
 
     def s_magnitude_penalty(self, states, input, cap_s, q=0.9, alpha=5.0, beta=1.0, eps=1e-12):
+        '''
+        exponential penalty on the up side, quadratic penalty on the down side of log(activity ratio)
+        '''
         x = states.abs().view(states.size(0), -1)  # (N, T*B)
         dev, dt = states.device, states.dtype
         cap_s = torch.as_tensor(cap_s, device=dev, dtype=dt)
@@ -368,7 +366,6 @@ class Trainer():
             loss += triangle.mean()
         return loss
 
-
     def mask_param_state(self, p, m):
         """Zero Adam moments at masked entries so momentum/variance can’t resurrect zeros."""
         st = self.optimizer.state.get(p, None)
@@ -377,6 +374,51 @@ class Trainer():
         if t is not None: t.mul_(m)
         t = st.get('exp_avg_sq', None)
         if t is not None: t.mul_(m)
+        return None
+
+    @staticmethod
+    def flat_grad(loss, params, retain_graph=False, allow_unused=True):
+        grads = torch.autograd.grad(
+            loss, params,
+            retain_graph=retain_graph,
+            allow_unused=allow_unused
+        )
+        return [g if g is not None else torch.zeros_like(p)
+                for g, p in zip(grads, params)]
+
+    @staticmethod
+    def dot_grads(a, b):
+        return sum(torch.sum(ga * gb) for ga, gb in zip(a, b))
+
+    @staticmethod
+    def get_behavior_safe_gradients(params, penalty_map, penalty_dict_raw,
+                                    behavior_key="behavior", allow_unused=True):
+        behavior_loss = penalty_dict_raw[behavior_key]
+        g_beh = Trainer.flat_grad(behavior_loss, params,
+                                  retain_graph=True,
+                                  allow_unused=allow_unused)
+        nb = Trainer.dot_grads(g_beh, g_beh) + 1e-20
+
+        tot_penalty = 0.0
+        for k, (_, lam, _) in penalty_map.items():
+            if k == behavior_key or lam == 0:
+                continue
+            tot_penalty = tot_penalty + lam * penalty_dict_raw[k]
+
+        if isinstance(tot_penalty, float):
+            return [g.clone() for g in g_beh]
+
+        g_pen = Trainer.flat_grad(tot_penalty, params,
+                                  retain_graph=False,
+                                  allow_unused=allow_unused)
+
+        s = Trainer.dot_grads(g_pen, g_beh) / nb
+        # remove behavior component from penalty grads if the penalty grads hurt the performance
+        if s < 0:
+            g_pen = [gp - s * gb for gp, gb in zip(g_pen, g_beh)]
+
+        return [gb + gp for gb, gp in zip(g_beh, g_pen)]
+
 
     def enforce_masks(self):
         """Post-step: hard-zero masked weights + Adam moments."""
@@ -399,7 +441,7 @@ class Trainer():
             self.RNN.W_out.clamp_min_(1e-12)
         return None
 
-    def enforce_dale(self, eps=1e-8):
+    def enforce_dale(self, eps=1e-12):
         with torch.no_grad():
             # W_rec
             W_rec = self.RNN.W_rec
@@ -444,10 +486,7 @@ class Trainer():
         states_full, predicted_output_full = self.RNN(input, w_noise=True, dropout=False, drop_rate=None)
 
         if self.dropout:
-            self.participation = (
-                    states_full.abs().quantile((1, 2), q=0.9)
-                    + states_full.std((1, 2), unbiased=False)
-            ).detach()
+            self.participation = (states_full.abs().quantile((1, 2), q=0.9)  + states_full.std((1, 2), unbiased=False)).detach()
             _, predicted_output_do = self.RNN(
                 input,
                 w_noise=True,
@@ -460,14 +499,8 @@ class Trainer():
             behavior_mismatch_penalty = self.behavior_penalty(predicted_output_full, target_output, mask)
 
         # 1) compute raw & scaled penalties
-        penalty_dict_raw = {
-            k: (fn(states_full, input, **kwargs) if lam != 0 else None)
-            for k, (fn, lam, kwargs) in self.penalty_map.items()
-        }
-        penalty_dict_scaled = {
-            k: (lam * penalty_dict_raw[k] if lam != 0 else z())
-            for k, (fn, lam, kwargs) in self.penalty_map.items()
-        }
+        penalty_dict_raw = {k: (fn(states_full, input, **kwargs) if lam != 0 else None) for k, (fn, lam, kwargs) in self.penalty_map.items()}
+        penalty_dict_scaled = {k: (lam * penalty_dict_raw[k] if lam != 0 else z()) for k, (_, lam, _) in self.penalty_map.items()}
         penalty_dict_scaled["behavior"] = behavior_mismatch_penalty
 
         # 2) diagnostics (grad norms of *raw* terms)
@@ -476,39 +509,17 @@ class Trainer():
 
         # 3) behavior-safe projection + manual grad combine
         params = [p for p in self.RNN.parameters() if p.requires_grad]
-
-        def flat_grad(L):
-            g = torch.autograd.grad(L, params, retain_graph=True, allow_unused=True)
-            return [gi if gi is not None else torch.zeros_like(p) for gi, p in zip(g, params)]
-
-        def dot(a, b):
-            return sum((ai * bi).sum() for ai, bi in zip(a, b))
-
-        g_beh = flat_grad(behavior_mismatch_penalty)
-        nb = dot(g_beh, g_beh) + 1e-20
-        g_tot = [gb.clone() for gb in g_beh]
-
-        for k, (fn, lam, kwargs) in self.penalty_map.items():
-            if lam == 0:
-                continue
-            Lk = penalty_dict_raw[k]
-            gk = flat_grad(lam * Lk)
-            s = dot(gk, g_beh) / nb
-            if s < 0:
-                gk = [gi - s * gb for gi, gb in zip(gk, g_beh)]
-            g_tot = [gt + gi for gt, gi in zip(g_tot, gk)]
-
-        # 4) step with combined grads
+        g_tot = Trainer.get_behavior_safe_gradients(params, self.penalty_map, penalty_dict_raw, behavior_key="behavior", allow_unused=True)
+        # step with combined grads
         self.optimizer.zero_grad(set_to_none=True)
         for p, g in zip(params, g_tot):
             p.grad = g
         self.optimizer.step()
 
-        # enforce masks
-        with torch.no_grad():
-            self.RNN.W_inp.mul_(self.RNN.input_mask)
-            self.RNN.W_rec.mul_(self.RNN.recurrent_mask)
-            self.RNN.W_out.mul_(self.RNN.output_mask)
+        # Enforce masks
+        self.enforce_masks()
+        self.enforce_io_nonnegativity()
+        self.enforce_dale()
 
         # 5) log *detached* scalar loss for reporting (no backward)
         with torch.no_grad():
@@ -535,7 +546,7 @@ class Trainer():
             self.gradients_monitor[f"g_{k}"].append(self.to_item(grads[f"g_{k}"]))
             self.scaled_gradients_monitor[f"sg_{k}"].append(
                 self.to_item(self.penalty_map[k][1] * self.to_item(grads[f"g_{k}"])))
-
+            
         self.iter_n += 1
         return loss_val, r2_val
 
@@ -578,14 +589,6 @@ class Trainer():
             train_loss, r2 = self.train_step(input=input_batch,
                                          target_output=target_batch,
                                          mask=train_mask)
-            eps = 1e-8
-            # positivity of entries of W_inp and W_out
-            eps_t = torch.tensor(eps, device=self.RNN.W_inp.device, dtype=self.RNN.W_inp.dtype)
-            self.RNN.W_inp.data = torch.maximum(self.RNN.W_inp.data, eps_t)
-            eps_t = torch.tensor(eps, device=self.RNN.W_out.device, dtype=self.RNN.W_out.dtype)
-            self.RNN.W_out.data = torch.maximum(self.RNN.W_out.data, eps_t)
-            self.enforce_dale(eps)
-            # sr_old = self.project_recurrent_spectral_radius(r_star=0.95)
 
 
             # if iter % 25 == 0:

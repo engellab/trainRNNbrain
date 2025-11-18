@@ -9,7 +9,7 @@ from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 import yaml
 import hydra
-from trainRNNbrain.utils import composite_lexicographic_sort, permute_matrices
+from trainRNNbrain.utils import composite_lexicographic_sort, permute_matrices, cluster_neurons
 OmegaConf.register_new_resolver("eval", eval)
 
 

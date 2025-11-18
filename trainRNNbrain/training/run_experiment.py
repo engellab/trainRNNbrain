@@ -1,6 +1,6 @@
 from trainRNNbrain.datasaver.DataSaver import DataSaver
 from trainRNNbrain.analyzers.PerformanceAnalyzer import PerformanceAnalyzer
-from trainRNNbrain.trainer.Trainer_v39recovered import Trainer
+from trainRNNbrain.trainer.Trainer_v42 import Trainer
 from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.training.training_utils import *
 from trainRNNbrain.utils import jsonify, unjsonify
@@ -29,7 +29,7 @@ def run_training(cfg: DictConfig) -> None:
     # defining the task
     task_conf = prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt)
     task = hydra.utils.instantiate(task_conf)
-    pprint(cfg)
+    pprint(cfg, indent=4)
     
     for i in range(cfg.n_nets):
         # defining the RNN
@@ -192,18 +192,18 @@ def run_training(cfg: DictConfig) -> None:
         # if disp: plt.show()
         # if not (datasaver is None): datasaver.save_figure(fig_matrices, "intercluster_connectivity_matrices.png")
 
-        # ## ANIMATIONS
-        # # # animating trajectories:
-        # ani_trajectories = analyzer.animate_trajectories(trajectories)
-        # if disp: plt.show()
-        # if not (datasaver is None): datasaver.save_animation(ani_trajectories, "animated_trajectories.mp4")
-        #
-        # # animating selectivity:
-        # ani_selectivity = analyzer.animate_selectivity(trajectories=trajectories_,
-        #                                                axes=(0,1,2),
-        #                                                labels=labels_)
-        # if disp: plt.show()
-        # if not (datasaver is None): datasaver.save_animation(ani_selectivity, "animated_selectivity.mp4")
+        ## ANIMATIONS
+        # # animating trajectories:
+        ani_trajectories = analyzer.animate_trajectories(trajectories)
+        if disp: plt.show()
+        if not (datasaver is None): datasaver.save_animation(ani_trajectories, "animated_trajectories.mp4")
+        
+        # animating selectivity:
+        ani_selectivity = analyzer.animate_selectivity(trajectories=trajectories_,
+                                                       axes=(0,1,2),
+                                                       labels=labels_)
+        if disp: plt.show()
+        if not (datasaver is None): datasaver.save_animation(ani_selectivity, "animated_selectivity.mp4")
 
 if __name__ == "__main__":
     run_training()
