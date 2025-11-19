@@ -121,7 +121,7 @@ def run_training(cfg: DictConfig) -> None:
 
         print(f"r2 validation: {score}")
         if not (datasaver is None): datasaver.save_data(cfg, f"{score}_config.yaml")
-        if not (datasaver is None): datasaver.save_data(jsonify(net_params), f"{score}_LastParams_{taskname}.json")
+        if not (datasaver is None): datasaver.save_data(jsonify(last_net_params), f"{score}_LastParams_{taskname}.json")
         if not (datasaver is None): datasaver.save_data(jsonify(best_net_params),f"{score}_BestParams_{taskname}.json")
 
         fig_trainloss = plot_train_val_losses(train_losses, val_losses)
