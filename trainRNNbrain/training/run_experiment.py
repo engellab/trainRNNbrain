@@ -1,6 +1,5 @@
 from trainRNNbrain.datasaver.DataSaver import DataSaver
 from trainRNNbrain.analyzers.PerformanceAnalyzer import PerformanceAnalyzer
-from trainRNNbrain.trainer.Trainer_v42 import Trainer
 from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.training.training_utils import *
 from trainRNNbrain.utils import jsonify, unjsonify
@@ -10,6 +9,7 @@ from matplotlib import pyplot as plt
 import datetime, random
 import sys
 import inspect
+from pathlib import Path
 from trainRNNbrain.utils import import_any, get_source_code, make_tag, filter_kwargs
 from pprint import pprint
 OmegaConf.register_new_resolver("eval", eval)
@@ -35,34 +35,34 @@ def run_training(cfg: DictConfig) -> None:
     for i in range(cfg.n_nets):
         # defining the RNN
         rnn_config = prepare_RNN_arguments(cfg_task=cfg.task, cfg_model=cfg.model)
-
         rnn_config.seed = seed + (i * 14653 + (i + 65537) ** 3) % 7309
         rnn_torch = hydra.utils.instantiate(rnn_config)
-
-        file_path = inspect.getmodule(Trainer).__file__
-        suffix_trainer = file_path.split("/")[-1].split(".")[0]
-        suffix_RNN = rnn_config._target_.split(".")[-2].split("_")[-1]
-        tag = f"{cfg.model.activation_name}_{suffix_trainer}_{suffix_RNN}"
-        print(f"training {taskname}, {tag}")
-        data_save_path = os.path.join(cfg.paths.save_to, f"{taskname}_{tag}")
-        os.makedirs(data_save_path, exist_ok=True)
 
         # defining the trainer
         optimizer = torch.optim.Adam(rnn_torch.parameters(),
                                      lr=cfg.trainer.lr,
                                      weight_decay=cfg.trainer.weight_decay)
 
-        trainer_cfg = cfg.trainer
-        items = getattr(trainer_cfg, "items", None)
-        items = items() if callable(items) else vars(trainer_cfg).items()
-        kwargs = filter_kwargs(Trainer, trainer_cfg)
-        trainer = Trainer(
-            RNN=rnn_torch, Task=task,
+        trainer_cfg = OmegaConf.create(cfg.trainer)
+        trainer_target = getattr(trainer_cfg, "_target_", None)
+        trainer_cls = import_any(trainer_target) if trainer_target else None
+        trainer_cfg = filter_kwargs(trainer_cls, trainer_cfg) if trainer_cls else trainer_cfg
+        trainer = hydra.utils.instantiate(
+            trainer_cfg,
+            RNN=rnn_torch,
+            Task=task,
             optimizer=optimizer,
             monitor=monitor,
-            **kwargs
+            _convert_="none",
         )
 
+        trainer_file = inspect.getfile(trainer.__class__)
+        suffix_trainer = Path(trainer_file).stem
+        suffix_RNN = rnn_config._target_.split(".")[-2].split("_")[-1]
+        tag = f"{cfg.model.activation_name}_{suffix_trainer}_{suffix_RNN}"
+        print(f"training {taskname}, {tag}")
+        data_save_path = os.path.join(cfg.paths.save_to, f"{taskname}_{tag}")
+        os.makedirs(data_save_path, exist_ok=True)
         mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
 
         ############################### RUN TRAINING #############################
@@ -113,7 +113,7 @@ def run_training(cfg: DictConfig) -> None:
         datasaver = DataSaver(full_data_folder)
 
         # save Trainer module code as file alongside with data
-        datasaver.save_data(get_source_code(Trainer), "trainer.txt")
+        datasaver.save_data(get_source_code(trainer), "trainer.txt")
         # save RNN module code as file alongside with data
         datasaver.save_data(get_source_code(import_any(rnn_config._target_)), "rnn.txt")
         # save source of the script being executed (the __main__ module)

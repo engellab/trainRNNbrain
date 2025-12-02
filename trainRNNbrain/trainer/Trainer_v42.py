@@ -387,7 +387,6 @@ class Trainer():
             if s < 0:
                 g_pen = [gp - s * gb for gp, gb in zip(g_pen, g_task)]
             g_tot = [gb + gp for gb, gp in zip(g_task, g_pen)]
-
         return g_tot
 
 

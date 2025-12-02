@@ -5,6 +5,7 @@ import torch
 import ast
 import inspect, importlib.util, pathlib
 from pathlib import Path
+from omegaconf import OmegaConf, DictConfig
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
@@ -187,26 +188,35 @@ def import_any(target):
         return getattr(mod, attr)
     
 def get_source_code(obj_or_mod):
-    m = obj_or_mod if inspect.ismodule(obj_or_mod) else inspect.getmodule(obj_or_mod)
+    """Return source code for a module, class, function, or instance."""
+    if inspect.ismodule(obj_or_mod):
+        target = obj_or_mod
+    elif inspect.isclass(obj_or_mod) or inspect.isfunction(obj_or_mod) or inspect.ismethod(obj_or_mod):
+        target = obj_or_mod
+    else:
+        target = obj_or_mod.__class__ if hasattr(obj_or_mod, "__class__") else inspect.getmodule(obj_or_mod)
     try:
-        return inspect.getsource(m)
+        return inspect.getsource(target)
     except OSError:
         # fallback if loaded from .pyc
         import importlib.util, pathlib
-        path = pathlib.Path(getattr(m, "__file__", ""))
+        path = pathlib.Path(getattr(target, "__file__", ""))
         if path.suffix == ".pyc":
             path = pathlib.Path(importlib.util.source_from_cache(str(path)))
         return path.read_text()
     
 def filter_kwargs(callable_obj, params: dict):
-    ''' Filter a dict of parameters to only those accepted by the callable_obj. '''
+    ''' Filter parameters to those accepted by callable_obj and return an OmegaConf DictConfig. '''
     sig = inspect.signature(callable_obj)
+    cfg = params if isinstance(params, DictConfig) else OmegaConf.create(params or {})
     # if it accepts **kwargs, pass everything through
     if any(p.kind == p.VAR_KEYWORD for p in sig.parameters.values()):
-        return params
+        return cfg
     allowed = {name for name, p in sig.parameters.items()
                if name != 'self' and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)}
-    return {k: v for k, v in params.items() if k in allowed}
+    hydra_keys = [k for k in cfg.keys() if str(k).startswith("_")]
+    filtered_keys = hydra_keys + [k for k in cfg.keys() if k in allowed]
+    return OmegaConf.masked_copy(cfg, filtered_keys)
     
 def jsonify(x):
     if isinstance(x, dict):
