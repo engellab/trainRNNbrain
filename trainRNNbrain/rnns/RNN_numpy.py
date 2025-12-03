@@ -14,16 +14,16 @@ class RNN_numpy():
                  activation_name, activation_slope,
                  gamma=0.1,
                  d=0,
-                 bias_rec=None,
+                 bias=None,
                  y_init=None, seed=None, beta=None):
         self.N = N
         self.W_inp = W_inp
         self.W_rec = W_rec
         self.W_out = W_out
-        if bias_rec is None:
-            self.bias_rec = np.zeros(self.N)
+        if bias is None:
+            self.bias = np.zeros(self.N)
         else:
-            self.bias_rec = bias_rec
+            self.bias = bias
         self.dt = dt
         self.tau = tau
         self.alpha = self.dt / self.tau
@@ -69,13 +69,13 @@ class RNN_numpy():
         Bare version of RHS for efficient fixed point analysis
         supposed to work only with one point at the state-space at the time (no batches!)
         '''
-        return - (y - self.d) + self.activation(self.W_rec @ y + self.W_inp @ input + self.bias_rec) - self.gamma * y ** 3
+        return - (y - self.d) + self.activation(self.W_rec @ y + self.W_inp @ input + self.bias) - self.gamma * y ** 3
 
 
     def rhs_jac(self, y, input):
         if len(input.shape) > 1:
             raise ValueError("Jacobian computations work only for single point and a single input-vector. It doesn't yet work in the batch mode")
-        arg = self.W_rec @ y + self.W_inp @ input + self.bias_rec
+        arg = self.W_rec @ y + self.W_inp @ input + self.bias
         if self.activation_name == 'relu':
             f_prime = self.activation_slope * np.heaviside(self.activation_slope * arg, 0.5)
         elif self.activation_name == 'tanh':
@@ -107,7 +107,7 @@ class RNN_numpy():
         '''
         h = W_rec y + W_inp u + b_rec
         '''
-        return -(h - self.d) + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias_rec
+        return -(h - self.d) + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias
 
     def step(self, input, sigma_rec=None, sigma_inp=None):
         self.y += (self.dt / self.tau) * self.rhs(self.y, input, sigma_rec, sigma_inp)
@@ -163,7 +163,7 @@ if __name__ == '__main__':
     W_rec = np.random.randn(N, N)
     W_inp = np.random.randn(N, 6)
     W_out = np.random.randn(2, N)
-    bias_rec = np.random.randn(N)
+    bias = np.random.randn(N)
 
     # Input = np.ones(6)
     dt = 0.1

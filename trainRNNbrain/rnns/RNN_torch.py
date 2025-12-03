@@ -196,6 +196,7 @@ class RNN_torch(torch.nn.Module):
                  spectral_rad=1.2,
                  sigma_rec=.03,
                  sigma_inp=.03,
+                 bias_init_amp=0.0,
                  y_init=None,
                  seed=None,
                  input_size=6,
@@ -242,6 +243,7 @@ class RNN_torch(torch.nn.Module):
         self.input_size = torch.from_numpy(np.array(input_size)).to(self.device)
         self.output_size = torch.from_numpy(np.array(output_size)).to(self.device)
         self.spectral_rad = torch.from_numpy(np.array(spectral_rad)).to(self.device)
+        self.bias_init_amp = torch.tensor(bias_init_amp).to(self.device)
         self.connectivity_density_rec = connectivity_density_rec
         self.constrained = constrained
         self.exc_to_inh_ratio = exc_to_inh_ratio
@@ -277,19 +279,26 @@ class RNN_torch(torch.nn.Module):
                                  radius=self.spectral_rad,
                                  generator=self.random_generator,
                                  recurrent_density=self.connectivity_density_rec)
+        if self.bias_init_amp != 0 and not (self.bias_init_amp is None):
+            self.bias = self.bias_init_amp * torch.nn.Parameter(torch.rand(self.N, generator=self.random_generator))
         self.W_out = torch.nn.Parameter(W_out.to(self.device))
         self.W_rec = torch.nn.Parameter(W_rec.to(self.device))
         self.W_inp = torch.nn.Parameter(W_inp.to(self.device))
 
     def rhs(self, s, I, i_noise, r_noise, dropout_mask=None):
         # s: (N, B)
+
+        if (self.bias_init_amp == 0.0) or (self.bias_init_amp is None):
+            b = 0
+        else:
+            b = self.bias.unsqueeze(1).expand(-1, s.shape[1])
         # dropout_mask: (N, B) or (N, 1), 1=active, 0=muted
         if dropout_mask is not None:
             # Mask outgoing connections: zero out columns of W_rec for muted neurons
             W_rec_masked = self.W_rec * dropout_mask.view(1, -1)  # (N, N) * (1, N)
-            h = W_rec_masked @ s + self.W_inp @ (I + i_noise)
+            h = W_rec_masked @ s + self.W_inp @ (I + i_noise) + b
         else:
-            h = self.W_rec @ s + self.W_inp @ (I + i_noise)
+            h = self.W_rec @ s + self.W_inp @ (I + i_noise) + b
         return -s + self.activation(h) + r_noise
 
     def forward(self, u, w_noise=True, dropout=False, drop_rate=0.3):
@@ -344,12 +353,17 @@ class RNN_torch(torch.nn.Module):
         W_rec = deepcopy(self.W_rec.data.cpu().detach().numpy())
         W_inp = deepcopy(self.W_inp.data.cpu().detach().numpy())
         y_init = deepcopy(self.y_init.detach().cpu().numpy())
+        if self.bias_init_amp != 0.0 and not (self.bias_init_amp is None):
+            bias = deepcopy(self.bias.detach().cpu().numpy())
+        else:
+            bias = None
         param_dict["activation_name"] = self.activation_name
         param_dict["activation_slope"] = self.activation_slope
         param_dict["W_out"] = W_out
         param_dict["W_inp"] = W_inp
         param_dict["W_rec"] = W_rec
         param_dict["y_init"] = y_init
+        param_dict["bias"] = bias
         param_dict["N"] = self.N
         param_dict["dt"] = self.dt
         param_dict["tau"] = self.tau
@@ -361,6 +375,8 @@ class RNN_torch(torch.nn.Module):
         self.W_inp.data = torch.from_numpy(np.float32(params["W_inp"])).to(self.device)
         self.W_rec.data = torch.from_numpy(np.float32(params["W_rec"])).to(self.device)
         self.y_init = torch.from_numpy(np.float32(params["y_init"])).to(self.device)
+        if not (params["bias"] is None):
+            self.bias = torch.from_numpy(np.float32(params["bias"])).to(self.device)
         self.activation_slope = torch.tensor(params["activation_slope"]).to(self.device)
         return None
 
@@ -368,6 +384,6 @@ class RNN_torch(torch.nn.Module):
 if __name__ == '__main__':
     N = 100
     activation_name = 'tanh'
-    rnn_torch = RNN_torch(N=N, activation_name=activation_name, constrained=True)
+    rnn_torch = RNN_torch(N=N, activation_name=activation_name, constrained=True, bias_init_amp=0.1)
     param_dict = rnn_torch.get_params()
     print(param_dict)

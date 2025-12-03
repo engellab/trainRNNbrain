@@ -208,7 +208,8 @@ def get_source_code(obj_or_mod):
 def filter_kwargs(callable_obj, params: dict):
     ''' Filter parameters to those accepted by callable_obj and return an OmegaConf DictConfig. '''
     sig = inspect.signature(callable_obj)
-    cfg = params if isinstance(params, DictConfig) else OmegaConf.create(params or {})
+    flags = {"allow_objects": True}
+    cfg = params if isinstance(params, DictConfig) else OmegaConf.create(params or {}, flags=flags)
     # if it accepts **kwargs, pass everything through
     if any(p.kind == p.VAR_KEYWORD for p in sig.parameters.values()):
         return cfg
@@ -216,7 +217,8 @@ def filter_kwargs(callable_obj, params: dict):
                if name != 'self' and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)}
     hydra_keys = [k for k in cfg.keys() if str(k).startswith("_")]
     filtered_keys = hydra_keys + [k for k in cfg.keys() if k in allowed]
-    return OmegaConf.masked_copy(cfg, filtered_keys)
+    filtered_dict = {k: cfg[k] for k in filtered_keys}
+    return OmegaConf.create(filtered_dict, flags=flags)
     
 def jsonify(x):
     if isinstance(x, dict):
@@ -255,7 +257,7 @@ def get_project_root():
 def numpify(function_torch):
     return lambda x: function_torch(torch.Tensor(x)).detach().numpy()
 
-def make_tag(cfg, net_params, score, taskname):
+def make_subfolder_tag(cfg, net_params, score, taskname):
     ''' Create a concise tag string summarizing the training configuration. '''
     t = cfg.trainer
     def abbr(k):

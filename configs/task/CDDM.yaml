@@ -1,19 +1,19 @@
 # @package task
 taskname: "CDDM"
-_target_: trainRNNbrain.tasks.Task${.taskname}.Task${.taskname}
+_target_: trainRNNbrain.tasks.TaskCDDM.TaskCDDM
 T: 300
 seed: null
 T_cue_on: 0
-T_cue_off: ${.T}
-T_stim_on: '${eval:${.T}//3}'
-T_stim_off: ${.T}
-T_dec_on: '${eval:2*${.T}//3}'
-T_dec_off: ${.T}
+T_cue_off: 300
+T_stim_on: 100
+T_stim_off: 300
+T_dec_on: 200
+T_dec_off: 300
 n_inputs: 6
 n_outputs: 2
 mask_params:
-  - (${..T_cue_on}, ${..T_stim_on})
-  - (${..T_dec_on}, ${..T_dec_off})
+  - (0, 100)
+  - (200, 300)
 coherences: [-1.0, -0.5, -0.25, -0.125, -0.0625, -0.03125, -0.015625,
              0.0,
              0.015625, 0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0]

@@ -2,8 +2,11 @@
 defaults:
   - _self_
   - task: CDDM
-  - model: rnn_relu_Dale_SE # spatially embedded RNN with Dale's law and ReLU nonlinearity
+  # - model: rnn_relu_Dale_SE # spatially embedded RNN with Dale's law and ReLU nonlinearity
+  - model: rnn_relu_Dale # spatially embedded RNN with Dale's law and ReLU nonlinearity
   - trainer: trainer_MinimalPenaltySet
   - paths: paths_local
 display_figures: False
 n_nets: 1
+experiment_info: "Training RNN without any penalties (apart from orthogonalizing inputs)"
+experiment_tag: "NoPenalties"

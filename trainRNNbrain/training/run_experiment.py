@@ -10,7 +10,7 @@ import datetime, random
 import sys
 import inspect
 from pathlib import Path
-from trainRNNbrain.utils import import_any, get_source_code, make_tag, filter_kwargs
+from trainRNNbrain.utils import import_any, get_source_code, make_subfolder_tag, filter_kwargs
 from pprint import pprint
 OmegaConf.register_new_resolver("eval", eval)
 os.environ['HYDRA_FULL_ERROR'] = '1'
@@ -20,6 +20,10 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 def run_training(cfg: DictConfig) -> None:
     monitor = False
     print(f"Training started at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    experiment_tag = cfg.experiment_tag
+    trainer_tag = cfg.trainer.trainer_tag
+    RNN_tag = cfg.model.RNN_tag
+    folder_tag = experiment_tag + (("_" + trainer_tag) if trainer_tag != '' else '') + (("_" + RNN_tag) if RNN_tag != '' else '')
     taskname = cfg.task.taskname
     seed = 'random'
     if seed == 'random':
@@ -28,21 +32,28 @@ def run_training(cfg: DictConfig) -> None:
     disp = cfg.display_figures
 
     # defining the task
-    task_conf = prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt)
-    task = hydra.utils.instantiate(task_conf)
-    pprint(cfg, indent=4)
+    task_cfg = prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt)
+    task = hydra.utils.instantiate(task_cfg)
+    del task_cfg._target_ # important so that the task _target_ doesn't override RNN _target_
     
+    pprint(cfg, indent=4)
     for i in range(cfg.n_nets):
         # defining the RNN
-        rnn_config = prepare_RNN_arguments(cfg_task=cfg.task, cfg_model=cfg.model)
-        rnn_config.seed = seed + (i * 14653 + (i + 65537) ** 3) % 7309
-        rnn_torch = hydra.utils.instantiate(rnn_config)
+        
+        rnn_cfg = OmegaConf.create(cfg.model)
+        rnn_target = getattr(rnn_cfg, "_target_", None)
+        rnn_cls = import_any(rnn_target) if rnn_target else None
+        rnn_args = filter_kwargs(rnn_cls, OmegaConf.merge(rnn_cfg, task_cfg))
+        rnn_args.seed = seed + (i * 14653 + (i + 65537) ** 3) % 7309
+        rnn_torch = hydra.utils.instantiate(rnn_args)
+
+        # defining the optimizer
+        reference_N = 100.0
+        scale = (float(rnn_cfg.N) / reference_N) ** (-1/3)
+        lr = cfg.trainer.lr * scale
+        opt = torch.optim.Adam(rnn_torch.parameters(), lr=lr, weight_decay=cfg.trainer.weight_decay)
 
         # defining the trainer
-        optimizer = torch.optim.Adam(rnn_torch.parameters(),
-                                     lr=cfg.trainer.lr,
-                                     weight_decay=cfg.trainer.weight_decay)
-
         trainer_cfg = OmegaConf.create(cfg.trainer)
         trainer_target = getattr(trainer_cfg, "_target_", None)
         trainer_cls = import_any(trainer_target) if trainer_target else None
@@ -51,17 +62,13 @@ def run_training(cfg: DictConfig) -> None:
             trainer_cfg,
             RNN=rnn_torch,
             Task=task,
-            optimizer=optimizer,
+            optimizer=opt,
             monitor=monitor,
             _convert_="none",
         )
 
-        trainer_file = inspect.getfile(trainer.__class__)
-        suffix_trainer = Path(trainer_file).stem
-        suffix_RNN = rnn_config._target_.split(".")[-2].split("_")[-1]
-        tag = f"{cfg.model.activation_name}_{suffix_trainer}_{suffix_RNN}"
-        print(f"training {taskname}, {tag}")
-        data_save_path = os.path.join(cfg.paths.save_to, f"{taskname}_{tag}")
+        print(f"training {taskname}, {folder_tag}")
+        data_save_path = os.path.join(cfg.paths.save_to, f"{taskname}_{folder_tag}")
         os.makedirs(data_save_path, exist_ok=True)
         mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
 
@@ -89,7 +96,8 @@ def run_training(cfg: DictConfig) -> None:
         last_net_params = unjsonify(last_net_params)
         best_net_params = unjsonify(best_net_params)
 
-        net_params = filter_kwargs(RNN_numpy, last_net_params)
+        net_params_cfg = filter_kwargs(RNN_numpy, last_net_params)
+        net_params = OmegaConf.to_container(net_params_cfg, resolve=True)
         RNN_valid = RNN_numpy(**net_params, seed=seed)
 
         analyzer = PerformanceAnalyzer(RNN_valid)
@@ -107,7 +115,7 @@ def run_training(cfg: DictConfig) -> None:
                                               seed=seed)
         score = np.round(score, 7)
 
-        data_folder = make_tag(cfg, net_params, score, taskname)
+        data_folder = make_subfolder_tag(cfg, net_params, score, taskname)
 
         full_data_folder = os.path.join(data_save_path, data_folder)
         datasaver = DataSaver(full_data_folder)
@@ -115,7 +123,7 @@ def run_training(cfg: DictConfig) -> None:
         # save Trainer module code as file alongside with data
         datasaver.save_data(get_source_code(trainer), "trainer.txt")
         # save RNN module code as file alongside with data
-        datasaver.save_data(get_source_code(import_any(rnn_config._target_)), "rnn.txt")
+        datasaver.save_data(get_source_code(import_any(rnn_cfg._target_)), "rnn.txt")
         # save source of the script being executed (the __main__ module)
         datasaver.save_data(get_source_code(sys.modules["__main__"]), "running_script.txt")
 
