@@ -1,7 +1,5 @@
 import torch
 import numpy as np
-import json
-import os
 from omegaconf import DictConfig, OmegaConf
 from matplotlib import pyplot as plt
 from trainRNNbrain.utils import count_return_values
@@ -22,15 +20,6 @@ def prepare_task_arguments(cfg_task, dt):
         else:
             if key in task_params:
                 conf[key] = cfg_task[key]
-    return OmegaConf.create(conf)
-
-def prepare_RNN_arguments(cfg_model, cfg_task):
-    conf = dict()
-    for key in cfg_model.keys():
-        conf[key] = cfg_model[key]
-    conf["input_size"] = cfg_task.n_inputs
-    conf["output_size"] = cfg_task.n_outputs
-    conf["seed"] = cfg_task.seed
     return OmegaConf.create(conf)
 
 def r2(x, y, axis=None, eps=1e-12):

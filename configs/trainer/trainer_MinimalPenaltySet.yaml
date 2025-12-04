@@ -23,6 +23,7 @@ cap_s : 0.7
 p: 2
 same_batch: True
 dropout: False
-drop_rate: 0
+dropout_args:
+  drop_rate: 0.0
+  dropout_kind: output
 inequality_method: 'hhi'
-

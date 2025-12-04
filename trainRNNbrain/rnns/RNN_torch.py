@@ -346,7 +346,7 @@ class RNN_torch(torch.nn.Module):
             h = self.W_rec @ s + self.W_inp @ (I + i_noise) + b
         return -s + self.activation(h) + r_noise
 
-    def forward(self, u, w_noise=True, dropout=False, drop_rate=0.3):
+    def forward(self, u, w_noise=True, dropout=False, drop_rate=0.3, participation=None):
         T_steps = u.shape[1]
         batch_size = u.shape[-1]
 

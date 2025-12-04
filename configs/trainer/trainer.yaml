@@ -11,7 +11,8 @@ lambda_m: 0.1
 lambda_p: 0.1
 p: 2
 same_batch: True
+adjust_noise_levels: True
 dropout: True
-drop_rate: 0.1
-
-
+dropout_args:
+  drop_rate: 0.1
+  dropout_kind: participation

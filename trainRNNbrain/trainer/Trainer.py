@@ -93,6 +93,11 @@ class Penalties:
 
     def metabolic_penalty(self, states, input=None, output=None, target=None, mask=None):
         return torch.mean(states ** 2)
+    
+    def h_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None):
+        h = (torch.einsum('ij,jkl->ikl', self.RNN.W_rec, states) +
+             torch.einsum('ij,jkl->ikl', self.RNN.W_inp, input))
+        return torch.mean(h ** 2)
 
     def channel_overlap_penalty(self, states=None, input=None, output=None, target=None, mask=None, orth_input_only=True, eps=1e-8):
         B = self.RNN.W_inp if orth_input_only else torch.cat((self.RNN.W_inp, self.RNN.W_out.T), dim=1)
@@ -264,13 +269,15 @@ class Trainer():
                  lambda_met = 0.1,
                  lambda_si=0.1,
                  lambda_hi=0.1,
+                 lambda_hm=0.0,
                  lambda_htvar=0.05,
                  lambda_hlvar=0.9,
                  lambda_cl=0.05,
                  cap_s=0.7,
                  inequality_method='hhi',
+                 adjust_noise_levels=True,
                  dropout=False,
-                 drop_rate=0.05,
+                 dropout_args=None,
                  monitor=True,
                  p=2):
         self.RNN = RNN
@@ -302,6 +309,7 @@ class Trainer():
             "output_var": (self.Penalties.trial_output_var_penalty, lambda_tv, {}),
             "channel_overlap": (self.Penalties.channel_overlap_penalty, lambda_orth, {"orth_input_only":orth_input_only}),
             "s_magnitude": (self.Penalties.s_magnitude_penalty, lambda_sm, {"cap_s": cap_s, "q": 0.9, "alpha": 5.0, "beta": 1.0}),
+            "h_magnitude": (self.Penalties.h_magnitude_penalty, lambda_hm, {}),
             "metabolic": (self.Penalties.metabolic_penalty, lambda_met, {}),
             "s_inequality": (self.Penalties.s_inequality_penalty, lambda_si, {"method":inequality_method}),
             "h_inequality": (self.Penalties.h_inequality_penalty, lambda_hi, {"method":inequality_method}),
@@ -313,10 +321,16 @@ class Trainer():
             self.loss_monitor = {**{k: [] for k in self.penalty_map}}
             self.gradients_monitor = {**{f"g_{k}": [] for k in self.penalty_map}}
             self.scaled_gradients_monitor = {**{f"sg_{k}": [] for k in self.penalty_map}}
-        self.p, self.dropout, self.drop_rate = p, dropout, drop_rate
+        da = dropout_args or {}
+        drop_rate_cfg = da.get("drop_rate", 0.05)
+        dropout_kind_cfg = da.get("dropout_kind", "participation")
+
+        self.p, self.dropout, self.drop_rate = p, dropout, drop_rate_cfg
+        self.dropout_kind = (dropout_kind_cfg or "participation").lower()
         self.activity_q = 0.9 # quantile of activity to use while calculating participation
         self.participation = (1e-6 * torch.ones(self.RNN.N, device=self.RNN.device)) if self.dropout else None
         self.iter_n = 0
+        self.adjust_noise_levels = adjust_noise_levels
 
 
     @staticmethod
@@ -443,11 +457,12 @@ class Trainer():
 
     def set_noise_levels_(self):
         # noise schedule
-        scale = torch.as_tensor(self.max_iter / 12, dtype=torch.float32, device=self.RNN.device)
-        center = torch.as_tensor(self.max_iter / 3, dtype=torch.float32, device=self.RNN.device)
-        mult = 1.0 / (1.0 + torch.exp(-(self.iter_n - center) / scale))
-        self.RNN.sigma_rec = self.max_sigma_rec * mult
-        self.RNN.sigma_inp = self.max_sigma_inp * mult
+        if self.adjust_noise_levels:
+            scale = torch.as_tensor(self.max_iter / 12, dtype=torch.float32, device=self.RNN.device)
+            center = torch.as_tensor(self.max_iter / 3, dtype=torch.float32, device=self.RNN.device)
+            mult = 1.0 / (1.0 + torch.exp(-(self.iter_n - center) / scale))
+            self.RNN.sigma_rec = self.max_sigma_rec * mult
+            self.RNN.sigma_inp = self.max_sigma_inp * mult
         return None
 
     def anneal_activation_(self):
@@ -471,6 +486,16 @@ class Trainer():
         activity_std = x.std(dim=1, unbiased=False)
         participation = activity + activity_std
         return participation
+
+    @staticmethod
+    def get_dropout_mask_(vector_of_measruments, drop_rate, adv_strength=5.0, eps=1e-8):
+        """Adversarially sample columns to drop and rescale surviving weights."""
+        z = (vector_of_measruments - vector_of_measruments.min()) / (vector_of_measruments.max() - vector_of_measruments.min() + eps)
+        drop_probs = drop_rate * torch.softmax(adv_strength * z, dim=0) * z.numel()
+        drop_probs = drop_probs.clamp(0.0, 1.0)
+        mask = torch.bernoulli(1 - drop_probs).unsqueeze(0)  # (1, N)
+        mask = mask / (1 - drop_probs.unsqueeze(0) + eps)
+        return mask
     
     @staticmethod
     def r2_score(output, target, mask):
@@ -481,6 +506,7 @@ class Trainer():
         return r2_val
 
     def train_step(self, input, target_output, mask):
+        mask_t = mask if isinstance(mask, slice) else torch.as_tensor(mask, device=self.RNN.device, dtype=torch.long)
         self.set_noise_levels_()
         self.anneal_activation_()
 
@@ -489,17 +515,26 @@ class Trainer():
         states, output_full = self.RNN(input, w_noise=True, dropout=False, drop_rate=None)
         output_do = output_full
         if self.dropout:
-            self.participation = self.get_participation_(states, q=self.activity_q, eps=1e-12).detach()
-            _, output_do = self.RNN(
-                input,
-                w_noise=True,
-                dropout=True,
-                drop_rate=self.drop_rate,
-                participation=self.participation,
-            )
+            if self.dropout_kind == "participation":
+                self.participation = self.get_participation_(states, q=self.activity_q, eps=1e-12).detach()
+                _, output_do = self.RNN(
+                    input,
+                    w_noise=True,
+                    dropout=True,
+                    drop_rate=self.drop_rate,
+                    participation=self.participation,
+                )
+            elif self.dropout_kind == "output":
+                out_mag = self.RNN.W_out.abs().sum(dim=0).detach()
+                mask_out = self.get_dropout_mask_(out_mag, self.drop_rate)
+                output_do = torch.einsum("oj,jtk->otk", self.RNN.W_out * mask_out.to(self.RNN.W_out.device), states)
+            else:
+                raise ValueError(f"Unsupported dropout_kind: {self.dropout_kind}")
 
+        # Use the dropped output for the task when dropout is enabled so the loss reflects dropout.
+        output_for_task = output_do if self.dropout else output_full
         penalty_dict_raw = {
-            k: (fn(states, input, (output_full if (self.dropout and k=='task') else output_do), target_output, mask, **kwargs) if L != 0 else None)
+            k: (fn(states, input, (output_for_task if k == 'task' else output_do), target_output, mask_t, **kwargs) if L != 0 else None)
             for k, (fn, L, kwargs) in self.penalty_map.items()
         }
         
@@ -533,7 +568,7 @@ class Trainer():
             loss_k = penalty_dict_raw[k] if L != 0 else Trainer.zero_(self.RNN.device)
             loss_val += L * loss_k
         loss_val = float(loss_val.detach().cpu().item())
-        r2_val = Trainer.r2_score(output_full, target_output, mask)
+        r2_val = Trainer.r2_score(output_full, target_output, mask_t)
         
         # additional monitoring
         if self.monitor:
@@ -559,12 +594,19 @@ class Trainer():
         self.RNN.eval()
         dt = next(self.RNN.parameters()).dtype
         dev = self.RNN.device
+        dr = self.drop_rate if drop_rate is None else drop_rate
         with torch.no_grad():
             srec, sinp = float(self.RNN.sigma_rec), float(self.RNN.sigma_inp)
             if not noise: self.RNN.sigma_rec = self.RNN.sigma_inp = 0.0
             inp, tgt = inp.to(dev, dt), tgt.to(dev, dt)
             mask = mask if isinstance(mask, slice) else torch.as_tensor(mask, device=dev)
-            _, y = self.RNN(inp, w_noise=noise, dropout=dropout, drop_rate=drop_rate)
+            if dropout and self.dropout_kind == "output":
+                states, y_full = self.RNN(inp, w_noise=noise, dropout=False, drop_rate=None)
+                out_mag = self.RNN.W_out.abs().sum(dim=0).detach()
+                mask_out = self.get_dropout_mask_(out_mag, dr)
+                y = torch.einsum("oj,jtk->otk", self.RNN.W_out * mask_out.to(self.RNN.W_out.device), states)
+            else:
+                _, y = self.RNN(inp, w_noise=noise, dropout=dropout, drop_rate=dr)
             r2 = Trainer.r2_score(y, tgt, mask)
             self.RNN.sigma_rec, self.RNN.sigma_inp = srec, sinp
         return float(r2)

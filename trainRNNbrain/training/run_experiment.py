@@ -13,6 +13,7 @@ from pathlib import Path
 from trainRNNbrain.utils import import_any, get_source_code, make_subfolder_tag, filter_kwargs
 from pprint import pprint
 OmegaConf.register_new_resolver("eval", eval)
+import os
 os.environ['HYDRA_FULL_ERROR'] = '1'
 
 
