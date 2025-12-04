@@ -70,12 +70,16 @@ def remove_silent_nodes(rnn_torch, task, net_params, thr=1e-10):
     net_params["W_inp"] = np.copy(W_inp)
     net_params["bias_rec"] = None
     net_params["y_init"] = np.zeros(N_reduced)
-    net_params["activation_slope"] = float(rnn_torch.activation_slope.cpu().numpy())
+    act_args = {}
+    if hasattr(rnn_torch, "activation_args"):
+        for k, v in rnn_torch.activation_args.items():
+            act_args[k] = float(v) if not isinstance(v, bool) else v
+    net_params["activation_args"] = act_args
     RNN_params = {"W_inp": np.array(net_params["W_inp"]),
                   "W_rec": np.array(net_params["W_rec"]),
                   "W_out": np.array(net_params["W_out"]),
                   "b_rec": np.array(net_params["bias_rec"]),
-                  "activation_slope": net_params["activation_slope"],
+                  "activation_args": net_params["activation_args"],
                   "y_init": np.zeros(N)}
     net_params["N"] = N_reduced
     rnn_torch.set_params(RNN_params)
@@ -189,5 +193,4 @@ def mad_scale(x: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
     v = x.reshape(-1)
     scale = 1.4826 * torch.abs(torch.median(v - torch.median(v)))
     return torch.clamp(scale, min=eps)
-
 

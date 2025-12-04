@@ -1,7 +1,8 @@
 # @package model
 _target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
 activation_name: 'tanh'
-activation_slope: 1.0
+activation_args:
+  slope: 1.0
 constrained: False
 N: 30
 dt: 1

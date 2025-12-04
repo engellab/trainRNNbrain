@@ -450,6 +450,20 @@ class Trainer():
         self.RNN.sigma_inp = self.max_sigma_inp * mult
         return None
 
+    def anneal_activation_(self):
+        if getattr(self.RNN, "activation_name", None) != "leaky_relu":
+            return None
+        activation_args = getattr(self.RNN, "activation_args", {}) or {}
+        if not activation_args.get("annealing", False):
+            return None
+        frac = float(min(1.0, max(0.0, self.iter_n / max(self.max_iter, 1))))
+        new_leak = (1.0 - frac) * float(getattr(self.RNN, "leak_slope_max", activation_args.get("leak_slope", 0.05)))
+        if hasattr(self.RNN, "set_leak_slope"):
+            self.RNN.set_leak_slope(new_leak)
+        else:
+            self.RNN.leak_slope = torch.as_tensor(new_leak, device=self.RNN.device)
+        return None
+
     @staticmethod
     def get_participation_(states, q=0.9, eps=1e-8):
         x = states.abs().view(states.size(0), -1)  # (N, T*B)
@@ -468,6 +482,7 @@ class Trainer():
 
     def train_step(self, input, target_output, mask):
         self.set_noise_levels_()
+        self.anneal_activation_()
 
         params = [p for p in self.RNN.parameters() if p.requires_grad]
 

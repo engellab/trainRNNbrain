@@ -11,11 +11,12 @@ class RNN_numpy():
     def __init__(self,
                  N, dt, tau,
                  W_inp, W_rec, W_out,
-                 activation_name, activation_slope,
+                 activation_name, activation_args=None, activation_slope=1.0,
                  gamma=0.1,
                  d=0,
                  bias=None,
-                 y_init=None, seed=None, beta=None):
+                 y_init=None, seed=None, beta=None,
+                 **kwargs):
         self.N = N
         self.W_inp = W_inp
         self.W_rec = W_rec
@@ -34,16 +35,47 @@ class RNN_numpy():
         self.y = deepcopy(self.y_init)
         self.y_history = []
         self.activation_name = activation_name
-        self.activation_slope = activation_slope
-        if activation_name == 'relu':
-            self.activation = lambda x: np.maximum(0, self.activation_slope * x)
-        elif activation_name == 'sigmoid':
-            self.activation = lambda x: 1.0 / (1 + np.exp(-self.activation_slope * x))
-        elif activation_name == 'tanh':
-            self.activation = lambda x: np.tanh(self.activation_slope * x)
-        elif activation_name == 'softplus':
-            self.beta = beta
-            self.activation = np.log(1 + np.exp(self.beta * x))/self.beta
+        # activation config
+        defaults = {
+            "relu": {"slope": 1.0},
+            "tanh": {"slope": 1.0},
+            "sigmoid": {"slope": 1.0},
+            "softplus": {"slope": 1.0},
+            "leaky_relu": {"slope": 1.0, "leak_slope": 0.05},
+        }
+        args = {**defaults.get(activation_name, {}), **(activation_args or {})}
+        if activation_slope is not None:
+            args.setdefault("slope", activation_slope)
+        self.activation_args = args
+        self.activation_slope = args.get("slope", 1.0)
+        self.leak_slope = args.get("leak_slope", 0.05)
+
+        def act_relu(x):
+            return np.maximum(0, self.activation_slope * x)
+
+        def act_sigmoid(x):
+            return 1.0 / (1 + np.exp(-self.activation_slope * x))
+
+        def act_tanh(x):
+            return np.tanh(self.activation_slope * x)
+
+        def act_softplus(x):
+            beta_local = self.activation_slope
+            return np.log1p(np.exp(beta_local * x)) / beta_local
+
+        def act_leaky_relu(x):
+            return np.where(x >= 0, self.activation_slope * x, self.leak_slope * self.activation_slope * x)
+
+        activation_map = {
+            "relu": act_relu,
+            "sigmoid": act_sigmoid,
+            "tanh": act_tanh,
+            "softplus": act_softplus,
+            "leaky_relu": act_leaky_relu,
+        }
+        if activation_name not in activation_map:
+            raise ValueError(f"Unsupported activation {activation_name}")
+        self.activation = activation_map[activation_name]
         self.gamma = gamma
         self.d = d
 
@@ -84,7 +116,12 @@ class RNN_numpy():
             sigmoid = lambda x: 1.0 / (1.0 + np.exp(-x))
             f_prime = self.activation_slope * (sigmoid(self.activation_slope * arg)) * (1.0 - sigmoid(self.activation_slope * arg))
         elif self.activation_name == 'softplus':
-            f_prime = lambda x: np.exp(self.beta * x)/(np.exp(self.beta * x) + 1)
+            beta = self.activation_slope
+            f_prime = beta * (1 / (1 + np.exp(-beta * arg)))
+        elif self.activation_name == 'leaky_relu':
+            f_prime = np.where(arg >= 0, self.activation_slope, self.leak_slope * self.activation_slope)
+        else:
+            raise ValueError(f"Unsupported activation {self.activation_name}")
         return - (1 - self.d) * np.eye(self.N) + np.diag(f_prime) @ self.W_rec
 
     def rhs_jac_h(self, h, input):

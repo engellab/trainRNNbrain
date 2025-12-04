@@ -1,6 +1,7 @@
 from copy import deepcopy
 import torch
 import numpy as np
+import torch.nn.functional as F
 
 '''
 forward pass return 3 arguments instead of 2
@@ -84,7 +85,7 @@ def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1
     W_inp = sparse(W_inp, input_sparsity, mu_pos, std, generator)
 
     output_sparsity = 1 - output_density
-    W_out = sparse(torch.empty(num_outputs, N), output_sparsity, mu_pos, std, generator)
+    W_out = sparse(torch.empty(num_outputs, N, device=device), output_sparsity, mu_pos, std, generator)
 
     output_mask = (W_out != 0).to(device=device).float()
     input_mask = (W_inp != 0).to(device=device).float()
@@ -160,11 +161,11 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     W_rec = torch.tensor(radius / spec_radius).to(device=device) * W_rec.to(device=device)
     W_rec = W_rec.float()
 
-    W_inp = torch.zeros([N, num_inputs]).float()
+    W_inp = torch.zeros([N, num_inputs], device=device).float()
     input_sparsity = 1 - input_density
     W_inp = torch.abs(sparse(W_inp, input_sparsity, mu_E, std, generator)).float()
 
-    W_out = torch.zeros([num_outputs, Ne]).float()
+    W_out = torch.zeros([num_outputs, Ne], device=device).float()
     output_sparsity = 1 - output_density
     W_out = torch.abs(sparse(W_out, output_sparsity, mu_E, std, generator))
     W_out = torch.hstack([W_out, torch.zeros([num_outputs, Ni], device=device)]).float()
@@ -187,6 +188,7 @@ class RNN_torch(torch.nn.Module):
     def __init__(self,
                  N,
                  activation_name,
+                 activation_args=None,
                  activation_slope=1.0,
                  dt=1,
                  tau=10,
@@ -224,16 +226,8 @@ class RNN_torch(torch.nn.Module):
             self.device = torch.device('cpu')
         print(f"Using {self.device} for RNN!")
         self.N = N
-        self.activation_slope = torch.tensor(activation_slope).to(self.device)
         self.activation_name = activation_name
-        if activation_name == 'relu':
-            self.activation = lambda x: torch.maximum(torch.tensor(0.), self.activation_slope * x)
-        elif activation_name == 'tanh':
-            self.activation = lambda x: torch.tanh(self.activation_slope * x)
-        elif activation_name == 'sigmoid':
-            self.activation = lambda x: torch.sigmoid(self.activation_slope * x)
-        elif activation_name == 'softplus':
-            self.activation = lambda x: torch.nn.Softplus(beta=self.activation_slope)(x)
+        self._configure_activation(activation_name, activation_args, activation_slope)
 
         self.tau = tau
         self.dt = dt
@@ -280,10 +274,61 @@ class RNN_torch(torch.nn.Module):
                                  generator=self.random_generator,
                                  recurrent_density=self.connectivity_density_rec)
         if self.bias_init_amp != 0 and not (self.bias_init_amp is None):
-            self.bias = self.bias_init_amp * torch.nn.Parameter(torch.rand(self.N, generator=self.random_generator))
+            self.bias = torch.nn.Parameter(self.bias_init_amp * torch.rand(self.N, generator=self.random_generator, device=self.device))
         self.W_out = torch.nn.Parameter(W_out.to(self.device))
         self.W_rec = torch.nn.Parameter(W_rec.to(self.device))
         self.W_inp = torch.nn.Parameter(W_inp.to(self.device))
+
+    def _configure_activation(self, activation_name, activation_args=None, legacy_slope=None):
+        defaults = {
+            "relu": {"slope": 1.0},
+            "tanh": {"slope": 1.0},
+            "sigmoid": {"slope": 1.0},
+            "softplus": {"slope": 1.0},
+            "leaky_relu": {"slope": 1.0, "leak_slope": 0.05, "annealing": False},
+        }
+        args = {**defaults.get(activation_name, {}), **(activation_args or {})}
+        if legacy_slope is not None and "slope" not in args:
+            args["slope"] = legacy_slope
+        slope = torch.tensor(args.get("slope", 1.0), device=self.device, dtype=torch.float32)
+        leak = torch.tensor(args.get("leak_slope", 0.05), device=self.device, dtype=torch.float32)
+        self.activation_args = {k: (float(v) if not isinstance(v, bool) else v) for k, v in args.items()}
+        self.activation_slope = slope
+        self.leak_slope = leak
+        self.leak_slope_max = leak.clone()
+        self.activation_name = activation_name
+
+        def act_relu(x):
+            return F.relu(self.activation_slope * x)
+
+        def act_tanh(x):
+            return torch.tanh(self.activation_slope * x)
+
+        def act_sigmoid(x):
+            return torch.sigmoid(self.activation_slope * x)
+
+        def act_softplus(x):
+            return F.softplus(x, beta=float(self.activation_slope))
+
+        def act_leaky_relu(x):
+            return F.leaky_relu(self.activation_slope * x, negative_slope=float(self.leak_slope))
+
+        activation_map = {
+            "relu": act_relu,
+            "tanh": act_tanh,
+            "sigmoid": act_sigmoid,
+            "softplus": act_softplus,
+            "leaky_relu": act_leaky_relu,
+        }
+        if activation_name not in activation_map:
+            raise ValueError(f"Unsupported activation_name: {activation_name}")
+        self.activation = activation_map[activation_name]
+        return None
+
+    def set_leak_slope(self, value: float):
+        self.leak_slope = torch.tensor(value, device=self.device, dtype=torch.float32)
+        self.activation_args["leak_slope"] = float(self.leak_slope)
+        return None
 
     def rhs(self, s, I, i_noise, r_noise, dropout_mask=None):
         # s: (N, B)
@@ -358,7 +403,8 @@ class RNN_torch(torch.nn.Module):
         else:
             bias = None
         param_dict["activation_name"] = self.activation_name
-        param_dict["activation_slope"] = self.activation_slope
+        param_dict["activation_args"] = {k: (float(v) if not isinstance(v, bool) else v)
+                                          for k, v in self.activation_args.items()}
         param_dict["W_out"] = W_out
         param_dict["W_inp"] = W_inp
         param_dict["W_rec"] = W_rec
@@ -377,7 +423,9 @@ class RNN_torch(torch.nn.Module):
         self.y_init = torch.from_numpy(np.float32(params["y_init"])).to(self.device)
         if not (params["bias"] is None):
             self.bias = torch.from_numpy(np.float32(params["bias"])).to(self.device)
-        self.activation_slope = torch.tensor(params["activation_slope"]).to(self.device)
+        self._configure_activation(params.get("activation_name", self.activation_name),
+                                   params.get("activation_args", None),
+                                   params.get("activation_slope", None))
         return None
 
 

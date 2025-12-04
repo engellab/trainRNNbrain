@@ -1,5 +1,6 @@
 from copy import deepcopy
 import torch
+import torch.nn.functional as F
 import numpy as np
 import math
 import matplotlib.pyplot as plt
@@ -223,16 +224,41 @@ class RNN_torch(torch.nn.Module):
         self.cdeg = float(cdeg)
 
         # activation
-        slope = float(activation_slope)
-        act_map = {
-            "relu":     (lambda x: torch.relu(slope * x)),
-            "tanh":     (lambda x: torch.tanh(slope * x)),
-            "sigmoid":  (lambda x: torch.sigmoid(slope * x)),
-            "softplus": (lambda x: torch.nn.Softplus(beta=slope)(x)),
+        self._configure_activation(activation_name, activation_args, activation_slope)
+
+    def _configure_activation(self, activation_name, activation_args=None, legacy_slope=None):
+        defaults = {
+            "relu": {"slope": 1.0},
+            "tanh": {"slope": 1.0},
+            "sigmoid": {"slope": 1.0},
+            "softplus": {"slope": 1.0},
+            "leaky_relu": {"slope": 1.0, "leak_slope": 0.05, "annealing": False},
         }
+        args = {**defaults.get(activation_name, {}), **(activation_args or {})}
+        if legacy_slope is not None and "slope" not in args:
+            args["slope"] = legacy_slope
+        self.activation_args = args
         self.activation_name = activation_name
-        self.activation_slope = slope
+        self.activation_slope = float(args.get("slope", 1.0))
+        self.leak_slope = float(args.get("leak_slope", 0.05))
+        self.leak_slope_max = self.leak_slope
+
+        act_map = {
+            "relu":     (lambda x: torch.relu(self.activation_slope * x)),
+            "tanh":     (lambda x: torch.tanh(self.activation_slope * x)),
+            "sigmoid":  (lambda x: torch.sigmoid(self.activation_slope * x)),
+            "softplus": (lambda x: F.softplus(x, beta=self.activation_slope)),
+            "leaky_relu": (lambda x: F.leaky_relu(self.activation_slope * x, negative_slope=self.leak_slope)),
+        }
+        if activation_name not in act_map:
+            raise ValueError(f"Unsupported activation_name: {activation_name}")
         self.activation = act_map[self.activation_name]
+        return None
+
+    def set_leak_slope(self, value: float):
+        self.leak_slope = float(value)
+        self.activation_args["leak_slope"] = self.leak_slope
+        return None
 
         # state init
         self.y_init = (y_init.to(self.device, self.dtype) if isinstance(y_init, torch.Tensor)
@@ -349,7 +375,8 @@ class RNN_torch(torch.nn.Module):
         W_inp = deepcopy(self.W_inp.data.cpu().detach().numpy())
         y_init = deepcopy(self.y_init.detach().cpu().numpy())
         param_dict["activation_name"] = self.activation_name
-        param_dict["activation_slope"] = self.activation_slope
+        param_dict["activation_args"] = {k: (float(v) if not isinstance(v, bool) else v)
+                                          for k, v in self.activation_args.items()}
         param_dict["W_out"] = W_out
         param_dict["W_inp"] = W_inp
         param_dict["W_rec"] = W_rec
@@ -387,7 +414,9 @@ class RNN_torch(torch.nn.Module):
         self.gamma = to_dev(params["gamma"])
         self.d = to_dev(params["d"])
         self.y_init = to_dev(params["y_init"], torch.float32)
-        self.activation_slope = to_dev(params["activation_slope"])
+        self._configure_activation(params.get("activation_name", self.activation_name),
+                                   params.get("activation_args", None),
+                                   params.get("activation_slope", None))
         self.positions = to_dev(params["positions"], torch.float32)
         self.dale_mask = to_dev(params["dale_mask"], torch.float32)
         return None

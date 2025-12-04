@@ -1,7 +1,8 @@
 # @package model
 _target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
 activation_name: 'sigmoid'
-activation_slope: 7.5
+activation_args:
+  slope: 7.5
 constrained: False
 N: 100
 dt: 1
@@ -11,7 +12,6 @@ connectivity_density_rec: 1.0
 spectral_rad: 1.2
 sigma_rec: .05
 sigma_inp: .05
-
 
 
 

@@ -2,7 +2,8 @@
 _target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
 RNN_tag: ""
 activation_name: 'relu'
-activation_slope: 1.0
+activation_args:
+  slope: 1.0
 constrained: True
 N: 250
 dt: 1
@@ -12,5 +13,4 @@ connectivity_density_rec: 1.0
 spectral_rad: 1.2
 sigma_rec: .05
 sigma_inp: .05
-bias_init_amp: 0.0
-
+bias_init_amp: 0.2

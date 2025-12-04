@@ -103,9 +103,13 @@ def run_training(cfg: DictConfig) -> None:
         analyzer = PerformanceAnalyzer(RNN_valid)
 
         input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
-        print(f"torch r2 score: {trainer.eval_step(torch.from_numpy(input_batch_valid),
-                                                       torch.from_numpy(target_batch_valid),
-                                                       mask=mask, noise=True)}")
+        torch_r2 = trainer.eval_step(
+            torch.from_numpy(input_batch_valid),
+            torch.from_numpy(target_batch_valid),
+            mask=mask,
+            noise=True,
+        )
+        print(f"torch r2 score: {torch_r2}")
         score = analyzer.get_validation_score(r2,
                                               input_batch_valid,
                                               target_batch_valid,
