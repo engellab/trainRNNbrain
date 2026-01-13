@@ -28,8 +28,8 @@ trainRNNbrain/training/multirun
 
 # Logs, Slurm, and run metadata
 /log/
-/slurm/
-*.slurm
+/slurm/*.slurm
+!/slurm/MultiNSweep_wSparsityAndSMagPen.slurm
 *.log
 
 # Style / figures / media / JSON
