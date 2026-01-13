@@ -2,27 +2,64 @@
 _target_: trainRNNbrain.trainer.Trainer.Trainer
 trainer_tag: "base trainer"
 max_iter: 15000
-tol: 1e-10
+anneal_noise: True
 lr: 0.001
 weight_decay: 1e-6
-orth_input_only: True
-lambda_orth: 0.3
-lambda_iwm: 0
-lambda_rwm: 0
-lambda_ow: 0
-lambda_met: 0
-lambda_rws: 0.05 # sparsity
-lambda_sm: 0.005 # magnitude of firing rates
-lambda_tv: 0 # trial output variability (across trials)
-lambda_si: 0 
-lambda_hi: 0
-lambda_htvar: 0
-lambda_hlvar: 0
-lambda_cl: 0
-cap_s : 0.3
 p: 2
 same_batch: True
+monitor: True
+lambda_orth: 0.3
+orth_args:
+  orth_input_only: True
+lambda_iwm: 0
+iwm_args:
+  cap100: 0.5
+  gamma: 5.0
+  eps: 1e-12
+lambda_rwm: 0
+rwm_args:
+  cap100: 0.07
+  N_ref: 100
+  k_ref: 20
+  gamma: 0.5
+  eps: 1e-12
+lambda_ow: 0
+ow_args:
+  c: 2.0
+  cap100: 0.3
+  alpha: 1.0
+  gamma: 5.0
+  eps: 1e-12
+lambda_met: 0
+met_args: {}
+lambda_rws: 0.05 # sparsity
+rws_args:
+  tg_deg: 20
+  eps: 1e-12
+lambda_sm: 0.005 # magnitude of firing rates
+sm_args:
+  cap_s: 0.3
+  q: 0.9
+  gamma: 5.0
+  beta: 1.0
+  eps: 1e-12
+lambda_tv: 0 # trial output variability (across trials)
+tv_args: {}
+lambda_si: 0 
+si_args:
+  method: 'hhi'
+lambda_hi: 0
+hi_args:
+  method: 'hhi'
+lambda_htvar: 0
+htvar_args: {}
+lambda_hlvar: 0
+hlvar_args: {}
+lambda_cl: 0
+cl_args: {}
 dropout: False
-drop_rate: 0
-inequality_method: 'hhi'
+dropout_args:
+  dropout: False
+  drop_rate: 0
+  activity_q: 0.9
 

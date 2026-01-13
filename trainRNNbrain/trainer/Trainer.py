@@ -250,25 +250,36 @@ class Trainer():
     def __init__(self,
                  RNN, Task, optimizer,
                  max_iter=1000,
-                 tol=1e-12,
-                 lambda_iwm=0.1,
-                 lambda_rwm=0.1,
-                 lambda_ow=0.1,
-                 lambda_rws=0.1,
-                 lambda_tv=0.1,
+                 anneal_noise=True,
+                 lambda_iwm=0.0,
+                 iwm_args=None,
+                 lambda_rwm=0.0,
+                 rwm_args=None,
+                 lambda_ow=0.0,
+                 ow_args=None,
+                 lambda_rws=0.05,
+                 rws_args=None,
+                 lambda_tv=0.0,
+                 tv_args=None,
                  lambda_orth=0.3,
-                 orth_input_only=True,
-                 lambda_sm=0.001,
-                 lambda_met = 0.1,
-                 lambda_si=0.1,
-                 lambda_hi=0.1,
-                 lambda_htvar=0.05,
-                 lambda_hlvar=0.9,
-                 lambda_cl=0.05,
-                 cap_s=0.7,
+                 orth_args={"orth_input_only": True},
+                 lambda_sm=0.005,
+                 sm_args=None,
+                 lambda_met = 0.0,
+                 met_args=None,
+                 lambda_si=0.0,
+                 si_args=None,
+                 lambda_hi=0.0,
+                 hi_args=None,
+                 lambda_htvar=0.0,
+                 htvar_args=None,
+                 lambda_hlvar=0.0,
+                 hlvar_args=None,
+                 lambda_cl=0.0,
+                 cl_args = None,
                  inequality_method='hhi',
                  dropout=False,
-                 drop_rate=0.05,
+                 dropout_args=None,
                  monitor=True,
                  p=2):
         self.RNN = RNN
@@ -278,6 +289,8 @@ class Trainer():
         self.Task = Task
         self.optimizer = optimizer
         self.monitor = monitor
+        self.max_iter = max_iter
+        self.anneal_noise = anneal_noise
         
         # make sure masks exist, on the right device, and don’t require grad
         for name in ['recurrent_mask', 'input_mask', 'output_mask']:
@@ -286,33 +299,30 @@ class Trainer():
                 m.requires_grad_(False)
                 if m.device != self.RNN.W_rec.device:
                     setattr(self.RNN, name, m.to(self.RNN.W_rec.device))
-
-        self.max_iter = max_iter
-        self.tol = tol
         
         # name of the penalty, it's scale (lambda) and dictionary of arguments to be passed
         self.penalty_map = {
             "task": (self.Penalties.task_penalty, 1.0, {}),
-            "inp_weights_magnitude": (self.Penalties.inp_weights_magnitude_penalty, lambda_iwm, {"cap100": 0.5, "gamma": 5.0, "eps": 1e-12}),
-            "rec_weights_magnitude": (self.Penalties.rec_weights_magnitude_penalty, lambda_rwm, {"cap100": 0.07, "N_ref": 100, "k_ref": 20, "gamma": 0.5, "eps": 1e-12}),
-            "out_weights": (self.Penalties.out_weights_penalty, lambda_ow, {"c": 2.0, "cap100": 0.3, "alpha": 1.0, "gamma": 5.0, "eps": 1e-12}),
-            "rec_weights_sparsity": (self.Penalties.rec_weights_sparsity_penalty, lambda_rws, {"tg_deg": 20, "eps": 1e-12}),
-            "output_var": (self.Penalties.trial_output_var_penalty, lambda_tv, {}),
-            "channel_overlap": (self.Penalties.channel_overlap_penalty, lambda_orth, {"orth_input_only":orth_input_only}),
-            "s_magnitude": (self.Penalties.s_magnitude_penalty, lambda_sm, {"cap_s": cap_s, "q": 0.9, "gamma": 5.0, "beta": 1.0, "eps": 1e-12}),
-            "metabolic": (self.Penalties.metabolic_penalty, lambda_met, {}),
-            "s_inequality": (self.Penalties.s_inequality_penalty, lambda_si, {"method":inequality_method}),
-            "h_inequality": (self.Penalties.h_inequality_penalty, lambda_hi, {"method":inequality_method}),
-            "h_time_variance": (self.Penalties.h_time_variance_penalty, lambda_htvar, {}),
-            "h_local_variance": (self.Penalties.h_local_variance_penalty, lambda_hlvar, {}),
-            "clustering": (self.Penalties.clustering_penalty, lambda_cl, {}),
+            "inp_weights_magnitude": (self.Penalties.inp_weights_magnitude_penalty, lambda_iwm, iwm_args),
+            "rec_weights_magnitude": (self.Penalties.rec_weights_magnitude_penalty, lambda_rwm, rwm_args),
+            "out_weights": (self.Penalties.out_weights_penalty, lambda_ow, ow_args),
+            "rec_weights_sparsity": (self.Penalties.rec_weights_sparsity_penalty, lambda_rws, rws_args),
+            "output_var": (self.Penalties.trial_output_var_penalty, lambda_tv, tv_args),
+            "channel_overlap": (self.Penalties.channel_overlap_penalty, lambda_orth, orth_args),
+            "s_magnitude": (self.Penalties.s_magnitude_penalty, lambda_sm, sm_args),
+            "metabolic": (self.Penalties.metabolic_penalty, lambda_met, met_args),
+            "s_inequality": (self.Penalties.s_inequality_penalty, lambda_si, si_args),
+            "h_inequality": (self.Penalties.h_inequality_penalty, lambda_hi, hi_args),
+            "h_time_variance": (self.Penalties.h_time_variance_penalty, lambda_htvar, htvar_args),
+            "h_local_variance": (self.Penalties.h_local_variance_penalty, lambda_hlvar, hlvar_args),
+            "clustering": (self.Penalties.clustering_penalty, lambda_cl, cl_args),
         }
         if monitor:
             self.loss_monitor = {**{k: [] for k in self.penalty_map}}
             self.gradients_monitor = {**{f"g_{k}": [] for k in self.penalty_map}}
             self.scaled_gradients_monitor = {**{f"sg_{k}": [] for k in self.penalty_map}}
-        self.p, self.dropout, self.drop_rate = p, dropout, drop_rate
-        self.activity_q = 0.9 # quantile of activity to use while calculating participation
+        self.p, self.dropout, self.drop_rate = p, dropout_args["dropout"], dropout_args["drop_rate"]
+        self.activity_q = dropout_args["activity_q"] # quantile of activity to use while calculating participation
         self.participation = (1e-6 * torch.ones(self.RNN.N, device=self.RNN.device)) if self.dropout else None
         self.iter_n = 0
 
@@ -439,7 +449,7 @@ class Trainer():
             self.RNN.W_out.copy_(corrected_out)
         return None
 
-    def set_noise_levels_(self):
+    def anneal_noise_levels_(self):
         # noise schedule
         scale = torch.as_tensor(self.max_iter / 12, dtype=torch.float32, device=self.RNN.device)
         center = torch.as_tensor(self.max_iter / 3, dtype=torch.float32, device=self.RNN.device)
@@ -465,7 +475,8 @@ class Trainer():
         return r2_val
 
     def train_step(self, input, target_output, mask):
-        self.set_noise_levels_()
+        if self.anneal_noise:
+            self.anneal_noise_levels_()
 
         params = [p for p in self.RNN.parameters() if p.requires_grad]
 
