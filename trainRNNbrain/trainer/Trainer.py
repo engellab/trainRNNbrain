@@ -411,45 +411,56 @@ class Trainer():
             if g is not None:
                 s = s + (g.detach() ** 2).sum()
         return s.sqrt()
+    
+    def _zero_optimizer_state_(self, p, mask):
+        st = self.optimizer.state.get(p, None)
+        if st is None: return
+        for _, v in st.items():
+            if torch.is_tensor(v) and v.shape == p.shape:
+                v.masked_fill_(mask.to(v.device), 0)
+        return None
 
     def enforce_masks_(self):
-        """Post-step: hard-zero masked weights + Adam moments."""
         with torch.no_grad():
-            for w_name, m_name in (('W_rec', 'recurrent_mask'),
-                                   ('W_inp', 'input_mask'),
-                                   ('W_out', 'output_mask')):
-                W = getattr(self.RNN, w_name, None)
-                M = getattr(self.RNN, m_name, None)
+            for w_name, m_name in (('W_rec','recurrent_mask'), ('W_inp','input_mask'), ('W_out','output_mask')):
+                W, M = getattr(self.RNN, w_name, None), getattr(self.RNN, m_name, None)
                 if W is None or M is None: continue
-                # optional if masks might live on wrong device/dtype:
-                # if M.device != W.device or M.dtype != W.dtype: M = M.to(W.device).type_as(W)
-                W.mul_(M)  # hard zeros on weights
-                self.mask_param_state_(W, M)  # zero Adam moments at masked coords
+                m0 = (M == 0)
+                W.mul_(M)
+                self._zero_optimizer_state_(W, m0)
         return None
 
-    def enforce_io_nonnegativity_(self):
+    def enforce_inp_nonneg_(self, eps=1e-12):
         with torch.no_grad():
-            self.RNN.W_inp.clamp_min_(1e-12)
-            self.RNN.W_out.clamp_min_(1e-12)
+            W = self.RNN.W_inp
+            changed = W < eps
+            W.clamp_min_(eps)
+            self._zero_optimizer_state_(W, changed)
         return None
 
-    def enforce_dale_(self, eps=1e-12):
+    def enforce_out_E_only_(self, eps=1e-12):
         with torch.no_grad():
-            # W_rec
-            W_rec = self.RNN.W_rec
-            dale_mask_expanded_rec = self.RNN.dale_mask.unsqueeze(0).repeat(W_rec.shape[0], 1)
-            abberant_mask_rec = (W_rec * dale_mask_expanded_rec < 0)
-            corrected_rec = W_rec.clone()
-            corrected_rec[abberant_mask_rec] = eps * dale_mask_expanded_rec[abberant_mask_rec]
-            self.RNN.W_rec.copy_(corrected_rec)
+            W = self.RNN.W_out                          # (O, N)
+            mE = (self.RNN.dale_mask > 0).unsqueeze(0)  # (1, N) bool, True for excitatory cols
 
-            # W_out
-            W_out = self.RNN.W_out
-            dale_mask_expanded_out = self.RNN.dale_mask.unsqueeze(0).repeat(W_out.shape[0], 1)
-            abberant_mask_out = (W_out * dale_mask_expanded_out < 0)
-            corrected_out = W_out.clone()
-            corrected_out[abberant_mask_out] = eps * dale_mask_expanded_out[abberant_mask_out]
-            self.RNN.W_out.copy_(corrected_out)
+            # I columns: hard zero
+            mI = ~mE
+            W.masked_fill_(mI, 0.0)
+            self._zero_optimizer_state_(W, mI)
+
+            # E columns: nonnegative floor
+            changed = mE & (W < eps)
+            W.masked_fill_(changed, eps)
+            self._zero_optimizer_state_(W, changed)
+        return None
+
+    def enforce_dale_rec_(self, eps=1e-12):
+        with torch.no_grad():
+            W = self.RNN.W_rec
+            dm = self.RNN.dale_mask.unsqueeze(0).expand_as(W)
+            changed = (W * dm) < 0
+            W[changed] = eps * dm[changed]
+            self._zero_optimizer_state_(W, changed)
         return None
 
     def anneal_noise_levels_(self):
@@ -521,8 +532,9 @@ class Trainer():
 
         # --- 4) now it's safe to mutate weights in-place ---
         self.enforce_masks_()
-        self.enforce_io_nonnegativity_()
-        self.enforce_dale_()
+        self.enforce_inp_nonneg_()
+        self.enforce_out_E_only_()
+        self.enforce_dale_rec_()
 
         # --- 5) compute total loss and r2 for reporting ---
         loss_val = Trainer.zero_(self.RNN.device)
