@@ -7,4 +7,5 @@ defaults:
   - paths: paths_local
 display_figures: False
 experiment_tag: "test run"
+seed: 0
 n_nets: 1

@@ -25,7 +25,7 @@ def run_training(cfg: DictConfig) -> None:
     RNN_tag = cfg.model.RNN_tag
     folder_tag = experiment_tag + (("_" + trainer_tag) if trainer_tag != '' else '') + (("_" + RNN_tag) if RNN_tag != '' else '')
     taskname = cfg.task.taskname
-    seed = 'random'
+    seed = cfg.seed
     if seed == 'random':
         seed = time.time_ns() & 0xFFFFFFFF
     random.seed(int(seed))
