@@ -49,7 +49,7 @@ def run_training(cfg: DictConfig) -> None:
 
         # defining the optimizer
         reference_N = 100.0
-        scale = (float(rnn_cfg.N) / reference_N) ** (-1/3)
+        scale = (reference_N / float(rnn_cfg.N)) ** cfg.trainer.lr_scale_exp
         lr = cfg.trainer.lr * scale
         opt = torch.optim.Adam(rnn_torch.parameters(), lr=lr, weight_decay=cfg.trainer.weight_decay)
 
