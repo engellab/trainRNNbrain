@@ -1,7 +1,7 @@
 # @package trainer
 _target_: trainRNNbrain.trainer.Trainer.Trainer
-trainer_tag: "base trainer"
-max_iter: 15000
+trainer_tag: "BaseTrainer"
+max_iter: 1500
 anneal_noise: True
 lr: 0.001
 weight_decay: 1e-6

@@ -18,7 +18,7 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
 def run_training(cfg: DictConfig) -> None:
-    monitor = False
+    monitor = cfg.trainer.monitor
     print(f"Training started at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     experiment_tag = cfg.experiment_tag
     trainer_tag = cfg.trainer.trainer_tag
@@ -122,6 +122,7 @@ def run_training(cfg: DictConfig) -> None:
 
         # save Trainer module code as file alongside with data
         datasaver.save_data(get_source_code(trainer), "trainer.txt")
+        datasaver.save_data(get_source_code(trainer.Penalties), "penalties.txt")
         # save RNN module code as file alongside with data
         datasaver.save_data(get_source_code(import_any(rnn_cfg._target_)), "rnn.txt")
         # save source of the script being executed (the __main__ module)

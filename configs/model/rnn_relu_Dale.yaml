@@ -4,7 +4,7 @@ RNN_tag: ""
 activation_name: 'relu'
 activation_slope: 1.0
 constrained: True
-N: 100
+N: 250
 dt: 1
 tau: 10
 exc2inhR: 4.0
