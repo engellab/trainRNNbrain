@@ -19,19 +19,18 @@ class Penalties:
     def task_penalty(self, states, input, output, target, mask):
         return ((output[:, mask, :] - target[:, mask, :]) ** 2).mean()
     
-    def inp_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap100=0.5, alpha=5.0, beta=1.0, eps=1e-12):
+    def inp_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap100=0.5, gamma=5.0, eps=1e-12):
         dev, dt = states.device, states.dtype
         N, U = states.size(0), states.size(1)
         scale = torch.log1p(torch.as_tensor(N, device=dev, dtype=dt)) / torch.log1p(
             torch.as_tensor(U, device=dev, dtype=dt))
         cap = torch.as_tensor(cap100, device=dev, dtype=dt) * (U / N) * scale
         A = self.RNN.W_inp.abs()
-        e = torch.log2((A + eps) / (cap + eps))
-        under = torch.relu(-e).pow(2)
-        over = torch.pow(2.0, alpha * torch.relu(e)) - 1.0
-        return (under + beta * over).mean()
+        r = (A + eps) / (cap + eps)
+        over = torch.pow(torch.relu(r - 1) + 1.0, gamma) - 1.0
+        return over.mean()
 
-    def out_weights_penalty(self, states, input=None, output=None, target=None, mask=None, c=2.0, cap100=0.3, gamma=1.0, alpha=5.0, beta=1.0, eps=1e-12):
+    def out_weights_penalty(self, states, input=None, output=None, target=None, mask=None, c=2.0, cap100=0.3, alpha=1.0, gamma=5.0, eps=1e-12):
         dev, dt = states.device, states.dtype
         N, U = states.size(0), states.size(1)
         scale = torch.log1p(torch.as_tensor(N, device=dev, dtype=dt)) / torch.log1p(
@@ -39,18 +38,17 @@ class Penalties:
         cap = torch.as_tensor(cap100, device=dev, dtype=dt) * (U / N) * scale
         A = self.RNN.W_out.abs()
         p_l1 = (A.sum(1) - torch.as_tensor(c, device=dev, dtype=dt)).pow(2).mean()
-        e = torch.log2((A + eps) / (cap + eps))
-        under = torch.relu(-e).pow(2)
-        over = torch.pow(2.0, alpha * torch.relu(e)) - 1.0
-        p_cap = (under + beta * over).mean()
+        r = (A + eps) / (cap + eps)
+        over = torch.pow(torch.relu(r - 1) + 1.0, gamma) - 1.0
+        p_cap = over.mean()
         P = A / (A.sum(1, keepdim=True) + eps)
         n = A.size(1)
         hhi = (P * P).sum(1)
         p_hhi = ((n * hhi - 1.0) / (n - 1.0 + eps)).mean()
-        return p_l1 + p_cap + gamma * p_hhi
+        return p_l1 + p_cap + alpha * p_hhi
 
     def rec_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
-                                       cap100=0.07, N_ref=100, k_ref=20, alpha=5.0, beta=1.0, eps=1e-12):
+                                       cap100=0.07, N_ref=100, k_ref=20, gamma=5.0, eps=1e-12):
         R, dev, dt = self.RNN, states.device, states.dtype
         N = R.N
         scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / torch.log1p(torch.as_tensor(N, device=dev, dtype=dt))
@@ -58,21 +56,21 @@ class Penalties:
         cap_e, cap_i = cap, cap * torch.as_tensor(R.exc2inhR, device=dev, dtype=dt)
         W = R.W_rec.abs()
         exc, inh = (R.dale_mask > 0), (R.dale_mask < 0)
-        eE = torch.log2((W[:, exc] + eps) / (cap_e + eps))
-        eI = torch.log2((W[:, inh] + eps) / (cap_i + eps))
-        pE = (torch.relu(-eE).pow(2) + beta * (torch.pow(2.0, alpha * torch.relu(eE)) - 1.0)).mean()
-        pI = (torch.relu(-eI).pow(2) + beta * (torch.pow(2.0, alpha * torch.relu(eI)) - 1.0)).mean()
-        return (pE + pI) * (N / (N_ref * k_ref))
+        rE = (W[:, exc] + eps) / (cap_e + eps)
+        rI = (W[:, inh] + eps) / (cap_i + eps)
+        pE = (torch.pow(torch.relu(rE - 1.0) + 1.0, gamma) - 1.0)
+        pI = (torch.pow(torch.relu(rI - 1.0) + 1.0, gamma) - 1.0)
+        return (pE + pI).mean() * (N / (N_ref * k_ref))
 
-    def rec_weights_sparsity_penalty(self, states, input=None, output=None, target=None, mask=None, tg_deg=20, eps=1e-8):
+    def rec_weights_sparsity_penalty(self, states, input=None, output=None, target=None, mask=None, tg_deg=20, eps=1e-12):
         W = self.RNN.W_rec  # (N, N)
         l1 = W.abs().sum(dim=1)
         l2 = (W.square().sum(dim=1) + eps).sqrt()
         S = (l1 * l1) / (l2 * l2)  # effective support per row
         over = torch.relu(S - tg_deg)
-        return (over * over).mean() / (tg_deg * tg_deg)
+        return (over ** 2).mean() / (tg_deg ** 2)
 
-    def s_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap_s=0.7, q=0.9, alpha=5.0, beta=1.0, eps=1e-12):
+    def s_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap_s=0.7, q=0.9, gamma=5.0, beta=1.0, eps=1e-12):
         '''
         exponential penalty on the up side, quadratic penalty on the down side of log(activity ratio)
         '''
@@ -88,7 +86,7 @@ class Penalties:
         activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
         e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
         under = torch.relu(-e).pow(2) # quadratic penalty for under activitated units
-        over = (torch.expm1(alpha * torch.relu(e))) # exponential penalty for over activated units
+        over = (torch.expm1(gamma * torch.relu(e))) # exponential penalty for over activated units
         return (under + beta * over).mean()
 
     def metabolic_penalty(self, states, input=None, output=None, target=None, mask=None):
@@ -295,13 +293,13 @@ class Trainer():
         # name of the penalty, it's scale (lambda) and dictionary of arguments to be passed
         self.penalty_map = {
             "task": (self.Penalties.task_penalty, 1.0, {}),
-            "inp_weights_magnitude": (self.Penalties.inp_weights_magnitude_penalty, lambda_iwm, {"cap100": 0.5}),
-            "rec_weights_magnitude": (self.Penalties.rec_weights_magnitude_penalty, lambda_rwm, {"cap100": 0.07, "N_ref": 100, "k_ref": 20}),
-            "out_weights": (self.Penalties.out_weights_penalty, lambda_ow, {"c": 2.0, "cap100": 0.3, "gamma": 1.0}),
-            "rec_weights_sparsity": (self.Penalties.rec_weights_sparsity_penalty, lambda_rws, {"tg_deg": 20}),
+            "inp_weights_magnitude": (self.Penalties.inp_weights_magnitude_penalty, lambda_iwm, {"cap100": 0.5, "gamma": 5.0, "eps": 1e-12}),
+            "rec_weights_magnitude": (self.Penalties.rec_weights_magnitude_penalty, lambda_rwm, {"cap100": 0.07, "N_ref": 100, "k_ref": 20, "gamma": 0.5, "eps": 1e-12}),
+            "out_weights": (self.Penalties.out_weights_penalty, lambda_ow, {"c": 2.0, "cap100": 0.3, "alpha": 1.0, "gamma": 5.0, "eps": 1e-12}),
+            "rec_weights_sparsity": (self.Penalties.rec_weights_sparsity_penalty, lambda_rws, {"tg_deg": 20, "eps": 1e-12}),
             "output_var": (self.Penalties.trial_output_var_penalty, lambda_tv, {}),
             "channel_overlap": (self.Penalties.channel_overlap_penalty, lambda_orth, {"orth_input_only":orth_input_only}),
-            "s_magnitude": (self.Penalties.s_magnitude_penalty, lambda_sm, {"cap_s": cap_s, "q": 0.9, "alpha": 5.0, "beta": 1.0}),
+            "s_magnitude": (self.Penalties.s_magnitude_penalty, lambda_sm, {"cap_s": cap_s, "q": 0.9, "gamma": 5.0, "beta": 1.0, "eps": 1e-12}),
             "metabolic": (self.Penalties.metabolic_penalty, lambda_met, {}),
             "s_inequality": (self.Penalties.s_inequality_penalty, lambda_si, {"method":inequality_method}),
             "h_inequality": (self.Penalties.h_inequality_penalty, lambda_hi, {"method":inequality_method}),

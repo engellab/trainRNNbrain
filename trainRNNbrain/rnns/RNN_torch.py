@@ -100,7 +100,7 @@ def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1
 
 
 def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
-                          output_density=1.0, exc_to_inh_ratio=4, generator=None):
+                          output_density=1.0, exc2inhR=4, generator=None):
     '''
     generates W_inp, W_rec and W_out matrices of RNN, with specified parameters, subject to a Dales law,
     and about 20:80 ratio of inhibitory neurons to exchitatory ones.
@@ -128,7 +128,7 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
             device = torch.device('cpu')
 
 
-    exc_percentage = exc_to_inh_ratio / (exc_to_inh_ratio + 1)
+    exc_percentage = exc2inhR / (exc2inhR + 1)
     Ne = int(np.floor(N * exc_percentage))
     Ni = N - Ne
 
@@ -137,7 +137,7 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
 
     # Balancing parameters
     mu_E = 1 / np.sqrt(N)
-    mu_I = exc_to_inh_ratio / np.sqrt(N)
+    mu_I = exc2inhR / np.sqrt(N)
 
     std = 1 / N
     # generating excitatory part of connectivity and an inhibitory part of connectivity:
@@ -191,7 +191,7 @@ class RNN_torch(torch.nn.Module):
                  dt=1,
                  tau=10,
                  constrained=True,
-                 exc_to_inh_ratio=1.0,
+                 exc2inhR=4.0,
                  connectivity_density_rec=1.0,
                  spectral_rad=1.2,
                  sigma_rec=.03,
@@ -246,7 +246,7 @@ class RNN_torch(torch.nn.Module):
         self.bias_init_amp = torch.tensor(bias_init_amp).to(self.device)
         self.connectivity_density_rec = connectivity_density_rec
         self.constrained = constrained
-        self.exc_to_inh_ratio = exc_to_inh_ratio
+        self.exc2inhR = exc2inhR
         self.dale_mask = None
         self.output_mask = None
 
@@ -270,7 +270,7 @@ class RNN_torch(torch.nn.Module):
             W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
                 get_connectivity_Dale(N=self.N, num_inputs=self.input_size, num_outputs=self.output_size,
                                       radius=self.spectral_rad,
-                                      exc_to_inh_ratio=self.exc_to_inh_ratio,
+                                      exc2inhR=self.exc2inhR,
                                       generator=self.random_generator,
                                       recurrent_density=self.connectivity_density_rec)
         else:

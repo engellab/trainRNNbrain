@@ -6,4 +6,5 @@ defaults:
   - trainer: trainer
   - paths: paths_local
 display_figures: False
+experiment_tag: "test run"
 n_nets: 1

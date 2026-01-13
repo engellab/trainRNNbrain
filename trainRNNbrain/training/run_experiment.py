@@ -16,7 +16,7 @@ OmegaConf.register_new_resolver("eval", eval)
 os.environ['HYDRA_FULL_ERROR'] = '1'
 
 
-@hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"experimental")
+@hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
 def run_training(cfg: DictConfig) -> None:
     monitor = False
     print(f"Training started at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
