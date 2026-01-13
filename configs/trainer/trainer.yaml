@@ -60,7 +60,6 @@ lambda_cl: 0
 cl_args: {}
 dropout: False
 dropout_args:
-  dropout: False
   drop_rate: 0
   activity_q: 0.9
 

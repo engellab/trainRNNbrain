@@ -277,7 +277,6 @@ class Trainer():
                  hlvar_args=None,
                  lambda_cl=0.0,
                  cl_args = None,
-                 inequality_method='hhi',
                  dropout=False,
                  dropout_args=None,
                  monitor=True,
@@ -321,8 +320,12 @@ class Trainer():
             self.loss_monitor = {**{k: [] for k in self.penalty_map}}
             self.gradients_monitor = {**{f"g_{k}": [] for k in self.penalty_map}}
             self.scaled_gradients_monitor = {**{f"sg_{k}": [] for k in self.penalty_map}}
-        self.p, self.dropout, self.drop_rate = p, dropout_args["dropout"], dropout_args["drop_rate"]
-        self.activity_q = dropout_args["activity_q"] # quantile of activity to use while calculating participation
+        
+        self.p = p
+        self.dropout = dropout
+        if dropout:
+            self.drop_rate = dropout_args["drop_rate"]
+            self.activity_q = dropout_args["activity_q"] # quantile of activity to use while calculating participation
         self.participation = (1e-6 * torch.ones(self.RNN.N, device=self.RNN.device)) if self.dropout else None
         self.iter_n = 0
 
