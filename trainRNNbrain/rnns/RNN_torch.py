@@ -190,12 +190,12 @@ class RNN_torch(torch.nn.Module):
                  activation_slope=1.0,
                  dt=1,
                  tau=10,
-                 constrained=True,
                  exc2inhR=4.0,
                  connectivity_density_rec=1.0,
                  spectral_rad=1.2,
                  sigma_rec=.03,
                  sigma_inp=.03,
+                 gamma=0.1,
                  bias_init_amp=0.0,
                  y_init=None,
                  seed=None,
@@ -204,17 +204,19 @@ class RNN_torch(torch.nn.Module):
         '''
         :param N: int, number of neural nodes in the RNN
         :param activation_name: name of the activation function in the dynamics of the RNN
-        :param constrained: whether the connectivity is constrained to comply with Dales law and elements of W_inp, W_out > 0
         :param connectivity_density_rec: float, defines the sparcity of the connectivity
         :param spectral_rad: float, spectral radius of the initial connectivity matrix W_rec
         :param dt: float, time resolution of RNN
         :param tau: float, internal time constant of the RNN-neural nodes
+        :param exc2inhR: float, ratio of excitatory to inhibitory recurrent connections
+        :param bias_init_amp: float, amplitude of the initial bias vector
+        :param gamma: float, coefficient of the cubic nonlinearity in the RNN dynamics
         :param sigma_rec: float, std of the gaussian noise in the recurrent dynamics
         :param sigma_inp: float, std of the gaussian noise in the input to the RNN
         :param y_init: array of N values, initial value of the RNN dynamics
         :param seed: seed for torch random generator, for reproducibility
+        :param input_size: number of the input channels of the RNN
         :param output_size: number of the output channels of the RNN
-        :param device:
         '''
         super(RNN_torch, self).__init__()
         # self.device = torch.device('mps')
@@ -245,8 +247,8 @@ class RNN_torch(torch.nn.Module):
         self.spectral_rad = torch.from_numpy(np.array(spectral_rad)).to(self.device)
         self.bias_init_amp = torch.tensor(bias_init_amp).to(self.device)
         self.connectivity_density_rec = connectivity_density_rec
-        self.constrained = constrained
         self.exc2inhR = exc2inhR
+        self.gamma = gamma
         self.dale_mask = None
         self.output_mask = None
 
@@ -263,22 +265,15 @@ class RNN_torch(torch.nn.Module):
             self.random_generator.manual_seed(seed)
 
 
-        if self.constrained:
-            # imposing a bunch of constraint on the connectivity:
-            # positivity of W_inp, W_out,
-            # W_rec has to be subject to Dale's law
-            W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
-                get_connectivity_Dale(N=self.N, num_inputs=self.input_size, num_outputs=self.output_size,
-                                      radius=self.spectral_rad,
-                                      exc2inhR=self.exc2inhR,
-                                      generator=self.random_generator,
-                                      recurrent_density=self.connectivity_density_rec)
-        else:
-            W_rec, W_inp, W_out, self.recurrent_mask, self.output_mask, self.input_mask = \
-                get_connectivity(N=self.N, num_inputs=self.input_size, num_outputs=self.output_size,
-                                 radius=self.spectral_rad,
-                                 generator=self.random_generator,
-                                 recurrent_density=self.connectivity_density_rec)
+        # imposing a bunch of constraint on the connectivity:
+        # positivity of W_inp, W_out,
+        # W_rec has to be subject to Dale's law
+        W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
+            get_connectivity_Dale(N=self.N, num_inputs=self.input_size, num_outputs=self.output_size,
+                                    radius=self.spectral_rad,
+                                    exc2inhR=self.exc2inhR,
+                                    generator=self.random_generator,
+                                    recurrent_density=self.connectivity_density_rec)
         if self.bias_init_amp != 0 and not (self.bias_init_amp is None):
             self.bias = self.bias_init_amp * torch.nn.Parameter(torch.rand(self.N, generator=self.random_generator))
         self.W_out = torch.nn.Parameter(W_out.to(self.device))
@@ -299,7 +294,7 @@ class RNN_torch(torch.nn.Module):
             h = W_rec_masked @ s + self.W_inp @ (I + i_noise) + b
         else:
             h = self.W_rec @ s + self.W_inp @ (I + i_noise) + b
-        return -s + self.activation(h) + r_noise
+        return -s + self.activation(h) + r_noise - self.gamma * torch.pow(s, 3)
 
     def forward(self, u, w_noise=True, dropout=False, drop_rate=0.3):
         T_steps = u.shape[1]
@@ -367,6 +362,11 @@ class RNN_torch(torch.nn.Module):
         param_dict["N"] = self.N
         param_dict["dt"] = self.dt
         param_dict["tau"] = self.tau
+        param_dict["gamma"] = self.gamma
+        param_dict["dale_mask"] = None if self.dale_mask is None else self.dale_mask.detach().cpu().numpy()
+        param_dict["input_mask"] = self.input_mask.detach().cpu().numpy()
+        param_dict["recurrent_mask"] = self.recurrent_mask.detach().cpu().numpy()
+        param_dict["output_mask"] = self.output_mask.detach().cpu().numpy()
         return param_dict
 
     def set_params(self, params):
@@ -375,15 +375,32 @@ class RNN_torch(torch.nn.Module):
         self.W_inp.data = torch.from_numpy(np.float32(params["W_inp"])).to(self.device)
         self.W_rec.data = torch.from_numpy(np.float32(params["W_rec"])).to(self.device)
         self.y_init = torch.from_numpy(np.float32(params["y_init"])).to(self.device)
+        self.gamma = torch.tensor(params["gamma"]).to(self.device)
+        self.dt = torch.tensor(params["dt"]).to(self.device)
+        self.tau = torch.tensor(params["tau"]).to(self.device)
+        self.alpha = torch.tensor((self.dt / self.tau)).to(self.device)
         if not (params["bias"] is None):
             self.bias = torch.from_numpy(np.float32(params["bias"])).to(self.device)
         self.activation_slope = torch.tensor(params["activation_slope"]).to(self.device)
+        self.activation_name = params["activation_name"]
+        if self.activation_name == 'relu':
+            self.activation = lambda x: torch.maximum(torch.tensor(0.), self.activation_slope * x)
+        elif self.activation_name == 'tanh':
+            self.activation = lambda x: torch.tanh(self.activation_slope * x)
+        elif self.activation_name == 'sigmoid':
+            self.activation = lambda x: torch.sigmoid(self.activation_slope * x)
+        elif self.activation_name == 'softplus':
+            self.activation = lambda x: torch.nn.Softplus(beta=self.activation_slope)(x)
+        self.dale_mask = None if params["dale_mask"] is None else torch.from_numpy(np.float32(params["dale_mask"])).to(self.device)
+        self.input_mask = torch.from_numpy(np.float32(params["input_mask"])).to(self.device)
+        self.recurrent_mask = torch.from_numpy(np.float32(params["recurrent_mask"])).to(self.device)
+        self.output_mask = torch.from_numpy(np.float32(params["output_mask"])).to(self.device)
         return None
 
 
 if __name__ == '__main__':
     N = 100
     activation_name = 'tanh'
-    rnn_torch = RNN_torch(N=N, activation_name=activation_name, constrained=True, bias_init_amp=0.1)
+    rnn_torch = RNN_torch(N=N, activation_name=activation_name, bias_init_amp=0.1)
     param_dict = rnn_torch.get_params()
     print(param_dict)
