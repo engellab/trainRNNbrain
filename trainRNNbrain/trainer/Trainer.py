@@ -84,9 +84,16 @@ class Penalties:
 
         eps = torch.as_tensor(eps, device=dev, dtype=dt)
         activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
-        e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
-        under = torch.relu(-e).pow(2) # quadratic penalty for under activitated units
-        over = (torch.expm1(gamma * torch.relu(e))) # exponential penalty for over activated units
+        # activity = torch.mean((x + eps).pow(p), dim = 1).pow(1.0 / p)
+        
+        r = (activity + eps) / (cap + eps)
+        over = torch.pow(torch.relu(r - 1.0) + 1.0, gamma) - 1.0
+        under = torch.pow(torch.relu(1.0 / r - 1.0) + 1.0, gamma) - 1.0
+        
+        # e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
+        # under = (torch.expm1(2 * torch.relu(-e))) # quadratic penalty for under activitated units
+        # over = (torch.expm1(gamma * torch.relu(e))) # exponential penalty for over activated units
+
         return (under + beta * over).mean()
 
     def metabolic_penalty(self, states, input=None, output=None, target=None, mask=None):
