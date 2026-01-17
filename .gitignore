@@ -56,3 +56,4 @@ trainRNNbrain/training/multirun
 *_test*
 # or with multiple possible delimiters:
 *[_-]test*
+jupyter/Analyzing single RNN.ipynb

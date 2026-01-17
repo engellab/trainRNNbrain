@@ -70,7 +70,12 @@ class Penalties:
         over = torch.relu(S - tg_deg)
         return (over ** 2).mean() / (tg_deg ** 2)
 
-    def s_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap_s=0.7, q=0.9, gamma=5.0, beta=1.0, eps=1e-12):
+    def s_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
+                            cap_s=0.3,
+                            quantile_kind='hard',
+                            q=0.9, p=15, tau=0.1,
+                            g_top=5.0, g_bot=5.0,
+                            alpha=1.0, beta=1.0, eps=1e-12):
         '''
         exponential penalty on the up side, quadratic penalty on the down side of log(activity ratio)
         '''
@@ -83,18 +88,18 @@ class Penalties:
         cap = cap_s * scale  # scales as O(1 / log(N))
 
         eps = torch.as_tensor(eps, device=dev, dtype=dt)
-        activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
-        # activity = torch.mean((x + eps).pow(p), dim = 1).pow(1.0 / p)
-        
-        r = (activity + eps) / (cap + eps)
-        over = torch.pow(torch.relu(r - 1.0) + 1.0, gamma) - 1.0
-        under = torch.pow(torch.relu(1.0 / r - 1.0) + 1.0, gamma) - 1.0
-        
-        # e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
-        # under = (torch.expm1(2 * torch.relu(-e))) # quadratic penalty for under activitated units
-        # over = (torch.expm1(gamma * torch.relu(e))) # exponential penalty for over activated units
+        if quantile_kind == 'hard':
+            activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
+        elif quantile_kind == 'power_mean':
+            activity = torch.mean((x + eps).pow(p), dim=1).pow(1.0 / p)
+        elif quantile_kind == 'logsumexp':
+            activity = a = x / tau
+            activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
 
-        return (under + beta * over).mean()
+        e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
+        under = (torch.expm1(g_bot * torch.relu(-e))) # quadratic penalty for under activitated units
+        over = (torch.expm1(g_top * torch.relu(e))) # exponential penalty for over activated units
+        return (alpha * under + beta * over).mean()
 
     def metabolic_penalty(self, states, input=None, output=None, target=None, mask=None):
         return torch.mean(states ** 2)
@@ -287,7 +292,7 @@ class Trainer():
                  dropout=False,
                  dropout_args=None,
                  monitor=True,
-                 p=2):
+                 max_grad_norm=10.0):
         self.RNN = RNN
         self.Penalties = Penalties(RNN=self.RNN) # dataclass containing all the penalty methods
         self.max_sigma_rec = self.RNN.sigma_rec
@@ -296,6 +301,7 @@ class Trainer():
         self.optimizer = optimizer
         self.monitor = monitor
         self.max_iter = max_iter
+        self.max_grad_norm = max_grad_norm
         self.anneal_noise = anneal_noise
         
         # make sure masks exist, on the right device, and don’t require grad
@@ -328,7 +334,6 @@ class Trainer():
             self.gradients_monitor = {**{f"g_{k}": [] for k in self.penalty_map}}
             self.scaled_gradients_monitor = {**{f"sg_{k}": [] for k in self.penalty_map}}
         
-        self.p = p
         self.dropout = dropout
         if dropout:
             self.drop_rate = dropout_args["drop_rate"]
@@ -524,6 +529,8 @@ class Trainer():
         self.optimizer.zero_grad(set_to_none=True)
         for p, g in zip(params, g_tot):
             p.grad = g
+        
+        torch.nn.utils.clip_grad_norm_(params, max_norm=self.max_grad_norm)
         self.optimizer.step()
 
         # --- 4) now it's safe to mutate weights in-place ---

@@ -5,7 +5,7 @@ max_iter: 1500
 anneal_noise: True
 lr: 0.001
 weight_decay: 1e-6
-p: 2
+max_grad_norm: 50.0
 lr_scale_exp: 0.3333333333333333
 same_batch: True
 monitor: True
@@ -40,8 +40,13 @@ rws_args:
 lambda_sm: 0.005 # magnitude of firing rates
 sm_args:
   cap_s: 0.3
+  quantile_kind: 'logsumexp'
+  p: 15
   q: 0.9
-  gamma: 5.0
+  tau: 0.1
+  g_top: 3.0
+  g_bot: 3.0
+  alpha: 1.0
   beta: 1.0
   eps: 1e-12
 lambda_tv: 0 # trial output variability (across trials)
