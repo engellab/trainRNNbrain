@@ -44,6 +44,7 @@ sm_args:
   p: 15
   q: 0.9
   tau: 0.1
+  penalty_type: 'multiplicative'
   g_top: 3.0
   g_bot: 3.0
   alpha: 1.0

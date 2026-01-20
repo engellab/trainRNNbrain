@@ -74,6 +74,7 @@ class Penalties:
                             cap_s=0.3,
                             quantile_kind='hard',
                             q=0.9, p=15, tau=0.1,
+                            penalty_type="multiplicative",
                             g_top=5.0, g_bot=5.0,
                             alpha=1.0, beta=1.0, eps=1e-12):
         '''
@@ -96,10 +97,16 @@ class Penalties:
             activity = a = x / tau
             activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
 
-        e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
-        under = (torch.expm1(g_bot * torch.relu(-e))) # quadratic penalty for under activitated units
-        over = (torch.expm1(g_top * torch.relu(e))) # exponential penalty for over activated units
-        return (alpha * under + beta * over).mean()
+        if penalty_type == "multiplicative":
+            e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
+            p_under = (torch.expm1(g_bot * torch.relu(-e)))  # quadratic penalty for under activitated units
+            p_over = (torch.expm1(g_top * torch.relu(e)))  # exponential penalty for over activated units
+        elif penalty_type == "additive":
+            over = torch.relu(activity - cap)
+            under = torch.relu(cap - activity)
+            p_over = torch.pow(over / (cap + eps), g_top)
+            p_under = torch.pow(under / (cap + eps), g_bot)
+        return (alpha * p_under + beta * p_over).mean()
 
     def metabolic_penalty(self, states, input=None, output=None, target=None, mask=None):
         return torch.mean(states ** 2)
