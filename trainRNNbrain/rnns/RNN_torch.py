@@ -184,8 +184,7 @@ Continuous-time RNN class implemented in pytorch to train with BPTT
 class RNN_torch(torch.nn.Module):
     def __init__(self,
                  N,
-                 activation_name,
-                 activation_slope=1.0,
+                 activation_args={"name": "relu", "slope": 1.0},
                  dt=1,
                  tau=10,
                  exc2inhR=4.0,
@@ -201,7 +200,7 @@ class RNN_torch(torch.nn.Module):
                  output_size=2):
         '''
         :param N: int, number of neural nodes in the RNN
-        :param activation_name: name of the activation function in the dynamics of the RNN
+        :param activation_args: dictionary containing the name and parameters of the activation function in the dynamics of the RNN
         :param connectivity_density_rec: float, defines the sparcity of the connectivity
         :param spectral_rad: float, spectral radius of the initial connectivity matrix W_rec
         :param dt: float, time resolution of RNN
@@ -224,17 +223,9 @@ class RNN_torch(torch.nn.Module):
             self.device = torch.device('cpu')
         print(f"Using {self.device} for RNN!")
         self.N = N
-        self.activation_slope = torch.tensor(activation_slope).to(self.device)
-        self.activation_name = activation_name
-        if activation_name == 'relu':
-            self.activation = lambda x: torch.maximum(torch.tensor(0.), self.activation_slope * x)
-        elif activation_name == 'tanh':
-            self.activation = lambda x: torch.tanh(self.activation_slope * x)
-        elif activation_name == 'sigmoid':
-            self.activation = lambda x: torch.sigmoid(self.activation_slope * x)
-        elif activation_name == 'softplus':
-            self.activation = lambda x: torch.nn.Softplus(beta=self.activation_slope)(x)
+        self.activation_args = activation_args
 
+        self.activation = self.configure_activation_(activation_args)
         self.tau = tau
         self.dt = dt
         self.alpha = torch.tensor((dt / tau)).to(self.device)
@@ -277,6 +268,22 @@ class RNN_torch(torch.nn.Module):
         self.W_out = torch.nn.Parameter(W_out.to(self.device))
         self.W_rec = torch.nn.Parameter(W_rec.to(self.device))
         self.W_inp = torch.nn.Parameter(W_inp.to(self.device))
+
+    @staticmethod
+    def configure_activation_(activation_args):
+        activation_name = activation_args["name"]
+        if activation_name == 'relu':
+            return lambda x: torch.maximum(torch.tensor(0.), activation_args["slope"] * x)
+        elif activation_name == 'leaky_relu':
+            return lambda x: torch.maximum(torch.tensor(0.), activation_args["slope"] * x) + torch.minimum(torch.tensor(0.), activation_args["leak_slope"] * x)
+        elif activation_name == 'tanh':
+            return lambda x: torch.tanh(activation_args["slope"] * x)
+        elif activation_name == 'sigmoid':
+            return lambda x: torch.sigmoid(activation_args["slope"] * x)
+        elif activation_name == 'softplus':
+            return lambda x: torch.nn.Softplus(beta=activation_args["beta"])(activation_args["slope"] * x)
+        else:
+            raise ValueError(f"Unsupported activation function: {activation_name}")
 
     def rhs(self, s, I, i_noise, r_noise, dropout_mask=None):
         # s: (N, B)
@@ -350,8 +357,7 @@ class RNN_torch(torch.nn.Module):
             bias = deepcopy(self.bias.detach().cpu().numpy())
         else:
             bias = None
-        param_dict["activation_name"] = self.activation_name
-        param_dict["activation_slope"] = self.activation_slope
+        param_dict["activation_args"] = self.activation_args
         param_dict["W_out"] = W_out
         param_dict["W_inp"] = W_inp
         param_dict["W_rec"] = W_rec
@@ -379,16 +385,8 @@ class RNN_torch(torch.nn.Module):
         self.alpha = torch.tensor((self.dt / self.tau)).to(self.device)
         if not (params["bias"] is None):
             self.bias = torch.from_numpy(np.float32(params["bias"])).to(self.device)
-        self.activation_slope = torch.tensor(params["activation_slope"]).to(self.device)
-        self.activation_name = params["activation_name"]
-        if self.activation_name == 'relu':
-            self.activation = lambda x: torch.maximum(torch.tensor(0.), self.activation_slope * x)
-        elif self.activation_name == 'tanh':
-            self.activation = lambda x: torch.tanh(self.activation_slope * x)
-        elif self.activation_name == 'sigmoid':
-            self.activation = lambda x: torch.sigmoid(self.activation_slope * x)
-        elif self.activation_name == 'softplus':
-            self.activation = lambda x: torch.nn.Softplus(beta=self.activation_slope)(x)
+        self.activation_args = params["activation_args"]
+        self.activation = self.configure_activation_(self.activation_args)
         self.dale_mask = None if params["dale_mask"] is None else torch.from_numpy(np.float32(params["dale_mask"])).to(self.device)
         self.input_mask = torch.from_numpy(np.float32(params["input_mask"])).to(self.device)
         self.recurrent_mask = torch.from_numpy(np.float32(params["recurrent_mask"])).to(self.device)
@@ -399,6 +397,6 @@ class RNN_torch(torch.nn.Module):
 if __name__ == '__main__':
     N = 100
     activation_name = 'tanh'
-    rnn_torch = RNN_torch(N=N, activation_name=activation_name, bias_init_amp=0.1)
+    rnn_torch = RNN_torch(N=N, activation_args={"name": activation_name, "slope": 1.0}, bias_init_amp=0.1)
     param_dict = rnn_torch.get_params()
     print(param_dict)

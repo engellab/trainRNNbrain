@@ -11,11 +11,12 @@ class RNN_numpy():
     def __init__(self,
                  N, dt, tau,
                  W_inp, W_rec, W_out,
-                 activation_name, activation_slope,
+                 activation_args={"name": "relu", "slope": 1.0},
                  gamma=0.1,
-                 d=0,
                  bias=None,
-                 y_init=None, seed=None, beta=None):
+                 y_init=None,
+                 seed=None
+                 ):
         self.N = N
         self.W_inp = W_inp
         self.W_rec = W_rec
@@ -33,24 +34,39 @@ class RNN_numpy():
             self.y_init = np.zeros(self.N)
         self.y = deepcopy(self.y_init)
         self.y_history = []
-        self.activation_name = activation_name
-        self.activation_slope = activation_slope
-        if activation_name == 'relu':
-            self.activation = lambda x: np.maximum(0, self.activation_slope * x)
-        elif activation_name == 'sigmoid':
-            self.activation = lambda x: 1.0 / (1 + np.exp(-self.activation_slope * x))
-        elif activation_name == 'tanh':
-            self.activation = lambda x: np.tanh(self.activation_slope * x)
-        elif activation_name == 'softplus':
-            self.beta = beta
-            self.activation = np.log(1 + np.exp(self.beta * x))/self.beta
+        self.activation_args = activation_args
+        self.activation = self.configure_activation_(activation_args)
+        self.activation_name = activation_args["name"]
         self.gamma = gamma
-        self.d = d
 
         if seed is None:
             self.rng = np.random.default_rng(np.random.randint(10000))
         else:
             self.rng = np.random.default_rng(seed)
+
+    @staticmethod
+    def configure_activation_(activation_args):
+        activation_name = activation_args["name"]
+        if activation_name == 'relu':
+            slope = activation_args.get("slope", 1.0)
+            return lambda x: np.maximum(0., slope * x)
+        elif activation_name == 'tanh':
+            slope = activation_args.get("slope", 1.0)
+            return lambda x: np.tanh(slope * x)
+        elif activation_name == 'sigmoid':
+            slope = activation_args.get("slope", 1.0)
+            sigmoid = lambda x: 1.0 / (1.0 + np.exp(-slope * x))
+            return lambda x: sigmoid(slope * x)
+        elif activation_name == 'softplus':
+            beta = activation_args.get("beta", 1.0)
+            slope = activation_args.get("slope", 1.0)
+            return lambda x: np.log(1 + np.exp(beta * (slope * x))) / beta
+        elif activation_name == 'leaky_relu':
+            slope = activation_args.get("slope", 1.0)
+            leak_slope = activation_args.get("leak_slope", 0.01)
+            return lambda x: np.where(x > 0, slope * x, leak_slope * x)
+        else:
+            raise ValueError(f"Activation function {activation_name} is not recognized!")
 
     def rhs(self, y, input, sigma_rec=None, sigma_inp=None):
         sr = 0.0 if sigma_rec is None else float(sigma_rec)
@@ -62,30 +78,34 @@ class RNN_numpy():
         rec_noise = ((2.0 / a) ** 0.5 * sr) * self.rng.standard_normal(y.shape, dtype=y.dtype)
         inp_noise = ((2.0 / a) ** 0.5 * si) * self.rng.standard_normal(input.shape, dtype=input.dtype)
         h = self.W_rec @ y + self.W_inp @ (input + inp_noise)
-        return -(y - self.d) + self.activation(h) + rec_noise - self.gamma * y ** 3
+        return -y + self.activation(h) + rec_noise - self.gamma * y ** 3
 
     def rhs_noiseless(self, y, input):
         '''
         Bare version of RHS for efficient fixed point analysis
         supposed to work only with one point at the state-space at the time (no batches!)
         '''
-        return - (y - self.d) + self.activation(self.W_rec @ y + self.W_inp @ input + self.bias) - self.gamma * y ** 3
+        return -y + self.activation(self.W_rec @ y + self.W_inp @ input + self.bias) - self.gamma * y ** 3
 
 
     def rhs_jac(self, y, input):
         if len(input.shape) > 1:
             raise ValueError("Jacobian computations work only for single point and a single input-vector. It doesn't yet work in the batch mode")
         arg = self.W_rec @ y + self.W_inp @ input + self.bias
-        if self.activation_name == 'relu':
-            f_prime = self.activation_slope * np.heaviside(self.activation_slope * arg, 0.5)
-        elif self.activation_name == 'tanh':
-            f_prime = self.activation_slope * (1 - np.tanh(self.activation_slope * arg) ** 2)
-        elif self.activation_name == 'sigmoid':
+        if self.activation_args["name"] == 'relu':
+            f_prime = self.activation_args["slope"] * np.heaviside(self.activation_args["slope"] * arg, 0.5)
+        elif self.activation_args["name"] == 'tanh':
+            f_prime = self.activation_args["slope"] * (1 - np.tanh(self.activation_args["slope"] * arg) ** 2)
+        elif self.activation_args["name"] == 'sigmoid':
             sigmoid = lambda x: 1.0 / (1.0 + np.exp(-x))
-            f_prime = self.activation_slope * (sigmoid(self.activation_slope * arg)) * (1.0 - sigmoid(self.activation_slope * arg))
-        elif self.activation_name == 'softplus':
-            f_prime = lambda x: np.exp(self.beta * x)/(np.exp(self.beta * x) + 1)
-        return - (1 - self.d) * np.eye(self.N) + np.diag(f_prime) @ self.W_rec
+            f_prime = self.activation_args["slope"] * (sigmoid(self.activation_args["slope"] * arg)) * (1.0 - sigmoid(self.activation_args["slope"] * arg))
+        elif self.activation_args["name"] == 'softplus':
+            beta = self.activation_args.get("beta", 1.0)
+            slope = self.activation_args.get("slope", 1.0)
+            f_prime = lambda x: slope / (1 + np.exp(-beta * slope * x))
+        elif self.activation_args["name"] == 'leaky_relu':
+            f_prime = self.activation_args["slope"] * np.heaviside(arg, 0.5) + self.activation_args["leak_slope"] * np.heaviside(-arg, 0.5)
+        return -np.eye(self.N) + np.diag(f_prime) @ self.W_rec
 
     def rhs_jac_h(self, h, input):
         """
@@ -107,7 +127,7 @@ class RNN_numpy():
         '''
         h = W_rec y + W_inp u + b_rec
         '''
-        return -(h - self.d) + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias
+        return -h + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias
 
     def step(self, input, sigma_rec=None, sigma_inp=None):
         self.y += (self.dt / self.tau) * self.rhs(self.y, input, sigma_rec, sigma_inp)

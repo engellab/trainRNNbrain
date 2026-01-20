@@ -1,7 +1,6 @@
 # @package model
 _target_: trainRNNbrain.rnns.RNN_torch_spatial.RNN_torch
-activation_name: 'relu'
-activation_slope: 1.0
+activation_args: {"name": "relu", "slope": 1.0}
 N: 300
 dt: 1.0
 tau: 10.0

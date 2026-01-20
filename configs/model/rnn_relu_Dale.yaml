@@ -1,10 +1,8 @@
 # @package model
 _target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
 RNN_tag: ""
-activation_name: 'relu'
-activation_slope: 1.0
-constrained: True
-N: 500
+activation_args: {"name": "relu", "slope": 1.0}
+N: 100
 dt: 1
 tau: 10
 exc2inhR: 4.0

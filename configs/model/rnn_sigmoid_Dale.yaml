@@ -1,8 +1,6 @@
 # @package model
 _target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
-activation_name: 'sigmoid'
-activation_slope: 7.5
-constrained: True
+activation_args: {"name": "sigmoid", "slope": 7.5}
 N: 100
 dt: 1
 tau: 10

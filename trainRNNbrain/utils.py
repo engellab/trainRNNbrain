@@ -221,17 +221,18 @@ def filter_kwargs(callable_obj, params: dict):
     return OmegaConf.create(filtered_dict, flags=flags)
     
 def jsonify(x):
-    if isinstance(x, dict):
-        return {k: jsonify(v) for k, v in x.items()}
+    if hasattr(x, "items") and not isinstance(x, (str, bytes)):
+        return {jsonify(k): jsonify(v) for k, v in x.items()}
     if isinstance(x, (list, tuple)):
         return [jsonify(v) for v in x]
     if isinstance(x, np.ndarray):
-        return x.tolist()
+        return jsonify(x.tolist())
     if isinstance(x, np.generic):
         return x.item()
     if torch is not None and isinstance(x, torch.Tensor):
-        return x.item() if x.numel() == 1 else x.detach().cpu().tolist()
+        return x.item() if x.numel() == 1 else jsonify(x.detach().cpu().tolist())
     return x
+
 
 def unjsonify(dct):
     dct_unjsonified = {}
@@ -270,7 +271,7 @@ def make_subfolder_tag(cfg, net_params, score, taskname):
     core_keys = [k for k in ('learning_rate','lr','max_iter','dropout','drop_rate','weight_decay','orth_input_only') if k in td]
 
     parts = [
-        f'{score}_{taskname}_{net_params["activation_name"]}',
+        f'{score}_{taskname}_{net_params["activation_args"]["name"]}',
         f'N={net_params["N"]}',
         *[f'{abbr(k)}={fmt(td[k])}' for k in core_keys],
         *[f'{abbr(k)}={fmt(lambdas[k])}' for k in sorted(lambdas)]
