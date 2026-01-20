@@ -173,10 +173,8 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     output_mask = (W_out != 0).to(device=device).float()
     input_mask = (W_inp != 0).to(device=device).float()
     # No self connectivity constraint
-    # recurrent_mask = torch.ones(N, N) - torch.eye(N)
-    recurrent_mask = torch.ones(N, N)# - torch.eye(N)
+    recurrent_mask = torch.ones(N, N) - torch.eye(N)
     return W_rec, W_inp, W_out, recurrent_mask.to(device=device).float(), dale_mask, output_mask, input_mask
-
 
 '''
 Continuous-time RNN class implemented in pytorch to train with BPTT
