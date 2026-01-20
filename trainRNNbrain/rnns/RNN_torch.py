@@ -285,25 +285,51 @@ class RNN_torch(torch.nn.Module):
         else:
             raise ValueError(f"Unsupported activation function: {activation_name}")
 
-    def rhs(self, s, I, i_noise, r_noise, dropout_mask=None):
-        # s: (N, B)
+    def get_dropout_mask(self, dropout_args, participation=None):
+        drop_rate = dropout_args.get("drop_rate", 0.0)
+        beta = dropout_args.get("dropout_beta", 1.0)
 
-        if (self.bias_init_amp == 0.0) or (self.bias_init_amp is None):
-            b = 0
-        else:
-            b = self.bias.unsqueeze(1).expand(-1, s.shape[1])
-        # dropout_mask: (N, B) or (N, 1), 1=active, 0=muted
-        if dropout_mask is not None:
-            # Mask outgoing connections: zero out columns of W_rec for muted neurons
-            W_rec_masked = self.W_rec * dropout_mask.view(1, -1)  # (N, N) * (1, N)
-            h = W_rec_masked @ s + self.W_inp @ (I + i_noise) + b
+        sm = dropout_args["sampling_method"]
+        if sm == "uniform":
+            v = torch.ones(self.N, device=self.device)
+        elif sm == "participation":
+            if participation is None:
+                raise ValueError("sampling_method='participation' requires participation")
+            v = participation.reshape(self.N).to(self.device).float()
+        elif sm == "output_weights":
+            v = torch.sum(torch.abs(self.W_out), dim=0)
+
+        w = torch.softmax(beta * v, dim=0)
+        p_drop = torch.clamp(drop_rate * self.N * w, 0.0, 0.999)
+        keep_p = 1.0 - p_drop
+
+        return torch.bernoulli(keep_p.reshape(self.N, 1), generator=self.random_generator)
+
+    def rhs(self, s, I, i_noise, r_noise, dropout_mask=None, dropout_kind=None):
+        b = 0.0 if (self.bias_init_amp is None) or (torch.abs(self.bias_init_amp) < 1e-8) else self.bias.unsqueeze(1).expand(-1, s.shape[1])
+        if dropout_mask is not None and dropout_kind == "dead":
+            m = (dropout_mask > 0).view(-1, 1).to(s)  # force 0/1 for dead
+            h = self.W_rec @ (s * m) + self.W_inp @ (I + i_noise) + b
+            a = self.activation(h) * m
+            rn = r_noise * m
         else:
             h = self.W_rec @ s + self.W_inp @ (I + i_noise) + b
-        return -s + self.activation(h) + r_noise - self.gamma * torch.pow(s, 3)
+            a = self.activation(h)
+            rn = r_noise
+        return -s + a + rn - self.gamma * torch.pow(s, 3)
 
-    def forward(self, u, w_noise=True, dropout=False, drop_rate=0.3):
+    def forward(self, u, w_noise=True, dropout=False, dropout_args=None, participation=None):
+        if dropout_args is None:
+            dropout_args = {"dropout_kind": None, "sampling_method": None, "drop_rate": 0.0, "dropout_beta": 1.0}
         T_steps = u.shape[1]
         batch_size = u.shape[-1]
+        dk = dropout_args.get("dropout_kind", None)
+        sm = dropout_args.get("sampling_method", None)
+        part = participation if sm == "participation" else None
+
+        dropout_mask = None
+        if dropout and dk in ("dead", "mute"):
+            dropout_mask = self.get_dropout_mask(dropout_args, part)
 
         states = torch.zeros(self.N, 1, batch_size, device=self.device)
         states[:, 0, :] = self.y_init.reshape(-1, 1).repeat(1, batch_size)
@@ -319,27 +345,25 @@ class RNN_torch(torch.nn.Module):
         states_list = [states[:, 0, :]]
 
         for t in range(1, T_steps):
-            if dropout:
-                # At each step, sample a dropout mask (N, 1) or (N, B)
-                dropout_mask = torch.bernoulli(
-                    torch.full((self.N, 1), 1 - drop_rate, device=self.device),
-                    generator=self.random_generator
-                ) / (1 - drop_rate)  # rescale for expectation
-            else:
-                dropout_mask = None
-
             rhs_val = self.rhs(
                 s=states_list[-1],
                 I=u[:, t - 1, :],
                 i_noise=inp_noise[:, t - 1, :],
                 r_noise=rec_noise[:, t - 1, :],
+                dropout_kind=dk,
                 dropout_mask=dropout_mask
             )
             next_state = states_list[-1] + self.alpha * rhs_val
             states_list.append(next_state)
 
         states_new = torch.stack(states_list, dim=1)  # (N, T, B)
-        outputs = torch.einsum("oj,jtk->otk", self.W_out, states_new)
+        if dropout_mask is None:
+            W_out = self.W_out
+        elif dk == "mute" or dk == "dead":
+            W_out = self.W_out * (dropout_mask > 0).view(1, -1)    # binary mask
+        else:
+            W_out = self.W_out
+        outputs = torch.einsum("oj,jtk->otk", W_out, states_new)
         return states_new, outputs
 
     def get_params(self):

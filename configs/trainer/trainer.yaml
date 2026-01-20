@@ -66,6 +66,10 @@ lambda_cl: 0
 cl_args: {}
 dropout: False
 dropout_args:
-  drop_rate: 0
+  dropout_kind: "mute"
+  sampling_method: "participation"
+  eta: 0.5
+  drop_rate: 0.05
+  dropout_beta: 1.0
   activity_q: 0.9
 

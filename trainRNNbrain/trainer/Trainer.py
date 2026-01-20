@@ -342,9 +342,7 @@ class Trainer():
             self.scaled_gradients_monitor = {**{f"sg_{k}": [] for k in self.penalty_map}}
         
         self.dropout = dropout
-        if dropout:
-            self.drop_rate = dropout_args["drop_rate"]
-            self.activity_q = dropout_args["activity_q"] # quantile of activity to use while calculating participation
+        self.dropout_args = dropout_args if dropout_args is not None else {"dropout_kind": None, "sampling_method": None, "drop_rate": 0.0, "dropout_beta": 1.0}
         self.participation = (1e-6 * torch.ones(self.RNN.N, device=self.RNN.device)) if self.dropout else None
         self.iter_n = 0
 
@@ -479,14 +477,6 @@ class Trainer():
         self.RNN.sigma_rec = self.max_sigma_rec * mult
         self.RNN.sigma_inp = self.max_sigma_inp * mult
         return None
-
-    @staticmethod
-    def get_participation_(states, q=0.9, eps=1e-8):
-        x = states.abs().view(states.size(0), -1)  # (N, T*B)
-        activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
-        activity_std = x.std(dim=1, unbiased=False)
-        participation = activity + activity_std
-        return participation
     
     @staticmethod
     def r2_score(output, target, mask):
@@ -495,24 +485,33 @@ class Trainer():
         r2 = 1.0 - (y - t).pow(2).mean() / (t - t.mean()).pow(2).mean().clamp_min(1e-12)
         r2_val = float(r2.item())
         return r2_val
-
+    
+    @staticmethod
+    def get_participation_(states, q=0.9, eps=1e-8):
+        x = states.abs().view(states.size(0), -1)  # (N, T*B)
+        activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
+        activity_std = x.std(dim=1, unbiased=False)
+        participation = activity + activity_std
+        return participation
+    
     def train_step(self, input, target_output, mask):
         if self.anneal_noise:
             self.anneal_noise_levels_()
 
         params = [p for p in self.RNN.parameters() if p.requires_grad]
 
-        states, output_full = self.RNN(input, w_noise=True, dropout=False, drop_rate=None)
+        states, output_full = self.RNN(input, w_noise=True, dropout=False, dropout_args={})
         output_do = output_full
         if self.dropout:
-            self.participation = self.get_participation_(states, q=self.activity_q, eps=1e-12).detach()
-            _, output_do = self.RNN(
-                input,
-                w_noise=True,
-                dropout=True,
-                drop_rate=self.drop_rate,
-                participation=self.participation,
-            )
+            if self.dropout_args["sampling_method"] == "participation" and self.participation is None:
+                self.participation = 1e-6 * torch.ones(self.RNN.N, device=states.device)
+            part = self.participation if self.dropout_args["sampling_method"] == "participation" else None
+            eta = self.dropout_args.get("eta", 0.0)
+            _, output_do = self.RNN(input, w_noise=True, dropout=True, dropout_args=self.dropout_args, participation=part)
+
+            if self.dropout_args["sampling_method"] == "participation":
+                new_part = self.get_participation_(states, q=self.dropout_args["activity_q"], eps=1e-12).detach()
+                self.participation = (1 - eta) * self.participation + eta * new_part
 
         penalty_dict_raw = {
             k: (fn(states, input, (output_full if (self.dropout and k=='task') else output_do), target_output, mask, **kwargs) if L != 0 else None)
@@ -572,7 +571,7 @@ class Trainer():
         self.iter_n += 1
         return loss_val, r2_val
 
-    def eval_step(self, inp, tgt, mask, noise=False, dropout=False, drop_rate=None, seed=None):
+    def eval_step(self, inp, tgt, mask, noise=False, dropout=False, dropout_args=None, seed=None):
         if seed is not None: torch.manual_seed(seed)
         self.RNN.eval()
         dt = next(self.RNN.parameters()).dtype
@@ -582,7 +581,7 @@ class Trainer():
             if not noise: self.RNN.sigma_rec = self.RNN.sigma_inp = 0.0
             inp, tgt = inp.to(dev, dt), tgt.to(dev, dt)
             mask = mask if isinstance(mask, slice) else torch.as_tensor(mask, device=dev)
-            _, y = self.RNN(inp, w_noise=noise, dropout=dropout, drop_rate=drop_rate)
+            _, y = self.RNN(inp, w_noise=noise, dropout=dropout, dropout_args=dropout_args)
             r2 = Trainer.r2_score(y, tgt, mask)
             self.RNN.sigma_rec, self.RNN.sigma_inp = srec, sinp
         return float(r2)
