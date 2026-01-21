@@ -64,6 +64,10 @@ lambda_hlvar: 0
 hlvar_args: {}
 lambda_cl: 0
 cl_args: {}
+lambda_effdim: 0.2
+effdim_args:
+  k: 8
+  eps: 1e-12
 dropout: False
 dropout_args:
   dropout_kind: "mute"

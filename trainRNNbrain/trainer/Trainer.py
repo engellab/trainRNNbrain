@@ -264,6 +264,20 @@ class Penalties:
             triangle = F.softplus(term1 - term2 - term3, beta=beta)
             loss += triangle.mean()
         return loss
+    
+    def eff_dim_tail_energy_penalty(self, states, input=None, output=None, target=None, mask=None, k=6, eps=1e-8):
+        # states: (N, T, K)  ->  X: (N, D), D = T*K
+        X = states.reshape(states.shape[0], -1)
+        X = X - torch.mean(X, dim=1, keepdim=True)
+
+        D = X.shape[1]
+        C = (X @ X.T) / (D + eps)                      # (N, N) covariance-like (PSD)
+        e = torch.linalg.eigvalsh(C).flip(0)           # descending eigenvalues
+
+        k = int(k)
+        tail = torch.sum(e[k:]) if k < e.numel() else torch.zeros((), device=e.device, dtype=e.dtype)
+        return tail / (torch.sum(e).detach() + eps)    # scale-invariant tail energy
+
 
 class Trainer():
     def __init__(self,
@@ -296,6 +310,8 @@ class Trainer():
                  hlvar_args=None,
                  lambda_cl=0.0,
                  cl_args = None,
+                 lambda_effdim=0.0,
+                 effdim_args=None,
                  dropout=False,
                  dropout_args=None,
                  monitor=True,
@@ -335,6 +351,7 @@ class Trainer():
             "h_time_variance": (self.Penalties.h_time_variance_penalty, lambda_htvar, htvar_args),
             "h_local_variance": (self.Penalties.h_local_variance_penalty, lambda_hlvar, hlvar_args),
             "clustering": (self.Penalties.clustering_penalty, lambda_cl, cl_args),
+            "eff_dim_tail_energy": (self.Penalties.eff_dim_tail_energy_penalty, lambda_effdim, effdim_args),
         }
         if monitor:
             self.loss_monitor = {**{k: [] for k in self.penalty_map}}
