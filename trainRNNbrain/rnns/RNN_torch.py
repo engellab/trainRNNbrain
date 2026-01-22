@@ -43,138 +43,49 @@ def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
     return tnsr
 
 
-def get_connectivity(N, num_inputs, num_outputs, radius=1.2, recurrent_density=1.0, input_density=1.0,
-                     output_density=1.0, generator=None):
-    '''
-    generates W_inp, W_rec and W_out matrices of RNN, with specified parameters
-    :param N: number of neural nodes
-    :param num_inputs: number of input channels, input dimension
-    :param num_outputs: number of output channels, output dimension
-    :param radius: spectral radius of the generated cnnectivity matrix: controls the maximal abs value of eigenvectors.
-    the greater the parameter is the more sustained and chaotic activity the network exchibits, the lower - the quicker
-    the network relaxes back to zero.
-    :param recurrent_density: oppposite of sparcirty of the reccurrent matrix. 1.0 - fully connected recurrent matrix
-    :param input_density: 1.0 - fully connected input matrix, 0 - maximally sparce matrix
-    :param output_density: 1.0 - fully connected output matrix, 0 - maximally sparce matrix
-    :param generator: torch random generator, for reproducibility
-    :return:
-    '''
-    if not (generator is None):
-        device = generator.device
-    else:
-        if torch.cuda.is_available():
-            device = torch.device('cuda')
-        else:
-            device = torch.device('cpu')
-    # Balancing parameters
-    mu = 0
-    mu_pos = 1 / np.sqrt(N)
-    std = 1 / N
-    recurrent_sparsity = 1 - recurrent_density
-    W_rec = sparse(torch.empty(N, N, device=device), recurrent_sparsity, mu, std, generator)
-
-    # spectral radius adjustment
-    W_rec = W_rec - torch.diag(torch.diag(W_rec))
-    w, v = torch.linalg.eig(W_rec)
-    spec_radius = torch.max(torch.absolute(w))
-    # W_rec = torch.tensor(radius).to(device=device) * W_rec.to(device=device) / spec_radius.to(device=device)
-    W_rec = torch.tensor(radius/spec_radius).to(device=device) * W_rec.to(device=device)
-    W_inp = torch.zeros([N, num_inputs], device=device).float()
-    input_sparsity = 1 - input_density
-    W_inp = sparse(W_inp, input_sparsity, mu_pos, std, generator)
-
-    output_sparsity = 1 - output_density
-    W_out = sparse(torch.empty(num_outputs, N), output_sparsity, mu_pos, std, generator)
-
-    output_mask = (W_out != 0).to(device=device).float()
-    input_mask = (W_inp != 0).to(device=device).float()
-    # recurrent_mask = torch.ones(N, N) - torch.eye(N)
-    recurrent_mask = torch.ones(N, N)# - torch.eye(N)
-
-    return W_rec.to(device=device).float(), \
-           W_inp.to(device=device).float(), \
-           W_out.to(device=device).float(), \
-           recurrent_mask.to(device=device).float(), \
-           output_mask.to(device=device).float(), \
-           input_mask.to(device=device).float()
-
-
 def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
                           output_density=1.0, exc2inhR=4, generator=None):
-    '''
-    generates W_inp, W_rec and W_out matrices of RNN, with specified parameters, subject to a Dales law,
-    and about 20:80 ratio of inhibitory neurons to exchitatory ones.
-    Following the paper "Training Excitatory-Inhibitory Recurrent Neural Networks for Cognitive tasks:
-    A Simple and Flexible Framework" - Song et al. (2016)
-
-    :param N: number of neural nodes
-    :param num_inputs: number of input channels, input dimension
-    :param num_outputs: number of output channels, output dimension
-    :param radius: spectral radius of the generated cnnectivity matrix: controls the maximal abs value of eigenvectors.
-    the greater the parameter is the more sustained and chaotic activity the network exchibits, the lower - the quicker
-    the network relaxes back to zero.
-    :param recurrent_density: oppposite of sparcirty of the reccurrent matrix. 1.0 - fully connected recurrent matrix
-    :param input_density: 1.0 - fully connected input matrix, 0 - maximally sparce matrix
-    :param output_density: 1.0 - fully connected output matrix, 0 - maximally sparce matrix
-    :param generator: torch random generator, for reproducibility
-    :return:
-    '''
-    if not (generator is None):
-        device = generator.device
-    else:
-        if torch.cuda.is_available():
-            device = torch.device('cuda')
-        else:
-            device = torch.device('cpu')
-
+    device = generator.device if generator is not None else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
     exc_percentage = exc2inhR / (exc2inhR + 1)
     Ne = int(np.floor(N * exc_percentage))
     Ni = N - Ne
 
-    # Initialize W_rec
-    W_rec = torch.empty([0, N], device=device)
-
-    # Balancing parameters
     mu_E = 1 / np.sqrt(N)
     mu_I = exc2inhR / np.sqrt(N)
-
     std = 1 / N
-    # generating excitatory part of connectivity and an inhibitory part of connectivity:
-    rowE = torch.empty([Ne, 0], device=device)
-    rowI = torch.empty([Ni, 0], device=device)
     recurrent_sparsity = 1 - recurrent_density
-    rowE = torch.cat((rowE, torch.abs(sparse(torch.empty(Ne, Ne, device=device), recurrent_sparsity, mu_E, std, generator))), 1)
-    rowE = torch.cat((rowE, -torch.abs(sparse(torch.empty(Ne, Ni, device=device), recurrent_sparsity, mu_I, std, generator))), 1)
-    rowI = torch.cat((rowI, torch.abs(sparse(torch.empty(Ni, Ne, device=device), recurrent_sparsity, mu_E, std, generator))), 1)
-    rowI = torch.cat((rowI, -torch.abs(sparse(torch.empty(Ni, Ni, device=device), recurrent_sparsity, mu_I, std, generator))), 1)
 
-    W_rec = torch.cat((W_rec, rowE), 0)
-    W_rec = torch.cat((W_rec, rowI), 0)
+    rowE = torch.cat([
+        torch.abs(sparse(torch.empty(Ne, Ne, device=device), recurrent_sparsity, mu_E, std, generator)),
+        -torch.abs(sparse(torch.empty(Ne, Ni, device=device), recurrent_sparsity, mu_I, std, generator))
+    ], dim=1)
+    rowI = torch.cat([
+        torch.abs(sparse(torch.empty(Ni, Ne, device=device), recurrent_sparsity, mu_E, std, generator)),
+        -torch.abs(sparse(torch.empty(Ni, Ni, device=device), recurrent_sparsity, mu_I, std, generator))
+    ], dim=1)
 
-    #  spectral radius adjustment
+    W_rec = torch.cat([rowE, rowI], dim=0)
     W_rec = W_rec - torch.diag(torch.diag(W_rec))
-    w, v = torch.linalg.eig(W_rec)
-    spec_radius = torch.max(torch.absolute(w))
-    # W_rec = torch.tensor(radius).to(device=device) * W_rec.to(device=device) / spec_radius.to(device=device)
-    W_rec = torch.tensor(radius / spec_radius).to(device=device) * W_rec.to(device=device)
+
+    w = torch.linalg.eigvals(W_rec)
+    spec_radius = torch.max(torch.abs(w))
+    W_rec = (radius / (spec_radius + 1e-12)) * W_rec
     W_rec = W_rec.float()
 
-    W_inp = torch.zeros([N, num_inputs]).float()
     input_sparsity = 1 - input_density
-    W_inp = torch.abs(sparse(W_inp, input_sparsity, mu_E, std, generator)).float()
+    W_inp = torch.abs(sparse(torch.zeros(N, num_inputs, device=device), input_sparsity, mu_E, std, generator)).float()
 
-    W_out = torch.zeros([num_outputs, Ne]).float()
     output_sparsity = 1 - output_density
-    W_out = torch.abs(sparse(W_out, output_sparsity, mu_E, std, generator))
-    W_out = torch.hstack([W_out, torch.zeros([num_outputs, Ni], device=device)]).float()
+    W_out = torch.abs(sparse(torch.zeros(num_outputs, Ne, device=device), output_sparsity, mu_E, std, generator))
+    W_out = torch.hstack([W_out, torch.zeros(num_outputs, Ni, device=device)]).float()
 
-    dale_mask = torch.cat([torch.ones(Ne), -torch.ones(Ni)]).to(device)
-    output_mask = (W_out != 0).to(device=device).float()
-    input_mask = (W_inp != 0).to(device=device).float()
-    # No self connectivity constraint
-    recurrent_mask = torch.ones(N, N) - torch.eye(N)
-    return W_rec, W_inp, W_out, recurrent_mask.to(device=device).float(), dale_mask, output_mask, input_mask
+    dale_mask = torch.cat([torch.ones(Ne, device=device), -torch.ones(Ni, device=device)])
+    output_mask = (W_out != 0).float()
+    input_mask = (W_inp != 0).float()
+    recurrent_mask = (torch.ones(N, N, device=device) - torch.eye(N, device=device)).float()
+
+    return W_rec, W_inp, W_out, recurrent_mask, dale_mask, output_mask, input_mask
 
 '''
 Continuous-time RNN class implemented in pytorch to train with BPTT
@@ -263,8 +174,9 @@ class RNN_torch(torch.nn.Module):
                                     exc2inhR=self.exc2inhR,
                                     generator=self.random_generator,
                                     recurrent_density=self.connectivity_density_rec)
-        if self.bias_init_amp != 0 and not (self.bias_init_amp is None):
-            self.bias = self.bias_init_amp * torch.nn.Parameter(torch.rand(self.N, generator=self.random_generator))
+        if self.bias_init_amp not in (None, 0):
+            b = self.bias_init_amp * torch.rand(self.N, device=self.device, generator=self.random_generator)
+            self.bias = torch.nn.Parameter(b)
         self.W_out = torch.nn.Parameter(W_out.to(self.device))
         self.W_rec = torch.nn.Parameter(W_rec.to(self.device))
         self.W_inp = torch.nn.Parameter(W_inp.to(self.device))
