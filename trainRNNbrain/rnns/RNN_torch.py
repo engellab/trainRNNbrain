@@ -310,24 +310,43 @@ class RNN_torch(torch.nn.Module):
         return param_dict
 
     def set_params(self, params):
-        self.N = params["W_rec"].shape[0]
-        self.W_out.data = torch.from_numpy(np.float32(params["W_out"])).to(self.device)
-        self.W_inp.data = torch.from_numpy(np.float32(params["W_inp"])).to(self.device)
-        self.W_rec.data = torch.from_numpy(np.float32(params["W_rec"])).to(self.device)
-        self.y_init = torch.from_numpy(np.float32(params["y_init"])).to(self.device)
-        self.gamma = torch.tensor(params["gamma"]).to(self.device)
-        self.dt = torch.tensor(params["dt"]).to(self.device)
-        self.tau = torch.tensor(params["tau"]).to(self.device)
-        self.alpha = torch.tensor((self.dt / self.tau)).to(self.device)
-        if not (params["bias"] is None):
-            self.bias = torch.from_numpy(np.float32(params["bias"])).to(self.device)
+        self.N = int(params["W_rec"].shape[0])
+
+        dev = self.device
+        wout = torch.as_tensor(params["W_out"], dtype=torch.float32, device=dev)
+        winp = torch.as_tensor(params["W_inp"], dtype=torch.float32, device=dev)
+        wrec = torch.as_tensor(params["W_rec"], dtype=torch.float32, device=dev)
+
+        with torch.no_grad():
+            self.W_out.copy_(wout)
+            self.W_inp.copy_(winp)
+            self.W_rec.copy_(wrec)
+
+            b = params["bias"]
+            if b is None:
+                self.bias = None
+            else:
+                b = torch.as_tensor(b, dtype=torch.float32, device=dev)
+                if self.bias is None:
+                    self.bias = torch.nn.Parameter(b)
+                else:
+                    self.bias.copy_(b)
+
+        self.y_init = torch.as_tensor(params["y_init"], dtype=torch.float32, device=dev)
+        self.gamma = torch.as_tensor(params["gamma"], dtype=torch.float32, device=dev)
+        self.dt = torch.as_tensor(params["dt"], dtype=torch.float32, device=dev)
+        self.tau = torch.as_tensor(params["tau"], dtype=torch.float32, device=dev)
+        self.alpha = self.dt / self.tau
+
         self.activation_args = params["activation_args"]
         self.activation = self.configure_activation_(self.activation_args)
-        self.dale_mask = None if params["dale_mask"] is None else torch.from_numpy(np.float32(params["dale_mask"])).to(self.device)
-        self.input_mask = torch.from_numpy(np.float32(params["input_mask"])).to(self.device)
-        self.recurrent_mask = torch.from_numpy(np.float32(params["recurrent_mask"])).to(self.device)
-        self.output_mask = torch.from_numpy(np.float32(params["output_mask"])).to(self.device)
-        return None
+
+        dm = params["dale_mask"]
+        self.dale_mask = None if dm is None else torch.as_tensor(dm, dtype=torch.float32, device=dev)
+        self.input_mask = torch.as_tensor(params["input_mask"], dtype=torch.float32, device=dev)
+        self.recurrent_mask = torch.as_tensor(params["recurrent_mask"], dtype=torch.float32, device=dev)
+        self.output_mask = torch.as_tensor(params["output_mask"], dtype=torch.float32, device=dev)
+
 
 
 if __name__ == '__main__':
