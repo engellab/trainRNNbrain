@@ -74,7 +74,7 @@ class Penalties:
                             cap_s=0.3,
                             quantile_kind='hard',
                             q=0.9, p=15, tau=0.1,
-                            penalty_type="multiplicative",
+                            penalty_type="additive",
                             g_top=5.0, g_bot=5.0,
                             alpha=1.0, beta=1.0, eps=1e-12):
         '''
@@ -107,6 +107,40 @@ class Penalties:
             p_over = torch.pow(over / (cap + eps), g_top)
             p_under = torch.pow(under / (cap + eps), g_bot)
         return (alpha * p_under + beta * p_over).mean()
+    
+    def h_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
+                            h_thr=-0.3,
+                            quantile_kind='hard',
+                            q=0.9, p=15, tau=0.1,
+                            penalty_type="additive",
+                            eps=1e-12):
+        '''
+        exponential penalty on the up side, quadratic penalty on the down side of log(activity ratio)
+        '''
+        x = states.abs().view(states.size(0), -1)  # (N, T*B)
+        dev, dt = states.device, states.dtype
+        h_thr = torch.as_tensor(h_thr, device=dev, dtype=dt)
+
+        scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / \
+                torch.log1p(torch.as_tensor(self.RNN.N, device=dev, dtype=dt))
+        cap = h_thr * scale  # scales as O(1 / log(N))
+
+        eps = torch.as_tensor(eps, device=dev, dtype=dt)
+        if quantile_kind == 'hard':
+            activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
+        elif quantile_kind == 'power_mean':
+            activity = torch.mean((x + eps).pow(p), dim=1).pow(1.0 / p)
+        elif quantile_kind == 'logsumexp':
+            activity = a = x / tau
+            activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
+
+        if penalty_type == "multiplicative":
+            e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
+            p_under = (torch.expm1(2 * torch.relu(-e)))  # quadratic penalty for under activitated units
+        elif penalty_type == "additive":
+            under = torch.relu(cap - activity)
+            p_under = torch.pow(under / (cap + eps), 2)
+        return (p_under).mean()
 
     def metabolic_penalty(self, states, input=None, output=None, target=None, mask=None):
         return torch.mean(states ** 2)
@@ -298,6 +332,8 @@ class Trainer():
                  orth_args={"orth_input_only": True},
                  lambda_sm=0.005,
                  sm_args=None,
+                 lambda_hm=0.0,
+                 hm_args=None,
                  lambda_met = 0.0,
                  met_args=None,
                  lambda_si=0.0,
@@ -345,6 +381,7 @@ class Trainer():
             "output_var": (self.Penalties.trial_output_var_penalty, lambda_tv, tv_args),
             "channel_overlap": (self.Penalties.channel_overlap_penalty, lambda_orth, orth_args),
             "s_magnitude": (self.Penalties.s_magnitude_penalty, lambda_sm, sm_args),
+            "h_magnitude": (self.Penalties.h_magnitude_penalty, lambda_hm, hm_args),
             "metabolic": (self.Penalties.metabolic_penalty, lambda_met, met_args),
             "s_inequality": (self.Penalties.s_inequality_penalty, lambda_si, si_args),
             "h_inequality": (self.Penalties.h_inequality_penalty, lambda_hi, hi_args),
