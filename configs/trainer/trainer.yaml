@@ -1,7 +1,7 @@
 # @package trainer
 _target_: trainRNNbrain.trainer.Trainer.Trainer
 trainer_tag: "BaseTrainer"
-max_iter: 1500
+max_iter: 3000
 anneal_noise: True
 lr: 0.001
 weight_decay: 1e-6
@@ -50,6 +50,14 @@ sm_args:
   alpha: 1.0
   beta: 1.0
   eps: 1e-12
+lambda_hm: 0.0 # magnitude of hidden activities
+hm_args:
+  h_thr: -0.3
+  quantile_kind: 'logsumexp'
+  p: 15
+  q: 0.9
+  tau: 0.1
+  penalty_type: 'additive'
 lambda_tv: 0 # trial output variability (across trials)
 tv_args: {}
 lambda_si: 0 

@@ -110,7 +110,7 @@ class Penalties:
     
     def h_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
                             h_thr=-0.3,
-                            quantile_kind='hard',
+                            quantile_kind='logsumexp',
                             q=0.9, p=15, tau=0.1,
                             penalty_type="additive",
                             eps=1e-12):

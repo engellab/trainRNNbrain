@@ -77,7 +77,7 @@ class RNN_numpy():
         a = float(self.alpha)
         rec_noise = ((2.0 / a) ** 0.5 * sr) * self.rng.standard_normal(y.shape, dtype=y.dtype)
         inp_noise = ((2.0 / a) ** 0.5 * si) * self.rng.standard_normal(input.shape, dtype=input.dtype)
-        h = self.W_rec @ y + self.W_inp @ (input + inp_noise)
+        h = self.W_rec @ y + self.W_inp @ (input + inp_noise) + self.bias[:, None]
         return -y + self.activation(h) + rec_noise - self.gamma * y ** 3
 
     def rhs_noiseless(self, y, input):
