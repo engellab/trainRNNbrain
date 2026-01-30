@@ -1,15 +1,19 @@
 # @package task
 taskname: "MemoryAntiAngle"
-_target_: trainRNNbrain.tasks.Task${.taskname}.Task${.taskname}
+_target_: trainRNNbrain.tasks.TaskMemoryAntiAngle.TaskMemoryAntiAngle
 T: 120
 seed: null
-T_stim_on: '${eval:${.T}//12}'
-T_stim_off: '${eval:2 * ${.T}//12}'
-T_recall_on: '${eval:9 * ${.T}//12}'
-T_recall_off: ${.T}
-T_random_window: '${eval:${.T}//12}'
-n_inputs: 3
-n_outputs: '${eval:${.n_inputs} + 2}'
+T_stim_on: 10
+T_stim_off: 20
+T_recall_on: 90
+T_recall_off: 120
+T_random_window: 10
+n_inputs: 6
+n_outputs: 6
 mask_params:
-  - (0, ${..T_recall_on})
-  - ('${eval:10 * ${.T}//12}', ${..T_recall_off})
+  - (0, 90)
+  - (100, 120)
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "stim_on", "stim_off", "recall_on", "recall_off",
+              "random_window"]

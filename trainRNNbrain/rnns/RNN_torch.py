@@ -43,7 +43,7 @@ def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
     return tnsr
 
 
-def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
+def get_connectivity_Dale(N, n_inputs, n_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
                           output_density=1.0, exc2inhR=4, generator=None):
     device = generator.device if generator is not None else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
@@ -74,11 +74,11 @@ def get_connectivity_Dale(N, num_inputs, num_outputs, radius=1.5, recurrent_dens
     W_rec = W_rec.float()
 
     input_sparsity = 1 - input_density
-    W_inp = torch.abs(sparse(torch.zeros(N, num_inputs, device=device), input_sparsity, mu_E, std, generator)).float()
+    W_inp = torch.abs(sparse(torch.zeros(N, n_inputs, device=device), input_sparsity, mu_E, std, generator)).float()
 
     output_sparsity = 1 - output_density
-    W_out = torch.abs(sparse(torch.zeros(num_outputs, Ne, device=device), output_sparsity, mu_E, std, generator))
-    W_out = torch.hstack([W_out, torch.zeros(num_outputs, Ni, device=device)]).float()
+    W_out = torch.abs(sparse(torch.zeros(n_outputs, Ne, device=device), output_sparsity, mu_E, std, generator))
+    W_out = torch.hstack([W_out, torch.zeros(n_outputs, Ni, device=device)]).float()
 
     dale_mask = torch.cat([torch.ones(Ne, device=device), -torch.ones(Ni, device=device)])
     output_mask = (W_out != 0).float()
@@ -107,8 +107,8 @@ class RNN_torch(torch.nn.Module):
                  bias_init_amp=0.0,
                  y_init=None,
                  seed=None,
-                 input_size=6,
-                 output_size=2):
+                 n_inputs=6,
+                 n_outputs=2):
         '''
         :param N: int, number of neural nodes in the RNN
         :param activation_args: dictionary containing the name and parameters of the activation function in the dynamics of the RNN
@@ -123,8 +123,8 @@ class RNN_torch(torch.nn.Module):
         :param sigma_inp: float, std of the gaussian noise in the input to the RNN
         :param y_init: array of N values, initial value of the RNN dynamics
         :param seed: seed for torch random generator, for reproducibility
-        :param input_size: number of the input channels of the RNN
-        :param output_size: number of the output channels of the RNN
+        :param n_inputs: number of the input channels of the RNN
+        :param n_outputs: number of the output channels of the RNN
         '''
         super(RNN_torch, self).__init__()
         # self.device = torch.device('mps')
@@ -142,8 +142,8 @@ class RNN_torch(torch.nn.Module):
         self.alpha = torch.tensor((dt / tau)).to(self.device)
         self.sigma_rec = torch.from_numpy(np.array(sigma_rec)).to(self.device)
         self.sigma_inp = torch.from_numpy(np.array(sigma_inp)).to(self.device)
-        self.input_size = torch.from_numpy(np.array(input_size)).to(self.device)
-        self.output_size = torch.from_numpy(np.array(output_size)).to(self.device)
+        self.n_inputs = torch.from_numpy(np.array(n_inputs)).to(self.device)
+        self.n_outputs = torch.from_numpy(np.array(n_outputs)).to(self.device)
         self.spectral_rad = torch.from_numpy(np.array(spectral_rad)).to(self.device)
         self.bias_init_amp = torch.tensor(bias_init_amp).to(self.device)
         self.connectivity_density_rec = connectivity_density_rec
@@ -169,7 +169,7 @@ class RNN_torch(torch.nn.Module):
         # positivity of W_inp, W_out,
         # W_rec has to be subject to Dale's law
         W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
-            get_connectivity_Dale(N=self.N, num_inputs=self.input_size, num_outputs=self.output_size,
+            get_connectivity_Dale(N=self.N, n_inputs=self.n_inputs, n_outputs=self.n_outputs,
                                     radius=self.spectral_rad,
                                     exc2inhR=self.exc2inhR,
                                     generator=self.random_generator,
@@ -247,7 +247,7 @@ class RNN_torch(torch.nn.Module):
         states[:, 0, :] = self.y_init.reshape(-1, 1).repeat(1, batch_size)
 
         rec_noise = torch.zeros(self.N, T_steps, batch_size, device=self.device)
-        inp_noise = torch.zeros(self.input_size, T_steps, batch_size, device=self.device)
+        inp_noise = torch.zeros(self.n_inputs, T_steps, batch_size, device=self.device)
         if w_noise:
             rec_noise = torch.sqrt((2 / self.alpha) * self.sigma_rec ** 2) * \
                         torch.randn(*rec_noise.shape, generator=self.random_generator, device=self.device)
