@@ -29,7 +29,7 @@ class TaskMemoryAntiAngle(Task):
         stim_on = self.stim_on + random_offset
         stim_off = self.stim_off + random_offset
         num_angle_encoding_inps = (self.n_inputs - 2)
-        num_angle_encoding_outs = (self.n_inputs - 2)
+        num_angle_encoding_outs = self.n_outputs
         arc = 2 * np.pi / num_angle_encoding_inps
         ind_channel = int(np.floor(theta / arc))
         v = theta % arc
@@ -58,22 +58,57 @@ class TaskMemoryAntiAngle(Task):
         return input_stream, target_stream, condition
 
     def get_batch(self, shuffle=False):
-        inputs = []
-        targets = []
-        conditions = []
-        thetas = 2 * np.pi * np.linspace(0, 1, self.batch_size - 1)[:-1]
+        B = self.batch_size - 1
+        thetas = 2 * np.pi * np.linspace(0, 1, B + 1)[:-1]
 
-        for theta in thetas:
-            input_stream, target_stream, condition = self.generate_input_target_stream(theta)
-            inputs.append(deepcopy(input_stream))
-            targets.append(deepcopy(target_stream))
-            conditions.append(deepcopy(condition))
-        inputs = np.stack(inputs, axis=2)
-        targets = np.stack(targets, axis=2)
+        nin, nout = self.n_inputs - 2, self.n_outputs
+        stim_sl = slice(self.stim_on, self.stim_off)
+        rec_sl = slice(self.recall_on, self.recall_off)
+
+        inputs = np.zeros((B, self.n_inputs, self.n_steps))
+        targets = np.zeros((B, self.n_outputs, self.n_steps))
+
+        arc = 2 * np.pi / nin
+        i = np.floor(thetas / arc).astype(int) % nin
+        v = np.mod(thetas, arc)
+        a0, a1 = 1 - v / arc, v / arc
+        b = np.arange(B)
+
+        inputs[b, i, stim_sl] = a0[:, None]
+        inputs[b, (i + 1) % nin, stim_sl] = a1[:, None]
+        inputs[:, -2, :] = 1
+        inputs[:, -1, rec_sl] = 1
+
+        theta_hat = np.mod(thetas + np.pi, 2 * np.pi)
+        arc_hat = 2 * np.pi / nout
+        j = np.floor(theta_hat / arc_hat).astype(int) % nout
+        w = np.mod(theta_hat, arc_hat)
+        c0, c1 = 1 - w / arc_hat, w / arc_hat
+
+        targets[b, j, rec_sl] = c0[:, None]
+        targets[b, (j + 1) % nout, rec_sl] = c1[:, None]
+
+        inputs = np.transpose(inputs, (1, 2, 0))
+        targets = np.transpose(targets, (1, 2, 0))
+
+        conditions = []
+        for k, theta in enumerate(thetas):
+            theta_enc = [float(np.round(inputs[m, stim_sl.start, k], 2)) for m in range(nin)]
+            anti_enc = [float(np.round(targets[m, rec_sl.start, k], 2)) for m in range(nout)]
+            conditions.append({
+                "Theta": float(np.round(360 * theta / (2 * np.pi), 1)),
+                "stim_on": self.stim_on, "stim_off": self.stim_off,
+                "recall_on": self.recall_on, "recall_off": self.recall_off,
+                "Theta encoding": theta_enc,
+                "Anti-Theta encoding": anti_enc,
+            })
+
         if shuffle:
-            perm = self.rng.permutation(np.arange((inputs.shape[-1])))
+            perm = self.rng.permutation(B)
             inputs = inputs[..., perm]
             targets = targets[..., perm]
-            conditions = [conditions[index] for index in perm]
+            conditions = [conditions[p] for p in perm]
+
         return inputs, targets, conditions
+
 

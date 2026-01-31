@@ -75,7 +75,7 @@ def run_training(cfg: DictConfig) -> None:
         ############################### RUN TRAINING #############################
 
         tic = time.perf_counter()
-        rnn_trained, train_losses, val_losses, best_net_params, last_net_params = trainer.run_training(train_mask=mask,                                                                                             same_batch=cfg.trainer.same_batch)
+        rnn_trained, train_losses, val_losses, best_net_params, last_net_params = trainer.run_training(train_mask=mask, same_batch=cfg.trainer.same_batch)
         toc = time.perf_counter()
         print(f"Executed training in {toc - tic:0.4f} seconds")
 

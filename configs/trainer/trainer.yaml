@@ -1,13 +1,13 @@
 # @package trainer
 _target_: trainRNNbrain.trainer.Trainer.Trainer
 trainer_tag: "BaseTrainer"
-max_iter: 3000
+max_iter: 15000
 anneal_noise: True
 lr: 0.001
 weight_decay: 1e-6
 max_grad_norm: 50.0
 lr_scale_exp: 0.3333333333333333
-same_batch: True
+same_batch: False
 monitor: True
 lambda_orth: 0.3
 orth_args:
@@ -44,7 +44,7 @@ sm_args:
   p: 15
   q: 0.9
   tau: 0.1
-  penalty_type: 'multiplicative'
+  penalty_type: 'additive'
   g_top: 3.0
   g_bot: 3.0
   alpha: 1.0

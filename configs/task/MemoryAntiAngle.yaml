@@ -8,8 +8,8 @@ T_stim_off: 20
 T_recall_on: 90
 T_recall_off: 120
 T_random_window: 10
-n_inputs: 6
-n_outputs: 6
+n_inputs: 5
+n_outputs: 3
 mask_params:
   - (0, 90)
   - (100, 120)
