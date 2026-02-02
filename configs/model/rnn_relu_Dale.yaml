@@ -2,6 +2,7 @@
 _target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
 RNN_tag: ""
 activation_args: {"name": "relu", "slope": 1.0}
+equation_type: "h"
 N: 100
 dt: 1
 tau: 10

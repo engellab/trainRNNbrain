@@ -12,6 +12,7 @@ class RNN_numpy():
                  N, dt, tau,
                  W_inp, W_rec, W_out,
                  activation_args={"name": "relu", "slope": 1.0},
+                 equation_type="r",
                  gamma=0.1,
                  bias=None,
                  y_init=None,
@@ -37,6 +38,7 @@ class RNN_numpy():
         self.activation_args = activation_args
         self.activation = self.configure_activation_(activation_args)
         self.activation_name = activation_args["name"]
+        self.equation_type = equation_type
         self.gamma = gamma
 
         if seed is None:
@@ -71,63 +73,88 @@ class RNN_numpy():
     def rhs(self, y, input, sigma_rec=None, sigma_inp=None):
         sr = 0.0 if sigma_rec is None else float(sigma_rec)
         si = 0.0 if sigma_inp is None else float(sigma_inp)
-        if sr == 0.0 and si == 0.0:
-            h = self.W_rec @ y + self.W_inp @ input
-            return -y + self.activation(h) - self.gamma * y ** 3
         a = float(self.alpha)
-        rec_noise = ((2.0 / a) ** 0.5 * sr) * self.rng.standard_normal(y.shape, dtype=y.dtype)
-        inp_noise = ((2.0 / a) ** 0.5 * si) * self.rng.standard_normal(input.shape, dtype=input.dtype)
-        h = self.W_rec @ y + self.W_inp @ (input + inp_noise) + self.bias[:, None]
+        c = (2.0 / a) ** 0.5
+        b = self.bias.reshape(-1, *([1] * (y.ndim - 1)))
+
+        rec_noise = 0.0 if sr == 0.0 else (c * sr) * self.rng.standard_normal(y.shape, dtype=y.dtype)
+        inp_noise = 0.0 if si == 0.0 else (c * si) * self.rng.standard_normal(input.shape, dtype=input.dtype)
+
+        if self.equation_type == "h":
+            r = self.activation(y + rec_noise)
+            g = self.W_rec @ r + self.W_inp @ (input + inp_noise) + b
+            return -y + g - self.gamma * y ** 3
+
+        h = self.W_rec @ y + self.W_inp @ (input + inp_noise) + b
         return -y + self.activation(h) + rec_noise - self.gamma * y ** 3
 
+
     def rhs_noiseless(self, y, input):
-        '''
-        Bare version of RHS for efficient fixed point analysis
-        supposed to work only with one point at the state-space at the time (no batches!)
-        '''
-        return -y + self.activation(self.W_rec @ y + self.W_inp @ input + self.bias) - self.gamma * y ** 3
+        b = self.bias.reshape(-1, *([1] * (y.ndim - 1)))
+        if self.equation_type == "h":
+            r = self.activation(y)
+            return -y + (self.W_rec @ r + self.W_inp @ input + b) - self.gamma * y ** 3
+        return -y + self.activation(self.W_rec @ y + self.W_inp @ input + b) - self.gamma * y ** 3
 
 
     def rhs_jac(self, y, input):
         if len(input.shape) > 1:
             raise ValueError("Jacobian computations work only for single point and a single input-vector. It doesn't yet work in the batch mode")
+
+        def fprime(arg):
+            if self.activation_args["name"] == "relu":
+                s = self.activation_args["slope"]
+                return s * np.heaviside(s * arg, 0.5)
+            if self.activation_args["name"] == "tanh":
+                s = self.activation_args["slope"]
+                t = np.tanh(s * arg)
+                return s * (1 - t ** 2)
+            if self.activation_args["name"] == "sigmoid":
+                s = self.activation_args["slope"]
+                z = 1.0 / (1.0 + np.exp(-s * arg))
+                return s * z * (1.0 - z)
+            if self.activation_args["name"] == "softplus":
+                beta = self.activation_args.get("beta", 1.0)
+                slope = self.activation_args.get("slope", 1.0)
+                return slope / (1 + np.exp(-beta * slope * arg))
+            if self.activation_args["name"] == "leaky_relu":
+                s = self.activation_args["slope"]
+                ls = self.activation_args["leak_slope"]
+                return s * np.heaviside(arg, 0.5) + ls * np.heaviside(-arg, 0.5)
+            raise ValueError(f"Unknown activation {self.activation_args['name']}")
+
+        if self.equation_type == "h":
+            arg_r = y
+            fp_r = fprime(arg_r)
+            J = -np.eye(self.N) - 3.0 * self.gamma * np.diag(y ** 2) + self.W_rec @ np.diag(fp_r)
+            return J
+
         arg = self.W_rec @ y + self.W_inp @ input + self.bias
-        if self.activation_args["name"] == 'relu':
-            f_prime = self.activation_args["slope"] * np.heaviside(self.activation_args["slope"] * arg, 0.5)
-        elif self.activation_args["name"] == 'tanh':
-            f_prime = self.activation_args["slope"] * (1 - np.tanh(self.activation_args["slope"] * arg) ** 2)
-        elif self.activation_args["name"] == 'sigmoid':
-            sigmoid = lambda x: 1.0 / (1.0 + np.exp(-x))
-            f_prime = self.activation_args["slope"] * (sigmoid(self.activation_args["slope"] * arg)) * (1.0 - sigmoid(self.activation_args["slope"] * arg))
-        elif self.activation_args["name"] == 'softplus':
-            beta = self.activation_args.get("beta", 1.0)
-            slope = self.activation_args.get("slope", 1.0)
-            f_prime = lambda x: slope / (1 + np.exp(-beta * slope * x))
-        elif self.activation_args["name"] == 'leaky_relu':
-            f_prime = self.activation_args["slope"] * np.heaviside(arg, 0.5) + self.activation_args["leak_slope"] * np.heaviside(-arg, 0.5)
-        return -np.eye(self.N) + np.diag(f_prime) @ self.W_rec
+        fp = fprime(arg)
+        return -np.eye(self.N) - 3.0 * self.gamma * np.diag(y ** 2) + np.diag(fp) @ self.W_rec
 
-    def rhs_jac_h(self, h, input):
-        """
-        Computes the Jacobian of rhs_noisless_h with respect to h at the given h and input.
-        Returns a NumPy array.
-        """
 
-        # Wrap the function so JAX knows to differentiate with respect to h
-        def fun(h_):
-            return self.rhs_noiseless_h(h_, input)
+    # def rhs_jac_h(self, h, input):
+    #     """
+    #     Computes the Jacobian of rhs_noisless_h with respect to h at the given h and input.
+    #     Returns a NumPy array.
+    #     """
 
-        # JAX expects jnp arrays
-        h_jax = jnp.asarray(h)
-        jac = jax.jacfwd(fun)(h_jax)
-        # Optionally convert to np if needed downstream
-        return np.asarray(jac)
+    #     # Wrap the function so JAX knows to differentiate with respect to h
+    #     def fun(h_):
+    #         return self.rhs_noiseless_h(h_, input)
 
-    def rhs_noiseless_h(self, h, input):
-        '''
-        h = W_rec y + W_inp u + b_rec
-        '''
-        return -h + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias
+    #     # JAX expects jnp arrays
+    #     h_jax = jnp.asarray(h)
+    #     jac = jax.jacfwd(fun)(h_jax)
+    #     # Optionally convert to np if needed downstream
+    #     return np.asarray(jac)
+
+    # def rhs_noiseless_h(self, h, input):
+    #     '''
+    #     h = W_rec y + W_inp u + b_rec
+    #     '''
+    #     return -h + self.W_rec @ self.activation(h) + self.W_inp @ input + self.bias
 
     def step(self, input, sigma_rec=None, sigma_inp=None):
         self.y += (self.dt / self.tau) * self.rhs(self.y, input, sigma_rec, sigma_inp)
@@ -191,7 +218,7 @@ if __name__ == '__main__':
     batch_size = 11
     input = np.ones((6))
 
-    rnn = RNN_numpy(N=N, W_rec=W_rec, W_inp=W_inp, W_out=W_out, dt=dt, tau=tau, activation_name=activation_name)
+    rnn = RNN_numpy(N=N, W_rec=W_rec, W_inp=W_inp, W_out=W_out, dt=dt, tau=tau, activation_args={"name": activation_name}, equation_type='h', bias=bias)
 
     rnn.y = np.random.randn(N)
     input_timeseries = 0.1 * np.ones((6, 301))

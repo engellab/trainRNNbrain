@@ -96,6 +96,7 @@ class RNN_torch(torch.nn.Module):
     def __init__(self,
                  N,
                  activation_args={"name": "relu", "slope": 1.0},
+                 equation_type="s",
                  dt=1,
                  tau=10,
                  exc2inhR=4.0,
@@ -137,6 +138,7 @@ class RNN_torch(torch.nn.Module):
         self.activation_args = activation_args
 
         self.activation = self.configure_activation_(activation_args)
+        self.equation_type = equation_type
         self.tau = tau
         self.dt = dt
         self.alpha = torch.tensor((dt / tau)).to(self.device)
@@ -217,18 +219,19 @@ class RNN_torch(torch.nn.Module):
 
         return torch.bernoulli(keep_p.reshape(self.N, 1), generator=self.random_generator)
 
-    def rhs(self, s, I, i_noise, r_noise, dropout_mask=None, dropout_kind=None):
-        b = 0.0 if (self.bias_init_amp is None) or (torch.abs(self.bias_init_amp) < 1e-8) else self.bias.unsqueeze(1).expand(-1, s.shape[1])
-        if dropout_mask is not None and dropout_kind == "dead":
-            m = (dropout_mask > 0).view(-1, 1).to(s)  # force 0/1 for dead
-            h = self.W_rec @ (s * m) + self.W_inp @ (I + i_noise) + b
-            a = self.activation(h) * m
-            rn = r_noise * m
-        else:
-            h = self.W_rec @ s + self.W_inp @ (I + i_noise) + b
-            a = self.activation(h)
-            rn = r_noise
-        return -s + a + rn - self.gamma * torch.pow(s, 3)
+    def rhs(self, x, I, i_noise, r_noise, dropout_mask=None, dropout_kind=None):
+        b = 0.0 if (self.bias_init_amp is None) or (torch.abs(self.bias_init_amp) < 1e-8) else self.bias.view(-1, *([1] * (x.ndim - 1)))
+        m = (dropout_mask > 0).view(-1, *([1] * (x.ndim - 1))).to(x) if (dropout_mask is not None and dropout_kind == "dead") else 1.0
+
+        if self.equation_type == "h":
+            r = self.activation(x + r_noise * m) * m                 # dead: no send, no rec noise into f
+            g = (self.W_rec @ r + (self.W_inp @ (I + i_noise) + b)) * m  # dead: no receive (rec/inp/bias)
+            return -x + g - self.gamma * torch.pow(x, 3)             # dead: still decays via -x and -gamma x^3
+
+        h = self.W_rec @ (x * m) + (self.W_inp @ (I + i_noise) + b) * m  # dead: no receive; also no send via x*m
+        a = self.activation(h) * m                                      # dead: no output drive
+        rn = r_noise * m                                                # dead: no noise
+        return -x + a + rn - self.gamma * torch.pow(x, 3)               # dead: still decays via -x and -gamma x^3
 
     def forward(self, u, w_noise=True, dropout=False, dropout_args=None, participation=None):
         if dropout_args is None:
@@ -258,7 +261,7 @@ class RNN_torch(torch.nn.Module):
 
         for t in range(1, T_steps):
             rhs_val = self.rhs(
-                s=states_list[-1],
+                x=states_list[-1],
                 I=u[:, t - 1, :],
                 i_noise=inp_noise[:, t - 1, :],
                 r_noise=rec_noise[:, t - 1, :],
@@ -275,7 +278,7 @@ class RNN_torch(torch.nn.Module):
             W_out = self.W_out * (dropout_mask > 0).view(1, -1)    # binary mask
         else:
             W_out = self.W_out
-        outputs = torch.einsum("oj,jtk->otk", W_out, states_new)
+        outputs = torch.einsum("oj,jtk->otk", W_out, self.activation(states_new))
         return states_new, outputs
 
     def get_params(self):
@@ -307,6 +310,7 @@ class RNN_torch(torch.nn.Module):
         param_dict["input_mask"] = self.input_mask.detach().cpu().numpy()
         param_dict["recurrent_mask"] = self.recurrent_mask.detach().cpu().numpy()
         param_dict["output_mask"] = self.output_mask.detach().cpu().numpy()
+        param_dict["equation_type"] = getattr(self, "equation_type", "s")
         return param_dict
 
     def set_params(self, params):
@@ -346,6 +350,7 @@ class RNN_torch(torch.nn.Module):
         self.input_mask = torch.as_tensor(params["input_mask"], dtype=torch.float32, device=dev)
         self.recurrent_mask = torch.as_tensor(params["recurrent_mask"], dtype=torch.float32, device=dev)
         self.output_mask = torch.as_tensor(params["output_mask"], dtype=torch.float32, device=dev)
+        self.equation_type = params.get("equation_type", "s")
 
 
 
