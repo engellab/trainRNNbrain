@@ -221,17 +221,19 @@ class RNN_torch(torch.nn.Module):
 
     def rhs(self, x, I, i_noise, r_noise, dropout_mask=None, dropout_kind=None):
         b = 0.0 if (self.bias_init_amp is None) or (torch.abs(self.bias_init_amp) < 1e-8) else self.bias.view(-1, *([1] * (x.ndim - 1)))
-        m = (dropout_mask > 0).view(-1, *([1] * (x.ndim - 1))).to(x) if (dropout_mask is not None and dropout_kind == "dead") else 1.0
+        m = 1.0 if (dropout_mask is None or dropout_kind != "dead") else (dropout_mask > 0).view(-1, *([1] * (x.ndim - 1))).to(x)
+
+        x3 = x * x * x
+        inp = self.W_inp @ (I + i_noise)
 
         if self.equation_type == "h":
-            r = self.activation(x + r_noise * m) * m                 # dead: no send, no rec noise into f
-            g = (self.W_rec @ r + (self.W_inp @ (I + i_noise) + b)) * m  # dead: no receive (rec/inp/bias)
-            return -x + g - self.gamma * torch.pow(x, 3)             # dead: still decays via -x and -gamma x^3
+            r = self.activation(x + r_noise * m) * m          # no send, no rec-noise for dead
+            drive = (self.W_rec @ r + inp + b) * m            # no receive (rec/inp/bias)
+            return -x + drive - self.gamma * x3               # decay always active
 
-        h = self.W_rec @ (x * m) + (self.W_inp @ (I + i_noise) + b) * m  # dead: no receive; also no send via x*m
-        a = self.activation(h) * m                                      # dead: no output drive
-        rn = r_noise * m                                                # dead: no noise
-        return -x + a + rn - self.gamma * torch.pow(x, 3)               # dead: still decays via -x and -gamma x^3
+        h = self.W_rec @ (x * m) + (inp + b) * m              # no send + no receive
+        return -x + self.activation(h) * m + r_noise * m - self.gamma * x3
+
 
     def forward(self, u, w_noise=True, dropout=False, dropout_args=None, participation=None):
         if dropout_args is None:

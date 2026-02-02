@@ -37,7 +37,7 @@ lambda_rws: 0.05 # sparsity
 rws_args:
   tg_deg: 20
   eps: 1e-12
-lambda_sm: 0.005 # magnitude of firing rates
+lambda_sm: 0.0 # magnitude of firing rates
 sm_args:
   cap_s: 0.3
   quantile_kind: 'logsumexp'
