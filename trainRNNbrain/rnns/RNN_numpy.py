@@ -84,9 +84,9 @@ class RNN_numpy():
             r = self.activation(y + rec_noise)
             g = self.W_rec @ r + self.W_inp @ (input + inp_noise) + b
             return -y + g - self.gamma * y ** 3
-
-        h = self.W_rec @ y + self.W_inp @ (input + inp_noise) + b
-        return -y + self.activation(h) + rec_noise - self.gamma * y ** 3
+        elif self.equation_type == "s":
+            h = self.W_rec @ y + self.W_inp @ (input + inp_noise) + b
+            return -y + self.activation(h) + rec_noise - self.gamma * y ** 3
 
 
     def rhs_noiseless(self, y, input):
@@ -94,7 +94,8 @@ class RNN_numpy():
         if self.equation_type == "h":
             r = self.activation(y)
             return -y + (self.W_rec @ r + self.W_inp @ input + b) - self.gamma * y ** 3
-        return -y + self.activation(self.W_rec @ y + self.W_inp @ input + b) - self.gamma * y ** 3
+        elif self.equation_type == "s":
+            return -y + self.activation(self.W_rec @ y + self.W_inp @ input + b) - self.gamma * y ** 3
 
 
     def rhs_jac(self, y, input):
@@ -128,10 +129,10 @@ class RNN_numpy():
             fp_r = fprime(arg_r)
             J = -np.eye(self.N) - 3.0 * self.gamma * np.diag(y ** 2) + self.W_rec @ np.diag(fp_r)
             return J
-
-        arg = self.W_rec @ y + self.W_inp @ input + self.bias
-        fp = fprime(arg)
-        return -np.eye(self.N) - 3.0 * self.gamma * np.diag(y ** 2) + np.diag(fp) @ self.W_rec
+        elif self.equation_type == "s":
+            arg = self.W_rec @ y + self.W_inp @ input + self.bias
+            fp = fprime(arg)
+            return -np.eye(self.N) - 3.0 * self.gamma * np.diag(y ** 2) + np.diag(fp) @ self.W_rec
 
 
     # def rhs_jac_h(self, h, input):
@@ -194,14 +195,15 @@ class RNN_numpy():
         self.y = deepcopy(self.y_init)
 
     def get_output(self):
-        y_history = np.stack(self.y_history, axis=0)
-        if len(y_history.shape) == 3:
-            output = np.swapaxes((self.W_out @ y_history), 0, 1)
-        elif len(y_history.shape) == 2:
-            output = self.W_out @ y_history.T
-        else:
-            raise ValueError("y_history variable should have either 2 or 3 dimensions!")
-        return output
+        y = np.stack(self.y_history, axis=0)
+        fr = self.activation(y) if self.equation_type == "h" else y if self.equation_type == "s" else None
+        if fr is None:
+            raise ValueError(f"Equation type {self.equation_type} is not recognized!")
+        if y.ndim == 3:
+            return np.swapaxes(self.W_out @ fr, 0, 1)
+        if y.ndim == 2:
+            return self.W_out @ fr.T
+        raise ValueError("y_history must have 2 or 3 dimensions!")
 
 if __name__ == '__main__':
     N = 100

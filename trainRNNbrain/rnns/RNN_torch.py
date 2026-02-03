@@ -230,9 +230,9 @@ class RNN_torch(torch.nn.Module):
             r = self.activation(x + r_noise * m) * m          # no send, no rec-noise for dead
             drive = (self.W_rec @ r + inp + b) * m            # no receive (rec/inp/bias)
             return -x + drive - self.gamma * x3               # decay always active
-
-        h = self.W_rec @ (x * m) + (inp + b) * m              # no send + no receive
-        return -x + self.activation(h) * m + r_noise * m - self.gamma * x3
+        elif self.equation_type == "s":
+            h = self.W_rec @ (x * m) + (inp + b) * m              # no send + no receive
+            return -x + self.activation(h) * m + r_noise * m - self.gamma * x3
 
 
     def forward(self, u, w_noise=True, dropout=False, dropout_args=None, participation=None):
@@ -280,7 +280,13 @@ class RNN_torch(torch.nn.Module):
             W_out = self.W_out * (dropout_mask > 0).view(1, -1)    # binary mask
         else:
             W_out = self.W_out
-        outputs = torch.einsum("oj,jtk->otk", W_out, self.activation(states_new))
+        if self.equation_type == "h":
+            h = states_new
+            outputs = torch.einsum("oj,jtk->otk", W_out, self.activation(h))
+        elif self.equation_type == "s":
+            outputs = torch.einsum("oj,jtk->otk", W_out, states_new)
+        else:
+            raise ValueError(f"Equation type {self.equation_type} is not recognized!")
         return states_new, outputs
 
     def get_params(self):
