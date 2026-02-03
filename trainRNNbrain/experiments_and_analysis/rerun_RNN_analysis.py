@@ -89,7 +89,7 @@ def rerun_analysis(cfg: DictConfig) -> None:
             analyzer.RNN.W_rec = W_rec_
             analyzer.RNN.W_out = W_out_
             analyzer.RNN.dale_mask = dale_mask_
-            trajectories_, _ = analyzer.get_trajectories(input_batch_valid) # get sorted trajectories
+            trajectories_, _ = analyzer.get_firing_rate_trajectories(input_batch_valid) # get sorted trajectories
 
             fig_matrices = analyzer.plot_matrices()
             if disp: plt.show()

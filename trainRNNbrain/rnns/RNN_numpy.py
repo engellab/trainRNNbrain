@@ -12,7 +12,7 @@ class RNN_numpy():
                  N, dt, tau,
                  W_inp, W_rec, W_out,
                  activation_args={"name": "relu", "slope": 1.0},
-                 equation_type="r",
+                 equation_type="s",
                  gamma=0.1,
                  bias=None,
                  y_init=None,
@@ -87,6 +87,8 @@ class RNN_numpy():
         elif self.equation_type == "s":
             h = self.W_rec @ y + self.W_inp @ (input + inp_noise) + b
             return -y + self.activation(h) + rec_noise - self.gamma * y ** 3
+        else:
+            raise ValueError(f"Equation type {self.equation_type} is not recognized!")
 
 
     def rhs_noiseless(self, y, input):
@@ -96,6 +98,8 @@ class RNN_numpy():
             return -y + (self.W_rec @ r + self.W_inp @ input + b) - self.gamma * y ** 3
         elif self.equation_type == "s":
             return -y + self.activation(self.W_rec @ y + self.W_inp @ input + b) - self.gamma * y ** 3
+        else:
+            raise ValueError(f"Equation type {self.equation_type} is not recognized!")
 
 
     def rhs_jac(self, y, input):
@@ -133,6 +137,8 @@ class RNN_numpy():
             arg = self.W_rec @ y + self.W_inp @ input + self.bias
             fp = fprime(arg)
             return -np.eye(self.N) - 3.0 * self.gamma * np.diag(y ** 2) + np.diag(fp) @ self.W_rec
+        else:
+            raise ValueError(f"Equation type {self.equation_type} is not recognized!")
 
 
     # def rhs_jac_h(self, h, input):
@@ -174,9 +180,8 @@ class RNN_numpy():
             # if the state is a 1D vector, repeat it batch_size number of times to match with Input dimension
             if len(self.y.shape) == 1:
                 self.y = np.repeat(deepcopy(self.y)[:, np.newaxis], axis=1, repeats=batch_size)
-            if len(self.y.shape) == 2:
-                pass
-
+            elif len(self.y.shape) == 2:
+                self.y = self.y if self.y.shape[1] == batch_size else np.repeat(deepcopy(self.y)[:, :1], axis=1, repeats=batch_size)
         for i in range(num_steps):
             if save_history == True:
                 self.y_history.append(deepcopy(self.y))
@@ -186,6 +191,16 @@ class RNN_numpy():
     def get_history(self):
         # N x T x Batch_size or N x T if Batch_size = 1
         return np.swapaxes(np.array(self.y_history), 0, 1)
+    
+    def get_firing_rate_history(self):
+        y = np.swapaxes(np.array(self.y_history), 0, 1)
+        if self.equation_type == "h":
+            fr = self.activation(y)
+        elif self.equation_type == "s":
+            fr = y
+        else:
+            raise ValueError(f"Equation type {self.equation_type} is not recognized!")
+        return fr # N x T x Batch_size or N x T if Batch_size = 1
 
     def reset_state(self):
         self.y = deepcopy(self.y_init)
@@ -196,14 +211,14 @@ class RNN_numpy():
 
     def get_output(self):
         y = np.stack(self.y_history, axis=0)
-        fr = self.activation(y) if self.equation_type == "h" else y if self.equation_type == "s" else None
-        if fr is None:
+        if self.equation_type == "h":
+            fr = self.activation(y)
+        elif self.equation_type == "s":
+            fr = y
+        else:
             raise ValueError(f"Equation type {self.equation_type} is not recognized!")
-        if y.ndim == 3:
-            return np.swapaxes(self.W_out @ fr, 0, 1)
-        if y.ndim == 2:
-            return self.W_out @ fr.T
-        raise ValueError("y_history must have 2 or 3 dimensions!")
+        # W_out: (O, N), fr: (T, N, ...)  ->  out: (O, T, ...)
+        return np.einsum("on,tn...->ot...", self.W_out, fr)
 
 if __name__ == '__main__':
     N = 100

@@ -164,7 +164,7 @@ def run_training(cfg: DictConfig) -> None:
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials.png")
 
-        trajectories, outputs = analyzer.get_trajectories(input_batch_valid)
+        trajectories, _ = analyzer.get_firing_rate_trajectories(input_batch_valid) # without any noise
 
         fig_participation = analyzer.plot_participation(trajectories=trajectories)
         if disp: plt.show()
@@ -173,46 +173,44 @@ def run_training(cfg: DictConfig) -> None:
         dale_mask_bool = ((np.sign(np.sum(RNN_valid.W_rec, axis = 0)) + 1) / 2).astype(bool)
         dale_mask_int = (np.sign(np.sum(RNN_valid.W_rec, axis=0)) + 1).astype(int)
         perm = analyzer.composite_lexicographic_sort(RNN_valid.W_inp, RNN_valid.W_out.T, dale_mask_int)
-        W_inp_, W_rec_, W_out_, dale_mask_bool_ = analyzer.permute_matrices(RNN_valid.W_inp,
-                                                                            RNN_valid.W_rec,
-                                                                            RNN_valid.W_out,
-                                                                            dale_mask_bool, perm)
-        analyzer.RNN.W_inp = W_inp_
-        analyzer.RNN.W_rec = W_rec_
-        analyzer.RNN.W_out = W_out_
-        analyzer.RNN.dale_mask = dale_mask_bool_
-        trajectories_, _ = analyzer.get_trajectories(input_batch_valid,
-                                                     sigma_rec=0.03,
-                                                     sigma_inp=0.03,
-                                                     seed=seed)
+        W_inp_perm, W_rec_perm, W_out_perm, dale_mask_bool_perm = analyzer.permute_matrices(RNN_valid.W_inp,
+                                                                                            RNN_valid.W_rec,
+                                                                                            RNN_valid.W_out,
+                                                                                            dale_mask_bool,
+                                                                                            perm)
+        analyzer.RNN.W_inp = W_inp_perm
+        analyzer.RNN.W_rec = W_rec_perm
+        analyzer.RNN.W_out = W_out_perm
+        analyzer.RNN.dale_mask = dale_mask_bool_perm
+        trajectories_perm = trajectories[perm, :, :]
 
-        fig_matrices = analyzer.plot_matrices()
+        fig_matrices = analyzer.plot_matrices(show_cbar=True)
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_matrices, "sorted_matrices.png")
 
-        labels_ = analyzer.cluster_neurons(trajectories_, dale_mask_bool_)
-        averaged_responses, grouped_dale_mask = analyzer.get_averaged_responses(trajectories_,
-                                                                                dale_mask=dale_mask_bool_,
-                                                                                labels=labels_)
+        labels = analyzer.cluster_neurons(trajectories_perm, dale_mask_bool_perm)
+        averaged_responses, grouped_dale_mask = analyzer.get_averaged_responses(trajectories_perm,
+                                                                                dale_mask=dale_mask_bool_perm,
+                                                                                labels=labels)
         avg_responses = analyzer.plot_averaged_responses(averaged_responses, grouped_dale_mask)
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(avg_responses, "avg_responses.png")
 
-        # w_inp, w_rec, w_out = analyzer.compute_intercluster_weights(W_inp_, W_rec_, W_out_, labels_)
-        # fig_matrices = analyzer.plot_matrices(w_inp, w_rec, w_out)
-        # if disp: plt.show()
-        # if not (datasaver is None): datasaver.save_figure(fig_matrices, "intercluster_connectivity_matrices.png")
+        w_inp, w_rec, w_out = analyzer.compute_intercluster_weights(W_inp_perm, W_rec_perm, W_out_perm, labels)
+        fig_matrices = analyzer.plot_matrices(w_inp, w_rec, w_out, show_cbar=True)
+        if disp: plt.show()
+        if not (datasaver is None): datasaver.save_figure(fig_matrices, "intercluster_connectivity_matrices.png")
 
         ## ANIMATIONS
         # # animating trajectories:
-        ani_trajectories = analyzer.animate_trajectories(trajectories)
+        ani_trajectories = analyzer.animate_trajectories(trajectories_perm)
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_animation(ani_trajectories, "animated_trajectories.mp4")
         
         # animating selectivity:
-        ani_selectivity = analyzer.animate_selectivity(trajectories=trajectories_,
+        ani_selectivity = analyzer.animate_selectivity(trajectories=trajectories_perm,
                                                        axes=(0,1,2),
-                                                       labels=labels_)
+                                                       labels=labels)
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_animation(ani_selectivity, "animated_selectivity.mp4")
 

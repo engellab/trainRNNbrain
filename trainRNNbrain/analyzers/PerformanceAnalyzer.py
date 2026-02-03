@@ -2,6 +2,7 @@ from copy import deepcopy
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import math
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
@@ -165,82 +166,105 @@ class PerformanceAnalyzer():
         ani = FuncAnimation(fig, update, frames=np.arange(0, num_frames, 2), interval=1, blit=False)
         return ani
 
-    def plot_matrices(self, W_inp=None, W_rec=None, W_out=None):
-        W_inp = self.RNN.W_inp if (W_inp is None) else W_inp
-        W_rec = self.RNN.W_rec if (W_rec is None) else W_rec
-        W_out = self.RNN.W_out if (W_out is None) else W_out
+    def plot_matrices(self, W_inp=None, W_rec=None, W_out=None, show_cbar=False):
+        W_inp = self.RNN.W_inp if W_inp is None else W_inp
+        W_rec = self.RNN.W_rec if W_rec is None else W_rec
+        W_out = self.RNN.W_out if W_out is None else W_out
 
-        # --- limits like before ---
-        lim_full = np.max(np.abs(W_rec))  # for W_inp_.T and W_out_
-        lim_rec = np.quantile(np.abs(W_rec), 0.99)  # for W_rec_
-
-        # --- shapes + common x-range ---
         r_inp, c_inp = W_inp.T.shape
-        r_rec, c_rec = W_rec.shape  # should be square (N x N)
+        r_rec, c_rec = W_rec.shape
         r_out, c_out = W_out.shape
         xmax = max(c_inp, c_rec, c_out)
 
-        # --- figure + gridspec with tiny vertical spacing ---
-        fig_matrices = plt.figure(figsize=(4, 6), dpi=150, constrained_layout=False)
+        lim_inp = np.quantile(np.abs(W_inp), 0.99)
+        lim_rec = np.quantile(np.abs(W_rec), 0.99)
+        lim_out = np.quantile(np.abs(W_out), 0.99)
 
-        # Height ratios that match your aspects:
-        # axes_height / axes_width  ≈  aspect * (rows / cols)
-        hr0 = 10.0 * (r_inp / c_inp)  # top: aspect=10
-        hr1 = 1.0 * (r_rec / c_rec)  # middle: 'equal' ⇒ square; if r_rec==c_rec ⇒ 1.0
-        hr2 = 10.0 * (r_out / c_out)  # bottom: aspect=10
+        N = r_rec
+        aspect_io = float(np.clip(N / 10, 2, 10))
 
-        gs = fig_matrices.add_gridspec(
-            nrows=3, ncols=1,
+        fig = plt.figure(figsize=(4, 6), dpi=150, constrained_layout=False)
+
+        hr0 = aspect_io * (r_inp / c_inp)
+        hr1 = 1.0 * (r_rec / c_rec)
+        hr2 = aspect_io * (r_out / c_out)
+
+        left, right, top = 0.22, 0.98, 0.98
+        bottom0 = 0.07
+
+        # --- spacing knobs ---
+        gap_cb = 0.06 if show_cbar else 0.0          # space between matrices and the top colorbar
+        cb_h = 0.020
+        cb_dy = 0.050                                # space between colorbars
+        cb_pad = 0.015                               # extra slack inside the colorbar band
+        cb_band = (3 * cb_h + 2 * cb_dy + cb_pad) if show_cbar else 0.0
+
+        gs = fig.add_gridspec(
+            3, 1,
             height_ratios=[hr0, hr1, hr2],
-            hspace=0.01,  # minimal gap
-            left=0.15, right=0.98, top=0.98, bottom=0.07
+            hspace=0.10,
+            left=left, right=right,
+            bottom=bottom0 + cb_band + gap_cb, top=top
         )
 
-        ax0 = fig_matrices.add_subplot(gs[0])
-        ax1 = fig_matrices.add_subplot(gs[1], sharex=ax0)
-        ax2 = fig_matrices.add_subplot(gs[2], sharex=ax0)
+        ax0 = fig.add_subplot(gs[0])
+        ax1 = fig.add_subplot(gs[1], sharex=ax0)
+        ax2 = fig.add_subplot(gs[2], sharex=ax0)
 
-        # --- Panel 1: W_inp^T (aspect=10) ---
-        im0 = ax0.imshow(
-            W_inp.T, cmap='bwr',
-            vmin=-lim_full, vmax=lim_full,
-            aspect=10,
-            extent=(0, c_inp, r_inp, 0)
-        )
-        ax0.set_title(r"$W_{\mathrm{inp}}^\top$", pad=2)
+        im0 = ax0.imshow(W_inp.T, cmap='bwr', vmin=-lim_inp, vmax=lim_inp,
+                        aspect=aspect_io, extent=(0, c_inp, r_inp, 0))
         ax0.set_xlim(0, xmax)
 
-        # --- Panel 2: W_rec (square) ---
-        im1 = ax1.imshow(
-            W_rec, cmap='bwr',
-            vmin=-lim_rec, vmax=lim_rec,
-            aspect='equal',  # square pixels
-            extent=(0, c_rec, r_rec, 0)
-        )
-        ax1.set_aspect('equal', adjustable='box')  # force square within the axes box
-        ax1.set_title(r"$W_{\mathrm{rec}}$ (|.| clipped at 99th pct)", pad=2)
+        im1 = ax1.imshow(W_rec, cmap='bwr', vmin=-lim_rec, vmax=lim_rec,
+                        aspect='equal', extent=(0, c_rec, r_rec, 0))
+        ax1.set_aspect('equal', adjustable='box')
         ax1.set_xlim(0, xmax)
 
-        # --- Panel 3: W_out (aspect=10) ---
-        im2 = ax2.imshow(
-            W_out, cmap='bwr',
-            vmin=-lim_full, vmax=lim_full,
-            aspect=10,
-            extent=(0, c_out, r_out, 0)
-        )
-        ax2.set_title(r"$W_{\mathrm{out}}$", pad=2)
+        im2 = ax2.imshow(W_out, cmap='bwr', vmin=-lim_out, vmax=lim_out,
+                        aspect=aspect_io, extent=(0, c_out, r_out, 0))
         ax2.set_xlim(0, xmax)
-        ax2.set_xlabel("Column index", labelpad=2)
 
-        # Cosmetics
         for ax in (ax0, ax1, ax2):
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
-            ax.set_ylabel("Row index", labelpad=2)
         for ax in (ax0, ax1):
-            ax.label_outer()  # hide x tick labels on top/middle
+            ax.label_outer()
 
-        return fig_matrices
+        # --- vertical concise labels on the left (bottom->top) ---
+        def vlabel(ax, s):
+            ax.text(-0.16, 0.5, s, transform=ax.transAxes, rotation=90,
+                    ha='center', va='center')
+
+        vlabel(ax0, r"$W_{\mathrm{inp}}$")
+        vlabel(ax1, r"$W_{\mathrm{rec}}$")
+        vlabel(ax2, r"$W_{\mathrm{out}}$")
+
+        if show_cbar:
+            fig.canvas.draw()
+            x0 = min(ax.get_position().x0 for ax in (ax0, ax1, ax2))
+            x1 = max(ax.get_position().x1 for ax in (ax0, ax1, ax2))
+            w = x1 - x0
+
+            y_top = bottom0 + cb_band - cb_h
+            cax0 = fig.add_axes([x0, y_top - 0 * (cb_h + cb_dy), w, cb_h])
+            cax1 = fig.add_axes([x0, y_top - 1 * (cb_h + cb_dy), w, cb_h])
+            cax2 = fig.add_axes([x0, y_top - 2 * (cb_h + cb_dy), w, cb_h])
+
+            cb0 = fig.colorbar(im0, cax=cax0, orientation='horizontal')
+            cb1 = fig.colorbar(im1, cax=cax1, orientation='horizontal')
+            cb2 = fig.colorbar(im2, cax=cax2, orientation='horizontal')
+
+            for cb in (cb0, cb1, cb2):
+                cb.ax.tick_params(axis='x', pad=2)
+
+            # labels on the LEFT of each colorbar
+            for cax, s in ((cax0, r"$W_{\mathrm{inp}}$"),
+                        (cax1, r"$W_{\mathrm{rec}}$"),
+                        (cax2, r"$W_{\mathrm{out}}$")):
+                cax.text(-0.02, 0.5, s, transform=cax.transAxes,
+                        ha='right', va='center')
+        return fig
+
 
     def composite_lexicographic_sort(self, matrix1, matrix2, dale_mask, thr=1e-3):
         N, D1 = matrix1.shape
@@ -395,12 +419,12 @@ class PerformanceAnalyzer():
         return fig
 
 
-    def get_trajectories(self, inputs, sigma_rec=0, sigma_inp=0, seed=42):
+    def get_firing_rate_trajectories(self, inputs, sigma_rec=0, sigma_inp=0, seed=42):
         self.RNN.clear_history()
         self.RNN.rng = np.random.default_rng(seed)
         self.RNN.y = self.RNN.y_init
         self.RNN.run(input_timeseries=inputs, sigma_rec=sigma_rec, sigma_inp=sigma_inp)
-        trajectories = self.RNN.get_history()
+        trajectories = self.RNN.get_firing_rate_history()
         outputs = self.RNN.get_output()
         return trajectories, outputs
 

@@ -1,6 +1,7 @@
 # @package model
 _target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
 activation_args: {"name": "tanh", "slope": 1.0}
+equation_type: "h"
 N: 100
 dt: 1
 tau: 10

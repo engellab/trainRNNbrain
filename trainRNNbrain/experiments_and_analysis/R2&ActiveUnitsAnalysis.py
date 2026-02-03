@@ -89,7 +89,7 @@ else:
             RNN = RNN_numpy(**net_params)
             analyzer = PerformanceAnalyzer(RNN)
             input_batch, target_batch, conditions = task.get_batch()
-            trajectories, outputs = analyzer.get_trajectories(input_batch)
+            trajectories, outputs = analyzer.get_firing_rate_trajectories(input_batch)
             vect = np.std(trajectories, axis=(1, 2)) + np.mean(trajectories, axis=(1, 2))
             participation = np.pad(vect, (0, cfg.model.N - len(vect)), mode='constant')
             g = gini(participation)

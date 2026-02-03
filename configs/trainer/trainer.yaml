@@ -1,8 +1,8 @@
 # @package trainer
 _target_: trainRNNbrain.trainer.Trainer.Trainer
 trainer_tag: "BaseTrainer"
-max_iter: 1500
-anneal_noise: True
+max_iter: 500
+anneal_noise: False
 lr: 0.001
 weight_decay: 1e-6
 max_grad_norm: 50.0
@@ -37,14 +37,13 @@ lambda_rws: 0.05 # sparsity
 rws_args:
   tg_deg: 20
   eps: 1e-12
-lambda_sm: 0.0 # magnitude of firing rates
-sm_args:
+lambda_frm: 0.0 # magnitude of firing rates
+frm_args:
   cap_s: 0.3
   quantile_kind: 'logsumexp'
   p: 15
   q: 0.9
   tau: 0.1
-  penalty_type: 'additive'
   g_top: 3.0
   g_bot: 3.0
   alpha: 1.0
@@ -57,11 +56,10 @@ hm_args:
   p: 15
   q: 0.9
   tau: 0.1
-  penalty_type: 'additive'
 lambda_tv: 0 # trial output variability (across trials)
 tv_args: {}
-lambda_si: 0 
-si_args:
+lambda_fri: 0
+fri_args:
   method: 'hhi'
 lambda_hi: 0
 hi_args:

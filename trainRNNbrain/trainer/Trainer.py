@@ -70,17 +70,18 @@ class Penalties:
         over = torch.relu(S - tg_deg)
         return (over ** 2).mean() / (tg_deg ** 2)
 
-    def s_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
+    def fr_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
                             cap_s=0.3,
                             quantile_kind='hard',
                             q=0.9, p=15, tau=0.1,
-                            penalty_type="additive",
                             g_top=5.0, g_bot=5.0,
                             alpha=1.0, beta=1.0, eps=1e-12):
         '''
-        exponential penalty on the up side, quadratic penalty on the down side of log(activity ratio)
+        Firing rate magnitude penalty: MSE from the desired cap_s (scaled by log(N))
         '''
         x = states.abs().view(states.size(0), -1)  # (N, T*B)
+        if self.RNN.equation_type == "h":
+            x = self.RNN.activation(x)
         dev, dt = states.device, states.dtype
         cap_s = torch.as_tensor(cap_s, device=dev, dtype=dt)
 
@@ -97,25 +98,19 @@ class Penalties:
             activity = a = x / tau
             activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
 
-        if penalty_type == "multiplicative":
-            e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
-            p_under = (torch.expm1(g_bot * torch.relu(-e)))  # quadratic penalty for under activitated units
-            p_over = (torch.expm1(g_top * torch.relu(e)))  # exponential penalty for over activated units
-        elif penalty_type == "additive":
-            over = torch.relu(activity - cap)
-            under = torch.relu(cap - activity)
-            p_over = torch.pow(over / (cap + eps), g_top)
-            p_under = torch.pow(under / (cap + eps), g_bot)
+        over = torch.relu(activity - cap)
+        under = torch.relu(cap - activity)
+        p_over = torch.pow(over / (cap + eps), g_top)
+        p_under = torch.pow(under / (cap + eps), g_bot)
         return (alpha * p_under + beta * p_over).mean()
     
     def h_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
                             h_thr=-0.3,
                             quantile_kind='logsumexp',
                             q=0.9, p=15, tau=0.1,
-                            penalty_type="additive",
                             eps=1e-12):
         '''
-        exponential penalty on the up side, quadratic penalty on the down side of log(activity ratio)
+        
         '''
         x = states.abs().view(states.size(0), -1)  # (N, T*B)
         dev, dt = states.device, states.dtype
@@ -134,16 +129,17 @@ class Penalties:
             activity = a = x / tau
             activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
 
-        if penalty_type == "multiplicative":
-            e = torch.log((activity + eps) / (cap + eps))  # >0 over, <0 under
-            p_under = (torch.expm1(2 * torch.relu(-e)))  # quadratic penalty for under activitated units
-        elif penalty_type == "additive":
-            under = torch.relu(cap - activity)
-            p_under = torch.pow(under / (cap + eps), 2)
+        under = torch.relu(cap - activity)
+        p_under = torch.pow(under / (cap + eps), 2)
         return (p_under).mean()
 
     def metabolic_penalty(self, states, input=None, output=None, target=None, mask=None):
-        return torch.mean(states ** 2)
+        '''Metabolic cost: mean squared firing rate.'''
+        if self.RNN.equation_type == "h":
+            fr = self.RNN.activation(states)
+        elif self.RNN.equation_type == "s":
+            fr = states
+        return torch.mean(fr ** 2)
 
     def channel_overlap_penalty(self, states=None, input=None, output=None, target=None, mask=None, orth_input_only=True, eps=1e-8):
         B = self.RNN.W_inp if orth_input_only else torch.cat((self.RNN.W_inp, self.RNN.W_out.T), dim=1)
@@ -214,7 +210,7 @@ class Penalties:
         den = (output * output).mean().clamp_min(eps)  # normalize by overall power
         return num / den
 
-    def s_inequality_penalty(self, states, input=None, output=None, target=None, mask=None, method='hhi'):
+    def fr_inequality_penalty(self, states, input=None, output=None, target=None, mask=None, method='hhi'):
         activity = torch.mean(torch.abs(states), dim=(1, 2))  # (N,)
         if method == 'gini':
             method_fn = self.gini_penalty_
@@ -270,6 +266,8 @@ class Penalties:
                            diameter_quantile=0.9,
                            beta=20.0, eps=1e-8):
         X = states.view(states.shape[0], -1)
+        if self.RNN.equation_type == 'h':
+            X = self.RNN.activation(X)
         loss = torch.tensor(0.0, device=states.device, dtype=states.dtype)
         if getattr(self.RNN, 'dale_mask', None) is None:
             dale_mask = torch.ones(X.shape[0], device=states.device, dtype=states.dtype)
@@ -302,6 +300,8 @@ class Penalties:
     def eff_dim_tail_energy_penalty(self, states, input=None, output=None, target=None, mask=None, k=6, eps=1e-8):
         # states: (N, T, K)  ->  X: (N, D), D = T*K
         X = states.reshape(states.shape[0], -1)
+        if self.RNN.equation_type == 'h':
+            X = self.RNN.activation(X)
         X = X - torch.mean(X, dim=1, keepdim=True)
 
         D = X.shape[1]
@@ -330,14 +330,14 @@ class Trainer():
                  tv_args=None,
                  lambda_orth=0.3,
                  orth_args={"orth_input_only": True},
-                 lambda_sm=0.005,
-                 sm_args=None,
+                 lambda_frm=0.005,
+                 frm_args=None,
                  lambda_hm=0.0,
                  hm_args=None,
                  lambda_met = 0.0,
                  met_args=None,
-                 lambda_si=0.0,
-                 si_args=None,
+                 lambda_fri=0.0,
+                 fri_args=None,
                  lambda_hi=0.0,
                  hi_args=None,
                  lambda_htvar=0.0,
@@ -380,10 +380,10 @@ class Trainer():
             "rec_weights_sparsity": (self.Penalties.rec_weights_sparsity_penalty, lambda_rws, rws_args),
             "output_var": (self.Penalties.trial_output_var_penalty, lambda_tv, tv_args),
             "channel_overlap": (self.Penalties.channel_overlap_penalty, lambda_orth, orth_args),
-            "s_magnitude": (self.Penalties.s_magnitude_penalty, lambda_sm, sm_args),
+            "fr_magnitude": (self.Penalties.fr_magnitude_penalty, lambda_frm, frm_args),
             "h_magnitude": (self.Penalties.h_magnitude_penalty, lambda_hm, hm_args),
             "metabolic": (self.Penalties.metabolic_penalty, lambda_met, met_args),
-            "s_inequality": (self.Penalties.s_inequality_penalty, lambda_si, si_args),
+            "fr_inequality": (self.Penalties.fr_inequality_penalty, lambda_fri, fri_args),
             "h_inequality": (self.Penalties.h_inequality_penalty, lambda_hi, hi_args),
             "h_time_variance": (self.Penalties.h_time_variance_penalty, lambda_htvar, htvar_args),
             "h_local_variance": (self.Penalties.h_local_variance_penalty, lambda_hlvar, hlvar_args),
