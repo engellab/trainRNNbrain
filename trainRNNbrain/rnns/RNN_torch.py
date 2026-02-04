@@ -248,17 +248,17 @@ class RNN_torch(torch.nn.Module):
 
         if m is None:
             if self.equation_type == "h":
-                r = self.activation(x + r_noise)
+                r = self.activation(x)
                 drive = self.W_rec @ r + inp + b
-                return -x + drive - cubic_term
+                return -x + drive + r_noise - cubic_term
             if self.equation_type == "s":
                 h = self.W_rec @ x + inp + b
                 return -x + self.activation(h) + r_noise - cubic_term
         else:
             if self.equation_type == "h":
-                r = self.activation(x + r_noise * m) * m
+                r = self.activation(x) * m
                 drive = (self.W_rec @ r + inp + b) * m
-                return -x + drive - cubic_term
+                return -x + drive + r_noise * m - cubic_term
             if self.equation_type == "s":
                 h = self.W_rec @ (x * m) + (inp + b) * m
                 return -x + self.activation(h) * m + r_noise * m - cubic_term
