@@ -219,21 +219,49 @@ class RNN_torch(torch.nn.Module):
 
         return torch.bernoulli(keep_p.reshape(self.N, 1), generator=self.random_generator)
 
-    def rhs(self, x, I, i_noise, r_noise, dropout_mask=None, dropout_kind=None):
-        b = 0.0 if (self.bias_init_amp is None) or (torch.abs(self.bias_init_amp) < 1e-8) else self.bias.view(-1, *([1] * (x.ndim - 1)))
-        m = 1.0 if (dropout_mask is None or dropout_kind != "dead") else (dropout_mask > 0).view(-1, *([1] * (x.ndim - 1))).to(x)
+    def rhs(self, x, I, i_noise, r_noise, dropout_mask=None, dropout_kind=None, eps=1e-8):
+        shp = (x.shape[0],) + (1,) * (x.ndim - 1)
+        if (self.bias_init_amp is None) or (torch.abs(self.bias_init_amp) < eps):
+            b = 0.0
+        else:
+            b = self.bias.reshape(shp)
+            if b.device != x.device or b.dtype != x.dtype:
+                b = b.to(device=x.device, dtype=x.dtype, non_blocking=True)
 
-        x3 = x * x * x
+        # --- dropout mask (avoid unconditional >0 + .to(x)) ---
+        if dropout_mask is None or dropout_kind != "dead":
+            m = None
+        else:
+            dm = dropout_mask
+            if dm.device != x.device:
+                dm = dm.to(device=x.device, non_blocking=True)
+            if dm.dtype == torch.bool:
+                m = dm.reshape(shp).to(dtype=x.dtype)
+            else:
+                if dm.dtype != x.dtype:
+                    dm = dm.to(dtype=x.dtype)
+                m = dm.reshape(shp) if dm.is_floating_point() and (dm.min() >= 0) and (dm.max() <= 1) else (dm > 0).reshape(shp).to(dtype=x.dtype)
+
+        # Cubic term (skip if gamma == 0)
+        cubic_term = self.gamma * x * x * x if (self.gamma) > eps else 0.0
         inp = self.W_inp @ (I + i_noise)
 
-        if self.equation_type == "h":
-            r = self.activation(x + r_noise * m) * m          # no send, no rec-noise for dead
-            drive = (self.W_rec @ r + inp + b) * m            # no receive (rec/inp/bias)
-            return -x + drive - self.gamma * x3               # decay always active
-        elif self.equation_type == "s":
-            h = self.W_rec @ (x * m) + (inp + b) * m              # no send + no receive
-            return -x + self.activation(h) * m + r_noise * m - self.gamma * x3
-
+        if m is None:
+            if self.equation_type == "h":
+                r = self.activation(x + r_noise)
+                drive = self.W_rec @ r + inp + b
+                return -x + drive - cubic_term
+            if self.equation_type == "s":
+                h = self.W_rec @ x + inp + b
+                return -x + self.activation(h) + r_noise - cubic_term
+        else:
+            if self.equation_type == "h":
+                r = self.activation(x + r_noise * m) * m
+                drive = (self.W_rec @ r + inp + b) * m
+                return -x + drive - cubic_term
+            if self.equation_type == "s":
+                h = self.W_rec @ (x * m) + (inp + b) * m
+                return -x + self.activation(h) * m + r_noise * m - cubic_term
 
     def forward(self, u, w_noise=True, dropout=False, dropout_args=None, participation=None):
         if dropout_args is None:

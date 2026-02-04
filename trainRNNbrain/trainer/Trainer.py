@@ -71,23 +71,24 @@ class Penalties:
         return (over ** 2).mean() / (tg_deg ** 2)
 
     def fr_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
-                            cap_s=0.3,
+                            cap_fr=0.3,
                             quantile_kind='hard',
                             q=0.9, p=15, tau=0.1,
                             g_top=5.0, g_bot=5.0,
                             alpha=1.0, beta=1.0, eps=1e-12):
         '''
-        Firing rate magnitude penalty: MSE from the desired cap_s (scaled by log(N))
+        Firing rate magnitude penalty: MSE from the desired cap_fr (scaled by log(N))
         '''
-        x = states.abs().view(states.size(0), -1)  # (N, T*B)
+        x = states.view(states.size(0), -1)  # (N, T*B)
         if self.RNN.equation_type == "h":
             x = self.RNN.activation(x)
+        x = x.abs()  # consider magnitude of firing rates for penalty
         dev, dt = states.device, states.dtype
-        cap_s = torch.as_tensor(cap_s, device=dev, dtype=dt)
+        cap_fr = torch.as_tensor(cap_fr, device=dev, dtype=dt)
 
         scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / \
                 torch.log1p(torch.as_tensor(self.RNN.N, device=dev, dtype=dt))
-        cap = cap_s * scale  # scales as O(1 / log(N))
+        cap = cap_fr * scale  # scales as O(1 / log(N))
 
         eps = torch.as_tensor(eps, device=dev, dtype=dt)
         if quantile_kind == 'hard':

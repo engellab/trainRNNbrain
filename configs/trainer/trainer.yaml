@@ -1,7 +1,7 @@
 # @package trainer
 _target_: trainRNNbrain.trainer.Trainer.Trainer
 trainer_tag: "BaseTrainer"
-max_iter: 500
+max_iter: 1500
 anneal_noise: False
 lr: 0.001
 weight_decay: 1e-6
@@ -39,7 +39,7 @@ rws_args:
   eps: 1e-12
 lambda_frm: 0.0 # magnitude of firing rates
 frm_args:
-  cap_s: 0.3
+  cap_fr: 0.3
   quantile_kind: 'logsumexp'
   p: 15
   q: 0.9
