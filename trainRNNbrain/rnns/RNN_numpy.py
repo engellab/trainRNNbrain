@@ -79,14 +79,15 @@ class RNN_numpy():
 
         rec_noise = 0.0 if sr == 0.0 else (c * sr) * self.rng.standard_normal(y.shape, dtype=y.dtype)
         inp_noise = 0.0 if si == 0.0 else (c * si) * self.rng.standard_normal(input.shape, dtype=input.dtype)
-
+        cubic_term = self.gamma * y ** 3 if self.gamma > 1e-8 else 0.0
+        inp = self.W_inp @ (input + inp_noise)
         if self.equation_type == "h":
-            r = self.activation(y + rec_noise)
-            g = self.W_rec @ r + self.W_inp @ (input + inp_noise) + b
-            return -y + g - self.gamma * y ** 3
+            r = self.activation(y)
+            drive = self.W_rec @ r + inp + b
+            return -y + drive + rec_noise - cubic_term
         elif self.equation_type == "s":
-            h = self.W_rec @ y + self.W_inp @ (input + inp_noise) + b
-            return -y + self.activation(h) + rec_noise - self.gamma * y ** 3
+            h = self.W_rec @ y + inp + b
+            return -y + self.activation(h) + rec_noise - cubic_term
         else:
             raise ValueError(f"Equation type {self.equation_type} is not recognized!")
 
