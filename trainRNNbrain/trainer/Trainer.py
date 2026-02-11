@@ -54,7 +54,7 @@ class Penalties:
         rI = (W[:, inh] + eps) / (cap_i + eps)
         pE = (torch.pow(torch.relu(rE - 1.0) + 1.0, gamma) - 1.0)
         pI = (torch.pow(torch.relu(rI - 1.0) + 1.0, gamma) - 1.0)
-        return (pE + pI).mean() * (N / (N_ref * k_ref))
+        return (pE.mean() + pI.mean()) * (N / (N_ref * k_ref))
 
     def rec_weights_sparsity_penalty(self, states, input=None, output=None, target=None, mask=None, tg_deg=20, eps=1e-12):
         W = self.RNN.W_rec  # (N, N)
