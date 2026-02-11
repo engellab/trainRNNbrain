@@ -102,8 +102,9 @@ class RNN_torch(torch.nn.Module):
                  exc2inhR=4.0,
                  connectivity_density_rec=1.0,
                  spectral_rad=1.2,
-                 sigma_rec=.03,
-                 sigma_inp=.03,
+                 sigma_rec=0.03,
+                 sigma_inp=0.03,
+                 sigma_out=0.03,
                  gamma=0.1,
                  bias_init_amp=0.0,
                  y_init=None,
@@ -122,6 +123,7 @@ class RNN_torch(torch.nn.Module):
         :param gamma: float, coefficient of the cubic nonlinearity in the RNN dynamics
         :param sigma_rec: float, std of the gaussian noise in the recurrent dynamics
         :param sigma_inp: float, std of the gaussian noise in the input to the RNN
+        :param sigma_out: float, std of the gaussian noise in the output of the RNN
         :param y_init: array of N values, initial value of the RNN dynamics
         :param seed: seed for torch random generator, for reproducibility
         :param n_inputs: number of the input channels of the RNN
@@ -142,8 +144,9 @@ class RNN_torch(torch.nn.Module):
         self.tau = tau
         self.dt = dt
         self.alpha = torch.tensor((dt / tau)).to(self.device)
-        self.sigma_rec = torch.from_numpy(np.array(sigma_rec)).to(self.device)
         self.sigma_inp = torch.from_numpy(np.array(sigma_inp)).to(self.device)
+        self.sigma_rec = torch.from_numpy(np.array(sigma_rec)).to(self.device)
+        self.sigma_out = torch.from_numpy(np.array(sigma_out)).to(self.device)
         self.n_inputs = torch.from_numpy(np.array(n_inputs)).to(self.device)
         self.n_outputs = torch.from_numpy(np.array(n_outputs)).to(self.device)
         self.spectral_rad = torch.from_numpy(np.array(spectral_rad)).to(self.device)
@@ -286,6 +289,8 @@ class RNN_torch(torch.nn.Module):
                         torch.randn(*rec_noise.shape, generator=self.random_generator, device=self.device)
             inp_noise = torch.sqrt((2 / self.alpha) * self.sigma_inp ** 2) * \
                         torch.randn(*inp_noise.shape, generator=self.random_generator, device=self.device)
+            out_noise = torch.sqrt((2 / self.alpha) * self.sigma_out ** 2) * \
+                        torch.randn(*states.shape, generator=self.random_generator, device=self.device)
 
         states_list = [states[:, 0, :]]
 
@@ -310,9 +315,9 @@ class RNN_torch(torch.nn.Module):
             W_out = self.W_out
         if self.equation_type == "h":
             h = states_new
-            outputs = torch.einsum("oj,jtk->otk", W_out, self.activation(h))
+            outputs = torch.einsum("oj,jtk->otk", W_out, self.activation(h) + out_noise)
         elif self.equation_type == "s":
-            outputs = torch.einsum("oj,jtk->otk", W_out, states_new)
+            outputs = torch.einsum("oj,jtk->otk", W_out, states_new + out_noise)
         else:
             raise ValueError(f"Equation type {self.equation_type} is not recognized!")
         return states_new, outputs

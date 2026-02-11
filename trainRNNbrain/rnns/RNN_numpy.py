@@ -94,11 +94,15 @@ class RNN_numpy():
 
     def rhs_noiseless(self, y, input):
         b = self.bias.reshape(-1, *([1] * (y.ndim - 1)))
+        inp = self.W_inp @ input
+        cubic_term = self.gamma * y ** 3 if self.gamma > 1e-8 else 0.0
         if self.equation_type == "h":
             r = self.activation(y)
-            return -y + (self.W_rec @ r + self.W_inp @ input + b) - self.gamma * y ** 3
+            drive = (self.W_rec @ r + inp + b)
+            return -y + drive - cubic_term
         elif self.equation_type == "s":
-            return -y + self.activation(self.W_rec @ y + self.W_inp @ input + b) - self.gamma * y ** 3
+            h = self.W_rec @ y + inp + b
+            return -y + self.activation(h) - cubic_term
         else:
             raise ValueError(f"Equation type {self.equation_type} is not recognized!")
 
@@ -210,7 +214,7 @@ class RNN_numpy():
         self.y_history = []
         self.y = deepcopy(self.y_init)
 
-    def get_output(self):
+    def get_output(self, sigma_out=None):
         y = np.stack(self.y_history, axis=0)
         if self.equation_type == "h":
             fr = self.activation(y)
@@ -219,7 +223,8 @@ class RNN_numpy():
         else:
             raise ValueError(f"Equation type {self.equation_type} is not recognized!")
         # W_out: (O, N), fr: (T, N, ...)  ->  out: (O, T, ...)
-        return np.einsum("on,tn...->ot...", self.W_out, fr)
+        out_noise = 0.0 if ((sigma_out < 1e-8) or (sigma_out is None)) else sigma_out * self.rng.standard_normal(y.shape, dtype=y.dtype)
+        return np.einsum("on,tn...->ot...", self.W_out, fr + out_noise)
 
 if __name__ == '__main__':
     N = 100

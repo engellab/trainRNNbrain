@@ -160,6 +160,7 @@ def run_training(cfg: DictConfig) -> None:
         fig_trials = analyzer.plot_trials(inputs, targets, mask,
                                           sigma_rec=cfg.model.sigma_rec,
                                           sigma_inp=cfg.model.sigma_inp,
+                                          sigma_out=cfg.model.sigma_out,
                                           conditions=conditions)
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_trials, "random_trials.png")
