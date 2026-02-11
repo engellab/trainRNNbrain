@@ -12,4 +12,5 @@ connectivity_density_rec: 1.0
 spectral_rad: 1.2
 sigma_rec: .05
 sigma_inp: .05
+sigma_out: .03
 bias_init_amp: 0.0

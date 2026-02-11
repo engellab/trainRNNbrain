@@ -37,15 +37,9 @@ class Penalties:
             torch.as_tensor(U, device=dev, dtype=dt))
         cap = torch.as_tensor(cap100, device=dev, dtype=dt) * (U / N) * scale
         A = self.RNN.W_out.abs()
-        p_l1 = (A.sum(1) - torch.as_tensor(c, device=dev, dtype=dt)).pow(2).mean()
         r = (A + eps) / (cap + eps)
         over = torch.pow(torch.relu(r - 1) + 1.0, gamma) - 1.0
-        p_cap = over.mean()
-        P = A / (A.sum(1, keepdim=True) + eps)
-        n = A.size(1)
-        hhi = (P * P).sum(1)
-        p_hhi = ((n * hhi - 1.0) / (n - 1.0 + eps)).mean()
-        return p_l1 + p_cap + alpha * p_hhi
+        return over.mean()
 
     def rec_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
                                        cap100=0.07, N_ref=100, k_ref=20, gamma=5.0, eps=1e-12):
@@ -72,8 +66,7 @@ class Penalties:
 
     def fr_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
                             cap_fr=0.3,
-                            quantile_kind='hard',
-                            q=0.9, p=15, tau=0.1,
+                            tau=0.1,
                             g_top=5.0, g_bot=5.0,
                             alpha=1.0, beta=1.0, eps=1e-12):
         '''
@@ -91,13 +84,8 @@ class Penalties:
         cap = cap_fr * scale  # scales as O(1 / log(N))
 
         eps = torch.as_tensor(eps, device=dev, dtype=dt)
-        if quantile_kind == 'hard':
-            activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
-        elif quantile_kind == 'power_mean':
-            activity = torch.mean((x + eps).pow(p), dim=1).pow(1.0 / p)
-        elif quantile_kind == 'logsumexp':
-            activity = a = x / tau
-            activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
+        activity = a = x / tau
+        activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
 
         over = torch.relu(activity - cap)
         under = torch.relu(cap - activity)
@@ -107,8 +95,7 @@ class Penalties:
     
     def h_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
                             h_thr=-0.3,
-                            quantile_kind='logsumexp',
-                            q=0.9, p=15, tau=0.1,
+                            tau=0.1,
                             eps=1e-12):
         '''
         
@@ -122,13 +109,8 @@ class Penalties:
         cap = h_thr * scale  # scales as O(1 / log(N))
 
         eps = torch.as_tensor(eps, device=dev, dtype=dt)
-        if quantile_kind == 'hard':
-            activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
-        elif quantile_kind == 'power_mean':
-            activity = torch.mean((x + eps).pow(p), dim=1).pow(1.0 / p)
-        elif quantile_kind == 'logsumexp':
-            activity = a = x / tau
-            activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
+        activity = a = x / tau
+        activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
 
         under = torch.relu(cap - activity)
         p_under = torch.pow(under / (cap + eps), 2)

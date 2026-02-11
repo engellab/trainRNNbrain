@@ -223,7 +223,7 @@ class RNN_numpy():
         else:
             raise ValueError(f"Equation type {self.equation_type} is not recognized!")
         # W_out: (O, N), fr: (T, N, ...)  ->  out: (O, T, ...)
-        out_noise = 0.0 if ((sigma_out < 1e-8) or (sigma_out is None)) else sigma_out * self.rng.standard_normal(y.shape, dtype=y.dtype)
+        out_noise = 0.0 if ((sigma_out is None) or (sigma_out < 1e-8)) else sigma_out * self.rng.standard_normal(y.shape, dtype=y.dtype)
         return np.einsum("on,tn...->ot...", self.W_out, fr + out_noise)
 
 if __name__ == '__main__':
