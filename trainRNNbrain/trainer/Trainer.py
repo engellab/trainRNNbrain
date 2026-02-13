@@ -94,9 +94,10 @@ class Penalties:
         return (alpha * p_under + beta * p_over).mean()
     
     def h_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
-                            h_thr=-0.3,
+                            h_thr=-0.1,
                             tau=0.1,
-                            eps=1e-12):
+                            g_top=5.0, g_bot=5.0,
+                            alpha=1.0, beta=1.0):
         '''
         
         '''
@@ -108,13 +109,13 @@ class Penalties:
                 torch.log1p(torch.as_tensor(self.RNN.N, device=dev, dtype=dt))
         cap = h_thr * scale  # scales as O(1 / log(N))
 
-        eps = torch.as_tensor(eps, device=dev, dtype=dt)
         activity = a = x / tau
         activity = tau * (torch.logsumexp(a, dim=1) - torch.log(torch.as_tensor(a.size(1), device=a.device, dtype=a.dtype)))
-
+        over = torch.relu(activity - cap)
         under = torch.relu(cap - activity)
-        p_under = torch.pow(under / (cap + eps), 2)
-        return (p_under).mean()
+        p_over = torch.pow(over, g_top)
+        p_under = torch.pow(under, g_bot)
+        return (alpha * p_under + beta * p_over).mean()
 
     def metabolic_penalty(self, states, input=None, output=None, target=None, mask=None):
         '''Metabolic cost: mean squared firing rate.'''
@@ -506,6 +507,17 @@ class Trainer():
             self.RNN.W_out.copy_(corrected_out)
         return None
 
+    def enforce_bias_range_(self):
+        if not getattr(self.RNN, "bias_trainable", False):
+            return None
+        br = getattr(self.RNN, "bias_range", None)
+        if br is None:
+            return None
+        b_low, b_high = torch.unbind(torch.as_tensor(br, device=self.RNN.bias.device, dtype=self.RNN.bias.dtype))
+        with torch.no_grad():
+            self.RNN.bias.clamp_(min=b_low, max=b_high)
+        return None
+
     def anneal_noise_levels_(self):
         # noise schedule
         scale = torch.as_tensor(self.max_iter / 12, dtype=torch.float32, device=self.RNN.device)
@@ -580,6 +592,7 @@ class Trainer():
         self.enforce_masks_()
         self.enforce_io_nonnegativity_()
         self.enforce_dale_()
+        self.enforce_bias_range_()
 
         # --- 5) compute total loss and r2 for reporting ---
         loss_val = Trainer.zero_(self.RNN.device)

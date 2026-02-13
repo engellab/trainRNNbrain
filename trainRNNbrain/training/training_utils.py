@@ -101,20 +101,23 @@ def plot_train_val_losses(train_losses, val_losses):
     return fig_trainloss
 
 
-def plot_loss_breakdown(loss_monitor, max_cols=5):
+def plot_loss_breakdown(loss_monitor, max_cols=5, ylim=[None, None]):
     # Collect plotted labels (only non-constant series)
     labels = []
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.set_yscale('log')
-    max = -np.inf
+    maxval = -np.inf
+    minval = np.inf
     for key, vals in loss_monitor.items():
         if key.startswith('sg_'):
             key = key[3:]
         elif key.startswith('g_'):
             key = key[2:]
         arr = np.asarray(vals, dtype=float)
-        if np.max(arr) > max:
-            max = np.max(arr)
+        if np.max(arr) > maxval:
+            maxval = np.max(arr)
+        if np.min(arr) < minval:
+            minval = np.min(arr)
         if arr.size > 0 and np.nanstd(arr) != 0:
             ax.plot(arr, label=key, alpha=0.75, linewidth=1.5)
             labels.append(key)
@@ -124,7 +127,20 @@ def plot_loss_breakdown(loss_monitor, max_cols=5):
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
     ax.grid(True, alpha=0.3)
-    ax.set_ylim([1e-6, max * 1.3])
+    
+    def finite_pos(x):
+        return np.isfinite(x) and (x > 0)
+
+    if ylim[0] is None:
+        ylim[0] = 10 ** (np.floor(np.log10(minval)) - 2) if finite_pos(minval) else 1e-6
+
+    if ylim[1] is None:
+        ylim[1] = 10 ** (np.ceil(np.log10(maxval)) + 2) if finite_pos(maxval) else 10.0
+
+    if not (np.isfinite(ylim[0]) and np.isfinite(ylim[1])) or (ylim[1] <= ylim[0]):
+        ylim = [1e-6, 10.0]
+
+    ax.set_ylim(ylim)
 
     # --- Legend below the plot, wrapped into columns ---
     n = len(labels)

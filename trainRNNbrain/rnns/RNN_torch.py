@@ -106,7 +106,7 @@ class RNN_torch(torch.nn.Module):
                  sigma_inp=0.03,
                  sigma_out=0.03,
                  gamma=0.1,
-                 bias_init_amp=0.0,
+                 bias_range=(0.0, 0.0),
                  y_init=None,
                  seed=None,
                  n_inputs=6,
@@ -119,7 +119,7 @@ class RNN_torch(torch.nn.Module):
         :param dt: float, time resolution of RNN
         :param tau: float, internal time constant of the RNN-neural nodes
         :param exc2inhR: float, ratio of excitatory to inhibitory recurrent connections
-        :param bias_init_amp: float, amplitude of the initial bias vector
+        :param bias_range: tuple of floats, defining the range for elements of the bias vector
         :param gamma: float, coefficient of the cubic nonlinearity in the RNN dynamics
         :param sigma_rec: float, std of the gaussian noise in the recurrent dynamics
         :param sigma_inp: float, std of the gaussian noise in the input to the RNN
@@ -147,10 +147,10 @@ class RNN_torch(torch.nn.Module):
         self.sigma_inp = torch.from_numpy(np.array(sigma_inp)).to(self.device)
         self.sigma_rec = torch.from_numpy(np.array(sigma_rec)).to(self.device)
         self.sigma_out = torch.from_numpy(np.array(sigma_out)).to(self.device)
-        self.n_inputs = torch.from_numpy(np.array(n_inputs)).to(self.device)
-        self.n_outputs = torch.from_numpy(np.array(n_outputs)).to(self.device)
+        self.n_inputs = int(n_inputs)
+        self.n_outputs = int(n_outputs)
         self.spectral_rad = torch.from_numpy(np.array(spectral_rad)).to(self.device)
-        self.bias_init_amp = torch.tensor(bias_init_amp).to(self.device)
+        self.bias_range = torch.tensor(bias_range).to(self.device)
         self.connectivity_density_rec = connectivity_density_rec
         self.exc2inhR = exc2inhR
         self.gamma = gamma
@@ -179,9 +179,23 @@ class RNN_torch(torch.nn.Module):
                                     exc2inhR=self.exc2inhR,
                                     generator=self.random_generator,
                                     recurrent_density=self.connectivity_density_rec)
-        if self.bias_init_amp not in (None, 0):
-            b = self.bias_init_amp * torch.rand(self.N, device=self.device, generator=self.random_generator)
-            self.bias = torch.nn.Parameter(b)
+        dtp = W_rec.dtype  
+        dev = self.device
+
+        br = self.bias_range  # already a tensor on device per your init
+        b_low, b_high = torch.unbind(br.to(device=dev))
+        b_low, b_high = b_low.to(dtp), b_high.to(dtp)
+
+        if b_low > b_high:
+            raise ValueError("bias_range should be (low, high) with low <= high")
+
+        if torch.equal(b_low, b_high):
+            self.bias = torch.full((self.N,), b_low, device=dev, dtype=dtp)  # not a Parameter
+            self.bias_trainable = False
+        else:
+            u = torch.rand((self.N,), device=dev, dtype=dtp, generator=self.random_generator)
+            self.bias = torch.nn.Parameter(b_low + (b_high - b_low) * u)
+            self.bias_trainable = True
         self.W_out = torch.nn.Parameter(W_out.to(self.device))
         self.W_rec = torch.nn.Parameter(W_rec.to(self.device))
         self.W_inp = torch.nn.Parameter(W_inp.to(self.device))
@@ -190,9 +204,10 @@ class RNN_torch(torch.nn.Module):
     def configure_activation_(activation_args):
         activation_name = activation_args["name"]
         if activation_name == 'relu':
-            return lambda x: torch.maximum(torch.tensor(0.), activation_args["slope"] * x)
+            return lambda x: torch.clamp(activation_args["slope"] * x, min=0.0)
         elif activation_name == 'leaky_relu':
-            return lambda x: torch.maximum(torch.tensor(0.), activation_args["slope"] * x) + torch.minimum(torch.tensor(0.), activation_args["leak_slope"] * x)
+            a, b = activation_args["slope"], activation_args["leak_slope"]
+            return lambda x: torch.where(x >= 0, a * x, b * x)
         elif activation_name == 'tanh':
             return lambda x: torch.tanh(activation_args["slope"] * x)
         elif activation_name == 'sigmoid':
@@ -224,12 +239,10 @@ class RNN_torch(torch.nn.Module):
 
     def rhs(self, x, I, i_noise, r_noise, dropout_mask=None, dropout_kind=None, eps=1e-8):
         shp = (x.shape[0],) + (1,) * (x.ndim - 1)
-        if (self.bias_init_amp is None) or (torch.abs(self.bias_init_amp) < eps):
-            b = 0.0
-        else:
-            b = self.bias.reshape(shp)
-            if b.device != x.device or b.dtype != x.dtype:
-                b = b.to(device=x.device, dtype=x.dtype, non_blocking=True)
+        # --- bias (matches init: always a tensor; fixed if not trainable, Parameter if trainable) ---
+        b = self.bias.reshape(shp)
+        if b.device != x.device or b.dtype != x.dtype:
+            b = b.to(device=x.device, dtype=x.dtype, non_blocking=True)
 
         # --- dropout mask (avoid unconditional >0 + .to(x)) ---
         if dropout_mask is None or dropout_kind != "dead":
@@ -248,7 +261,6 @@ class RNN_torch(torch.nn.Module):
         # Cubic term (skip if gamma == 0)
         cubic_term = self.gamma * x * x * x if (self.gamma) > eps else 0.0
         inp = self.W_inp @ (I + i_noise)
-
         if m is None:
             if self.equation_type == "h":
                 r = self.activation(x)
@@ -284,6 +296,7 @@ class RNN_torch(torch.nn.Module):
 
         rec_noise = torch.zeros(self.N, T_steps, batch_size, device=self.device)
         inp_noise = torch.zeros(self.n_inputs, T_steps, batch_size, device=self.device)
+        out_noise = torch.zeros_like(states)
         if w_noise:
             rec_noise = torch.sqrt((2 / self.alpha) * self.sigma_rec ** 2) * \
                         torch.randn(*rec_noise.shape, generator=self.random_generator, device=self.device)
@@ -323,75 +336,93 @@ class RNN_torch(torch.nn.Module):
         return states_new, outputs
 
     def get_params(self):
-        '''
-        Save crucial parameters of the RNN as numpy arrays
-        :return: parameter dictionary containing connectivity parameters, initial conditions,
-         number of nodes, dt and tau
-        '''
-        param_dict = {}
-        W_out = deepcopy(self.W_out.data.cpu().detach().numpy())
-        W_rec = deepcopy(self.W_rec.data.cpu().detach().numpy())
-        W_inp = deepcopy(self.W_inp.data.cpu().detach().numpy())
-        y_init = deepcopy(self.y_init.detach().cpu().numpy())
-        if self.bias_init_amp != 0.0 and not (self.bias_init_amp is None):
-            bias = deepcopy(self.bias.detach().cpu().numpy())
-        else:
-            bias = None
-        param_dict["activation_args"] = self.activation_args
-        param_dict["W_out"] = W_out
-        param_dict["W_inp"] = W_inp
-        param_dict["W_rec"] = W_rec
-        param_dict["y_init"] = y_init
-        param_dict["bias"] = bias
-        param_dict["N"] = self.N
-        param_dict["dt"] = self.dt
-        param_dict["tau"] = self.tau
-        param_dict["gamma"] = self.gamma
-        param_dict["dale_mask"] = None if self.dale_mask is None else self.dale_mask.detach().cpu().numpy()
-        param_dict["input_mask"] = self.input_mask.detach().cpu().numpy()
-        param_dict["recurrent_mask"] = self.recurrent_mask.detach().cpu().numpy()
-        param_dict["output_mask"] = self.output_mask.detach().cpu().numpy()
-        param_dict["equation_type"] = getattr(self, "equation_type", "s")
+        """Save crucial parameters of the RNN as numpy arrays."""
+        to_np = lambda t: None if t is None else deepcopy(t.detach().cpu().numpy())
+
+        param_dict = {
+            "activation_args": self.activation_args,
+            "W_out": to_np(self.W_out.data),
+            "W_inp": to_np(self.W_inp.data),
+            "W_rec": to_np(self.W_rec.data),
+            "y_init": to_np(self.y_init),
+            "bias": to_np(self.bias) if getattr(self, "bias_trainable", False) or (self.bias_range is not None) else None,
+            "bias_range": None if self.bias_range is None else tuple(float(v) for v in self.bias_range.detach().cpu().tolist()),
+            "bias_trainable": bool(getattr(self, "bias_trainable", False)),
+            "N": self.N,
+            "dt": self.dt,
+            "tau": self.tau,
+            "gamma": self.gamma,
+            "dale_mask": to_np(self.dale_mask),
+            "input_mask": to_np(self.input_mask),
+            "recurrent_mask": to_np(self.recurrent_mask),
+            "output_mask": to_np(self.output_mask),
+            "equation_type": getattr(self, "equation_type", "s"),
+        }
         return param_dict
 
     def set_params(self, params):
-        self.N = int(params["W_rec"].shape[0])
+        dev, dtp = self.device, getattr(self, "dtype", torch.float32)
+        as_t = lambda x, dtype=dtp: None if x is None else torch.as_tensor(x, dtype=dtype, device=dev)
 
-        dev = self.device
-        wout = torch.as_tensor(params["W_out"], dtype=torch.float32, device=dev)
-        winp = torch.as_tensor(params["W_inp"], dtype=torch.float32, device=dev)
-        wrec = torch.as_tensor(params["W_rec"], dtype=torch.float32, device=dev)
+        self.N = int(np.asarray(params["W_rec"]).shape[0])
+
+        wout, winp, wrec = as_t(params["W_out"]), as_t(params["W_inp"]), as_t(params["W_rec"])
 
         with torch.no_grad():
             self.W_out.copy_(wout)
             self.W_inp.copy_(winp)
             self.W_rec.copy_(wrec)
 
-            b = params["bias"]
-            if b is None:
-                self.bias = None
-            else:
-                b = torch.as_tensor(b, dtype=torch.float32, device=dev)
-                if self.bias is None:
-                    self.bias = torch.nn.Parameter(b)
-                else:
-                    self.bias.copy_(b)
-
-        self.y_init = torch.as_tensor(params["y_init"], dtype=torch.float32, device=dev)
-        self.gamma = torch.as_tensor(params["gamma"], dtype=torch.float32, device=dev)
-        self.dt = torch.as_tensor(params["dt"], dtype=torch.float32, device=dev)
-        self.tau = torch.as_tensor(params["tau"], dtype=torch.float32, device=dev)
+        self.y_init = as_t(params["y_init"])
+        self.gamma = as_t(params["gamma"])
+        self.dt = as_t(params["dt"])
+        self.tau = as_t(params["tau"])
         self.alpha = self.dt / self.tau
 
         self.activation_args = params["activation_args"]
         self.activation = self.configure_activation_(self.activation_args)
 
-        dm = params["dale_mask"]
-        self.dale_mask = None if dm is None else torch.as_tensor(dm, dtype=torch.float32, device=dev)
-        self.input_mask = torch.as_tensor(params["input_mask"], dtype=torch.float32, device=dev)
-        self.recurrent_mask = torch.as_tensor(params["recurrent_mask"], dtype=torch.float32, device=dev)
-        self.output_mask = torch.as_tensor(params["output_mask"], dtype=torch.float32, device=dev)
+        dm = params.get("dale_mask", None)
+        self.dale_mask = None if dm is None else as_t(dm)
+        self.input_mask = as_t(params["input_mask"])
+        self.recurrent_mask = as_t(params["recurrent_mask"])
+        self.output_mask = as_t(params["output_mask"])
         self.equation_type = params.get("equation_type", "s")
+
+        # ---- bias (new bias_range / bias_trainable scheme) ----
+        br = params.get("bias_range", None)
+        self.bias_range = None if br is None else torch.as_tensor(br, dtype=dtp, device=dev)
+
+        bt = bool(params.get("bias_trainable", False))
+        b = params.get("bias", None)
+
+        if br is None and (b is None):
+            with torch.no_grad():
+                self.bias = torch.full((self.N,), 0.0, device=dev, dtype=dtp)
+            self.bias_trainable = False
+            self.bias_range = (0.0, 0.0)
+            return
+
+        if b is None:
+            # reconstruct bias from range deterministically: midpoint
+            b_low, b_high = torch.unbind(self.bias_range)
+            with torch.no_grad():
+                self.bias = torch.full((self.N,), 0.5 * (b_low + b_high), device=dev, dtype=dtp)
+            self.bias_trainable = False
+            return
+
+        b = as_t(b)
+        self.bias_trainable = bt
+        if bt:
+            if not isinstance(self.bias, torch.nn.Parameter):
+                self.bias = torch.nn.Parameter(b)
+            else:
+                with torch.no_grad():
+                    self.bias.copy_(b)
+        else:
+            with torch.no_grad():
+                self.bias = b
+
 
 
 

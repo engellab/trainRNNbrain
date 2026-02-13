@@ -11,6 +11,8 @@ spectral_rad: 1.2
 cdeg: 12
 sigma_rec: .05
 sigma_inp: .05
+sigma_out: .03
+bias_range: (0.0, 0.0)
 
 
 

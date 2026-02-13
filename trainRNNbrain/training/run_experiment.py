@@ -120,14 +120,6 @@ def run_training(cfg: DictConfig) -> None:
         full_data_folder = os.path.join(data_save_path, data_folder)
         datasaver = DataSaver(full_data_folder)
 
-        # save Trainer module code as file alongside with data
-        # datasaver.save_data(get_source_code(trainer), "trainer.txt")
-        # datasaver.save_data(get_source_code(trainer.Penalties), "penalties.txt")
-        # # save RNN module code as file alongside with data
-        # datasaver.save_data(get_source_code(import_any(rnn_cfg._target_)), "rnn.txt")
-        # save source of the script being executed (the __main__ module)
-        # datasaver.save_data(get_source_code(sys.modules["__main__"]), "running_script.txt")
-
         print(f"r2 validation: {score}")
         if not (datasaver is None): datasaver.save_data(cfg, f"{score}_config.yaml")
         if not (datasaver is None): datasaver.save_data(jsonify(last_net_params), f"{score}_LastParams_{taskname}.json")
