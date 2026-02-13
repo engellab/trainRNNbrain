@@ -12,4 +12,4 @@ spectral_rad: 1.2
 sigma_rec: 0.05
 sigma_inp: 0.05
 sigma_out: 0.3
-bias_range: (0.0, 0.0)
+bias_range: [0.0, 0.0]
