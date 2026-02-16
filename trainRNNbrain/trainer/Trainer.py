@@ -30,15 +30,14 @@ class Penalties:
         over = torch.pow(torch.relu(r - 1) + 1.0, gamma) - 1.0
         return over.mean()
 
-    def out_weights_penalty(self, states, input=None, output=None, target=None, mask=None, c=2.0, cap100=0.3, alpha=1.0, gamma=5.0, eps=1e-12):
-        dev, dt = states.device, states.dtype
-        N, U = states.size(0), states.size(1)
-        scale = torch.log1p(torch.as_tensor(N, device=dev, dtype=dt)) / torch.log1p(
-            torch.as_tensor(U, device=dev, dtype=dt))
-        cap = torch.as_tensor(cap100, device=dev, dtype=dt) * (U / N) * scale
-        A = self.RNN.W_out.abs()
-        r = (A + eps) / (cap + eps)
-        over = torch.pow(torch.relu(r - 1) + 1.0, gamma) - 1.0
+    def out_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap100=0.03, gamma=5.0, eps=1e-12):
+        R, dev, dt = self.RNN, states.device, states.dtype
+        N = R.N
+        scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / torch.log1p(torch.as_tensor(N, device=dev, dtype=dt))
+        cap = torch.as_tensor(cap100, device=dev, dtype=dt) * scale
+        W = R.W_out.abs()
+        r = (W + eps) / (cap + eps)
+        over = torch.pow(torch.relu(r - 1.0) + 1.0, gamma) - 1.0
         return over.mean()
 
     def rec_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
@@ -306,8 +305,8 @@ class Trainer():
                  iwm_args=None,
                  lambda_rwm=0.0,
                  rwm_args=None,
-                 lambda_ow=0.0,
-                 ow_args=None,
+                 lambda_owm=0.0,
+                 owm_args=None,
                  lambda_rws=0.05,
                  rws_args=None,
                  lambda_tv=0.0,
@@ -360,7 +359,7 @@ class Trainer():
             "task": (self.Penalties.task_penalty, 1.0, {}),
             "inp_weights_magnitude": (self.Penalties.inp_weights_magnitude_penalty, lambda_iwm, iwm_args),
             "rec_weights_magnitude": (self.Penalties.rec_weights_magnitude_penalty, lambda_rwm, rwm_args),
-            "out_weights": (self.Penalties.out_weights_penalty, lambda_ow, ow_args),
+            "out_weights_magnitude": (self.Penalties.out_weights_magnitude_penalty, lambda_owm, owm_args),
             "rec_weights_sparsity": (self.Penalties.rec_weights_sparsity_penalty, lambda_rws, rws_args),
             "output_var": (self.Penalties.trial_output_var_penalty, lambda_tv, tv_args),
             "channel_overlap": (self.Penalties.channel_overlap_penalty, lambda_orth, orth_args),
