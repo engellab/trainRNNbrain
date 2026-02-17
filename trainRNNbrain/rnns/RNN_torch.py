@@ -106,7 +106,7 @@ class RNN_torch(torch.nn.Module):
                  sigma_inp=0.03,
                  sigma_out=0.03,
                  gamma=0.1,
-                 bias_range=(0.0, 0.0),
+                 bias_range=[0.0, 0.0],
                  y_init=None,
                  seed=None,
                  n_inputs=6,
@@ -119,7 +119,7 @@ class RNN_torch(torch.nn.Module):
         :param dt: float, time resolution of RNN
         :param tau: float, internal time constant of the RNN-neural nodes
         :param exc2inhR: float, ratio of excitatory to inhibitory recurrent connections
-        :param bias_range: tuple of floats, defining the range for elements of the bias vector
+        :param bias_range: 2-element list of floats, defining the range for elements of the bias vector
         :param gamma: float, coefficient of the cubic nonlinearity in the RNN dynamics
         :param sigma_rec: float, std of the gaussian noise in the recurrent dynamics
         :param sigma_inp: float, std of the gaussian noise in the input to the RNN
@@ -182,7 +182,7 @@ class RNN_torch(torch.nn.Module):
         dtp = W_rec.dtype  
         dev = self.device
 
-        br = self.bias_range  # already a tensor on device per your init
+        br = self.bias_range 
         b_low, b_high = torch.unbind(br.to(device=dev))
         b_low, b_high = b_low.to(dtp), b_high.to(dtp)
 

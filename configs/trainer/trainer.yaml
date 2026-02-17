@@ -1,7 +1,7 @@
 # @package trainer
 _target_: trainRNNbrain.trainer.Trainer.Trainer
 trainer_tag: "BaseTrainer"
-max_iter: 1500
+max_iter: 3000
 anneal_noise: False
 lr: 0.001
 weight_decay: 1e-6
@@ -19,7 +19,8 @@ iwm_args:
   eps: 1e-12
 lambda_rwm: 0.0
 rwm_args:
-  cap100: 0.01
+  cap100: 0.02
+  account4dale: True
   N_ref: 100
   k_ref: 20
   gamma: 5.0

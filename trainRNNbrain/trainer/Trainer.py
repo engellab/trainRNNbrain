@@ -40,20 +40,40 @@ class Penalties:
         over = torch.pow(torch.relu(r - 1.0) + 1.0, gamma) - 1.0
         return over.mean()
 
-    def rec_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
+    # def rec_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
+    #                                    cap100=0.07, N_ref=100, k_ref=20, gamma=5.0, eps=1e-12):
+    #     R, dev, dt = self.RNN, states.device, states.dtype
+    #     N = R.N
+    #     scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / torch.log1p(torch.as_tensor(N, device=dev, dtype=dt))
+    #     cap = torch.as_tensor(cap100, device=dev, dtype=dt) * scale
+    #     cap_e, cap_i = cap, cap * torch.as_tensor(R.exc2inhR, device=dev, dtype=dt)
+    #     W = R.W_rec.abs()
+    #     exc, inh = (R.dale_mask > 0), (R.dale_mask < 0)
+    #     rE = (W[:, exc] + eps) / (cap_e + eps)
+    #     rI = (W[:, inh] + eps) / (cap_i + eps)
+    #     pE = (torch.pow(torch.relu(rE - 1.0) + 1.0, gamma) - 1.0)
+    #     pI = (torch.pow(torch.relu(rI - 1.0) + 1.0, gamma) - 1.0)
+    #     return (pE.mean() + pI.mean()) * (N / (N_ref * k_ref))
+
+    def rec_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, account4dale=True,
                                        cap100=0.07, N_ref=100, k_ref=20, gamma=5.0, eps=1e-12):
         R, dev, dt = self.RNN, states.device, states.dtype
         N = R.N
         scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / torch.log1p(torch.as_tensor(N, device=dev, dtype=dt))
         cap = torch.as_tensor(cap100, device=dev, dtype=dt) * scale
-        cap_e, cap_i = cap, cap * torch.as_tensor(R.exc2inhR, device=dev, dtype=dt)
         W = R.W_rec.abs()
-        exc, inh = (R.dale_mask > 0), (R.dale_mask < 0)
-        rE = (W[:, exc] + eps) / (cap_e + eps)
-        rI = (W[:, inh] + eps) / (cap_i + eps)
-        pE = (torch.pow(torch.relu(rE - 1.0) + 1.0, gamma) - 1.0)
-        pI = (torch.pow(torch.relu(rI - 1.0) + 1.0, gamma) - 1.0)
-        return (pE.mean() + pI.mean()) * (N / (N_ref * k_ref))
+        if account4dale:
+            cap_e, cap_i = cap, cap * torch.as_tensor(R.exc2inhR, device=dev, dtype=dt)
+            exc, inh = (R.dale_mask > 0), (R.dale_mask < 0)
+            rE = (W[:, exc] + eps) / (cap_e + eps)
+            rI = (W[:, inh] + eps) / (cap_i + eps)
+            pE = (torch.pow(torch.relu(rE - 1.0) + 1.0, gamma) - 1.0)
+            pI = (torch.pow(torch.relu(rI - 1.0) + 1.0, gamma) - 1.0)
+            return (pE.mean() + pI.mean()) * (N / (N_ref * k_ref))
+        else:
+            r = (W + eps) / (cap + eps)
+            p = (torch.pow(torch.relu(r - 1.0) + 1.0, gamma) - 1.0)
+            return p.mean() * (N / (N_ref * k_ref))
 
     def rec_weights_sparsity_penalty(self, states, input=None, output=None, target=None, mask=None, tg_deg=20, eps=1e-12):
         W = self.RNN.W_rec  # (N, N)
