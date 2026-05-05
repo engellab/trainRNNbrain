@@ -1,3 +1,5 @@
+import os
+os.environ['OMP_NUM_THREADS'] = '1'  # prevent OpenBLAS/sklearn KMeans segfault on macOS
 from trainRNNbrain.datasaver.DataSaver import DataSaver
 from trainRNNbrain.analyzers.PerformanceAnalyzer import PerformanceAnalyzer
 from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
