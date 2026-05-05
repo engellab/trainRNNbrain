@@ -43,6 +43,9 @@ class DataSaver():
 
     def save_animation(self, ani, file_name):
         '''saving an animation as a mp4'''
-        ani.save(os.path.join(self.data_folder, file_name), writer='ffmpeg', fps=30, dpi=300)
+        try:
+            ani.save(os.path.join(self.data_folder, file_name), writer='ffmpeg', fps=30, dpi=300)
+        except Exception as e:
+            print(f"Warning: could not save animation {file_name}: {e}")
         return None
 
