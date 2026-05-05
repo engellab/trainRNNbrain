@@ -335,6 +335,17 @@ class RNN_torch(torch.nn.Module):
             raise ValueError(f"Equation type {self.equation_type} is not recognized!")
         return states_new, outputs
 
+    def get_firing_rates(self, states):
+        """Convert state trajectory to firing rates.
+
+        For equation_type='s', the state IS the firing rate — returns states unchanged.
+        For equation_type='h', the state is the pre-synaptic potential h; returns f(h).
+        Works with tensors of any shape (..., N, T, K) or (N, T, K).
+        """
+        if self.equation_type == 'h':
+            return self.activation(states)
+        return states
+
     def get_params(self):
         """Save crucial parameters of the RNN as numpy arrays."""
         to_np = lambda t: None if t is None else deepcopy(t.detach().cpu().numpy())
