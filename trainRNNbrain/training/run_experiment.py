@@ -5,6 +5,8 @@ from trainRNNbrain.training.training_utils import *
 from trainRNNbrain.utils import jsonify, unjsonify
 import time
 import hydra
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import datetime, random
 import sys
