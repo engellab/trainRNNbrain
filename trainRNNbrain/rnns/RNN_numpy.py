@@ -57,8 +57,7 @@ class RNN_numpy():
             return lambda x: np.tanh(slope * x)
         elif activation_name == 'sigmoid':
             slope = activation_args.get("slope", 1.0)
-            sigmoid = lambda x: 1.0 / (1.0 + np.exp(-slope * x))
-            return lambda x: sigmoid(slope * x)
+            return lambda x: 1.0 / (1.0 + np.exp(-slope * x))
         elif activation_name == 'softplus':
             beta = activation_args.get("beta", 1.0)
             slope = activation_args.get("slope", 1.0)
