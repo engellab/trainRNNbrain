@@ -1,0 +1,17 @@
+# @package model
+# Sigmoid GT-RNN with activation shifted by 0.3 so f(0) ≈ 0.10 (near zero at h=0 init).
+# Use aggregation=mean for FRM penalty (simple mean, well-tested default).
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+activation_args: {"name": "sigmoid", "slope": 7.5, "shift": 0.3}
+equation_type: "h"
+RNN_tag: ""
+N: 100
+dt: 1
+tau: 10
+exc2inhR: 4
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+bias_range: [0.0, 0.0]

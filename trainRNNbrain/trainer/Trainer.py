@@ -87,9 +87,17 @@ class Penalties:
                             cap_fr=0.3,
                             tau=0.1,
                             g_top=5.0, g_bot=5.0,
-                            alpha=1.0, beta=1.0, eps=1e-12):
+                            alpha=1.0, beta=1.0, eps=1e-12,
+                            aggregation='mean',
+                            tau_n=None):
         '''
-        Firing rate magnitude penalty: MSE from the desired cap_fr (scaled by log(N))
+        Firing rate magnitude penalty: MSE from the desired cap_fr (scaled by log(N)).
+
+        aggregation controls how penalties are combined across neurons:
+          'mean'      — simple mean over neurons (default; original behaviour).
+          'logsumexp' — log-sum-exp aggregation, sensitive to outlier units.
+                        Requires tau_n: small tau_n (→ 0) ≈ max; large (→ ∞) ≈ mean.
+                        Formula: tau_n * (logsumexp(p / tau_n) - log(N)).
         '''
         x = states.view(states.size(0), -1)  # (N, T*B)
         if self.RNN.equation_type == "h":
@@ -108,8 +116,16 @@ class Penalties:
 
         over = torch.relu(activity - cap)
         under = torch.relu(cap - activity)
-        p_over = torch.pow(over / (cap + eps), g_top)
+        p_over  = torch.pow(over  / (cap + eps), g_top)
         p_under = torch.pow(under / (cap + eps), g_bot)
+
+        if aggregation == 'logsumexp' and tau_n is not None:
+            tau_n = torch.as_tensor(tau_n, device=dev, dtype=dt)
+            log_N = torch.log(torch.as_tensor(float(p_over.shape[0]), device=dev, dtype=dt))
+            agg_over  = tau_n * (torch.logsumexp(p_over  / tau_n, dim=0) - log_N)
+            agg_under = tau_n * (torch.logsumexp(p_under / tau_n, dim=0) - log_N)
+            return alpha * agg_under + beta * agg_over
+        # default: mean aggregation
         return (alpha * p_under + beta * p_over).mean()
     
     def h_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,

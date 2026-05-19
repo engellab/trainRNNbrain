@@ -211,9 +211,15 @@ class RNN_torch(torch.nn.Module):
         elif activation_name == 'tanh':
             return lambda x: torch.tanh(activation_args["slope"] * x)
         elif activation_name == 'sigmoid':
-            return lambda x: torch.sigmoid(activation_args["slope"] * x)
+            slope = activation_args["slope"]
+            shift = activation_args.get("shift", 0.0)
+            return lambda x: torch.sigmoid(slope * (x - shift))
         elif activation_name == 'softplus':
             return lambda x: torch.nn.Softplus(beta=activation_args["beta"])(activation_args["slope"] * x)
+        elif activation_name == 'gelu':
+            import math
+            alpha = activation_args.get("alpha", 1.0)
+            return lambda x: x * 0.5 * (1.0 + torch.erf(alpha * x / math.sqrt(2.0)))
         else:
             raise ValueError(f"Unsupported activation function: {activation_name}")
 

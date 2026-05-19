@@ -57,7 +57,8 @@ class RNN_numpy():
             return lambda x: np.tanh(slope * x)
         elif activation_name == 'sigmoid':
             slope = activation_args.get("slope", 1.0)
-            return lambda x: 1.0 / (1.0 + np.exp(-slope * x))
+            shift = activation_args.get("shift", 0.0)
+            return lambda x: 1.0 / (1.0 + np.exp(-slope * (x - shift)))
         elif activation_name == 'softplus':
             beta = activation_args.get("beta", 1.0)
             slope = activation_args.get("slope", 1.0)
@@ -66,6 +67,10 @@ class RNN_numpy():
             slope = activation_args.get("slope", 1.0)
             leak_slope = activation_args.get("leak_slope", 0.01)
             return lambda x: np.where(x > 0, slope * x, leak_slope * x)
+        elif activation_name == 'gelu':
+            from scipy.special import erf
+            alpha = activation_args.get("alpha", 1.0)
+            return lambda x: x * 0.5 * (1.0 + erf(alpha * x / np.sqrt(2.0)))
         else:
             raise ValueError(f"Activation function {activation_name} is not recognized!")
 
