@@ -390,7 +390,12 @@ class RNN_torch(torch.nn.Module):
             self.W_inp.copy_(winp)
             self.W_rec.copy_(wrec)
 
-        self.y_init = as_t(params["y_init"])
+        y_init_val = as_t(params["y_init"])
+        if isinstance(self.y_init, torch.nn.Parameter):
+            with torch.no_grad():
+                self.y_init.copy_(y_init_val.to(dev))
+        else:
+            self.y_init = y_init_val
         self.gamma = as_t(params["gamma"])
         self.dt = as_t(params["dt"])
         self.tau = as_t(params["tau"])
