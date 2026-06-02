@@ -45,6 +45,8 @@ frm_args:
   alpha: 1.0
   beta: 1.0
   eps: 1e-12
+  aggregation: mean   # neuron-level pooling of per-unit FR-deviation penalty: 'mean' or 'logsumexp'
+  tau_n: 1.0          # logsumexp temperature: small -> max (fights worst outlier); large -> mean. Ignored if aggregation=mean
 lambda_hm: 0.0 # magnitude of hidden activities
 hm_args:
   h_thr: -0.1
