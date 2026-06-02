@@ -102,7 +102,9 @@ class Penalties:
         x = states.view(states.size(0), -1)  # (N, T*B)
         if self.RNN.equation_type == "h":
             x = self.RNN.activation(x)
-        x = x.abs()  # consider magnitude of firing rates for penalty
+        # Do NOT take abs(x): for signed activations (GELU/tanh) abs lets a unit satisfy the target by
+        # sitting negative (|-0.2| = 0.2 = cap). Using the SIGNED firing rate drives the (soft-max over
+        # time) activity toward +cap, keeping units genuinely positive/active. No-op for r>=0 activations.
         dev, dt = states.device, states.dtype
         cap_fr = torch.as_tensor(cap_fr, device=dev, dtype=dt)
 
