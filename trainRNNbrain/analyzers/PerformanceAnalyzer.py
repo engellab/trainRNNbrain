@@ -431,13 +431,17 @@ class PerformanceAnalyzer():
     def plot_participation(self, trajectories):
         participation = np.std(trajectories, axis=(1, 2)) + np.quantile(np.abs(trajectories), axis=(1, 2), q=0.9)
         fig, ax = plt.subplots()  # Create figure and axes
-        ax.hist(participation, bins=50, edgecolor='black', color='deepskyblue')  # Plot histogram on the axes
-        ax.axvline(np.quantile(participation, 0.2), linestyle='--', color='k')
+        finite = participation[np.isfinite(participation)]
+        if len(finite) == 0:
+            ax.set_title("Participation: NaN/Inf trajectories (network diverged)")
+            return fig
+        ax.hist(finite, bins=50, edgecolor='black', color='deepskyblue')  # Plot histogram on the axes
+        ax.axvline(np.quantile(finite, 0.2), linestyle='--', color='k')
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.set_xlabel("Participation (Std + Mean)")
         ax.set_ylabel("Number of units")
-        ax.set_xlim([-0.01, max(participation)])
+        ax.set_xlim([-0.01, max(finite)])
         plt.tight_layout()
         return fig
 
