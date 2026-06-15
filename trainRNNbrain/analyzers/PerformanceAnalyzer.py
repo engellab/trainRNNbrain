@@ -418,6 +418,80 @@ class PerformanceAnalyzer():
         plt.tight_layout()
         return fig
 
+    def plot_unit_trial_traces(self, traces, trial_groups,
+                               unit_inds=None, dt=1.0, colors=None,
+                               series_labels=None, col_labels=None, row_labels=None,
+                               show=True, save=False, name=None):
+        """
+        Grid of per-unit (rows) x per-trial-group (columns) traces, overlaying one
+        or more aligned trace series (e.g. a ground-truth network and one or more
+        model networks).
+
+        Task-unaware: the trial grouping is supplied by the caller via
+        ``trial_groups``, so this works for any task. The series must already be
+        aligned row-by-row -- row r is the same unit across every series -- so the
+        caller handles any unit matching (and adds any per-unit offset) before
+        passing the arrays in.
+
+        Args:
+            traces: an (n_units, T, K) array, or a list of such arrays to overlay.
+                Axis 0 = units, axis 1 = time (T steps), axis 2 = trials (K). One
+                colour per series.
+            trial_groups: list of lists of trial indices into axis 2. Each inner
+                list becomes one grid column; traces are averaged over its trials.
+                An empty inner list hides that column's cells.
+            unit_inds: row indices to plot, one grid row each (default: all rows of
+                the first series).
+            dt: time step for the x-axis (default 1.0 -> x in samples).
+            colors: per-series colours (default: series 0 black, rest a tab-cycle).
+            series_labels: per-series legend labels (default: no legend).
+            col_labels: per-column titles, len == len(trial_groups) (default: none).
+            row_labels: per-row labels, len == len(unit_inds) (default: "unit <i>").
+            show / save / name: display, and write to file ``name`` if ``save``.
+
+        Returns:
+            matplotlib.figure.Figure
+        """
+        series = traces if isinstance(traces, (list, tuple)) else [traces]
+        if unit_inds is None:
+            unit_inds = np.arange(series[0].shape[0])
+        if colors is None:
+            cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+            colors = ['black'] + [cycle[i % len(cycle)] for i in range(len(series) - 1)]
+        t_axis = np.arange(series[0].shape[1]) * dt
+
+        n_units, n_cols = len(unit_inds), len(trial_groups)
+        fig, axes = plt.subplots(n_units, n_cols, squeeze=False, sharex=True,
+                                 figsize=(n_cols * 1.1, n_units * 1.1))
+        for ci, trials in enumerate(trial_groups):
+            if col_labels is not None:
+                axes[0, ci].set_title(col_labels[ci], fontsize=6)
+            tr = np.asarray(trials, dtype=int)
+            for ri, u in enumerate(unit_inds):
+                ax = axes[ri, ci]
+                if tr.size == 0:
+                    ax.set_visible(False)
+                    continue
+                for s, traj in enumerate(series):
+                    ax.plot(t_axis, traj[u][:, tr].mean(axis=1),
+                            color=colors[s], lw=0.8, alpha=0.85)
+                ax.set_xticks([]); ax.set_yticks([])
+                ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+                if ci == 0:
+                    lbl = row_labels[ri] if row_labels is not None else f'unit {u}'
+                    ax.set_ylabel(lbl, fontsize=6, rotation=0, labelpad=14)
+
+        if series_labels is not None:
+            handles = [plt.Line2D([0], [0], color=colors[s], lw=1.5, label=series_labels[s])
+                       for s in range(len(series))]
+            fig.legend(handles=handles, loc='lower center', ncol=len(handles),
+                       fontsize=6, frameon=False)
+        plt.tight_layout()
+        if save and name is not None:
+            fig.savefig(name, bbox_inches='tight', dpi=150)
+        if show:
+            plt.show()
+        return fig
 
     def get_firing_rate_trajectories(self, inputs, sigma_rec=0, sigma_inp=0, seed=42):
         self.RNN.clear_history()
