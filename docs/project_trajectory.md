@@ -1,0 +1,288 @@
+# Project trajectory
+
+A running, reproducibility-first log of experiments. Each entry records *why* the experiment
+was run and *exactly how* it was run (commit, config, parameters, cluster, submission command,
+output layout) so it can be regenerated after all working-memory context is lost.
+
+---
+
+## 2026-06-26 — Silent-ReLU baseline sweep (CDDM, ReLU-Dale)
+
+### Purpose
+
+Establish a baseline showing that **unmodified ReLU-Dale RNNs trained on CDDM leave most units
+silent** (dead ReLUs that do not contribute to the computation), and that **two activity
+penalties rescue those dead units and prevent the silent-ReLU regime**:
+
+- `lambda_rws` — recurrent-weight **sparsity** penalty (effective in-degree per unit).
+- `lambda_frm` — **firing-rate magnitude** penalty (drives time-aggregated rate toward a cap).
+
+The `lambda_rws = 0, lambda_frm = 0` cell is the *unmodified* control (expected: many silent
+units). The other three cells (rws-only, frm-only, both) test whether each penalty — alone and
+together — increases the number of participating units. The key per-network readout is
+`participation.png` (per-unit `std(activity) + 0.9-quantile(|activity|)`); a left-heavy
+distribution / large low-participation mass = many silent units.
+
+The sweep also crosses the RNN **equation type** (`h` vs `s`) and **network size** (`N`) to
+check the effect is not specific to one dynamics convention or scale.
+
+### Grid — 120 jobs
+
+`2 equation types × 2 lambda_rws × 2 lambda_frm × 3 sizes × 5 networks = 120`
+
+| Axis | Config key | Values |
+|---|---|---|
+| Equation type | `model.equation_type` | `h`, `s` |
+| Recurrent-weight sparsity | `trainer.lambda_rws` | `0`, `0.05` |
+| Firing-rate magnitude | `trainer.lambda_frm` | `0`, `0.2` |
+| Network size | `model.N` | `100`, `500`, `1000` |
+| Networks per condition | `seed="random"`, 5 array reps | 5 |
+
+`h` vs `s` (`trainRNNbrain/rnns/RNN_torch.py`): `h` = hidden/pre-activation state, output read
+from `activation(x)`; `s` = rate/synaptic state, activation applied inside the recurrent drive.
+
+### Fixed configuration
+
+- **Model**: `configs/model/rnn_relu_Dale.yaml` — ReLU (`slope=1.0`), Dale-constrained,
+  `dt=1`, `tau=10`, `exc2inhR=4.0`, `gamma=0.1`, `connectivity_density_rec=1.0`,
+  `spectral_rad=1.2`, `sigma_rec=sigma_inp=0.05`, `sigma_out=0.03`, `bias_range=[0,0]`.
+- **Task**: `configs/task/CDDM.yaml` — Mante-style context-dependent decision making,
+  `T=300`, `n_inputs=6`, `n_outputs=2`, 15 coherences, loss masked on `(0,100)` and `(200,300)`.
+- **Trainer**: `configs/trainer/trainer.yaml` (`BaseTrainer`) — `max_iter=30000`, `lr=0.001`
+  (scaled at runtime by `(100/N)**0.333`), `weight_decay=1e-6`, `max_grad_norm=50`,
+  `same_batch=True`, `monitor=True`.
+- **All other penalties = 0** (`lambda_orth, lambda_rwm, lambda_owm, lambda_iwm, lambda_hm,
+  lambda_met, lambda_tv, lambda_effdim, …`) — only `lambda_rws` and `lambda_frm` vary, so the
+  comparison is clean.
+- **Penalty args** at config defaults: `frm_args` = `{cap_fr:0.3, tau:0.1, g_top:3.0, g_bot:3.0,
+  alpha:1.0, beta:1.0, aggregation:mean, tau_n:1.0}`; `rws_args` = `{tg_deg:20}`.
+  This matches the regime of the existing GT (ground-truth) networks, so the unpenalized
+  baseline cannot be dismissed as merely under-trained or differently-tuned.
+
+### Code version (pinned)
+
+- **Commit `4a031e7`** — `PerformanceAnalyzer: add task-unaware plot_unit_trial_traces`.
+  Folder hash = first 6 chars = **`4a031e`**.
+- This commit includes `c906118` (`plot_participation`: NaN/Inf guard for diverged networks),
+  which matters here because unpenalized ReLU nets can diverge.
+- On Spock the working copy is a **detached HEAD at `4a031e7`**; `trainRNNbrain` is an editable
+  install (`pip install -e .`) pointing at `/usr/people/pt1290/trainRNNbrain`, so torch-env runs
+  exactly this code. GitHub `origin/main` (`engellab/trainRNNbrain`) is also at `4a031e7`.
+- A Spock-local uncommitted hotfix to `plot_participation` (an earlier copy of the same NaN
+  guard) was `git stash`-ed before checkout; it is superseded by the committed guard.
+
+### Compute environment (Spock / PNI)
+
+- **Cluster**: Spock (`spockmk2-*` nodes), SLURM, partition `all` (A100-40G and L40S-46G GPUs),
+  `TIMELIMIT=infinite`. `$HOME = /usr/people/pt1290`.
+- **Env activation**: `module load anacondapy/2024.02 && conda activate torch-env`
+  (Python 3.12.13, torch 2.7.0+cu126, CUDA available). NOT the Della stack — Spock uses a
+  different home path and module set, so `paths_DELLA.yaml` does not apply here.
+- **Output root** (`paths.save_to`, set via CLI override, not a committed config):
+  `/usr/people/pt1290/trainRNNbrain/data/trained_RNNs`.
+
+### Output layout
+
+```
+<save_to>/CDDM_4a031e/EqType=<h|s>_N=<100|500|1000>_LmbdRWS=<0|0.05>_LmbdFR=<0|0.2>/
+    <r2score>_CDDM_relu;N=<N>;L=<lr>;MI=30000;...;Lfrm=<...>;Lrws=<...>/
+        <r2>_config.yaml          # full resolved Hydra config (exact reproduction record)
+        <r2>_BestParams_CDDM.json # trained weights (best val) — the network itself
+        <r2>_LastParams_CDDM.json
+        <r2>_LossBreakdown.{json,png}, <r2>_Grads{Raw,Scaled}.{json,png}, <r2>_TrainLoss.png
+        participation.png         # <-- primary silent-unit readout
+        sorted_matrices.png, avg_responses.png, intercluster_connectivity_matrices.png,
+        random_trials.png
+```
+
+The leaf `EqType=...` folder is produced by `experiment_tag="4a031e/EqType=..."` plus
+`trainer.trainer_tag=""` (the empty trainer tag suppresses the default `_BaseTrainer` suffix).
+The 5 reps of a condition land in 5 distinct per-net subfolders, keyed by r² score.
+
+> Animations (`animated_trajectories.mp4`, `animated_selectivity.mp4`) are **skipped** on Spock —
+> torch-env has no `ffmpeg`, and `DataSaver.save_animation` degrades gracefully (warns, no crash).
+> All scientific outputs are saved. To enable animations: `conda install -c conda-forge ffmpeg -n torch-env`.
+
+### Submission
+
+Script: [`slurm/SilentReLU_ReluDale_sweep.slurm`](../slurm/SilentReLU_ReluDale_sweep.slurm)
+(self-documenting; mixed-radix index decode of `SLURM_ARRAY_TASK_ID` → the 5 grid axes).
+
+```bash
+# on Spock, repo at detached HEAD 4a031e7:
+ssh spock
+cd ~/trainRNNbrain
+sbatch slurm/SilentReLU_ReluDale_sweep.slurm        # array 1-120 (no throttle), 12h, 1 GPU, 16G each
+# smoke test of one cell (50 iters, throwaway dir):
+MAXITER=50 SAVE_TO=~/trainRNNbrain/data/_smoketest sbatch --array=1-1 slurm/SilentReLU_ReluDale_sweep.slurm
+```
+
+Per-job command (one array task):
+
+```bash
+srun python trainRNNbrain/training/run_experiment.py \
+  seed="random" \
+  model=rnn_relu_Dale model.equation_type=<h|s> model.N=<100|500|1000> \
+  trainer.trainer_tag="''" trainer.max_iter=30000 \
+  trainer.lambda_rws=<0|0.05> trainer.lambda_frm=<0|0.2> \
+  paths.save_to=/usr/people/pt1290/trainRNNbrain/data/trained_RNNs \
+  experiment_tag="\"4a031e/EqType=<EQ>_N=<N>_LmbdRWS=<RWS>_LmbdFR=<FRM>\""
+```
+
+(`experiment_tag` is wrapped in literal double quotes so Hydra parses the `=` chars in the value
+as a single quoted string.)
+
+### Run record
+
+- Submitted **2026-06-26 ~12:50 EDT**. SLURM array job **`5078392`** (smoke test: `5078391`,
+  COMPLETED, validated full pipeline end-to-end including folder layout and graceful animation skip).
+- Initially submitted at `%24` concurrency, then throttle lifted live
+  (`scontrol update jobid=5078392 arraytaskthrottle=0`) — tasks now run as GPUs free,
+  bounded only by Spock's shared GPU availability and fair-share priority.
+- Logs: `/usr/people/pt1290/trainRNNbrain/log/SilentReLU.5078392_<task>.{out,err}`.
+
+### Results — silent units per condition
+
+A unit is **silent** if its peak firing rate over the noise-free CDDM validation batch is
+`< 0.01` (the `dead_abs` criterion; a scale-free `< 5%`-of-p95 criterion agrees throughout).
+Computed for all 120 nets by [`count_silent_units.py`](../count_silent_units.py) →
+`data/trained_RNNs/CDDM_4a031e/silent_units_per_condition.csv`, plotted by
+[`plot_silent_units_per_condition.py`](../trainRNNbrain/experiments_and_analysis/plot_silent_units_per_condition.py).
+
+![Silent units per condition](../img/internal_figures/silent_units_per_condition.png)
+
+Mean silent-unit count (and % of N) over 5 nets/condition:
+
+| eq | N | none (Lrws=0,Lfr=0) | rws only (Lrws=0.05) | fr only (Lfr=0.2) | both |
+|----|----|----|----|----|----|
+| h | 100  | 0 (0%)    | 15 (15%)  | 0 | 0 |
+| h | 500  | 118 (24%) | 210 (42%) | 0 | 0 |
+| h | 1000 | 471 (47%) | 535 (54%) | 0 | 0 |
+| s | 100  | 0.2 (0%)  | 20 (20%)  | 0 | 0 |
+| s | 500  | 187 (38%) | 227 (45%) | 0 | 0 |
+| s | 1000 | 543 (54%) | 555 (56%) | 0 | 0 |
+
+**Findings:**
+
+1. **The firing-rate-magnitude penalty (`lambda_frm=0.2`) eliminates silent units entirely** —
+   exactly 0 in *every* condition (both equation types, all N, with or without `lambda_rws`).
+   This is the headline result: `lambda_frm` rescues/prevents dead ReLUs.
+2. **Unpenalized baselines have a severe, size-scaling silent-unit problem** — negligible at
+   N=100 but ~24–38% at N=500 and ~47–54% at N=1000. The dead-ReLU pathology grows with N,
+   confirming the motivation for the experiment.
+3. **The sparsity penalty alone (`lambda_rws=0.05`, `lambda_frm=0`) does NOT rescue — it makes
+   it slightly worse** (e.g. h/N=1000: 54% vs 47% baseline; s/N=500: 45% vs 38%). As a
+   recurrent-weight sparsifier it pushes *more* units toward inactivity. So the original
+   "both penalties rescue" hypothesis holds for `lambda_frm` but is reversed for `lambda_rws`;
+   in the combined cell, `lambda_frm` dominates and the count is still 0.
+4. **Equation type (`h` vs `s`)** makes little qualitative difference; `s` has marginally more
+   silent units at large N.
+
+The per-unit **participation distribution** (`std(rate) + 0.9-quantile(|rate|)`, pooled over the
+5 nets of each condition) shows the mechanism directly — reported as separate figures per
+equation type (h and s are not pooled together), plotted by
+[`plot_participation_histograms.py`](../trainRNNbrain/experiments_and_analysis/plot_participation_histograms.py):
+
+![Participation histograms — h equation](../img/internal_figures/participation_histograms_h.png)
+
+![Participation histograms — s equation](../img/internal_figures/participation_histograms_s.png)
+
+In both equation types and at every N, the **fr-penalised** conditions (green `fr only`, blue
+`both`) form a single tight mode at participation ≈ 0.4–0.6 with **no near-zero pile and no
+high-participation tail** — every unit participates, none dominates (the `cap_fr=0.3` target
+bounds the rates). The **unpenalised** (`none`, red) and **rws-only** (orange) conditions are
+bimodal: a large spike of silent units at ≈ 0 plus a heavy tail of a few hyper-active units out
+to participation > 3. The silent spike grows with N, matching the bar-chart counts above.
+
+**Performance vs participation spread (N=1000).** The silent-unit count cannot tell `both` from
+`fr only` (both are 0), so to ask whether `lambda_rws` adds anything *alongside* `lambda_frm` we
+plot each N=1000 net's validation R² against **1/HHI of its participation** — the effective number
+of participating units (`HHI = Σ(p_i/Σp)²`; `1/HHI = N` when participation is perfectly even,
+smaller when concentrated in fewer units), on a log axis, separate panels per equation type, by
+[`plot_r2_vs_hhi.py`](../trainRNNbrain/experiments_and_analysis/plot_r2_vs_hhi.py):
+
+![R² vs 1/HHI of participation, N=1000](../img/internal_figures/r2_vs_hhi_N1000.png)
+
+- **Two clusters, set entirely by `lambda_frm`.** fr-penalised nets (`fr only` green, `both` blue)
+  sit at high 1/HHI near the even ceiling (N≈1000) — ~all units participate. `none` (red) and
+  `rws only` (orange) sit at ~3–10× lower 1/HHI (~70–250 effective units) — participation
+  concentrated in a minority, the rest silent. `lambda_rws` alone does **not** raise 1/HHI; it
+  stays in the low-1/HHI cluster with the baseline.
+- **R² is comparable across all conditions (~0.83–0.87)** — the rescue costs essentially no task
+  performance: penalised nets use all units *and* solve CDDM as well as the dead-unit nets.
+- **`lambda_rws` in conjunction with `lambda_frm` — present in BOTH equation types.** `both` (blue)
+  sits at higher 1/HHI than `fr only` (green) in both: h 746 → 887 effective units (+19%),
+  s 810 → 912 (+13%); the means are well-separated (std ≤ 24) in each. The `s` gap merely *looks*
+  smaller because both clouds sit near the N ceiling on the log axis. So rws adds participation-
+  evenness on top of frm regardless of equation type (marginally more in h, partly a ceiling effect
+  since `s` `fr only` starts more even); it never reduces silent units below the 0 that frm already
+  achieves — frm is the rescuer, rws a consistent refinement of how evenly the surviving units
+  share the work.
+
+**The worst unit, made concrete (N=1000).** Taking the *single least-participating unit* of each
+N=1000 net and plotting its firing rate (x = time, y = CDDM task condition, red intensity =
+activity) — 5 nets × 4 penalty conditions, separate figures per equation type, by
+[`plot_least_unit_activity.py`](../trainRNNbrain/experiments_and_analysis/plot_least_unit_activity.py):
+
+![Least-participating unit activity — h equation](../img/internal_figures/least_unit_activity_h_N1000.png)
+
+![Least-participating unit activity — s equation](../img/internal_figures/least_unit_activity_s_N1000.png)
+
+Under `none` and `rws only` the worst unit is uniformly blank (participation `p ≈ 0.000` — a fully
+dead ReLU) in every net and both equation types. Under `fr only` the worst unit is a weak, localized
+**transient** (`p ≈ 0.05–0.06`); under `both` it is stronger and more sustained (`p ≈ 0.09–0.12`).
+This floor-lift by rws is essentially **identical in h and s** (5th-percentile participation of the
+revived units: `fr only` ≈ 0.06 → `both` ≈ 0.13–0.14 in each equation type).
+
+### Bottom line
+
+**Setup.** 120 ReLU-Dale RNNs on CDDM (commit `4a031e`): equation type {h, s} × N {100, 500,
+1000} × penalty {none, rws `Lrws=0.05`, fr `Lfr=0.2`, both} × 5 nets. "Silent" = peak firing
+rate `< 0.01` over the noise-free validation batch.
+
+1. **Unmodified ReLU-Dale nets waste most of their capacity, and it worsens with scale.** Silent
+   fraction ≈ 0% at N=100, ~24–38% at N=500, and **~47–56% at N=1000** — both equation types.
+   Roughly half a large network is dead.
+
+2. **The firing-rate-magnitude penalty (`lambda_frm`) is the rescuer — necessary and sufficient,
+   at no task cost.** `Lfr=0.2` drives silent units to **exactly 0** in every cell (both eq, all
+   N, with or without rws); participation reaches the even ceiling (1/HHI ≈ N, ~all units
+   contribute) and R² is unchanged (~0.83–0.87).
+
+3. **The recurrent-weight-sparsity penalty (`lambda_rws`) does not rescue on its own** — if
+   anything marginally worse than baseline (a sparsifier concentrates participation; it stays in
+   the dead-unit / low-1/HHI cluster).
+
+4. **But the FR rescue is uneven at the margin.** The *bulk* of FR-rescued units form a healthy
+   participation mode (~0.4–0.6); however the *least*-participating units (`fr only`) carry only
+   weak, brief, localized activations (`p ≈ 0.05`) — transients that satisfy the penalty without
+   an obviously sustained role (the penalty is partly "gamed" at the margin).
+
+5. **Adding `lambda_rws` on top of `lambda_frm` lifts and shapes that marginal floor — in BOTH
+   equation types.** Under `both`, the worst units have higher participation (`p ≈ 0.09–0.12` vs
+   ≈ 0.05–0.06 for `fr only`) and more sustained, time- and condition-structured responses. The
+   floor-lift is essentially equal in h and s (5th-pct participation ≈ 0.06 → ≈ 0.13–0.14 in each),
+   and population evenness rises in both (mean 1/HHI: h 746 → 887, s 810 → 912). So `rws` cannot
+   prevent silence by itself, but in combination it consolidates the marginally-revived units from
+   thin transients into more sustained responses — for h and s alike (gain marginally larger in h,
+   partly a ceiling effect).
+
+**One line.** *`lambda_frm` abolishes dead ReLUs (all N, both equation types, zero R² cost);
+`lambda_rws` can't do this alone, but added to `lambda_frm` it consolidates the marginally-revived
+units from thin transients into more sustained, structured responses — in both equation types
+(marginally stronger for h).*
+
+**Status of the claims / what's not yet shown.** Points 1–3 are direct measurements (silent
+counts, 1/HHI, R²). Points 4–5 are interpretations of the *activity shape* of the single worst
+unit, not a direct test of "computational role." To confirm: decode the task variables (context,
+motion/colour evidence, choice) from the marginally-revived units and compare `fr only` vs `both`;
+quantify selectivity / clustering of the revived population. A `lambda_rws` magnitude sweep would
+map how much shaping it adds.
+
+### How to reproduce from scratch
+
+1. `git -C ~/trainRNNbrain fetch origin && git -C ~/trainRNNbrain checkout 4a031e7`
+2. `module load anacondapy/2024.02 && conda activate torch-env` (or any env with torch + this
+   package editable-installed).
+3. `sbatch slurm/SilentReLU_ReluDale_sweep.slurm` (adjust `--partition`, `paths.save_to`,
+   and the SBATCH `--output/--error` paths for a non-Spock cluster).
