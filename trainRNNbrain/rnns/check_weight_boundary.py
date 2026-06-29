@@ -66,12 +66,13 @@ def main():
         "sticky get_params must export the raw param unchanged"
 
     # 3) effective weights reproduce the dynamics in a reloaded sticky net + via RNN_numpy
-    fr_r = r.get_firing_rates(r.forward(u, w_noise=False)[0]).detach().cpu().numpy()
+    uu = u.to(r.device)  # match the model device (cpu or cuda)
+    fr_r = r.get_firing_rates(r.forward(uu, w_noise=False)[0]).detach().cpu().numpy()
     s2 = build("sticky", seed=123)
     s2.set_params(p)
-    fr_s = s2.get_firing_rates(s2.forward(u, w_noise=False)[0]).detach().cpu().numpy()
+    fr_s = s2.get_firing_rates(s2.forward(uu, w_noise=False)[0]).detach().cpu().numpy()
     assert np.allclose(fr_r, fr_s, atol=1e-5), "effective weights must reproduce dynamics in sticky mode"
-    cc = np.corrcoef(fr_r.ravel(), firing_rates_numpy(p, u).ravel())[0, 1]
+    cc = np.corrcoef(fr_r.ravel(), firing_rates_numpy(p, uu).ravel())[0, 1]
     assert cc > 0.999, f"RNN_numpy reconstruction must match torch dynamics (corr={cc:.5f})"
 
     # 4) legacy fallback
