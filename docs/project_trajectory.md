@@ -346,3 +346,29 @@ clamp — e.g. **`weight_boundary: sticky | reflective`**:
 Then re-run the gamma=0 sweep under both to quantify how much of the baseline silence is an artifact
 of the `sticky` projection. (Also still open from v1: trainable-bias variant; decoding/selectivity
 of the marginally-revived units.)
+
+### v2b — `weight_boundary` implemented + reflective gamma=0 sweep
+
+The `weight_boundary` parameter is now in the model (commits `7fdf63`, `2bc3c16`):
+- **`sticky`** (default, legacy): raw `W_rec`; the Trainer clamps sign-violating entries to
+  `±weight_boundary_eps` (default `1e-12`) each step. Behaviour is byte-identical to before
+  (validated by `trainRNNbrain/rnns/check_weight_boundary.py`).
+- **`reflective`**: the effective weight is `|param|·sign·mask`, enforced in `RNN_torch.forward`;
+  the Trainer skips the post-step projections, so weights are never pinned at the boundary.
+- `get_params` exports the **effective** (Dale-compliant) weights, so `RNN_numpy` and every analysis
+  script are boundary-agnostic and reconstruction is correct even if the mode is unknown; `__init__`
+  / `set_params` default to `sticky`/`1e-12` (legacy fallback for pre-existing nets).
+- Config fields: `model.weight_boundary`, `model.weight_boundary_eps` (in `rnn_relu_Dale.yaml`).
+
+**Reflective sweep (this run).** Same grid as the gamma=0 sweep (2 eq × 2 `lambda_rws` × 2
+`lambda_frm` × 5 nets, N=1000, gamma=0) **plus `model.weight_boundary=reflective`**. Code commit
+`2bc3c16`, output folder **`CDDM_2bc3c1_g0_reflective/`**. Script:
+[`slurm/SilentReLU_ReluDale_gamma0_reflective_N1000.slurm`](../slurm/SilentReLU_ReluDale_gamma0_reflective_N1000.slurm).
+Submitted **2026-06-29 ~15:35 EDT**, SLURM array **`5096453`**. Validated before launch by a local
+20-iter run (config records `weight_boundary: reflective`, saved `W_rec` Dale-compliant, no eps-pile)
+and by `check_weight_boundary` passing on the Spock L40S.
+
+**Comparison axis:** `CDDM_4a031e_g0` (gamma=0, **sticky**) vs `CDDM_2bc3c1_g0_reflective`
+(gamma=0, **reflective**). Note: because the `sticky` path is behaviour-preserving, the later jobs of
+the `4a031e_g0` sweep actually executed at `7fdf63`/`2bc3c16` in sticky mode (Spock's checkout was
+advanced for the reflective code) — identical results, only the recorded commit differs per job.
