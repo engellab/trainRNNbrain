@@ -106,6 +106,8 @@ class RNN_torch(torch.nn.Module):
                  sigma_inp=0.03,
                  sigma_out=0.03,
                  gamma=0.1,
+                 weight_boundary="sticky",
+                 weight_boundary_eps=1e-12,
                  bias_range=[0.0, 0.0],
                  y_init=None,
                  seed=None,
@@ -154,6 +156,11 @@ class RNN_torch(torch.nn.Module):
         self.connectivity_density_rec = connectivity_density_rec
         self.exc2inhR = exc2inhR
         self.gamma = gamma
+        # weight_boundary: how the Dale/positivity constraints are enforced.
+        #   "sticky"     -> raw params; the Trainer clamps sign-violating entries to +/-eps each step (legacy).
+        #   "reflective" -> the effective weight is |param|*sign*mask, enforced by construction in forward().
+        self.weight_boundary = weight_boundary
+        self.weight_boundary_eps = weight_boundary_eps
         self.dale_mask = None
         self.output_mask = None
 
@@ -243,7 +250,24 @@ class RNN_torch(torch.nn.Module):
 
         return torch.bernoulli(keep_p.reshape(self.N, 1), generator=self.random_generator)
 
-    def rhs(self, x, I, i_noise, r_noise, dropout_mask=None, dropout_kind=None, eps=1e-8):
+    def _constrained_weights(self):
+        """Return (W_rec, W_inp, W_out) as used in the dynamics, honoring weight_boundary.
+
+        reflective: enforce Dale's law / I-O positivity / structural masks BY CONSTRUCTION,
+                    via |param| * sign * mask (so weights are never pinned at the +/-eps boundary).
+        sticky:     return the raw parameters as-is (the Trainer maintains the constraints with a
+                    post-step clamp). This is the legacy behavior.
+        Returns:
+            (W_rec, W_inp, W_out) torch tensors, all on self.device.
+        """
+        if self.weight_boundary == "reflective":
+            W_rec = self.W_rec.abs() * self.dale_mask.unsqueeze(0) * self.recurrent_mask
+            W_inp = self.W_inp.abs() * self.input_mask
+            W_out = self.W_out.abs() * self.output_mask
+            return W_rec, W_inp, W_out
+        return self.W_rec, self.W_inp, self.W_out
+
+    def rhs(self, x, I, i_noise, r_noise, W_rec=None, W_inp=None, dropout_mask=None, dropout_kind=None, eps=1e-8):
         shp = (x.shape[0],) + (1,) * (x.ndim - 1)
         # --- bias (matches init: always a tensor; fixed if not trainable, Parameter if trainable) ---
         b = self.bias.reshape(shp)
@@ -264,24 +288,28 @@ class RNN_torch(torch.nn.Module):
                     dm = dm.to(dtype=x.dtype)
                 m = dm.reshape(shp) if dm.is_floating_point() and (dm.min() >= 0) and (dm.max() <= 1) else (dm > 0).reshape(shp).to(dtype=x.dtype)
 
+        # weights actually used in the dynamics (constrained per weight_boundary; see forward())
+        W_rec = self.W_rec if W_rec is None else W_rec
+        W_inp = self.W_inp if W_inp is None else W_inp
+
         # Cubic term (skip if gamma == 0)
         cubic_term = self.gamma * x * x * x if (self.gamma) > eps else 0.0
-        inp = self.W_inp @ (I + i_noise)
+        inp = W_inp @ (I + i_noise)
         if m is None:
             if self.equation_type == "h":
                 r = self.activation(x)
-                drive = self.W_rec @ r + inp + b
+                drive = W_rec @ r + inp + b
                 return -x + drive + r_noise - cubic_term
             if self.equation_type == "s":
-                h = self.W_rec @ x + inp + b
+                h = W_rec @ x + inp + b
                 return -x + self.activation(h) + r_noise - cubic_term
         else:
             if self.equation_type == "h":
                 r = self.activation(x) * m
-                drive = (self.W_rec @ r + inp + b) * m
+                drive = (W_rec @ r + inp + b) * m
                 return -x + drive + r_noise * m - cubic_term
             if self.equation_type == "s":
-                h = self.W_rec @ (x * m) + (inp + b) * m
+                h = W_rec @ (x * m) + (inp + b) * m
                 return -x + self.activation(h) * m + r_noise * m - cubic_term
 
     def forward(self, u, w_noise=True, dropout=False, dropout_args=None, participation=None):
@@ -296,6 +324,9 @@ class RNN_torch(torch.nn.Module):
         dropout_mask = None
         if dropout and dk in ("dead", "mute"):
             dropout_mask = self.get_dropout_mask(dropout_args, part)
+
+        # weights used in the dynamics (computed once; reflective applies |param|*sign*mask)
+        Wrec_c, Winp_c, Wout_c = self._constrained_weights()
 
         states = torch.zeros(self.N, 1, batch_size, device=self.device)
         states[:, 0, :] = self.y_init.reshape(-1, 1).repeat(1, batch_size)
@@ -319,6 +350,8 @@ class RNN_torch(torch.nn.Module):
                 I=u[:, t - 1, :],
                 i_noise=inp_noise[:, t - 1, :],
                 r_noise=rec_noise[:, t - 1, :],
+                W_rec=Wrec_c,
+                W_inp=Winp_c,
                 dropout_kind=dk,
                 dropout_mask=dropout_mask
             )
@@ -327,11 +360,11 @@ class RNN_torch(torch.nn.Module):
 
         states_new = torch.stack(states_list, dim=1)  # (N, T, B)
         if dropout_mask is None:
-            W_out = self.W_out
+            W_out = Wout_c
         elif dk == "mute" or dk == "dead":
-            W_out = self.W_out * (dropout_mask > 0).view(1, -1)    # binary mask
+            W_out = Wout_c * (dropout_mask > 0).view(1, -1)    # binary mask
         else:
-            W_out = self.W_out
+            W_out = Wout_c
         if self.equation_type == "h":
             h = states_new
             outputs = torch.einsum("oj,jtk->otk", W_out, self.activation(h) + out_noise)
@@ -355,12 +388,16 @@ class RNN_torch(torch.nn.Module):
     def get_params(self):
         """Save crucial parameters of the RNN as numpy arrays."""
         to_np = lambda t: None if t is None else deepcopy(t.detach().cpu().numpy())
+        # Export the EFFECTIVE (constraint-compliant) weights so downstream/RNN_numpy are
+        # boundary-agnostic and reconstruction is correct regardless of weight_boundary
+        # (for "sticky" these equal the raw params).
+        Wr, Wi, Wo = self._constrained_weights()
 
         param_dict = {
             "activation_args": self.activation_args,
-            "W_out": to_np(self.W_out.data),
-            "W_inp": to_np(self.W_inp.data),
-            "W_rec": to_np(self.W_rec.data),
+            "W_out": to_np(Wo),
+            "W_inp": to_np(Wi),
+            "W_rec": to_np(Wr),
             "y_init": to_np(self.y_init),
             "bias": to_np(self.bias) if getattr(self, "bias_trainable", False) or (self.bias_range is not None) else None,
             "bias_range": None if self.bias_range is None else tuple(float(v) for v in self.bias_range.detach().cpu().tolist()),
@@ -369,6 +406,8 @@ class RNN_torch(torch.nn.Module):
             "dt": self.dt,
             "tau": self.tau,
             "gamma": self.gamma,
+            "weight_boundary": self.weight_boundary,
+            "weight_boundary_eps": float(self.weight_boundary_eps),
             "dale_mask": to_np(self.dale_mask),
             "input_mask": to_np(self.input_mask),
             "recurrent_mask": to_np(self.recurrent_mask),
@@ -410,6 +449,10 @@ class RNN_torch(torch.nn.Module):
         self.recurrent_mask = as_t(params["recurrent_mask"])
         self.output_mask = as_t(params["output_mask"])
         self.equation_type = params.get("equation_type", "s")
+
+        # weight_boundary: legacy fallback for nets saved before this field existed
+        self.weight_boundary = params.get("weight_boundary", "sticky")
+        self.weight_boundary_eps = float(params.get("weight_boundary_eps", 1e-12))
 
         # ---- bias (new bias_range / bias_trainable scheme) ----
         br = params.get("bias_range", None)

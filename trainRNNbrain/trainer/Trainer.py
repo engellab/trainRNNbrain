@@ -520,12 +520,14 @@ class Trainer():
         return None
 
     def enforce_io_nonnegativity_(self):
+        eps = float(getattr(self.RNN, "weight_boundary_eps", 1e-12))
         with torch.no_grad():
-            self.RNN.W_inp.clamp_min_(1e-12)
-            self.RNN.W_out.clamp_min_(1e-12)
+            self.RNN.W_inp.clamp_min_(eps)
+            self.RNN.W_out.clamp_min_(eps)
         return None
 
     def enforce_dale_(self, eps=1e-12):
+        eps = float(getattr(self.RNN, "weight_boundary_eps", eps))
         with torch.no_grad():
             # W_rec
             W_rec = self.RNN.W_rec
@@ -626,9 +628,13 @@ class Trainer():
         self.optimizer.step()
 
         # --- 4) now it's safe to mutate weights in-place ---
-        self.enforce_masks_()
-        self.enforce_io_nonnegativity_()
-        self.enforce_dale_()
+        # For weight_boundary="reflective" the constraints are baked into the forward pass
+        # (effective weight = |param|*sign*mask), so the post-step projections are skipped;
+        # for "sticky" (legacy/default) they are applied as before.
+        if getattr(self.RNN, "weight_boundary", "sticky") == "sticky":
+            self.enforce_masks_()
+            self.enforce_io_nonnegativity_()
+            self.enforce_dale_()
         self.enforce_bias_range_()
 
         # --- 5) compute total loss and r2 for reporting ---
