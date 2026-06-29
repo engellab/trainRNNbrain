@@ -17,11 +17,14 @@ time. Two transparent criteria are reported (the story should agree on both):
 Output: per-condition mean +/- std of (silent count, silent fraction) over the nets in
 that condition, printed as a table and written to silent_units_per_condition.csv.
 
-Usage:  python3 count_silent_units.py
+Usage:  python3 count_silent_units.py [SWEEP_FOLDER]
+        SWEEP_FOLDER defaults to .../data/trained_RNNs/CDDM_4a031e; pass another sweep
+        root (e.g. CDDM_4a031e_g0) to score it instead.
 """
 
 import os
 import re
+import sys
 import csv
 import glob
 import json
@@ -34,7 +37,7 @@ from trainRNNbrain.utils import unjsonify, filter_kwargs
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 import hydra
 
-ROOT = "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs/CDDM_4a031e"
+ROOT = sys.argv[1] if len(sys.argv) > 1 else "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs/CDDM_4a031e"
 DEAD_ABS = 0.01       # absolute peak-rate floor for a "dead" unit
 REL_FRAC = 0.05       # relative peak-rate fraction (vs net's 95th pct) for "silent"
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_LmbdRWS=(?P<rws>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")

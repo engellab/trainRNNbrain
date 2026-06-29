@@ -286,3 +286,63 @@ map how much shaping it adds.
    package editable-installed).
 3. `sbatch slurm/SilentReLU_ReluDale_sweep.slurm` (adjust `--partition`, `paths.save_to`,
    and the SBATCH `--output/--error` paths for a non-Spock cluster).
+
+---
+
+## 2026-06-29 — v2: gamma=0 ("naked" ReLU) + architectural-confound scouting
+
+### Why
+
+Before over-interpreting the v1 results, we scouted the model/training code for architectural and
+parameter choices that could contaminate the "naked, field-standard ReLU-Dale RNN" reading. Three
+matter; one is removed in this v2 run, two are flagged for follow-up.
+
+### Confounds found (code refs: `trainRNNbrain/rnns/RNN_torch.py`, `trainRNNbrain/trainer/Trainer.py`)
+
+1. **Cubic term `−gamma·x³` in the dynamics** (`RNN_torch.rhs`, active when `gamma > 1e-8`; config
+   default `gamma=0.1`). It is a soft saturation — a *built-in activity-magnitude limiter baked into
+   the dynamics* — which confounds the `lambda_frm` (firing-rate-magnitude) comparison: the v1
+   baseline already had some magnitude control. **Removed in v2 via `model.gamma=0`** (config
+   override, no code change; cubic skipped).
+
+2. **Dale sign-projection is a clamp-to-eps** (`Trainer.enforce_dale_`, run after *every*
+   `optimizer.step()`): a `W_rec` weight whose sign violates Dale is hard-set to `±1e-12`, i.e.
+   **pinned at ~0, not reflected**. This is projected gradient descent onto the Dale orthant; a
+   weight whose gradient keeps pushing it into the forbidden sign **sticks at ~0**. Over 30k steps
+   this causes **emergent sparsification of `W_rec` independent of `lambda_rws`**, so part of the
+   baseline's dead-unit / sparsity signature is a projection artifact rather than intrinsic to
+   "naked ReLU". **Not changed in v2** (it is part of the Dale model); see follow-up below.
+
+3. **Bias fixed at 0** (`bias_range=[0,0]`, `bias_trainable=False`): a ReLU unit with net-negative
+   input across all conditions is silent with **no bias to lift it** into the active regime, which
+   likely *inflates* the silent-unit count. A trainable bias is arguably more standard. **Not
+   changed in v2** (kept for a clean one-variable comparison).
+
+   Secondary (unchanged, lower expected impact): exc-only readout with `W_out ≥ 0` (inhibitory
+   units never directly drive the output); no self-connections (`W_rec` diagonal zeroed each step);
+   `spectral_rad=1.2` init; training noise `σ_rec=σ_inp=0.05`. Penalties are applied via a
+   task-safe gradient projection (penalty-gradient components opposing the task gradient are
+   dropped) — irrelevant to the no-penalty baseline.
+
+### v2 experiment (this run)
+
+**Single change from v1: `model.gamma=0`.** Everything else identical, **N=1000 only**.
+
+- Grid (40 jobs) = 2 eq {h, s} × 2 `lambda_rws` {0, 0.05} × 2 `lambda_frm` {0, 0.2} × 5 nets.
+- Code commit `4a031e` (gamma is a config override). Output root folder **`CDDM_4a031e_g0/`**
+  (`_g0` = gamma 0), leaf `EqType=<eq>_N=1000_LmbdRWS=<rws>_LmbdFR=<frm>/`.
+- Script: [`slurm/SilentReLU_ReluDale_gamma0_N1000.slurm`](../slurm/SilentReLU_ReluDale_gamma0_N1000.slurm)
+  (`--mem=32G` — all N=1000; `--array=1-40`, no throttle). Submitted **2026-06-29 ~14:50 EDT**,
+  SLURM array job **`5096100`** (smoke test `5095648` COMPLETED; confirmed `model.gamma=0` in the
+  saved config). Re-run the v1 analysis scripts pointed at `CDDM_4a031e_g0` to compare.
+
+### Planned follow-up (to discuss / next)
+
+Make the Dale boundary behaviour an explicit, switchable config parameter rather than a hard-coded
+clamp — e.g. **`weight_boundary: sticky | reflective`**:
+- `sticky` = current behaviour (clamp sign-violating weights to `±eps`, pinned at 0).
+- `reflective` = reflect across zero (`W ← |W| · sign_mask`) or reparametrize `W_rec = |θ| · sign_mask`,
+  so weights are not pinned at the boundary.
+Then re-run the gamma=0 sweep under both to quantify how much of the baseline silence is an artifact
+of the `sticky` projection. (Also still open from v1: trainable-bias variant; decoding/selectivity
+of the marginally-revived units.)
