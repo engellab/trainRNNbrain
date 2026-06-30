@@ -336,6 +336,38 @@ matter; one is removed in this v2 run, two are flagged for follow-up.
   SLURM array job **`5096100`** (smoke test `5095648` COMPLETED; confirmed `model.gamma=0` in the
   saved config). Re-run the v1 analysis scripts pointed at `CDDM_4a031e_g0` to compare.
 
+#### v2 results — gamma=0 (sticky), N=1000
+
+The full v1 figure set regenerated on `CDDM_4a031e_g0` (the analysis scripts now take a sweep-folder
+arg; figures suffixed `_4a031e_g0`). gamma=0 was run for **N=1000 only**, so the N=100/500 groups in
+the bar chart are empty. **Removing the cubic term barely changes the silent-unit story — the cubic
+was not a confound here.** Silent units (dead, peak rate < 0.01), v1 (cubic=0.1) → v2 (gamma=0):
+
+| eq · penalty (N=1000) | v1 (cubic=0.1) | v2 (gamma=0) |
+|---|---|---|
+| h · none | 47% | 44% |
+| h · rws-only | 54% | 53% |
+| s · none | 54% | 55% |
+| s · rws-only | 56% | 56% |
+| any · fr-only / both | 0% | 0% |
+
+![Silent units per condition — gamma=0](../img/internal_figures/silent_units_per_condition_4a031e_g0.png)
+
+![Participation histograms, h — gamma=0](../img/internal_figures/participation_histograms_h_4a031e_g0.png)
+
+![Participation histograms, s — gamma=0](../img/internal_figures/participation_histograms_s_4a031e_g0.png)
+
+![R² vs 1/HHI, N=1000 — gamma=0](../img/internal_figures/r2_vs_hhi_N1000_4a031e_g0.png)
+
+![Least-participating unit activity, h — gamma=0](../img/internal_figures/least_unit_activity_h_N1000_4a031e_g0.png)
+
+![Least-participating unit activity, s — gamma=0](../img/internal_figures/least_unit_activity_s_N1000_4a031e_g0.png)
+
+> Repro note: the runtime `git rev-parse` folder hash scattered these 40 nets across
+> `CDDM_4a031e_g0` and `CDDM_2bc3c1_g0` (Spock's checkout was advanced mid-sweep for the reflective
+> code) — all gamma=0 sticky, behaviour-identical; consolidated into `CDDM_4a031e_g0` for analysis.
+> Lesson: pin the hash in `experiment_tag` instead of computing it per-job at runtime.
+
 ### Planned follow-up (to discuss / next)
 
 Make the Dale boundary behaviour an explicit, switchable config parameter rather than a hard-coded

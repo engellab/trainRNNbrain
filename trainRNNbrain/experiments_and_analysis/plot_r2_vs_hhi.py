@@ -31,11 +31,18 @@ import glob
 import numpy as np
 from matplotlib import pyplot as plt
 
-from plot_participation_histograms import build_cddm_batch, net_participation, ROOT, IMG_DIR, PENALTY, EQ_NAME
+from plot_participation_histograms import build_cddm_batch, net_participation, PENALTY, EQ_NAME
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SWEEP = sys.argv[1] if len(sys.argv) > 1 else "CDDM_4a031e"   # sweep folder under data/trained_RNNs
+TAG = SWEEP.replace("CDDM_", "")
+SUF = "" if SWEEP == "CDDM_4a031e" else f"_{TAG}"
+ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
+IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
 
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_LmbdRWS=(?P<rws>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")
 N_TARGET = 1000
-OUT = os.path.join(IMG_DIR, "r2_vs_hhi_N1000.png")
+OUT = os.path.join(IMG_DIR, f"r2_vs_hhi_N1000{SUF}.png")
 CACHE_CSV = os.path.join(ROOT, "r2_hhi_N1000.csv")   # per-net (eq, rws, frm, hhi, r2); skips forward passes
 
 
@@ -122,7 +129,7 @@ def main():
     axes[0].set_ylabel("validation $R^2$")
     axes[0].legend(title="penalty", frameon=False, fontsize=9, loc="center")
     fig.suptitle(f"Task performance vs participation spread — N={N_TARGET} "
-                 f"CDDM ReLU-Dale nets (commit 4a031e)", y=1.0)
+                 f"CDDM ReLU-Dale nets ({TAG})", y=1.0)
     plt.tight_layout()
 
     os.makedirs(IMG_DIR, exist_ok=True)

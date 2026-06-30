@@ -17,15 +17,19 @@ Output: <repo>/img/internal_figures/silent_units_per_condition.png
 Run from this directory:  python plot_silent_units_per_condition.py
 """
 import os
+import sys
 import csv
 import re
 import numpy as np
 from matplotlib import pyplot as plt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CSV = os.path.join(HERE, "../../data/trained_RNNs/CDDM_4a031e/silent_units_per_condition.csv")
+SWEEP = sys.argv[1] if len(sys.argv) > 1 else "CDDM_4a031e"   # sweep folder under data/trained_RNNs
+TAG = SWEEP.replace("CDDM_", "")
+SUF = "" if SWEEP == "CDDM_4a031e" else f"_{TAG}"             # suffix non-default sweeps' figures
+CSV = os.path.join(HERE, "../../data/trained_RNNs", SWEEP, "silent_units_per_condition.csv")
 IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
-OUT = os.path.join(IMG_DIR, "silent_units_per_condition.png")
+OUT = os.path.join(IMG_DIR, f"silent_units_per_condition{SUF}.png")
 
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_LmbdRWS=(?P<rws>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")
 
@@ -88,8 +92,8 @@ def main():
     ax.set_xticks(x)
     ax.set_xticklabels([f"{EQ_NAME[eq]}\nN={N}" for eq, N in groups])
     ax.set_ylabel("Number of silent units  (peak firing rate < 0.01)")
-    ax.set_title("Silent units per condition — CDDM ReLU-Dale sweep "
-                 "(commit 4a031e, mean ± std over 5 nets/condition)")
+    ax.set_title(f"Silent units per condition — CDDM ReLU-Dale sweep "
+                 f"({TAG}, mean ± std over 5 nets/condition)")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.legend(title="penalty", frameon=False, ncol=2, loc="upper left")

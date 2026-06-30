@@ -40,7 +40,10 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(HERE, "../../data/trained_RNNs/CDDM_4a031e")
+SWEEP = next((a for a in sys.argv[1:] if not a.startswith("-")), "CDDM_4a031e")  # sweep folder
+TAG = SWEEP.replace("CDDM_", "")
+SUF = "" if SWEEP == "CDDM_4a031e" else f"_{TAG}"
+ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
 IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
 CACHE = os.path.join(ROOT, "participation_by_condition.npz")
 
@@ -147,11 +150,11 @@ def plot_eq(eq, pooled, bins, xmax):
         ax.set_xlim(0, xmax)
     axes[0].legend(title="penalty", frameon=False, fontsize=9, ncol=2)
     axes[0].set_title(f"Pooled participation histograms — {EQ_NAME[eq]} equation — "
-                      f"CDDM ReLU-Dale sweep (4a031e; 5 nets/condition)")
+                      f"CDDM ReLU-Dale sweep ({TAG}; 5 nets/condition)")
     axes[-1].set_xlabel("participation  =  std(rate) + 0.9-quantile(|rate|)   over time & trials")
     plt.tight_layout()
     os.makedirs(IMG_DIR, exist_ok=True)
-    out = os.path.join(IMG_DIR, f"participation_histograms_{eq}.png")
+    out = os.path.join(IMG_DIR, f"participation_histograms_{eq}{SUF}.png")
     fig.savefig(out, dpi=200)
     plt.close(fig)
     return out

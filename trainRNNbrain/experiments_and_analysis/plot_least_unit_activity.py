@@ -17,6 +17,7 @@ Output: <repo>/img/internal_figures/least_unit_activity_{h,s}_N1000.png
 Run from this directory:  python plot_least_unit_activity.py
 """
 import os
+import sys
 import re
 import glob
 import json
@@ -26,7 +27,14 @@ from omegaconf import OmegaConf, DictConfig
 
 from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.utils import unjsonify, filter_kwargs
-from plot_participation_histograms import build_cddm_batch, ROOT, IMG_DIR, EQ_NAME
+from plot_participation_histograms import build_cddm_batch, EQ_NAME
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SWEEP = sys.argv[1] if len(sys.argv) > 1 else "CDDM_4a031e"   # sweep folder under data/trained_RNNs
+TAG = SWEEP.replace("CDDM_", "")
+SUF = "" if SWEEP == "CDDM_4a031e" else f"_{TAG}"
+ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
+IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
 
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_LmbdRWS=(?P<rws>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")
 N_TARGET = 1000
@@ -117,11 +125,11 @@ def plot_eq(eq, data, vmax):
             if row == nrows - 1:
                 ax.set_xlabel("time", fontsize=9)
     fig.suptitle(f"Least-participating unit activity — {EQ_NAME[eq]} equation — "
-                 f"N={N_TARGET} CDDM ReLU-Dale (commit 4a031e)", fontsize=13)
+                 f"N={N_TARGET} CDDM ReLU-Dale ({TAG})", fontsize=13)
     if im is not None:
         cbar = fig.colorbar(im, ax=axes, shrink=0.6, pad=0.02)
         cbar.set_label("firing rate")
-    out = os.path.join(IMG_DIR, f"least_unit_activity_{eq}_N{N_TARGET}.png")
+    out = os.path.join(IMG_DIR, f"least_unit_activity_{eq}_N{N_TARGET}{SUF}.png")
     os.makedirs(IMG_DIR, exist_ok=True)
     fig.savefig(out, dpi=170, bbox_inches="tight")
     plt.close(fig)
