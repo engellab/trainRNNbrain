@@ -32,7 +32,16 @@ def run_training(cfg: DictConfig) -> None:
     seed = cfg.seed
     if seed == 'random':
         seed = time.time_ns() & 0xFFFFFFFF
-    random.seed(int(seed))
+    seed = int(seed)
+    # Record the resolved seed back into cfg so the SAVED config + seed fully reproduce the run,
+    # and seed every RNG source from it (python / numpy / torch global + cuda).
+    OmegaConf.set_struct(cfg, False)
+    cfg.seed = seed
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
     disp = cfg.display_figures
 
     # defining the task

@@ -16,13 +16,16 @@ record. Status as of the gamma=0 / boundary / activation / noise controls.
 ## TODO (prioritized)
 
 ### HIGH — mechanism: prevention vs resurrection
-Log per-unit activity every ~500 iters during training for `none` vs `frm` (h and s, N=1000, a few seeds,
-fixed/known seeds so init is reconstructible). Questions:
-- Does `frm` keep units alive from the start (prevention) or revive already-low units (resurrection)?
-  Hunch: mostly prevention; possibly some resurrection for the h equation.
-- Identity tracking: are the units that are low/dead at init the same ones low/dead at convergence?
-  (Couldn't do from saved data — seed not stored. This logged run also answers it.)
-- This single experiment explains *why* `frm` rescues but `rws` does not.
+**Clean test (Pavel's design):** initialise the net so that some units are *already silent* (e.g. set their
+incoming weights / bias so their pre-activation is always negative), then train **with `frm`** and track
+those specific units:
+- if they **stay silent** → `frm` works by **prevention** (it keeps still-active units alive, it does not
+  resurrect dead ones);
+- if they **become active** → **resurrection** (`frm` provides enough drive to pull dead units back).
+- Hunch: mostly prevention; possibly some resurrection for the `h` equation.
+Needs a small code feature to force-init a chosen fraction of units silent (now reproducible: seed is saved).
+Complementary: log per-unit activity every ~500 iters for `none` vs `frm` (h & s) — also gives the
+init→convergence identity tracking. Together these explain *why* `frm` rescues but `rws` does not.
 
 ### MED — trainable bias (the obvious reviewer question)
 Rerun the gamma=0 grid with a trainable bias (`bias_range=[-b,b]`, `bias_trainable=True`). With no bias a
