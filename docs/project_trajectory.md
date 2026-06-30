@@ -436,6 +436,18 @@ Silent units (dead, peak rate < 0.01), N=1000 — gamma=0 **sticky** vs **reflec
 
 ![Least-participating unit activity, s — gamma=0 reflective](../img/internal_figures/least_unit_activity_s_N1000_2bc3c1_g0_reflective.png)
 
+**Sanity check — reflective was active.** Pooled off-diagonal `|W_rec|` (h, N=1000, gamma=0):
+sticky pins **19% (none) / 32% (both)** of recurrent weights at exactly the `eps=1e-12` clamp (the
+spike at 1e-12); reflective has **0%** there (smallest weight ~4e-11, continuous) — confirming
+`|param|·sign` was in effect with no boundary pinning. Script:
+[`plot_weight_distribution.py`](../trainRNNbrain/experiments_and_analysis/plot_weight_distribution.py).
+
+![|W_rec| distribution, sticky vs reflective](../img/internal_figures/weight_distribution_sticky_vs_reflective_h_N1000.png)
+
+Notably, sticky pins a *large* fraction of recurrent weights at ~0, yet that does **not** produce
+more silent units than reflective — so the unit-level silence is driven by the training dynamics,
+not by which weights sit at the Dale boundary.
+
 **Conclusion across the boundary controls:** neither removing the cubic term (gamma=0) nor
 switching the Dale boundary (sticky → reflective) changes the picture — unpenalized / rws-only
 ReLU-Dale nets are ~45–63% silent at N=1000, and the firing-rate-magnitude penalty is what rescues
