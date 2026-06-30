@@ -404,3 +404,39 @@ and by `check_weight_boundary` passing on the Spock L40S.
 (gamma=0, **reflective**). Note: because the `sticky` path is behaviour-preserving, the later jobs of
 the `4a031e_g0` sweep actually executed at `7fdf63`/`2bc3c16` in sticky mode (Spock's checkout was
 advanced for the reflective code) — identical results, only the recorded commit differs per job.
+
+#### v2b results — gamma=0 reflective (N=1000)
+
+Same figure set on `CDDM_2bc3c1_g0_reflective` (figures suffixed `_2bc3c1_g0_reflective`; N=1000
+only). **The reflective boundary does NOT reduce silent units — it has as many or slightly *more*
+than sticky.** So the silent-ReLU phenomenon is intrinsic to the unpenalized / rws-only ReLU-Dale
+net, **not an artifact of the sticky clamp-to-eps projection.** This was a genuine falsification
+test: reflective never pins weights at the boundary, so it *could* have shown far fewer silent
+units — it didn't. The firing-rate-magnitude penalty still rescues to exactly 0 in every condition.
+
+Silent units (dead, peak rate < 0.01), N=1000 — gamma=0 **sticky** vs **reflective**:
+
+| eq · penalty | sticky | reflective |
+|---|---|---|
+| h · none | 44% | 46% |
+| h · rws-only | 53% | 58% |
+| s · none | 55% | 55% |
+| s · rws-only | 56% | 63% |
+| any · fr-only / both | 0% | 0% |
+
+![Silent units — gamma=0 reflective](../img/internal_figures/silent_units_per_condition_2bc3c1_g0_reflective.png)
+
+![Participation histograms, h — gamma=0 reflective](../img/internal_figures/participation_histograms_h_2bc3c1_g0_reflective.png)
+
+![Participation histograms, s — gamma=0 reflective](../img/internal_figures/participation_histograms_s_2bc3c1_g0_reflective.png)
+
+![R² vs 1/HHI, N=1000 — gamma=0 reflective](../img/internal_figures/r2_vs_hhi_N1000_2bc3c1_g0_reflective.png)
+
+![Least-participating unit activity, h — gamma=0 reflective](../img/internal_figures/least_unit_activity_h_N1000_2bc3c1_g0_reflective.png)
+
+![Least-participating unit activity, s — gamma=0 reflective](../img/internal_figures/least_unit_activity_s_N1000_2bc3c1_g0_reflective.png)
+
+**Conclusion across the boundary controls:** neither removing the cubic term (gamma=0) nor
+switching the Dale boundary (sticky → reflective) changes the picture — unpenalized / rws-only
+ReLU-Dale nets are ~45–63% silent at N=1000, and the firing-rate-magnitude penalty is what rescues
+them (to 0), regardless of these architectural choices. The silent-ReLU result is robust.
