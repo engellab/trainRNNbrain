@@ -30,6 +30,8 @@ trainRNNbrain/training/multirun
 /log/
 /slurm/*.slurm
 !/slurm/MultiNSweep_wSparsityAndSMagPen.slurm
+# silent-unit experiment scripts: version-locked in git with their configs
+!/slurm/SilentReLU_*gamma0*.slurm
 *.log
 
 # Style / figures / media / JSON

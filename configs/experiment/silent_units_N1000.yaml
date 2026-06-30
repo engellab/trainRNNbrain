@@ -1,0 +1,10 @@
+# @package _global_
+# Fixed regime for the silent-unit experiment line. gamma=0 lives in the model configs;
+# this pins the fixed parameters (size, iterations, empty trainer tag) so launch scripts don't
+# override them. Select with:  +experiment=silent_units_N1000  (then pass only swept variables +
+# output paths). Smoke tests may override trainer.max_iter on the CLI explicitly.
+model:
+  N: 1000
+trainer:
+  trainer_tag: ""
+  max_iter: 30000
