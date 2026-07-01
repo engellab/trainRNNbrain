@@ -148,7 +148,10 @@ def plot_eq(eq, pooled, bins, xmax):
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.set_xlim(0, xmax)
-    axes[0].legend(title="penalty", frameon=False, fontsize=9, ncol=2)
+    # put the legend on the first axis that actually has plotted data (some sweeps are
+    # N=1000-only, leaving the N=100/500 panels empty — the legend must not land there)
+    leg_ax = next((ax for ax in axes if ax.get_legend_handles_labels()[0]), axes[0])
+    leg_ax.legend(title="penalty", frameon=False, fontsize=9, ncol=2)
     axes[0].set_title(f"Pooled participation histograms — {EQ_NAME[eq]} equation — "
                       f"CDDM ReLU-Dale sweep ({TAG}; 5 nets/condition)")
     axes[-1].set_xlabel("participation  =  std(rate) + 0.9-quantile(|rate|)   over time & trials")

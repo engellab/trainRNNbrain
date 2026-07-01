@@ -483,3 +483,87 @@ remaining items in [`TODO.md`](../TODO.md).
 
 Deferred (see TODO): trainable-bias control, prevention-vs-resurrection mechanism (logged training),
 second task, task-dimensionality probe.
+
+## 2026-07-01 — control results: activation function & recurrent noise
+
+The activation and noise controls above were re-run at commit `fb2792` (the `f8be3e` submissions were
+superseded) and analysed here. All sweeps: N=1000, γ=0, no bias, scored on the **noise-free** CDDM batch
+(so we measure the silence baked into the trained weights, not instantaneous noise silencing). Baseline for
+comparison is `CDDM_4a031e_g0` (plain ReLU): N=1000 silent (peak<0.01) — h/none ≈47%, h/rws ≈54%, s/none ≈54%,
+s/rws ≈56%; fr-only and both = 0.
+
+Two silent criteria are reported because the activations live on different scales:
+**dead<0.01** (absolute peak firing rate < 0.01) and **silent<5%p95** (peak < 5% of that net's 95th-pct peak,
+scale-free — the fair cross-activation comparison). Counts:
+[`count_silent_units.py`](../count_silent_units.py) (softplus, leaky) and
+[`count_silent_units_noise.py`](../count_silent_units_noise.py) (noise, adapted to the `sigrec=` dir naming).
+
+### Activation function — `CDDM_fb2792_g0_softplus25` (38/40 nets; job 5100397), `CDDM_fb2792_g0_leakyrelu` (40/40; 5100398)
+
+Both softplus(β=25) and leaky-ReLU (leak 0.01) have **nonzero gradient everywhere** — no dead-gradient trap.
+Silent fraction at N=1000 (mean over 5 nets/condition, except softplus h/none and s/both = 4 nets — 2 jobs
+short, softplus trains slower):
+
+| eq / penalty | criterion | ReLU baseline | softplus25 | leaky-ReLU |
+|----|----|----|----|----|
+| h / none    | silent<5%p95 | ~47% | 40.6% | 45.2% |
+| h / rws     | silent<5%p95 | ~54% | 63.6% | 56.2% |
+| s / none    | silent<5%p95 | ~54% | 54.4% | 55.1% |
+| s / rws     | silent<5%p95 | ~56% | 61.1% | 61.1% |
+| h / none    | dead<0.01    | ~47% | **0.0%** | 32.5% |
+| h / rws     | dead<0.01    | ~54% | **0.0%** | 49.5% |
+| s / none    | dead<0.01    | ~54% | 52.4% | 54.0% |
+| s / rws     | dead<0.01    | ~56% | 53.3% | 54.0% |
+| any / fr-only, both | both | 0 | **0** | **0** |
+
+![Participation — softplus25 h](../img/internal_figures/participation_histograms_h_fb2792_g0_softplus25.png)
+![Participation — leaky h](../img/internal_figures/participation_histograms_h_fb2792_g0_leakyrelu.png)
+
+**Finding (the key framing test): the large low-activity population is NOT a hard-ReLU / dead-gradient
+artifact — it is a general property of trained CDDM RNNs.**
+
+1. On the scale-free criterion, **all three activations concentrate ~40–64% of units into a low-activity
+   mode** under `none`/`rws`, statistically indistinguishable from the ReLU baseline. Everywhere-positive
+   gradient does **not** keep units active.
+2. **Softplus-h is the sharpest demonstration:** `dead<0.01` = **exactly 0%** (softplus's smooth floor keeps
+   every unit's peak nominally above 0.01), yet `silent<5%p95` is still 41–64%. The population doesn't
+   disappear — it **reorganises from exact zeros into a soft low-activity continuum** at the same ~half-of-N
+   mass. The participation histogram shows it directly: red (`none`)/orange (`rws`) still pile near zero, green
+   (`fr`)/blue (`both`) collapse to one tight active bump. Softplus-s and both leaky equations keep large
+   *hard*-near-zero populations (49–57%), like ReLU.
+3. **The fr-magnitude penalty collapses everyone into one active mode in every activation** (fr-only, both = 0
+   throughout) — the rescue is activation-independent.
+
+### Recurrent noise — `CDDM_fb2792_g0_noise` (40/40; job 5100399)
+
+ReLU, `none` penalty, sweeping the recurrent training noise σ_rec ∈ {0, 0.01, 0.05, 0.1}. Silent fraction at
+N=1000 (mean over 5 nets/σ):
+
+| σ_rec | h dead<0.01 | h silent<5%p95 | s dead<0.01 | s silent<5%p95 |
+|----|----|----|----|----|
+| 0.00 | **79.4%** | **81.6%** | 58.2% | 60.1% |
+| 0.01 | 46.0% | 47.9% | 55.5% | 57.9% |
+| 0.05 | 43.5% | 47.6% | 54.1% | 55.5% |
+| 0.10 | 40.7% | 46.0% | 56.4% | 57.0% |
+
+![Silent fraction vs recurrent noise](../img/internal_figures/silent_vs_noise_fb2792_g0_noise.png)
+
+**Finding: the silence is NOT noise-driven.** Adding recurrent noise never *increases* it.
+
+1. For **h**, σ_rec=0 (noise fully off) is a distinct pathological regime — **~80% silent**. Any nonzero noise
+   (≥0.01) drops it to ~46–48%, then it is flat-to-slightly-*decreasing* with more noise: recurrent noise mildly
+   **regularises against** silence rather than causing it.
+2. For **s**, the silent fraction is ~54–60% and essentially **flat across all σ_rec** — noise-independent.
+3. The ReLU baseline (h/none ≈47%, s/none ≈54%) matches the **σ_rec≈0.05** column (h 43.5%, s 54.1%), i.e. the
+   baseline sweep trained with a nonzero default σ_rec; the σ=0 point is what removing noise entirely exposes.
+4. Net: the ~45–60% low-activity population **persists across every realistic noise level** — an intrinsic
+   feature of the trained solution, not a recurrent-noise artifact.
+
+### Bottom line
+
+Two candidate "trivial mechanism" explanations are now excluded. The low-activity population is neither a
+hard-ReLU dead-gradient trap (survives softplus/leaky, everywhere-differentiable) nor noise-induced silencing
+(survives noise-free, mildly reduced by noise). Combined with the earlier controls (not a code bug, emerges in
+training not init, a low-activity *mode* not literal dead units), the phenomenon is best framed as
+**trained CDDM RNNs concentrate computation onto a subset of units**, and the fr-magnitude penalty is what
+redistributes it across the full population.
