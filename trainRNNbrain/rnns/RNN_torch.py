@@ -111,6 +111,8 @@ class RNN_torch(torch.nn.Module):
                  bias_range=[0.0, 0.0],
                  y_init=None,
                  seed=None,
+                 inhibitory_boost=None,
+                 silent_init_frac=0.25,
                  n_inputs=6,
                  n_outputs=2):
         '''
@@ -186,7 +188,21 @@ class RNN_torch(torch.nn.Module):
                                     exc2inhR=self.exc2inhR,
                                     generator=self.random_generator,
                                     recurrent_density=self.connectivity_density_rec)
-        dtp = W_rec.dtype  
+
+        # deliberate silent-at-init perturbation: over-inhibit a fixed random `silent_init_frac` of
+        # units (set S) by scaling the inhibitory columns (synapses from I-units, dale_mask==-1) of
+        # their W_rec rows by `inhibitory_boost`, driving their input net-negative -> silent at init.
+        # S is drawn from this net's seed so it is reproducible/reconstructable from the saved config.
+        # No-op unless inhibitory_boost is set (all normal runs are unaffected).
+        if inhibitory_boost is not None and inhibitory_boost > 1e-12:
+            seed_used = int(self.random_generator.initial_seed())
+            n_sil = int(round(silent_init_frac * self.N))
+            S = np.random.default_rng(seed_used).choice(self.N, size=n_sil, replace=False)
+            inh_cols = torch.where(self.dale_mask == -1)[0].to(W_rec.device)
+            S_rows = torch.as_tensor(S, dtype=torch.long, device=W_rec.device)
+            W_rec[S_rows.unsqueeze(1), inh_cols.unsqueeze(0)] *= inhibitory_boost
+
+        dtp = W_rec.dtype
         dev = self.device
 
         br = self.bias_range 
