@@ -145,7 +145,7 @@ as a single quoted string.)
 
 A unit is **silent** if its peak firing rate over the noise-free CDDM validation batch is
 `< 0.01` (the `dead_abs` criterion; a scale-free `< 5%`-of-p95 criterion agrees throughout).
-Computed for all 120 nets by [`count_silent_units.py`](../count_silent_units.py) →
+Computed for all 120 nets by [`count_silent_units.py`](../trainRNNbrain/experiments_and_analysis/count_silent_units.py) →
 `data/trained_RNNs/CDDM_4a031e/silent_units_per_condition.csv`, plotted by
 [`plot_silent_units_per_condition.py`](../trainRNNbrain/experiments_and_analysis/plot_silent_units_per_condition.py).
 
@@ -492,11 +492,28 @@ superseded) and analysed here. All sweeps: N=1000, γ=0, no bias, scored on the 
 comparison is `CDDM_4a031e_g0` (plain ReLU): N=1000 silent (peak<0.01) — h/none ≈47%, h/rws ≈54%, s/none ≈54%,
 s/rws ≈56%; fr-only and both = 0.
 
-Two silent criteria are reported because the activations live on different scales:
-**dead<0.01** (absolute peak firing rate < 0.01) and **silent<5%p95** (peak < 5% of that net's 95th-pct peak,
-scale-free — the fair cross-activation comparison). Counts:
-[`count_silent_units.py`](../count_silent_units.py) (softplus, leaky) and
-[`count_silent_units_noise.py`](../count_silent_units_noise.py) (noise, adapted to the `sigrec=` dir naming).
+**Metrics defined.** Every net is reconstructed from its saved (Dale-compliant) weights and run on the
+noise-free CDDM batch, giving a firing-rate tensor `fr` of shape `(N units, T time, C conditions)`. From it:
+
+- **peak rate** `peak_i = max over (t, c) of |fr[i]|` — unit `i`'s single most-active moment anywhere in the task.
+- **dead<0.01** — fraction of units with `peak_i < 0.01`. An **absolute** floor (the rate cap/target is ~0.3–0.5),
+  so "essentially never fires." Fine for ReLU (silent units hard-zero) but *unfair across activations*: softplus
+  has a smooth positive floor so no unit is ever exactly 0, and this cut then reads 0% even when half the units are
+  ~30× quieter than the active ones.
+- **silent<5%p95** — fraction of units with `peak_i < 0.05 · p95`, where `p95` is the net's 95th-percentile peak.
+  A **within-network, scale-free** cut: "is this unit's best moment still >20× quieter than the net's active
+  population?" (95th percentile, not max, so one outlier unit doesn't set the scale). This is the number to compare
+  across activations, because it is invariant to each net's overall activity scale.
+- **participation** `p_i = std(fr[i]) + 0.9-quantile(|fr[i]|)` over (t, c) — a graded activity measure (used for the
+  histograms, HHI, and least-unit pick) rather than a hard silent/active threshold.
+- **HHI / 1/HHI** — Herfindahl–Hirschman index of participation: with shares `s_i = p_i / Σ p_j`, `H = Σ s_i²`.
+  `H ∈ [1/N, 1]`; `H = 1/N` is perfectly even participation, larger `H` means a few units dominate. **`1/H` is the
+  effective number of participating units** — the intuitive x-axis of the scatter (≈ N=1000 means "all units share
+  the work", ≈ 60 means "~60 units do everything, the rest are near-silent").
+
+Counts by
+[`count_silent_units.py`](../trainRNNbrain/experiments_and_analysis/count_silent_units.py) (softplus, leaky) and
+[`count_silent_units_noise.py`](../trainRNNbrain/experiments_and_analysis/count_silent_units_noise.py) (noise, adapted to the `sigrec=` dir naming).
 
 ### Activation function — `CDDM_fb2792_g0_softplus25` (38/40 nets; job 5100397), `CDDM_fb2792_g0_leakyrelu` (40/40; 5100398)
 
@@ -533,6 +550,33 @@ artifact — it is a general property of trained CDDM RNNs.**
    *hard*-near-zero populations (49–57%), like ReLU.
 3. **The fr-magnitude penalty collapses everyone into one active mode in every activation** (fr-only, both = 0
    throughout) — the rescue is activation-independent.
+
+**Performance vs participation spread (R² vs 1/HHI).** Each point is one N=1000 net: x = effective number of
+participating units (`1/HHI`, log scale; dashed line = even N=1000), y = validation R² (the score in the net's
+folder name). Plotted by
+[`plot_r2_vs_hhi.py`](../trainRNNbrain/experiments_and_analysis/plot_r2_vs_hhi.py).
+
+![R² vs 1/HHI — softplus25](../img/internal_figures/r2_vs_hhi_N1000_fb2792_g0_softplus25.png)
+![R² vs 1/HHI — leaky](../img/internal_figures/r2_vs_hhi_N1000_fb2792_g0_leakyrelu.png)
+
+The two clouds are cleanly separated on the x-axis and overlapping on the y-axis: `none`/`rws` nets solve the task
+using an **effective ~60–150 units** (softplus-h: ~60–90), while `fr`/`both` nets spread the identical task across
+**~700–900** — near the even line — at **equal or better R²** (~0.82–0.87 throughout). So concentrating computation
+onto a small subset is **not required** for performance; it is what the network does when nothing pushes back.
+Two asides visible here: for **softplus-h, `rws`-only actively hurts R²** (several nets at 0.4–0.65, the low orange
+points) while barely changing the concentration — sparsifying recurrent weights degrades the solution without
+redistributing activity; and the `s` equation concentrates less severely than `h` (clouds sit further right).
+
+**The least-participating unit.** For each net we take the single lowest-participation unit and draw its firing
+rate as a heatmap (x = time, y = task condition; `p` = its participation). 5 nets (rows) × 4 penalties (cols),
+by [`plot_least_unit_activity.py`](../trainRNNbrain/experiments_and_analysis/plot_least_unit_activity.py).
+
+![Least-unit activity — softplus25 h](../img/internal_figures/least_unit_activity_h_N1000_fb2792_g0_softplus25.png)
+
+Under `none`/`rws` the **worst unit is blank** (softplus-h `p≈0.003` — nominally nonzero because of softplus's
+floor, but flat and task-unrelated). Under `fr`/`both` **even the worst unit carries a clear, time- and
+condition-locked activity blob** (`p≈0.05–0.12`). This is the same collapse seen in the histograms, at the
+single-unit extreme: the penalty doesn't just shift the bulk — it pulls up the very tail.
 
 ### Recurrent noise — `CDDM_fb2792_g0_noise` (40/40; job 5100399)
 
