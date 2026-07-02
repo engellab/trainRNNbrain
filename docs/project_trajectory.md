@@ -761,5 +761,50 @@ Per-condition (mean over 5 nets), "active" = trained peak firing rate ≥ 0.01:
 
 **Caveat / scope.** This used `c = 2.0` — a *moderate*, deliberately rescuable silencing (the `none` control
 confirms S is not durably stuck even without `frm`). It shows `frm` *can* resurrect units that were dead at init;
-it does **not** claim `frm` could revive an arbitrarily deeply-locked unit. The `c ∈ {1.5, 3, 6}` rescue-difficulty
-sweep (see `TODO.md`) would map how far that reach extends.
+it does **not** claim `frm` could revive an arbitrarily deeply-locked unit. The next experiment (master inhibitor)
+tests exactly that limit.
+
+## 2026-07-02 — master-inhibitor experiment: the clean "no gradient → no rescue" test (submitted)
+
+**Why the inhibitory-boost result needs a follow-up — the gradient argument.** A truly-dead ReLU unit (input
+negative at every timestep) has `ReLU′ = 0` throughout, so the gradient to its incoming weights is zero —
+*including* from the `frm` under-penalty (which rewards sub-`cap` units for firing more, but that reward still
+flows through `ReLU′`). So **no firing → no gradient → no rescue** — a fully-dead unit cannot be pulled up by its
+own weight updates. Why, then, did the `inhibitory_boost` units get rescued? Two reasons, both of which we can
+now see are artefacts of that construction: (i) their "silence" left a **t=1 initial-condition transient** (peak
+~0.003, occurring at the first timestep before the recurrent inhibition acts — verified c-invariant from c=2 to
+c=64), so they were never truly gradient-dead; and (ii) the inhibition onto them came from the **general
+I-population, whose activity drifts as it trains**, so the clamp weakened and the active network could lift them.
+The originally-planned `c`-sweep does not fix this — cranking `c` changes the inhibitory *weight magnitude* but
+not the init silence (still that t=1 transient), so it would never produce genuinely gradient-dead units. **The
+`c`-sweep is therefore replaced by this cleaner design.**
+
+**The construction (no biases).** One inhibitory unit — the "master inhibitor" — is made a **context-locked
+clamp**: it is driven ONLY by the two CDDM context cues (input channels 0 and 1, on throughout every trial) with
+weight `master_ctx_drive`, receives **no recurrent input** (so the network cannot silence it), and projects deep
+inhibition (`-master_inhib_strength`, default 5) onto a fixed random fraction `master_inhib_frac` of the other
+units **and to no one else**. The target set is drawn from the net's seed (reconstructable). Verified at init
+(`calibrate_master_inhibitor.py`): master active (peak = `ctx_drive`), **targets 100% silent, non-targets
+untouched**, for every fraction. Implemented as a no-op-by-default block in `RNN_torch.__init__`.
+
+**Why this is the clean test.** The clamp is **frozen against gradient descent**: the two weights that could
+release a target — master→target, and context→master — both influence the loss only *through the dead target's
+zero-derivative ReLU*, so both get ~zero gradient; and the master itself has no recurrent input to be silenced by.
+The inhibition is therefore sustained across the whole trial and unreachable by training — the genuine
+"no gradient → no rescue" condition, unlike the drifting, transient-leaking `inhibitory_boost`.
+
+**The run (submitted — job `5108070`, commit `731df4`).** ReLU-Dale, γ=0, N=1000. Grid = 48 jobs: 2 equations
+(h, s) × **4 silenced fractions** `master_inhib_frac ∈ {0.25, 0.5, 0.75, 1.0}` × 2 penalties (`none`, `frm=0.2`) ×
+3 seeds. `frac = 1.0` = every unit except the master silenced — Pavel's extreme thought experiment (predict:
+no gradient anywhere, R²≈0, nothing revives). Config `configs/model/rnn_relu_Dale_masterinhib.yaml`; launcher
+`slurm/SilentReLU_masterinhib_gamma0_N1000.slurm`. Output → `data/trained_RNNs/CDDM_731df4_g0_masterinhib/`.
+
+**Question / predictions.** Does `frm` revive the master-clamped units? Prediction: **no** (or far less than the
+boost case) — with the clamp frozen and no firing to seed a gradient, the targets should stay silent even under
+`frm`, and the effect should worsen with fraction; at `frac = 1.0` the network cannot learn the task at all
+(R²≈0). Contrast with the `inhibitory_boost` result (100% rescued) would confirm that rescue there depended on
+the transient/drift footholds, and that genuinely gradient-isolated units are unrescuable — pinning down the
+exact boundary of `frm`'s reach.
+
+**Read-out (planned).** Reconstruct init, regenerate the target set from the seed, and (as in
+`plot_silentinit_rescue.py`) compare target-active% under `none` vs `frm` across the four fractions, plus task R².

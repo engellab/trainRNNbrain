@@ -38,9 +38,14 @@ Remaining, to make the prevention claim airtight against the harder case:
   silencing is not durable (fate decided during training). See `plot_silentinit_rescue.py` +
   `docs/project_trajectory.md` (2026-07-02). (Global inhibitory boost was rejected — dims the homogeneous init
   collectively instead of carving a subpopulation.)
-- **Rescue-difficulty sweep (follow-up, c ∈ {1.5, 3, 6}):** c=2 above is a moderate/rescuable silencing (the `none`
-  control shows S isn't durably stuck). Sweep c to map how deep a silencing `frm` can still resurrect — vary
-  `+model.inhibitory_boost` per array task in the launcher (config default stays 2.0).
+- **Master-inhibitor test (replaces the c-sweep) — SUBMITTED (job `5108070`, `CDDM_731df4_g0_masterinhib`).** The
+  c-sweep was dropped: cranking `inhibitory_boost` changes weight magnitude but not init silence (a t=1 transient
+  survives any c), so it never makes units truly gradient-dead. Instead: one inhibitory unit, driven only by the
+  two context cues, holds a fixed fraction silent via deep context-locked inhibition that gradients cannot reach
+  (`model.master_inhib_frac ∈ {0.25,0.5,0.75,1.0}`; `rnn_relu_Dale_masterinhib.yaml`,
+  `SilentReLU_masterinhib_gamma0_N1000.slurm`; 48 jobs = 2 eq × 4 frac × {none,frm} × 3 seeds). Clean
+  "no gradient → no rescue" test; frac=1.0 = all-but-master dead (predict R²≈0, no rescue). Analyse with
+  `plot_silentinit_rescue.py` machinery. See `docs/project_trajectory.md` (2026-07-02).
 - **Logged training:** per-unit activity every ~500 iters for `none` vs `frm` (h & s) — *when* during training the
   silencing happens, and whether any unit recovers. Together these explain *why* `frm` rescues but `rws` does not.
 
