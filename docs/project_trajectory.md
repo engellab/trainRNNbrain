@@ -715,7 +715,7 @@ Grid = 20 jobs: 2 equations (h, s) × 2 penalties × 5 seeds, with penalty being
   mode in every earlier sweep.
 
 Config `configs/model/rnn_relu_Dale_silentinit.yaml`; launcher `slurm/SilentReLU_silentinit_gamma0_N1000.slurm`.
-Output → `data/trained_RNNs/CDDM_d9e0ec7_g0_silentinit/`.
+Output → `data/trained_RNNs/CDDM_d9e0ec_g0_silentinit/` (folder uses the 6-char commit hash).
 
 **Read-out (planned).** Reconstruct each net's init, identify S from the seed, and follow S through training with
 the per-unit machinery of
@@ -725,3 +725,41 @@ init-silent branch is populated). The decisive comparison, restricted to the S u
 - under **`frm`**, if S **stays silent** → `frm` works purely by **prevention** (it keeps active units alive but
   cannot revive dead ones); if S **climbs into the active mode** → `frm` can **resurrect**. Hunch from the earlier
   tracking: mostly prevention, possibly partial resurrection for the `h` equation.
+
+### Result (2026-07-02) — frm RESURRECTS, and the init silencing is not durable
+
+All 20 nets completed (job `5103664`); analysed by
+[`plot_silentinit_rescue.py`](../trainRNNbrain/experiments_and_analysis/plot_silentinit_rescue.py). Init check
+passes in every net: **S = 100% silent, non-S = 0% silent** — the perturbation did exactly what it should.
+Per-condition (mean over 5 nets), "active" = trained peak firing rate ≥ 0.01:
+
+| eq | penalty | init S silent | **trained S active** | trained non-S active | S median participation | non-S median participation |
+|----|----|----|----|----|----|----|
+| h | none      | 100% | **57.0%** | 57.0% | 0.009 | 0.008 |
+| h | frm=0.2   | 100% | **100.0%** | 100.0% | 0.134 | 0.230 |
+| s | none      | 100% | **49.7%** | 47.1% | 0.000 | 0.000 |
+| s | frm=0.2   | 100% | **100.0%** | 100.0% | 0.342 | 0.382 |
+
+![Silenced-at-init units through training — h](../img/internal_figures/silentinit_rescue_scatter_h.png)
+
+**Two conclusions:**
+
+1. **`frm` can RESURRECT.** Under `frm`, **100% of the units that were dead at init become active** (both h and
+   s), landing in the same active mode as the never-silenced units. The earlier natural-init experiment could only
+   demonstrate prevention because nothing was silent at init; forcing 25% silent shows `frm`'s reach is broader —
+   it drives *every* unit into the active mode regardless of whether it started active (non-S) or dead (S). So
+   `frm`'s mechanism is best stated as **"make the all-units-active state the trained solution, reachable from any
+   init"** — which subsumes both prevention (keep active units alive) and resurrection (revive dead ones).
+
+2. **The init silencing is not durable — fate is decided during training.** Under `none`, the deliberately-dead S
+   units end up **exactly as active as the never-silenced non-S units** (57.0% vs 57.0% for h; 49.7% vs 47.1% for
+   s), i.e. S is statistically indistinguishable from the general population after training, which itself carries
+   the usual ~50% silent mode. Training reshuffles which units are silent; being silenced at init confers no
+   lasting disadvantage. (Consistent with the natural-init finding that init activity only weakly predicts trained
+   fate, `corr ≈ 0.3–0.5`.) In the scatter this is the red (S) cloud starting at the far left (init ~2e-4) and,
+   under `none`, splitting ~half above / half below the silent guide — the same split as the grey non-S cloud.
+
+**Caveat / scope.** This used `c = 2.0` — a *moderate*, deliberately rescuable silencing (the `none` control
+confirms S is not durably stuck even without `frm`). It shows `frm` *can* resurrect units that were dead at init;
+it does **not** claim `frm` could revive an arbitrarily deeply-locked unit. The `c ∈ {1.5, 3, 6}` rescue-difficulty
+sweep (see `TODO.md`) would map how far that reach extends.

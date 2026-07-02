@@ -31,14 +31,16 @@ silent population is entirely training-created, `frm` cannot be *resurrecting* d
 init. What the per-unit init→trained scatter shows is that under `none`/`rws` many *init-active* units are driven
 silent, and `frm` **prevents** that. So on the *natural* init the mechanism is prevention.
 Remaining, to make the prevention claim airtight against the harder case:
-- **Force-init-silent test (Pavel's original design) — SUBMITTED (job `5103664`, commit `d9e0ec7`).** Targeted
-  inhibition: over-inhibit a fixed random 25% (set S, reconstructable from seed) at init via
-  `model.inhibitory_boost=2.0` (`configs/model/rnn_relu_Dale_silentinit.yaml`,
-  `slurm/SilentReLU_silentinit_gamma0_N1000.slurm`); 20 jobs = 2 eq × {none, frm} × 5 seeds. Train with `frm` and
-  check whether S stays silent (prevention) or climbs into the active mode (resurrection). Global inhibitory boost
-  was rejected — it dims the homogeneous init collectively instead of carving a subpopulation (see
-  `docs/project_trajectory.md` 2026-07-01). Follow-up: `c ∈ {1.5,3,6}` rescue-difficulty sweep. Hunch: mostly
-  prevention; possibly some resurrection for `h`.
+- **Force-init-silent test (Pavel's original design) — DONE (job `5103664`, `CDDM_d9e0ec_g0_silentinit`).** Targeted
+  inhibition over a fixed random 25% (set S, reconstructable from seed) via `model.inhibitory_boost=2.0`; 20 jobs =
+  2 eq × {none, frm} × 5 seeds. **Result: `frm` RESURRECTS** — 100% of dead-at-init S units become active under
+  `frm` (both eq), vs ~50–57% under `none`; and under `none` S ends statistically identical to non-S, so the init
+  silencing is not durable (fate decided during training). See `plot_silentinit_rescue.py` +
+  `docs/project_trajectory.md` (2026-07-02). (Global inhibitory boost was rejected — dims the homogeneous init
+  collectively instead of carving a subpopulation.)
+- **Rescue-difficulty sweep (follow-up, c ∈ {1.5, 3, 6}):** c=2 above is a moderate/rescuable silencing (the `none`
+  control shows S isn't durably stuck). Sweep c to map how deep a silencing `frm` can still resurrect — vary
+  `+model.inhibitory_boost` per array task in the launcher (config default stays 2.0).
 - **Logged training:** per-unit activity every ~500 iters for `none` vs `frm` (h & s) — *when* during training the
   silencing happens, and whether any unit recovers. Together these explain *why* `frm` rescues but `rws` does not.
 
