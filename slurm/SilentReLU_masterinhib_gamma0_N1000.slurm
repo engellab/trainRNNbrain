@@ -7,13 +7,13 @@
 # unlike the inhibitory_boost run these units are truly unrescuable. We sweep the silenced fraction and
 # train with/without frm: does frm revive the master-clamped units, or (as predicted) not?
 #
-# Grid (80 jobs) = 2 eq x 4 fracs x 2 penalty x 5 nets, N=1000:
+# Grid (48 jobs) = 2 eq x 4 fracs x 2 penalty x 3 nets, N=1000:
 #   EQ   in {h, s}                 (model.equation_type)
 #   FRAC in {0.25,0.5,0.75,1.0}    (model.master_inhib_frac)  -> {quarter ... all-but-master} silenced
 #   FRM  in {0, 0.2}               (trainer.lambda_frm)       -> none (control) vs frm (rescuer)
-#   5 reps, seed="random"
-# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..79): TID = 40*EQ + 10*FRAC + 5*FRM + REP
-#   REP=TID%5; FRM_IDX=(TID/5)%2; FRAC_IDX=(TID/10)%4; EQ_IDX=(TID/40)%2
+#   3 reps, seed="random"
+# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..47): TID = 24*EQ + 6*FRAC + 3*FRM + REP
+#   REP=TID%3; FRM_IDX=(TID/3)%2; FRAC_IDX=(TID/6)%4; EQ_IDX=(TID/24)%2
 #
 # Output: $SAVE_TO/CDDM_<hash>_g0_masterinhib/EqType=<EQ>_N=1000_MIF=<FRAC>_LmbdFR=<FRM>/<per-net subfolder>
 # Overridable env vars: SAVE_TO (default $HOME/trainRNNbrain/data/trained_RNNs).
@@ -26,7 +26,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=32G
 #SBATCH --time=05:00:00
-#SBATCH --array=1-80
+#SBATCH --array=1-48
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain/log/%x.%A_%a.out
@@ -48,10 +48,10 @@ FRACS=(0.25 0.5 0.75 1.0)
 FRMS=(0 0.2)
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))
-REP=$((TID % 5))
-FRM_IDX=$(((TID / 5)  % 2))
-FRAC_IDX=$(((TID / 10) % 4))
-EQ_IDX=$(((TID / 40) % 2))
+REP=$((TID % 3))
+FRM_IDX=$(((TID / 3)  % 2))
+FRAC_IDX=$(((TID / 6) % 4))
+EQ_IDX=$(((TID / 24) % 2))
 EQ=${EQS[$EQ_IDX]}
 FRAC=${FRACS[$FRAC_IDX]}
 FRM=${FRMS[$FRM_IDX]}
