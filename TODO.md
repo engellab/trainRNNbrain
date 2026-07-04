@@ -46,6 +46,15 @@ Remaining, to make the prevention claim airtight against the harder case:
   `SilentReLU_masterinhib_gamma0_N1000.slurm`; 48 jobs = 2 eq × 4 frac × {none,frm} × 3 seeds). Clean
   "no gradient → no rescue" test; frac=1.0 = all-but-master dead (predict R²≈0, no rescue). Analyse with
   `plot_silentinit_rescue.py` machinery. See `docs/project_trajectory.md` (2026-07-02).
+  **RESULT (2026-07-03): prediction wrong — frm rescues 100% at every fraction (incl. 1.0), task solved
+  (R²≈0.85).** frm does it *indirectly*: the master is over-cap and active, so frm penalizes and suppresses it
+  (peak 1–4.5 → ~0.4), releasing the clamp; the dead targets are never lifted directly. Under `none` the clamp
+  holds (~15% recover). So the construction did NOT make truly-unrescuable units — the inhibitor is tamable.
+  ~13/48 nets diverged to NaN (excluded). `plot_masterinhib_rescue.py`; docs 2026-07-03.
+- **Follow-up — FREEZE the master inhibitor (truly-unrescuable test):** make the master's `W_inp`/outgoing weights
+  non-trainable so frm cannot suppress it; then the clamp is genuinely gradient-proof and targets should stay
+  silent even under frm. This is the real realization of Pavel's thought experiment. (Also consider grad-clipping
+  / smaller master_ctx_drive to cut the ~25% NaN divergence rate.)
 - **Logged training:** per-unit activity every ~500 iters for `none` vs `frm` (h & s) — *when* during training the
   silencing happens, and whether any unit recovers. Together these explain *why* `frm` rescues but `rws` does not.
 

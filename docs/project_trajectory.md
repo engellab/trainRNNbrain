@@ -808,3 +808,47 @@ exact boundary of `frm`'s reach.
 
 **Read-out (planned).** Reconstruct init, regenerate the target set from the seed, and (as in
 `plot_silentinit_rescue.py`) compare target-active% under `none` vs `frm` across the four fractions, plus task R².
+
+### Result (2026-07-03) — the prediction was WRONG: frm rescues by killing the inhibitor, not the targets
+
+Analysed by [`plot_masterinhib_rescue.py`](../trainRNNbrain/experiments_and_analysis/plot_masterinhib_rescue.py)
+(35 valid nets; ~13 of 48 diverged to NaN and were excluded — see caveat). Init check passes: targets 100% silent,
+master active. Trained target-active% (peak ≥ 0.01) and the master's own peak, mean over valid nets:
+
+| eq | frac | `none`: master peak / T active | `frm`: master peak / T active | R² (both) |
+|----|----|----|----|----|
+| h | 0.25 | 0.94 / 12.7% | 0.62 / **100%** | ~0.85 |
+| h | 0.50 | 1.43 / 10.2% | 0.12 / **100%** | ~0.85 |
+| h | 0.75 | 2.05 /  9.6% | 0.43 / **100%** | ~0.85 |
+| h | 1.00 | 4.53 / 29.3% | 0.44 / **100%** | ~0.85 |
+| s | 0.25–0.75 | 1.5–1.8 / ~18% | 0.38–0.45 / **100%** | ~0.85 |
+
+![Master-inhibitor rescue](../img/internal_figures/masterinhib_rescue.png)
+
+**Contrary to the prediction, `frm` fully rescues the master-clamped units (100% at every fraction, including
+frac=1.0), and the task is solved throughout (R²≈0.85).** The gradient argument was *locally* correct — the dead
+targets get ~no direct gradient — but it missed the escape route:
+
+- **`frm` rescues indirectly, by suppressing the inhibitor itself.** The master is *active* and, at ~1–4.5, sits
+  far **above** the `frm` target `cap` (~0.3). `frm` penalizes over-cap units, and because the master fires
+  (`ReLU′ > 0`) that gradient is real — it reduces the master's context drive, collapsing its peak to ~0.1–0.6.
+  With the clamp's source suppressed, the targets' input rises, they start firing, and *then* their own gradients
+  flow and they climb into the active mode. The dead targets are never lifted directly; `frm` removes the cause.
+- **Under `none` the clamp holds:** the master stays hyperactive (peak 1–4.5, nothing pressures it down) and only
+  ~10–30% of targets recover (via incidental/task-gradient footholds), roughly flat across fraction.
+- **Even frac=1.0 recovers under `frm`:** the single always-active master is `frm`-attackable, so taming it
+  releases everyone and the net solves the task — the "no gradient anywhere" prediction fails precisely because
+  the inhibitor is an active, penalizable unit.
+
+**What this means.** `frm`'s reach is broader than "revive units that occasionally fire": it will also dismantle a
+*structured* silencing mechanism if that mechanism runs through an active, penalizable unit. The construction did
+**not** produce truly-unrescuable units, because the master's weights are trainable and its over-cap activity
+makes it a `frm` target. The genuinely-unrescuable case (Pavel's thought experiment) requires the inhibition
+source to be **un-tamable** — e.g. freeze the master's weights (non-trainable `W_inp`/`W_rec` for that unit) so
+`frm` cannot reduce it. That is the clean follow-up.
+
+**Caveat — divergence.** ~13/48 nets trained to NaN (folder score `nan`), disproportionately under `frm`; the
+master's hyperactivity (peak up to 4.5) plus the `frm` pressure likely destabilizes training. Excluded from the
+means above; the surviving nets are internally consistent (every condition retained ≥1, most ≥2–3). A rerun with
+gradient clipping or a smaller `master_ctx_drive`/`master_inhib_strength` would firm up the counts, but the
+qualitative result (frm 100% vs none ~15%) is unambiguous.
