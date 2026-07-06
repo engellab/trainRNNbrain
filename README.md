@@ -8,7 +8,7 @@ Dependencies:`matplotlib numpy torch hydra-core scikit-learn tqdm`
 ### Some examples:
 
 <p align="center">
-<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/fixed%20points%203BitFlipFlop%20task.gif?raw=true"/>
+<img src="img/fixed%20points%203BitFlipFlop%20task.gif"/>
 </p>
 
 <center>
@@ -19,7 +19,7 @@ Dependencies:`matplotlib numpy torch hydra-core scikit-learn tqdm`
 
 __________________________________
 <p align="center">
-<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/random_trials_MemoryAnti_task.png" width="500">
+<img src="img/random_trials_MemoryAnti_task.png" width="500">
 </p>
 
 <center>
@@ -31,7 +31,7 @@ __________________________________
 __________________________________
 
 <p align="center">
-<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/FixedPoints_MemoryAntiNumber.png" width="500">
+<img src="img/FixedPoints_MemoryAntiNumber.png" width="500">
 </p>
 
 <center>
@@ -46,7 +46,7 @@ __________________________________
 
 
 <p align="center">
-<img src="https://github.com/engellab/RNN_training_pipeline/blob/main/img/fixed%20points%20MemoryAnti%20task.gif?raw=true"/>
+<img src="img/fixed%20points%20MemoryAnti%20task.gif"/>
 </p>
 
 <center>
@@ -151,4 +151,4 @@ Integration with DataJoint is coming
 
 
 ### Where to get started
-I suggest starting at this Jupyter notebook to get the idea how to use the package: [training RNN to perform context-dependent decision-making](jupyter/Training CDDM.ipynb)
+I suggest starting at this Jupyter notebook to get the idea how to use the package: [training RNN to perform context-dependent decision-making](jupyter/Training%20CDDM.ipynb)
