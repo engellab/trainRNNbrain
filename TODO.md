@@ -59,10 +59,13 @@ Remaining, to make the prevention claim airtight against the harder case:
   1.0); `none` arm clean — frozen clamp HOLDS for h (~0% active vs ~10-29% unfrozen), leaks ~15% for s; frac=1.0
   breaks the task (R²≈-0.38). But the `frm` arm is UNINTERPRETABLE — 22/48 diverged to NaN, almost all in frm
   (1 valid net/cond). Central question (can frm rescue a gradient-proof clamp?) NOT answered.** docs 2026-07-06.
-- **Stabilized frozen-master rerun (to salvage the frm arm):** cut the ~46% divergence — lower `master_ctx_drive`
-  to ~0.3 (so the master isn't over-cap; -5*0.3=-1.5 still silences targets) and/or `master_inhib_strength`,
-  tighten `max_grad_norm` (50->~5), add seeds. Goal: >=3 valid frm nets/cond to read whether frm rescues the
-  frozen clamp (hint from survivors: yes at frac<1.0, via compensating excitation; frac=1.0 fails).
+- **Stabilized frozen-master rerun — SUBMITTED (job `5116848`, `CDDM_f4b706_masterinhib_frozen_gamma`).** Fights the
+  ~46% divergence by turning the cubic term back ON (`gamma=0.1`, `rnn_relu_Dale_masterinhib_frozen_gamma.yaml`,
+  `SilentReLU_masterinhib_frozen_gamma_N1000.slurm`); the soft-saturation bounds runaway activity but only bites at
+  large positive x, so it doesn't lift the dead targets -> stabilizes without changing the rescue question. Smoke
+  test: targets 100% silent, master peak 0.92 (saturating). Goal: >=3 valid frm nets/cond. Analyse:
+  `plot_masterinhib_rescue.py CDDM_f4b706_masterinhib_frozen_gamma`. If gamma alone doesn't suffice, next levers:
+  lower master_ctx_drive to ~0.3 (not over-cap), tighten max_grad_norm (50->~5), more seeds.
 - **Logged training:** per-unit activity every ~500 iters for `none` vs `frm` (h & s) — *when* during training the
   silencing happens, and whether any unit recovers. Together these explain *why* `frm` rescues but `rws` does not.
 

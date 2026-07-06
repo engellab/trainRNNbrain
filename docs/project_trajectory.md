@@ -918,3 +918,11 @@ frac=1.0 kills the task). But the **central question — can `frm` rescue a genu
 yet answered**, because the `frm` arm mostly diverged. Needs a **stabilized rerun** to get ≥3 valid `frm` nets/cond:
 lower `master_ctx_drive` toward the cap (~0.3 so the master isn't over-cap) and/or `master_inhib_strength`,
 tighten `max_grad_norm` (50→~5), and add seeds. (See `TODO.md`.)
+
+**Stabilized rerun submitted (job `5116848`, `CDDM_f4b706_masterinhib_frozen_gamma`).** First stabilizer tried
+(Pavel's suggestion): turn the **cubic term back on** (`gamma=0.1`) — the `-gamma*x^3` soft-saturation bounds the
+runaway activity that produced the NaNs. It only bites at large positive `x`, so it does not lift the dead (`x<0`)
+targets and therefore leaves the rescue question intact (only removes the blow-ups). Caveat: `gamma≠0` departs from
+the gamma=0 experiment line, acceptable for a mechanism probe. Smoke test confirmed targets 100% silent and the
+master saturating slightly (peak 1.0→0.92). If gamma alone doesn't cut the divergence enough, next levers are a
+lower `master_ctx_drive` and a tighter `max_grad_norm`.
