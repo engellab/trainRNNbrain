@@ -1,0 +1,30 @@
+# @package model
+# Frozen-master variant of rnn_relu_Dale_masterinhib.yaml. Identical construction (one context-locked
+# master inhibitor holds master_inhib_frac of the units silent), but the master's weights are FROZEN
+# (freeze_master: true) — gradient hooks zero the gradient on its input row and its recurrent input row /
+# output column, so its context drive and its deep inhibition onto the target set cannot change during
+# training. This closes the escape route found in the (unfrozen) masterinhib run, where frm rescued the
+# targets by suppressing the over-cap master itself. With the master frozen the clamp is genuinely
+# gradient-proof, so this is the true "no gradient -> no rescue" test: prediction is that the target units
+# stay silent even under frm. See verify_master_freeze.py + docs/project_trajectory.md.
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+RNN_tag: ""
+activation_args: {"name": "relu", "slope": 1.0}
+equation_type: "h"
+N: 100
+dt: 1
+tau: 10
+exc2inhR: 4.0
+gamma: 0
+weight_boundary: "sticky"
+weight_boundary_eps: 1.0e-12
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+bias_range: [0.0, 0.0]
+master_inhib_frac: 0.25      # fraction of units held silent by the master (swept in the launcher)
+master_inhib_strength: 5.0   # deep master->target inhibitory weight magnitude
+master_ctx_drive: 1.0        # master's weight from each of the two context cues
+freeze_master: true          # freeze the master's weights so the clamp cannot be tamed by gradients
