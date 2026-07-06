@@ -35,7 +35,9 @@ from plot_init_vs_trained import (build_cddm_batch, peak_and_participation, rnn_
                                   init_params_from_config, SEED_OFFSET)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SWEEP = "CDDM_731df4_g0_masterinhib"
+import sys
+SWEEP = sys.argv[1] if len(sys.argv) > 1 else "CDDM_731df4_g0_masterinhib"  # pass the frozen folder to analyse it
+TAG = SWEEP.replace("CDDM_", "")
 ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
 IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
 DEAD_ABS = 0.01
@@ -148,7 +150,7 @@ def plot(rows):
     fig.suptitle(f"Master-inhibitor clamp: are the frozen-silent units rescued? — {SWEEP}", y=1.01)
     plt.tight_layout()
     os.makedirs(IMG_DIR, exist_ok=True)
-    out = os.path.join(IMG_DIR, "masterinhib_rescue.png")
+    out = os.path.join(IMG_DIR, f"masterinhib_rescue_{TAG}.png")
     fig.savefig(out, dpi=200, bbox_inches="tight")
     print(f"wrote {os.path.normpath(out)}")
 

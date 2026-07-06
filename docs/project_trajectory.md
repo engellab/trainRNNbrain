@@ -879,3 +879,42 @@ Output → a **distinct** folder `data/trained_RNNs/CDDM_931680_g0_masterinhib_f
 silent even under `frm`** (a sharp contrast with the unfrozen 100% rescue) — and at `frac=1.0` the network should
 fail the task (R²≈0), since the always-on inhibition is now immovable. Read out with the
 `plot_masterinhib_rescue.py` machinery (target-active% under none vs frm across fractions, plus R²).
+
+### Result (2026-07-06) — freeze verified, `none` arm clean, but the `frm` arm is wrecked by divergence
+
+`plot_masterinhib_rescue.py CDDM_931680_g0_masterinhib_frozen`. Freeze confirmed in the data: **master peak is
+pinned at exactly 1.0 in every net** (vs 1–4.5 in the unfrozen run), and targets are 100% silent at init. But
+**22/48 nets diverged to NaN**, and the divergence is almost entirely in the `frm` arm — every `frm` condition
+lost a net (leaving **only 1 valid `frm` net per condition**), while every `none` condition kept all 3.
+
+**`none` arm (clean, 3 nets/cond):**
+
+| eq | frac=0.25 | 0.5 | 0.75 | 1.0 (R²) |
+|----|----|----|----|----|
+| h — targets active | (diverged) | 0.2% | 0.1% | 0.0%  (R²=**−0.38**) |
+| s — targets active | 15.2% | 16.5% | 14.8% | 0.0%  (R²=**−0.38**) |
+
+- **The frozen clamp holds under `none` for h** — targets stay ~0% active (vs ~10–29% in the *unfrozen* run):
+  freezing the master makes the clamp materially harder to escape without rescue pressure. For **s** it still
+  leaks ~15% (equation-dependent — the `s` dynamics let some targets escape via built-up excitation).
+- **`frac=1.0` breaks the task** (R² ≈ **−0.38**, worse than predicting the mean) under `none` — an immovable
+  all-unit clamp prevents learning, close to the extreme-case prediction.
+
+**`frm` arm — NOT interpretable (n=1/cond, survivorship-biased).** The surviving `frm` nets show 100% target
+active with genuine participation (~0.09–0.13) and, at frac 0.25–0.75, a solved task (R²≈0.83–0.86); at frac=1.0
+even the survivor fails (R²=−0.38). Taken at face value this would say `frm` *still* rescues the frozen-clamp
+targets at frac<1.0 — plausibly by a **different** route than the unfrozen case: since the master can no longer
+be tamed, `frm` would have to drive enough compensating **excitation** onto the targets to overcome the fixed −5
+inhibition. But with only one non-diverged net per `frm` condition (the seed that happened to train stably), this
+is a hint, not a result.
+
+**Why divergence is worse when frozen.** In the unfrozen run `frm` could suppress the destabilizing, over-cap
+master (that was both the rescue route *and* a stabilizer). Freezing removes that outlet, so the hyperactive
+master (peak 1.0 ≫ cap 0.3) and its deep −5 currents persist and the `frm`-driven dynamics blow up more often
+(22 NaN vs 12 unfrozen), concentrated in `frm`.
+
+**Verdict / next step.** The freeze mechanism works and the `none` results are informative (clamp holds for h;
+frac=1.0 kills the task). But the **central question — can `frm` rescue a genuinely gradient-proof clamp — is not
+yet answered**, because the `frm` arm mostly diverged. Needs a **stabilized rerun** to get ≥3 valid `frm` nets/cond:
+lower `master_ctx_drive` toward the cap (~0.3 so the master isn't over-cap) and/or `master_inhib_strength`,
+tighten `max_grad_norm` (50→~5), and add seeds. (See `TODO.md`.)

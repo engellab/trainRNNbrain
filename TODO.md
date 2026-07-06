@@ -55,7 +55,14 @@ Remaining, to make the prevention claim airtight against the harder case:
   `RNN_torch(freeze_master=True)` freezes the master's I/O (grad hook + forward-pre-hook restore; the grad hook
   alone fails due to Adam+weight_decay). Verified frozen (`verify_master_freeze.py`: master grad 0.374→0.000).
   Same grid as unfrozen (48 jobs). Predict: targets stay silent even under frm; frac=1.0 fails the task (R²≈0).
-  Analyse with `plot_masterinhib_rescue.py` (point ROOT at the frozen folder). docs 2026-07-06.
+  Analyse with `plot_masterinhib_rescue.py <folder>`. **RESULT (2026-07-06): freeze verified (master peak pinned
+  1.0); `none` arm clean — frozen clamp HOLDS for h (~0% active vs ~10-29% unfrozen), leaks ~15% for s; frac=1.0
+  breaks the task (R²≈-0.38). But the `frm` arm is UNINTERPRETABLE — 22/48 diverged to NaN, almost all in frm
+  (1 valid net/cond). Central question (can frm rescue a gradient-proof clamp?) NOT answered.** docs 2026-07-06.
+- **Stabilized frozen-master rerun (to salvage the frm arm):** cut the ~46% divergence — lower `master_ctx_drive`
+  to ~0.3 (so the master isn't over-cap; -5*0.3=-1.5 still silences targets) and/or `master_inhib_strength`,
+  tighten `max_grad_norm` (50->~5), add seeds. Goal: >=3 valid frm nets/cond to read whether frm rescues the
+  frozen clamp (hint from survivors: yes at frac<1.0, via compensating excitation; frac=1.0 fails).
 - **Logged training:** per-unit activity every ~500 iters for `none` vs `frm` (h & s) — *when* during training the
   silencing happens, and whether any unit recovers. Together these explain *why* `frm` rescues but `rws` does not.
 
