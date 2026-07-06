@@ -58,6 +58,18 @@ attractors.*
 
 __________________________________
 
+<p align="center">
+<img src="img/ring_attractors_MemoryAntiAngle_task.gif" width="500"/>
+</p>
+
+<center>
+
+*Ring-attractor fixed-point structure of a MemoryAntiAngle-trained RNN, rotating in its first three PCA components.*
+
+</center>
+
+__________________________________
+
 ### Continuous-time RNN description
 
 The dynamics for RNN are captured by the following equations:
