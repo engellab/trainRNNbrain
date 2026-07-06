@@ -852,3 +852,30 @@ master's hyperactivity (peak up to 4.5) plus the `frm` pressure likely destabili
 means above; the surviving nets are internally consistent (every condition retained ≥1, most ≥2–3). A rerun with
 gradient clipping or a smaller `master_ctx_drive`/`master_inhib_strength` would firm up the counts, but the
 qualitative result (frm 100% vs none ~15%) is unambiguous.
+
+## 2026-07-06 — frozen master inhibitor: closing the escape route (submitted)
+
+The unfrozen result showed `frm` rescues the clamped units *indirectly*, by suppressing the over-cap, **active**
+master (a legitimate gradient, since the master fires). To realise the genuinely gradient-proof clamp — Pavel's
+true thought experiment — we now **freeze the master's weights** so `frm` cannot touch it.
+
+**Implementation (`RNN_torch(freeze_master=True)`, no Trainer changes).** Two mechanisms together: (1) a gradient
+hook zeros the gradient on the master's input row `W_inp[m,:]` and its recurrent input row + output column
+`W_rec[m,:]`, `W_rec[:,m]`; (2) a `forward_pre_hook` restores those entries to their init values before *every*
+forward pass. (1) alone is **insufficient** — Adam + `weight_decay=1e-6` reintroduce a tiny effective gradient
+inside `step()` that Adam's normalization amplifies into a full ~`lr` update (empirically the master drifted ~1e-2
+over 25 iters with the hook alone); (2) guarantees the master is exactly at init during every training/eval
+forward. Verified: [`verify_master_freeze.py`](../trainRNNbrain/experiments_and_analysis/verify_master_freeze.py)
+shows master gradient `0.374` (unfrozen) → `0.000` (frozen) on the Trainer's `autograd.grad` path; an end-to-end
+25-iter run leaves the master weights unchanged (4.6e-4 save-time artifact) while the rest of the net trains
+normally (~1e-2), targets 100% silent, master peak 1.0.
+
+**The run (submitted — job `5115568`, commit `931680`).** Same grid as the unfrozen run: 48 jobs = 2 eq (h, s) ×
+4 fractions `master_inhib_frac ∈ {0.25,0.5,0.75,1.0}` × 2 penalties (`none`, `frm=0.2`) × 3 seeds. Config
+`configs/model/rnn_relu_Dale_masterinhib_frozen.yaml`; launcher `slurm/SilentReLU_masterinhib_frozen_gamma0_N1000.slurm`.
+Output → a **distinct** folder `data/trained_RNNs/CDDM_931680_g0_masterinhib_frozen/`.
+
+**Prediction.** With the clamp frozen, `frm` can no longer tame the inhibitor, so the target units should **stay
+silent even under `frm`** (a sharp contrast with the unfrozen 100% rescue) — and at `frac=1.0` the network should
+fail the task (R²≈0), since the always-on inhibition is now immovable. Read out with the
+`plot_masterinhib_rescue.py` machinery (target-active% under none vs frm across fractions, plus R²).

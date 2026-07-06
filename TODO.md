@@ -51,10 +51,11 @@ Remaining, to make the prevention claim airtight against the harder case:
   (peak 1–4.5 → ~0.4), releasing the clamp; the dead targets are never lifted directly. Under `none` the clamp
   holds (~15% recover). So the construction did NOT make truly-unrescuable units — the inhibitor is tamable.
   ~13/48 nets diverged to NaN (excluded). `plot_masterinhib_rescue.py`; docs 2026-07-03.
-- **Follow-up — FREEZE the master inhibitor (truly-unrescuable test):** make the master's `W_inp`/outgoing weights
-  non-trainable so frm cannot suppress it; then the clamp is genuinely gradient-proof and targets should stay
-  silent even under frm. This is the real realization of Pavel's thought experiment. (Also consider grad-clipping
-  / smaller master_ctx_drive to cut the ~25% NaN divergence rate.)
+- **Frozen master inhibitor (truly-unrescuable test) — SUBMITTED (job `5115568`, `CDDM_931680_g0_masterinhib_frozen`).**
+  `RNN_torch(freeze_master=True)` freezes the master's I/O (grad hook + forward-pre-hook restore; the grad hook
+  alone fails due to Adam+weight_decay). Verified frozen (`verify_master_freeze.py`: master grad 0.374→0.000).
+  Same grid as unfrozen (48 jobs). Predict: targets stay silent even under frm; frac=1.0 fails the task (R²≈0).
+  Analyse with `plot_masterinhib_rescue.py` (point ROOT at the frozen folder). docs 2026-07-06.
 - **Logged training:** per-unit activity every ~500 iters for `none` vs `frm` (h & s) — *when* during training the
   silencing happens, and whether any unit recovers. Together these explain *why* `frm` rescues but `rws` does not.
 
