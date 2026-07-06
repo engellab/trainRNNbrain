@@ -1,0 +1,30 @@
+# @package model
+# Stabilized frozen-master variant: identical to rnn_relu_Dale_masterinhib_frozen.yaml but with the
+# cubic term turned back ON (gamma=0.1). The frozen-master run diverged to NaN in ~46% of nets (almost
+# all in the frm arm): with gamma=0 nothing bounds the runaway activity driven by the deep -5 currents +
+# the frm pressure, and freezing the master removed the network's ability to tame that destabilizing
+# unit. The cubic soft-saturation (-gamma*x^3) bounds high activity and should suppress the divergence.
+# It only bites at large positive x, so it does NOT lift the dead (x<0) target units -> stabilizes
+# without changing the rescue mechanism (can frm overcome the frozen clamp?). Caveat: gamma!=0 departs
+# from the gamma=0 experiment line; acceptable here since this is a mechanism probe.
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+RNN_tag: ""
+activation_args: {"name": "relu", "slope": 1.0}
+equation_type: "h"
+N: 100
+dt: 1
+tau: 10
+exc2inhR: 4.0
+gamma: 0.1                   # cubic term ON (soft saturation) to fight NaN divergence
+weight_boundary: "sticky"
+weight_boundary_eps: 1.0e-12
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+bias_range: [0.0, 0.0]
+master_inhib_frac: 0.25      # fraction of units held silent by the master (swept in the launcher)
+master_inhib_strength: 5.0   # deep master->target inhibitory weight magnitude
+master_ctx_drive: 1.0        # master's weight from each of the two context cues
+freeze_master: true          # freeze the master's weights so the clamp cannot be tamed by gradients
