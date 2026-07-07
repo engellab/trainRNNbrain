@@ -1,0 +1,26 @@
+# @package model
+# dt=0.5 stability test for the frozen master-inhibitor divergence. Halving the integration step
+# (dt 1->0.5 => alpha 0.1->0.05) raises the explicit-Euler stability boundary from loop-gain g<11 to
+# g<21, so a compensating loop that blew up at dt=1 may now stay bounded. Same task (n_steps auto-doubles
+# to 600 via T/dt). Original diverging setup otherwise (frozen master, clamp=-5). gamma=0.1.
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+RNN_tag: ""
+activation_args: {"name": "relu", "slope": 1.0}
+equation_type: "h"
+N: 100
+dt: 0.5
+tau: 10
+exc2inhR: 4.0
+gamma: 0.1
+weight_boundary: "sticky"
+weight_boundary_eps: 1.0e-12
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+bias_range: [0.0, 0.0]
+master_inhib_frac: 0.25
+master_inhib_strength: 5.0
+master_ctx_drive: 1.0
+freeze_master: true
