@@ -970,31 +970,43 @@ frac=1.0 failure is solid (`s` n=3). The peak≥0.01 "active%" overstates rescue
 participation is the honest readout. `gamma=0.1` regime. Firming up the frac<1.0 `frm` counts would need a further
 stability pass, but the qualitative conclusion is already supported.
 
-### Root cause of the NaN divergence (2026-07-07) — explicit-Euler integration of the cubic term
+### Root cause of the NaN divergence (2026-07-07) — a forward-dynamics instability frm builds; the cubic is not the cause
 
-Diagnosed from a diverged net's saved `LossBreakdown.json` / `GradsRaw.json` (no Spock needed). The signature is
-**sudden, not gradual**: `task` and `fr_magnitude` losses are *normal* until the last finite step (iter 1595:
-task 0.090, frm 0.109) and then both go NaN in a *single* step (iter 1596). The gradient norms right before are
-**modest** — `g_task ≈ 0.1`, `g_fr_magnitude` spiking only 0.17→1.38 — nowhere near `max_grad_norm=50`. So it is
-**not** a huge-gradient / gradual-weight-growth blow-up, and gradient clipping cannot catch it.
+Diagnosed from diverged nets' saved `LossBreakdown.json` / `GradsRaw.json` (no Spock needed), in **both** the
+gamma=0 and gamma=0.1 runs. (An earlier note pinned this on the cubic term — corrected here after checking: the
+gamma=0 runs, which have *no* cubic term, diverged too, with the identical signature.)
 
-It is a **forward-dynamics instability**. The integrator is explicit forward Euler,
-`x_{t+1} = x_t + α·(−x_t + W_rec·ReLU(x_t) + input − γ·x_t³)` with `α = dt/τ = 0.1`. The cubic `−γx³` is meant to
-*stabilize* (in continuous time it bounds activity at `x ~ 1/√γ`), but under explicit Euler with a fixed step it
-is **itself unstable for large x**: the update `α·γ·x³` overshoots once `|x| > √(2/(α·γ)) ≈ 14.1` (for α=γ=0.1),
-flipping sign and growing each step → overflow → NaN within the 300-step trial. Verified numerically: the scalar
-map `x ← x + α(−x − γx³)` decays to 0 for x₀ ≤ 13 but diverges to NaN for x₀ ≥ 14.
+**The signature is the same everywhere and is sudden, not gradual.** Losses are *normal* until the last finite
+step and then go NaN in a *single* step (γ=0.1 net: iter 1595 task 0.090/frm 0.109 → iter 1596 NaN; γ=0 net: iter
+801 → 802 NaN), and the gradient norms just before are **modest** — `g_task ≈ 0.1–0.3`, `g_fr_magnitude ≲ 1.4`,
+nowhere near `max_grad_norm=50`. So it is **not** a gradient explosion and **not** gradual weight growth, and
+gradient clipping cannot catch it — it is a **forward-pass dynamical instability of the learned weights**, which
+crosses a stability boundary in one training step and then overflows within the 300-step trial.
 
-**Causal chain:** the deep −5 master→target clamp (plus, under `frm`, the large compensating excitation `frm`
-builds to overcome it) creates a high-gain recurrent subsystem; a modest weight step nudges some unit's transient
-state past ~14; the explicit-Euler cubic then blows it up on the next forward pass. This explains every feature:
-**sudden** (threshold crossing, not growth); **disproportionately under `frm`** (`frm` pushes activity *up*, into
-the danger zone; `none` has no such push); **why γ only helped modestly** (22→18 NaN) — γ tames the *small*-x
-active range but its explicit integration is the very thing that diverges at large x, trading one instability for
-another; and **why `max_grad_norm` is irrelevant** (the blow-up is in the forward ODE, not the gradient).
+**The common cause: `frm` builds a self-exciting recurrent loop with gain > 1.** To activate the deeply-inhibited
+targets against the fixed −5 clamp, `frm` drives the network to build strong compensating excitation onto them.
+That creates recurrent loops whose effective gain can exceed 1; the continuous system `dx/dt = −x + W·ReLU(x)+…`
+is then unstable (activity grows), and explicit forward Euler (`x_{t+1}=x_t+α(−x_t+W_rec·ReLU(x_t)+input−γx_t³)`,
+`α=dt/τ=0.1`) integrates that growth over 300 steps. What (if anything) bounds it depends on γ:
 
-**Correct fixes (for any firm-up rerun), in order of directness:** (1) shrink the integration step — smaller `dt`
-or larger `τ` (α↓), or sub-step the Euler update — the proper cure for explicit-integration stiffness; (2)
-hard-bound the state in `forward` (clip `x`, or a saturating map) so it can't enter the overshoot regime; (3)
-reduce the recurrent gain — a milder `master_inhib_strength` (−5→−2, still silences the targets). Gradient
-clipping and γ tweaks act on the wrong layer.
+- **γ=0 (no saturation):** nothing stops it — a loop with gain > 1 grows unbounded → overflow → NaN. Verified
+  numerically: the self-exciting map `x ← x + α(−x + g·ReLU(x))` stays bounded for g ≤ 1 but blows up for g > 1
+  (g=1.5 → ~10⁶ in 300 steps).
+- **γ=0.1 (cubic on):** the cubic *does* bound moderate growth (helping — NaN rate 22→18), **but** the cubic
+  itself is unstable under explicit Euler for large x: `x ← x + α(−x − γx³)` decays for x₀ ≤ 13 and diverges for
+  x₀ ≥ 14 (threshold `√(2/(αγ)) ≈ 14`). So γ trades unbounded linear growth for a bounded-then-overshoot regime —
+  a partial fix, not a cure.
+
+**This explains every feature:** **sudden** (a stability-boundary crossing, not growth); **disproportionately
+under `frm`** (`frm` is what builds the destabilizing excitation; `none` doesn't, so `none` almost never diverges);
+**why γ only helped 22→18** (it removes the unbounded route but adds the cubic-overshoot route); and **why
+`max_grad_norm` is irrelevant** (the blow-up is in the forward dynamics, gradients are ~1). The divergence and the
+rescue are two faces of the same thing — `frm` overcoming the clamp by building excitation, pushed to the point of
+instability.
+
+**Correct fixes (for any firm-up rerun), most-direct first:** (1) **milder clamp** — `master_inhib_strength`
+−5→−2 (still silences the targets) so far less compensating excitation is needed and loop gains stay < 1 — attacks
+the source; (2) **hard-bound the state** in `forward` (clip `x` / saturating map) so no loop can overflow; (3)
+**smaller integration step** (dt↓ / τ↑, or sub-step Euler) — raises the explicit-Euler stability threshold; (4)
+lower `lambda_frm` so the excitation is built less aggressively. Gradient clipping and γ tweaks act on the wrong
+layer.
