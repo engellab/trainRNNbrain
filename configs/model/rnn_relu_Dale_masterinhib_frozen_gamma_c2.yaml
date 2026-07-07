@@ -1,0 +1,28 @@
+# @package model
+# Milder-clamp variant of rnn_relu_Dale_masterinhib_frozen_gamma.yaml: master_inhib_strength 5.0 -> 2.0.
+# Root-cause of the NaN divergence (docs 2026-07-07): frm builds strong compensating excitation onto the
+# targets to overcome the deep -5 clamp, creating self-exciting recurrent loops (gain>1) that blow up the
+# forward dynamics. A milder clamp (-2*rate_master ~ -1.8, still << the ~0.05 target excitation, so still
+# silences) needs far less compensating excitation to escape -> loops stay sub-critical -> should remove
+# most of the divergence. Everything else identical to the frozen_gamma variant.
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+RNN_tag: ""
+activation_args: {"name": "relu", "slope": 1.0}
+equation_type: "h"
+N: 100
+dt: 1
+tau: 10
+exc2inhR: 4.0
+gamma: 0.1
+weight_boundary: "sticky"
+weight_boundary_eps: 1.0e-12
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+bias_range: [0.0, 0.0]
+master_inhib_frac: 0.25
+master_inhib_strength: 2.0   # milder clamp (was 5.0) to keep compensating loops sub-critical
+master_ctx_drive: 1.0
+freeze_master: true
