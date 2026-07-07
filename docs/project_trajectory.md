@@ -968,5 +968,33 @@ the network still works.**
 though they are mutually consistent and agree with the unfrozen (100% rescue) and gamma=0-frozen survivors; the
 frac=1.0 failure is solid (`s` n=3). The peak≥0.01 "active%" overstates rescue at frac=1.0 (see `h` part=0.004) —
 participation is the honest readout. `gamma=0.1` regime. Firming up the frac<1.0 `frm` counts would need a further
-stability pass (lower `master_ctx_drive`≈0.3, `max_grad_norm`→~5, more seeds), but the qualitative conclusion is
-already supported.
+stability pass, but the qualitative conclusion is already supported.
+
+### Root cause of the NaN divergence (2026-07-07) — explicit-Euler integration of the cubic term
+
+Diagnosed from a diverged net's saved `LossBreakdown.json` / `GradsRaw.json` (no Spock needed). The signature is
+**sudden, not gradual**: `task` and `fr_magnitude` losses are *normal* until the last finite step (iter 1595:
+task 0.090, frm 0.109) and then both go NaN in a *single* step (iter 1596). The gradient norms right before are
+**modest** — `g_task ≈ 0.1`, `g_fr_magnitude` spiking only 0.17→1.38 — nowhere near `max_grad_norm=50`. So it is
+**not** a huge-gradient / gradual-weight-growth blow-up, and gradient clipping cannot catch it.
+
+It is a **forward-dynamics instability**. The integrator is explicit forward Euler,
+`x_{t+1} = x_t + α·(−x_t + W_rec·ReLU(x_t) + input − γ·x_t³)` with `α = dt/τ = 0.1`. The cubic `−γx³` is meant to
+*stabilize* (in continuous time it bounds activity at `x ~ 1/√γ`), but under explicit Euler with a fixed step it
+is **itself unstable for large x**: the update `α·γ·x³` overshoots once `|x| > √(2/(α·γ)) ≈ 14.1` (for α=γ=0.1),
+flipping sign and growing each step → overflow → NaN within the 300-step trial. Verified numerically: the scalar
+map `x ← x + α(−x − γx³)` decays to 0 for x₀ ≤ 13 but diverges to NaN for x₀ ≥ 14.
+
+**Causal chain:** the deep −5 master→target clamp (plus, under `frm`, the large compensating excitation `frm`
+builds to overcome it) creates a high-gain recurrent subsystem; a modest weight step nudges some unit's transient
+state past ~14; the explicit-Euler cubic then blows it up on the next forward pass. This explains every feature:
+**sudden** (threshold crossing, not growth); **disproportionately under `frm`** (`frm` pushes activity *up*, into
+the danger zone; `none` has no such push); **why γ only helped modestly** (22→18 NaN) — γ tames the *small*-x
+active range but its explicit integration is the very thing that diverges at large x, trading one instability for
+another; and **why `max_grad_norm` is irrelevant** (the blow-up is in the forward ODE, not the gradient).
+
+**Correct fixes (for any firm-up rerun), in order of directness:** (1) shrink the integration step — smaller `dt`
+or larger `τ` (α↓), or sub-step the Euler update — the proper cure for explicit-integration stiffness; (2)
+hard-bound the state in `forward` (clip `x`, or a saturating map) so it can't enter the overshoot regime; (3)
+reduce the recurrent gain — a milder `master_inhib_strength` (−5→−2, still silences the targets). Gradient
+clipping and γ tweaks act on the wrong layer.

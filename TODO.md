@@ -72,8 +72,11 @@ Remaining, to make the prevention claim airtight against the harder case:
   net clamped) resists: no scaffold left, task fails (R²≈-0.38, degenerate) under none AND frm — confirms the
   thought experiment. Synthesis: silence can't survive frm unless the rest of the net is disabled too. Caveat:
   frac<1.0 frm cells n=1 (consistent across conds + prior runs); frac=1.0 solid (s n=3).** docs 2026-07-07.
-- **(Optional) firm-up pass:** if the frac<1.0 frm rescue needs >n=1, do one more stability pass (master_ctx_drive
-  ~0.3, max_grad_norm~5, +seeds). Qualitative conclusion already supported, so low priority.
+- **(Optional) firm-up pass:** if the frac<1.0 frm rescue needs >n=1, do one more stability pass. NOTE the NaN
+  root cause (docs 2026-07-07): it's an explicit-Euler forward instability — the cubic `-gamma*x^3` overshoots for
+  |x|>~sqrt(2/(alpha*gamma))~14, not a gradient blow-up (grads were ~1, clip=50 irrelevant; gamma only helped
+  22->18). Correct fixes: (1) smaller integration step (dt down / tau up, or sub-step Euler); (2) hard-bound the
+  state in forward(); (3) milder master_inhib_strength (-5->-2). Grad clipping / gamma tweaks won't fix it.
 - **Logged training:** per-unit activity every ~500 iters for `none` vs `frm` (h & s) — *when* during training the
   silencing happens, and whether any unit recovers. Together these explain *why* `frm` rescues but `rws` does not.
 
