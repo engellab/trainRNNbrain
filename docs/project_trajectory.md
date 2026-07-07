@@ -926,3 +926,47 @@ targets and therefore leaves the rescue question intact (only removes the blow-u
 the gamma=0 experiment line, acceptable for a mechanism probe. Smoke test confirmed targets 100% silent and the
 master saturating slightly (peak 1.0→0.92). If gamma alone doesn't cut the divergence enough, next levers are a
 lower `master_ctx_drive` and a tighter `max_grad_norm`.
+
+### Result (2026-07-07) — stabilized run answers it: frm overcomes even a frozen clamp, *unless the whole net is clamped*
+
+`plot_masterinhib_rescue.py CDDM_f4b706_masterinhib_frozen_gamma`. gamma helped modestly (**18/48 NaN vs 22**) but
+did not fix the `frm` arm — every `frm` cell still lost ≥1 net (mostly 1 valid; `s`/frac=1.0 kept all 3). Master
+peak pinned at **0.921** (frozen + cubic-saturated). Reporting both peak-based active% and the more honest
+**median participation** of the target set (`part`, active-mode ≈ 0.1):
+
+| eq | penalty | frac=0.25 | 0.5 | 0.75 | 1.0 |
+|----|----|----|----|----|----|
+| h | none | 0.8% | 0.3% | 0.0% | 0.0% (R²=**−0.38**) |
+| h | frm  | (div) | (div) | 100%, part 0.056, R²=0.84 | 100%, **part 0.004**, R²=**−0.38** |
+| s | none | 9.5% | 8.7% | 9.7% | 0.0% (R²=**−0.38**) |
+| s | frm  | 100%, part 0.10, R²=0.83 | (div) | 100%, part 0.12, R²=0.82 | 100%, part 0.11, R²=**−0.38** (n=3) |
+
+**The answer (with the frac=1.0 nuance):**
+
+1. **`frm` overcomes even the frozen, gradient-proof clamp at frac<1.0 — genuinely.** Targets reach real active-mode
+   participation (`s`: 0.10–0.12; `h`/0.75: 0.056) and the task is solved (R²≈0.82–0.86). Since the master can no
+   longer be tamed (frozen, verified), `frm` must be routing around it: driving the *non-clamped* units to build
+   **compensating excitation** onto the dead targets, strong enough to overcome the fixed −5 inhibition and pull
+   them active. So freezing the inhibitor does **not** make the targets unrescuable — as long as a functional
+   surrounding network remains, `frm` recruits it to rescue them. (The stark `none` contrast — h ~0%, s ~9% — is
+   clean at 3 nets/cond and confirms the clamp genuinely holds without `frm` pressure.)
+2. **frac=1.0 is the true failure regime — this confirms Pavel's thought experiment.** With *every* unit clamped
+   there is no scaffold left to build compensating drive, and the task cannot be solved under either penalty
+   (R²≈**−0.38**, a degenerate constant-output solution, consistent across the 3 `s`/1.0/frm nets). `frm` still
+   forces *nominal* threshold-crossing — genuinely for `s` (part 0.11) but negligibly for `h` (part 0.004, i.e.
+   not really rescued) — yet the network is functionally dead either way.
+
+**Synthesis of the whole rescue arc.** Per unit, a truly-dead ReLU gets no direct gradient (Pavel's argument holds
+at the single-unit level). But rescue is a *network-level* phenomenon: `frm` makes "all units active" the trained
+solution and reaches it from any init, and it can even dismantle a structured, gradient-proof silencing mechanism
+by recruiting the rest of the network to compensate. The **only** way silence survives `frm` is to remove the
+network's capacity to compute entirely (clamp everything, frac=1.0) — which is not a per-unit property, and which
+also destroys task performance. In short: **you cannot keep an individual unit silent under `frm` if the rest of
+the network still works.**
+
+**Caveats.** The frac<1.0 `frm` cells rest on 1 surviving net each (gamma cut but didn't eliminate divergence),
+though they are mutually consistent and agree with the unfrozen (100% rescue) and gamma=0-frozen survivors; the
+frac=1.0 failure is solid (`s` n=3). The peak≥0.01 "active%" overstates rescue at frac=1.0 (see `h` part=0.004) —
+participation is the honest readout. `gamma=0.1` regime. Firming up the frac<1.0 `frm` counts would need a further
+stability pass (lower `master_ctx_drive`≈0.3, `max_grad_norm`→~5, more seeds), but the qualitative conclusion is
+already supported.

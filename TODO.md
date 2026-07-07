@@ -66,6 +66,14 @@ Remaining, to make the prevention claim airtight against the harder case:
   test: targets 100% silent, master peak 0.92 (saturating). Goal: >=3 valid frm nets/cond. Analyse:
   `plot_masterinhib_rescue.py CDDM_f4b706_masterinhib_frozen_gamma`. If gamma alone doesn't suffice, next levers:
   lower master_ctx_drive to ~0.3 (not over-cap), tighten max_grad_norm (50->~5), more seeds.
+  **RESULT (2026-07-07): gamma helped (18 NaN vs 22) but frm arm still thin (~1 valid/cond). ANSWER: frm overcomes
+  even the frozen gradient-proof clamp at frac<1.0 — targets genuinely active (part ~0.1) + task solved (R²~0.83);
+  it recruits the non-clamped units to build compensating excitation onto the dead targets. ONLY frac=1.0 (whole
+  net clamped) resists: no scaffold left, task fails (R²≈-0.38, degenerate) under none AND frm — confirms the
+  thought experiment. Synthesis: silence can't survive frm unless the rest of the net is disabled too. Caveat:
+  frac<1.0 frm cells n=1 (consistent across conds + prior runs); frac=1.0 solid (s n=3).** docs 2026-07-07.
+- **(Optional) firm-up pass:** if the frac<1.0 frm rescue needs >n=1, do one more stability pass (master_ctx_drive
+  ~0.3, max_grad_norm~5, +seeds). Qualitative conclusion already supported, so low priority.
 - **Logged training:** per-unit activity every ~500 iters for `none` vs `frm` (h & s) — *when* during training the
   silencing happens, and whether any unit recovers. Together these explain *why* `frm` rescues but `rws` does not.
 
