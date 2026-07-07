@@ -72,7 +72,12 @@ Remaining, to make the prevention claim airtight against the harder case:
   net clamped) resists: no scaffold left, task fails (R²≈-0.38, degenerate) under none AND frm — confirms the
   thought experiment. Synthesis: silence can't survive frm unless the rest of the net is disabled too. Caveat:
   frac<1.0 frm cells n=1 (consistent across conds + prior runs); frac=1.0 solid (s n=3).** docs 2026-07-07.
-- **(Optional) firm-up pass:** if the frac<1.0 frm rescue needs >n=1, do one more stability pass. NaN root cause
+- **Stabilized full rescue run — SUBMITTED (job `5127540`, `CDDM_b5fafb_masterinhib_frozen_dt05`).** Fix found by
+  cheap frm-only tests: clamp -2 didn't help (~50%, just delayed); `dt=0.5+gamma=0.1` -> ~19% NaN (dt=0.5 alone was
+  100%, need BOTH). Full run: dt=0.5+gamma=0.1, frozen, clamp -5, 64 jobs = 2 eq x 4 frac x (3 none + 5 frm) seeds,
+  wall 12h (~6h/job). Analyse: `plot_masterinhib_rescue.py CDDM_b5fafb_masterinhib_frozen_dt05`. Should give a
+  well-powered read on whether frm rescues a gradient-proof clamp (prior thin answer: yes frac<1.0, no frac=1.0).
+- **(Superseded) firm-up pass notes.** NaN root cause
   (docs 2026-07-07, corrected): a forward-dynamics instability, NOT the cubic (gamma=0 runs diverged the same way).
   frm builds a self-exciting recurrent loop (gain>1) onto the targets to overcome the -5 clamp; gamma=0 -> unbounded
   growth, gamma=0.1 -> cubic bounds it but overshoots via explicit Euler for |x|>~14. Grads were ~1 (clip=50

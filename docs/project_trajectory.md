@@ -1010,3 +1010,22 @@ the source; (2) **hard-bound the state** in `forward` (clip `x` / saturating map
 **smaller integration step** (dt↓ / τ↑, or sub-step Euler) — raises the explicit-Euler stability threshold; (4)
 lower `lambda_frm` so the excitation is built less aggressively. Gradient clipping and γ tweaks act on the wrong
 layer.
+
+**Fix search (2026-07-07), by cheap 16–32-job frm-only tests before any full run:**
+- **Milder clamp `−2`:** did **not** help — same ~50% NaN (6/12), only *delayed* onset (iter ~4430 vs 800–1600).
+  Lowering the clamp just changes how long `frm` takes to build a supercritical loop; it still gets there.
+- **`dt=0.5` (finer integration; α 0.1→0.05, raising the loop-gain boundary g<11→g<21), two γ variants:**
+  - `dt=0.5 + γ=0.1` → **3/16 NaN (~19%)** — a big drop from ~50%.
+  - `dt=0.5 + γ=0` (dt alone) → **16/16 NaN (100%)** — *worse*.
+  So you need **both**: γ provides the bounded fixed point (γ=0 has none → any gain>1 grows unbounded, and the
+  larger per-step noise at small α, ∝√(2/α), makes γ=0 blow up every time), and the smaller step keeps the
+  explicit-Euler integration of that cubic stable. This also corrects the earlier "γ value doesn't matter" note:
+  γ=0 vs γ>0 matters enormously (bounded vs unbounded); it's only the *magnitude* of γ>0 that doesn't move the
+  boundary. **Chosen fix: `dt=0.5 + γ=0.1`.**
+
+**Full stabilized rescue run submitted (job `5127540`, `CDDM_b5fafb_masterinhib_frozen_dt05`).** `dt=0.5 + γ=0.1`,
+frozen master, clamp −5; 64 jobs = 2 eq × 4 frac × (3 `none` + 5 `frm`) seeds (5 `frm` seeds → ~4 valid/cond after
+the ~19% divergence; `none` never diverges so 3 suffice). Config
+`rnn_relu_Dale_masterinhib_frozen_dt05_g01.yaml`, launcher `SilentReLU_masterinhib_frozen_dt05_N1000.slurm`,
+wall 12 h (dt=0.5 ≈ 6 h/job measured). This should finally give a clean, well-powered read on whether `frm`
+rescues a genuinely gradient-proof clamp (the earlier answer — yes at frac<1.0, no at frac=1.0 — but on n≈1).
