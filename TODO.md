@@ -72,11 +72,13 @@ Remaining, to make the prevention claim airtight against the harder case:
   net clamped) resists: no scaffold left, task fails (R²≈-0.38, degenerate) under none AND frm — confirms the
   thought experiment. Synthesis: silence can't survive frm unless the rest of the net is disabled too. Caveat:
   frac<1.0 frm cells n=1 (consistent across conds + prior runs); frac=1.0 solid (s n=3).** docs 2026-07-07.
-- **Stabilized full rescue run — SUBMITTED (job `5127540`, `CDDM_b5fafb_masterinhib_frozen_dt05`).** Fix found by
-  cheap frm-only tests: clamp -2 didn't help (~50%, just delayed); `dt=0.5+gamma=0.1` -> ~19% NaN (dt=0.5 alone was
-  100%, need BOTH). Full run: dt=0.5+gamma=0.1, frozen, clamp -5, 64 jobs = 2 eq x 4 frac x (3 none + 5 frm) seeds,
-  wall 12h (~6h/job). Analyse: `plot_masterinhib_rescue.py CDDM_b5fafb_masterinhib_frozen_dt05`. Should give a
-  well-powered read on whether frm rescues a gradient-proof clamp (prior thin answer: yes frac<1.0, no frac=1.0).
+- **Stabilized full rescue run — DONE (job `5127540`, `CDDM_b5fafb_masterinhib_frozen_dt05`).** Fix: `dt=0.5+gamma=0.1`
+  (clamp -2 didn't help; dt=0.5 alone was 100%; need both). Only 6/61 diverged, 3-5 valid nets/frm-cond.
+  **RESULT (well-powered, confirms the thin answer): frm rescues even the frozen gradient-proof clamp at frac<1.0**
+  (100% targets active, part ~0.08-0.10, task solved R²~0.85, 3-5 nets) **but frac=1.0 fails** (h R²=-0.38, s R²=0.08 —
+  no scaffold). none holds targets at ~0% (s now clean 0% at dt=0.5). Synthesis: can't keep a unit silent under frm
+  while the rest of the net works; only clamping everything defeats it (and that kills the task). docs 2026-07-08.
+  **This closes the prevention-vs-resurrection / silent-unit mechanism line.**
 - **(Superseded) firm-up pass notes.** NaN root cause
   (docs 2026-07-07, corrected): a forward-dynamics instability, NOT the cubic (gamma=0 runs diverged the same way).
   frm builds a self-exciting recurrent loop (gain>1) onto the targets to overcome the -5 clamp; gamma=0 -> unbounded

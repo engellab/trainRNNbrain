@@ -1029,3 +1029,35 @@ the ~19% divergence; `none` never diverges so 3 suffice). Config
 `rnn_relu_Dale_masterinhib_frozen_dt05_g01.yaml`, launcher `SilentReLU_masterinhib_frozen_dt05_N1000.slurm`,
 wall 12 h (dt=0.5 ≈ 6 h/job measured). This should finally give a clean, well-powered read on whether `frm`
 rescues a genuinely gradient-proof clamp (the earlier answer — yes at frac<1.0, no at frac=1.0 — but on n≈1).
+
+### Result (2026-07-08) — well-powered, and it CONFIRMS the thin answer
+
+Stabilization worked: only **6/61 nets diverged (~10%)**, and every `frm` condition retained **3–5 valid nets**
+(vs n≈1 before). Master frozen (peak 0.921). `plot_masterinhib_rescue.py CDDM_b5fafb_masterinhib_frozen_dt05`.
+Target-active% (peak≥0.01), target median participation, and R² (mean over valid nets):
+
+| eq | penalty | frac=0.25 | 0.5 | 0.75 | 1.0 |
+|----|----|----|----|----|----|
+| h | none | 0.8% | 0.2% | 0% | 0% (R²=**−0.38**) |
+| h | frm  | 100%, part 0.073, R²=0.84 | 100%, 0.042, 0.84 | 100%, 0.019, 0.85 | 100%, 0.048, **R²=−0.38** |
+| s | none | 0% | 0% | 0% | 0% (R²=**−0.38**) |
+| s | frm  | 100%, part 0.105, R²=0.83 | 100%, 0.081, 0.85 | 100%, 0.089, 0.83 | 100%, 0.094, **R²=0.08** |
+
+The conclusion from 2026-07-07 holds, now robustly:
+
+1. **`frm` overcomes even the frozen, gradient-proof clamp at frac<1.0** — 100% of targets active with genuine
+   participation (`s`: 0.08–0.10; `h`: 0.02–0.07), task solved (R²≈0.83–0.86), consistent across 3–5 nets/cond.
+   Since the master is immovable (frozen, verified: peak fixed at 0.921), `frm` rescues by recruiting the
+   *non-clamped* units to build compensating excitation onto the dead targets.
+2. **frac=1.0 (whole net clamped) fails the task** — with no scaffold left, the network cannot solve CDDM under
+   `frm` (h R²=**−0.38**, s R²=**0.08**; both essentially failed) even though `frm` still forces the targets to
+   nominal activity. This is the genuinely-unrescuable regime — Pavel's thought experiment confirmed.
+3. **Cleaner `none` arm at dt=0.5:** the clamp now holds `s` targets at exactly 0% (they leaked ~9–15% in the
+   dt=1 runs) — the finer integration removed the spurious leak, so the `none` control is unambiguous.
+
+**Bottom line for the whole rescue arc:** a single dead ReLU has no direct gradient (per-unit), but silence is a
+*network-level* property — `frm` makes "all units active" the trained solution and will dismantle even a
+structured, gradient-proof silencing mechanism by recruiting the rest of the network, **unless** you remove the
+network's capacity to compute entirely (frac=1.0), which also destroys the task. You cannot keep an individual
+unit silent under `frm` while the rest of the network still works. (Method note: getting here required fixing an
+explicit-Euler forward-integration instability — `dt=0.5 + γ=0.1` — not the clamp magnitude or gradient clipping.)
