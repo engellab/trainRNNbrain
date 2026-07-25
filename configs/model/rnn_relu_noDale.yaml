@@ -1,0 +1,26 @@
+# @package model
+# rnn_relu_Dale.yaml with BOTH biological constraints removed — the unconstrained-architecture control.
+#   dale: false             -> signed W_rec, no E/I split, every unit reads out (dale_mask = None)
+#   io_nonnegativity: false -> W_inp and W_out are not clamped non-negative
+# The two switches are independent, so the intermediate cells (Dale with a signed readout, or
+# unconstrained W_rec with positive I/O) can be run by overriding just one of them.
+# Everything else is identical to rnn_relu_Dale.yaml. exc2inhR is ignored when dale: false.
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+RNN_tag: ""
+activation_args: {"name": "relu", "slope": 1.0}
+equation_type: "h"
+N: 100
+dt: 1
+tau: 10
+exc2inhR: 4.0
+gamma: 0   # cubic term off (the established regime); set to 0.1 here to restore it
+dale: false
+io_nonnegativity: false
+weight_boundary: "sticky"      # with dale/io_nonnegativity off there is nothing to clamp; kept for symmetry
+weight_boundary_eps: 1.0e-12
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+bias_range: [0.0, 0.0]

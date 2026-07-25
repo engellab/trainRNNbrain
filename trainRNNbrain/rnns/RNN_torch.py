@@ -87,6 +87,44 @@ def get_connectivity_Dale(N, n_inputs, n_outputs, radius=1.5, recurrent_density=
 
     return W_rec, W_inp, W_out, recurrent_mask, dale_mask, output_mask, input_mask
 
+
+def get_connectivity_unconstrained(N, n_inputs, n_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
+                                   output_density=1.0, generator=None):
+    """
+    Unconstrained (non-Dale) connectivity: signed weights, no E/I split, every unit reads out.
+
+    Mirrors get_connectivity_Dale in scale and structure so the two are comparable — same
+    1/sqrt(N) weight scale, zero diagonal, W_rec rescaled to the requested spectral radius — but
+    weights are drawn signed (zero-mean) instead of sign-split by presynaptic identity, W_inp and
+    W_out are signed, and the readout is NOT restricted to a subpopulation.
+
+    Args:
+        N: number of units.
+        n_inputs, n_outputs: input/output channel counts.
+        radius: target spectral radius of W_rec after rescaling.
+        recurrent_density, input_density, output_density: fraction of nonzero entries (1.0 = dense).
+        generator: torch.Generator seeding every draw.
+    Returns:
+        (W_rec, W_inp, W_out, recurrent_mask, dale_mask=None, output_mask, input_mask) — dale_mask is
+        None to signal "no sign constraint" to the model and the Trainer.
+    """
+    device = generator.device if generator is not None else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+    mu, std = 0.0, 1 / np.sqrt(N)
+
+    W_rec = sparse(torch.empty(N, N, device=device), 1 - recurrent_density, mu, std, generator)
+    W_rec = W_rec - torch.diag(torch.diag(W_rec))
+    spec_radius = torch.max(torch.abs(torch.linalg.eigvals(W_rec)))
+    W_rec = ((radius / (spec_radius + 1e-12)) * W_rec).float()
+
+    W_inp = sparse(torch.zeros(N, n_inputs, device=device), 1 - input_density, mu, std, generator).float()
+    W_out = sparse(torch.zeros(n_outputs, N, device=device), 1 - output_density, mu, std, generator).float()
+
+    output_mask = (W_out != 0).float()
+    input_mask = (W_inp != 0).float()
+    recurrent_mask = (torch.ones(N, N, device=device) - torch.eye(N, device=device)).float()
+
+    return W_rec, W_inp, W_out, recurrent_mask, None, output_mask, input_mask
+
 '''
 Continuous-time RNN class implemented in pytorch to train with BPTT
 '''
@@ -106,6 +144,8 @@ class RNN_torch(torch.nn.Module):
                  sigma_inp=0.03,
                  sigma_out=0.03,
                  gamma=0.1,
+                 dale=True,
+                 io_nonnegativity=True,
                  weight_boundary="sticky",
                  weight_boundary_eps=1e-12,
                  bias_range=[0.0, 0.0],
@@ -127,7 +167,13 @@ class RNN_torch(torch.nn.Module):
         :param spectral_rad: float, spectral radius of the initial connectivity matrix W_rec
         :param dt: float, time resolution of RNN
         :param tau: float, internal time constant of the RNN-neural nodes
-        :param exc2inhR: float, ratio of excitatory to inhibitory recurrent connections
+        :param exc2inhR: float, ratio of excitatory to inhibitory recurrent connections (Dale only)
+        :param dale: bool, whether W_rec obeys Dale's law. True (default) = sign-split connectivity
+            (E units excite, I units inhibit, ratio exc2inhR) with the sign enforced every step and the
+            readout restricted to the excitatory subpopulation. False = unconstrained signed weights,
+            no E/I split, every unit reads out (get_connectivity_unconstrained, dale_mask=None).
+        :param io_nonnegativity: bool, whether W_inp and W_out are clamped non-negative. Independent
+            of `dale` — the two are separate constraints and can be switched on/off separately.
         :param bias_range: 2-element list of floats, defining the range for elements of the bias vector.
             A degenerate range (low == high) gives a fixed, non-trainable bias; otherwise the bias is a
             trainable Parameter clamped to this range after every optimizer step.
@@ -191,14 +237,23 @@ class RNN_torch(torch.nn.Module):
 
 
         # imposing a bunch of constraint on the connectivity:
-        # positivity of W_inp, W_out,
-        # W_rec has to be subject to Dale's law
-        W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
-            get_connectivity_Dale(N=self.N, n_inputs=self.n_inputs, n_outputs=self.n_outputs,
-                                    radius=self.spectral_rad,
-                                    exc2inhR=self.exc2inhR,
-                                    generator=self.random_generator,
-                                    recurrent_density=self.connectivity_density_rec)
+        # positivity of W_inp, W_out (io_nonnegativity),
+        # W_rec subject to Dale's law (dale) — the two are independent switches
+        self.dale = bool(dale)
+        self.io_nonnegativity = bool(io_nonnegativity)
+        if self.dale:
+            W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
+                get_connectivity_Dale(N=self.N, n_inputs=self.n_inputs, n_outputs=self.n_outputs,
+                                        radius=self.spectral_rad,
+                                        exc2inhR=self.exc2inhR,
+                                        generator=self.random_generator,
+                                        recurrent_density=self.connectivity_density_rec)
+        else:
+            W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
+                get_connectivity_unconstrained(N=self.N, n_inputs=self.n_inputs, n_outputs=self.n_outputs,
+                                        radius=self.spectral_rad,
+                                        generator=self.random_generator,
+                                        recurrent_density=self.connectivity_density_rec)
 
         # deliberate silent-at-init perturbation: over-inhibit a fixed random `silent_init_frac` of
         # units (set S) by scaling the inhibitory columns (synapses from I-units, dale_mask==-1) of
@@ -345,9 +400,10 @@ class RNN_torch(torch.nn.Module):
             (W_rec, W_inp, W_out) torch tensors, all on self.device.
         """
         if self.weight_boundary == "reflective":
-            W_rec = self.W_rec.abs() * self.dale_mask.unsqueeze(0) * self.recurrent_mask
-            W_inp = self.W_inp.abs() * self.input_mask
-            W_out = self.W_out.abs() * self.output_mask
+            # only the constraints that are switched on are enforced by construction
+            W_rec = (self.W_rec.abs() * self.dale_mask.unsqueeze(0) if self.dale else self.W_rec) * self.recurrent_mask
+            W_inp = (self.W_inp.abs() if self.io_nonnegativity else self.W_inp) * self.input_mask
+            W_out = (self.W_out.abs() if self.io_nonnegativity else self.W_out) * self.output_mask
             return W_rec, W_inp, W_out
         return self.W_rec, self.W_inp, self.W_out
 
@@ -493,6 +549,8 @@ class RNN_torch(torch.nn.Module):
             "weight_boundary": self.weight_boundary,
             "weight_boundary_eps": float(self.weight_boundary_eps),
             "dale_mask": to_np(self.dale_mask),
+            "dale": bool(getattr(self, "dale", True)),
+            "io_nonnegativity": bool(getattr(self, "io_nonnegativity", True)),
             "input_mask": to_np(self.input_mask),
             "recurrent_mask": to_np(self.recurrent_mask),
             "output_mask": to_np(self.output_mask),
@@ -529,6 +587,9 @@ class RNN_torch(torch.nn.Module):
 
         dm = params.get("dale_mask", None)
         self.dale_mask = None if dm is None else as_t(dm)
+        # legacy nets predate these flags: absent -> the old behaviour (both constraints on)
+        self.dale = bool(params.get("dale", self.dale_mask is not None))
+        self.io_nonnegativity = bool(params.get("io_nonnegativity", True))
         self.input_mask = as_t(params["input_mask"])
         self.recurrent_mask = as_t(params["recurrent_mask"])
         self.output_mask = as_t(params["output_mask"])

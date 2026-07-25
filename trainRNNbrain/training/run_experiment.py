@@ -184,8 +184,15 @@ def run_training(cfg: DictConfig) -> None:
             if disp: plt.show()
             if not (datasaver is None): datasaver.save_figure(fig_participation_trace, "participation_trace.png")
 
-        dale_mask_bool = ((np.sign(np.sum(RNN_valid.W_rec, axis = 0)) + 1) / 2).astype(bool)
-        dale_mask_int = (np.sign(np.sum(RNN_valid.W_rec, axis=0)) + 1).astype(int)
+        # unit grouping for the sorted/clustered figures: E/I identity under Dale's law, where the sign
+        # of a unit's outgoing recurrent weights is its type. Without Dale that sign is meaningless
+        # (weights are signed per synapse), so all units form a single group.
+        if cfg.model.get("dale", True):
+            dale_mask_bool = ((np.sign(np.sum(RNN_valid.W_rec, axis = 0)) + 1) / 2).astype(bool)
+            dale_mask_int = (np.sign(np.sum(RNN_valid.W_rec, axis=0)) + 1).astype(int)
+        else:
+            dale_mask_bool = np.ones(RNN_valid.W_rec.shape[0], dtype=bool)
+            dale_mask_int = np.ones(RNN_valid.W_rec.shape[0], dtype=int)
         perm = analyzer.composite_lexicographic_sort(RNN_valid.W_inp, RNN_valid.W_out.T, dale_mask_int)
         W_inp_perm, W_rec_perm, W_out_perm, dale_mask_bool_perm = analyzer.permute_matrices(RNN_valid.W_inp,
                                                                                             RNN_valid.W_rec,

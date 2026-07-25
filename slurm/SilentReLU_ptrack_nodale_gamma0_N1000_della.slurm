@@ -1,0 +1,107 @@
+#!/bin/bash
+# Unconstrained (non-Dale) networks + participation trace (DELLA)
+#
+# Is the ~50% silent population a Dale artifact? Every previous silent-unit result used
+# Dale-constrained nets (sign-split W_rec re-projected every step, excitatory-only readout,
+# W_inp/W_out clamped >= 0). This sweep removes BOTH constraint families via the new independent
+# switches model.dale=false and model.io_nonnegativity=false (configs/model/rnn_relu_noDale.yaml):
+# signed weights, no E/I split, every unit reads out, no I/O sign clamps. Same grid as
+# CDDM_ptrack_g0, which is the constrained reference.
+#
+# Motivation: in Dale nets the silence is overwhelmingly EXCITATORY (h/none: 53-55% of E units vs
+# 3.5-5% of I units silent) — an asymmetry that exists only because of the E/I split.
+#
+# Participation is logged every 10 iterations as *_ParticipationTrace.pkl + participation_trace.png.
+# Full rationale, prediction, falsifier and analysis caveats:
+# docs/experiments/participation_trace_nodale.md (copied into the sweep folder as EXPERIMENT.md by
+# array task 1).
+#
+# RUNS FROM A SEPARATE GIT WORKTREE ($HOME/trainRNNbrain_nodale) so that sweeps already in flight keep
+# executing the code they started with. See the PYTHONPATH guard below.
+#
+# Grid (40 jobs) = 2 eq x 2 lambda_rws x 2 lambda_frm x 5 nets, N=1000, gamma=0:
+#   EQ  in {h, s}            (model.equation_type)
+#   RWS in {0, 0.05}         (trainer.lambda_rws)
+#   FRM in {0, 0.2}          (trainer.lambda_frm)
+#   5 reps, seed="random"
+# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..39): TID = 20*EQ + 10*RWS + 5*FRM + REP
+#   REP=TID%5; FRM_IDX=(TID/5)%2; RWS_IDX=(TID/10)%2; EQ_IDX=(TID/20)%2
+#
+# Same regime as CDDM_4a031e_g0 / CDDM_ptrack_g0 (gamma=0, N=1000, 30000 iters, dt=1) EXCEPT that both
+# architectural constraints are off — that is the manipulation, and CDDM_ptrack_g0 is its control.
+#
+# Output: $SAVE_TO/CDDM_ptrack_g0_nodale/EqType=<EQ>_N=1000_LmbdRWS=<RWS>_LmbdFR=<FRM>/<per-net subfolder>
+# Overridable env vars: MAXITER (default: config, 30000), SAVE_TO (default: TENGEL scratch).
+#
+# NOTE --time: >= 2 h is required on Della, otherwise the job lands on the `gputest` QOS with a
+# hard cap of 3 concurrent jobs. Measured 0.154 s/iter at N=1000 on an L40S -> ~80 min for 30000.
+
+#SBATCH --job-name=PtrackNoDale
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --gpus-per-node=1
+#SBATCH --mem-per-gpu=32G
+#SBATCH --time=2:30:00
+#SBATCH --array=1-40
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=pt1290@princeton.edu
+#SBATCH --output=/home/pt1290/trainRNNbrain/log/%x.%A_%a.out
+#SBATCH --error=/home/pt1290/trainRNNbrain/log/%x.%A_%a.err
+
+module purge
+module load cudatoolkit/12.8
+module load anaconda3/2024.10
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate torch-env
+
+set -eo pipefail
+export PYTHONUNBUFFERED=1   # otherwise iteration lines sit in an 8 KB buffer and the log looks stalled
+
+REPO="${REPO:-$HOME/trainRNNbrain_nodale}"   # separate git worktree: keeps in-flight sweeps on their own checkout
+SAVE_TO="${SAVE_TO:-/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs}"
+
+# The editable install points at ~/trainRNNbrain (the OTHER checkout), so `import trainRNNbrain` would
+# silently resolve there. Put the worktree first on the path and REFUSE TO RUN if it did not win.
+export PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}"
+PKG=$(python -c "import trainRNNbrain, os; print(os.path.dirname(os.path.dirname(trainRNNbrain.__file__)))")
+if [ "$PKG" != "$REPO" ]; then
+  echo "FATAL: trainRNNbrain resolves to $PKG, expected $REPO — aborting so we don't train with the wrong code." >&2
+  exit 1
+fi
+echo "code: $PKG @ $(git -C "$REPO" rev-parse --short=7 HEAD)"
+
+EQS=(h s)
+RWSS=(0 0.05)
+FRMS=(0 0.2)
+
+TID=$((SLURM_ARRAY_TASK_ID - 1))
+REP=$((TID % 5))
+FRM_IDX=$(((TID / 5)  % 2))
+RWS_IDX=$(((TID / 10) % 2))
+EQ_IDX=$(((TID / 20) % 2))
+EQ=${EQS[$EQ_IDX]}
+RWS=${RWSS[$RWS_IDX]}
+FRM=${FRMS[$FRM_IDX]}
+
+TAG="ptrack_g0_nodale/EqType=${EQ}_N=1000_LmbdRWS=${RWS}_LmbdFR=${FRM}"
+mkdir -p "${SAVE_TO}/CDDM_ptrack_g0_nodale"
+if [ "$SLURM_ARRAY_TASK_ID" -eq 1 ]; then
+  # descriptor of what this data is, next to the data itself, stamped with the code commit
+  cp "$REPO/docs/experiments/participation_trace_nodale.md" "${SAVE_TO}/CDDM_ptrack_g0_nodale/EXPERIMENT.md"
+  echo -e "\n---\nRun: SLURM array ${SLURM_ARRAY_JOB_ID} on Della, code commit $(git -C "$REPO" rev-parse HEAD)" \
+    >> "${SAVE_TO}/CDDM_ptrack_g0_nodale/EXPERIMENT.md"
+fi
+
+echo "Task ${SLURM_ARRAY_TASK_ID}: EQ=${EQ} N=1000 Lrws=${RWS} Lfrm=${FRM} rep=${REP} hash=$(git -C "$REPO" rev-parse --short=6 HEAD)"
+echo "  -> ${SAVE_TO}/CDDM_${TAG}"
+
+# Fixed params (gamma=0, N=1000, max_iter, trainer_tag, track_every) live in config; this only
+# selects the tracking trainer and sets the swept IVs.
+srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
+  seed="random" \
+  +experiment=silent_units_N1000 \
+  trainer=trainer_ptrack \
+  model=rnn_relu_noDale model.equation_type="$EQ" \
+  trainer.lambda_rws="$RWS" trainer.lambda_frm="$FRM" \
+  paths.save_to="$SAVE_TO" \
+  experiment_tag="\"${TAG}\""

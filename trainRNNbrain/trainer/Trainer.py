@@ -674,9 +674,11 @@ class Trainer():
         # (effective weight = |param|*sign*mask), so the post-step projections are skipped;
         # for "sticky" (legacy/default) they are applied as before.
         if getattr(self.RNN, "weight_boundary", "sticky") == "sticky":
-            self.enforce_masks_()
-            self.enforce_io_nonnegativity_()
-            self.enforce_dale_()
+            self.enforce_masks_()   # structural (zero diagonal / masked entries), independent of Dale
+            if getattr(self.RNN, "io_nonnegativity", True):
+                self.enforce_io_nonnegativity_()
+            if getattr(self.RNN, "dale", True):
+                self.enforce_dale_()
         self.enforce_bias_range_()
 
         # --- 5) compute total loss and r2 for reporting ---
