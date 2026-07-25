@@ -1306,7 +1306,7 @@ redundant and half can be dropped. This is a new descriptive result and belongs 
 of the sweep; it is also a Dale-specific structure, which is precisely why the unconstrained control is
 needed.
 
-### Implementation — two independent switches (commit `<CODEHASH>`)
+### Implementation — two independent switches (commit `a5bde03`)
 
 - **`model.dale`** (default `true`). `false` → new `get_connectivity_unconstrained`: signed zero-mean
   weights, no E/I split, `dale_mask = None`, **every** unit reads out; identical 1/√N scale, zero
@@ -1330,7 +1330,7 @@ params default to both-on. (Two apparent anomalies were chased to ground and are
 the Dale net's "negative" `W_out` entries are `enforce_dale_` writing `eps·dale_mask = −1e-12` on
 inhibitory columns, and the "entries at eps" count is the zeroed diagonal.)
 
-### The sweep (submitted — Della array `<ARRAYID>`)
+### The sweep (submitted — Della array `11610813`)
 
 40 jobs = 2 equations {h, s} × 4 penalties {none, rws, frm, both} × 5 seeds, N=1000, γ=0, 30000
 iterations, participation tracked every 10 iterations. Identical to `CDDM_ptrack_g0` except
