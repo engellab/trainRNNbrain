@@ -519,6 +519,35 @@ class PerformanceAnalyzer():
         plt.tight_layout()
         return fig
 
+    def plot_participation_trace(self, participation_monitor, eps=1e-6):
+        '''
+        Heatmap of every unit's participation over the course of training.
+
+        Args:
+            participation_monitor: dict logged by Trainer.track_participation_,
+                {"iters": [int, ...], "participation": [array(N,), ...]} — one snapshot per
+                tracked iteration, in order.
+            eps: floor added before the log, so fully silent units are finite (default 1e-6).
+        Returns:
+            matplotlib Figure: x = training iteration, y = unit (sorted by FINAL participation,
+            so the silenced population collects at the bottom), colour = log10 participation.
+        '''
+        iters = np.asarray(participation_monitor["iters"])
+        P = np.asarray(participation_monitor["participation"], dtype=float)  # (n_snapshots, N)
+        fig, ax = plt.subplots(figsize=(6, 4.5))
+        if P.size == 0:
+            ax.set_title("Participation trace: no snapshots logged")
+            return fig
+        P = np.where(np.isfinite(P), P, 0.0)  # diverged nets -> floor instead of blank rows
+        order = np.argsort(P[-1])
+        im = ax.imshow(np.log10(P[:, order].T + eps), aspect="auto", origin="lower",
+                       extent=[iters[0], iters[-1], 0, P.shape[1]], cmap="viridis")
+        fig.colorbar(im, ax=ax, label="log$_{10}$ participation")
+        ax.set_xlabel("training iteration")
+        ax.set_ylabel("unit (sorted by final participation)")
+        plt.tight_layout()
+        return fig
+
 
 class PerformanceAnalyzerCDDM(PerformanceAnalyzer):
     def __init__(self, rnn_numpy):

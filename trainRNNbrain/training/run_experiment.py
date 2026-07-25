@@ -179,6 +179,11 @@ def run_training(cfg: DictConfig) -> None:
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_participation, "participation.png")
 
+        if cfg.trainer.track_participation:
+            fig_participation_trace = analyzer.plot_participation_trace(trainer.participation_monitor)
+            if disp: plt.show()
+            if not (datasaver is None): datasaver.save_figure(fig_participation_trace, "participation_trace.png")
+
         dale_mask_bool = ((np.sign(np.sum(RNN_valid.W_rec, axis = 0)) + 1) / 2).astype(bool)
         dale_mask_int = (np.sign(np.sum(RNN_valid.W_rec, axis=0)) + 1).astype(int)
         perm = analyzer.composite_lexicographic_sort(RNN_valid.W_inp, RNN_valid.W_out.T, dale_mask_int)
