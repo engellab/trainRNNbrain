@@ -1,0 +1,26 @@
+# @package model
+# rnn_relu_Dale.yaml with a TRAINABLE bias — the one-variable trainable-bias control.
+# bias_init: zeros keeps the initial condition identical to the bias-free baseline (a non-degenerate
+# bias_range would otherwise seed the biases uniformly over the range), so the ONLY change is that
+# each unit now has an offset it can learn. Range +/-1 is a generous rail, not a prior: a trained
+# baseline net needs b = +0.30 to lift its most negative silent unit to threshold (median +0.19),
+# so the optimum sits well inside the bound and "the bias could not reach" is not an available
+# objection. See docs/experiments/participation_trace_bias.md.
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+RNN_tag: ""
+activation_args: {"name": "relu", "slope": 1.0}
+equation_type: "h"
+N: 100
+dt: 1
+tau: 10
+exc2inhR: 4.0
+gamma: 0   # cubic term off (the established regime); set to 0.1 here to restore it
+weight_boundary: "sticky"      # "sticky" (clamp sign-violating weights to +/-eps each step) or "reflective" (|param|*sign)
+weight_boundary_eps: 1.0e-12   # boundary value for the "sticky" clamp
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+bias_range: [-1.0, 1.0]        # trainable (non-degenerate range); clamped to this after every step
+bias_init: "zeros"             # start at 0 so the init matches the bias-free baseline

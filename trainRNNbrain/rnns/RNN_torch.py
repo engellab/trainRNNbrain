@@ -109,6 +109,7 @@ class RNN_torch(torch.nn.Module):
                  weight_boundary="sticky",
                  weight_boundary_eps=1e-12,
                  bias_range=[0.0, 0.0],
+                 bias_init="uniform",
                  y_init=None,
                  seed=None,
                  inhibitory_boost=None,
@@ -127,7 +128,13 @@ class RNN_torch(torch.nn.Module):
         :param dt: float, time resolution of RNN
         :param tau: float, internal time constant of the RNN-neural nodes
         :param exc2inhR: float, ratio of excitatory to inhibitory recurrent connections
-        :param bias_range: 2-element list of floats, defining the range for elements of the bias vector
+        :param bias_range: 2-element list of floats, defining the range for elements of the bias vector.
+            A degenerate range (low == high) gives a fixed, non-trainable bias; otherwise the bias is a
+            trainable Parameter clamped to this range after every optimizer step.
+        :param bias_init: "uniform" (default, legacy) draws the initial trainable bias uniformly from
+            bias_range; "zeros" starts every bias at 0 so that widening the range does not also change
+            the initial condition (needed for a one-variable trainable-bias control). Ignored for a
+            degenerate bias_range.
         :param gamma: float, coefficient of the cubic nonlinearity in the RNN dynamics
         :param sigma_rec: float, std of the gaussian noise in the recurrent dynamics
         :param sigma_inp: float, std of the gaussian noise in the input to the RNN
@@ -243,10 +250,15 @@ class RNN_torch(torch.nn.Module):
         if torch.equal(b_low, b_high):
             self.bias = torch.full((self.N,), b_low, device=dev, dtype=dtp)  # not a Parameter
             self.bias_trainable = False
-        else:
+        elif bias_init == "zeros":
+            self.bias = torch.nn.Parameter(torch.zeros((self.N,), device=dev, dtype=dtp))
+            self.bias_trainable = True
+        elif bias_init == "uniform":
             u = torch.rand((self.N,), device=dev, dtype=dtp, generator=self.random_generator)
             self.bias = torch.nn.Parameter(b_low + (b_high - b_low) * u)
             self.bias_trainable = True
+        else:
+            raise ValueError(f"bias_init should be 'uniform' or 'zeros', got {bias_init}")
         self.W_out = torch.nn.Parameter(W_out.to(self.device))
         self.W_rec = torch.nn.Parameter(W_rec.to(self.device))
         self.W_inp = torch.nn.Parameter(W_inp.to(self.device))
