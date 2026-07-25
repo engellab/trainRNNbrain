@@ -1,4 +1,6 @@
 # @package trainer
+# Identical to trainer.yaml except participation tracking is ON.
+# Used by the participation-trace experiment (when during training the silent mode appears).
 _target_: trainRNNbrain.trainer.Trainer.Trainer
 trainer_tag: "BaseTrainer"
 max_iter: 3000
@@ -9,7 +11,7 @@ max_grad_norm: 50.0
 lr_scale_exp: 0.3333333333333333
 same_batch: True
 monitor: True
-track_participation: False  # log per-unit participation during training (see trainer_ptrack.yaml)
+track_participation: True   # log per-unit participation during training (participation-trace experiment)
 track_every: 10             # iterations between participation snapshots
 lambda_orth: 0.0
 orth_args:

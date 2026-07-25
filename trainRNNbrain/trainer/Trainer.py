@@ -372,6 +372,8 @@ class Trainer():
                  dropout=False,
                  dropout_args=None,
                  monitor=True,
+                 track_participation=False,
+                 track_every=10,
                  max_grad_norm=10.0):
         self.RNN = RNN
         self.Penalties = Penalties(RNN=self.RNN) # dataclass containing all the penalty methods
@@ -420,6 +422,11 @@ class Trainer():
         self.dropout_args = dropout_args if dropout_args is not None else {"dropout_kind": None, "sampling_method": None, "drop_rate": 0.0, "dropout_beta": 1.0}
         self.participation = (1e-6 * torch.ones(self.RNN.N, device=self.RNN.device)) if self.dropout else None
         self.iter_n = 0
+
+        # per-unit participation logged every `track_every` iterations during training
+        self.track_participation = track_participation
+        self.track_every = int(track_every)
+        self.participation_monitor = {"iters": [], "participation": []} if track_participation else None
 
 
     @staticmethod
@@ -582,6 +589,41 @@ class Trainer():
         participation = activity + activity_std
         return participation
     
+    def participation_from_states_(self, states):
+        '''
+        Per-unit participation of a firing-rate tensor, matching the offline readout
+        PerformanceAnalyzer.plot_participation: std(fr) + 0.9-quantile(|fr|), pooled over (time, trials).
+
+        Args:
+            states: (N, T, B) tensor of network states as returned by RNN_torch.forward.
+                    For equation_type "h" these are pre-activations and the activation is applied here;
+                    for "s" they are already firing rates.
+        Returns:
+            (N,) tensor of participation values, one per unit.
+        '''
+        fr = self.RNN.activation(states) if self.RNN.equation_type == "h" else states
+        fr = fr.reshape(fr.size(0), -1)  # (N, T*B)
+        return fr.std(dim=1, unbiased=False) + torch.quantile(fr.abs(), 0.9, dim=1)
+
+    def track_participation_(self, input_batch, iter):
+        '''
+        Append a noise-free participation snapshot for every unit to self.participation_monitor.
+
+        Args:
+            input_batch: (n_inputs, T, B) input tensor the snapshot is measured on (the training batch).
+            iter: current training iteration, stored alongside the snapshot.
+        Returns:
+            None (mutates self.participation_monitor).
+        '''
+        with torch.no_grad():
+            # w_noise=False zeroes recurrent/input/output noise, so the trace is directly
+            # comparable to the offline (noise-free) participation figures.
+            states, _ = self.RNN(input_batch, w_noise=False, dropout=False, dropout_args=None)
+            p = self.participation_from_states_(states)
+        self.participation_monitor["iters"].append(int(iter))
+        self.participation_monitor["participation"].append(p.cpu().numpy().astype("float32"))
+        return None
+
     def train_step(self, input, target_output, mask):
         if self.anneal_noise:
             self.anneal_noise_levels_()
@@ -698,6 +740,9 @@ class Trainer():
                 input_batch, target_batch, conditions_batch = self.Task.get_batch(shuffle=shuffle)
                 input_batch = torch.from_numpy(input_batch.astype("float32")).to(self.RNN.device)
                 target_batch = torch.from_numpy(target_batch.astype("float32")).to(self.RNN.device)
+
+            if self.track_participation and (iter % self.track_every == 0):
+                self.track_participation_(input_batch, iter)
 
             train_loss, r2 = self.train_step(input=input_batch,
                                          target_output=target_batch,

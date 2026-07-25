@@ -138,6 +138,10 @@ def run_training(cfg: DictConfig) -> None:
         if not (datasaver is None): datasaver.save_data(jsonify(last_net_params), f"{score}_LastParams_{taskname}.json")
         if not (datasaver is None): datasaver.save_data(jsonify(best_net_params),f"{score}_BestParams_{taskname}.json")
 
+        if cfg.trainer.track_participation:
+            # pkl, not json: (max_iter/track_every) x N float32 is ~12 MB as a pickle but ~100 MB as indented json
+            if not (datasaver is None): datasaver.save_data(trainer.participation_monitor, f"{score}_ParticipationTrace.pkl")
+
         fig_trainloss = plot_train_val_losses(train_losses, val_losses)
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_trainloss, f"{score}_TrainLoss.png")
