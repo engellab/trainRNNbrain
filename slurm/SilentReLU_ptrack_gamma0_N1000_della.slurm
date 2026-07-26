@@ -20,15 +20,22 @@
 # Output: $SAVE_TO/CDDM_ptrack_g0/EqType=<EQ>_N=1000_LmbdRWS=<RWS>_LmbdFR=<FRM>/<per-net subfolder>
 # Overridable env vars: MAXITER (default: config, 30000), SAVE_TO (default: TENGEL scratch).
 #
-# NOTE --time: >= 2 h is required on Della, otherwise the job lands on the `gputest` QOS with a
-# hard cap of 3 concurrent jobs. Measured 0.154 s/iter at N=1000 on an L40S -> ~80 min for 30000.
+# NOTE --time: >= 2 h is required on Della, otherwise the job lands on the `gputest` QOS with a hard
+# cap of 3 concurrent jobs. MEASURED on Della (2026-07-25, 30000 iters at N=1000): jobs WITHOUT the
+# frm penalty take 1h42 (0.203 s/iter); WITH frm they take ~2h51 (0.343 s/iter) because frm adds a
+# backward pass per iteration. The first submission requested 2:30 and lost all 60 frm jobs to
+# TIMEOUT. 7:30 gives ~2.6x headroom.
+# NOTE --constraint=nomig: the gpu partition mixes full A100s with 3g.40gb MIG slices (della-l01g3-12,
+# 10 of 89 nodes). A frm job that landed on a slice ran at 0.632 s/iter -> 5h16 for 30000. Excluding
+# them removes that 2x variance at almost no cost in available nodes.
 
 #SBATCH --job-name=Ptrackg0
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-node=1
 #SBATCH --mem-per-gpu=32G
-#SBATCH --time=2:30:00
+#SBATCH --time=7:30:00
+#SBATCH --constraint=nomig
 #SBATCH --array=1-40
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu

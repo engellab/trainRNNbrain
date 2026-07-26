@@ -209,7 +209,10 @@ def run_training(cfg: DictConfig) -> None:
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_matrices, "sorted_matrices.png")
 
-        labels = analyzer.cluster_neurons(trajectories_perm, dale_mask_bool_perm)
+        # cluster_neurons splits by dale_mask into an E and an I group; without Dale every unit is in
+        # the "positive" group and the empty one crashes on reshape, so cluster them as a single set.
+        labels = analyzer.cluster_neurons(trajectories_perm,
+                                          dale_mask_bool_perm if cfg.model.get("dale", True) else None)
         averaged_responses, grouped_dale_mask = analyzer.get_averaged_responses(trajectories_perm,
                                                                                 dale_mask=dale_mask_bool_perm,
                                                                                 labels=labels)
