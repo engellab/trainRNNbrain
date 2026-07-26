@@ -39,8 +39,12 @@
 # backward pass per iteration. The first submission requested 2:30 and lost all 60 frm jobs to
 # TIMEOUT. 7:30 gives ~2.6x headroom.
 # NOTE --constraint=nomig: the gpu partition mixes full A100s with 3g.40gb MIG slices (della-l01g3-12,
-# 10 of 89 nodes). A frm job that landed on a slice ran at 0.632 s/iter -> 5h16 for 30000. Excluding
-# them removes that 2x variance at almost no cost in available nodes.
+# 10 of 89 nodes); a slice runs at roughly half speed, so excluding them removes that variance at
+# almost no cost in available nodes (79 of 89 remain).
+# CORRECTION (2026-07-26): the 0.632 s/iter case first seen on a MIG node was NOT caused by the slice
+# — Dale+frm reproduces 0.641 s/iter on full A100s. Measured rates for 30000 iters at N=1000:
+#   no frm                 0.203 s/iter -> 1h42     frm, unconstrained  0.34-0.41 s/iter -> 2h51-3h25
+#   frm, Dale              0.641 s/iter -> 5h21 (the binding case; 7:30 still leaves ~2h margin)
 
 #SBATCH --job-name=PtrackNDBias
 #SBATCH --nodes=1

@@ -211,8 +211,11 @@ def run_training(cfg: DictConfig) -> None:
 
         # cluster_neurons splits by dale_mask into an E and an I group; without Dale every unit is in
         # the "positive" group and the empty one crashes on reshape, so cluster them as a single set.
-        labels = analyzer.cluster_neurons(trajectories_perm,
-                                          dale_mask_bool_perm if cfg.model.get("dale", True) else None)
+        # n_clusters is (n_E, n_I) per group in the Dale branch but a plain int in the single-group one.
+        if cfg.model.get("dale", True):
+            labels = analyzer.cluster_neurons(trajectories_perm, dale_mask_bool_perm)
+        else:
+            labels = analyzer.cluster_neurons(trajectories_perm, None, n_clusters=8)
         averaged_responses, grouped_dale_mask = analyzer.get_averaged_responses(trajectories_perm,
                                                                                 dale_mask=dale_mask_bool_perm,
                                                                                 labels=labels)
