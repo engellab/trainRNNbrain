@@ -38,8 +38,11 @@
 #SBATCH --array=1-40
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
-#SBATCH --output=/home/pt1290/trainRNNbrain/log/%x.%A_%a.out
-#SBATCH --error=/home/pt1290/trainRNNbrain/log/%x.%A_%a.err
+# Logs go to a checkout-independent directory: SBATCH directives are parsed at submit time and
+# cannot expand $REPO, and per-worktree log dirs would vanish with the worktree. Job name (%x) and
+# array id (%A) keep the sweeps apart.
+#SBATCH --output=/home/pt1290/trainRNNbrain_logs/%x.%A_%a.out
+#SBATCH --error=/home/pt1290/trainRNNbrain_logs/%x.%A_%a.err
 
 module purge
 module load cudatoolkit/12.8
