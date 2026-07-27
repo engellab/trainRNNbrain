@@ -1,4 +1,7 @@
 # @package trainer
+# trainer_ptrack.yaml with the task-safe gradient projection OFF: penalties are combined with the
+# task loss in the ordinary way. Used with model=rnn_relu_standard from 2026-07-27 onwards.
+# Used by the participation-trace experiment (when during training the silent mode appears).
 _target_: trainRNNbrain.trainer.Trainer.Trainer
 trainer_tag: "BaseTrainer"
 max_iter: 3000
@@ -9,9 +12,9 @@ max_grad_norm: 50.0
 lr_scale_exp: 0.3333333333333333
 same_batch: True
 monitor: True
-task_safe_gradients: True   # project out penalty-gradient components that oppose the task gradient;
+task_safe_gradients: False  # plain descent on task + sum(lambda_k * penalty_k) — no projection
                             # False = plain descent on task + sum(lambda_k * penalty_k)
-track_participation: False  # log per-unit participation during training (see trainer_ptrack.yaml)
+track_participation: True   # log per-unit participation during training (participation-trace experiment)
 track_every: 10             # iterations between participation snapshots
 lambda_orth: 0.0
 orth_args:

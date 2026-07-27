@@ -1,0 +1,33 @@
+# @package model
+# THE STANDARD RNN — the reference architecture from 2026-07-27 onwards.
+# A vanilla continuous-time ReLU RNN: dx/dt = -x + W_rec*ReLU(x) + W_inp*u + b, alpha = dt/tau = 0.1.
+# Every biologically-motivated or project-specific constraint is OFF:
+#   dale: false             -> signed W_rec, no E/I split, every unit reads out
+#   io_nonnegativity: false -> W_inp / W_out not clamped non-negative
+#   self_connections: true  -> the W_rec diagonal is free and trainable (no zeroed diagonal)
+#   gamma: 0                -> no cubic saturation term in the dynamics
+#   bias trainable in [-1, 1], initialised at 0
+# Remaining non-vanilla choice, stated deliberately: training noise (sigma_rec/inp/out), standard in
+# neuroscience RNNs. Pair with trainer=trainer_ptrack_plain (task_safe_gradients: false) so penalties
+# combine with the task loss in the ordinary way.
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+RNN_tag: ""
+activation_args: {"name": "relu", "slope": 1.0}
+equation_type: "h"
+N: 100
+dt: 1
+tau: 10
+exc2inhR: 4.0                  # ignored when dale: false
+gamma: 0                       # cubic term OFF
+dale: false
+io_nonnegativity: false
+self_connections: true         # standard RNN: units may connect to themselves
+weight_boundary: "sticky"      # inert with dale/io_nonnegativity off
+weight_boundary_eps: 1.0e-12
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+bias_range: [-1.0, 1.0]        # trainable, clamped to this range after every step
+bias_init: "zeros"             # start at 0

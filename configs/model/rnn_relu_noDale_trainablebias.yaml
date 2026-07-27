@@ -21,6 +21,7 @@ dale: false
 io_nonnegativity: false
 weight_boundary: "sticky"      # with dale/io_nonnegativity off there is nothing to clamp; kept for symmetry
 weight_boundary_eps: 1.0e-12
+self_connections: false          # False zeroes the W_rec diagonal every step; True = standard RNN
 connectivity_density_rec: 1.0
 spectral_rad: 1.2
 sigma_rec: .05

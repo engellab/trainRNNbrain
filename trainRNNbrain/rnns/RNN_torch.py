@@ -44,7 +44,7 @@ def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
 
 
 def get_connectivity_Dale(N, n_inputs, n_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
-                          output_density=1.0, exc2inhR=4, generator=None):
+                          output_density=1.0, exc2inhR=4, generator=None, self_connections=False):
     device = generator.device if generator is not None else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
     exc_percentage = exc2inhR / (exc2inhR + 1)
@@ -66,7 +66,8 @@ def get_connectivity_Dale(N, n_inputs, n_outputs, radius=1.5, recurrent_density=
     ], dim=1)
 
     W_rec = torch.cat([rowE, rowI], dim=0)
-    W_rec = W_rec - torch.diag(torch.diag(W_rec))
+    if not self_connections:
+        W_rec = W_rec - torch.diag(torch.diag(W_rec))
 
     w = torch.linalg.eigvals(W_rec)
     spec_radius = torch.max(torch.abs(w))
@@ -83,13 +84,14 @@ def get_connectivity_Dale(N, n_inputs, n_outputs, radius=1.5, recurrent_density=
     dale_mask = torch.cat([torch.ones(Ne, device=device), -torch.ones(Ni, device=device)])
     output_mask = (W_out != 0).float()
     input_mask = (W_inp != 0).float()
-    recurrent_mask = (torch.ones(N, N, device=device) - torch.eye(N, device=device)).float()
+    recurrent_mask = (torch.ones(N, N, device=device) if self_connections else
+                      torch.ones(N, N, device=device) - torch.eye(N, device=device)).float()
 
     return W_rec, W_inp, W_out, recurrent_mask, dale_mask, output_mask, input_mask
 
 
 def get_connectivity_unconstrained(N, n_inputs, n_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
-                                   output_density=1.0, generator=None):
+                                   output_density=1.0, generator=None, self_connections=False):
     """
     Unconstrained (non-Dale) connectivity: signed weights, no E/I split, every unit reads out.
 
@@ -112,7 +114,8 @@ def get_connectivity_unconstrained(N, n_inputs, n_outputs, radius=1.5, recurrent
     mu, std = 0.0, 1 / np.sqrt(N)
 
     W_rec = sparse(torch.empty(N, N, device=device), 1 - recurrent_density, mu, std, generator)
-    W_rec = W_rec - torch.diag(torch.diag(W_rec))
+    if not self_connections:
+        W_rec = W_rec - torch.diag(torch.diag(W_rec))
     spec_radius = torch.max(torch.abs(torch.linalg.eigvals(W_rec)))
     W_rec = ((radius / (spec_radius + 1e-12)) * W_rec).float()
 
@@ -121,7 +124,8 @@ def get_connectivity_unconstrained(N, n_inputs, n_outputs, radius=1.5, recurrent
 
     output_mask = (W_out != 0).float()
     input_mask = (W_inp != 0).float()
-    recurrent_mask = (torch.ones(N, N, device=device) - torch.eye(N, device=device)).float()
+    recurrent_mask = (torch.ones(N, N, device=device) if self_connections else
+                      torch.ones(N, N, device=device) - torch.eye(N, device=device)).float()
 
     return W_rec, W_inp, W_out, recurrent_mask, None, output_mask, input_mask
 
@@ -146,6 +150,7 @@ class RNN_torch(torch.nn.Module):
                  gamma=0.1,
                  dale=True,
                  io_nonnegativity=True,
+                 self_connections=False,
                  weight_boundary="sticky",
                  weight_boundary_eps=1e-12,
                  bias_range=[0.0, 0.0],
@@ -174,6 +179,9 @@ class RNN_torch(torch.nn.Module):
             no E/I split, every unit reads out (get_connectivity_unconstrained, dale_mask=None).
         :param io_nonnegativity: bool, whether W_inp and W_out are clamped non-negative. Independent
             of `dale` — the two are separate constraints and can be switched on/off separately.
+        :param self_connections: bool, whether a unit may connect to itself. False (default, legacy)
+            zeroes the diagonal of W_rec at init and re-zeroes it after every optimizer step via
+            recurrent_mask; True leaves the diagonal free and trainable, as in a standard RNN.
         :param bias_range: 2-element list of floats, defining the range for elements of the bias vector.
             A degenerate range (low == high) gives a fixed, non-trainable bias; otherwise the bias is a
             trainable Parameter clamped to this range after every optimizer step.
@@ -241,19 +249,22 @@ class RNN_torch(torch.nn.Module):
         # W_rec subject to Dale's law (dale) — the two are independent switches
         self.dale = bool(dale)
         self.io_nonnegativity = bool(io_nonnegativity)
+        self.self_connections = bool(self_connections)
         if self.dale:
             W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
                 get_connectivity_Dale(N=self.N, n_inputs=self.n_inputs, n_outputs=self.n_outputs,
                                         radius=self.spectral_rad,
                                         exc2inhR=self.exc2inhR,
                                         generator=self.random_generator,
-                                        recurrent_density=self.connectivity_density_rec)
+                                        recurrent_density=self.connectivity_density_rec,
+                                        self_connections=self.self_connections)
         else:
             W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
                 get_connectivity_unconstrained(N=self.N, n_inputs=self.n_inputs, n_outputs=self.n_outputs,
                                         radius=self.spectral_rad,
                                         generator=self.random_generator,
-                                        recurrent_density=self.connectivity_density_rec)
+                                        recurrent_density=self.connectivity_density_rec,
+                                        self_connections=self.self_connections)
 
         # deliberate silent-at-init perturbation: over-inhibit a fixed random `silent_init_frac` of
         # units (set S) by scaling the inhibitory columns (synapses from I-units, dale_mask==-1) of
@@ -551,6 +562,7 @@ class RNN_torch(torch.nn.Module):
             "dale_mask": to_np(self.dale_mask),
             "dale": bool(getattr(self, "dale", True)),
             "io_nonnegativity": bool(getattr(self, "io_nonnegativity", True)),
+            "self_connections": bool(getattr(self, "self_connections", False)),
             "input_mask": to_np(self.input_mask),
             "recurrent_mask": to_np(self.recurrent_mask),
             "output_mask": to_np(self.output_mask),
@@ -590,6 +602,7 @@ class RNN_torch(torch.nn.Module):
         # legacy nets predate these flags: absent -> the old behaviour (both constraints on)
         self.dale = bool(params.get("dale", self.dale_mask is not None))
         self.io_nonnegativity = bool(params.get("io_nonnegativity", True))
+        self.self_connections = bool(params.get("self_connections", False))
         self.input_mask = as_t(params["input_mask"])
         self.recurrent_mask = as_t(params["recurrent_mask"])
         self.output_mask = as_t(params["output_mask"])

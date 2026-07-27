@@ -372,6 +372,7 @@ class Trainer():
                  dropout=False,
                  dropout_args=None,
                  monitor=True,
+                 task_safe_gradients=True,
                  track_participation=False,
                  track_every=10,
                  max_grad_norm=10.0):
@@ -418,6 +419,11 @@ class Trainer():
             self.gradients_monitor = {**{f"g_{k}": [] for k in self.penalty_map}}
             self.scaled_gradients_monitor = {**{f"sg_{k}": [] for k in self.penalty_map}}
         
+        # True (default, legacy): penalty-gradient components opposing the task gradient are projected
+        # out, so a penalty can never hurt task performance. False: plain multi-objective descent on
+        # task + sum(lambda_k * penalty_k), i.e. the standard way of combining losses.
+        self.task_safe_gradients = task_safe_gradients
+
         self.dropout = dropout
         self.dropout_args = dropout_args if dropout_args is not None else {"dropout_kind": None, "sampling_method": None, "drop_rate": 0.0, "dropout_beta": 1.0}
         self.participation = (1e-6 * torch.ones(self.RNN.N, device=self.RNN.device)) if self.dropout else None
@@ -655,11 +661,20 @@ class Trainer():
                 for k in self.penalty_map
             }
 
-        # --- 2) behavior/task-safe combined gradient (also uses autograd.grad) ---
-        g_tot = Trainer.get_task_safe_gradients_(
-            params, self.penalty_map, penalty_dict_raw,
-            task_key="task", allow_unused=True
-        )
+        # --- 2) combined gradient: task-safe projection, or plain summed loss ---
+        if self.task_safe_gradients:
+            g_tot = Trainer.get_task_safe_gradients_(
+                params, self.penalty_map, penalty_dict_raw,
+                task_key="task", allow_unused=True
+            )
+        else:
+            total_loss = None
+            for k, (_, L, _) in self.penalty_map.items():
+                if L == 0:
+                    continue
+                term = L * penalty_dict_raw[k]
+                total_loss = term if total_loss is None else total_loss + term
+            g_tot = Trainer.flat_grad_(total_loss, params, retain_graph=False, allow_unused=True)
 
         # --- 3) apply combined gradient ---
         self.optimizer.zero_grad(set_to_none=True)

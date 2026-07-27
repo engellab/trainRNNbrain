@@ -12,6 +12,7 @@ dale: true              # W_rec obeys Dale's law (E/I split, sign enforced each 
 io_nonnegativity: true  # W_inp, W_out clamped >= 0 — a SEPARATE constraint from Dale's law
 weight_boundary: "sticky"      # "sticky" (clamp sign-violating weights to +/-eps each step) or "reflective" (|param|*sign)
 weight_boundary_eps: 1.0e-12   # boundary value for the "sticky" clamp
+self_connections: false          # False zeroes the W_rec diagonal every step; True = standard RNN
 connectivity_density_rec: 1.0
 spectral_rad: 1.2
 sigma_rec: .05
