@@ -6,11 +6,15 @@ experimental record (configs, job IDs, repro instructions) is [`project_trajecto
 **Every claim carries an evidence status** — ✅ measured, 🟡 preliminary, ⬜ planned — so that
 interpretation never quietly becomes result.
 
-**Architecture policy.** All main results are stated for **standard unconstrained RNNs**: no Dale's
-law, no I/O sign constraints, self-connections allowed, trainable bias, no cubic term, plain
-multi-objective gradients. Dale-constrained networks appear only where they genuinely differ (§7).
-This is deliberate — a result stated only for constrained networks reads as niche and is easy to
-dismiss.
+**Architecture policy — main text vs supplement.** Every main-text result is stated for **standard
+unconstrained RNNs**: no Dale's law, no I/O sign constraints, self-connections allowed, trainable
+bias, no cubic term, plain multi-objective gradients. **Dale-constrained and I/O-positive networks
+are supplementary throughout** (§S1) — a robustness check on the main claims, never the basis of
+one. A result stated only for constrained networks reads as niche and is easy to dismiss.
+
+Where a main-text number is currently derived from constrained networks because that is the only
+data with the relevant manipulation, it is marked ⚠️ **Dale-derived, standard-RNN version pending**
+rather than presented as settled.
 
 **Working titles**
 
@@ -37,19 +41,33 @@ large fraction of units never fire:
 These are not merely quiet units. **31–42% of units are at exactly 0.0** — literally switched off,
 never crossing threshold at any timestep in any condition ✅. (In constrained networks this is
 hidden: non-negative input weights guarantee every unit a small positive push, so silent units sit
-at 1e-9…1e-2 instead of zero. Same population, concealed depth — see §7.)
+at 1e-9…1e-2 instead of zero. Same population, concealed depth — see §S1.)
 
-**It gets worse with size** ✅ (Dale nets; standard-RNN version running):
+**It gets worse with size** ⚠️ *Dale-derived, standard-RNN version running* (`CDDM_std_g0_Nsweep`,
+N ∈ {100, 250, 500, 1000}):
 
 | | N=100 | N=500 | N=1000 |
 |---|---|---|---|
 | silent | 0.0% | 23.7% | 47.1% |
 | **active units** | 100 | 382 | **529** |
 
-**The active count grows sublinearly, ~N^0.72 — it does not saturate** ✅. This matters practically:
-"just train a bigger network and prune the dead units" is not blocked, but it costs dearly — roughly
-N ≈ 2000 to obtain 1000 genuinely active units, and the ratio keeps degrading. ⬜ The standard-RNN N
-sweep (N ∈ {100, 250, 500, 1000}) will pin the exponent.
+**The active count grows sublinearly — and it may be heading for a ceiling** ⚠️. Two models fit
+these three points about equally well and diverge sharply beyond them:
+
+| Model | Fit | N=2000 | N=5000 | N=10000 |
+|---|---|---|---|---|
+| power law | `active = 3.57·N^0.723` | 873 | 1695 | **2798** |
+| saturating | `active = 1011·N/(N+911)` | 695 | 855 | **926** |
+
+The local exponent is already falling — 0.833 between N=100 and 500, then 0.470 between 500 and
+1000 — which leans toward a **task-determined ceiling of order 1000 active units**.
+
+**This is the paper's answer to the sharpest objection it faces:** *"why make every unit compute —
+just train a bigger network and prune the silent ones?"* If active units saturate, pruning **cannot**
+deliver a large active population at any size, because the ceiling is set by the task rather than the
+budget, and activity regularization is the only route there. If they keep growing, pruning works but
+costs a rapidly worsening ratio. ⬜ Decided by the large-N runs (N ∈ {2000, 5000, 10000}), currently
+being sized for wall time and memory (see `project_trajectory.md`, 2026-07-27 15:30).
 
 **The silence is created by training, not inherited from initialization** ✅: 0% of units are silent
 at init, at every spectral radius tested. It also isn't a bug — an independently written Euler
@@ -57,15 +75,17 @@ integrator reproduces the per-unit peak rates exactly (max abs diff 0.0) ✅.
 
 ---
 
-## 2. The standard fix makes it worse
+## 2. Standard activity regularizers do not fix it — and likely make it worse
 
 Activity regularization in RNN training is routine — metabolic-cost terms are standard practice in
 this literature. But the usual penalties act on the wrong side of the distribution: they penalize
-*high* rates, pushing the whole population down.
+*high* rates, pushing the whole population down. **Status: the "does not fix it" half is measured;
+the "makes it worse" half is predicted and not yet run** — the section title is a hypothesis until
+the λ_met sweep exists.
 
 | Penalty | Effect on silence |
 |---|---|
-| **`rws`** — recurrent-weight sparsity | Dale: **worse** (44.2% → 53.6%) ✅. Unconstrained: mildly *better* (42.7% → 39.9%) ✅ — a genuine architecture difference, to report honestly rather than smooth over. |
+| **`rws`** — recurrent-weight sparsity | **Does not rescue**: 42.7% → 39.9% ✅ — a marginal change against a ~43% baseline, nowhere near the 0% that `frm` reaches. (In constrained networks it is actively *worse*; see §S1.) |
 | **`met`** — metabolic cost, `mean(fr²)`, the field-standard form | ⬜ **Predicted worse, monotonically in λ.** It penalizes rate magnitude, so it should deepen exactly the pathology it is assumed to guard against. |
 
 ⬜ **This experiment is the paper's hook and must be run first.** Sweep λ_met across ~3 decades at
@@ -89,7 +109,7 @@ Every intervention below was chosen because it *could* plausibly have removed th
 | 2 | Cubic saturation term γ: 0.1 → 0 | no change ✅ |
 | 3 | Dale boundary: sticky → reflective | no change ✅ |
 | 4 | **Removing Dale's law entirely** | no change in the silent fraction ✅ |
-| 5 | **Removing I/O positivity** | no change in the fraction; converts soft floors into hard zeros ✅ |
+| 5 | **Removing I/O positivity** | no change in the fraction; converts soft floors into hard zeros ✅ (§S1) |
 | 6 | **Trainable bias** (`[-1,1]`, zero init) | no rescue ✅ (55.3% → 54.9%) |
 | 7 | **Self-connections** allowed | 🟡 running (`CDDM_std_g0`) |
 | 8 | Activation: softplus(β=25), leaky-ReLU | persists, 40–64% (Dale) ✅; ⬜ standard-RNN rerun |
@@ -202,27 +222,7 @@ only ever checked *at initialization* (0% silent at every radius); never in trai
 
 ---
 
-## 7. Where Dale-constrained networks genuinely differ
-
-Reported briefly, as a supplementary section — the main results are architecture-independent.
-
-1. **Silence is overwhelmingly excitatory** ✅: 53–55% of excitatory units vs 3.5–5.0% of inhibitory
-   units silent (h, none). This **falsifies** the natural hypothesis that the excitatory-only readout
-   starves inhibitory units of gradient — the opposite happens. Likely load-bearing redundancy: 200
-   inhibitory units carry the whole network's inhibition at 4× weight and are individually
-   indispensable, while 800 excitatory units are mutually redundant.
-2. **I/O positivity conceals how dead the units are** ✅: with `W_inp ≥ 0` and non-negative inputs,
-   every unit gets a positive push at every timestep, so no unit is *exactly* zero (2.2% hard-dead vs
-   31.4% unconstrained) — while the total silent fraction is unchanged (44.2% vs 42.7%). Every one of
-   the 285 hard-zero units in an unconstrained net has Σ`W_inp` < 0 (100%, no exceptions).
-3. **`rws` reverses sign** ✅: worse than baseline under Dale, mildly better unconstrained.
-4. **`frm` resurrects rather than prevents** ✅ (§4).
-5. **The `s` equation is more sensitive to constraints** ✅: 55.1% → 32.6% silent when Dale and I/O
-   positivity are removed, while `h` is unchanged.
-
----
-
-## 8. Methods points that must be stated
+## 7. Methods points that must be stated
 
 - Training noise (σ_rec = σ_inp = 0.05, σ_out = 0.03) — retained deliberately; standard in
   neuroscience RNNs, absent in vanilla ML ones.
@@ -240,7 +240,7 @@ Reported briefly, as a supplementary section — the main results are architectu
 
 ---
 
-## 9. Venue and priorities
+## 8. Venue and priorities
 
 **Target: PLOS Computational Biology (Methods).** It requires correct, complete, useful work rather
 than novelty impact — which fits. Fallbacks: eNeuro (Research Methods and New Tools), NBDT (welcomes
@@ -254,5 +254,34 @@ JOSS for the package as a companion citation.
 2. ⬜ **Population-distortion analyses** (§5) — no new training; converts tidiness into validity.
 3. ⬜ **Noise + top-unit lesion robustness** (§5) — no new training.
 4. 🟡 **Standard-RNN reference + N sweep** — running; fixes the active-unit exponent.
-5. ⬜ **Task scaling** (§6.1) — highest scientific value, needs design.
-6. ⬜ Second task; activation/noise/connectivity-scale reruns.
+5. ⬜ **Large-N runs** (N ∈ {2000, 5000, 10000}) — settles saturation vs growth, i.e. whether the
+   "just prune" objection has an answer. Being sized now; needs `.npz` parameter saving and
+   truncated training validated against an N=1000 control.
+6. ⬜ **Task scaling** (§6.1) — highest scientific value, needs design.
+7. ⬜ Second task; activation/noise/connectivity-scale reruns.
+
+---
+
+## S1. Supplementary: Dale-constrained and I/O-positive networks
+
+**Not part of the main argument.** Every claim in §§1–6 is established in standard unconstrained
+RNNs. This section exists for two narrow purposes: to show the phenomenon is *not* an artifact of
+the constrained architecture much of this literature uses, and to record the specific places where
+the constrained case behaves differently. Readers who do not work with Dale-constrained models can
+skip it.
+
+1. **Silence is overwhelmingly excitatory** ✅: 53–55% of excitatory units vs 3.5–5.0% of inhibitory
+   units silent (h, none). This **falsifies** the natural hypothesis that the excitatory-only readout
+   starves inhibitory units of gradient — the opposite happens. Likely load-bearing redundancy: 200
+   inhibitory units carry the whole network's inhibition at 4× weight and are individually
+   indispensable, while 800 excitatory units are mutually redundant.
+2. **I/O positivity conceals how dead the units are** ✅: with `W_inp ≥ 0` and non-negative inputs,
+   every unit gets a positive push at every timestep, so no unit is *exactly* zero (2.2% hard-dead vs
+   31.4% unconstrained) — while the total silent fraction is unchanged (44.2% vs 42.7%). Every one of
+   the 285 hard-zero units in an unconstrained net has Σ`W_inp` < 0 (100%, no exceptions).
+3. **`rws` reverses sign** ✅: worse than baseline under Dale, mildly better unconstrained.
+4. **`frm` resurrects rather than prevents** ✅ (§4) — in standard RNNs it prevents.
+5. **The `s` equation is more sensitive to constraints** ✅: 55.1% → 32.6% silent when Dale and I/O
+   positivity are removed, while `h` is unchanged.
+
+---
