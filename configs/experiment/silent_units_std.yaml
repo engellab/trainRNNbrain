@@ -1,0 +1,10 @@
+# @package _global_
+# Fixed regime for the STANDARD-RNN experiment line (2026-07-27 onwards). Pins the parameters that
+# are constant across the whole line so launchers only pass swept variables. Select with:
+#   +experiment=silent_units_std   (then model=rnn_relu_standard trainer=trainer_ptrack_plain)
+# The N sweep overrides model.N on the CLI, since there N IS the swept variable.
+model:
+  N: 1000
+trainer:
+  trainer_tag: ""
+  max_iter: 30000

@@ -142,6 +142,12 @@ def run_training(cfg: DictConfig) -> None:
             # pkl, not json: (max_iter/track_every) x N float32 is ~12 MB as a pickle but ~100 MB as indented json
             if not (datasaver is None): datasaver.save_data(trainer.participation_monitor, f"{score}_ParticipationTrace.pkl")
 
+        # the total loss per iteration, saved regardless of `monitor` (which controls only the
+        # per-penalty breakdown) so the training curve is always available to align against the
+        # participation trace. ~300 KB for 30000 iterations.
+        if not (datasaver is None): datasaver.save_data({"train_losses": train_losses, "val_losses": val_losses},
+                                                        f"{score}_TrainLosses.json")
+
         fig_trainloss = plot_train_val_losses(train_losses, val_losses)
         if disp: plt.show()
         if not (datasaver is None): datasaver.save_figure(fig_trainloss, f"{score}_TrainLoss.png")

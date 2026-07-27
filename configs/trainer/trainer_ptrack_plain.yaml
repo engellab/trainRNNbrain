@@ -11,7 +11,7 @@ weight_decay: 1e-6
 max_grad_norm: 50.0
 lr_scale_exp: 0.3333333333333333
 same_batch: True
-monitor: True
+monitor: False              # no per-penalty loss/gradient monitoring: saves a backward pass per active term
 task_safe_gradients: False  # plain descent on task + sum(lambda_k * penalty_k) — no projection
                             # False = plain descent on task + sum(lambda_k * penalty_k)
 track_participation: True   # log per-unit participation during training (participation-trace experiment)
