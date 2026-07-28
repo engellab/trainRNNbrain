@@ -356,6 +356,7 @@ class Trainer():
                  task_safe_gradients=True,
                  track_participation=False,
                  track_every=10,
+                 drift_lags=(100, 1000, 10000),
                  max_grad_norm=10.0):
         self.RNN = RNN
         self.Penalties = Penalties(RNN=self.RNN) # dataclass containing all the penalty methods
@@ -414,7 +415,16 @@ class Trainer():
         self.track_every = int(track_every)
         self.participation_monitor = ({"iters": [], "participation": [], "drift": []}
                                       if track_participation else None)
-        self._prev_weights = {}   # previous snapshot, for the relative weight-drift measure
+        # Weight-drift bookkeeping. Reference snapshots at several lags, because a single short lag
+        # cannot tell a settled-but-jittering network from one that is still systematically drifting:
+        # with noise injected every step the weights random-walk forever, so the distance plateaus at
+        # a noise floor rather than reaching zero. Diffusion grows as sqrt(lag), systematic drift as
+        # lag, so comparing lags separates them; the cosine between consecutive displacements is the
+        # direct test (≈0 = random walk, >0 = still marching one way).
+        self.drift_lags = tuple(drift_lags) if drift_lags else ()
+        self._drift_refs = {}     # lag -> (iteration, {name: weight copy})
+        self._prev_disp = {}      # name -> previous displacement vector, for directional persistence
+        self._prev_weights = {}
 
 
     @staticmethod
@@ -608,20 +618,42 @@ class Trainer():
             # comparable to the offline (noise-free) participation figures.
             states, _ = self.RNN(input_batch, w_noise=False, dropout=False, dropout_args=None)
             p = self.participation_from_states_(states)
-        # relative parameter drift since the previous snapshot: ||W(t) - W(t-delta)||_F / ||W(t)||_F.
-        # The loss can be flat while the network still reorganises, so this is the direct test of
-        # whether training has actually stopped moving. Costs one weight copy per snapshot.
+        # relative parameter drift ||W(t) - W(t-lag)||_F / ||W(t)||_F at several lags, plus the
+        # cosine between consecutive displacements (see the note in __init__ for why one lag is not
+        # enough). Reference snapshots are kept on CPU: at N=2000 each W_rec copy is 16 MB.
         drift = {}
         with torch.no_grad():
-            for name in ("W_rec", "W_inp", "W_out", "bias"):
-                W = getattr(self.RNN, name, None)
-                if W is None:
+            names = [n for n in ("W_rec", "W_inp", "W_out", "bias")
+                     if getattr(self.RNN, n, None) is not None]
+            cur = {n: getattr(self.RNN, n).detach() for n in names}
+            for lag in self.drift_lags:
+                ref = self._drift_refs.get(lag)
+                # Emit a measurement ONLY when the reference is a full `lag` old, then refresh it.
+                # Measuring on every snapshot against a reference that is refreshed whenever it
+                # happens to age out gives a separation that oscillates between 0 and lag — which is
+                # not the quantity we want and makes different lags coincide.
+                if ref is None:
+                    self._drift_refs[lag] = (int(iter), {n: cur[n].to("cpu", copy=True) for n in names})
                     continue
-                W = W.detach()
-                prev = self._prev_weights.get(name)
+                if iter - ref[0] >= lag:
+                    ref_it, ref_w = ref
+                    for n in names:
+                        rw = ref_w[n].to(cur[n].device)
+                        drift[f"{n}_lag{lag}"] = float((cur[n] - rw).norm() / cur[n].norm().clamp_min(1e-12))
+                    drift[f"actual_lag{lag}"] = int(iter - ref_it)
+                    self._drift_refs[lag] = (int(iter), {n: cur[n].to("cpu", copy=True) for n in names})
+            # directional persistence of the shortest-lag displacement
+            for n in names:
+                prev = self._prev_weights.get(n)
                 if prev is not None:
-                    drift[name] = float((W - prev).norm() / W.norm().clamp_min(1e-12))
-                self._prev_weights[name] = W.clone()
+                    disp = (cur[n] - prev.to(cur[n].device)).flatten()
+                    pd = self._prev_disp.get(n)
+                    if pd is not None:
+                        pd = pd.to(disp.device)
+                        drift[f"{n}_cos"] = float(
+                            torch.dot(disp, pd) / (disp.norm() * pd.norm()).clamp_min(1e-30))
+                    self._prev_disp[n] = disp.to("cpu", copy=True)
+                self._prev_weights[n] = cur[n].to("cpu", copy=True)
         self.participation_monitor["iters"].append(int(iter))
         self.participation_monitor["participation"].append(p.cpu().numpy().astype("float32"))
         self.participation_monitor["drift"].append(drift)
