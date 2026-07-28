@@ -168,3 +168,48 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def fig_metabolic(csv_v2, out):
+    """Silent fraction vs metabolic-cost strength, one panel per network size.
+
+    Args:
+        csv_v2: path to the v2 per-net CSV (must contain the 'metabolic' sweep and the
+                unpenalized 'std'/'std_Nsweep' cells that provide the lambda=0 baseline).
+        out: output png path.
+    Returns:
+        None; writes the figure.
+    """
+    import csv as _csv
+    rows = list(_csv.DictReader(open(csv_v2)))
+    lams = ["0", "0.01", "0.1", "1.0", "10.0"]
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4), sharey=True)
+    for i, N in enumerate((100, 500, 1000)):
+        ax = axes[i]
+        w = 0.38
+        for j, (metric, col) in enumerate((("hard_1em6", "#0072B2"), ("rel_5p95", "#009E73"))):
+            m, s, xs = [], [], []
+            for x, lam in enumerate(lams):
+                if lam == "0":   # baseline comes from the unpenalized cells of the std sweeps
+                    v = [r for r in rows if int(r["N"]) == N and r["eq"] == "h" and r["met"] == "0"
+                         and r["rws"] == "0" and r["frm"] == "0" and int(r["iters"]) == 30000]
+                else:
+                    v = [r for r in rows if int(r["N"]) == N and r["met"] == lam]
+                if not v:
+                    continue
+                a = np.array([float(r[metric]) for r in v]) * 100
+                m.append(a.mean()); s.append(a.std()); xs.append(x + (j - 0.5) * w)
+            bars = ax.bar(xs, m, w, yerr=s, capsize=2, color=col, edgecolor="white", linewidth=1.2,
+                          label=METRIC_LABEL[metric])
+            label_bars(ax, bars, m, s)
+        ax.set_xticks(range(len(lams)))
+        ax.set_xticklabels(["0\n(none)"] + lams[1:])
+        ax.set_xlabel(r"metabolic-cost strength  $\lambda_{met}$")
+        style(ax, "% of units silent" if i == 0 else "")
+        ax.set_title(f"N = {N}", fontsize=10)
+    axes[0].legend(frameon=False, fontsize=8)
+    fig.suptitle("Metabolic cost never rescues silent units — and at high strength it deepens them",
+                 fontsize=11)
+    fig.tight_layout()
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    print("wrote", out)
