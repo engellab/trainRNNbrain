@@ -15,7 +15,14 @@ monitor: False              # no per-penalty loss/gradient monitoring: saves a b
 task_safe_gradients: False  # plain descent on task + sum(lambda_k * penalty_k) — no projection
                             # False = plain descent on task + sum(lambda_k * penalty_k)
 track_participation: True   # log per-unit participation during training (participation-trace experiment)
-track_every: 10             # iterations between participation snapshots
+track_every: 10             # iterations between probes (a noise-free forward pass, ~3 pct overhead)
+store_participation_every: 100   # how often the FULL per-unit participation vector is stored; the
+                                 # scalar metrics are recorded at every probe. Only bulky item.
+track_drift: False              # weight drift + directional persistence (W_inp, W_rec, W_out).
+                                 # Nothing about the weights is written to disk: reference snapshots
+                                 # live in CPU RAM and everything is reduced to scalars on the fly.
+drift_lags: [100, 1000, 10000]   # lags for ||W(t)-W(t-L)||/||W(t)|| and ||dp||/||p||. Several are
+                                 # needed: diffusion grows as sqrt(L), systematic drift as L.
 # Penalties available in Trainer but INACTIVE here (all default to 0.0 in the Trainer signature,
 # so omitting them keeps them off): lambda_iwm / rwm / owm (input, recurrent, output weight-magnitude
 # caps), lambda_hm (hidden-state magnitude), lambda_tv (across-trial output variability), lambda_fri

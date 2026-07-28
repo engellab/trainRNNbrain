@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import time
 from trainRNNbrain.training.training_utils import multi_iqr_scale
 from dataclasses import dataclass
+from collections import defaultdict
 
 @dataclass
 class Penalties:
@@ -356,6 +357,8 @@ class Trainer():
                  task_safe_gradients=True,
                  track_participation=False,
                  track_every=10,
+                 store_participation_every=None,
+                 track_drift=False,
                  drift_lags=(100, 1000, 10000),
                  max_grad_norm=10.0):
         self.RNN = RNN
@@ -413,7 +416,11 @@ class Trainer():
         # per-unit participation logged every `track_every` iterations during training
         self.track_participation = track_participation
         self.track_every = int(track_every)
-        self.participation_monitor = ({"iters": [], "participation": [], "drift": []}
+        # "metrics": scalar series aligned to "iters" (NaN where a lag was not due this probe).
+        # "participation": the per-unit matrix, on its own coarser cadence. Nothing about the
+        # weights is ever written to disk — everything is reduced to scalars during training.
+        self.participation_monitor = ({"iters": [], "participation": [], "participation_iters": [],
+                                       "metrics": defaultdict(list)}
                                       if track_participation else None)
         # Weight-drift bookkeeping. Reference snapshots at several lags, because a single short lag
         # cannot tell a settled-but-jittering network from one that is still systematically drifting:
@@ -421,10 +428,14 @@ class Trainer():
         # a noise floor rather than reaching zero. Diffusion grows as sqrt(lag), systematic drift as
         # lag, so comparing lags separates them; the cosine between consecutive displacements is the
         # direct test (≈0 = random walk, >0 = still marching one way).
-        self.drift_lags = tuple(drift_lags) if drift_lags else ()
-        self._drift_refs = {}     # lag -> (iteration, {name: weight copy})
-        self._prev_disp = {}      # name -> previous displacement vector, for directional persistence
-        self._prev_weights = {}
+        self.track_drift = bool(track_drift)
+        self.drift_lags = tuple(int(l) for l in drift_lags) if drift_lags else ()
+        self.DRIFT_MATS = ("W_inp", "W_rec", "W_out")   # bias excluded: normally not trained here
+        self.store_participation_every = int(store_participation_every or track_every)
+        self._drift_refs = {}     # lag -> (iteration, {name: cpu weight copy})
+        self._part_refs = {}      # lag -> (iteration, participation vector)
+        self._prev_w = {}         # weights at the previous probe
+        self._prev_disp = {}      # displacement at the previous probe
 
 
     @staticmethod
@@ -604,59 +615,78 @@ class Trainer():
         return fr.std(dim=1, unbiased=False) + torch.quantile(fr.abs(), 0.9, dim=1)
 
     def track_participation_(self, input_batch, iter):
-        '''
-        Append a noise-free participation snapshot for every unit to self.participation_monitor.
+        """
+        Probe the network and record training diagnostics, reducing everything to scalars on the fly.
+
+        Recorded at every probe (into monitor["metrics"], aligned to monitor["iters"]):
+          silent_1em6                  number of units with participation < 1e-6
+          dp_lag<L>                    ||p(t) - p(t-L)|| / ||p(t)||, the participation vector's
+                                       relative change over lag L
+          drift_<W>_lag<L>             ||W(t) - W(t-L)||_F / ||W(t)||_F for W_inp, W_rec, W_out
+          cos_<W>                      cosine between consecutive displacements of that matrix
+                                       (~0 = jitter, >0 = still drifting systematically)
+        Lagged entries are NaN on probes where that lag is not yet due. The full per-unit
+        participation vector is stored separately, on the coarser store_participation_every cadence,
+        because it is the only bulky item.
 
         Args:
-            input_batch: (n_inputs, T, B) input tensor the snapshot is measured on (the training batch).
-            iter: current training iteration, stored alongside the snapshot.
+            input_batch: (n_inputs, T, B) inputs the probe is measured on (the training batch).
+            iter: current training iteration.
         Returns:
-            None (mutates self.participation_monitor).
-        '''
+            None; mutates self.participation_monitor.
+        """
+        mon = self.participation_monitor
         with torch.no_grad():
-            # w_noise=False zeroes recurrent/input/output noise, so the trace is directly
-            # comparable to the offline (noise-free) participation figures.
+            # w_noise=False so the trace is comparable to the offline (noise-free) analysis
             states, _ = self.RNN(input_batch, w_noise=False, dropout=False, dropout_args=None)
             p = self.participation_from_states_(states)
-        # relative parameter drift ||W(t) - W(t-lag)||_F / ||W(t)||_F at several lags, plus the
-        # cosine between consecutive displacements (see the note in __init__ for why one lag is not
-        # enough). Reference snapshots are kept on CPU: at N=2000 each W_rec copy is 16 MB.
-        drift = {}
+
+        mon["iters"].append(int(iter))
+        met = mon["metrics"]
+        met["silent_1em6"].append(float((p < 1e-6).sum()))
+
+        if iter % self.store_participation_every == 0:
+            mon["participation"].append(p.cpu().numpy().astype("float32"))
+            mon["participation_iters"].append(int(iter))
+
+        nan = float("nan")
+        if not self.track_drift:
+            return None
+
         with torch.no_grad():
-            names = [n for n in ("W_rec", "W_inp", "W_out", "bias")
-                     if getattr(self.RNN, n, None) is not None]
-            cur = {n: getattr(self.RNN, n).detach() for n in names}
+            cur = {n: getattr(self.RNN, n).detach() for n in self.DRIFT_MATS
+                   if getattr(self.RNN, n, None) is not None}
             for lag in self.drift_lags:
                 ref = self._drift_refs.get(lag)
-                # Emit a measurement ONLY when the reference is a full `lag` old, then refresh it.
-                # Measuring on every snapshot against a reference that is refreshed whenever it
-                # happens to age out gives a separation that oscillates between 0 and lag — which is
-                # not the quantity we want and makes different lags coincide.
-                if ref is None:
-                    self._drift_refs[lag] = (int(iter), {n: cur[n].to("cpu", copy=True) for n in names})
-                    continue
-                if iter - ref[0] >= lag:
-                    ref_it, ref_w = ref
-                    for n in names:
-                        rw = ref_w[n].to(cur[n].device)
-                        drift[f"{n}_lag{lag}"] = float((cur[n] - rw).norm() / cur[n].norm().clamp_min(1e-12))
-                    drift[f"actual_lag{lag}"] = int(iter - ref_it)
-                    self._drift_refs[lag] = (int(iter), {n: cur[n].to("cpu", copy=True) for n in names})
-            # directional persistence of the shortest-lag displacement
-            for n in names:
-                prev = self._prev_weights.get(n)
-                if prev is not None:
+                pref = self._part_refs.get(lag)
+                # Emit only when the reference is a full `lag` old, then refresh. Refreshing as soon
+                # as a reference ages out would make the actual separation oscillate between 0 and
+                # lag, and different lags would coincide.
+                due = ref is not None and (iter - ref[0]) >= lag
+                for n in cur:
+                    met[f"drift_{n}_lag{lag}"].append(
+                        float((cur[n] - ref[1][n].to(cur[n].device)).norm()
+                              / cur[n].norm().clamp_min(1e-12)) if due else nan)
+                met[f"dp_lag{lag}"].append(
+                    float((p - pref[1].to(p.device)).norm() / p.norm().clamp_min(1e-12))
+                    if due and pref is not None else nan)
+                if ref is None or due:
+                    self._drift_refs[lag] = (int(iter), {n: cur[n].to("cpu", copy=True) for n in cur})
+                    self._part_refs[lag] = (int(iter), p.to("cpu", copy=True))
+
+            # directional persistence, measured on consecutive probes
+            for n in cur:
+                prev = self._prev_w.get(n)
+                if prev is None:
+                    met[f"cos_{n}"].append(nan)
+                else:
                     disp = (cur[n] - prev.to(cur[n].device)).flatten()
                     pd = self._prev_disp.get(n)
-                    if pd is not None:
-                        pd = pd.to(disp.device)
-                        drift[f"{n}_cos"] = float(
-                            torch.dot(disp, pd) / (disp.norm() * pd.norm()).clamp_min(1e-30))
+                    met[f"cos_{n}"].append(
+                        float(torch.dot(disp, pd.to(disp.device))
+                              / (disp.norm() * pd.norm()).clamp_min(1e-30)) if pd is not None else nan)
                     self._prev_disp[n] = disp.to("cpu", copy=True)
-                self._prev_weights[n] = cur[n].to("cpu", copy=True)
-        self.participation_monitor["iters"].append(int(iter))
-        self.participation_monitor["participation"].append(p.cpu().numpy().astype("float32"))
-        self.participation_monitor["drift"].append(drift)
+                self._prev_w[n] = cur[n].to("cpu", copy=True)
         return None
 
     def train_step(self, input, target_output, mask):

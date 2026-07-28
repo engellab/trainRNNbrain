@@ -159,7 +159,9 @@ def run_training(cfg: DictConfig) -> None:
 
         if cfg.trainer.track_participation:
             # pkl, not json: (max_iter/track_every) x N float32 is ~12 MB as a pickle but ~100 MB as indented json
-            if not (datasaver is None): datasaver.save_data(trainer.participation_monitor, f"{score}_ParticipationTrace.pkl")
+            mon = dict(trainer.participation_monitor)
+            mon["metrics"] = {k: np.asarray(v, dtype="float32") for k, v in mon["metrics"].items()}
+            if not (datasaver is None): datasaver.save_data(mon, f"{score}_ParticipationTrace.pkl")
 
         # the total loss per iteration, saved regardless of `monitor` (which controls only the
         # per-penalty breakdown) so the training curve is always available to align against the
