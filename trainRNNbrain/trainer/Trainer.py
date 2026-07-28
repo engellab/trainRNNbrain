@@ -412,7 +412,9 @@ class Trainer():
         # per-unit participation logged every `track_every` iterations during training
         self.track_participation = track_participation
         self.track_every = int(track_every)
-        self.participation_monitor = {"iters": [], "participation": []} if track_participation else None
+        self.participation_monitor = ({"iters": [], "participation": [], "drift": []}
+                                      if track_participation else None)
+        self._prev_weights = {}   # previous snapshot, for the relative weight-drift measure
 
 
     @staticmethod
@@ -606,8 +608,23 @@ class Trainer():
             # comparable to the offline (noise-free) participation figures.
             states, _ = self.RNN(input_batch, w_noise=False, dropout=False, dropout_args=None)
             p = self.participation_from_states_(states)
+        # relative parameter drift since the previous snapshot: ||W(t) - W(t-delta)||_F / ||W(t)||_F.
+        # The loss can be flat while the network still reorganises, so this is the direct test of
+        # whether training has actually stopped moving. Costs one weight copy per snapshot.
+        drift = {}
+        with torch.no_grad():
+            for name in ("W_rec", "W_inp", "W_out", "bias"):
+                W = getattr(self.RNN, name, None)
+                if W is None:
+                    continue
+                W = W.detach()
+                prev = self._prev_weights.get(name)
+                if prev is not None:
+                    drift[name] = float((W - prev).norm() / W.norm().clamp_min(1e-12))
+                self._prev_weights[name] = W.clone()
         self.participation_monitor["iters"].append(int(iter))
         self.participation_monitor["participation"].append(p.cpu().numpy().astype("float32"))
+        self.participation_monitor["drift"].append(drift)
         return None
 
     def train_step(self, input, target_output, mask):
