@@ -60,7 +60,7 @@ All default to the **legacy** value, so every pre-existing config behaves exactl
 | `dale` | SWEPT | `true` | **`false`** | Dale's law: sign-split `W_rec` (E units excite, I units inhibit, ratio `exc2inhR`), the sign re-imposed after every step, and a readout restricted to the excitatory subpopulation. `false` uses `get_connectivity_unconstrained` — signed zero-mean weights, no E/I split, `dale_mask=None`, every unit reads out. |
 | `io_nonnegativity` | SWEPT | `true` | **`false`** | Clamps `W_inp ≥ 0` and `W_out ≥ 0`. **Independent of `dale`** — and the distinction matters: this switch, not Dale's law, is what conceals hard zeros. With non-negative input weights and non-negative task inputs, every unit gets a positive push at every timestep, so silent units sit at 1e-9…1e-2 instead of exactly 0. Same silent population, different floor. |
 | `self_connections` | SWEPT | `false` | **`true`** | Whether a unit may connect to itself. `false` zeroes the `W_rec` diagonal at init *and* re-zeroes it after every optimizer step via `recurrent_mask`. `true` leaves it free and trainable, as in a standard RNN. |
-| `bias_range` | SWEPT | `[0, 0]` | **`[-1, 1]`** | A degenerate range gives a fixed, non-trainable zero bias. A non-degenerate range makes the bias a trainable Parameter, clamped to the range after every step. **±1 is a rail, not a prior**: silent units sit at `x ≈ −0.19` (min −0.296), so `b = +0.30` would lift all of them — the optimum is well inside the bound. |
+| `bias_range` | SWEPT | `[0, 0]` | **`[-1, 1]`** | A degenerate range gives a fixed, non-trainable zero bias. A non-degenerate range makes the bias a trainable Parameter, clamped to the range after every step. **±1 is a rail, not a prior.** The ±0.3 figure often quoted for this comes from **one Dale network at N=1000 with no penalties** (silent units at `x ≈ −0.19`, min −0.296) and does **not** generalise: the needed scale depends on N and on the penalties. Measured bias magnitudes in the standard architecture — N=1000: max \|b\| 0.49–0.63, p95 0.07 (`none`) / 0.15–0.17 (`frm`); **N=100: max 0.83–0.95, p95 0.28–0.39**, i.e. ~5× larger at the small size. The justification that actually holds is empirical: **0.0% of biases are pinned at the rail in any cell measured**, though at N=100 the margin is thin (one net reached 0.949). If N drops below 100 or a stronger activity penalty is used, re-check before assuming the bound is slack. |
 | `bias_init` | CORE | `"uniform"` | **`"zeros"`** | Only relevant when the bias is trainable. `uniform` (legacy) seeds it uniformly over `bias_range` — which means widening the range also changes the *initial condition*. `zeros` starts every bias at 0, so the initial weights are bit-identical to the bias-free network at the same seed and the manipulation is one-variable. |
 | `exc2inhR` | CORE (Dale only) | 4.0 | — | Excitatory:inhibitory ratio. **Ignored entirely when `dale: false`**, though still present in the configs. It sets the E/I redundancy asymmetry: 200 inhibitory units carry the whole network's inhibition at 4× weight and are almost never silent, while 800 excitatory units are mutually redundant and half go quiet. |
 | `weight_boundary` | DORMANT | `"sticky"` | inert | How Dale's sign constraint is enforced. `sticky` clamps violating weights to ±`eps` (they pile up at ~0); `reflective` uses `|param|·sign` so nothing is pinned. Tested as a possible artifact — it changed nothing. **Inert once `dale` and `io_nonnegativity` are both false.** |
@@ -118,13 +118,28 @@ is never even evaluated.**
 | `lambda_rws` | SWEPT (0 / 0.05) | Recurrent-weight sparsity: penalises effective in-degree above `tg_deg` (20) | Does **not** rescue. In Dale nets it is worse than baseline; in standard nets it lifts units off exact zero without making them participate — visible only because two metrics are reported. |
 | `lambda_met` | SWEPT (0.01–10) | Metabolic cost, `mean(fr²)` — the field-standard form | Being swept now over four decades. Predicted to *deepen* silence, since it penalises rate magnitude. |
 
-**Defined but never used** — all zero in every config and launcher in this repo:
+**Available but inactive.** As of 2026-07-27 these are no longer listed in the trainer configs —
+they all default to 0.0 in the `Trainer` signature, so omitting them keeps them off. Add the λ and
+its `*_args` block back to enable one: `lambda_iwm`, `lambda_rwm`, `lambda_owm` (input / recurrent /
+output weight-magnitude caps) · `lambda_hm` (hidden-state magnitude) · `lambda_tv` (across-trial
+output variability) · `lambda_fri`, `lambda_hi` (Gini/HHI inequality of rates or hidden drive) ·
+`lambda_htvar` (temporal variance of hidden drive) · `lambda_cl` (clustering) · `lambda_effdim`
+(eigenvalue tail energy).
 
-`lambda_orth` (input/output channel overlap) · `lambda_iwm`, `lambda_rwm`, `lambda_owm` (input/recurrent/output weight magnitude caps) · `lambda_hm` (hidden-state magnitude) · `lambda_tv` (across-trial output variability) · `lambda_fri`, `lambda_hi` (Gini/HHI inequality of rates or of hidden drive) · `lambda_htvar`, `lambda_hlvar` (temporal / local variance of hidden drive) · `lambda_cl` (clustering) · `lambda_effdim` (eigenvalue tail energy).
+> ⚠️ **`lambda_orth` is kept explicitly in the configs and must stay there.** Its `Trainer` default
+> is **0.3, not 0** — deleting the line would silently switch the channel-overlap penalty on for
+> every run. It is the only λ in the file whose absence changes behaviour. (`lambda_rws` 0.05 and
+> `lambda_frm` 0.005 have non-zero defaults too, but both are always set explicitly.)
 
-Two of them would **break** on `dale: false`: `rec_weights_magnitude_penalty` with `account4dale: true`
-and `h_local_variance_penalty` both index `dale_mask`, which is `None` without Dale. Harmless while
-λ=0, since the term is never evaluated — but a trap for anyone who enables them.
+**Fixed and removed (2026-07-27).** Two penalties indexed `dale_mask`, which is `None` under
+`dale: false` — harmless at λ=0 since the term is never evaluated, but a trap once enabled:
+- `rec_weights_magnitude_penalty` with `account4dale: true` — **fixed**: it now falls back to the
+  single-cap branch when there is no `dale_mask`, since without Dale there is no E/I split to
+  account for. Verified it returns a finite value on a non-Dale network where it previously raised.
+- `h_local_variance_penalty` — **removed** along with its `normalized_concentration_` helper,
+  `lambda_hlvar`/`hlvar_args`, and its `penalty_map` entry. It was used once historically
+  (`lambda_hlvar: 0.9`, October 2025 runs, before this project line); recoverable from git history
+  if ever needed.
 
 ### 3.4 Dropout — UNUSED
 

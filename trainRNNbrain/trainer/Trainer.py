@@ -62,7 +62,9 @@ class Penalties:
         scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / torch.log1p(torch.as_tensor(N, device=dev, dtype=dt))
         cap = torch.as_tensor(cap100, device=dev, dtype=dt) * scale
         W = R.W_rec.abs()
-        if account4dale:
+        # account4dale needs a dale_mask; without Dale's law there is no E/I split to account for,
+        # so fall back to the single-cap branch instead of indexing a None mask.
+        if account4dale and getattr(R, "dale_mask", None) is not None:
             cap_e, cap_i = cap, cap * torch.as_tensor(R.exc2inhR, device=dev, dtype=dt)
             exc, inh = (R.dale_mask > 0), (R.dale_mask < 0)
             rE = (W[:, exc] + eps) / (cap_e + eps)
@@ -262,25 +264,6 @@ class Penalties:
         denom = (var_between + var_within).detach() + eps
         return var_between / denom
     
-    @staticmethod
-    def normalized_concentration_(C, mask, eps=1e-8):
-        X = C[:, mask]
-        P = X / (X.sum(1, keepdim=True) + eps)
-        hhi = (P * P).sum(1)
-        base = 1.0 / X.size(1)
-        return ((hhi - base) / (1.0 - base)).clamp(0, 1)
-
-    def h_local_variance_penalty(self, states, input=None, output=None, target=None, mask=None):
-        device, dtype = states.device, states.dtype
-        mean_s = states.mean(dim=(1, 2))  # (N,)
-        contrib = (self.RNN.W_rec * mean_s.unsqueeze(0)).abs()  # (N, N) rows=i (post), cols=j (pre)
-        dale_cols = self.RNN.dale_mask.to(device)  # (N,)
-        conc_E = self.normalized_concentration_(contrib, (dale_cols == 1))
-        conc_I = self.normalized_concentration_(contrib, (dale_cols == -1))
-        v = conc_E + conc_I
-        v = torch.nan_to_num(v, nan=0.0, posinf=0.0, neginf=0.0)
-        return v.mean()
-
     def clustering_penalty(self, states, input, output, target, mask,
                            attract_margin=0.1,
                            repell_margin=0.3,
@@ -363,8 +346,6 @@ class Trainer():
                  hi_args=None,
                  lambda_htvar=0.0,
                  htvar_args=None,
-                 lambda_hlvar=0.0,
-                 hlvar_args=None,
                  lambda_cl=0.0,
                  cl_args = None,
                  lambda_effdim=0.0,
@@ -410,7 +391,6 @@ class Trainer():
             "fr_inequality": (self.Penalties.fr_inequality_penalty, lambda_fri, fri_args),
             "h_inequality": (self.Penalties.h_inequality_penalty, lambda_hi, hi_args),
             "h_time_variance": (self.Penalties.h_time_variance_penalty, lambda_htvar, htvar_args),
-            "h_local_variance": (self.Penalties.h_local_variance_penalty, lambda_hlvar, hlvar_args),
             "clustering": (self.Penalties.clustering_penalty, lambda_cl, cl_args),
             "eff_dim_tail_energy": (self.Penalties.eff_dim_tail_energy_penalty, lambda_effdim, effdim_args),
         }

@@ -15,27 +15,16 @@ task_safe_gradients: True   # project out penalty-gradient components that oppos
                             # False = plain descent on task + sum(lambda_k * penalty_k)
 track_participation: True   # log per-unit participation during training (participation-trace experiment)
 track_every: 10             # iterations between participation snapshots
+# Penalties available in Trainer but INACTIVE here (all default to 0.0 in the Trainer signature,
+# so omitting them keeps them off): lambda_iwm / rwm / owm (input, recurrent, output weight-magnitude
+# caps), lambda_hm (hidden-state magnitude), lambda_tv (across-trial output variability), lambda_fri
+# and lambda_hi (Gini/HHI inequality of rates or hidden drive), lambda_htvar (temporal variance of
+# hidden drive), lambda_cl (clustering), lambda_effdim (eigenvalue tail energy). Add the lambda and
+# its *_args block back here to enable one. NOTE lambda_orth is kept explicitly below because its
+# Trainer default is 0.3, NOT 0 — dropping it from this file would silently switch it on.
 lambda_orth: 0.0
 orth_args:
   orth_input_only: True
-lambda_iwm: 0
-iwm_args:
-  cap100: 0.5
-  gamma: 5.0
-  eps: 1e-12
-lambda_rwm: 0.0
-rwm_args:
-  cap100: 0.02
-  account4dale: True
-  N_ref: 100
-  k_ref: 20
-  gamma: 5.0
-  eps: 1e-12
-lambda_owm: 0
-owm_args:
-  cap100: 0.07
-  gamma: 5.0
-  eps: 1e-12
 lambda_met: 0
 met_args: {}
 lambda_rws: 0.05 # sparsity
@@ -53,32 +42,6 @@ frm_args:
   eps: 1e-12
   aggregation: mean   # neuron-level pooling of per-unit FR-deviation penalty: 'mean' or 'logsumexp'
   tau_n: 1.0          # logsumexp temperature: small -> max (fights worst outlier); large -> mean. Ignored if aggregation=mean
-lambda_hm: 0.0 # magnitude of hidden activities
-hm_args:
-  h_thr: -0.1
-  tau: 0.1
-  g_top: 3.0
-  g_bot: 3.0
-  alpha: 1.0
-  beta: 1.0
-lambda_tv: 0 # trial output variability (across trials)
-tv_args: {}
-lambda_fri: 0
-fri_args:
-  method: 'hhi'
-lambda_hi: 0
-hi_args:
-  method: 'hhi'
-lambda_htvar: 0
-htvar_args: {}
-lambda_hlvar: 0
-hlvar_args: {}
-lambda_cl: 0
-cl_args: {}
-lambda_effdim: 0.0 # (0.05 - 0.1 good for dimensionality regularization)
-effdim_args:
-  k: 8
-  eps: 1e-12
 dropout: False
 dropout_args:
   dropout_kind: "mute"
