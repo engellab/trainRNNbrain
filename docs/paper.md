@@ -114,7 +114,7 @@ Every intervention below was chosen because it *could* plausibly have removed th
 | 4 | **Removing Dale's law entirely** | no change in the silent fraction ✅ |
 | 5 | **Removing I/O positivity** | no change in the fraction; converts soft floors into hard zeros ✅ (§S1) |
 | 6 | **Trainable bias** (`[-1,1]`, zero init) | no rescue ✅ (55.3% → 54.9%) |
-| 7 | **Self-connections** allowed | 🟡 running (`CDDM_std_g0`) |
+| 7 | **Self-connections** allowed | no rescue ✅ — and the network trains the diagonal into self-*inhibition*: corr(self-weight, log participation) = **−0.51**, active units at −0.060 vs silent at −0.007. The cheapest escape from silence is one it declines to take. |
 | 8 | Activation: softplus(β=25), leaky-ReLU | persists, 40–64% (Dale) ✅; ⬜ standard-RNN rerun |
 | 9 | Recurrent noise σ_rec ∈ {0, .01, .05, .1} | never helps; σ=0 is the *worst* regime (~80%) ✅; ⬜ rerun |
 | 10 | `rws` sparsity penalty | fails (§2) ✅ |
