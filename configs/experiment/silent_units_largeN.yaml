@@ -1,0 +1,9 @@
+# @package _global_
+# Large-N regime: skip every numpy/CPU analysis step after training. At N>=5000 those dominate the
+# job (~3 h single-threaded CPU at N=10000, a 10.8 GB float64 trajectory array, PCA over a
+# 10000 x 135000 matrix, ~4 GB of json parameters). The readout for these runs is the participation
+# trace, which needs none of it. Parameters are saved as .npz instead of json.
+# N is set by the launcher (it is the swept variable); max_iter likewise.
+light_outputs: true
+trainer:
+  trainer_tag: ""

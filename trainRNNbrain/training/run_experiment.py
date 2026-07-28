@@ -116,17 +116,27 @@ def run_training(cfg: DictConfig) -> None:
         analyzer = PerformanceAnalyzer(RNN_valid)
 
         input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
-        print(f"torch r2 score: {trainer.eval_step(torch.from_numpy(input_batch_valid),
-                                                       torch.from_numpy(target_batch_valid),
-                                                       mask=mask, noise=True)}")
-        score = analyzer.get_validation_score(r2,
+        torch_r2 = trainer.eval_step(torch.from_numpy(input_batch_valid),
+                                     torch.from_numpy(target_batch_valid),
+                                     mask=mask, noise=True)
+        print(f"torch r2 score: {torch_r2}")
+
+        # light_outputs: skip every numpy/CPU analysis step. At N=10000 those cost ~3 h of
+        # single-threaded CPU (OMP_NUM_THREADS=1), a 10.8 GB float64 trajectory array and a PCA over
+        # a 10000 x 135000 matrix — none of which is needed when the readout is the participation
+        # trace. The torch evaluation replaces the numpy validation score.
+        light = bool(cfg.get("light_outputs", False))
+        if light:
+            score = np.round(torch_r2, 7)
+        else:
+            score = analyzer.get_validation_score(r2,
                                               input_batch_valid,
                                               target_batch_valid,
                                               mask,
                                               sigma_rec=cfg.model.sigma_rec,
                                               sigma_inp=cfg.model.sigma_inp,
                                               seed=seed)
-        score = np.round(score, 7)
+            score = np.round(score, 7)
 
         data_folder = make_subfolder_tag(cfg, net_params, score, taskname)
 
@@ -135,8 +145,17 @@ def run_training(cfg: DictConfig) -> None:
 
         print(f"r2 validation: {score}")
         if not (datasaver is None): datasaver.save_data(cfg, f"{score}_config.yaml")
-        if not (datasaver is None): datasaver.save_data(jsonify(last_net_params), f"{score}_LastParams_{taskname}.json")
-        if not (datasaver is None): datasaver.save_data(jsonify(best_net_params),f"{score}_BestParams_{taskname}.json")
+        if light:
+            # binary, not json: 100 M float32 is 400 MB as npz but ~2 GB as indented json, and
+            # jsonify would first materialise it as Python floats (~24 bytes each).
+            for nm, prm in (("LastParams", last_net_params), ("BestParams", best_net_params)):
+                src = prm if isinstance(prm, dict) else OmegaConf.to_container(prm, resolve=True)
+                arrs = {k: np.asarray(v) for k, v in src.items()
+                        if v is not None and not isinstance(v, (str, bool))}
+                np.savez(os.path.join(datasaver.data_folder, f"{score}_{nm}_{taskname}.npz"), **arrs)
+        else:
+            if not (datasaver is None): datasaver.save_data(jsonify(last_net_params), f"{score}_LastParams_{taskname}.json")
+            if not (datasaver is None): datasaver.save_data(jsonify(best_net_params),f"{score}_BestParams_{taskname}.json")
 
         if cfg.trainer.track_participation:
             # pkl, not json: (max_iter/track_every) x N float32 is ~12 MB as a pickle but ~100 MB as indented json
@@ -167,6 +186,14 @@ def run_training(cfg: DictConfig) -> None:
             fig_grads_scaled = plot_loss_breakdown(trainer.scaled_gradients_monitor)
             if disp: plt.show()
             if not (datasaver is None): datasaver.save_figure(fig_grads_scaled, f"{score}_GradsScaled.png")
+
+        if light:
+            # the trace figure needs only the logged monitor, no numpy forward pass, so keep it
+            if cfg.trainer.track_participation:
+                fig_pt = analyzer.plot_participation_trace(trainer.participation_monitor)
+                if not (datasaver is None): datasaver.save_figure(fig_pt, "participation_trace.png")
+            print("light_outputs: skipping numpy analysis (trials, matrices, clustering, animations)")
+            continue
 
         inds = np.random.choice(np.arange(input_batch_valid.shape[-1]), np.minimum(input_batch_valid.shape[-1], 12))
         inputs = input_batch_valid[..., inds]
