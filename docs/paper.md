@@ -69,9 +69,13 @@ budget, and activity regularization is the only route there. If they keep growin
 costs a rapidly worsening ratio. ⬜ Decided by the large-N runs (N ∈ {2000, 5000, 10000}), currently
 being sized for wall time and memory (see `project_trajectory.md`, 2026-07-27 15:30).
 
-**The silence is created by training, not inherited from initialization** ✅: 0% of units are silent
-at init, at every spectral radius tested. It also isn't a bug — an independently written Euler
-integrator reproduces the per-unit peak rates exactly (max abs diff 0.0) ✅.
+**Most of the silence is created by training** ✅ — but, corrected 2026-07-28, **not all of it**. In
+standard unconstrained networks **4.4% of units are already hard-silent at initialization and 21% sit
+below the 0.01 line** before a single training step: with signed input weights a unit can start
+net-negative and never fire. Training takes it from 4.4% to 41.5%. The older "0% silent at init"
+result is **Dale-specific** — I/O positivity guarantees every unit a positive push, so nothing can be
+exactly zero there. It also isn't a bug: an independently written Euler integrator reproduces the
+per-unit peak rates exactly (max abs diff 0.0) ✅.
 
 ---
 
@@ -86,7 +90,7 @@ the λ_met sweep exists.
 | Penalty | Effect on silence |
 |---|---|
 | **`rws`** — recurrent-weight sparsity | **Does not rescue**: 42.7% → 39.9% ✅ — a marginal change against a ~43% baseline, nowhere near the 0% that `frm` reaches. (In constrained networks it is actively *worse*; see §S1.) |
-| **`met`** — metabolic cost, `mean(fr²)`, the field-standard form | ⬜ **Predicted worse, monotonically in λ.** It penalizes rate magnitude, so it should deepen exactly the pathology it is assumed to guard against. |
+| **`met`** — metabolic cost, `mean(fr²)`, the field-standard form | ✅ **Measured: never rescues, and at strength makes it worse.** Across λ ∈ {0.01, 0.1, 1, 10} and N ∈ {100, 500, 1000} the silent fraction never falls below baseline. At λ=10 it rises sharply where there is headroom — N=100: **12% → 59%** scale-free silent; N=500: 41% → 69% — while R² stays 0.81–0.87, so this is not a penalty destroying the task. Flat at N=1000, where the baseline is already ~42% and little room remains. |
 
 ⬜ **This experiment is the paper's hook and must be run first.** Sweep λ_met across ~3 decades at
 N=100 and N=1000, reporting silent fraction *as a function of λ*, so the result cannot be dismissed
@@ -155,10 +159,10 @@ endure a long silent episode. In Dale networks it genuinely **resurrects** — 3
 were silent for ≥500 consecutive iterations and returned.
 
 Two by-products of the same analysis ✅: silence is **not strictly irreversible** even without
-penalties (~96 units per network recover spontaneously), and the split happens **early** — the
-bifurcation is complete by iteration ~400–600 of 30000 and frozen thereafter 🟡, preceded by a
-**global collapse** in which the entire population goes quiet within ~20 iterations and only the
-eventual-active subset climbs back out 🟡.
+penalties (~96 units per network recover spontaneously), and the split *begins* within the first few
+hundred iterations, preceded by a **global collapse** in which the entire population goes quiet
+within ~20 iterations and only the eventual-active subset climbs back out. Note it begins early but
+does **not** finish early — see §6.1: the silent fraction is still growing at iteration 30000.
 
 ⬜ Optional sharpening, 20 jobs: force a random 25% of units silent at init (bias = −1, frozen) and
 follow those specific units. Only needed if a referee insists on "can it revive a unit dead from the
@@ -203,24 +207,86 @@ conclusion about the circuit depends on whether you regularized activity, and no
 
 ## 6. Open questions
 
-**6.1 Is this just an over-easy task?** ⬜ The deflationary reading: CDDM is low-dimensional,
-unpenalized nets solve it with ~60–150 effective units, and a 1000-unit network trivially has spare
-capacity. Test by scaling the **task**, not the network (more contexts, more stimulus dimensions,
-compositional variants) and asking whether the active fraction rises.
+The four that decide what this paper can claim, in dependency order — 6.1 gates 6.2, and 6.4 gates
+the framing of the whole thing.
 
-This is the most important open question, and note that *either* answer is publishable — but they
-are different papers. If the active count rises with task complexity, the honest conclusion is
-partly a recommendation: **don't train 1000-unit RNNs on simple tasks and then analyze the
-population, because most of it is unused.** That is a useful, concrete methodological statement, and
-it composes with §1's finding that active units grow only as ~N^0.72 — you cannot cheaply buy a
-large active population by enlarging the network.
+### 6.1 Does training converge, or do the parameters (and the silent units) keep drifting?
 
-**6.2 Connectivity scale.** ⬜ Is silence simply insufficient recurrent drive? Spectral radius was
-only ever checked *at initialization* (0% silent at every radius); never in trained networks.
+**Status: running** (Della `11706899`, 12 jobs, 100000 iterations).
 
-**6.3 Generality.** ⬜ Everything is CDDM. DMTS / GoNoGo / MemoryAngle configs exist in the repo.
+Every number in this project was measured at a fixed 30000 iterations, on the assumption that
+training had settled. It has not. The **loss** is flat over the final 10% at every size (−0.4 to
+−0.6%), but the **silent fraction is still climbing** — +3.7 pp over the last 5000 iterations at
+N=1000, and 7.4% → 41.5% hard-silent between iterations 5000 and 30000. The network solves the task
+early and then goes on switching units off: drift along a flat loss manifold.
 
----
+Being measured: **new silent units per 1000 iterations** (from the participation trace, which needs
+no new logging) and **relative parameter drift** `‖W(t)−W(t−Δ)‖_F/‖W(t)‖_F` (newly logged), at
+N ∈ {1000, 2000} × `weight_decay` ∈ {1e-6, 0} × 3 seeds.
+
+**Why it can change the paper rather than just the methods:** if the curves are still moving at
+100000, then every silent-fraction number carries the caveat *"at 30000 iterations"* rather than
+*"at convergence"*, and the size sweep needs re-running to a convergence **criterion**. And if
+`weight_decay=0` removes the late drift, the late-phase silencing is a **regularization artifact**
+rather than something the task demands — which would not erase the result (the silence is there at
+30000 either way, and `frm` still removes it) but would change what the phenomenon *is*.
+
+### 6.2 Does the active-unit count saturate, or grow without bound?
+
+**Status: blocked on 6.1.** This is the answer to the sharpest objection the paper faces — *"why make
+every unit compute, just train a bigger network and prune the silent ones?"*
+
+Measured (standard RNNs, h, no penalty, 30000 iterations): active units 97 → 227 → 390 → 580 → **862**
+across N = 100 → 2000, with the local exponent falling 0.93 → 0.78 → 0.57 → **0.57** — it declined,
+then stopped declining. Two fits to N ≤ 1000 diverge 3× by N=10000 (power law 2069 vs saturating
+702), and the N=2000 point (862) sits **above both**, so the current evidence points to **growth**,
+against my pre-registered prediction of saturation.
+
+**But that evidence is compromised by 6.1.** Residual drift grows with N, so larger networks are
+further from their asymptote at any fixed iteration count. That undercounts silence at large N,
+overcounts active units at large N, and biases the curve toward exactly the "growth" answer we got.
+The N=5000/10000 runs must wait until the horizon is known — running them at 30000 iterations would
+buy a differently-wrong answer for ~185 GPU-hours.
+
+**If saturation:** pruning cannot deliver a large active population at any size, and activity
+regularization is the only route — `frm` at N=1000 already gives 1000 active units.
+**If growth:** pruning works, and the paper's argument must rest entirely on the population-level
+differences of §5 rather than on reachability.
+
+### 6.3 Is the rescue preventive or genuinely restorative?
+
+**Status: answered, architecture-dependent** ✅ (§4). In standard RNNs `frm` **prevents** — 0.6 units
+per network recover from a long silent episode. In Dale networks it **resurrects** — 369 per network
+were silent ≥500 consecutive iterations and returned. Both from the participation traces, on the
+natural initialization, with no contrived construction.
+
+What remains open is the harder case: can it revive a unit that is dead **from initialization and
+stays dead**? On the natural init there are few such units to test — though 6.1's finding that 4.4%
+*are* hard-silent at init in standard networks means the material now exists. ⬜ 20 jobs would settle
+it (force a random 25% silent via a frozen bias of −1, then follow those units in the trace).
+Optional; the Dale resurrection number already carries most of the weight.
+
+### 6.4 Is the silence just spare capacity — is the task too easy?
+
+**Status: open, needs design.** The deflationary reading, and the one a referee will default to: CDDM
+is low-dimensional, unpenalized networks solve it with ~60–150 effective units, and a 1000-unit
+network trivially has units to spare. Nothing measured so far excludes it.
+
+The test is to scale the **task**, not the network — more contexts, more stimulus dimensions,
+compositional variants — and ask whether the active fraction rises. **Either answer is publishable,
+but they are different papers.** If the active count rises with task complexity, the honest
+conclusion is partly a recommendation: *don't train 1000-unit RNNs on simple tasks and then analyse
+the population, because most of it is unused* — which composes with 6.2, since if active units also
+grow only sublinearly you cannot cheaply buy a large active population by enlarging the network
+either. If the active fraction is flat regardless of task complexity, it is a genuine pathology and
+the paper is stronger.
+
+### 6.5 Smaller open items
+
+- **Connectivity scale** ⬜ — is silence simply insufficient recurrent drive? Spectral radius was only
+  ever checked *at initialization* (0% silent at every radius), never in trained networks.
+- **Generality** ⬜ — everything is CDDM. DMTS / GoNoGo / MemoryAngle configs exist in the repo.
+- **Activation and noise reruns** ⬜ — established in Dale networks, not yet repeated in standard ones.
 
 ## 7. Methods points that must be stated
 
