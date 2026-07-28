@@ -79,13 +79,12 @@ per-unit peak rates exactly (max abs diff 0.0) ✅.
 
 ---
 
-## 2. Standard activity regularizers do not fix it — and likely make it worse
+## 2. Standard activity regularizers do not fix it — and at strength make it worse
 
 Activity regularization in RNN training is routine — metabolic-cost terms are standard practice in
 this literature. But the usual penalties act on the wrong side of the distribution: they penalize
-*high* rates, pushing the whole population down. **Status: the "does not fix it" half is measured;
-the "makes it worse" half is predicted and not yet run** — the section title is a hypothesis until
-the λ_met sweep exists.
+*high* rates, pushing the whole population down. **Status (2026-07-28): both halves are now
+measured** — the λ_met sweep is complete (36 networks, 4 decades × 3 sizes × 3 seeds).
 
 | Penalty | Effect on silence |
 |---|---|
