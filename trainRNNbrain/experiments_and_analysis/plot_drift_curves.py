@@ -86,19 +86,22 @@ def running_median(y, w):
     return np.array([np.median(y[max(0, i - h):min(n, i + h + 1)]) for i in range(n)])
 
 
-def lag_exponent(trace, mat, l1, l2):
+def lag_exponent(trace, what, l1, l2):
     """Local scaling exponent of drift with lag: alpha = log(d(l2)/d(l1)) / log(l2/l1).
 
     The two lags are measured at different iterations, so the shorter-lag series is interpolated in
     log-iteration onto the longer-lag grid before the ratio is taken.
 
     Args:
-        trace: trace dict; mat: one of "W_inp"/"W_rec"/"W_out"; l1, l2: lags with l1 < l2.
+        trace: trace dict;
+        what: "W_inp"/"W_rec"/"W_out" for a weight matrix, or "p" for the participation vector;
+        l1, l2: lags with l1 < l2.
     Returns:
         (iters, alpha) arrays. alpha ~ 0.5 diffusive, ~ 1 systematic, < 0.5 mean-reverting.
     """
-    i1, d1 = series(trace, f"drift_{mat}_lag{l1}")
-    i2, d2 = series(trace, f"drift_{mat}_lag{l2}")
+    stem = "dp" if what == "p" else f"drift_{what}"
+    i1, d1 = series(trace, f"{stem}_lag{l1}")
+    i2, d2 = series(trace, f"{stem}_lag{l2}")
     if len(i1) < 2 or len(i2) < 1:
         return np.array([]), np.array([])
     d1i = np.exp(np.interp(np.log(i2), np.log(i1), np.log(d1)))
@@ -155,11 +158,16 @@ def plot_size(traces, N, out):
                  ylabel=r"$\|\Delta W\|_F/\|W\|_F$  at $L=1000$")
     ax[0, 1].set_title("(b) which matrix keeps moving")
 
-    # (c) diffusive-vs-systematic exponent
-    pairs = [(100, 1000), (1000, 10000)]
-    overlay(ax[0, 2], traces, pairs, [f"$L$: {a}$\\to${b}" for a, b in pairs],
-            ["#1f77b4", "#ff7f0e"],
-            lambda t, p: lag_exponent(t, "W_rec", *p), marker="o", ms=3, **lw)
+    # (c) diffusive-vs-systematic exponent, for the weights and for the participation vector.
+    # The participation exponent at the LONGEST lag is the criterion: weights are free to wander
+    # along functionally degenerate directions (W_out is doing exactly that, see panel b), so a
+    # weight-based stopping rule fires long before the network stops changing what its units do.
+    curves = [("W_rec", 100, 1000), ("W_rec", 1000, 10000),
+              ("p", 100, 1000), ("p", 1000, 10000)]
+    overlay(ax[0, 2], traces, curves,
+            [f"{'$W_{rec}$' if w == 'W_rec' else '$p$'}  $L$: {a}$\\to${b}" for w, a, b in curves],
+            ["#9ecae1", "#1f77b4", "#ff9896", "#d62728"],   # saturated = the longest, criterion lag
+            lambda t, c: lag_exponent(t, c[0], c[1], c[2]), marker="o", ms=3, **lw)
     ax[0, 2].axhline(0.5, color="k", ls="-", lw=1, alpha=.6)
     ax[0, 2].axhline(1.0, color="r", ls="-", lw=1, alpha=.6)
     ax[0, 2].text(0.02, 0.52, "diffusion", transform=ax[0, 2].get_yaxis_transform(), fontsize=8)
@@ -167,7 +175,7 @@ def plot_size(traces, N, out):
                   transform=ax[0, 2].get_yaxis_transform(), fontsize=8)
     ax[0, 2].set(xscale="log", xlabel="iteration",
                  ylabel=r"$\alpha=\Delta\log d\,/\,\Delta\log L$")
-    ax[0, 2].set_title("(c) is the motion a random walk?")
+    ax[0, 2].set_title("(c) random walk?  ($p$ at longest $L$ = criterion)")
 
     # (d) directional persistence
     overlay(ax[1, 0], traces, MATS, MATS, [mat_cols[m] for m in MATS],
