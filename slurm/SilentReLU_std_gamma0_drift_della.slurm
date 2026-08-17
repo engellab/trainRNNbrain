@@ -12,9 +12,17 @@
 #   diffusion  -> distance grows as sqrt(L);  systematic drift -> grows as L
 #   cosine between consecutive displacements: ~0 = jitter, >0 = still marching one way
 #
-# Grid (12 jobs) = 4 sizes x 3 seeds, h equation, no penalties, 200000 iterations:
-#   N in {100, 500, 1000, 2000}      3 reps, seed="random"
-# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..11): REP=TID%3; N_IDX=(TID/3)%4
+# Grid (12 jobs) = 4 sizes x 3 seeds, h equation, no penalties. Iterations are set PER SIZE from the
+# measured decay rates, not uniformly: the silencing rate decays ~2.5x more slowly at N=2000 than at
+# N=1000 (factor 4.2 vs 10.8 between iteration 30k and 100k), so a uniform budget would leave the
+# largest and most important cell still drifting while over-running the smallest.
+#   N=100   ->  50000   (rate is already ~0 by iteration 3000)
+#   N=500   -> 200000
+#   N=1000  -> 200000   (rate 0.89 units/1000 at 100k, nearly settled)
+#   N=2000  -> 300000   (rate 2.90 units/1000 at 100k, extrapolates to settle near 250-300k)
+# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..11): REP=TID%3; N_IDX=TID/3
+# Submit in two parts: tasks 1-9 (N<=1000) fit gpu-short; tasks 10-12 (N=2000, 26.4 h) need
+# --time>24h, i.e. the gpu-medium QOS.
 #
 # Metrics, all reduced to scalars during training (nothing about the weights is written to disk;
 # reference snapshots live in CPU RAM, ~80 MB at N=2000, independent of training length):
@@ -34,7 +42,7 @@
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-node=1
 #SBATCH --mem-per-gpu=32G
-#SBATCH --time=20:00:00
+#SBATCH --time=12:00:00   # overridden to 40:00:00 for the N=2000 tasks
 #SBATCH --constraint=nomig
 #SBATCH --array=1-12
 #SBATCH --mail-type=FAIL
@@ -62,18 +70,19 @@ fi
 echo "code: $PKG @ $(git -C "$REPO" rev-parse --short=7 HEAD)"
 
 NS=(100 500 1000 2000)
+ITS=(50000 200000 200000 300000)
 TID=$((SLURM_ARRAY_TASK_ID - 1))
-REP=$((TID % 3)); N_IDX=$(((TID / 3) % 4))
-N=${NS[$N_IDX]}
+REP=$((TID % 3)); N_IDX=$((TID / 3))
+N=${NS[$N_IDX]}; IT=${ITS[$N_IDX]}
 
-TAG="std_g0_drift/EqType=h_N=${N}"
+TAG="std_g0_drift/EqType=h_N=${N}_iters=${IT}"
 mkdir -p "${SAVE_TO}/CDDM_std_g0_drift"
 if [ "$SLURM_ARRAY_TASK_ID" -eq 1 ]; then
   cp "$REPO/docs/experiments/standard_rnn_drift.md" "${SAVE_TO}/CDDM_std_g0_drift/EXPERIMENT.md"
   echo -e "\n---\nRun: SLURM array ${SLURM_ARRAY_JOB_ID} on Della, code commit $(git -C "$REPO" rev-parse HEAD)" \
     >> "${SAVE_TO}/CDDM_std_g0_drift/EXPERIMENT.md"
 fi
-echo "Task ${SLURM_ARRAY_TASK_ID}: N=${N} rep=${REP} iters=200000 track_drift=true"
+echo "Task ${SLURM_ARRAY_TASK_ID}: N=${N} iters=${IT} rep=${REP} track_drift=true"
 echo "  -> ${SAVE_TO}/CDDM_${TAG}"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
@@ -81,7 +90,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   +experiment=silent_units_largeN \
   model=rnn_relu_standard trainer=trainer_ptrack_plain \
   model.equation_type=h model.N="$N" \
-  trainer.max_iter=200000 \
+  trainer.max_iter="$IT" \
   trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
   trainer.lambda_rws=0 trainer.lambda_frm=0 \
   paths.save_to="$SAVE_TO" \
