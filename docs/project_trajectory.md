@@ -2148,3 +2148,37 @@ rather than switching to 0, even though 0 gives a more stationary measurement.
 would be visible in that range; unbounded growth with a slowly-falling exponent would not be
 distinguishable from a very high ceiling. State the range of validity rather than claiming the
 asymptote.
+
+### Submitted 2026-08-17 16:00 EDT — Della arrays `12545109` (9 jobs) and `12545110` (3 jobs)
+
+The drift-characterisation sweep defined by the goal statement above is now running, from its own
+git worktree at commit `2f9bcc7`.
+
+| Array | Cells | Jobs | Iterations | Wall request | QOS |
+|---|---|---|---|---|---|
+| `12545109` | N = 100, 500, 1000 | 9 | 50000 / 200000 / 200000 | 12:00:00 | `gpu-short` |
+| `12545110` | N = 2000 | 3 | **300000** | 40:00:00 | `gpu-medium` |
+
+Split into two submissions because the N=2000 cells need ~26.4 h, past the 24 h `gpu-short` ceiling.
+**Iteration budgets are per size, set from measured decay rates** rather than uniform: the silencing
+rate decays ~2.5× more slowly at N=2000 than at N=1000 (a factor of 4.2 vs 10.8 between iterations
+30k and 100k), so a flat budget would leave the largest and most decisive cell still drifting while
+over-running N=100, which is already settled by iteration ~3000.
+
+Configuration verified on Della before submitting: `dale: false`, `self_connections: true`,
+`weight_decay: 1.0e-06` (the field default, kept deliberately — see 2026-07-30), `track_drift: true`,
+`track_every: 10`, `store_participation_every: 100`, `light_outputs: true`, no penalties, h equation.
+
+**Recorded per run** (all reduced to scalars during training; no weights written to disk):
+`drift_{W_inp,W_rec,W_out}_lag{100,1000,10000}`, `cos_{W_inp,W_rec,W_out}`,
+`dp_lag{100,1000,10000}`, and `silent_1em6` at every probe.
+
+**Planned analysis:** drift curves per model → **T(N)** from the directional-cosine criterion →
+active-unit counts *at* T(N) → fit the converged curve against the saturating and power-law models
+using the thresholds pre-registered on 2026-07-27, to test for **M\***.
+
+> **Near-miss worth recording.** The task-index decode was verified under `zsh`, which indexes arrays
+> from 1, while the launcher runs under `bash`, which indexes from 0 — the check appeared to show
+> every cell shifted by one size. Re-checked under `bash` and the mapping is correct (tasks 1–3 →
+> N=100, 4–6 → 500, 7–9 → 1000, 10–12 → 2000). A real off-by-one here would have silently mislabelled
+> every output folder with the wrong N.
