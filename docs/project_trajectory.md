@@ -2307,9 +2307,23 @@ is superseded:
 
 ![Population statistics, corrected](../img/internal_figures/population_distortion.png)
 
-Eight panels: participation ratio, context- and choice-selectivity **over active units**, total
-metabolic cost, cost concentration, **σ_log with the cortical reference line at 1**, within-trial
-modulation, and the p90/median rate tail. Reading across, `frm` raises dimensionality 3.5×, *lowers*
+Eight panels, each axis carrying its formula, and the header defining the symbols. Participation
+ratio, context- and choice-selectivity **over active units**, total metabolic cost, cost
+concentration, **σ_log with the cortical reference line at 1**, within-trial modulation, and the
+p90/median rate tail.
+
+**Exact definitions.** `r_i(t,c)` is the noise-free rate of unit *i* at timestep *t* in condition
+*c*, over the full 450-condition CDDM batch; `r̄_i` its mean over time and conditions.
+
+| statistic | definition | notes |
+|---|---|---|
+| **PR** | `(Σᵢλᵢ)² / Σᵢλᵢ²`, where λ are eigenvalues of the units × units covariance of `r` with time and conditions flattened into one sample axis and each unit centred | 1 = all variance in one dimension, N = variance spread equally. **Invariant to appending silent units** (they add zero eigenvalues, changing neither sum), which is why it needs no active-only correction |
+| **η²** selectivity | each unit reduced to its mean rate over the decision epoch (t ≥ 200) per condition, giving one value per condition; conditions grouped by factor (context: motion vs colour; choice: ±1); `η² = σ²_between / σ²_total`; a unit is selective if **η² > 0.10**; reported as a fraction of **active** units | ⚠️ the 0.10 threshold is arbitrary and its sensitivity is untested, and there is **no null distribution** — this means "explains >10% of across-condition variance", not "statistically significant". A permutation null would make it a proper test, and should be added before publication |
+| **E** | `Σᵢ ⟨r_i²⟩` over time and conditions | zero-rate units contribute nothing, so no dilution |
+| **HHI** | `Σᵢ pᵢ²` with `pᵢ = ⟨r_i²⟩ / E` | 1/N = perfectly even, 1 = one unit carries everything; `1/HHI` is the effective number of units bearing the cost |
+| **σ_log** | `std_i[log₁₀ r̄_i]` over active units | the lognormal shape parameter; cortex ≈ 1 |
+| **within-trial CV** | `med_i [ ⟨σ_t(r_i)⟩_c / r̄_i ]` over active units | temporal std within a trial, averaged over conditions, normalised by the unit's own mean rate |
+| **rate tail** | `r̄_(90) / r̄_(50)` across active units | scale-free, assumption-free heterogeneity check | Reading across, `frm` raises dimensionality 3.5×, *lowers*
 context selectivity among active units, raises choice selectivity 1.7×, halves total metabolic cost,
 spreads that cost over ~100× more units, keeps units genuinely modulated within the trial — and
 flattens the across-unit rate distribution far below the biological range, which is the one result
@@ -2366,9 +2380,23 @@ is superseded:
 
 ![Population statistics, corrected](../img/internal_figures/population_distortion.png)
 
-Eight panels: participation ratio, context- and choice-selectivity **over active units**, total
-metabolic cost, cost concentration, **σ_log with the cortical reference line at 1**, within-trial
-modulation, and the p90/median rate tail. Reading across, `frm` raises dimensionality 3.5×, *lowers*
+Eight panels, each axis carrying its formula, and the header defining the symbols. Participation
+ratio, context- and choice-selectivity **over active units**, total metabolic cost, cost
+concentration, **σ_log with the cortical reference line at 1**, within-trial modulation, and the
+p90/median rate tail.
+
+**Exact definitions.** `r_i(t,c)` is the noise-free rate of unit *i* at timestep *t* in condition
+*c*, over the full 450-condition CDDM batch; `r̄_i` its mean over time and conditions.
+
+| statistic | definition | notes |
+|---|---|---|
+| **PR** | `(Σᵢλᵢ)² / Σᵢλᵢ²`, where λ are eigenvalues of the units × units covariance of `r` with time and conditions flattened into one sample axis and each unit centred | 1 = all variance in one dimension, N = variance spread equally. **Invariant to appending silent units** (they add zero eigenvalues, changing neither sum), which is why it needs no active-only correction |
+| **η²** selectivity | each unit reduced to its mean rate over the decision epoch (t ≥ 200) per condition, giving one value per condition; conditions grouped by factor (context: motion vs colour; choice: ±1); `η² = σ²_between / σ²_total`; a unit is selective if **η² > 0.10**; reported as a fraction of **active** units | ⚠️ the 0.10 threshold is arbitrary and its sensitivity is untested, and there is **no null distribution** — this means "explains >10% of across-condition variance", not "statistically significant". A permutation null would make it a proper test, and should be added before publication |
+| **E** | `Σᵢ ⟨r_i²⟩` over time and conditions | zero-rate units contribute nothing, so no dilution |
+| **HHI** | `Σᵢ pᵢ²` with `pᵢ = ⟨r_i²⟩ / E` | 1/N = perfectly even, 1 = one unit carries everything; `1/HHI` is the effective number of units bearing the cost |
+| **σ_log** | `std_i[log₁₀ r̄_i]` over active units | the lognormal shape parameter; cortex ≈ 1 |
+| **within-trial CV** | `med_i [ ⟨σ_t(r_i)⟩_c / r̄_i ]` over active units | temporal std within a trial, averaged over conditions, normalised by the unit's own mean rate |
+| **rate tail** | `r̄_(90) / r̄_(50)` across active units | scale-free, assumption-free heterogeneity check | Reading across, `frm` raises dimensionality 3.5×, *lowers*
 context selectivity among active units, raises choice selectivity 1.7×, halves total metabolic cost,
 spreads that cost over ~100× more units, keeps units genuinely modulated within the trial — and
 flattens the across-unit rate distribution far below the biological range, which is the one result
