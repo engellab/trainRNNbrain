@@ -2301,3 +2301,14 @@ alone.
 **Methodological rule for the write-up:** every population fraction gets reported over active units,
 with the all-units version shown only to make the dilution point explicitly. Scale-free statistics
 (PR, HHI) are exempt, and it is worth saying why in the text rather than leaving the reader to check.
+
+**Figure regenerated** with the corrected metric — the version above showed all-unit selectivity and
+is superseded:
+
+![Population statistics, corrected](../img/internal_figures/population_distortion.png)
+
+Six panels: participation ratio, context- and choice-selectivity **over active units**, total
+metabolic cost, cost concentration, and a final panel putting all-unit against active-unit context
+selectivity side by side so the dilution is visible rather than argued. Reading it left to right,
+`frm` raises dimensionality 3.5×, *lowers* context selectivity among active units, raises choice
+selectivity 1.7×, halves total metabolic cost, and spreads that cost over ~100× more units.
