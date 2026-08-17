@@ -2692,3 +2692,49 @@ roughly constant speed while SGD would nearly stop. This is a substantial part o
 motion persists here. **Prediction: re-run one cell with SGD+momentum and the persistent directed
 component should largely disappear — γ should rise and the remaining-change estimate should fall.**
 That is a cheap, decisive experiment (one N=100 cell, ~2 h) and it has not been run.
+
+### How to choose the budget: T(N) is defined on the LOSS; participation supplies the error bar
+
+Figure: `img/internal_figures/drift_budget_N100.png`. The question is made budget-relevant rather
+than metaphysical by asking, at each training age t, **what one more doubling of the budget buys** —
+comparing t/2 with t. No fit, no extrapolation to infinity, no estimate of a limit.
+
+| t | loss gain / doubling | Δp / doubling | of which reorganisation (Δp̂) |
+|---|---|---|---|
+| 2000 | 7.4% | 15.0% | 10.5% |
+| 10000 | 5.0% | 19.4% | 17.3% |
+| 20000 | 4.1% | 27.6% | 25.1% |
+| 30000 | 3.1% | 28.7% | 26.7% |
+| 50000 | 2.1% | 28.4% | 26.7% |
+
+**The loss converges and gives a usable criterion.** Gain per doubling falls as t^−0.41, cleanly and
+monotonically. Declaring training done when one more doubling buys **< 2%** gives
+
+> **T(N=100) ≈ 9.7 × 10⁴ iterations** — i.e. the 50k budget actually used was about half of it.
+
+**Participation does not converge and cannot supply a criterion.** Its change per doubling *rises*
+to ~28% and then sits there. It is not decaying, so no threshold on it will ever be met, at any
+budget. This is the flat-valley motion: ~26 of those 28 points are genuine reorganisation of `p̂`,
+only ~16% is rate inflation. (This also retires the earlier "30% remaining, halve it with 8× more
+training" estimate — that came from fitting a power law over a narrow window to a quantity that is
+actually flat in log-time. Do not use it.)
+
+**So the recipe is:**
+
+1. **Set T(N) from the loss**: train until the loss gain over the last doubling drops below a stated
+   threshold. Scale-free, interpretable ("doubling my compute buys < 2%"), measurable during the run
+   without extrapolation, and comparable across N — which is what the T(N) curve needs.
+2. **Do not wait for participation to stabilise.** It does not. Looking for that point is what made
+   the last three analyses confusing.
+3. **Quote the participation sensitivity as an error bar on every reported statistic.** Not on `p`
+   itself, but on the number actually reported: silent fraction, PR, selectivity. For each, report
+   its value at T *and* how much it moves between T/2 and T. That converts an unanswerable
+   convergence question into a stated, honest sensitivity.
+
+**Robustness check to run before quoting T(N):** compute T at 3%, 2% and 1% and confirm the *shape*
+of T(N) versus N is the same. The threshold is a choice; the scaling with N must not depend on it.
+
+**Caveats.** T(N=100) is extrapolated ~2× beyond the data (the fit reaches 2% at 97k, the run ended
+at 50k), so it is a projection, not a measurement — the last few points sit slightly below the fit,
+which would make the true T somewhat smaller. The N=500/1000 (200k) and N=2000 (300k) cells should
+reach the criterion inside their budgets and will give measured rather than extrapolated values.

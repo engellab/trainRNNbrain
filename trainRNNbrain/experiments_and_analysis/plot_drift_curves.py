@@ -42,6 +42,7 @@ import os
 import re
 import sys
 import glob
+import json
 import pickle
 import numpy as np
 import matplotlib
@@ -69,7 +70,10 @@ def load_traces(sweep):
         if not m:
             continue
         with open(f, "rb") as fh:
-            out.setdefault(int(m.group(1)), []).append(pickle.load(fh))
+            tr = pickle.load(fh)
+        lf = glob.glob(os.path.join(os.path.dirname(f), "*TrainLosses.json"))
+        tr["loss"] = np.array(json.load(open(lf[0]))["train_losses"], dtype=float) if lf else None
+        out.setdefault(int(m.group(1)), []).append(tr)
     return out
 
 
@@ -405,6 +409,93 @@ def plot_msd(traces, N, out):
     print(f"wrote {out}")
 
 
+def per_doubling(trace, t):
+    """How much changed over the LAST DOUBLING of the training budget, measured at age t.
+
+    This is the budget-relevant question — "if I double my compute, how much does the answer move?"
+    — and unlike a power-law fit it needs no extrapolation and no estimate of the t -> infinity
+    limit, both of which are fragile on a short lever arm.
+
+    Args:
+        trace: trace dict (must carry "loss"); t: training age in iterations.
+    Returns:
+        dict with
+          loss    relative loss improvement from t/2 to t, as a fraction of the loss at t
+          dp      ||p(t)-p(t/2)|| / ||p(t)||, total participation change
+          scale   ||p(t)||/||p(t/2)|| - 1, the part of dp that is pure rate inflation
+          pattern ||p_hat(t)-p_hat(t/2)||, the part that is genuine reorganisation
+        Values are nan where the trace is too short.
+    """
+    P = np.array(trace["participation"])
+    I = np.array(trace["participation_iters"])
+    if t / 2 < I[0] or t > I[-1]:
+        return {k: float("nan") for k in ("loss", "dp", "scale", "pattern")}
+    a, b = P[np.argmin(abs(I - t / 2))], P[np.argmin(abs(I - t))]
+    na, nb = np.linalg.norm(a), np.linalg.norm(b)
+    out = {"dp": float(np.linalg.norm(b - a) / nb), "scale": float(nb / na - 1),
+           "pattern": float(np.linalg.norm(b / nb - a / na))}
+    L = trace.get("loss")
+    if L is None or t > len(L):
+        out["loss"] = float("nan")
+    else:
+        w = max(int(0.02 * t), 50)
+        lo = L[max(int(t / 2) - w, 0):int(t / 2) + w].mean()
+        hi = L[max(int(t) - w, 0):int(t)].mean()
+        out["loss"] = float((lo - hi) / hi)
+    return out
+
+
+def plot_budget(traces, N, out, loss_thr=0.02):
+    """The figure for choosing T(N): what one more doubling of the budget would buy.
+
+    Args:
+        traces: list of trace dicts for this N; N: network size; out: output png path;
+        loss_thr: loss-gain-per-doubling below which training is called done.
+    """
+    end = min(t["participation_iters"][-1] for t in traces)
+    ts = np.unique(np.round(np.logspace(np.log10(1000), np.log10(end), 25)).astype(int))
+    keys = ["loss", "dp", "pattern", "scale"]
+    lbl = {"loss": "loss gain", "dp": r"$\Delta p$ (total)",
+           "pattern": r"$\Delta \hat p$ (reorganisation)", "scale": r"$\|p\|$ growth"}
+    col = {"loss": "#2ca02c", "dp": "#1f77b4", "pattern": "#d62728", "scale": "#ff7f0e"}
+    vals = {k: np.array([[per_doubling(t, x)[k] for x in ts] for t in traces]) for k in keys}
+
+    fig, ax = plt.subplots(1, 2, figsize=(13, 5.2))
+    for k in keys:
+        m = np.nanmean(vals[k], axis=0)
+        s = np.nanstd(vals[k], axis=0)
+        a = ax[0] if k == "loss" else ax[1]
+        a.plot(ts, 100 * m, "-o", ms=3.5, color=col[k], label=lbl[k])
+        a.fill_between(ts, 100 * (m - s), 100 * (m + s), color=col[k], alpha=.18)
+
+    # T(N) read off the loss curve: the first age at which one more doubling buys less than loss_thr
+    m = np.nanmean(vals["loss"], axis=0)
+    ok = np.isfinite(m)
+    b, c = np.polyfit(np.log(ts[ok]), np.log(m[ok]), 1)
+    T = float(np.exp((np.log(loss_thr) - c) / b))
+    ax[0].axhline(100 * loss_thr, color="k", ls="--", lw=1)
+    ax[0].plot(ts[ok], 100 * np.exp(c) * ts[ok] ** b, ":", color="k", lw=1,
+               label=f"fit $\\propto t^{{{b:.2f}}}$")
+    ax[0].axvline(T, color="k", ls=":", lw=1)
+    ax[0].set_title(f"(a) loss CONVERGES — $T$({N}) $\\approx$ {T:.0f} at {100*loss_thr:.0f}%/doubling")
+    ax[0].set(xscale="log", yscale="log", xlabel="training age $t$",
+              ylabel="loss gain over last doubling (%)")
+
+    ax[1].set_title("(b) participation does NOT — flat, so no threshold is ever met")
+    ax[1].set(xscale="log", xlabel="training age $t$", ylim=(0, None),
+              ylabel="change over last doubling (% of $\\|p\\|$)")
+    for a in ax:
+        a.legend(fontsize=9)
+        a.grid(alpha=.25)
+    fig.suptitle(f"Choosing the training budget, N={N}: what one more doubling would buy "
+                 f"(mean $\\pm$ sd over {len(traces)} seeds)", fontsize=12)
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    fig.savefig(out, dpi=150)
+    print(f"wrote {out}  |  T(N={N}) = {T:.0f} at {100*loss_thr:.0f}%/doubling; "
+          f"participation change there = {100*np.nanmean(vals['dp'][:, -1]):.0f}%")
+    return T
+
+
 def main():
     """Load a drift sweep, write one figure per network size, print the summary table."""
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -416,6 +507,7 @@ def main():
         report(by_n[N], N)
         plot_size(by_n[N], N, os.path.join(IMG_DIR, f"drift_N{N}.png"))
         plot_msd(by_n[N], N, os.path.join(IMG_DIR, f"drift_msd_N{N}.png"))
+        plot_budget(by_n[N], N, os.path.join(IMG_DIR, f"drift_budget_N{N}.png"))
 
 
 if __name__ == "__main__":
