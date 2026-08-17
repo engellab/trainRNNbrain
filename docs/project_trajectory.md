@@ -2647,3 +2647,48 @@ not more entries in `drift_lags` (each costs a full CPU-resident snapshot of eve
 storing a fixed random projection of each matrix at every probe — ~200 floats instead of ~4 M at
 N=2000. Johnson–Lindenstrauss keeps pairwise distances, so any lag becomes computable post hoc,
 exactly as it already is for `p`.
+
+### Correction: this is not "aging", it is a flat valley — and the loss HAS converged
+
+The previous section framed L*/t ≈ const as glassy aging with no stationary regime. That framing is
+wrong and should not be used. Two measurements settle it.
+
+**The loss has essentially converged.** Over the entire second half of training (25k → 50k) the
+training loss falls by **1.8–2.1%** (0.0231 → 0.0227, all three seeds). The optimiser is not still
+descending in any meaningful sense.
+
+**The participation vector has not.** Fitting the distance from the final state,
+`D(t) = ‖p(T) − p(t)‖/‖p(T)‖ = A·t^(−γ)`, over the window [T/12, T/3]:
+
+| seed | γ | remaining change after T=50k | iterations to halve it |
+|---|---|---|---|
+| 0 | 0.33 | 30.0% of ‖p‖ | ×8.2 |
+| 1 | 0.35 | 29.7% | ×7.3 |
+| 2 | 0.35 | 31.0% | ×7.3 |
+
+`p` moved ~37% of its norm between iteration 25k and 50k while the loss improved 1.8%.
+
+**Those two facts together are the explanation.** Large configuration change at negligible loss
+change means the motion is **along a flat direction of the loss**, not down it. The minimum is a
+manifold, not a point: the `W_out·r` rescaling degeneracy is one exactly-flat direction, and it is
+measurably being traversed (‖W_out‖ halves in 300 iterations while the other matrices hold). Motion
+along a flat valley has no restoring force to stop it, and because it is driven by a systematic bias
+(weight decay, plus the small consistent component of the gradient) rather than by noise, it is
+**directed** — which is exactly why α ≈ 1 at long lags.
+
+So the network does reach the stationary regime one expects. It just is not a *point*: it is a
+valley floor, and it keeps sliding along it.
+
+**Why α made this look alarming: α is blind to magnitude.** α ≈ 1 says "there is a consistent
+direction", not "a lot is happening". The amount is small and shrinking — displacement over a 10⁴
+window is 16% of ‖p‖ late in training, down from 40% early. Every future report should pair α with
+the *amount* of remaining change; α alone is misleading. The number to quote for a training budget
+is the ~30% remaining change with γ ≈ 1/3, not L*/t.
+
+**The Adam question, and a testable prediction.** Adam's update is `lr·m̂/(√v̂+ε)`. Along a direction
+where the gradient is tiny but *consistent*, `m̂/√v̂ ≈ ±1`, so Adam takes a full `lr`-sized step where
+SGD would take one proportional to the (tiny) gradient. Adam therefore traverses flat directions at
+roughly constant speed while SGD would nearly stop. This is a substantial part of why directed
+motion persists here. **Prediction: re-run one cell with SGD+momentum and the persistent directed
+component should largely disappear — γ should rise and the remaining-change estimate should fall.**
+That is a cheap, decisive experiment (one N=100 cell, ~2 h) and it has not been run.
