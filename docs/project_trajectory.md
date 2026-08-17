@@ -2738,3 +2738,49 @@ of T(N) versus N is the same. The threshold is a choice; the scaling with N must
 at 50k), so it is a projection, not a measurement — the last few points sit slightly below the fit,
 which would make the true T somewhat smaller. The N=500/1000 (200k) and N=2000 (300k) cells should
 reach the criterion inside their budgets and will give measured rather than extrapolated values.
+
+### Correction to the recipe above: the loss criterion is a denominator artifact
+
+Fitting `L(t) = L_∞ + A·t^(−γ)` on all three N=100 seeds (t > 2000):
+
+| seed | L_∞ | γ | loss at T | irreducible | still reducible |
+|---|---|---|---|---|---|
+| 0 | 0.02149 | 0.56 | 0.02261 | 95% | 0.00112 (5.0%) |
+| 1 | 0.02113 | 0.48 | 0.02273 | 93% | 0.00160 (7.0%) |
+| 2 | 0.02102 | 0.47 | 0.02265 | 93% | 0.00163 (7.2%) |
+
+**93–95% of the loss at T is irreducible** — it is the noise floor of the task, not something more
+training can remove. The "2% gain per doubling" figure divides by that floor, so it shrinks as the
+floor comes to dominate, and the loss *looks* convergent.
+
+Divide instead by what is still on the table and the picture inverts. For any power law, the
+fraction of the *reducible* loss removed per doubling is `1 − 2^(−γ)` — with γ ≈ 0.5 that is a
+**constant 29% per doubling, forever**. Exactly the behaviour that was called "does not converge"
+for participation.
+
+**The general point: no power-law-relaxing quantity ever converges in the fractional sense.** Asking
+"when has it converged" has no answer for the loss, for `p`, or for the weights. It is the wrong
+question, and chasing it is what generated three rounds of confusing analysis.
+
+### The criterion that actually works: movement of the reported statistic, in its own units
+
+T is not a property of the network. It is a property of **(network, statistic, precision required)**.
+So define it that way:
+
+> Train until **the number that goes in the paper** moves by less than a stated amount over the last
+> doubling of the budget.
+
+For this project that number is the silent fraction. If it moves less than ~1 percentage point from
+T/2 to T, then "X% of units are silent" is budget-independent to the precision claimed, and no
+statement about convergence is needed at all. The same test is then run for every other reported
+statistic (PR, selectivity, σ_log), each in its own units, and each may give a different T — which is
+honest, because a coarse claim needs less training than a fine one.
+
+Advantages over both earlier proposals: it is in interpretable units (percentage points of silent
+units, not fractions of a norm), it needs no fit and no extrapolation, it is directly the
+sensitivity the reader wants, and it cannot be gamed by the choice of denominator.
+
+At N=100 the silent counts are too small to test this (1–3 units, drifting up ~0.7 pp/doubling late
+in training). The N=1000 and N=2000 cells, where the fraction is 65–76%, are where it can actually
+be measured. **Supersedes the loss-threshold recipe in the section above; that section is kept for
+the record but should not be used.**
