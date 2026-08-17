@@ -181,7 +181,9 @@ population being claimed as a model, and every population-level comparison inher
 
 ✅ **Measured 2026-08-17** (N=1000, 5 nets per cell, all conditions at R² = 0.84–0.87 — see
 `project_trajectory.md`). Networks that perform identically differ by **3.5× in effective
-dimensionality** (PR 2.22 → 7.74), **3–4× in choice selectivity** (19% → 58% → 82% with `frm`+`rws`),
+dimensionality** (PR 2.22 → 7.74), **1.7× in choice selectivity measured over active units** (33.5% → 58.3%; the 3× figure from
+all-unit fractions is inflated by dilution, since silent units are non-selective by construction —
+and context selectivity actually *falls* among active units, 42.3% → 31.1%),
 **2× in total metabolic cost** (31.1 → 14.6, the concentrated solution being the *more* expensive
 one), and **100× in energy concentration** (HHI 0.123 → 0.0012, i.e. cost carried by an effective 8
 units versus ~850). Separately, within unpenalized networks the same selectivity statistic reads

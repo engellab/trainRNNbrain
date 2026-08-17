@@ -2254,3 +2254,50 @@ in dimensionality, 3× in selectivity and 100× in energy concentration, and not
 methods section tells the reader which one you trained."** That is a validity argument about
 model-based inference, not an aesthetic preference — and it is the strongest case for the penalties
 independent of whether M* exists.
+
+### CORRECTION (2026-08-17 17:00) — the selectivity fractions above were diluted, and one reverses
+
+Pavel's objection: a selectivity **percentage** computed over all units is trivially depressed when
+42% of them are silent, since silent units are non-selective by construction. Correct — and the
+active-units-only comparison, which the analysis already computed but which I failed to headline,
+changes the conclusion.
+
+| h, N=1000, **active units only** | none | rws | frm | both |
+|---|---|---|---|---|
+| context-selective | **42.3 ± 2.9%** | 40.0 ± 2.6% | **31.1 ± 3.4%** | 61.7 ± 3.2% |
+| choice-selective | 33.5 ± 2.7% | 39.8 ± 2.9% | **58.3 ± 1.5%** | 82.1 ± 2.3% |
+
+| s, N=1000, **active units only** | none | rws | frm | both |
+|---|---|---|---|---|
+| context-selective | **65.3 ± 1.9%** | 51.6 ± 2.0% | **40.4 ± 2.3%** | 63.7 ± 0.8% |
+| choice-selective | 46.5 ± 1.5% | 47.1 ± 3.1% | **73.2 ± 1.3%** | 85.6 ± 0.6% |
+
+**What changes:**
+
+- **Context selectivity REVERSES.** Among active units `frm` is *lower*, not higher: 42.3% → 31.1%
+  (h, ratio 0.74) and 65.3% → 40.4% (s, ratio 0.62). The apparent increase reported above
+  (24.3% → 31.1%) was **entirely a dilution artifact**. That claim is withdrawn.
+- **Choice selectivity survives but shrinks by half.** 33.5% → 58.3% (h) is 1.74×, not the 3.0×
+  claimed from the all-units figures; 46.5% → 73.2% (s) is 1.57×. Still a large, CI-separated effect.
+
+**What is untouched, and why:**
+
+- **Participation ratio.** `pr_active` equals `pr` to the printed digit in every cell — appending
+  zero-variance units adds zero eigenvalues, which change neither `(ΣΛ)²` nor `ΣΛ²`. The **3.5×
+  dimensionality difference is not dilution**; it is a real difference between the two solutions.
+  (This is the same algebra I raised as a caveat before running the analysis, then wrongly set aside
+  when the numbers came in.)
+- **Total metabolic cost and its HHI concentration.** Zero-energy units contribute nothing to either
+  sum, so neither statistic is diluted. The 2× cost difference and 100× concentration difference
+  stand.
+
+**A nuance the fractions hide.** Fractions fall while counts rise. Under `none`, 42.3% of 574 active
+units = **243** context-selective units; under `frm`, 31.1% of 1000 = **311**. So `frm` produces ~28%
+*more* context-selective units in absolute terms while lowering the fraction — the revived units are
+disproportionately choice-tuned rather than context-tuned. That is a change in the **composition** of
+the population, not a rescaling of it, and it is a more interesting statement than either fraction
+alone.
+
+**Methodological rule for the write-up:** every population fraction gets reported over active units,
+with the all-units version shown only to make the dilution point explicitly. Scale-free statistics
+(PR, HHI) are exempt, and it is worth saying why in the text rather than leaving the reader to check.
