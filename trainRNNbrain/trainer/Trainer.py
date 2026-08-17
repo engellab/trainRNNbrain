@@ -622,6 +622,8 @@ class Trainer():
           silent_1em6                  number of units with participation < 1e-6
           dp_lag<L>                    ||p(t) - p(t-L)|| / ||p(t)||, the participation vector's
                                        relative change over lag L
+          norm_<W>                     ||W(t)||_F, so a rising drift_<W> can be attributed to the
+                                       numerator or the denominator
           drift_<W>_lag<L>             ||W(t) - W(t-L)||_F / ||W(t)||_F for W_inp, W_rec, W_out
           cos_<W>                      cosine between consecutive displacements of that matrix
                                        (~0 = jitter, >0 = still drifting systematically)
@@ -656,6 +658,10 @@ class Trainer():
         with torch.no_grad():
             cur = {n: getattr(self.RNN, n).detach() for n in self.DRIFT_MATS
                    if getattr(self.RNN, n, None) is not None}
+            # Raw Frobenius norms. drift_* is normalised by ||W(t)||, so a rising drift is ambiguous
+            # between a growing numerator and a shrinking denominator; these disambiguate it.
+            for n in cur:
+                met[f"norm_{n}"].append(float(cur[n].norm()))
             for lag in self.drift_lags:
                 ref = self._drift_refs.get(lag)
                 pref = self._part_refs.get(lag)
