@@ -2431,3 +2431,71 @@ population looks like relative to a recorded one.
 unused). A weaker cap, or logsumexp aggregation that penalises only the worst offenders rather than
 pulling every unit toward the target, might keep every unit active *without* collapsing the rate
 distribution. That is a one-axis sweep and would turn a limitation into a tuning result.
+
+---
+
+## 2026-08-17 17:59 — Drift sweep, N=100 cell complete: the weights end up *confined*, not drifting
+
+All three N=100 seeds finished on Spock (array 5660818, 50k iterations each, r² 0.87–0.90).
+Figure: `data/trained_RNNs/CDDM_std_g0_drift/drift_N100.png`, produced by
+`trainRNNbrain/experiments_and_analysis/plot_drift_curves.py`.
+
+### The criterion that works, and the one that does not
+
+Two readouts were meant to identify T(N), the iteration at which motion stops being systematic.
+
+**The directional cosine fails as a criterion.** `cos(ΔW_t, ΔW_{t-1})` falls from 0.7–0.85 to a
+floor of **0.32–0.35** by iteration ~850–1300 and then stays flat for the remaining 48k iterations.
+The floor is positive for the reason anticipated when the metric was designed — consecutive
+displacements are separated by only `track_every=10` iterations and Adam's momentum correlates them —
+so once the curve is at its floor it can no longer distinguish "still marching" from "jittering".
+It saturates an order of magnitude earlier than the real transition and must not be used to set T(N).
+
+**The lag-scaling exponent works and needs no threshold.** With
+`α = Δlog d / Δlog L` for `d(L) = ‖W(t)−W(t−L)‖_F / ‖W(t)‖_F`, the value 0.5 is the theoretical
+random-walk exponent and 1.0 is straight-line motion — both are predictions, not tuning knobs.
+Measured on W_rec between lags 100 and 1000:
+
+| seed | α at iter 1000 | T(α = 0.5) | α at 50k |
+|---|---|---|---|
+| 0 | 1.10 | **12000** | 0.41 |
+| 1 | 1.06 | **12000** | 0.40 |
+| 2 | 1.05 | **9000** | 0.39 |
+
+So **T(N=100) ≈ 1×10⁴ iterations**, ten times later than the cosine floor would have suggested.
+
+### The finding: α settles *below* 0.5
+
+The exponent does not stop at the diffusive value — it keeps falling to **0.39–0.41** and stays
+there. Sub-diffusive scaling means displacement over 1000 iterations is *less* than √10 times the
+displacement over 100: the walk is mean-reverting, i.e. the weights are held in a confined basin
+rather than free-diffusing away from it. This is the Ornstein–Uhlenbeck signature, and it is a
+stronger statement than "training has converged enough": late training is **not** a slow drift to
+elsewhere in weight space, it is noise-driven jitter inside a basin whose walls the optimiser has
+already found. The earlier power-law extrapolation of the participation change to 0.5–5.6 M
+iterations therefore measures the *jitter*, not an unfinished journey.
+
+Caveat: this is measured at N=100, the size that silences least. It does not license the same claim
+at N=1000 or N=2000, where the silencing rate is still visibly non-zero at 100k. The larger cells
+are the test.
+
+### Silent units at N=100: transient silencing, then recruitment back
+
+`silent_1em6` peaks **early** (15, 11, 3 units at iteration ~30–60) and then *declines* for the rest
+of training, ending at **4, 3, 1** of 100 units — i.e. 96, 97 and 99 active. The per-unit
+participation vectors say the same thing: active counts go 92 → 87 → **96**, 92 → 92 → **97**,
+98 → 97 → **99**. Small networks do not exhibit the phenomenon: they transiently mute a few units in
+the first ~50 iterations and then recruit them back.
+
+This is the opposite of the N=1000 behaviour (65–76% silent at 100k) and is the first data point of
+the M* curve: **M(100) ≈ 97**. One point cannot distinguish saturation from growth — that needs the
+N=500/1000/2000 cells, which are still running (arrays 5660819/20/21, ~1:45 elapsed at the time of
+writing).
+
+### Secondary observation, not yet explained
+
+In panel (b) the **output** weights drift most, and their relative drift at lag 1000 *rises* after
+iteration ~2×10³ while W_inp and W_rec keep falling. The likely cause is the denominator: with
+`weight_decay=1e-6` and no penalty holding W_out up, ‖W_out‖ shrinks, so a constant absolute step
+becomes a growing relative one. Checking this needs the raw norms, which are not stored — worth a
+scalar `norm_W_*` addition to the tracker if it matters later.
