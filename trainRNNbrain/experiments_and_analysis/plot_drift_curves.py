@@ -20,7 +20,9 @@ Two independent readouts distinguish these:
                               Adam's momentum correlates successive steps, so the FLOOR of this
                               quantity is positive rather than zero — read its decay, not its value.
 
-Usage:  python plot_drift_curves.py [SWEEP_FOLDER] [--out fig.png]
+Output: img/internal_figures/drift_N<N>.png, one per network size in the sweep.
+
+Usage:  python plot_drift_curves.py [SWEEP_FOLDER]
         SWEEP_FOLDER defaults to data/trained_RNNs/CDDM_std_g0_drift
 """
 
@@ -36,6 +38,8 @@ import matplotlib.pyplot as plt
 
 LAGS = [100, 1000, 10000]
 MATS = ["W_inp", "W_rec", "W_out"]
+HERE = os.path.dirname(os.path.abspath(__file__))
+IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
 
 
 def load_traces(sweep):
@@ -224,7 +228,7 @@ def main():
         sys.exit(f"no traces under {sweep}")
     for N in sorted(by_n):
         report(by_n[N], N)
-        plot_size(by_n[N], N, os.path.join(sweep, f"drift_N{N}.png"))
+        plot_size(by_n[N], N, os.path.join(IMG_DIR, f"drift_N{N}.png"))
 
 
 if __name__ == "__main__":

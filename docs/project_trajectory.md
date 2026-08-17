@@ -2437,7 +2437,7 @@ distribution. That is a one-axis sweep and would turn a limitation into a tuning
 ## 2026-08-17 17:59 — Drift sweep, N=100 cell complete: the weights end up *confined*, not drifting
 
 All three N=100 seeds finished on Spock (array 5660818, 50k iterations each, r² 0.87–0.90).
-Figure: `data/trained_RNNs/CDDM_std_g0_drift/drift_N100.png`, produced by
+Figure: `img/internal_figures/drift_N100.png`, produced by
 `trainRNNbrain/experiments_and_analysis/plot_drift_curves.py`.
 
 ### The criterion that works, and the one that does not
