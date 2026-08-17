@@ -6,6 +6,10 @@ Every statistic here is one that gets computed on model RNNs and compared agains
 recordings. If they differ between networks with indistinguishable task performance, the scientific
 conclusion drawn from them depends on a training choice that methods sections do not report.
 
+Firing-rate heterogeneity is included because it cuts the other way: cortical rate distributions are
+strongly heterogeneous, so a network whose active units all fire at similar rates is LESS data-like
+in that respect. It is here to be reported honestly, not because it flatters the penalty.
+
 IMPORTANT: selectivity fractions are reported over ACTIVE UNITS ONLY. Computed over all units they
 are trivially depressed wherever many units are silent, since a silent unit is non-selective by
 construction — that dilution reverses the direction of the context-selectivity result. The last
@@ -44,7 +48,8 @@ def main():
               ("sel_ctx_act", "context-selective (%)\nof ACTIVE units", 100.0, False),
               ("sel_choice_act", "choice-selective (%)\nof ACTIVE units", 100.0, False),
               ("energy", "total metabolic cost\n$\\sum_i \\langle r_i^2\\rangle$", 1.0, False),
-              ("energy_hhi", "concentration of cost\n(HHI, log scale)", 1.0, True)]
+              ("energy_hhi", "concentration of cost\n(HHI, log scale)", 1.0, True),
+              ("rate_cv_act", "firing-rate heterogeneity\nacross ACTIVE units (CV)", 1.0, False)]
 
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
     axf = axes.ravel()
@@ -67,28 +72,6 @@ def main():
         ax.spines[["top", "right"]].set_visible(False)
         ax.grid(axis="y", color="0.92", lw=0.8); ax.set_axisbelow(True)
     axf[0].legend(frameon=False, fontsize=8)
-
-    # last panel: why the correction matters — the same statistic, all units vs active units
-    ax = axf[5]
-    w = 0.38
-    for j, (field, lab, col) in enumerate((("sel_ctx", "over ALL units", "#999999"),
-                                           ("sel_ctx_act", "over ACTIVE units", "#0072B2"))):
-        m, h, xs = [], [], []
-        for x, pen in enumerate(PENS):
-            mu, hw = stat("h", pen, field, 100.0)
-            m.append(mu); h.append(hw); xs.append(x + (j - 0.5) * w)
-        bars = ax.bar(xs, m, w, yerr=h, capsize=2, color=col, label=lab,
-                      edgecolor="white", linewidth=1.2)
-        for b, val, e in zip(bars, m, h):
-            ax.text(b.get_x() + b.get_width() / 2, b.get_height() + e, f"{val:.0f}",
-                    ha="center", va="bottom", fontsize=7, color="0.25")
-    ax.set_xticks(range(len(PENS))); ax.set_xticklabels(PENS)
-    ax.set_xlabel("penalty"); ax.set_ylabel("context-selective (%)\nh equation", fontsize=9)
-    ax.set_title("dilution: silent units are non-selective\nby construction, so all-unit fractions "
-                 "mislead", fontsize=8.5)
-    ax.legend(frameon=False, fontsize=7.5)
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.grid(axis="y", color="0.92", lw=0.8); ax.set_axisbelow(True)
 
     fig.suptitle("Networks with indistinguishable task performance (R² = 0.84–0.87) have very different "
                  "population statistics\nSelectivity fractions are over ACTIVE units; PR and HHI need no "

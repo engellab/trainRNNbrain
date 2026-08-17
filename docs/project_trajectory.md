@@ -2308,7 +2308,37 @@ is superseded:
 ![Population statistics, corrected](../img/internal_figures/population_distortion.png)
 
 Six panels: participation ratio, context- and choice-selectivity **over active units**, total
-metabolic cost, cost concentration, and a final panel putting all-unit against active-unit context
-selectivity side by side so the dilution is visible rather than argued. Reading it left to right,
-`frm` raises dimensionality 3.5×, *lowers* context selectivity among active units, raises choice
-selectivity 1.7×, halves total metabolic cost, and spreads that cost over ~100× more units.
+metabolic cost, cost concentration, and firing-rate heterogeneity. Reading left to right, `frm`
+raises dimensionality 3.5×, *lowers* context selectivity among active units, raises choice
+selectivity 1.7×, halves total metabolic cost, spreads that cost over ~100× more units — and
+flattens the firing-rate distribution, which is the one result that goes against it.
+
+### The result that cuts against the penalty: firing-rate heterogeneity
+
+| N=1000 | active units | rate CV (active) | p90 / median rate |
+|---|---|---|---|
+| h/none | 574 | **3.62 ± 0.51** | 6.22 |
+| h/rws | 600 | 3.64 ± 0.28 | 7.84 |
+| **h/frm** | 1000 | **0.49 ± 0.01** | **1.73** |
+| h/both | 1000 | 0.43 ± 0.02 | 1.66 |
+| s/none | 600 | 2.41 ± 0.17 | 6.46 |
+| **s/frm** | 1000 | **0.31 ± 0.02** | **1.38** |
+
+Unpenalized networks have **strongly heterogeneous** rates among their active units — CV ≈ 2.4–3.6,
+with the 90th percentile 6–8× the median, i.e. a long right tail. `frm` networks are nearly
+**uniform**: CV ≈ 0.3–0.5, p90 only 1.4–1.7× the median. `rws` does not restore the spread; `both`
+is, if anything, flatter still.
+
+**This is a genuine limitation of the penalty, and it should be reported as one.** Cortical firing
+rates are strongly heterogeneous — approximately lognormal with a long tail — so a model population
+in which every active unit fires at nearly the same rate is *less* data-like in this respect, not
+more. `frm` trades one unrealism (half the population silent) for another (a population that is too
+uniform). The honest statement for the paper is that it fixes the silent-unit problem and introduces
+a homogeneity problem, and that both matter for the same reason: they change what the model
+population looks like relative to a recorded one.
+
+**Concrete follow-up this suggests** (no new machinery needed): `frm` has a `cap_fr` target and an
+`aggregation` option (`mean` vs `logsumexp` with temperature `tau_n`, already implemented and
+unused). A weaker cap, or logsumexp aggregation that penalises only the worst offenders rather than
+pulling every unit toward the target, might keep every unit active *without* collapsing the rate
+distribution. That is a one-axis sweep and would turn a limitation into a tuning result.

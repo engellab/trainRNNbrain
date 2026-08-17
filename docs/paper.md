@@ -190,6 +190,13 @@ units versus ~850). Separately, within unpenalized networks the same selectivity
 24.3% over all units but 42.3% over active units only — and a recording experiment sees only the
 latter.
 
+⚠️ **One statistic goes the other way, and belongs in the paper as a limitation.** Firing-rate
+heterogeneity across active units collapses under the penalty: CV 3.62 → 0.49 (h), 2.41 → 0.31 (s),
+with the 90th percentile falling from ~6× the median to ~1.5×. Cortical rate distributions are
+strongly heterogeneous, so `frm` trades one unrealism (half the population silent) for another (a
+population too uniform). Follow-up: `frm`'s `cap_fr` and its unused `logsumexp` aggregation are the
+natural knobs for keeping units active without flattening the distribution.
+
 | Statistic | Why it is distorted |
 |---|---|
 | **Dimensionality / participation ratio** | computed over an effectively ~500-unit circuit while reported as N=1000 |

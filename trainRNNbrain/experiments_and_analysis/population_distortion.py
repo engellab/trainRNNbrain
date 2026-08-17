@@ -17,6 +17,13 @@ For every network this computes, over the noise-free CDDM batch:
                 explained (eta^2 > SEL_THR) of the trial-averaged decision-epoch response
   sel_<var>_act the same fraction computed over ACTIVE units only — what you would measure if you
                 recorded from the units that actually fire
+  n_active      number of units that are not silent
+  rate_cv_act   coefficient of variation (std/mean) of the per-unit mean firing rate, across ACTIVE
+                units — how heterogeneous the active population is. Cortical rate distributions are
+                strongly heterogeneous (roughly lognormal), so a network whose active units all fire
+                at the same rate is LESS data-like in this respect, not more.
+  rate_p90_p50  ratio of the 90th percentile to the median per-unit rate, across active units — the
+                same heterogeneity read as a tail measure, robust to outliers
   energy        total metabolic cost, sum over units of mean(fr^2)
   energy_hhi    concentration of that cost across units (1/N = even, 1 = one unit carries it all)
   mean_rate     mean firing rate over units, time and conditions
@@ -113,7 +120,11 @@ def analyse_net(folder, task, inputs, conditions, dec_on):
     col = np.array([np.sign(c["color_coh"]) for c in conditions])
     cho = np.array([c["correct_choice"] for c in conditions])
 
-    row = {"N": N, "silent_frac": float((~active).mean()),
+    rate = fr.mean(axis=(1, 2))          # per-unit mean firing rate
+    ra = rate[active]
+    row = {"N": N, "silent_frac": float((~active).mean()), "n_active": int(active.sum()),
+           "rate_cv_act": float(ra.std() / np.maximum(ra.mean(), 1e-30)),
+           "rate_p90_p50": float(np.percentile(ra, 90) / np.maximum(np.median(ra), 1e-30)),
            "pr": participation_ratio(fr.reshape(N, -1)),
            "pr_active": participation_ratio(fr[active].reshape(active.sum(), -1)),
            "energy": float((fr ** 2).mean(axis=(1, 2)).sum()),
