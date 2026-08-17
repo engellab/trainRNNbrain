@@ -57,9 +57,12 @@ REPO="${REPO:-$HOME/trainRNNbrain_horizon}"
 SAVE_TO="${SAVE_TO:-/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs}"
 
 export PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}"
-PKG=$(python -c "import trainRNNbrain, os; print(os.path.dirname(os.path.dirname(trainRNNbrain.__file__)))")
-if [ "$PKG" != "$REPO" ]; then
-  echo "FATAL: trainRNNbrain resolves to $PKG, expected $REPO — aborting." >&2; exit 1
+# Compare RESOLVED paths: on Spock /usr/people is a symlink to /mnt/cup/people, so Python reports the
+# physical path while $REPO holds the symlinked one — same directory, different spelling.
+PKG=$(python -c "import trainRNNbrain, os; print(os.path.realpath(os.path.dirname(os.path.dirname(trainRNNbrain.__file__))))")
+REPO_REAL=$(readlink -f "$REPO")
+if [ "$PKG" != "$REPO_REAL" ]; then
+  echo "FATAL: trainRNNbrain resolves to $PKG, expected $REPO_REAL (from $REPO) — aborting." >&2; exit 1
 fi
 echo "code: $PKG @ $(git -C "$REPO" rev-parse --short=7 HEAD)"
 
