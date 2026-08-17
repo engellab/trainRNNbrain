@@ -179,7 +179,14 @@ The argument that turns this from tidiness into a validity problem. **Recorded c
 do not contain 45% of neurons that never fire during a task** — so an RNN that does is not the
 population being claimed as a model, and every population-level comparison inherits the distortion.
 
-⬜ All of the following are computable from networks already trained — no new runs:
+✅ **Measured 2026-08-17** (N=1000, 5 nets per cell, all conditions at R² = 0.84–0.87 — see
+`project_trajectory.md`). Networks that perform identically differ by **3.5× in effective
+dimensionality** (PR 2.22 → 7.74), **3–4× in choice selectivity** (19% → 58% → 82% with `frm`+`rws`),
+**2× in total metabolic cost** (31.1 → 14.6, the concentrated solution being the *more* expensive
+one), and **100× in energy concentration** (HHI 0.123 → 0.0012, i.e. cost carried by an effective 8
+units versus ~850). Separately, within unpenalized networks the same selectivity statistic reads
+24.3% over all units but 42.3% over active units only — and a recording experiment sees only the
+latter.
 
 | Statistic | Why it is distorted |
 |---|---|

@@ -2182,3 +2182,75 @@ using the thresholds pre-registered on 2026-07-27, to test for **M\***.
 > every cell shifted by one size. Re-checked under `bash` and the mapping is correct (tasks 1–3 →
 > N=100, 4–6 → 500, 7–9 → 1000, 10–12 → 2000). A real off-by-one here would have silently mislabelled
 > every output folder with the wrong N.
+
+## 2026-08-17 (16:45) — population-level consequences: the same task, very different circuits
+
+The analysis that decides whether this project is about tidiness or about model validity. **No new
+training** — computed on the existing standard-RNN reference sweep (N=1000, 5 nets per cell) with
+[`population_distortion.py`](../trainRNNbrain/experiments_and_analysis/population_distortion.py).
+
+**The premise, verified first:** all four penalty conditions solve CDDM equally well. R² per net:
+`none` 0.840–0.875, `rws` 0.850–0.873, `frm` 0.848–0.872, `both` 0.837–0.853. No condition is
+trading task performance for anything below.
+
+![Population statistics](../img/internal_figures/population_distortion.png)
+
+| h equation, N=1000 | none | rws | **frm** | **both** |
+|---|---|---|---|---|
+| silent units | 42.6% | 40.0% | **0%** | **0%** |
+| **effective dimensionality (PR)** | 2.22 ± 0.07 | 2.39 ± 0.06 | **7.74 ± 0.21** | 6.14 ± 0.18 |
+| **units selective to choice** | 19.2 ± 1.7% | 23.9 ± 1.5% | **58.3 ± 1.5%** | **82.1 ± 2.3%** |
+| units selective to context | 24.3 ± 1.8% | 24.0 ± 1.3% | 31.1 ± 3.4% | **61.7 ± 3.2%** |
+| **total metabolic cost** | 31.1 | 31.6 | **14.6** | 16.0 |
+| **concentration of that cost (HHI)** | 0.123 | 0.140 | **0.0012** | 0.0011 |
+
+The `s` equation gives the same picture (PR 3.03 → 7.06; choice selectivity 27.9% → 73.2%).
+
+### What this establishes
+
+1. **Effective dimensionality differs 3.5×** — 2.22 vs 7.74, with tight non-overlapping intervals.
+   "How many dimensions does the circuit use" is *the* standard quantity for comparing model
+   population activity against neural recordings, and it depends almost entirely on whether activity
+   was regularised, not on how well the network does the task.
+2. **Choice selectivity differs 3–4×** — 19% of units carry choice information without penalties,
+   58% with `frm`, 82% with `frm`+`rws`. Any claim of the form "X% of units in the model are
+   choice-selective, comparable to Y% in the data" is a statement about the penalty, not the circuit.
+3. **The concentrated solution costs MORE energy, not less** — total metabolic cost is 31.1 without
+   penalties and 14.6 with `frm`, less than half. This inverts the intuitive efficiency argument: a
+   network that concentrates its computation into a few high-rate units pays more, because cost goes
+   as the square of the rate. Spreading the same computation thinly is cheaper.
+4. **Energy concentration differs 100×.** HHI 0.123 vs 0.0012, i.e. the unpenalized network's
+   metabolic cost is carried by an effective **8 units** (1/HHI), the penalized one's by **~850**.
+
+### The sampling distortion, separately
+
+Within unpenalized networks, the same statistic computed over all units versus over active units only
+(h equation):
+
+| penalty | context: all units → active only | choice: all → active |
+|---|---|---|
+| none | 24.3% → **42.3%** | 19.2% → **33.5%** |
+| rws | 24.0% → 40.0% | 23.9% → 39.8% |
+| frm | 31.1% → 31.1% | 58.3% → 58.3% (no silent units) |
+
+A recording experiment does not see silent neurons — it sees the active ones. So the fraction a
+modeller reports from the full model population is ~1.7× lower than what the equivalent experiment
+would measure from the same circuit. Under `frm` the two numbers are identical by construction.
+
+### A prediction of mine that was wrong, and why the correction matters
+
+Before running this I argued participation ratio would be **insensitive** to silent units, since
+appending all-zero units adds zero eigenvalues and changes neither `(ΣΛ)²` nor `ΣΛ²`. That algebra is
+correct but irrelevant: `frm` and `none` are not the same network with zeros removed, they are
+**different solutions**. The penalized network genuinely spreads its computation over ~3.5× more
+dimensions. The distortion is not an artifact of counting dead units — it is a real difference in the
+circuit that the training choice produces.
+
+### Consequence for the paper
+
+`paper.md` §5 moves from planned to measured, and its claim strengthens: it is no longer only "silent
+units dilute your statistics" but **"two networks that perform identically on the task differ by 3.5×
+in dimensionality, 3× in selectivity and 100× in energy concentration, and nothing in a typical
+methods section tells the reader which one you trained."** That is a validity argument about
+model-based inference, not an aesthetic preference — and it is the strongest case for the penalties
+independent of whether M* exists.
