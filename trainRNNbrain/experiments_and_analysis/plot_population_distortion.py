@@ -49,9 +49,11 @@ def main():
               ("sel_choice_act", "choice-selective (%)\nof ACTIVE units", 100.0, False),
               ("energy", "total metabolic cost\n$\\sum_i \\langle r_i^2\\rangle$", 1.0, False),
               ("energy_hhi", "concentration of cost\n(HHI, log scale)", 1.0, True),
-              ("rate_cv_act", "firing-rate heterogeneity\nacross ACTIVE units (CV)", 1.0, False)]
+              ("sigma_log", "rate heterogeneity across units\n$\\sigma$ of $\\log_{10}$ rate", 1.0, False),
+              ("within_cv", "within-trial modulation\n(median temporal CV)", 1.0, False),
+              ("rate_p90_p50", "rate tail\n(p90 / median)", 1.0, False)]
 
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+    fig, axes = plt.subplots(2, 4, figsize=(19, 8))
     axf = axes.ravel()
     for ax, (field, label, scale, logy) in zip(axf, panels):
         w = 0.38
@@ -71,10 +73,14 @@ def main():
             ax.set_yscale("log")
         ax.spines[["top", "right"]].set_visible(False)
         ax.grid(axis="y", color="0.92", lw=0.8); ax.set_axisbelow(True)
+        if field == "sigma_log":
+            # cortical rate distributions are close to lognormal with roughly a decade of spread
+            ax.axhline(1.0, color="0.35", lw=1.2, ls="--")
+            ax.text(3.45, 1.02, "cortex ≈ 1", fontsize=7.5, color="0.35", ha="right", va="bottom")
     axf[0].legend(frameon=False, fontsize=8)
 
     fig.suptitle("Networks with indistinguishable task performance (R² = 0.84–0.87) have very different "
-                 "population statistics\nSelectivity fractions are over ACTIVE units; PR and HHI need no "
+                 "population statistics\nAll per-unit statistics are over ACTIVE units; PR and HHI need no "
                  "such correction. N = 1000, 5 nets per cell, 95% CI", fontsize=11)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(out, dpi=150, bbox_inches="tight")

@@ -190,12 +190,18 @@ units versus ~850). Separately, within unpenalized networks the same selectivity
 24.3% over all units but 42.3% over active units only — and a recording experiment sees only the
 latter.
 
-⚠️ **One statistic goes the other way, and belongs in the paper as a limitation.** Firing-rate
-heterogeneity across active units collapses under the penalty: CV 3.62 → 0.49 (h), 2.41 → 0.31 (s),
-with the 90th percentile falling from ~6× the median to ~1.5×. Cortical rate distributions are
-strongly heterogeneous, so `frm` trades one unrealism (half the population silent) for another (a
-population too uniform). Follow-up: `frm`'s `cap_fr` and its unused `logsumexp` aggregation are the
-natural knobs for keeping units active without flattening the distribution.
+⚠️ **One statistic goes the other way, and belongs in the paper as a limitation.** Rate heterogeneity
+across active units, measured as **σ_log** (the std of log₁₀ mean rate — the shape parameter of the
+lognormal that cortical rate distributions follow, ~1 in cortex), is **1.20 (h) / 1.01 (s) without
+penalties — the biological value — and collapses to 0.26 / 0.15 under `frm`**, a fifth of a decade.
+CV (3.62 → 0.49) and the p90/median tail (6.2 → 1.7) agree. So `frm` trades one unrealism (half the
+population silent) for another (a population too uniform).
+
+✅ **But the revived units are genuinely modulated, not tonic.** Within-trial temporal CV is 1.29
+under `frm` versus 1.43 without — only ~10% lower — so the penalty is *not* satisfied by units
+sitting constantly at the cap. This closes a worry open since the first sweeps. (`both` does flatten
+modulation, to 0.96.) Follow-up: `frm`'s `cap_fr` and its unused `logsumexp` aggregation are the
+natural knobs for keeping units active without flattening the rate distribution.
 
 | Statistic | Why it is distorted |
 |---|---|

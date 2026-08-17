@@ -24,6 +24,16 @@ For every network this computes, over the noise-free CDDM batch:
                 at the same rate is LESS data-like in this respect, not more.
   rate_p90_p50  ratio of the 90th percentile to the median per-unit rate, across active units — the
                 same heterogeneity read as a tail measure, robust to outliers
+  sigma_log     std of log10(mean rate) across ACTIVE units. Cortical rate distributions are close to
+                lognormal, and sigma_log is the shape parameter the literature reports — roughly 1 in
+                log10 units, i.e. about a decade of spread between typical slow and fast cells. It is
+                scale-free (rescaling all rates shifts the mean of the log, not its spread), unlike
+                CV, and it is stable on heavy tails. Requires positive rates, hence active units only.
+  within_cv     WITHIN-trial temporal variability: for each unit the temporal std of its rate is
+                averaged over conditions and divided by its overall mean rate; reported as the median
+                over active units. This asks whether a unit is actually MODULATED by the task or
+                merely sits at a constant rate — the direct test of whether an activity penalty is
+                satisfied by tonic firing rather than by useful dynamics.
   energy        total metabolic cost, sum over units of mean(fr^2)
   energy_hhi    concentration of that cost across units (1/N = even, 1 = one unit carries it all)
   mean_rate     mean firing rate over units, time and conditions
@@ -122,9 +132,16 @@ def analyse_net(folder, task, inputs, conditions, dec_on):
 
     rate = fr.mean(axis=(1, 2))          # per-unit mean firing rate
     ra = rate[active]
+    ra_pos = ra[ra > 0]
+    # within-trial temporal variability, per unit: mean over conditions of the temporal std,
+    # normalised by the unit's own mean rate so it measures modulation rather than scale
+    tstd = fr.std(axis=1).mean(axis=1)                      # (units,)
+    within = tstd[active] / np.maximum(rate[active], 1e-30)
     row = {"N": N, "silent_frac": float((~active).mean()), "n_active": int(active.sum()),
            "rate_cv_act": float(ra.std() / np.maximum(ra.mean(), 1e-30)),
            "rate_p90_p50": float(np.percentile(ra, 90) / np.maximum(np.median(ra), 1e-30)),
+           "sigma_log": float(np.std(np.log10(ra_pos))) if ra_pos.size > 1 else float("nan"),
+           "within_cv": float(np.median(within)),
            "pr": participation_ratio(fr.reshape(N, -1)),
            "pr_active": participation_ratio(fr[active].reshape(active.sum(), -1)),
            "energy": float((fr ** 2).mean(axis=(1, 2)).sum()),

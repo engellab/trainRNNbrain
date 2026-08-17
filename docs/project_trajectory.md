@@ -2307,11 +2307,72 @@ is superseded:
 
 ![Population statistics, corrected](../img/internal_figures/population_distortion.png)
 
-Six panels: participation ratio, context- and choice-selectivity **over active units**, total
-metabolic cost, cost concentration, and firing-rate heterogeneity. Reading left to right, `frm`
-raises dimensionality 3.5×, *lowers* context selectivity among active units, raises choice
-selectivity 1.7×, halves total metabolic cost, spreads that cost over ~100× more units — and
-flattens the firing-rate distribution, which is the one result that goes against it.
+Eight panels: participation ratio, context- and choice-selectivity **over active units**, total
+metabolic cost, cost concentration, **σ_log with the cortical reference line at 1**, within-trial
+modulation, and the p90/median rate tail. Reading across, `frm` raises dimensionality 3.5×, *lowers*
+context selectivity among active units, raises choice selectivity 1.7×, halves total metabolic cost,
+spreads that cost over ~100× more units, keeps units genuinely modulated within the trial — and
+flattens the across-unit rate distribution far below the biological range, which is the one result
+that goes against it.
+
+### The result that cuts against the penalty: rate heterogeneity, measured as sigma_log
+
+**How it is measured.** Each unit is collapsed to one number — its mean firing rate over all 300
+timesteps and all 450 conditions of the noise-free batch. Silent units are excluded, then the spread
+of that distribution *across units* is summarised three ways:
+
+| statistic | definition | why |
+|---|---|---|
+| **σ_log** | std of `log10(mean rate)` across active units | cortical rate distributions are close to **lognormal**, and σ_log is the shape parameter that literature reports — about **1 in log10 units**, i.e. roughly a decade of spread between typical slow and fast cells. Scale-free by construction, and stable on heavy tails. Requires positive rates, hence active units only. |
+| CV | `std / mean` of the rate across active units | intuitive but **not** scale-free — `frm` raises the mean rate, so part of a CV drop is a mean shift rather than a narrowing |
+| p90 / median | tail ratio across active units | scale-free, robust, no distributional assumption |
+| **within-trial CV** | per unit, the temporal std of its rate averaged over conditions and divided by its own mean rate; median over active units | asks whether a unit is genuinely **modulated by the task** or merely sitting at a constant rate — the direct test of whether an activity penalty is satisfied by tonic firing |
+
+| N=1000, active units | σ_log | CV | p90/median | within-trial CV |
+|---|---|---|---|---|
+| h/none | **1.20 ± 0.05** | 3.62 | 6.22 | **1.43 ± 0.05** |
+| h/rws | 1.27 ± 0.08 | 3.64 | 7.84 | 1.36 ± 0.08 |
+| **h/frm** | **0.26 ± 0.01** | 0.49 | 1.73 | 1.29 ± 0.04 |
+| h/both | 0.19 ± 0.01 | 0.43 | 1.66 | **0.96 ± 0.01** |
+| s/none | **1.01 ± 0.08** | 2.41 | 6.46 | 1.31 ± 0.06 |
+| s/rws | 1.39 ± 0.07 | 2.77 | 7.55 | 1.14 ± 0.06 |
+| **s/frm** | **0.15 ± 0.01** | 0.31 | 1.38 | 1.16 ± 0.02 |
+| s/both | 0.16 ± 0.00 | 0.35 | 1.52 | **0.89 ± 0.01** |
+
+**Two findings, pointing in opposite directions.**
+
+1. **Unpenalized networks match cortex on rate heterogeneity; penalized ones do not.** σ_log is
+   **1.20 (h) and 1.01 (s)** without penalties — essentially the cortical value of ~1, a full decade
+   of spread across the active population. Under `frm` it collapses to **0.26 and 0.15**, a fifth of
+   a decade. `rws` does not restore it, and `both` is flatter still (0.19, 0.16). All three
+   heterogeneity measures agree, which is what makes this believable rather than an artifact of one
+   statistic. **This is a real limitation of the penalty and belongs in the paper as one:** `frm`
+   trades one unrealism (half the population silent) for another (a population too uniform).
+2. **But the revived units are genuinely modulated, not tonic.** Within-trial CV is 1.29 under `frm`
+   against 1.43 without — only ~10% lower. So `frm` units are *not* sitting at the cap doing nothing;
+   they vary over the trial almost as much as the units of an unpenalized network. **This closes the
+   "the penalty is satisfied by tonic firing" worry** that has been open since the earliest sweeps.
+   It is `both` that materially flattens modulation (0.96, a 33% drop) — quantifying, at last, the
+   old qualitative claim that `rws` makes responses "more sustained".
+
+**Concrete follow-up** (no new machinery): `frm` has a `cap_fr` target and an already-implemented,
+never-used `aggregation: logsumexp` option with temperature `tau_n`. Mean aggregation pulls *every*
+unit toward the cap, which is exactly what would flatten the rate distribution; logsumexp penalises
+the worst offenders instead. A one-axis sweep over those two knobs could plausibly keep every unit
+active while preserving σ_log near 1 — turning a stated limitation into a tuning result.
+
+**Figure regenerated** with the corrected metric — the version above showed all-unit selectivity and
+is superseded:
+
+![Population statistics, corrected](../img/internal_figures/population_distortion.png)
+
+Eight panels: participation ratio, context- and choice-selectivity **over active units**, total
+metabolic cost, cost concentration, **σ_log with the cortical reference line at 1**, within-trial
+modulation, and the p90/median rate tail. Reading across, `frm` raises dimensionality 3.5×, *lowers*
+context selectivity among active units, raises choice selectivity 1.7×, halves total metabolic cost,
+spreads that cost over ~100× more units, keeps units genuinely modulated within the trial — and
+flattens the across-unit rate distribution far below the biological range, which is the one result
+that goes against it.
 
 ### The result that cuts against the penalty: firing-rate heterogeneity
 
