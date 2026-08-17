@@ -2586,3 +2586,64 @@ rate distribution is stretching — a few units get much louder, the typical uni
 the same heterogeneity the population-distortion analysis measures, appearing here as a dynamic
 process. Whether this slide is what terminates in silencing at large N is testable against the
 N=1000/2000 cells and has not been tested.
+
+### α resolved at every lag: it is not a number, it is a curve — and the network never settles
+
+The two-point exponent uses the only lags the online tracker records. But the stored participation
+vectors give `p` every 100 iterations, so the displacement can be time-averaged over all pairs in a
+window at **every** multiple of 100 and the local slope read off directly. No re-run needed. (The
+weight matrices are not stored, only scalar drifts, so the same trick is unavailable for W — see the
+design note at the end.) Figure: `img/internal_figures/drift_msd_N100.png`.
+
+**α_p(L) rises smoothly with lag.** Late in training (window 24k–49k) it is ~0.10 at L=100, crosses
+0.5 at L ≈ 2500–3000, and reaches **0.85–0.95** by L=10⁴. So the two-point estimate over 1000→10⁴
+(0.38–0.65, reported above) is **biased, not merely noisy**: it averages a curve that rises from
+~0.15 to ~0.9 across that decade, and the average of a rising function sits far below its endpoint.
+Any conclusion drawn from a two-point α should be re-derived from the resolved curve.
+
+**The corrected reading: at long lags the participation vector is still nearly ballistic.** At
+N=100, after 50k iterations, over 10⁴-iteration windows the network is still marching in a
+consistent direction (α_p ≈ 0.9), not diffusing. It has not converged in any sense.
+
+**And it is not rate inflation.** Repeating everything on `p̂ = p/‖p‖` — which removes the ×2.1
+growth of ‖p‖ entirely — gives the same picture (α_p̂ ≈ 0.85–0.9 at L=10⁴). The *pattern* of who
+participates is reorganising directionally, not merely scaling up.
+
+### The reframing this forces: L*(t), and aging
+
+If α depends on lag, "the iteration at which α crosses 0.5" is ill-posed. The well-posed quantity is
+its inverse: **L\*(t) = the lag at which α_p crosses 0.5, measured at training age t.** Below L* the
+participation vector is caged (changes cancel); above it, motion is directed. L* is "how long you
+must wait before training takes the network somewhere new".
+
+Measured on sliding 20k windows, 3 seeds, both definitions of the displacement:
+
+| | scaling | L*/t |
+|---|---|---|
+| full `p` | L\* ∝ t^0.95 | 0.081 ± 0.009 |
+| direction only `p̂` | L\* ∝ t^0.89 | 0.079 ± 0.008 |
+
+**L\* grows in proportion to training age, at ≈ 8% of it.** The network is always still directed on
+timescales longer than about a twelfth of its own age, however long it has trained. Train 10× longer
+and the caging timescale stretches 10× with it. This is the **aging** signature of glassy relaxation:
+there is no fixed relaxation time to wait out, because the relaxation time is set by how long you
+have already waited.
+
+This supersedes and mechanistically explains the earlier power-law extrapolation ("a 1% criterion
+needs 0.5–5.6 M iterations"). The extrapolation is not a long wait — it is unreachable in principle,
+because the criterion recedes as fast as you approach it. **"Trained to convergence" is not
+available for these networks and should not be claimed anywhere in the paper.** What can be claimed
+is a stated training budget plus the measured L*/t, which says exactly how much residual directed
+change that budget leaves.
+
+**Caveats, stated before the numbers are used.** The lever arm is short: t spans only 15k–40k, a
+factor 2.7, so the exponent 0.89–0.95 is consistent with 1.0 but also with somewhat less; the
+windows overlap, so points are not independent; and this is N=100 only. The N=500/1000/2000 cells
+(200k–300k iterations) give a 4–6× longer lever arm and are the real test of whether L*/t is
+constant, and of whether the constant depends on N.
+
+**Design note for the next sweep.** To resolve α for the weight matrices as well, the cheap fix is
+not more entries in `drift_lags` (each costs a full CPU-resident snapshot of every matrix) but
+storing a fixed random projection of each matrix at every probe — ~200 floats instead of ~4 M at
+N=2000. Johnson–Lindenstrauss keeps pairwise distances, so any lag becomes computable post hoc,
+exactly as it already is for `p`.

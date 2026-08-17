@@ -19,8 +19,20 @@ Two independent readouts distinguish these:
                               Note the displacements are separated by `track_every` iterations, and
                               Adam's momentum correlates successive steps, so the FLOOR of this
                               quantity is positive rather than zero — read its decay, not its value.
+                              In practice it saturates at that floor ~10x earlier than the exponent
+                              transitions, so it is a diagnostic here, NOT a stopping criterion.
 
-Output: img/internal_figures/drift_N<N>.png, one per network size in the sweep.
+alpha is not a single number: it depends on the lag it is measured at. Estimating it from two lags
+therefore averages a rising curve and is biased low, not merely noisy. For the participation vector
+this is fixable with no re-run — the full per-unit p is stored every `store_participation_every`
+iterations, so the displacement can be time-averaged at EVERY multiple of that cadence and the local
+slope read off directly (see msd_participation / plot_msd). The weight matrices are not stored, only
+their scalar drifts at the configured lags, so resolving alpha for W needs either a longer
+`drift_lags` list or (cheaper) storing fixed random projections of each matrix per probe.
+
+Outputs, per network size in the sweep:
+  img/internal_figures/drift_N<N>.png      the six online diagnostics
+  img/internal_figures/drift_msd_N<N>.png  alpha_p resolved at every lag, and the caging timescale
 
 Usage:  python plot_drift_curves.py [SWEEP_FOLDER]
         SWEEP_FOLDER defaults to data/trained_RNNs/CDDM_std_g0_drift
@@ -240,6 +252,159 @@ def report(traces, N):
         print("  " + "  ".join(line))
 
 
+def msd_participation(p_store, iters, t0, t1, direction_only=False):
+    """Time-averaged mean displacement of the participation vector versus lag.
+
+    The online `dp_lag<L>` metric gives one value per configured lag, so the exponent has to be
+    estimated from a two-point slope. The stored participation vectors give EVERY lag that is a
+    multiple of store_participation_every, averaged over all time-pairs in the window — a far
+    better-conditioned estimate, and it needs no re-run because the vectors are already on disk.
+    (The weight matrices are not stored, only their scalar drifts, so the same trick is not
+    available for W and more lags there would require re-running with a longer `drift_lags`.)
+
+    Args:
+        p_store: (n_stored, N) participation vectors.
+        iters: (n_stored,) iteration of each stored vector.
+        t0, t1: iteration bounds of the window to average within.
+        direction_only: if True, normalise each vector to unit length first, so the result measures
+            reorganisation of the participation PATTERN and ignores overall rate inflation. This
+            matters here because ||p|| itself grows ~2x over training, and a steadily growing norm
+            is a systematic displacement that would masquerade as directed motion.
+    Returns:
+        (lags, d) arrays, d dimensionless. Empty if the window holds too few vectors.
+    """
+    sel = (iters >= t0) & (iters <= t1)
+    P, I = p_store[sel], iters[sel]
+    if len(P) < 8:
+        return np.array([]), np.array([])
+    if direction_only:
+        P = P / np.maximum(np.linalg.norm(P, axis=1, keepdims=True), 1e-30)
+    # Normalise by the window-mean norm rather than the instantaneous one: within a window ||p||
+    # drifts, and dividing by a moving denominator folds that drift into the numerator.
+    den = np.linalg.norm(P, axis=1).mean()
+    lags, ds = [], []
+    for k in range(1, len(P) // 2 + 1):     # //2 keeps at least half the window as pair statistics
+        ds.append(float(np.linalg.norm(P[k:] - P[:-k], axis=1).mean() / den))
+        lags.append(float(I[k] - I[0]))
+    return np.array(lags), np.array(ds)
+
+
+def local_slope(x, y, smooth=5):
+    """Local log-log slope dlog(y)/dlog(x), median-smoothed. Returns array like x."""
+    return running_median(np.gradient(np.log(y), np.log(x)), smooth)
+
+
+def caging_timescale(p_store, iters, t0, t1, direction_only=False):
+    """L*, the lag at which alpha_p(L) crosses 0.5 within a training window.
+
+    Below L* the participation vector is effectively caged (successive changes cancel); above it the
+    motion is directed. L* is therefore "how long you have to wait before training takes the network
+    somewhere", measured at training age (t0+t1)/2.
+
+    Args:
+        p_store, iters, t0, t1, direction_only: as for msd_participation.
+    Returns:
+        L* in iterations, or nan if the window never crosses 0.5 (or crosses only at its last lag,
+        where the crossing is not bracketed and would be an extrapolation).
+    """
+    L, d = msd_participation(p_store, iters, t0, t1, direction_only=direction_only)
+    if not len(L):
+        return float("nan")
+    a = local_slope(L, d)
+    below = np.where(a < 0.5)[0]
+    if not len(below) or below[-1] == len(a) - 1:
+        return float("nan")
+    return float(L[below[-1]])
+
+
+def plot_msd(traces, N, out):
+    """Participation MSD and its exponent across all resolvable lags, in windows across training.
+
+    Args:
+        traces: list of trace dicts for this N; N: network size; out: output png path.
+    """
+    fig, ax = plt.subplots(2, 3, figsize=(18, 9))
+    end = max(t["participation_iters"][-1] for t in traces)
+    wins = [(0, end // 2), (end // 4, 3 * end // 4), (end // 2, end)]
+    wcols = ["#c6dbef", "#6baed6", "#08519c"]
+    wlab = [f"iter {a // 1000}k-{b // 1000}k" for a, b in wins]
+    half = end // 5           # sliding-window half-width for the L*(t) panels
+
+    for col, (dir_only, ttl) in enumerate([(False, r"full $p$"),
+                                           (True, r"direction of $p$ only")]):  # cols 0,1
+        for w, c, lb in zip(wins, wcols, wlab):
+            for t in traces:
+                P = np.array(t["participation"])
+                I = np.array(t["participation_iters"])
+                L, d = msd_participation(P, I, w[0], w[1], direction_only=dir_only)
+                if not len(L):
+                    continue
+                first = t is traces[0]
+                ax[0, col].plot(L, d, color=c, lw=1.3, alpha=.85, label=lb if first else None)
+                ax[1, col].plot(L, local_slope(L, d), color=c, lw=1.3, alpha=.85,
+                                label=lb if first else None)
+        ref = np.array([1e2, 1e4])
+        base = 0.02 if not dir_only else 0.01
+        ax[0, col].plot(ref, base * (ref / 1e2) ** 0.5, "-", color="k", lw=1, alpha=.5)
+        ax[0, col].plot(ref, base * (ref / 1e2) ** 1.0, "--", color="r", lw=1, alpha=.5)
+        ax[0, col].set(xscale="log", yscale="log", xlabel="lag $L$ (iterations)",
+                       ylabel=r"$\langle\|p(t)-p(t-L)\|\rangle_t / \langle\|p\|\rangle$")
+        ax[0, col].set_title(f"({'ab'[col]}) displacement vs lag, {ttl}")
+        ax[1, col].axhline(0.5, color="k", lw=1, alpha=.6)
+        ax[1, col].axhline(1.0, color="r", lw=1, alpha=.6)
+        ax[1, col].set(xscale="log", ylim=(-0.15, 1.35), xlabel="lag $L$ (iterations)",
+                       ylabel=r"$\alpha_p(L) = \mathrm{d}\log d / \mathrm{d}\log L$")
+        ax[1, col].set_title(f"({'cd'[col]}) exponent, {ttl}")
+        for r in (0, 1):
+            ax[r, col].legend(fontsize=8)
+            ax[r, col].grid(alpha=.25)
+
+    # (e,f) the caging timescale versus training age. If L* grows in proportion to t, the network is
+    # always still directed on timescales comparable to its own age and never settles in the
+    # relative sense, however long it trains.
+    centres = np.arange(half + half // 2, end - half + 1, max(half // 4, 1))
+    for dir_only, c, nm in [(False, "#08519c", r"full $p$"), (True, "#d62728", r"$\hat p$ only")]:
+        T, S = [], []
+        for t in traces:
+            P = np.array(t["participation"])
+            I = np.array(t["participation_iters"])
+            for ctr in centres:
+                v = caging_timescale(P, I, ctr - half, ctr + half, direction_only=dir_only)
+                if np.isfinite(v):
+                    T.append(float(ctr))
+                    S.append(v)
+        if len(T) < 3:
+            continue
+        T, S = np.array(T), np.array(S)
+        b = np.polyfit(np.log(T), np.log(S), 1)[0]
+        ax[0, 2].plot(T, S, "o", color=c, ms=5, alpha=.7,
+                      label=f"{nm}:  $L^*\\propto t^{{{b:.2f}}}$")
+        ax[1, 2].plot(T, S / T, "o", color=c, ms=5, alpha=.7,
+                      label=f"{nm}:  {np.mean(S / T):.3f} $\\pm$ {np.std(S / T):.3f}")
+    ax[0, 2].plot([centres[0], centres[-1]], [0.083 * centres[0], 0.083 * centres[-1]],
+                  "k--", lw=1, alpha=.6, label=r"$L^*=0.083\,t$")
+    ax[0, 2].set(xscale="log", yscale="log", xlabel="training age $t$ (iterations)",
+                 ylabel=r"$L^*$ = lag where $\alpha_p$ crosses 0.5")
+    ax[0, 2].set_title("(e) caging timescale vs training age")
+    ax[1, 2].axhline(0, color="k", lw=1)
+    ax[1, 2].set(xscale="log", ylim=(0, None), xlabel="training age $t$ (iterations)",
+                 ylabel=r"$L^*/t$")
+    ax[1, 2].set_title(r"(f) $L^*$ as a fraction of age")
+    for r in (0, 1):
+        ax[r, 2].legend(fontsize=8)
+        ax[r, 2].grid(alpha=.25)
+
+    fig.suptitle(f"Participation drift resolved at every lag, N={N} "
+                 f"($p$ stored every 100 iters, averaged over all time-pairs in the window)\n"
+                 f"COLOUR = training window;  the {len(traces)} same-coloured lines are the seeds.  "
+                 "Solid black = $L^{0.5}$ (diffusion), dashed red = $L^{1}$ (directed).\n"
+                 r"Right column uses $\hat p = p/\|p\|$, removing overall rate inflation so only "
+                 "reorganisation of the pattern counts.", fontsize=10.5)
+    fig.tight_layout(rect=[0, 0, 1, 0.90])
+    fig.savefig(out, dpi=150)
+    print(f"wrote {out}")
+
+
 def main():
     """Load a drift sweep, write one figure per network size, print the summary table."""
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -250,6 +415,7 @@ def main():
     for N in sorted(by_n):
         report(by_n[N], N)
         plot_size(by_n[N], N, os.path.join(IMG_DIR, f"drift_N{N}.png"))
+        plot_msd(by_n[N], N, os.path.join(IMG_DIR, f"drift_msd_N{N}.png"))
 
 
 if __name__ == "__main__":
