@@ -2784,3 +2784,52 @@ At N=100 the silent counts are too small to test this (1–3 units, drifting up 
 in training). The N=1000 and N=2000 cells, where the fraction is 65–76%, are where it can actually
 be measured. **Supersedes the loss-threshold recipe in the section above; that section is kept for
 the record but should not be used.**
+
+---
+
+## 2026-08-17 19:37 — Applying the budget criterion to the M* sweep, and closing a fairness gap
+
+The point of the Spock sweep is M*: does the number of ACTIVE units saturate as N grows? That makes
+the reported statistic the active count itself, so the per-doubling test from the previous section
+applies to it directly — no separate convergence machinery is needed.
+
+**Nothing has to be re-run.** The traces already hold the whole M(N, t) surface: `silent_1em6` is
+recorded at every probe (every 10 iterations) and the full per-unit `p` vector every 100 iterations,
+so the active count at any threshold can be reconstructed at any t up to each run's length. The
+sweep was designed as "train, then count at the end"; it can be analysed instead as a family of
+curves, which is strictly more informative and costs nothing.
+
+**Two fairness confounds, both now identified.**
+
+1. *Unequal budgets.* 50k / 200k / 200k / 300k for N = 100 / 500 / 1000 / 2000. These were set from
+   extrapolated silencing rates — a reasonable guess at the time, but not a principled matching.
+2. *Unequal learning rates.* `run_experiment.py:65` sets `lr = 1e-3 · (100/N)^(1/3)`, so
+   lr(N=2000) = 3.68e-4 is **2.7× smaller** than lr(N=100) = 1e-3. Equal iterations therefore are
+   not equal optimisation, independently of the budget issue. This is a further argument against
+   matching on iteration count and for matching on a measured statistic.
+
+| N | lr | × vs N=100 | budget |
+|---|---|---|---|
+| 100 | 1.000e-3 | 1.00 | 50k → **now also 200k** |
+| 500 | 5.848e-4 | 0.58 | 200k |
+| 1000 | 4.642e-4 | 0.46 | 200k |
+| 2000 | 3.684e-4 | 0.37 | 300k |
+
+**The analysis that avoids needing convergence at all.** Rather than picking one T and hoping every
+size has settled there, evaluate the M(N) curve at several **common** budgets and ask whether the
+*verdict* — saturating versus still growing — is the same at each. If M(N) saturates at t = 25k, 50k,
+100k and 200k alike, the conclusion is budget-independent, which is stronger than any single matched
+comparison and does not require M to have stopped moving. If the verdict flips with t, then M* is
+budget-dependent and that is the honest finding.
+
+Each point on the M(N) curve then carries **two** error bars: seed spread, and its own per-doubling
+movement (the budget sensitivity). The saturating-vs-power-law fit must be judged against both.
+
+**Gap closed.** N=100 had only 50k, so the largest budget common to all four sizes was 50k — the
+smallest network would have set the resolution of the whole comparison. Submitted **array 5660933**
+(3 seeds, N=100, 200k iterations, ~7 h each, 12 h wall). Verified running and writing to
+`EqType=h_N=100_iters=200000`, a separate folder from the original 50k run, so nothing can mix.
+Implemented via a one-line `ITERS_OVERRIDE` env hook in the launcher (the launcher is the only place
+allowed to vary swept parameters); the run script still overrides nothing.
+
+All four sizes now share a common 200k budget, with N=2000 additionally reaching 300k.

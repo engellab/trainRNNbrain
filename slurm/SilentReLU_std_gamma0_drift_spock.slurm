@@ -84,6 +84,11 @@ ITS=(50000 200000 200000 300000)
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); N_IDX=$((TID / 3))
 N=${NS[$N_IDX]}; IT=${ITS[$N_IDX]}
+# ITERS override, for budget-matching a size that was originally given a shorter run. The M(N)
+# comparison needs every size evaluated at a COMMON budget; N=100 was originally given 50k while the
+# others got 200k-300k, so a top-up run is needed to put all four sizes on the same axis. The output
+# tag carries $IT, so an override lands in its own folder and cannot mix with the original run.
+IT=${ITERS_OVERRIDE:-$IT}
 
 TAG="std_g0_drift/EqType=h_N=${N}_iters=${IT}"
 mkdir -p "${SAVE_TO}/CDDM_std_g0_drift"
