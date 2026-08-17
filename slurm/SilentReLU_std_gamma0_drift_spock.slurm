@@ -21,8 +21,14 @@
 #   N=1000  -> 200000   (rate 0.89 units/1000 at 100k, nearly settled)
 #   N=2000  -> 300000   (rate 2.90 units/1000 at 100k, extrapolates to settle near 250-300k)
 # Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..11): REP=TID%3; N_IDX=TID/3
-# Spock's partitions have no wall-time limit, so all 12 tasks go in ONE array here — the two-part
-# split was only needed on Della, where the 26.4 h N=2000 cells exceed the gpu-short ceiling.
+# Submit ONE ARRAY PER SIZE, so the wall-time request matches the cell (--time is per array, not per
+# task, and an oversized request backfills poorly):
+#   sbatch --array=1-3   --time=4:00:00   # N=100,  runtime ~1.8 h
+#   sbatch --array=4-6   --time=15:00:00  # N=500,  runtime ~7.2 h
+#   sbatch --array=7-9   --time=16:00:00  # N=1000, runtime ~8.0 h
+#   sbatch --array=10-12 --time=40:00:00  # N=2000, runtime ~26.4 h
+# Spock's partitions have no wall-time limit, so the long cell needs no special QOS as it does on
+# Della, where 26.4 h exceeds the gpu-short ceiling.
 #
 # Metrics, all reduced to scalars during training (nothing about the weights is written to disk;
 # reference snapshots live in CPU RAM, ~80 MB at N=2000, independent of training length):
@@ -45,7 +51,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --gres=gpu:1
 #SBATCH --mem=32G
-#SBATCH --time=48:00:00
+#SBATCH --time=16:00:00   # per-size override on the sbatch command line; see the header
 #SBATCH --array=1-12
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
