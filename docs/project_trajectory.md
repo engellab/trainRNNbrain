@@ -2434,7 +2434,7 @@ distribution. That is a one-axis sweep and would turn a limitation into a tuning
 
 ---
 
-## 2026-08-17 17:59 — Drift sweep, N=100 cell complete: the weights end up *confined*, not drifting
+## 2026-08-17 17:59 — Drift sweep, N=100 cell complete: motion stops being *directed* by ~10⁴, but does not stop
 
 All three N=100 seeds finished on Spock (array 5660818, 50k iterations each, r² 0.87–0.90).
 Figure: `img/internal_figures/drift_N100.png`, produced by
@@ -2464,20 +2464,45 @@ Measured on W_rec between lags 100 and 1000:
 
 So **T(N=100) ≈ 1×10⁴ iterations**, ten times later than the cosine floor would have suggested.
 
-### The finding: α settles *below* 0.5
+### The finding: α is timescale-dependent — pinned at short lags, still diffusing at long ones
 
-The exponent does not stop at the diffusive value — it keeps falling to **0.39–0.41** and stays
-there. Sub-diffusive scaling means displacement over 1000 iterations is *less* than √10 times the
-displacement over 100: the walk is mean-reverting, i.e. the weights are held in a confined basin
-rather than free-diffusing away from it. This is the Ornstein–Uhlenbeck signature, and it is a
-stronger statement than "training has converged enough": late training is **not** a slow drift to
-elsewhere in weight space, it is noise-driven jitter inside a basin whose walls the optimiser has
-already found. The earlier power-law extrapolation of the participation change to 0.5–5.6 M
-iterations therefore measures the *jitter*, not an unfinished journey.
+**Correction to the first reading of this figure.** The initial entry reported only the short-lag
+exponent (0.39–0.41), read it as sub-diffusive, and concluded the weights sit in a confined
+Ornstein–Uhlenbeck basin. Comparing both lag pairs **at the same iteration** (t = 40000, so the two
+are not being read off different points of a decaying curve) does not support that:
 
-Caveat: this is measured at N=100, the size that silences least. It does not license the same claim
-at N=1000 or N=2000, where the silencing rate is still visibly non-zero at 100k. The larger cells
-are the test.
+| seed | α(100→1000) | α(1000→10000) |
+|---|---|---|
+| 0 | 0.37 | 0.52 |
+| 1 | 0.42 | 0.55 |
+| 2 | 0.37 | 0.53 |
+
+α *increases* with lag. A confined OU process predicts the opposite — beyond its relaxation time
+displacement saturates and α falls toward 0. So the weights are **not** in a closed basin. The
+consistent reading is two regimes:
+
+- **10²–10³ iterations: sub-diffusive (α ≈ 0.4).** Displacement over 1000 steps is only ~2.4× that
+  over 100, less than the √10 = 3.16 a free walk would give. Successive steps partly cancel. Two
+  candidate causes, neither tested here: local confinement at that timescale, or overshoot
+  oscillation along sharp curvature directions (the "edge of stability" behaviour reported for
+  Adam/SGD at practical learning rates).
+- **10³–10⁴ iterations: diffusive (α ≈ 0.53).** Ratio 3.3–3.6 versus √10 = 3.16. At the longest lag
+  measured the weights are still executing an unbounded random walk.
+
+**What survives, and what does not.** T(N=100) ≈ 10⁴ stands: that is where the strongly *systematic*
+phase (α ≈ 1, straight-line motion) ends, and it is the quantity the sweep was designed to extract.
+What does not survive is the stronger claim that training has arrived somewhere. It has not — it has
+stopped going anywhere *in particular*. "Undirected" is the defensible word; "converged" is not.
+
+The functional readout is better behaved than the weights. For the participation vector at t = 40000,
+**α_p(100→1000) = 0.04–0.08** — essentially no growth with lag, i.e. waiting ten times longer buys
+almost no additional change in *p*. But α_p(1000→10000) = 0.58–0.69, mildly *super*-diffusive. So
+even at N=100 after 50k iterations there is still a slow systematic component in how participation
+evolves at the 10³–10⁴ timescale. The weights wander; *p* is pinned minute-to-minute but not
+hour-to-hour.
+
+Caveat: measured at N=100, the size that silences least. It does not license any claim at N=1000 or
+N=2000, where the silencing rate is still visibly non-zero at 100k. The larger cells are the test.
 
 ### Silent units at N=100: transient silencing, then recruitment back
 

@@ -105,44 +105,61 @@ def lag_exponent(trace, mat, l1, l2):
     return i2, np.log(d2 / d1i) / np.log(l2 / l1)
 
 
+def overlay(axis, traces, keys, labels, palette, getter, **kw):
+    """Draw one coloured curve per compared quantity, repeated once per seed.
+
+    Colour is the ONLY semantic channel: each entry of `keys` gets its own colour and one legend
+    entry. Seeds appear as several same-coloured lines, so spread between them reads as seed
+    variability rather than as another variable.
+
+    Args:
+        axis: matplotlib axis; traces: list of trace dicts (one per seed);
+        keys: values passed to getter, one per coloured curve;
+        labels: legend label per key; palette: list of colours, same length as keys;
+        getter: callable (trace, key) -> (x, y) arrays;
+        **kw: forwarded to plot (lw, marker, ...).
+    """
+    for j, key in enumerate(keys):
+        for k, t in enumerate(traces):
+            x, y = getter(t, key)
+            if len(x):
+                axis.plot(x, y, color=palette[j], label=labels[j] if k == 0 else None, **kw)
+    axis.legend(fontsize=9)
+
+
 def plot_size(traces, N, out):
-    """Six-panel drift summary for one network size, one line per seed.
+    """Six-panel drift summary for one network size.
+
+    Colour encodes the quantity being compared within each panel (lag, weight matrix, or lag pair);
+    the several same-coloured lines are the independent seeds.
 
     Args:
         traces: list of trace dicts for this N; N: network size; out: output png path.
     """
     fig, ax = plt.subplots(2, 3, figsize=(16, 9))
-    cols = plt.cm.viridis(np.linspace(0.15, 0.8, len(traces)))
+    lag_cols = ["#1f77b4", "#d62728", "#2ca02c"]                     # lag 100 / 1000 / 10000
+    mat_cols = {"W_inp": "#8c564b", "W_rec": "#1f77b4", "W_out": "#e377c2"}
+    lw = dict(lw=1.3, alpha=.85)
 
     # (a) recurrent drift at the three lags
-    for k, t in enumerate(traces):
-        for lag, ls in zip(LAGS, ["-", "--", ":"]):
-            i, d = series(t, f"drift_W_rec_lag{lag}")
-            ax[0, 0].plot(i, d, ls, color=cols[k], lw=1.4,
-                          label=f"lag {lag}" if k == 0 else None)
+    overlay(ax[0, 0], traces, LAGS, [f"lag $L$={l}" for l in LAGS], lag_cols,
+            lambda t, l: series(t, f"drift_W_rec_lag{l}"), **lw)
     ax[0, 0].set(xscale="log", yscale="log", xlabel="iteration",
                  ylabel=r"$\|W_{rec}(t)-W_{rec}(t-L)\|_F\,/\,\|W_{rec}(t)\|_F$")
     ax[0, 0].set_title("(a) recurrent weight drift")
-    ax[0, 0].legend(fontsize=9)
 
     # (b) the three matrices at the middle lag
-    for k, t in enumerate(traces):
-        for mat, ls in zip(MATS, ["-", "--", ":"]):
-            i, d = series(t, f"drift_{mat}_lag1000")
-            ax[0, 1].plot(i, d, ls, color=cols[k], lw=1.4,
-                          label=mat if k == 0 else None)
+    overlay(ax[0, 1], traces, MATS, MATS, [mat_cols[m] for m in MATS],
+            lambda t, m: series(t, f"drift_{m}_lag1000"), **lw)
     ax[0, 1].set(xscale="log", yscale="log", xlabel="iteration",
                  ylabel=r"$\|\Delta W\|_F/\|W\|_F$  at $L=1000$")
     ax[0, 1].set_title("(b) which matrix keeps moving")
-    ax[0, 1].legend(fontsize=9)
 
     # (c) diffusive-vs-systematic exponent
-    for k, t in enumerate(traces):
-        for (l1, l2), ls in zip([(100, 1000), (1000, 10000)], ["-", "--"]):
-            i, a = lag_exponent(t, "W_rec", l1, l2)
-            if len(i):
-                ax[0, 2].plot(i, a, ls, marker="o", ms=3, color=cols[k], lw=1.4,
-                              label=f"{l1}$\\to${l2}" if k == 0 else None)
+    pairs = [(100, 1000), (1000, 10000)]
+    overlay(ax[0, 2], traces, pairs, [f"$L$: {a}$\\to${b}" for a, b in pairs],
+            ["#1f77b4", "#ff7f0e"],
+            lambda t, p: lag_exponent(t, "W_rec", *p), marker="o", ms=3, **lw)
     ax[0, 2].axhline(0.5, color="k", ls="-", lw=1, alpha=.6)
     ax[0, 2].axhline(1.0, color="r", ls="-", lw=1, alpha=.6)
     ax[0, 2].text(0.02, 0.52, "diffusion", transform=ax[0, 2].get_yaxis_transform(), fontsize=8)
@@ -151,47 +168,43 @@ def plot_size(traces, N, out):
     ax[0, 2].set(xscale="log", xlabel="iteration",
                  ylabel=r"$\alpha=\Delta\log d\,/\,\Delta\log L$")
     ax[0, 2].set_title("(c) is the motion a random walk?")
-    ax[0, 2].legend(fontsize=9)
 
     # (d) directional persistence
-    for k, t in enumerate(traces):
-        for mat, ls in zip(MATS, ["-", "--", ":"]):
-            i, c = series(t, f"cos_{mat}")
-            ax[1, 0].plot(i, running_median(c, 101), ls, color=cols[k], lw=1.4,
-                          label=mat if k == 0 else None)
+    overlay(ax[1, 0], traces, MATS, MATS, [mat_cols[m] for m in MATS],
+            lambda t, m: (lambda i, c: (i, running_median(c, 101)))(*series(t, f"cos_{m}")), **lw)
     ax[1, 0].axhline(0, color="k", lw=1)
     ax[1, 0].set(xscale="log", xlabel="iteration",
                  ylabel=r"$\cos\left(\Delta W_t,\ \Delta W_{t-1}\right)$")
     ax[1, 0].set_title("(d) directional persistence (median filt.)")
-    ax[1, 0].legend(fontsize=9)
 
     # (e) participation drift
-    for k, t in enumerate(traces):
-        for lag, ls in zip(LAGS, ["-", "--", ":"]):
-            i, d = series(t, f"dp_lag{lag}")
-            ax[1, 1].plot(i, d, ls, color=cols[k], lw=1.4,
-                          label=f"lag {lag}" if k == 0 else None)
+    overlay(ax[1, 1], traces, LAGS, [f"lag $L$={l}" for l in LAGS], lag_cols,
+            lambda t, l: series(t, f"dp_lag{l}"), **lw)
     ax[1, 1].set(xscale="log", yscale="log", xlabel="iteration",
                  ylabel=r"$\|p(t)-p(t-L)\|\,/\,\|p(t)\|$")
     ax[1, 1].set_title("(e) participation drift")
-    ax[1, 1].legend(fontsize=9)
 
-    # (f) silent-unit count
+    # (f) silent-unit count. Nothing is compared here, so this is the one panel where colour is
+    # free to carry seed identity — and it is labelled as such.
+    seed_cols = plt.cm.viridis(np.linspace(0.15, 0.8, len(traces)))
     for k, t in enumerate(traces):
-        it = np.asarray(t["iters"], dtype=float)
-        s = np.asarray(t["metrics"]["silent_1em6"], dtype=float)
-        ax[1, 2].plot(it, s, color=cols[k], lw=1.2)
+        ax[1, 2].plot(np.asarray(t["iters"], dtype=float),
+                      np.asarray(t["metrics"]["silent_1em6"], dtype=float),
+                      color=seed_cols[k], lw=1.2, label=f"seed {k + 1}")
     ax[1, 2].set(xscale="log", xlabel="iteration",
                  ylabel=r"# units with $p_i<10^{-6}$")
     ax[1, 2].set_title(f"(f) silent units (of N={N})")
+    ax[1, 2].legend(fontsize=9)
 
     for a in ax.ravel():
         a.grid(alpha=.25)
-    fig.suptitle(f"Drift during training, standard ReLU RNN, no penalties, N={N} "
-                 f"({len(traces)} seeds)\n"
+    fig.suptitle(f"Drift during training, standard ReLU RNN, no penalties, N={N}\n"
+                 f"COLOUR = the quantity compared in that panel (see its legend);  "
+                 f"the {len(traces)} same-coloured lines are the {len(traces)} seeds  "
+                 f"(panel (f) excepted: there colour = seed)\n"
                  r"$p_i=\mathrm{std}_{t,c}\,r_i+q_{0.9}|r_i|$;  "
-                 r"$d(L)=\|W(t)-W(t-L)\|_F/\|W(t)\|_F$", fontsize=12)
-    fig.tight_layout(rect=[0, 0, 1, 0.94])
+                 r"$d(L)=\|W(t)-W(t-L)\|_F/\|W(t)\|_F$", fontsize=11)
+    fig.tight_layout(rect=[0, 0, 1, 0.91])
     fig.savefig(out, dpi=150)
     print(f"wrote {out}")
 
