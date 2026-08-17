@@ -2524,3 +2524,65 @@ iteration ~2×10³ while W_inp and W_rec keep falling. The likely cause is the d
 `weight_decay=1e-6` and no penalty holding W_out up, ‖W_out‖ shrinks, so a constant absolute step
 becomes a growing relative one. Checking this needs the raw norms, which are not stored — worth a
 scalar `norm_W_*` addition to the tracker if it matters later.
+
+### The stopping criterion, stated properly: α_p at the longest lag crossing 0.5
+
+The exponent gives a threshold-free stopping rule — "train until the motion is no longer directed",
+i.e. until α falls stably below the random-walk value 0.5. Three things have to be pinned down before
+that rule is usable, and the N=100 cell settles all three.
+
+**1. It must name the lag.** α is lag-dependent, so "α < 0.5" is meaningless without saying at what
+timescale. At N=100 the W_rec exponent crosses 0.5 at ~10⁴ for the 100→1000 pair but only at
+~4–5×10⁴ for the 1000→10⁴ pair. Using the short lag declares victory 4× too early. **Use the longest
+resolvable lag.**
+
+**2. It should be measured on the participation vector, not the weights.** The weights are free to
+move along functionally degenerate directions — W_out is doing exactly that (see the W_out section
+below), sliding along the `W_out·r` rescaling invariance for the whole run without changing what any
+unit computes. A weight-based rule therefore reports motion that has no functional consequence.
+`p` is the quantity the silent-unit question is about, so `α_p` is the right criterion.
+
+| N=100, α at the end of the run | 100→1000 | 1000→10000 |
+|---|---|---|
+| W_rec | 0.37–0.42 | 0.52–0.55 |
+| **p** | **0.04–0.08** | **0.38–0.65** |
+
+`α_p` at the short lag is ~0 from very early on: over 10²–10³ iterations the participation vector
+does not move at all in the sense that matters, which is why it looked "converged" in every earlier
+short-window analysis. At the long lag it starts **ballistic** (1.12–1.35 at iteration 10⁴ — still
+straight-line motion) and only reaches 0.5 at **30–40k**.
+
+**3. "Stably" is doing real work.** The short-lag α bounces between 0.3 and 0.5 after 2×10⁴, so the
+rule needs "stays below for the remainder", not "first touch". At the long lag there are only four
+measurements in a 50k run (one per 10⁴), so stability is not even assessable at N=100.
+
+**Consequence: T(N=100) ≈ 3–4×10⁴, not 10⁴.** The earlier figure quoted 10⁴ from the short-lag
+weight curve; on the criterion above it is 3–4× larger, i.e. the 50k budget for N=100 was only just
+sufficient and the crossing sits at the edge of the run. The larger cells have 200k (N=500, N=1000)
+and 300k (N=2000), giving 20–30 points on the criterion curve — enough to assess stability properly,
+provided T does not grow faster than ~4× with N. That is now a thing to watch, not an assumption.
+
+### Why the output weights appear to "speed up": a shrinking denominator
+
+`d = ‖ΔW‖_F/‖W‖_F`. Under Adam the per-parameter step is roughly uniform within a matrix, so
+`‖ΔW‖_F ≈ step·√P·f(L)` and `‖W‖_F ≈ w·√P` for P parameters and typical weight magnitude w — the
+√P cancels and **d ≈ step·f(L)/w**. Parameter count is irrelevant; a rising d at fixed learning rate
+means w is falling.
+
+Measured directly, after adding `norm_W_*` to the tracker (commit a11e179): over the first 300
+iterations at N=100, **‖W_out‖ 1.35 → 0.66** (halves) while ‖W_inp‖ 2.44 → 2.64 and
+‖W_rec‖ 12.03 → 12.12 barely move. Two consistency checks from the existing traces: ‖p‖ grows
+monotonically **8.8 → 18.4 (×2.1)** between iteration 1k and 50k, and d_out at L=1000 rises from
+~0.20 at its minimum to ~0.40 — the same factor of 2.
+
+Mechanism: the output is `W_out·r`, invariant under `W_out → W_out/c`, `r → c·r`. Nothing in the loss
+pins the split, so the network slides along that degenerate direction throughout training. Note
+weight decay is *not* the driver — wd=1e-6 cannot halve a norm in 300 steps; the task gradient is.
+So W_out is not being updated faster in absolute terms, and panel (b) is a normalisation artifact —
+but the artifact reveals a real, never-terminating slide.
+
+**Hypothesis, untested:** median participation *falls* (0.57 → 0.37) while ‖p‖ *rises* (×2.1), so the
+rate distribution is stretching — a few units get much louder, the typical unit gets quieter. This is
+the same heterogeneity the population-distortion analysis measures, appearing here as a dynamic
+process. Whether this slide is what terminates in silencing at large N is testable against the
+N=1000/2000 cells and has not been tested.
