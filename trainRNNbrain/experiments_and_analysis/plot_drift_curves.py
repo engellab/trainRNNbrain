@@ -496,6 +496,105 @@ def plot_budget(traces, N, out, loss_thr=0.02):
     return T
 
 
+def silent_fraction(trace, t, criterion="hard"):
+    """Fraction of units counted as silent at training age t.
+
+    Args:
+        trace: trace dict; t: training age in iterations;
+        criterion: "hard" = participation < 1e-6, read from the every-10-iteration online counter and
+            averaged over a +-2% window to smooth the step function; "scalefree" = participation
+            below 5% of the 95th percentile of the participation distribution, computed from the
+            stored per-unit vectors (coarser cadence, but threshold-free in absolute units).
+    Returns:
+        fraction in [0, 1], or nan if t is outside the recorded range.
+    """
+    if criterion == "hard":
+        it = np.asarray(trace["iters"], dtype=float)
+        n = len(trace["participation"][0])
+        v = np.asarray(trace["metrics"]["silent_1em6"], dtype=float)
+        if t < it[0] or t > it[-1]:
+            return float("nan")
+        m = np.abs(it - t) <= max(0.02 * t, 50)
+        return float(v[m].mean() / n) if m.any() else float(v[np.argmin(abs(it - t))] / n)
+    P = np.array(trace["participation"])
+    I = np.array(trace["participation_iters"])
+    if t < I[0] or t > I[-1]:
+        return float("nan")
+    p = P[np.argmin(abs(I - t))]
+    return float((p < 0.05 * np.quantile(p, 0.95)).mean())
+
+
+def plot_silent_criterion(by_n, out, thr_pp=1.0):
+    """The stopping-criterion monitor: silent fraction, and how much it moves per budget doubling.
+
+    T(N) is the first age at which the silent fraction moves by less than `thr_pp` percentage points
+    over a doubling of the budget, AND stays below it thereafter — "first touch" is not enough
+    because the curve is noisy.
+
+    Args:
+        by_n: {N: [traces]} from load_traces; out: output png path;
+        thr_pp: precision required, in percentage points of N.
+    Returns:
+        {(N, criterion): T} for the sizes that reach the criterion.
+    """
+    fig, ax = plt.subplots(2, 2, figsize=(13, 9))
+    cols = plt.cm.viridis(np.linspace(0.1, 0.85, len(by_n)))
+    Ts = {}
+    for row, crit in enumerate(["hard", "scalefree"]):
+        for k, N in enumerate(sorted(by_n)):
+            traces = by_n[N]
+            end = min(t["participation_iters"][-1] for t in traces)
+            ts = np.unique(np.round(np.logspace(np.log10(1000), np.log10(end), 40)).astype(int))
+            frac = np.array([[silent_fraction(t, x, crit) for x in ts] for t in traces])
+            dbl = np.array([[abs(silent_fraction(t, x, crit) - silent_fraction(t, x / 2, crit))
+                             for x in ts] for t in traces])
+            fm, dm = np.nanmean(frac, axis=0), np.nanmean(dbl, axis=0)
+            ax[row, 0].plot(ts, 100 * fm, "-", color=cols[k], lw=1.6, label=f"N={N}")
+            ax[row, 0].fill_between(ts, 100 * (fm - np.nanstd(frac, axis=0)),
+                                    100 * (fm + np.nanstd(frac, axis=0)), color=cols[k], alpha=.15)
+            ax[row, 1].plot(ts, 100 * dm, "-o", ms=3, color=cols[k], lw=1.4, label=f"N={N}")
+            # T = first age after which the movement stays below threshold for the rest of the run.
+            # Two guards, both needed: a curve can sit below threshold merely because the run ENDED
+            # (N=100 hard criterion does exactly this — it is trending back up at 0.93 pp when the
+            # data stops), and a threshold finer than one unit is below the measurement resolution.
+            ok = np.isfinite(dm)
+            above = np.where(ok & (100 * dm >= thr_pp))[0]
+            tail = ok & (ts >= ts[-1] / 4)
+            rising = (len(ts[tail]) > 2 and
+                      np.polyfit(np.log(ts[tail]), np.log(np.maximum(dm[tail], 1e-9)), 1)[0] > 0)
+            resolved = thr_pp >= 100.0 / N
+            if ok.any() and (not len(above) or above[-1] < len(ts) - 1) and not rising and resolved:
+                T = ts[0] if not len(above) else ts[above[-1] + 1]
+                Ts[(N, crit)] = int(T)
+                ax[row, 1].plot([T], [100 * dm[list(ts).index(T)]], "*", color=cols[k], ms=16,
+                                markeredgecolor="k", zorder=5)
+            else:
+                why = ("still rising" if rising else
+                       "unresolved: 1 unit = %.1f pp > threshold" % (100.0 / N) if not resolved
+                       else "never settles")
+                print(f"    T(N={N}, {crit}) NOT REACHED — {why}; "
+                      f"movement at end of run = {100 * dm[ok][-1]:.2f} pp")
+        ax[row, 1].axhline(thr_pp, color="k", ls="--", lw=1)
+        ax[row, 0].set(xscale="log", xlabel="training age $t$", ylabel="silent units (% of N)")
+        ax[row, 1].set(xscale="log", yscale="log", xlabel="training age $t$",
+                       ylabel="|change| over last doubling (pp of N)")
+        nm = r"$p_i<10^{-6}$" if crit == "hard" else r"$p_i<0.05\,q_{95}(p)$"
+        ax[row, 0].set_title(f"({'ac'[row]}) silent fraction, {nm}")
+        ax[row, 1].set_title(f"({'bd'[row]}) movement per doubling  (star = $T$)")
+        for c in (0, 1):
+            ax[row, c].legend(fontsize=9)
+            ax[row, c].grid(alpha=.25)
+    fig.suptitle("Stopping criterion: train until the REPORTED number stops moving.\n"
+                 f"$T(N)$ = first age after which the silent fraction moves < {thr_pp:g} "
+                 "percentage point per budget doubling and stays there.", fontsize=12)
+    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    fig.savefig(out, dpi=150)
+    print(f"wrote {out}")
+    for (N, crit), T in sorted(Ts.items()):
+        print(f"    T(N={N}, {crit}) = {T}")
+    return Ts
+
+
 def main():
     """Load a drift sweep, write one figure per network size, print the summary table."""
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -508,6 +607,7 @@ def main():
         plot_size(by_n[N], N, os.path.join(IMG_DIR, f"drift_N{N}.png"))
         plot_msd(by_n[N], N, os.path.join(IMG_DIR, f"drift_msd_N{N}.png"))
         plot_budget(by_n[N], N, os.path.join(IMG_DIR, f"drift_budget_N{N}.png"))
+    plot_silent_criterion(by_n, os.path.join(IMG_DIR, "silent_stopping_criterion.png"))
 
 
 if __name__ == "__main__":
