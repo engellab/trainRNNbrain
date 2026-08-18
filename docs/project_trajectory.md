@@ -3411,3 +3411,54 @@ point of matching on t_max.
 should give L_∞ within about 0.0001 of the 0.02135–0.02140 that N=500 and N=1000 give. If it comes in
 materially lower, the shared-floor claim fails and the M(N) comparison becomes confounded by
 performance. Stated now, before the data exists.
+
+### The loss in power-law coordinates, without assuming the asymptote
+
+Figure: `img/internal_figures/powerlaw_coords.png`, from
+`trainRNNbrain/experiments_and_analysis/plot_powerlaw_coords.py`.
+
+**The circularity to avoid.** The conventional linearisation of `L = L_∞ + A·t^(−γ)` plots
+`log(L − L_∞)` against `log t`. It does give a straight line — but L_∞ is a fitted parameter chosen
+to make the power law fit, so its straightness is partly guaranteed by construction. Panel (c) is
+that plot, labelled as such.
+
+**The L_∞-free coordinate.** Differentiating with respect to log t removes the constant entirely:
+
+`−dL/d(log t) = A·γ·t^(−γ)`  ⟹  `log(−dL/dlog t) = log(Aγ) − γ·log t`
+
+so the log-log slope is exactly **−γ** with no asymptote anywhere in it. In practice the pointwise
+derivative of a noisy loss is unusable (the first version of this figure scattered over an order of
+magnitude), so the same quantity is measured across a whole factor of two instead:
+
+`L(t/2) − L(t) = A·t^(−γ)·(2^γ − 1) ∝ t^(−γ)`
+
+— identical scaling, still no L_∞, far less noise. Panel (b) is straight over ~1.7 decades for every
+seed at every size. **The power-law form is supported without assuming the asymptote.**
+
+**γ does not depend on N.** Applying the lesson from the L_∞ analysis, the exponent is compared at
+matched fit ranges:
+
+| fit range | N=100 | N=500 | N=1000 |
+|---|---|---|---|
+| ≤ 50,000 | 0.468 ± 0.060 | 0.507 ± 0.016 | 0.500 ± 0.059 |
+| ≤ 100,000 | — | 0.563 ± 0.019 | 0.561 ± 0.025 |
+| ≤ 200,000 | — | 0.592 ± 0.025 | 0.609 ± 0.024 |
+
+At matched range the sizes agree within error. The apparent "γ increases with N" in the unmatched
+table was the same run-length artefact that produced the apparent L_∞ difference.
+
+**But γ drifts upward with fit range — so it is not a single global power law.** 0.47–0.51 at 50k,
+0.56 at 100k, 0.59–0.61 at 200k. A true fixed-exponent power law would give the same slope at every
+range. The loss is decaying *faster* than a pure power law at late times, i.e. the approach to the
+floor accelerates slightly.
+
+Two consequences.
+- It **explains** why L_∞ keeps rising with fit window: a fixed-γ fit forced onto a steepening decay
+  compensates by pushing the asymptote down. The two biases are the same phenomenon.
+- The three-parameter fit's γ (0.524, 0.541 at N=500, 1000) is systematically **below** the
+  L_∞-free estimate (0.592, 0.609) — by ~0.07 in all six long-run seeds. The L_∞-free value is the
+  one to trust, since it has no asymptote to trade against.
+
+**Caveat.** Part of the late steepening could be an edge effect: the last points of panel (b) sit
+below their fitted line, and they are the ones nearest the end of the trace. The N=2000 run (300k)
+gives a longer lever arm and will show whether the drift continues or flattens.
