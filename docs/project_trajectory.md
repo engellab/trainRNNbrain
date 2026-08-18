@@ -3870,3 +3870,67 @@ Seed-to-seed scatter at N=1000–2000 is 9–36 units, so a 78-unit gap at the d
 ceiling-free range from a factor of 4 to a factor of 10 and will settle this.** First seed ~00:30
 tonight; the remaining two ~22:30 on Aug 19. The two outstanding N=2000 seeds (~19:10 today) will
 also tighten every k above and give that point real error bars.
+
+---
+
+## 2026-08-18 12:30 — ESTABLISHED: the loss floor does not depend on network size
+
+Figure: `img/internal_figures/floor_vs_N.png`, from
+`trainRNNbrain/experiments_and_analysis/test_floor_vs_N.py`. Criteria fixed before running: a size
+dependence is accepted only if the slope differs from zero at p < 0.05 AND the best model beats the
+constant by dAICc > 4 AND both hold at every fit length tested.
+
+**Why this had to be settled first.** Matching sizes at equal training loss is only a valid notion of
+"equally trained" if every size is heading for the same floor. If bigger networks could reach a lower
+loss, two networks at equal loss would not be equally far from their own optima and every M(N) number
+would inherit the confound. There is also a concrete mechanism that could produce a size-dependent
+floor, so this is not a formality: lr = 1e-3·(100/N)^(1/3), and a noisy optimiser equilibrates in a
+noise ball whose width grows with lr, so **larger N (smaller lr) should give a lower floor**.
+
+**Result — the constant model wins at every fit length.** Four candidate shapes,
+`L_inf = c` / `c + bN` / `c + b·log10 N` / `a·N^(-b)`, fitted on per-seed estimates, all sizes fitted
+on the same first `t_max` iterations so the extrapolation bias is common:
+
+| t_max | best model | dAICc: linear | log-linear | power law | size-term p |
+|---|---|---|---|---|---|
+| 50k | **constant** | +3.2 | +2.2 | +2.2 | 0.36–0.90 |
+| 100k | **constant** | +3.2 | +2.1 | +2.1 | 0.368 |
+| 150k | **constant** | +3.2 | +2.2 | +2.2 | 0.384 |
+| 200k | **constant** | +2.4 | +3.2 | +3.2 | 0.429–0.976 |
+
+Every size-dependent model is *worse* than the constant at every fit length, and no size term comes
+close to significance. **Size dependence accepted at 0 of 4 fit lengths.**
+
+**Stated as an equivalence bound, not as "no effect".** "Not significant" is not "equal", so the
+right statement is how large an effect the data can still hide:
+
+| t_max | slope per decade of N | bound on total change over N=100→2000 |
+|---|---|---|
+| 100k | −0.000073 ± 0.000149 | < 0.00019 = **0.92%** of L_inf |
+| 150k | −0.000043 ± 0.000091 | < 0.00012 = **0.55%** |
+| 200k | +0.000001 ± 0.000069 | < 0.00009 = **0.42%** |
+
+So across a 20-fold range of N the floor is constant to better than half a percent, and the bound
+tightens as more data enters the fit — the signature of a real null rather than of low power.
+
+**Per-size values at t_max = 200k** (the tightest): 0.02141, 0.02135, 0.02140, 0.02145 for
+N = 100, 500, 1000, 2000. The residual scatter is ~2–4× the within-size seed sd but is
+**non-monotone** in N, which is why no trend model fits it — it is scatter in the extrapolation, not
+a size effect.
+
+**Model-free cross-check (panel c).** Raw measured loss at matched iteration count, no extrapolation
+at all: it *increases* slightly with N at every checkpoint (e.g. at 200k: 0.02211, 0.02222, 0.02225,
+0.02236). That is the expected consequence of the smaller learning rate at larger N, and it is the
+opposite sign from "bigger networks reach a lower floor". Both the extrapolated and the measured
+quantity therefore agree that nothing supports a decreasing floor.
+
+**The lr/noise-ball mechanism finds no support.** Despite lr differing by 2.7× across the range, no
+corresponding floor difference appears. Either the floor is set by task stochasticity rather than by
+optimiser noise, or the effect is below 0.42%.
+
+**Consequence.** Equal training loss = equal distance from a common optimum, so the matched-performance
+protocol is licensed. This is now a stated fact of the project rather than an assumption.
+
+**Caveats.** N=2000 rests on one seed (two more ~19:10 today), and the range is 1.3 decades; N=5000
+extends it to 1.7 decades. The test re-runs unchanged on both, and the equivalence bound should
+tighten further.
