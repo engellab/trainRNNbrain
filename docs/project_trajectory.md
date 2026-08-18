@@ -4198,3 +4198,82 @@ recommendation: compute masked MSE from the noise-free probe `track_participatio
 
 **Caveat throughout:** N=2000 is a single seed and sits at the end of the lever arm for every
 regression here; its other two seeds land ~19:10 today.
+
+---
+
+## 2026-08-18 — Decay-fit parameters vs size: the floor RISES slightly with N
+
+Figure: `img/internal_figures/fit_params_vs_N.png`, from
+`trainRNNbrain/experiments_and_analysis/fit_params_vs_N.py`. Every size fitted on the SAME window
+t ∈ [2000, 200000] (N=2000 truncated from its 300k), because the fitted parameters drift with fit
+range and mismatched ranges have already produced three spurious "trends" in this project.
+
+### The parameterisation to use: stretched exponential with τ fixed
+
+`L = L_∞ + A·exp(−(t/τ)^β)` fits better than the power law, but **τ is unidentifiable**: profiling it
+over four orders of magnitude (0.1 → 1000) changes the residual sum of squares by under 10% while A
+slides by 14× to compensate. Freeing it buys no fit quality and destroys interpretability — free-τ
+fits gave β = 0.14–0.27 with τ spanning 0.24 to 258 across seeds of the same condition.
+
+**Fixing τ = 1** leaves `L = L_∞ + A·exp(−t^β)`, three parameters — the same count as the power law,
+so the comparison is fair — and pins β to ±0.001. On that footing the stretched form wins
+**decisively**: ΔAICc = +6.0 / +7.3 / +22.5 / +9.5 for N = 100 / 500 / 1000 / 2000, and it also wins
+out-of-sample (fit on t ≤ 50k, score on 50k–200k) with **3× lower** RMS log-error at every size. So it
+is the better shape, not merely the more flexible one — which was the obvious objection and is now
+answered.
+
+### Parameters
+
+| | N=100 | N=500 | N=1000 | N=2000 | spread over 20× in N |
+|---|---|---|---|---|---|
+| L_∞ | 0.02188 ± 0.00001 | 0.02189 ± 0.00000 | 0.02198 ± 0.00004 | 0.02207 | **0.9%** |
+| A | 0.177 ± 0.010 | 0.183 ± 0.006 | 0.212 ± 0.005 | 0.216 | 19.8% |
+| β | 0.1574 ± 0.0013 | 0.1562 ± 0.0008 | 0.1582 ± 0.0012 | 0.1570 | **1.3%** |
+
+**β is flat** — the decay *shape* is size-independent, a stronger statement than the floor alone.
+
+**L_∞ rises monotonically with N**, 0.021879 → 0.022068. Against per-seed sd of 0.00001–0.00004 that
+is roughly **5–10 σ**, so it is a real within-family effect, not scatter. Under the power law the same
+quantity looks flat and non-monotone only because its error bars are 3–10× larger.
+
+### Why the direction matters, and why it is still "roughly independent"
+
+**Larger networks have a slightly HIGHER floor.** That is the safe direction. The hazard for the
+matched-loss protocol was always the opposite — if big networks secretly reached a *lower* floor they
+would be under-trained at equal loss, M would be inflated, and the no-saturation conclusion would be
+an artefact. This rules that out with the sign, not just with a bound.
+
+It also agrees with two independent observations already on record: no larger network ever reaches a
+lower loss (0.02211 / 0.02222 / 0.02225 / 0.02227), and the deterministic error rises with N.
+
+**But the effect is small and must not be over-read.** 0.9% across a 20-fold size range, while the
+*family* disagreement is larger: power law gives L_∞ ≈ 0.0214, stretched ≈ 0.0219, a gap of 0.0005
+that is ~3× the size effect. Which functional form you assume moves the floor further than network
+size does. Treating L_∞ as common across sizes therefore remains justified.
+
+### Consequence: a common threshold at L* = 0.025
+
+With a shared floor, one loss level can be used for every size. **Iterations needed to reach
+L = 0.025 stably** — "stably" meaning the last time the smoothed loss is above it, using a centred
+2001-iteration mean over valid windows only (zero-padded edges otherwise fake a crossing at
+iteration 1):
+
+| N | first crossing | stable crossing | raw first dip | fraction of raw iterations below |
+|---|---|---|---|---|
+| 100 | 7,227 ± 263 | **7,234 ± 259** | 1,015 ± 74 | 0.87 |
+| 500 | 8,516 ± 137 | **8,529 ± 126** | 974 ± 170 | 0.87 |
+| 1000 | 9,553 ± 288 | **9,579 ± 306** | 1,509 ± 196 | 0.86 |
+| 2000 | 11,417 | **11,416** | 1,159 | 0.86 |
+
+First and stable crossings coincide to within a few iterations — once the smoothed loss goes below
+0.025 it stays there — so the threshold is unambiguous.
+
+**The raw trace is not.** A single noisy iteration dips below 0.025 at ~1,000 iterations, **7× earlier**
+than the network is actually there, and even after the stable crossing only ~86% of raw iterations sit
+below the line. Any criterion applied to the unsmoothed loss would fire 7× too early; this is the same
+noise-lottery failure mode that invalidated the earlier "lowest observed loss" statistic.
+
+**Budget: ~7k–11k iterations**, rising gently with N (58% from N=100 to N=2000), which is the expected
+consequence of the smaller learning rate at larger sizes. Cheap compared with the 200k budgets already
+spent — but note this reads the networks very early, before most silencing has developed (see the
+matching-level ladder: at shallow levels the M(N) exponent is k ≈ 0.9, at deep levels k ≈ 0.26).
