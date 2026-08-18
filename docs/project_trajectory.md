@@ -3120,3 +3120,47 @@ because the network slides along directions the loss does not penalise (we measu
 asking about convergence and instead report how much **the specific number being published** moves
 when the training budget is doubled — and, where even that does not settle, to show that the
 scientific conclusion is the same at every budget.
+
+### Loss fits for N=100, and how well L_inf is actually determined
+
+Figure: `img/internal_figures/loss_fit_N100.png`, from
+`trainRNNbrain/experiments_and_analysis/plot_loss_fit.py`. Fit is `L(t) = L_inf + A·t^(−γ)` on
+log-binned medians (so late iterations do not dominate), started at t = 2000.
+
+| seed | L_∞ | γ | L(T) at 50k | irreducible | reducible left | L_∞ spread across fit windows |
+|---|---|---|---|---|---|---|
+| 0 | 0.02135 | 0.55 | 0.02261 | 94.4% | 5.3% | 3.2% |
+| 1 | 0.02041 | 0.40 | 0.02273 | 89.8% | 9.2% | 7.1% |
+| 2 | 0.02083 | 0.45 | 0.02265 | 91.9% | 7.8% | 6.3% |
+
+**The power law holds cleanly.** Panel (b) plots `L(t) − L_∞` on log-log; all three seeds are
+straight lines over the whole fitted range, which is the goodness check for the functional form.
+
+**But L_∞ is not tightly determined, and this must be stated wherever the decomposition is used.**
+Re-fitting from t = 2000, 5000 and 10000 moves L_∞ by 3.2–7.1%. Since the reducible part is only
+5–9% of the total loss, that uncertainty is **comparable in size to the quantity being estimated**
+(e.g. seed 0: L_∞ uncertainty ≈ 0.00068 versus reducible ≈ 0.0012, so ~57% of it). An earlier fit in
+this document, run on raw rather than log-binned data, gave L_∞ = 0.02149/0.02113/0.02102,
+γ = 0.56/0.48/0.47 and "93–95% irreducible"; the difference between the two procedures is of the
+same order as the window spread, which is itself a consistency check.
+
+**Corrected statement:** roughly **90–94%** of the loss at 50k is irreducible, with real uncertainty
+on the exact split. The qualitative conclusion — most of the remaining loss cannot be trained away,
+so raw loss improvement flatters the apparent convergence — is robust. The precise percentage is not,
+from a 50k run. The 200k and 300k cells will constrain L_∞ far better, since the lever arm on the
+asymptote grows with run length.
+
+**Seeds genuinely differ**: γ ranges 0.40–0.55 and the reducible remainder 5.3–9.2%. This is not
+fit noise; it is real seed-to-seed variation in how fast each network approaches its own floor.
+
+**What a longer budget buys (panel c), reducible loss remaining as a % of total:**
+
+| budget | 50k | 100k | 200k | 300k | 1M |
+|---|---|---|---|---|---|
+| seed 0 | 5.3% | 3.7% | 2.6% | 2.1% | 0.9% |
+| seed 1 | 9.2% | 7.2% | 5.5% | 4.7% | 3.0% |
+| seed 2 | 7.8% | 5.8% | 4.3% | 3.6% | 2.1% |
+
+**This confirms the recommendation not to re-run at 300k.** Going 200k → 300k moves the remaining
+reducible loss from ~4.1% to ~3.5% on average — a 0.6 percentage point gain for 9 jobs of ~11 h each.
+Even 1M iterations, a 5× extension, only reaches ~2%.
