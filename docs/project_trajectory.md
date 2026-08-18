@@ -4277,3 +4277,74 @@ noise-lottery failure mode that invalidated the earlier "lowest observed loss" s
 consequence of the smaller learning rate at larger sizes. Cheap compared with the 200k budgets already
 spent — but note this reads the networks very early, before most silencing has developed (see the
 matching-level ladder: at shallow levels the M(N) exponent is k ≈ 0.9, at deep levels k ≈ 0.26).
+
+---
+
+## RESULT: silent-unit fraction at matched performance (L* = 0.023)
+
+Figure: `img/internal_figures/silent_at_threshold.png`, from
+`trainRNNbrain/experiments_and_analysis/silent_at_threshold.py`.
+
+Every size is read at its own T_N, the iteration at which its loss **stably** reaches L* = 0.023.
+"Stably" = the last time the smoothed loss is above the threshold, using a centred 2001-iteration
+mean over valid windows only. This matters: the per-iteration loss comes from a noisy forward pass,
+and a single favourable draw touches any threshold ~7× earlier than the network actually gets there,
+so a criterion applied to the raw trace fires far too early.
+
+The comparison is licensed by the floor result: L_∞ is common across a 20-fold size range to within
+0.9%, and what difference exists runs the SAFE way — larger networks sit slightly higher, so they are
+not secretly under-trained at equal loss.
+
+### The headline
+
+| N | T_N | silent, hard | silent, scale-free | ACTIVE (hard) |
+|---|---|---|---|---|
+| 100 | 32,034 ± 2,208 | **0.7 ± 0.5%** | 18.3 ± 1.7% | 99.3 ± 0.5 |
+| 500 | 37,556 ± 1,090 | **26.1 ± 1.5%** | 41.5 ± 1.3% | 369.3 ± 7.7 |
+| 1000 | 44,917 ± 541 | **50.8 ± 1.9%** | 62.6 ± 2.2% | 492.3 ± 19.0 |
+| 2000 | 56,859 | **69.0%** | 75.3% | 620.0 |
+
+**At equal task performance, a 2000-unit network has 69% of its units silent while a 100-unit network
+has 0.7%.** Same task, same loss, a hundredfold difference in the dead fraction. Budgets are
+32k–57k iterations — well inside the 200k runs, and only 1.8× spread across 20× in N.
+
+### Level dependence: the effect is real at every threshold, but its size is not
+
+Silent fraction, hard criterion:
+
+| N | L*=0.025 | L*=0.024 | L*=0.023 |
+|---|---|---|---|
+| 100 | 0.7% | 0.7% | 0.7% |
+| 500 | 5.2% | 9.9% | 26.1% |
+| 1000 | 14.6% | 27.7% | 50.8% |
+| 2000 | 34.3% | 49.9% | 69.0% |
+
+Monotone in N at every level, so the ORDERING is robust; the magnitude roughly triples from 0.025 to
+0.023. L* = 0.025 is too early to characterise the phenomenon. N=100 is pinned at 0.7% under the hard
+criterion at all three levels because its steep silencing phase does not begin until ~5×10⁴.
+
+### The M* question, and the practical argument
+
+Active-unit counts give local exponents `M ∝ N^k`:
+
+| pair | 100→500 | 500→1000 | 1000→2000 |
+|---|---|---|---|
+| k | 0.816 | 0.415 | **0.333** |
+
+Still falling, so **not yet decisively saturating** — but already so shallow that the distinction
+barely matters practically. At k = 0.333:
+
+> **Doubling the active-unit count requires an 8-fold larger network.**
+
+That is the argument for penalties in its strongest form, and it does not depend on settling the
+saturation question. Whether M(N) truly plateaus or merely crawls, buying active units by growing the
+network is prohibitively expensive — and it comes with the second cost already established: an
+unpenalised network never settles, so there is no principled iteration at which to read the count
+(silencing still moves 4–10 percentage points per budget doubling at every size).
+
+### What the pending runs decide
+
+Prediction for N=5000 at this threshold, extrapolating the last measured k: **M ≈ 841** (620 × 2.5^0.333).
+Saturation would put it near 620–700. The two remaining N=2000 seeds (~19:10 today) give that point
+real error bars; N=5000 (first seed ~00:30, remainder ~22:30 Aug 19) extends the ceiling-free range
+from 4× to 10× and settles whether k keeps falling. This section is to be updated when both land.
