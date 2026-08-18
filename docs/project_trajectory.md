@@ -4348,3 +4348,104 @@ Prediction for N=5000 at this threshold, extrapolating the last measured k: **M 
 Saturation would put it near 620–700. The two remaining N=2000 seeds (~19:10 today) give that point
 real error bars; N=5000 (first seed ~00:30, remainder ~22:30 Aug 19) extends the ceiling-free range
 from 4× to 10× and settles whether k keeps falling. This section is to be updated when both land.
+
+---
+
+# 2026-08-18 16:09 — RUNNING JOBS AND WHERE THEIR RESULTS WILL LAND
+
+Written as a hand-off: what is in flight, on which cluster, what each is meant to establish, and
+which script reads it. Three separate sweeps are running across two clusters.
+
+## The question all of this serves
+
+Silent units are not a niche artefact — at matched task performance a 2000-unit network has **69%**
+of its units silent while a 100-unit network has **0.7%** (L* = 0.023). Two things follow, and the
+running jobs are meant to nail both down:
+
+1. **Does the active-unit count M saturate with N?** Local exponents `M ∝ N^k` are k = 0.82 → 0.42 →
+   0.33 across the measured pairs — still falling, not yet decisively flat. Even if it never
+   saturates, k ≈ 1/3 means **doubling the active count costs an 8-fold larger network**, which is
+   the practical argument for penalties regardless of how the limit behaves.
+2. **Do frm/rws penalties fix it?** Both the original claim (more units stay active) and a sharper
+   one discovered along the way: an unpenalised network **never settles** — silencing still moves
+   4–10 percentage points per budget doubling at every size, so there is no principled iteration at
+   which to read the count. If penalties make that rate decay to zero, "you cannot say when to stop"
+   becomes a measured contrast rather than a complaint.
+
+## In flight
+
+### A. SPOCK — drift sweep, no penalties (arrays 5660821, 5663153)
+
+| cell | job | state at 16:09 | lands |
+|---|---|---|---|
+| N=2000 seeds 2–3 | 5660821_11,12 | running, 23.7 h | **~19:10 today** |
+| N=5000 × 3 | 5663153_13,14,15 | running, 15.8 h | seed 1 ~00:30 tonight; seeds 2–3 ~22:30 Aug 19 |
+
+Output: `~/trainRNNbrain/data/trained_RNNs/CDDM_std_g0_drift/EqType=h_N=<N>_iters=<I>/`
+Purpose: complete the M(N) curve. N=2000 currently rests on ONE seed, which carries the high end of
+every regression in the saturation analysis; N=5000 extends the ceiling-free range from 4× to 10×.
+**Pre-registered:** at L* = 0.023, extrapolating the last k predicts M(5000) ≈ 841; saturation would
+give 620–700.
+
+### B. SPOCK — penalty sweep (array 5664681, 18 jobs)
+
+2 sizes (500, 1000) × 3 conditions (rws / frm / both) × 3 seeds, 200k iterations.
+`lambda_rws = 0.05`, `lambda_frm = 0.1` — **half** the configured 0.2, because a smoke test at 0.2
+drove silent units 5 → 0 within 150 iterations, i.e. it saturates and would show the penalty works
+while revealing nothing about the dynamics.
+Output: `CDDM_std_g0_penalties/EqType=h_N=<N>_pen=<rws|frm|both>/`  Lands **~00:30 tonight**.
+Code: `~/trainRNNbrain_pen` (rsync, provenance in `CODE_VERSION.txt`, commit 4c68331).
+
+**These are the first runs carrying the new monitoring**: `loss_clean_train` (masked MSE from the
+noise-free probe, free — that forward pass already happened) and `loss_clean_valid` (same, on a
+held-out batch of interleaved coherences, cadence 50). Everything before this recorded ONLY the noisy
+training loss on a single fixed batch, with no validation anywhere in the pipeline.
+
+### C. DELLA — N=10000 (array 12599054, 3 seeds) — NEW CLUSTER FOR THIS PROJECT
+
+Pending at submission; 80,000 iterations, ~5.2 days each once started.
+Output: `~/trainRNNbrain/data/trained_RNNs/CDDM_std_g0_N10k/EqType=h_N=10000_iters=80000/`
+Code: `~/trainRNNbrain_N10k` (rsync, commit 24a0847).
+Purpose: the largest point on the M(N) curve, spanning **100 → 10,000, a factor of 100**.
+
+## Reading the results
+
+| script | what it produces |
+|---|---|
+| `silent_at_threshold.py` | THE headline: silent % at each size's stable crossing of L* |
+| `plot_M_vs_N.py` | M(N) at every rung of the matching ladder, both criteria |
+| `test_saturation.py` | formal saturating-vs-power-law test, curvature + AICc + bootstrap k |
+| `plot_silencing_trajectory.py N` | silent count vs iteration, and rate per budget doubling |
+| `plot_loss_curves.py N` | loss with power-law and stretched fits, plus residuals |
+| `fit_params_vs_N.py` | fit parameters vs size at matched fit range |
+| `test_floor_vs_N.py --logs=DIR` | floor-vs-size test; `--logs` recovers UNFINISHED runs |
+| `eval_heldout_loss.py`, `eval_noisefree_loss.py` | final-parameter evaluation, clean and held-out |
+
+**Unfinished runs are usable for anything needing only the loss**: the per-iteration loss is printed
+to SLURM stdout and parsing it reproduces the saved JSON to 5e-7. `losses_from_logs()` in
+`test_floor_vs_N.py` does this and skips runs that already completed.
+
+## Three traps that have each bitten this project more than once
+
+1. **Mismatched fit ranges manufacture trends.** Fitted L_∞ and γ both drift with the length of the
+   window they are fitted on. Comparing N=2000 (300k) against others (200k) produced a spurious
+   monotone γ, and earlier a spurious "N=100 has a lower floor". Always truncate to a common t_max.
+2. **The recorded loss is NOISY and single-batch.** Its minimum is a noise lottery — a single
+   favourable draw touches any threshold ~7× earlier than the smoothed loss. Every threshold must be
+   applied to a smoothed trace (centred 2001-iteration mean, VALID windows only; zero-padded edges
+   fake a crossing at iteration 1).
+3. **A timeout loses everything.** `ParticipationTrace.pkl` is written only when a run completes. This
+   is why N=10000 is 80k iterations rather than the requested 100k: 100k needs 6.5 days against
+   Della's 6-day `gpu-long` cap, and losing a 5-day job to a timeout costs more than the extra
+   iterations buy.
+
+## Cluster notes (differ between the two, and cost a failed submission each)
+
+- **Spock**: `--partition=all` REQUIRED. GRES names are `gpu:A100-40G:1` / `gpu:L40S-46G:1`
+  (bare `gpu:L40S:1` is rejected). No wall-time limit. `module load anacondapy/2024.02`.
+- **Della**: `--partition` is FORBIDDEN ("You specified a partition of gpu. This is not allowed").
+  Use `--constraint=gpu80` for A100-80GB and `--qos=gpu-long` for up to 6 days (gpu-short 1 d,
+  gpu-medium 3 d). `module load anaconda3/2024.6`. `$HOME=/home/pt1290`.
+- **N=10000 fits ONLY on Della**: 62.7 GB reserved, versus 47.7 GB on Spock's largest card.
+- Both worktrees are populated by **rsync, not git checkout**, so their git HEAD is stale — the
+  launchers read `CODE_VERSION.txt` instead and abort if it is missing.
