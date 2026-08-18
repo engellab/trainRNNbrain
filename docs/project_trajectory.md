@@ -4154,3 +4154,47 @@ arbitrary and simply memorised (its MSE is 0.00078, the *lowest* of any bin). Th
   variable. It just measures something narrower than it appears to.
 - **Still recommended for future runs**: log the clean masked MSE from the noise-free probe that
   `track_participation_` already performs (free), plus a held-out batch on a coarser cadence.
+
+### Size dependence of performance: deterministic effect survives, noise-tolerance claim RETRACTED
+
+Prompted by the observation that noise-on MSE appears to fall with N. Decomposing the final-parameter
+error into deterministic and noise-induced parts, then localising each to the coherence bins that
+carry the loss. Figures: `error_decomposition.png`, `lowcoh_vs_N.png`.
+
+**Noise tolerance — tested four ways, not supported.**
+
+| test | noise-excess slope / decade | p |
+|---|---|---|
+| whole task, train | −0.00112 | 0.495 |
+| whole task, held-out | −0.00314 | 0.084 |
+| 0 < \|coh\| < 0.02 (76% of the loss) | −0.00590 | 0.313 |
+| coh = 0 exactly (30 conditions) | **+0.00099** | 0.811 |
+
+Only the held-out whole-task test approaches significance, and the effect does not localise: the two
+bins that carry almost all the loss show nothing, one of them with the sign reversed. **The earlier
+statement that larger networks tolerate noise better is withdrawn** — it rested on a single p = 0.084
+result. Two successive hypotheses about where it lives (signal resolution at small coherence; then
+stability of the memorised output at coh = 0) were both stated in advance and both falsified.
+
+**Deterministic error — confirmed three ways, all monotone and same-signed.**
+
+| test | clean-error slope / decade | p |
+|---|---|---|
+| whole task, train | +0.00073 | 0.079 |
+| whole task, held-out | +0.00088 | 0.051 |
+| 0 < \|coh\| < 0.02 | +0.00338 | 0.072 |
+
+Larger networks are **worse at resolving the weakest real signal**: at |coh| = 0.015625 the clean MSE
+rises 0.04903 → 0.05487 from N=100 to N=2000 (+12%), monotonically across all four sizes. No single
+p clears 0.05, but three slices agreeing in direction and monotonicity is stronger than any one.
+
+**Consequence for M\*.** The matching variable (total noisy loss) is flat across sizes *because* it is
+dominated by the noise term, which has no size dependence — so it is a clean thing to match on. But
+the deterministic quality underneath it is NOT equal at the match point, and larger networks are the
+worse ones. If "deterministically worse" amounts to "effectively less trained", then M is inflated at
+large N, which is the direction of the no-saturation conclusion. This is a caveat on that conclusion,
+not a refutation, and it cannot be resolved without a clean-loss trajectory (see the monitoring
+recommendation: compute masked MSE from the noise-free probe `track_participation_` already runs).
+
+**Caveat throughout:** N=2000 is a single seed and sits at the end of the lever arm for every
+regression here; its other two seeds land ~19:10 today.
