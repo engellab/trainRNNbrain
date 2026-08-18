@@ -3562,3 +3562,74 @@ The 28%-per-doubling figure for `p` is a *direct measurement*, flat across the w
 fit and no assumed functional form. The metrics failed for the reasons individually documented —
 lag-dependent floors, momentum artefacts, magnitude-blindness, denominator choice — and those stand.
 What should be dropped is the tidy theoretical story that they all failed *because* of power laws.
+
+---
+
+## THE PROTOCOL: how the sizes are matched (definitive; supersedes attempts 1-7)
+
+**Criterion: train each size until its training loss reaches the same value L\*.**
+
+That is the whole rule. No convergence claim, no fit, no asymptote, no threshold inverted through a
+decay law.
+
+### Why equal loss is the right matching variable here
+
+It is right *because the floor is shared*, which was measured rather than assumed (see the
+shared-floor section: L_∞ agrees across N=100/500/1000 to within 0.3% at matched fit length, 0.1–0.9
+sd). The chain is:
+
+> shared L_∞  ⟹  equal L means equal L − L_∞  ⟹  equal distance from the achievable floor
+> ⟹  equal fraction of the trainable improvement completed.
+
+Had the floor differed with N, raw loss would have been the *wrong* variable — a network with a lower
+floor sitting at the same raw loss is further from its own optimum. The shared-floor measurement is
+what licenses the simple rule, which is why that test was worth doing.
+
+Note what is NOT needed: the *value* of L_∞ (still poorly determined, and rising with fit range), the
+functional form of the decay (power law vs stretched — unresolved and irrelevant here), and any
+statement about convergence. The rule uses only the raw loss trace.
+
+It also absorbs the learning-rate difference automatically. lr = 1e-3·(100/N)^(1/3), so N=2000 trains
+at 0.37× the rate of N=100; a slower network simply needs more iterations to reach L*, which is
+exactly what a fair matching should charge it.
+
+### The numbers
+
+| L* | N=100 | N=500 | N=1000 |
+|---|---|---|---|
+| 0.0240 | 12,167 ± 471 | 13,000 ± 408 | 16,167 ± 236 |
+| 0.0235 | 18,000 ± 1,780 | 19,500 ± 408 | 23,167 ± 943 |
+| **0.0230** | **30,000 ± 3,189** | **32,500 ± 1,080** | **37,333 ± 2,321** |
+| 0.0228 | 37,167 ± 2,248 | 40,500 ± 408 | 49,000 ± 2,041 |
+
+`matched_performance_budget()` in `plot_loss_fit.py`.
+
+### Robustness: the choice of matching method barely matters
+
+Because the loss curves nearly coincide across sizes (within 1% at equal iterations), matching on
+loss and matching on iterations give almost the same answer: T(1000)/T(100) = 1.24–1.49 and
+T(500)/T(100) = 1.07–1.28. So the M(N) comparison is not sensitive to which is used. Loss-matching is
+the principled choice; iteration-matching is a close approximation that happens to be defensible here
+but would not be in general.
+
+### Full procedure for the M* result
+
+1. **Primary comparison at L\* = 0.0230**, i.e. ~30k / 32.5k / 37.3k iterations. Read the
+   active-unit count M(N) at each size's own T_N from the stored participation traces.
+2. **Repeat at L\* = 0.0240, 0.0235, 0.0228** and confirm the saturating-versus-growing *verdict* is
+   unchanged. This is what makes the arbitrary choice of level harmless.
+3. **Also report the matched-ITERATION comparison at the common 200k budget**, as a complementary
+   view at a much later stage of training. The verdict must agree with (1)–(2); if it does not, M* is
+   budget-dependent and that is the finding.
+4. **Report both silent-unit criteria** (hard `p<1e-6` and scale-free `p<0.05·q95`), since at N=100
+   they disagree by an order of magnitude and may not agree about saturation either.
+5. **Attach two error bars to every M(N) point**: seed spread, and movement of M over the last budget
+   doubling (the sensitivity, since M itself does not converge).
+
+### What is still open
+
+- Whether the deepest matched level can be pushed below 0.0226 for all four sizes. The N=100 top-up
+  to 200k (running, ~1.5 h out) will let N=100 reach ≈0.0222 and unlock the deeper levels.
+- N=2000 (~11 h out) must satisfy the pre-registered floor prediction (L_∞ within ~0.0001 of
+  0.02135–0.02140 at t_max=200k). If it does not, the shared-floor justification fails for that size
+  and its point on the M(N) curve becomes confounded by performance.
