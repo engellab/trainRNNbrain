@@ -3359,3 +3359,55 @@ are well determined even though the absolute budget depends on which loss level 
 Implemented as `matched_performance_budget()` in
 `trainRNNbrain/experiments_and_analysis/plot_loss_fit.py`. Every number above comes from traces
 already on disk — no re-run, and the 200k budgets are ample, since matching happens at 30–50k.
+
+### Evidence that the loss floor is shared across sizes (and one caveat about its value)
+
+Figure: `img/internal_figures/shared_floor.png`, from
+`trainRNNbrain/experiments_and_analysis/plot_shared_floor.py`.
+
+**Why a naive comparison would not have settled it.** L_∞ comes from extrapolating
+`L(t) = L_∞ + A·t^(−γ)`, and that extrapolation is biased by how much data it sees — fitting a curve
+that has not yet flattened systematically *underestimates* the asymptote. N=100 had 50k iterations
+and the others 200k, so their raw L_∞ estimates are not comparable, and the apparent "N=100 has a
+lower floor" was entirely this artefact.
+
+**The controlled test.** Refit every size using only its first `t_max` iterations, so the same bias
+applies to all of them, and ask whether the estimates agree:
+
+| t_max | N=100 | N=500 | N=1000 | max pairwise diff |
+|---|---|---|---|---|
+| 20,000 | 0.01954 ± 0.00163 | 0.01905 ± 0.00143 | 0.01952 ± 0.00111 | 0.00048 (0.2 sd) |
+| 30,000 | 0.02025 ± 0.00069 | 0.02044 ± 0.00062 | 0.02036 ± 0.00056 | 0.00019 (0.2 sd) |
+| 50,000 | 0.02086 ± 0.00039 | 0.02080 ± 0.00013 | 0.02086 ± 0.00016 | 0.00007 (0.2 sd) |
+| 75,000 | — | 0.02102 ± 0.00010 | 0.02101 ± 0.00013 | 0.00001 (0.1 sd) |
+| 100,000 | — | 0.02111 ± 0.00007 | 0.02118 ± 0.00012 | 0.00007 (0.5 sd) |
+| 150,000 | — | 0.02127 ± 0.00003 | 0.02131 ± 0.00008 | 0.00004 (0.5 sd) |
+| 200,000 | — | 0.02135 ± 0.00003 | 0.02140 ± 0.00005 | 0.00005 (0.9 sd) |
+
+**At every matched data length the sizes agree to within 0.1–0.9 standard deviations.** A tenfold
+change in N moves the floor by at most 0.00005 out of 0.0214 — **under 0.3%**. The falsification test
+was explicit: if bigger networks reached a lower floor, the curves in panel (a) would separate as N
+increases. They lie on top of each other.
+
+**Honest note on the residual.** At the three largest t_max the N=1000 estimate is above N=500 every
+time (+0.00007, +0.00004, +0.00005). Individually all are ≤0.9 sd, and three same-signed differences
+from 3 seeds is not significant (p ≈ 0.25 two-tailed), but it is a consistent sign and should not be
+hidden. If real it would mean bigger networks are *marginally worse*, not better — the opposite of the
+confound we were guarding against. Either way the magnitude (<0.3%) is far too small to affect an
+M(N) comparison where the active count changes several-fold.
+
+**The caveat that does matter: the VALUE of the floor is not determined.** Panel (a) shows the
+estimate still climbing with t_max — 0.0195 → 0.0202 → 0.0209 → 0.0210 → 0.0211 → 0.0213 → 0.0214 —
+with no sign of levelling. So **L_∞ ≳ 0.0214 and rising with fit range**; quoting 0.0214 as a
+converged asymptote would be wrong, and any statement of the form "X% of the loss is irreducible"
+inherits that uncertainty (the irreducible share is a *lower* bound; the reducible share an upper
+bound).
+
+Crucially, **the shared-floor conclusion does not depend on knowing the value**, because the
+comparison is controlled: whatever bias remains applies equally to every size. That is the entire
+point of matching on t_max.
+
+**Pre-registered prediction for N=2000** (in progress, ~11 h out): refitted at t_max = 200,000 it
+should give L_∞ within about 0.0001 of the 0.02135–0.02140 that N=500 and N=1000 give. If it comes in
+materially lower, the shared-floor claim fails and the M(N) comparison becomes confounded by
+performance. Stated now, before the data exists.
