@@ -20,13 +20,23 @@
 #   N=500   -> 200000
 #   N=1000  -> 200000   (rate 0.89 units/1000 at 100k, nearly settled)
 #   N=2000  -> 300000   (rate 2.90 units/1000 at 100k, extrapolates to settle near 250-300k)
-# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..11): REP=TID%3; N_IDX=TID/3
+# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..14): REP=TID%3; N_IDX=TID/3
 # Submit ONE ARRAY PER SIZE, so the wall-time request matches the cell (--time is per array, not per
 # task, and an oversized request backfills poorly):
 #   sbatch --array=1-3   --time=4:00:00   # N=100,  runtime ~1.8 h
 #   sbatch --array=4-6   --time=15:00:00  # N=500,  runtime ~7.2 h
 #   sbatch --array=7-9   --time=16:00:00  # N=1000, runtime ~8.0 h
 #   sbatch --array=10-12 --time=40:00:00  # N=2000, runtime ~26.4 h
+#   sbatch --array=13-15 --time=72:00:00 --mem=64G  # N=5000, runtime 28 h (L40S) - 47 h (A100-40G)
+# N=5000 is memory-constrained, not just slow. Measured on an L40S: 27.5 GB allocated, 33.0 GB
+# reserved, 1.007 s/iter (vs 10.9/13.2 GB and 0.245 s/iter at N=2000). 33 GB reserved is 72% of a
+# 46 GB L40S but 82% of an A100-40G, which is why PYTORCH_CUDA_ALLOC_CONF is set below - with it the
+# reserved figure drops to 30.6 GB and BOTH card types fit, so the job need not be pinned to the
+# scarce L40S pool (11 of its 12 GPUs were busy at submission). The A100-PCIE is 1.7x SLOWER than the
+# L40S here (1.689 vs 1.007 s/iter), hence the 72 h request sized for the slow case. Its budget is 100k rather than 300k because the matched-performance comparison reads
+# each size at the iteration where its loss reaches L*, and T scales only as ~N^0.13 (40k/46k/55k
+# at N=100/500/1000 for L*=0.02273), so ~70k suffices for the current deepest rung; 100k leaves
+# margin for a deeper one once the N=100 top-up extends the common range.
 # Spock's partitions have no wall-time limit, so the long cell needs no special QOS as it does on
 # Della, where 26.4 h exceeds the gpu-short ceiling.
 #
@@ -65,6 +75,11 @@ conda activate torch-env
 
 set -eo pipefail
 export PYTHONUNBUFFERED=1
+# Keep reserved memory close to allocated. This decides whether N=5000 fits on an A100-40G at all:
+# measured peak is 27.5 GB allocated, but 33.0 GB RESERVED with the default allocator (82% of a 40 GB
+# card) versus 30.6 GB with expandable segments (72%). Purely an allocator setting - it changes how
+# CUDA memory is carved up, not the numerics - so it is set for every size rather than conditionally.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 REPO="${REPO:-$HOME/trainRNNbrain_drift}"
 SAVE_TO="${SAVE_TO:-$HOME/trainRNNbrain/data/trained_RNNs}"
@@ -79,8 +94,8 @@ if [ "$PKG" != "$REPO_REAL" ]; then
 fi
 echo "code: $PKG @ $(git -C "$REPO" rev-parse --short=7 HEAD)"
 
-NS=(100 500 1000 2000)
-ITS=(50000 200000 200000 300000)
+NS=(100 500 1000 2000 5000)
+ITS=(50000 200000 200000 300000 100000)
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); N_IDX=$((TID / 3))
 N=${NS[$N_IDX]}; IT=${ITS[$N_IDX]}

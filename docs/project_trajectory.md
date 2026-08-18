@@ -3677,3 +3677,42 @@ than a formality.
 
 **Finalise after the N=100 top-up lands**, since L_deep is currently pinned by the one short run and
 will move once it does.
+
+---
+
+## 2026-08-18 00:07 — N=5000 added to the sweep (array 5663153)
+
+**Why.** The M(N) curve currently has three points and effectively only *two* informative ones:
+N=100 sits at 98% active, pinned against the M ≤ N ceiling, so the steep first segment is partly
+forced and k(100→500) is inflated. The only ceiling-free evidence for bending is the single pair
+500→1000. N=5000 gives three ceiling-free points (1000, 2000, 5000) spanning a factor of 5 — enough
+to separate saturation from a power law, which the present data cannot do.
+
+**Feasibility was measured, not assumed** (`benchmark_large_N.py`, real training steps):
+
+| N | params | peak allocated | peak reserved | s/iter | GPU |
+|---|---|---|---|---|---|
+| 2000 | 4.0 M | 10.90 G | 13.22 G | 0.245 | L40S-46G |
+| 5000 | 25.0 M | 27.50 G | **32.98 G** | 1.007 | L40S-46G |
+| 5000 | 25.0 M | 27.50 G | **30.58 G** | 1.689 | A100-40G + expandable_segments |
+
+N=5000 is **memory-constrained, not merely slow**: 2.5× the memory and 4× the time of N=2000. At
+33 GB reserved it is 72% of an L40S but 82% of an A100-40G, and every Spock A100 is the 40 GB
+variant. Pinning to L40S was rejected because 11 of its 12 GPUs were busy — two of three seeds would
+have queued indefinitely. Instead `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` is now set in
+the launcher: it drops reserved memory to 30.6 GB (72% of the A100) so both card types fit. It is an
+allocator setting only — it changes how CUDA memory is carved up, not the numerics.
+
+Unexpected: the **A100-PCIE is 1.7× slower than the L40S** for this workload (1.689 vs 1.007 s/iter),
+so the wall-time request is sized for the slow case.
+
+**Budget: 100k iterations, not 300k.** Matched-performance reading means each size is read at the
+iteration where its loss reaches L*, and T scales only as ~N^0.13 (40k / 46k / 55k at N=100/500/1000
+for L*=0.02273), giving T(5000) ≈ 68k. 100k leaves margin for a deeper rung once the N=100 top-up
+extends the common range. Runtime 28 h (L40S) to 47 h (A100); 72 h requested.
+
+**Submitted and verified running:** array 5663153, tasks 13–15, one seed on an L40S (spockmk2-22-04)
+and two on an A100 node (spockmk2-13), all started immediately with no queueing.
+
+Launcher now carries `NS=(100 500 1000 2000 5000)` and `ITS=(50000 200000 200000 300000 100000)`;
+the size arrays remain the only place a swept parameter is varied.
