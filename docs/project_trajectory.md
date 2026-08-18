@@ -3934,3 +3934,56 @@ protocol is licensed. This is now a stated fact of the project rather than an as
 **Caveats.** N=2000 rests on one seed (two more ~19:10 today), and the range is 1.3 decades; N=5000
 extends it to 1.7 decades. The test re-runs unchanged on both, and the equivalence bound should
 tighten further.
+
+### Floor test, extended: in-progress runs recovered from logs, and the one marginal result explained
+
+**Unfinished runs are usable for anything that needs only the loss.** `TrainLosses.json` is written
+only on completion, but the per-iteration loss is printed to SLURM stdout as training goes, so an
+in-progress curve is fully recoverable. Validated before use: parsing the log of a COMPLETED run and
+comparing against its saved JSON gives a maximum difference of **5e-7**, i.e. exactly the 6-decimal
+rounding of the printout. Runs that reached their declared max_iter are skipped so the JSON copy is
+not double-counted. Implemented as `losses_from_logs()` in `test_floor_vs_N.py` (`--logs=DIR`).
+
+This adds **2 more N=2000 seeds** (222k iterations each) and brings **N=5000 into the test** at 26–49k
+iterations, extending the size range from 1.3 to 1.7 decades — today, rather than after Aug 19.
+
+| t_max | N=100 | N=500 | N=1000 | N=2000 | N=5000 | slope p | best model |
+|---|---|---|---|---|---|---|---|
+| 25k | 0.02093 | 0.02018 | 0.01992 | 0.02003 | **0.01937** | **0.051** | power law |
+| 50k | — | — | — | — | — | 0.570 | constant |
+| 100k | — | — | — | — | — | 0.633 | constant |
+| 150k | — | — | — | — | — | 0.623 | constant |
+| 200k | 0.02141 | 0.02135 | 0.02140 | **0.02142** | — | 0.922 | constant |
+
+N=2000 now rests on 3 seeds: **0.02142 ± 0.00016**, which meets the pre-registered prediction
+(within ~0.0001 of 0.02135–0.02140) more comfortably than the single-seed 0.02145 did.
+
+**The t_max = 25k anomaly is an artefact, and its mechanism is identified.** Matching the fit *length*
+does not match the fit *content*: at a fixed iteration count the sizes are not equally far along,
+because lr falls with N.
+
+| loss actually reached at iteration 25,000 | N=100 | N=500 | N=1000 | N=2000 | N=5000 |
+|---|---|---|---|---|---|
+| | 0.02322 | 0.02339 | 0.02351 | 0.02375 | 0.02406 |
+
+A bigger network is further from its floor at 25k, so its curve has flattened less, so its
+extrapolated L_∞ is biased further **downward** — which mimics precisely a floor that decreases with
+N. This corrects a claim made earlier in this document: fitting every size on the same t_max makes
+the bias common only when all sizes are near their floor. At long t_max that holds; at 25k it does not.
+
+**Control — fit each size on its own window ending at a COMMON LOSS**, so every fit sees the same
+amount of curvature rather than the same number of steps:
+
+| L* | N=100 | N=500 | N=1000 | N=2000 | N=5000 | slope p | best |
+|---|---|---|---|---|---|---|---|
+| 0.02450 | 0.01945 | 0.01767 | 0.01582 | 0.01882 | 0.01858 | 0.765 | constant |
+| 0.02420 | 0.02035 | 0.01927 | 0.01820 | 0.01953 | 0.01842 | 0.223 | constant |
+| 0.02400 | 0.02095 | 0.01941 | 0.01821 | 0.01959 | 0.01925 | 0.208 | constant |
+
+Constant wins at every level and no slope approaches significance. The estimates are noisy (sd
+0.0006–0.0034, since the windows are short), so this control has low power on its own — but it
+removes the specific artefact and does not reproduce the trend.
+
+**Verdict unchanged and now better supported: the loss floor is independent of network size.** Size
+dependence accepted at 0 of 5 matched-length fits and 0 of 3 matched-progress fits; at t_max=200k any
+change over N=100→2000 is bounded below **0.70%**.

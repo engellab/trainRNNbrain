@@ -37,7 +37,9 @@ Usage:  python test_floor_vs_N.py [SWEEP_FOLDER]
 """
 
 import os
+import re
 import sys
+import glob
 import numpy as np
 from scipy import stats
 from scipy.optimize import curve_fit
@@ -48,7 +50,41 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from plot_loss_fit import load_losses, fit_loss, IMG_DIR
 
-TMAXES = [50000, 100000, 150000, 200000]
+TMAXES = [25000, 50000, 100000, 150000, 200000]
+LOSS_RX = re.compile(r"iteration (\d+)/(\d+), train: ([0-9.eE+-]+)")
+HEAD_RX = re.compile(r"N=(\d+) iters=(\d+)")
+
+
+def losses_from_logs(logdir):
+    """Recover loss traces for runs that have not finished yet, from their SLURM stdout.
+
+    The saved TrainLosses.json is only written when a run completes, but the per-iteration loss is
+    printed to stdout as it goes, so an in-progress run's curve is fully recoverable. Verified
+    against a completed run: the parsed values match the saved JSON to 5e-7, i.e. to the 6 decimals
+    the log prints. Runs that reached their declared max_iter are SKIPPED, because those already have
+    a JSON and would otherwise be counted twice.
+
+    Args:
+        logdir: directory of StdDrift.*.out files.
+    Returns:
+        dict {N: [(tag, loss array)]} for in-progress runs only.
+    """
+    out = {}
+    for f in sorted(glob.glob(os.path.join(logdir, "*.out"))):
+        head = HEAD_RX.search(open(f, errors="ignore").read(4000))
+        if not head:
+            continue
+        N, target = int(head.group(1)), int(head.group(2))
+        tr, last = [], 0
+        for line in open(f, errors="ignore"):
+            m = LOSS_RX.search(line)
+            if m:
+                last = int(m.group(1))
+                tr.append(float(m.group(3)))
+        if not tr or last >= target:          # finished -> the JSON copy is authoritative
+            continue
+        out.setdefault(N, []).append((os.path.basename(f)[9:19] + "*", np.array(tr)))
+    return out
 
 
 def floors(by, tmax):
@@ -124,6 +160,14 @@ def main():
     sweep = ([a for a in sys.argv[1:] if not a.startswith("--")] or
              ["data/trained_RNNs/CDDM_std_g0_drift"])[0]
     by = load_losses(sweep)
+    logdir = ([a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--logs=")] or [None])[0]
+    if logdir:
+        extra = losses_from_logs(logdir)
+        for N, v in extra.items():
+            by.setdefault(N, []).extend(v)
+        print("added in-progress runs from logs: " +
+              ", ".join(f"N={N}: {len(v)} seed(s), up to {max(len(L) for _, L in v)} iters"
+                        for N, v in sorted(extra.items())))
     fig, ax = plt.subplots(1, 3, figsize=(17, 5.3))
     cols = plt.cm.plasma(np.linspace(0.1, 0.72, len(TMAXES)))
     verdicts = []
