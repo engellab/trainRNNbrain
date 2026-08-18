@@ -3633,3 +3633,47 @@ but would not be in general.
 - N=2000 (~11 h out) must satisfy the pre-registered floor prediction (L_∞ within ~0.0001 of
   0.02135–0.02140 at t_max=200k). If it does not, the shared-floor justification fails for that size
   and its point on the M(N) curve becomes confounded by performance.
+
+### How the matching levels L* are chosen (replaces the hand-picked set)
+
+The levels used in the first pass (0.0240 / 0.0235 / 0.0230 / 0.0228) were picked by eye from the
+range every size reaches. That is not a principle, and it has a concrete flaw: those four levels span
+T ≈ 12k–50k, a factor of 4 — only two doublings — so they cluster at the deep end and leave the early
+range unsampled. Four points in two doublings is over-sampling a narrow window.
+
+Two constraints fix the range, one choice fixes the spacing, and the NUMBER of levels then follows
+from the data rather than being chosen.
+
+**Constraint 1 — the deepest level is the worst final loss across all seeds.** Every seed of every
+size must actually reach L*, otherwise the comparison silently drops the seeds that did not, which is
+survivorship. Currently `L_deep = 0.02273`, set by the slowest N=100 seed — i.e. by the shortest run
+in the sweep. *(The N=100 top-up to 200k, running, removes exactly this bottleneck: it should reach
+≈0.0222, moving L_deep to ≈0.0223 and unlocking one to two deeper rungs.)*
+
+**Constraint 2 — the shallowest level must be past the transient.** Before the solution has formed,
+active-unit counts reflect initialisation rather than training. Operationalised as T ≥ 5000 for the
+slowest size. This one is a judgement call; the alternative (a fixed fraction of the total loss drop)
+was rejected because it reintroduces the arbitrary L(0) reference that sank Attempt 7.
+
+**Spacing — halve the reference size's budget at each rung.** log t is the natural axis, because
+every quantity here decays as a power of t, and because it is the same axis as the per-doubling
+sensitivity measure already in use. The reference is the largest size present.
+
+| rung | T_ref | L* | T(N=100) | T(N=500) | T(N=1000) |
+|---|---|---|---|---|---|
+| 0 | 60,400 | 0.02273 | 40,267 ± 1,543 | 46,067 ± 3,866 | 54,867 ± 3,934 |
+| 1 | 30,200 | 0.02334 | 18,733 ± 1,636 | 21,467 ± 2,217 | 26,600 ± 1,840 |
+| 2 | 15,100 | 0.02417 | 11,400 ± 816 | 12,867 ± 340 | 14,600 ± 993 |
+| 3 | 7,550 | 0.02574 | 5,067 ± 94 | 5,667 ± 189 | 6,467 ± 94 |
+
+Four rungs spanning T ≈ 5k–55k, a factor of 11 (3.5 doublings) — considerably better coverage than
+the hand-picked set, and the count is determined by the constraints rather than assumed.
+
+**Use:** compute M(N) at every rung. If the saturating-versus-growing verdict is the same across a
+factor of 11 in training time, it is not an artefact of where we chose to look. If it changes, that
+change *is* the result and must be reported as such — the first pass already showed the ratio
+M(1000)/M(500) moving from 1.64 to 1.30 across a narrower range, so this is a live possibility rather
+than a formality.
+
+**Finalise after the N=100 top-up lands**, since L_deep is currently pinned by the one short run and
+will move once it does.
