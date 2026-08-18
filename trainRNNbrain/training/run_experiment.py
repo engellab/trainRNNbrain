@@ -71,12 +71,29 @@ def run_training(cfg: DictConfig) -> None:
         trainer_target = getattr(trainer_cfg, "_target_", None)
         trainer_cls = import_any(trainer_target) if trainer_target else None
         trainer_cfg = filter_kwargs(trainer_cls, trainer_cfg) if trainer_cls else trainer_cfg
+        # Held-out validation batch for the noise-free probe: coherences INTERLEAVED with the
+        # training grid (midpoints between adjacent training values), so every condition lies inside
+        # the trained range but was never seen. Needed because same_batch=True reuses one fixed batch
+        # for the whole run, and nothing else in the pipeline separates learning from memorising it.
+        valid_batch = None
+        if cfg.trainer.get("track_valid", False):
+            vcfg = prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt)
+            cohs = sorted(float(c) for c in cfg.task.coherences)
+            vcfg.coherences = [0.5 * (cohs[i] + cohs[i + 1]) for i in range(len(cohs) - 1)]
+            vtask = hydra.utils.instantiate(vcfg)
+            vi, vt, _ = vtask.get_batch()
+            valid_batch = (torch.from_numpy(vi.astype("float32")).to(rnn_torch.device),
+                           torch.from_numpy(vt.astype("float32")).to(rnn_torch.device))
+            print(f"held-out validation batch: {len(vcfg.coherences)} coherences, "
+                  f"{vi.shape[-1]} conditions")
+
         trainer = hydra.utils.instantiate(
             trainer_cfg,
             RNN=rnn_torch,
             Task=task,
             optimizer=opt,
             monitor=monitor,
+            valid_batch=valid_batch,
             _convert_="none",
         )
 

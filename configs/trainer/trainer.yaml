@@ -15,6 +15,12 @@ track_participation: False  # log per-unit participation during training (see tr
 track_every: 10             # iterations between probes (a noise-free forward pass, ~3 pct overhead)
 store_participation_every: 100   # how often the FULL per-unit participation vector is stored; the
                                  # scalar metrics are recorded at every probe. Only bulky item.
+track_valid: False           # evaluate the noise-free probe on a HELD-OUT batch too (coherences
+                            # interleaved with the training grid). Costs one extra forward pass per
+                            # probe; the training-batch clean loss is free either way.
+track_valid_every: 50        # iterations between held-out evaluations (its own cadence:
+                            # the held-out batch is ~as large as the training one, so probing it
+                            # every track_every would cost ~18% of runtime for no added resolution)
 track_drift: False              # weight drift + directional persistence (W_inp, W_rec, W_out).
                                  # Nothing about the weights is written to disk: reference snapshots
                                  # live in CPU RAM and everything is reduced to scalars on the fly.

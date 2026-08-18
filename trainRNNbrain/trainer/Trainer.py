@@ -360,12 +360,21 @@ class Trainer():
                  store_participation_every=None,
                  track_drift=False,
                  drift_lags=(100, 1000, 10000),
+                 valid_batch=None,
+                 track_valid_every=50,
                  max_grad_norm=10.0):
         self.RNN = RNN
         self.Penalties = Penalties(RNN=self.RNN) # dataclass containing all the penalty methods
         self.max_sigma_rec = self.RNN.sigma_rec
         self.max_sigma_inp = self.RNN.sigma_inp
         self.Task = Task
+        # (inputs, target) held-out batch for the noise-free validation probe, or None. Supplied by
+        # run_experiment so the Trainer stays task-agnostic.
+        self.valid_batch = valid_batch
+        # The held-out batch is nearly as large as the training one, so evaluating it at the
+        # participation cadence costs ~18% of runtime. It changes far too slowly to need that
+        # resolution, hence its own coarser cadence.
+        self.track_valid_every = track_valid_every
         self.optimizer = optimizer
         self.monitor = monitor
         self.max_iter = max_iter
@@ -614,12 +623,17 @@ class Trainer():
         fr = fr.reshape(fr.size(0), -1)  # (N, T*B)
         return fr.std(dim=1, unbiased=False) + torch.quantile(fr.abs(), 0.9, dim=1)
 
-    def track_participation_(self, input_batch, iter):
+    def track_participation_(self, input_batch, iter, target_batch=None, mask=None):
         """
         Probe the network and record training diagnostics, reducing everything to scalars on the fly.
 
         Recorded at every probe (into monitor["metrics"], aligned to monitor["iters"]):
           silent_1em6                  number of units with participation < 1e-6
+          loss_clean_train             masked MSE of the SAME noise-free probe on the training batch
+          loss_clean_valid             the same on a held-out batch, if valid_batch was supplied.
+                                       Recorded on its own coarser cadence (track_valid_every), so
+                                       it is NOT aligned with monitor["iters"] - it has its own
+                                       index, spaced track_valid_every apart.
           dp_lag<L>                    ||p(t) - p(t-L)|| / ||p(t)||, the participation vector's
                                        relative change over lag L
           norm_<W>                     ||W(t)||_F, so a rising drift_<W> can be attributed to the
@@ -640,12 +654,28 @@ class Trainer():
         mon = self.participation_monitor
         with torch.no_grad():
             # w_noise=False so the trace is comparable to the offline (noise-free) analysis
-            states, _ = self.RNN(input_batch, w_noise=False, dropout=False, dropout_args=None)
+            states, out_clean = self.RNN(input_batch, w_noise=False, dropout=False, dropout_args=None)
             p = self.participation_from_states_(states)
 
         mon["iters"].append(int(iter))
         met = mon["metrics"]
         met["silent_1em6"].append(float((p < 1e-6).sum()))
+
+        # Deterministic loss, free: this forward pass already happened for the participation probe.
+        # The loss recorded every iteration during training is NOISY (train_step uses w_noise=True),
+        # so its minimum is a noise lottery and it cannot separate "learned" from "got a good draw".
+        # The clean loss can. A held-out batch is evaluated too when one was supplied, because with
+        # same_batch=True nothing else in the pipeline distinguishes learning from memorising the
+        # 450 fixed trials.
+        if target_batch is not None and mask is not None:
+            with torch.no_grad():
+                met["loss_clean_train"].append(
+                    float(((out_clean[:, mask, :] - target_batch[:, mask, :]) ** 2).mean()))
+                if self.valid_batch is not None and iter % self.track_valid_every == 0:
+                    vi, vt = self.valid_batch
+                    _, vout = self.RNN(vi, w_noise=False, dropout=False, dropout_args=None)
+                    met["loss_clean_valid"].append(
+                        float(((vout[:, mask, :] - vt[:, mask, :]) ** 2).mean()))
 
         if iter % self.store_participation_every == 0:
             mon["participation"].append(p.cpu().numpy().astype("float32"))
@@ -824,7 +854,8 @@ class Trainer():
                 target_batch = torch.from_numpy(target_batch.astype("float32")).to(self.RNN.device)
 
             if self.track_participation and (iter % self.track_every == 0):
-                self.track_participation_(input_batch, iter)
+                self.track_participation_(input_batch, iter,
+                                          target_batch=target_batch, mask=train_mask)
 
             train_loss, r2 = self.train_step(input=input_batch,
                                          target_output=target_batch,
