@@ -48,13 +48,24 @@ def load_losses(sweep):
     Returns:
         dict {N (int): list of (tag, loss array)} with loss indexed from iteration 1.
     """
-    out = {}
+    # Keep only the LONGEST run per size: N=100 exists at both 50k and 200k, and pooling them would
+    # treat the same size at two budgets as if it were six seeds at one.
+    files = {}
     for f in sorted(glob.glob(os.path.join(sweep, "*", "*", "*TrainLosses.json"))):
         m = re.search(r"_N=(\d+)_iters=(\d+)", f)
-        if not m:
+        if m:
+            files.setdefault((int(m.group(1)), int(m.group(2))), []).append(f)
+    best = {}
+    for (N, iters) in files:
+        if iters >= best.get(N, -1):
+            best[N] = iters
+    out = {}
+    for (N, iters), fs in sorted(files.items()):
+        if iters != best[N]:
             continue
-        L = np.array(json.load(open(f))["train_losses"], dtype=float)
-        out.setdefault(int(m.group(1)), []).append((os.path.basename(f)[:9], L))
+        for f in fs:
+            L = np.array(json.load(open(f))["train_losses"], dtype=float)
+            out.setdefault(N, []).append((os.path.basename(f)[:9], L))
     return out
 
 

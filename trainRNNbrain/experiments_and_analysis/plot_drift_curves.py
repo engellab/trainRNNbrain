@@ -64,16 +64,27 @@ def load_traces(sweep):
         dict {N (int): list of trace dicts}, each trace as written by Trainer (keys `iters`,
         `participation`, `participation_iters`, `metrics`).
     """
-    out = {}
+    # A size can appear at more than one budget (N=100 was run at 50k and again at 200k). Keep only
+    # the LONGEST run per size, otherwise the two would be pooled as if they were extra seeds.
+    files = {}
     for f in sorted(glob.glob(os.path.join(sweep, "*", "*", "*ParticipationTrace.pkl"))):
         m = re.search(r"_N=(\d+)_iters=(\d+)", f)
-        if not m:
+        if m:
+            files.setdefault((int(m.group(1)), int(m.group(2))), []).append(f)
+    best = {}
+    for (N, iters) in files:
+        if iters >= best.get(N, -1):
+            best[N] = iters
+    out = {}
+    for (N, iters), fs in sorted(files.items()):
+        if iters != best[N]:
             continue
-        with open(f, "rb") as fh:
-            tr = pickle.load(fh)
-        lf = glob.glob(os.path.join(os.path.dirname(f), "*TrainLosses.json"))
-        tr["loss"] = np.array(json.load(open(lf[0]))["train_losses"], dtype=float) if lf else None
-        out.setdefault(int(m.group(1)), []).append(tr)
+        for f in fs:
+            with open(f, "rb") as fh:
+                tr = pickle.load(fh)
+            lf = glob.glob(os.path.join(os.path.dirname(f), "*TrainLosses.json"))
+            tr["loss"] = np.array(json.load(open(lf[0]))["train_losses"], dtype=float) if lf else None
+            out.setdefault(N, []).append(tr)
     return out
 
 
