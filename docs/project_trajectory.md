@@ -3282,3 +3282,80 @@ the structural reason to prefer it.
 say "the optimisation is essentially complete"). Do not use it to choose the budget. And note that
 even a perfectly well-defined loss criterion would still answer the wrong question here, since the
 loss finishes long before the statistic being published does.
+
+---
+
+## 2026-08-17 22:2x — N=1000 complete, a retraction, and the comparability problem SOLVED
+
+### Retraction: the N=1000 seed spread was a reading error
+
+An earlier note in this conversation reported N=1000 losses of 0.0178 / 0.0222 / 0.0251, called the
+seed spread "~700× wider than N=500", and inferred that the loss floor is not universal across sizes.
+**All of that is wrong.** Those numbers were read from the tail of the SLURM log, which prints the
+*instantaneous single-batch* loss — pure noise around the true value. The smoothed losses are
+0.02225 / 0.02235 / 0.02232, a spread of **0.4%**, and the fitted floors are
+0.02135 / 0.02138 / 0.02147.
+
+### The three sizes share one floor
+
+| N | L_∞ | γ | seed spread in L_∞ | L(T) | reducible left |
+|---|---|---|---|---|---|
+| 100 (50k) | 0.02086 ± 0.00039 | 0.47 ± 0.06 | 4.5% | 0.02266 | 5.3–9.2% |
+| 500 (200k) | 0.02135 ± 0.00003 | 0.52 ± 0.01 | 0.3% | 0.02222 | 3.0–3.2% |
+| 1000 (200k) | **0.02140 ± 0.00005** | 0.54 ± 0.01 | 0.6% | 0.02225 | 2.9–3.3% |
+
+L_∞ agrees to **0.2%** between N=500 and N=1000. N=100's slightly lower estimate is inside its own
+much larger uncertainty and is a short-run artefact. A single task-imposed floor at ≈ **0.0214**
+governs every size: 10× the units buys no better performance.
+
+### Loss at matched budgets — the curves nearly coincide
+
+| budget | N=100 | N=500 | N=1000 |
+|---|---|---|---|
+| 10,000 | 0.02460 ± 0.00008 | 0.02470 ± 0.00017 | 0.02484 ± 0.00005 |
+| 20,000 | 0.02350 ± 0.00008 | 0.02354 ± 0.00028 | 0.02369 ± 0.00011 |
+| 50,000 | 0.02266 ± 0.00005 | 0.02273 ± 0.00006 | 0.02284 ± 0.00006 |
+| 100,000 | — | 0.02237 ± 0.00003 | 0.02250 ± 0.00003 |
+| 200,000 | — | 0.02222 ± 0.00004 | 0.02225 ± 0.00002 |
+
+Bigger networks are *very slightly* behind at equal iterations — consistent with their smaller
+learning rate — but the gap is under 1%.
+
+### THE ANSWER: match on performance, not on iterations
+
+Comparability does **not** require convergence, and the previous seven attempts failed because they
+all tried to answer the harder question. The tractable question is: *when is each size equally good
+at the task?* Read the iteration at which each size first reaches a chosen loss:
+
+| target loss | N=100 | N=500 | N=1000 | T(1000)/T(100) |
+|---|---|---|---|---|
+| 0.0250 | 6,500 ± 707 | 8,333 ± 236 | 9,667 ± 236 | 1.49 |
+| 0.0240 | 12,167 ± 471 | 13,000 ± 408 | 16,167 ± 236 | 1.33 |
+| 0.0235 | 18,000 ± 1,780 | 19,500 ± 408 | 23,167 ± 943 | 1.29 |
+| 0.0230 | 30,000 ± 3,189 | 32,500 ± 1,080 | 37,333 ± 2,321 | 1.24 |
+| 0.0228 | 37,167 ± 2,248 | 40,500 ± 408 | 49,000 ± 2,041 | 1.32 |
+| 0.0226 | not reached | 59,500 ± 3,342 | 64,333 ± 2,656 | — |
+| 0.0224 | not reached | 78,667 ± 4,989 | 106,833 ± 7,663 | — |
+
+**Why this works where everything else failed.** It needs no fit, no L_∞, no asymptote, no threshold
+inverted through a power law, and no claim that anything has converged. It is simply: *compare
+networks that are equally good at the task.* It also absorbs the learning-rate difference
+automatically — a network trained at lower lr just needs more iterations to reach the same loss,
+which is exactly what a fair matching should charge it.
+
+**The ratios are stable**, which is the property that matters: T(500)/T(100) = 1.07–1.28 and
+T(1000)/T(100) = 1.24–1.49 across the whole usable range of target losses. So the *relative* budgets
+are well determined even though the absolute budget depends on which loss level is chosen.
+
+**Recipe for the M\* comparison.**
+1. Choose a target loss every size reaches with margin — **0.0230** is a good default (all sizes,
+   ~30–37k iterations, comfortably inside every run).
+2. Read M(N) — the active-unit count — at each size's own T_N for that target.
+3. Repeat at several target losses (0.0240, 0.0235, 0.0230, 0.0228) and confirm the
+   saturating-versus-growing **verdict** is unchanged. That is the robustness check that makes the
+   arbitrary choice of level harmless.
+4. Report alongside each M(N) its movement per budget doubling, as the sensitivity.
+
+Implemented as `matched_performance_budget()` in
+`trainRNNbrain/experiments_and_analysis/plot_loss_fit.py`. Every number above comes from traces
+already on disk — no re-run, and the 200k budgets are ample, since matching happens at 30–50k.

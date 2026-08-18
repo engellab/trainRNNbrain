@@ -160,6 +160,35 @@ def plot_for_N(entries, N, out):
     return rows
 
 
+def matched_performance_budget(by_n, targets):
+    """Iteration at which each network size first reaches a given training loss.
+
+    This is the answer to "how do I train different sizes comparably". It sidesteps convergence
+    entirely: rather than asking whether any size has finished, it asks when each size is EQUALLY
+    GOOD AT THE TASK, and compares them there. It needs no fit, no L_inf, no asymptote, and no
+    threshold that gets inverted through a power law. It also absorbs the learning-rate difference
+    across sizes automatically — a network trained at a lower lr simply needs more iterations to
+    reach the same loss, which is exactly what a fair matching should charge it.
+
+    Args:
+        by_n: {N: [(tag, loss array)]}; targets: iterable of loss levels to match at.
+    Returns:
+        {(N, target): (mean_iter, sd_iter)}, missing where a size never reaches that loss.
+    """
+    out = {}
+    for N, entries in by_n.items():
+        for tg in targets:
+            its = []
+            for _, L in entries:
+                ts = np.arange(2000, len(L), 500)
+                sm = np.array([L[max(t - max(int(0.02 * t), 50), 0):t].mean() for t in ts])
+                hit = ts[sm <= tg]
+                its.append(hit[0] if len(hit) else np.nan)
+            if not np.isnan(its).any():
+                out[(N, tg)] = (float(np.mean(its)), float(np.std(its)))
+    return out
+
+
 def compare_sizes(by_n, out):
     """Overlay the loss curves and fits of every network size, colour-coded by N.
 
