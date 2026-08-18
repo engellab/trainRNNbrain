@@ -3987,3 +3987,39 @@ removes the specific artefact and does not reproduce the trend.
 **Verdict unchanged and now better supported: the loss floor is independent of network size.** Size
 dependence accepted at 0 of 5 matched-length fits and 0 of 3 matched-progress fits; at t_max=200k any
 change over N=100→2000 is bounded below **0.70%**.
+
+### Correction: L_inf is model-dependent and the model is wrong — restate the floor result model-free
+
+Fitting one N=1000 seed at four cut-offs gives L_inf = 0.01887 / 0.02070 / 0.02106 / 0.02135 and
+gamma = 0.35 / 0.47 / 0.50 / 0.53 for t_max = 25k / 50k / 100k / 200k. Both parameters drift
+**monotonically** with the fit window. A correctly specified model gives estimates that scatter about
+the truth; ones that march in one direction mean the functional form is wrong. This is the same
+misspecification found independently from the local exponent (gamma_eff rising 0.3 -> 0.8), reached
+here from the opposite direction. Figure: `img/internal_figures/tmax_explainer.png`.
+
+**Consequences.**
+
+*Drop:* the absolute value of L_inf, and everything derived from it — including the repeated claim
+that "93–96% of the loss is irreducible". That figure is model-dependent and should not appear
+anywhere.
+
+*Keep, restated without any fit:* the lowest loss each size actually reached —
+
+| N | 100 | 500 | 1000 | 2000 |
+|---|---|---|---|---|
+| best loss reached | **0.02211** | 0.02222 | 0.02225 | 0.02227 |
+
+No larger network achieves a lower loss than the smallest. No extrapolation, no functional form.
+
+*Why the fitted comparison also survives:* the bias direction is known — less progress gives a lower
+fitted L_inf. At t_max = 200k, N=100 is ahead (loss 0.02211) while every larger size is behind
+(0.02222–0.02234), so the larger networks' L_inf estimates are biased **downward relative to N=100**.
+They nonetheless come out equal. Correcting the misspecification would raise the large-N floors,
+i.e. move further from "bigger reaches lower". The misspecification cannot be manufacturing the null.
+
+*Unresolved:* whether a much longer run would let a large network overtake N=100. Extrapolation
+cannot answer it; only training longer can. The residual gaps are 0.0001–0.0002, far too small to
+move any M(N) conclusion.
+
+*Unaffected:* the matched-performance protocol, which never used L_inf — it reads raw loss only, and
+the shared-floor fact it relies on is now established without the fit.
