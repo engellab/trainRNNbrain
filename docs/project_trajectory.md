@@ -3164,3 +3164,66 @@ fit noise; it is real seed-to-seed variation in how fast each network approaches
 **This confirms the recommendation not to re-run at 300k.** Going 200k → 300k moves the remaining
 reducible loss from ~4.1% to ~3.5% on average — a 0.6 percentage point gain for 9 jobs of ~11 h each.
 Even 1M iterations, a 5× extension, only reaches ~2%.
+
+---
+
+## 2026-08-17 21:5x — N=500 complete: five times the units, identical loss
+
+All 3 N=500 seeds finished (200k iterations, r² 0.867–0.873). Figures:
+`img/internal_figures/loss_fit_N500.png` and `loss_fit_compare.png`.
+
+### The loss curves are indistinguishable from N=100
+
+| budget | N=100 | N=500 |
+|---|---|---|
+| 5,000 | 0.02564 ± 0.00032 | 0.02629 ± 0.00026 |
+| 10,000 | 0.02460 ± 0.00008 | 0.02470 ± 0.00017 |
+| 20,000 | 0.02350 ± 0.00008 | 0.02354 ± 0.00028 |
+| 50,000 | 0.02266 ± 0.00005 | 0.02273 ± 0.00006 |
+| 100,000 | — | 0.02237 ± 0.00003 |
+| 200,000 | — | 0.02222 ± 0.00004 |
+
+At every matched budget the two sizes agree to within about one standard deviation, and where they
+differ at all it is **N=100 that is marginally lower**. r² agrees too (N=100: 0.870/0.873/0.898;
+N=500: 0.867/0.871/0.873). Panel (a) of `loss_fit_compare.png` shows the curves lying on top of each
+other over the whole overlapping range.
+
+**Five times the units buys exactly nothing in task performance.**
+
+### The fits, and why the N=500 ones are the trustworthy ones
+
+| | L_∞ | γ | seed spread in L_∞ | L_∞ spread across fit windows |
+|---|---|---|---|---|
+| N=100 (50k) | 0.02086 ± 0.00039 | 0.47 ± 0.06 | 4.5% | 3.2–7.1% |
+| N=500 (200k) | **0.02135 ± 0.00003** | 0.52 ± 0.01 | **0.3%** | 1.5–2.4% |
+
+The prediction made when only N=100 was available — that a longer run would pin L_∞ far better —
+held: the seed spread is **15× tighter** at N=500 and the fit-window spread roughly halved. The two
+L_∞ estimates are consistent with a single common floor of **≈ 0.0213**; the lower N=100 value is
+within its own (large) uncertainty and is most likely biased by extrapolating from a 4× shorter run.
+
+At 200k, N=500 has **3.0–3.2%** of its loss still reducible.
+
+### Why this matters for M*
+
+If both sizes sit at the same floor, then **every network in this sweep is over-parameterised** —
+the task's capacity requirement is already met at N=100, and probably well below. That reframes the
+silent-unit phenomenon: silencing is what training does with capacity it does not need.
+
+But it does *not* imply the network collapses down to the needed capacity. The earlier
+population-distortion analysis measured **574 active units at N=1000** (h, no penalty), versus ~97 at
+N=100 — so the active count grows several-fold with N while task performance does not improve at all.
+If that holds up when the N=1000 drift cell lands (which is the matched-protocol version of the same
+measurement, so it must be re-checked rather than assumed), the sharpened statement is:
+
+> the number of active units is not set by what the task requires — it is set by the network's own
+> size and its optimisation dynamics, and the surplus units contribute nothing measurable.
+
+That is a stronger and more interesting claim than "some units go silent", and it is testable
+against exactly the M(N) curve this sweep produces.
+
+**Caveat to carry:** the loss compared here is the *training* loss, which includes the injected noise,
+so L_∞ is a genuine stochastic floor rather than an optimisation failure. That is the correct
+interpretation of "both sizes are at the floor", but it also means the loss cannot distinguish
+networks once they are both at it — which is precisely why the M(N) comparison has to be made on
+active-unit counts and not on performance.

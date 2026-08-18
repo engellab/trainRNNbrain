@@ -160,6 +160,57 @@ def plot_for_N(entries, N, out):
     return rows
 
 
+def compare_sizes(by_n, out):
+    """Overlay the loss curves and fits of every network size, colour-coded by N.
+
+    The comparison that matters is whether L_inf — the loss the task allows at all — improves with
+    N. If it does not, the extra units are not buying task performance, which bears directly on the
+    M* question.
+
+    Args:
+        by_n: {N: [(tag, loss array)]}; out: output png path.
+    """
+    fig, ax = plt.subplots(1, 3, figsize=(17, 5.2))
+    Ns = sorted(by_n)
+    cols = plt.cm.plasma(np.linspace(0.1, 0.7, len(Ns)))
+    for k, N in enumerate(Ns):
+        Lis, gs = [], []
+        for j, (tag, L) in enumerate(by_n[N]):
+            t = np.arange(1, len(L) + 1, dtype=float)
+            Li, A, g = fit_loss(L, FIT_STARTS[0])
+            Lis.append(Li)
+            gs.append(g)
+            tb, yb = logbin(t[t >= FIT_STARTS[0]], L[t >= FIT_STARTS[0]])
+            ax[0].plot(tb, yb, "-", color=cols[k], lw=1.4, alpha=.85,
+                       label=f"N={N}" if j == 0 else None)
+            ax[1].plot(tb, np.maximum(yb - Li, 1e-9), "-", color=cols[k], lw=1.4, alpha=.85,
+                       label=f"N={N}" if j == 0 else None)
+            ax[2].plot(BUDGETS, [100 * A * b ** (-g) / (Li + A * b ** (-g)) for b in BUDGETS],
+                       "-o", color=cols[k], ms=4, alpha=.85,
+                       label=f"N={N}" if j == 0 else None)
+        ax[0].axhline(np.mean(Lis), color=cols[k], ls=":", lw=1.2)
+        print(f"  N={N:5d}  L_inf = {np.mean(Lis):.5f} +- {np.std(Lis):.5f}   "
+              f"gamma = {np.mean(gs):.2f} +- {np.std(gs):.2f}   "
+              f"(seed spread in L_inf: {100*(max(Lis)-min(Lis))/np.mean(Lis):.1f}%)")
+    ax[0].set(xscale="log", xlabel="iteration", ylabel="training loss (log-binned median)",
+              ylim=(0.019, 0.032))
+    ax[0].set_title("(a) loss curves, all sizes\ndotted = fitted asymptote $L_\\infty$")
+    ax[1].set(xscale="log", yscale="log", xlabel="iteration", ylabel=r"$L(t)-L_\infty$")
+    ax[1].set_title("(b) excess over each size's own asymptote")
+    ax[2].set(xscale="log", xlabel="training budget (iterations)",
+              ylabel="reducible loss remaining (% of total)")
+    ax[2].set_title("(c) what a longer budget would buy")
+    for a in ax:
+        if a.get_legend_handles_labels()[1]:
+            a.legend(fontsize=9)
+        a.grid(alpha=.25)
+    fig.suptitle("Training loss across network sizes: does a bigger network reach a lower floor?",
+                 fontsize=12)
+    fig.tight_layout(rect=[0, 0, 1, 0.90])
+    fig.savefig(out, dpi=150)
+    print(f"wrote {out}")
+
+
 def main():
     """Fit and plot the loss decomposition for every network size in the sweep."""
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -169,6 +220,9 @@ def main():
         sys.exit(f"no TrainLosses under {sweep}")
     for N in sorted(by_n):
         plot_for_N(by_n[N], N, os.path.join(IMG_DIR, f"loss_fit_N{N}.png"))
+    if len(by_n) > 1:
+        print("\n  Across sizes:")
+        compare_sizes(by_n, os.path.join(IMG_DIR, "loss_fit_compare.png"))
 
 
 if __name__ == "__main__":
