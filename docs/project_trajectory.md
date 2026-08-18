@@ -3462,3 +3462,50 @@ Two consequences.
 **Caveat.** Part of the late steepening could be an edge effect: the last points of panel (b) sit
 below their fitted line, and they are the ones nearest the end of the trace. The N=2000 run (300k)
 gives a longer lever arm and will show whether the drift continues or flattens.
+
+### The local exponent: the loss is NOT a single power law, and earlier extrapolations were pessimistic
+
+Figure: `img/internal_figures/local_exponent.png`, from
+`trainRNNbrain/experiments_and_analysis/plot_local_exponent.py`. This measures
+`gamma_eff(t) = −d log D / d log t` for `D(t) = L(t/2) − L(t)`, in a sliding factor-4 window — a
+local slope, using no L_∞ anywhere.
+
+| N | t=8k | t=15k | t=30k | t=60k | t=120k | t=180k |
+|---|---|---|---|---|---|---|
+| 100 | 0.411 ± 0.069 | 0.459 ± 0.097 | 0.727 ± 0.041 | — | — | — |
+| 500 | 0.315 ± 0.095 | 0.484 ± 0.073 | 0.636 ± 0.083 | 0.672 ± 0.142 | 0.860 ± 0.203 | 0.960 ± 0.265 |
+| 1000 | 0.324 ± 0.095 | 0.608 ± 0.032 | 0.601 ± 0.075 | 0.685 ± 0.068 | 0.799 ± 0.116 | 0.668 ± 0.212 |
+
+**It is not an edge effect.** The figure was built to make that distinction: an artefact would show
+gamma_eff flat until the last few points, whereas a real steepening shows it rising smoothly through
+the middle. It rises monotonically across the whole span, roughly **0.3 → 0.8**, from t = 8k to
+t = 120k. Nor can noise produce it: noise in log D adds variance to the slope estimate but no
+systematic steepening.
+
+**The sizes agree** (panel c, bands overlap throughout), so the *shape* of the decay is
+size-independent — consistent with everything else about the shared trajectory.
+
+**Consequence 1 — this explains two earlier puzzles at once.** A fixed-γ fit forced onto a steepening
+decay must compensate by pushing L_∞ down, which is exactly why the estimated floor kept rising with
+fit range, and why the three-parameter γ sat ~0.07 below the L_∞-free estimate. Both are one
+misspecification: the model `L_∞ + A·t^(−γ)` has a constant exponent and the data do not.
+
+**Consequence 2 — the pessimistic extrapolations in this document should be softened.** Every "you
+would need N million iterations" estimate assumed a fixed γ ≈ 0.5, and a decay that steepens beats a
+fixed power law by a growing margin. Concretely, halving the remaining reducible loss costs
+`2^(1/γ)` in extra training: **4× at γ = 0.5, but only 2.2× at γ = 0.9**. The following claims are
+therefore upper bounds, probably substantial ones, and should not be quoted as-is:
+- "a 1% criterion extrapolates to 0.5–5.6 M iterations"
+- "T(f = 1% of amplitude) = 233k–355k"
+- the panel-(c) budget projections in `loss_fit_N*.png`
+
+**What does NOT change.** The shared-floor conclusion, because it was established by a *matched*
+comparison in which any misspecification applies equally to every size. The performance-matching
+recipe for T(N), because it uses no fit at all. And the fact that participation keeps moving after
+the loss has effectively settled, since that rests on measured per-doubling movement, not on
+extrapolation.
+
+**Open.** The functional form is unidentified — a steadily rising log-log slope is consistent with a
+stretched exponential or similar, but this run does not have the range to pin it down, and it is not
+needed for any current conclusion. The N=2000 300k trace extends the lever arm by another 0.2 decades
+and will show whether gamma_eff keeps climbing or levels near 1.
