@@ -4023,3 +4023,72 @@ move any M(N) conclusion.
 
 *Unaffected:* the matched-performance protocol, which never used L_inf — it reads raw loss only, and
 the shared-floor fact it relies on is now established without the fit.
+
+---
+
+## 2026-08-18 13:00 — Audit of what "loss" actually means here, and a confound it exposes
+
+Prompted by the question of whether the "lowest achievable loss" statistic was measuring anything
+real. It was not, and checking the code turned up three facts plus one genuine confound.
+
+### What the recorded loss is
+
+1. **There is no validation set.** `Trainer.run_training` creates `val_losses`, never appends to it,
+   and returns it empty; `run_experiment.py` saves that empty list. **Every loss number in this
+   project is a training loss.**
+2. **`same_batch=True`**: one fixed 450-condition batch is drawn once and reused for all 200k
+   iterations. No batch resampling.
+3. **The recorded loss comes from a NOISY forward pass** (`train_step` uses `w_noise=True`), so the
+   only iteration-to-iteration variation is injected noise plus the weights moving.
+
+**Consequence: the earlier "median of the 101 lowest losses" statistic is retracted.** Both it
+(~0.0155) and the smoothed loss (~0.0221) are noisy training losses — the gap between them is the
+lower tail of the noise distribution versus its mean, not noise-free versus noisy. Taking the minimum
+of a noisy series is a noise lottery whose winner depends on how many draws the run had, so it is not
+a property of the trained network at all.
+
+### The well-defined replacement: noise-free loss of the final parameters
+
+Deterministic, one number per seed (`eval_noisefree_loss.py`). Decomposed against the noisy loss in
+the SAME implementation so the split is internally consistent:
+
+| N | clean MSE | noisy MSE | noise share | n |
+|---|---|---|---|---|
+| 100 | 0.00851 | 0.03036 | 72.0% | 3 |
+| 500 | 0.00851 | 0.03062 | 72.2% | 3 |
+| 1000 | 0.00907 | 0.02952 | 69.3% | 3 |
+| 2000 | 0.00991 | 0.03046 | 67.5% | 1 |
+
+### The confound this exposes
+
+**The noisy loss is flat across sizes (0.0295–0.0306, no trend) while the clean loss rises
+monotonically, +16% from N=100 to N=2000.** Two effects cancel: bigger networks average injected
+noise better across the readout (noise share 72.0% → 67.5%) but fit the deterministic task worse.
+
+So **matching on training loss is not the same as matching on deterministic task performance.** At
+equal noisy loss a larger network has systematically higher clean error. If that reflects being less
+well fit, it biases the M(N) comparison in exactly the dangerous direction: a less-trained large
+network is less silenced, M is inflated, and the result leans toward "no saturation" — the conclusion
+we drew.
+
+**This is not yet resolvable from existing data.** Clean loss can only be evaluated where weights
+were saved, i.e. at the final parameters, so there is one point per run and no clean-loss trajectory
+to match on.
+
+**Cheap fix for future runs:** `track_participation_` already performs a noise-free forward pass every
+`track_every` iterations. Computing the masked MSE from that same pass costs essentially nothing and
+would give a noise-free loss trajectory, making the whole matching protocol re-runnable on the clean
+quantity.
+
+### Two further audit findings
+
+- **The folder score is a single noise draw.** `run_experiment.py:119` calls
+  `eval_step(..., noise=True)` once. Across 30 noise realisations that quantity has sd 0.0085 and
+  range 0.818–0.854, so the saved r2 carries about +-0.02 of pure noise and should not be used as a
+  performance measure.
+- **Torch and numpy noisy evaluations disagree by ~4 sd.** One N=100 net: numpy gives
+  r2 = 0.8395 +- 0.0085 over 30 draws, the torch-recorded score is 0.8737. The noise scaling formula
+  is identical in both (`sqrt(2/alpha)*sigma`), so the cause is elsewhere and is not yet identified.
+  The M(N) pipeline is unaffected (participation traces and loss curves are torch-native), but the
+  numpy-based offline analyses — `population_distortion.py` in particular — carry an unquantified
+  offset.
