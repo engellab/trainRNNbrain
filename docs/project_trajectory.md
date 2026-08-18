@@ -3509,3 +3509,56 @@ extrapolation.
 stretched exponential or similar, but this run does not have the range to pin it down, and it is not
 needed for any current conclusion. The N=2000 300k trace extends the lever arm by another 0.2 decades
 and will show whether gamma_eff keeps climbing or levels near 1.
+
+### Where did "power law" come from? A correction to the framing used throughout this document
+
+**Direct answer: the loss decay is NOT a power law, and this project's own data rejects it.** The
+form `L = L_∞ + A·t^(−γ)` was an assumption introduced during this analysis, not a result. It was
+never established here, and the local-exponent measurement falsifies the constant-exponent version:
+a power law requires gamma_eff(t) to be flat, and it climbs 0.3 → 0.8.
+
+**Why it was a reasonable first guess.** Near a minimum, gradient descent on a quadratic decays each
+Hessian eigendirection as `exp(−η·λ_i·t)`. A network has a *broad spectrum* of curvatures, and a sum
+of exponentials with a power-law-distributed set of rates looks like a power law over any window in
+which many modes are still decaying. This is the standard spectral account of learning curves
+(Bordelon, Canatar & Pehlevan 2020, on spectrum-dependent learning curves in kernel regression and
+wide networks; Canatar et al. 2021; Bahri et al., "Explaining Neural Scaling Laws"). *Cited from
+memory — verify before use.*
+
+**And that same account predicts the steepening we observe.** The power-law phase is transient: it
+lasts while a broad range of modes is still relaxing, and must steepen once only the slowest modes
+remain. Our gamma_eff rising at late times is what the spectral picture predicts, not an anomaly.
+
+**What the literature actually established, and where.** The well-known power laws — Hestness et al.
+2017 (Baidu); Kaplan et al. 2020 (OpenAI); Rosenfeld et al. 2019; Hoffmann et al. 2022 (Chinchilla) —
+are scaling of loss with **model size, dataset size and compute**, in large language models, image
+classifiers, machine translation and speech. They are *not* a general law for how loss decays with
+training iteration in a small recurrent network. Note also that theory does not uniformly predict
+power laws at all: in the NTK/linearised regime (Jacot et al. 2018; Du et al. 2019) the training loss
+converges **exponentially**.
+
+**Applicability to this project is weak.** These runs use `same_batch=True` on a fixed 450-condition
+batch, so there is no dataset-size scaling whatsoever — it is pure optimisation on a fixed objective
+plus injected noise, in a 100–2000 unit RNN. The LLM scaling-law literature is at best a loose
+analogy.
+
+**What our data can and cannot distinguish.** A stretched exponential,
+`L − L_∞ = A·exp(−(t/τ)^β)`, predicts `gamma_eff = β[(t/τ)^β − 1]`, which rises — matching the
+observation. Fitting it to gamma_eff(t) gives R² = 0.25–0.67 against 0.00 for a constant exponent, so
+"rising" beats "flat". But β = 0.10–0.25 and τ = 1–696 across sizes: the parameters are wildly
+unstable and the form is **not identified**. Supported: *faster than any fixed power law*.
+Not supported: any specific alternative.
+
+### Consequence for the "six metrics failed" summary
+
+That summary rests partly on "every quantity here relaxes as a power law, and for a power law the
+fraction of remaining distance covered per doubling is constant, so 'converged' has no meaning".
+**That argument is weakened for the loss**: with gamma_eff rising from 0.3 to 0.8, the fraction of
+remaining reducible loss removed per doubling goes from ~19% to ~43% — increasing, not constant. The
+loss converges *faster* than the argument assumed.
+
+**But the participation conclusion is unaffected**, because it never depended on the power-law gloss.
+The 28%-per-doubling figure for `p` is a *direct measurement*, flat across the whole late run, with no
+fit and no assumed functional form. The metrics failed for the reasons individually documented —
+lag-dependent floors, momentum artefacts, magnitude-blindness, denominator choice — and those stand.
+What should be dropped is the tidy theoretical story that they all failed *because* of power laws.
