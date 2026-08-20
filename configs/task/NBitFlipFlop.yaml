@@ -1,14 +1,23 @@
 # @package task
+# N-bit flip-flop (Sussillo & Barak 2013): n independent memory bits, each driven by its own
+# Poisson-timed +1/-1 pulse train; the target holds the sign of the most recent pulse on that bit.
+# n bits demand 2^n stable states and a readout of dimension n, which is why `n_inputs`/`n_outputs`
+# (kept equal, one channel per bit) are the complexity knob for the task-scaling sweep.
 taskname: "NBitFlipFlop"
 _target_: trainRNNbrain.tasks.Task${.taskname}.Task${.taskname}
 T: 100
 seed: null
-mu_blocks: 10
-T_min_block_length: 10
 n_inputs: 3
 n_outputs: 3
-mu: 6
-n_flip_steps: 10
+mu: 6                # expected pulses per trial per bit
+n_flip_steps: 10     # pulse width, and the refractory period between pulses on one bit
+batch_size: 256
 
+# The whole trial is scored: unlike CDDM there is no stimulus period to skip and no discontinuous
+# target, so the loss floor here is not built the way CDDM's is.
 mask_params:
   - (0, ${..T})
+
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "mu", "n_flip_steps", "batch_size"]
