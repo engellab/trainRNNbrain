@@ -873,13 +873,43 @@ class Trainer():
         return self.RNN, train_losses, val_losses, best_net_params, last_net_params
     
     @staticmethod
+    def format_duration_(seconds):
+        """Format a duration as [D-]HH:MM:SS, without wrapping at 24 hours.
+
+        The obvious spelling, time.strftime("%H:%M:%S", time.gmtime(seconds)), is wrong for
+        durations: gmtime maps the value onto a time OF DAY, and %H is an hour-of-day field, so it
+        wraps at 24 h. A 50-hour run printed "02:00:00" and every ETA past a day was unusable -
+        precisely the long runs where an ETA is worth having. Formatted arithmetically here, with a
+        leading day count in the same D-HH:MM:SS form squeue uses.
+
+        Args:
+            seconds: duration in seconds; may be negative or non-integral. A projected remaining
+                time goes slightly negative on the final iteration (which is what produced the
+                "remaining ~ 23:59:59" seen at the end of completed runs), so negatives clamp to 0.
+        Returns:
+            str: "07:12:33" under a day, "2-03:20:00" beyond one.
+        """
+        s = max(0, int(seconds))
+        d, s = divmod(s, 86400)
+        h, s = divmod(s, 3600)
+        m, s = divmod(s, 60)
+        return f"{d}-{h:02d}:{m:02d}:{s:02d}" if d else f"{h:02d}:{m:02d}:{s:02d}"
+
+    @staticmethod
     def get_eta_(tic, toc, iter, max_iter):
+        """Elapsed wall time and projected time remaining, both as [D-]HH:MM:SS strings.
+
+        Args:
+            tic, toc: perf_counter timestamps at the start of training and now.
+            iter: zero-based index of the iteration just completed.
+            max_iter: total iterations the run will perform.
+        Returns:
+            (elapsed, eta) formatted by format_duration_.
+        """
         delta = toc - tic
-        elapsed_t = time.strftime("%H:%M:%S", time.gmtime(delta))
         proj_total = (delta / (iter + 1)) * max_iter
-        remaining = proj_total - delta
-        eta = time.strftime("%H:%M:%S", time.gmtime(remaining))
-        return elapsed_t, eta
+        return (Trainer.format_duration_(delta),
+                Trainer.format_duration_(proj_total - delta))
     
     @staticmethod
     def print_iteration_info_(
@@ -937,3 +967,17 @@ class Trainer():
                   f" train: {train_prfx}{np.round(train_loss, 6)}{train_sfx},"
                   f" r2: {train_prfx}{np.round(r2, 6)}{train_sfx};"
                   f" elapsed: {elapsed_t}, remaining ~ {eta}")
+
+
+if __name__ == "__main__":
+    # Self-check for the duration formatter. The 24-hour wrap it replaces was reported three times
+    # from SLURM logs before being fixed, so the >24 h cases are the ones that matter here.
+    _f = Trainer.format_duration_
+    assert _f(0) == "00:00:00"
+    assert _f(59.9) == "00:00:59"                 # truncates, never rounds up to :60
+    assert _f(3661) == "01:01:01"
+    assert _f(86399) == "23:59:59"                # last value the old version got right
+    assert _f(86400) == "1-00:00:00"              # old version wrapped this to 00:00:00
+    assert _f(178571) == "2-01:36:11"             # ~49.6 h, the Della N=10000 case
+    assert _f(-5) == "00:00:00"                   # negative remaining on the final iteration
+    print("format_duration_ self-check passed")
