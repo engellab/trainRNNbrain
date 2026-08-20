@@ -77,9 +77,37 @@ between two conditions can hide two populations that differ unit by unit.
 | A3 | **temporal duty cycle** | fraction of `(t,c)` with `r_i > 0.5 · softmax_τ(r_i)` | low = the unit is near its peak almost never |
 | A4 | **condition breadth** | fraction of conditions `c` with `max_t r_i(t,c) > 0.5 · peak_i` | low = the unit fires in a handful of conditions only |
 | A5 | **temporal participation ratio** | `(Σ r_i)² / (T·B·Σ r_i²)` | effective fraction of samples the unit is active; 1 = flat, →0 = single spike |
+| A6 | **loophole margin** | evaluate the penalty's own statistic `s_τ(r_i) = τ·(logsumexp(r_i/τ) − log(T·B))` at τ ∈ {0.1, 1, 10, 100}; count units with `s_0.1 ≥ cap` **and** `s_10 < cap` | the direct count of units satisfying the penalty by transient |
 
 A1–A3 and A5 measure concentration **in time**; A4 measures concentration **across conditions**, a
 genuinely separate way to be useless, and one that A1–A3 cannot see.
+
+**A6 is the sharpest of these and should be the primary statistic**, because it is not a proxy — it
+evaluates the trained network against *the penalty's own objective*, at the τ that admits transients
+and at a τ that does not, and counts the units that pass only under the former. τ interpolates the
+statistic continuously from max (τ→0) to mean (τ→∞):
+
+    τ·(logsumexp(r/τ) − log n) → max(r)   as τ → 0
+                               → mean(r)  as τ → ∞
+
+Measured on two synthetic units with **identical mean rate** — one a transient at 1% duty cycle, one
+flat — the configured τ = 0.1 scores the transient **77× higher**; by τ = 10 the ratio is 1.1, and by
+τ = 100 the two are indistinguishable. So the loophole is a property of τ alone, and its size is
+known before any network is examined. A6 asks only whether trained networks actually walk through it.
+
+**If A6 returns a large count, the natural fix is a τ sweep, and it needs no code change** — τ is
+already `trainer.frm_args.tau`. Two cautions for that sweep, if it happens:
+
+- **τ and `cap` are confounded.** At fixed `cap`, raising τ makes the penalty strictly harsher (peak
+  ≈ cap becomes mean ≈ cap, roughly a 1/duty-cycle increase in demanded activity), and the harsh end
+  is where the documented divergence mode lives — a self-exciting loop with gain > 1 whose Euler
+  integration overflows while gradient norms stay ~1. Rescale `cap` per τ, or sweep both.
+- **The mean has the opposite loophole.** `mean(r) = cap` is satisfied exactly by a unit sitting
+  tonically at the cap with zero modulation. Peak-based admits transients; mean-based admits tonic
+  units; neither alone demands *modulated and sustained*. So a τ change may not make `rws`
+  redundant — it may only change what `rws` is needed for. Any τ sweep must therefore report A3
+  (duty cycle) **and** a modulation statistic, or it will simply trade one failure mode for the
+  other and score it as a success.
 
 ### Group B — heterogeneity across units
 
