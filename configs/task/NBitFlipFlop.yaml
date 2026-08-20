@@ -5,11 +5,15 @@
 # (kept equal, one channel per bit) are the complexity knob for the task-scaling sweep.
 taskname: "NBitFlipFlop"
 _target_: trainRNNbrain.tasks.Task${.taskname}.Task${.taskname}
-T: 100
+# T and mu set the memory demand, and the defaults they replaced (T=100, mu=6) did not impose one:
+# the mean inter-pulse interval is n_flip_steps + T/mu, so T=100/mu=6 held a bit for only 1.7 tau.
+# At T=300/mu=4 the hold is 7.5 tau with ~2.2 sign changes per channel per trial. T matches CDDM's
+# 300 exactly, so per-iteration cost and every timescale comparison carry over unchanged.
+T: 300
 seed: null
 n_inputs: 3
 n_outputs: 3
-mu: 6                # expected pulses per trial per bit
+mu: 4                # expected pulses per trial per bit
 n_flip_steps: 10     # pulse width, and the refractory period between pulses on one bit
 batch_size: 256
 
