@@ -15,7 +15,7 @@ n_inputs: 3
 n_outputs: 3
 mu: 4                # expected pulses per trial per bit
 n_flip_steps: 10     # pulse width, and the refractory period between pulses on one bit
-batch_size: 256
+batch_size: 1024
 
 # The whole trial is scored: unlike CDDM there is no stimulus period to skip and no discontinuous
 # target, so the loss floor here is not built the way CDDM's is.
