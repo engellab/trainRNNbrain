@@ -174,7 +174,7 @@ def main():
         res[L] = table(by, ks, Ns, L,
                        f"MATCHED PERFORMANCE: L* = {L:.4f}  (R^2 = {1 - L / TGT_VAR:.3f})")
 
-    fig, ax = plt.subplots(3, len(Ns), figsize=(6 * len(Ns), 13.5), squeeze=False)
+    fig, ax = plt.subplots(4, len(Ns), figsize=(6 * len(Ns), 18), squeeze=False)
     cols = plt.cm.viridis(np.linspace(0.1, 0.8, len(levels) + 1))
     for j, N in enumerate(Ns):
         for row, (idx, lab) in enumerate([(0, "hard  $p_i<10^{-6}$"), (1, "scale-free")]):
@@ -189,20 +189,29 @@ def main():
             ax[row][j].legend(fontsize=8)
             ax[row][j].grid(alpha=.3)
 
-        # (c) the ABSOLUTE active count. The percentage panels above answer "what fraction is
-        # wasted"; this one answers "how many units does the task actually recruit", which is the
-        # quantity M* is about and the one comparable to the CDDM ceiling of ~880.
-        for i, L in enumerate([None] + levels):
-            xs = [k for k in ks if (k, N) in res[L]]
-            if not xs:
-                continue
-            ax[2][j].plot(xs, [res[L][(k, N)][2] for k in xs], "o-", color=cols[i], lw=2, ms=7,
-                          label="endpoint (300k)" if L is None else f"$L^*$={L:.3f}")
-        ax[2][j].axhline(N, color="k", ls="--", lw=1.2, alpha=.6, label=f"$M=N$ ({N})")
-        ax[2][j].set(xlabel="task complexity $k$ (bits)", ylabel="active units $M$ (hard criterion)",
-                     title=f"N={N}  —  absolute active count", xticks=ks, ylim=(0, N * 1.12))
-        ax[2][j].legend(fontsize=8)
-        ax[2][j].grid(alpha=.3)
+        # (c, d) the ABSOLUTE active count under each criterion. The percentage panels above answer
+        # "what fraction is wasted"; these answer "how many units does the task actually recruit",
+        # which is the quantity M* is about and the one comparable to CDDM's ~880 ceiling. Both
+        # criteria get their own panel because they disagree materially here: the hard count reaches
+        # M=N by k~4, while the scale-free count is still well short of N at k=6. "Non-zero" and
+        # "doing work" are not the same claim, and the hard criterion is the flattering one.
+        for row, (idx, crit) in enumerate([(2, "hard  $p_i<10^{-6}$"),
+                                           (3, "scale-free  $p_i<0.05\\,q_{95}(p)$")]):
+            a = ax[idx][j]
+            for i, L in enumerate([None] + levels):
+                xs = [k for k in ks if (k, N) in res[L]]
+                if not xs:
+                    continue
+                # row 0 reads the stored hard active count; row 1 converts the scale-free percentage
+                ys = ([res[L][(k, N)][2] for k in xs] if row == 0
+                      else [N * (1 - res[L][(k, N)][1] / 100) for k in xs])
+                a.plot(xs, ys, "o-", color=cols[i], lw=2, ms=7,
+                       label="endpoint (300k)" if L is None else f"$L^*$={L:.3f}")
+            a.axhline(N, color="k", ls="--", lw=1.2, alpha=.6, label=f"$M=N$ ({N})")
+            a.set(xlabel="task complexity $k$ (bits)", ylabel="active units $M$",
+                  title=f"N={N}  —  active count, {crit}", xticks=ks, ylim=(0, N * 1.12))
+            a.legend(fontsize=8)
+            a.grid(alpha=.3)
     fig.suptitle("Flip-flop: does silencing fall as the task gets harder?\n"
                  "agreement between endpoint and matched-performance readings is what licenses "
                  "any ordering in $k$", fontsize=12)
