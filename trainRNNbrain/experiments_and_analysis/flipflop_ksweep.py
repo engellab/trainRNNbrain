@@ -71,12 +71,22 @@ def load():
         (dict {(k, N): [trace dicts]}, list of dropped (k, N, seed) tuples). Each trace gains a
         "clean" key holding the noise-free loss as a float array indexed by probe.
     """
-    out, dropped = {}, []
+    # A cell can exist at more than one budget (300k from the first sweep, 1M from the second).
+    # Pooling them would treat runs trained 3x apart as extra seeds of one condition - the exact
+    # mixed-budget error that invalidated an early CDDM penalty table. Keep only the LONGEST budget
+    # present for each (k, N).
+    files = {}
     for f in sorted(glob.glob(os.path.join(SWEEP, "*", "*", "*ParticipationTrace.pkl"))):
-        m = re.search(r"_k=(\d+)_N=(\d+)", f)
-        if not m:
-            continue
-        k, N = int(m.group(1)), int(m.group(2))
+        m = re.search(r"_k=(\d+)_N=(\d+)_iters=(\d+)", f)
+        if m:
+            files.setdefault((int(m.group(1)), int(m.group(2))), []).append((int(m.group(3)), f))
+    keep = []
+    for (k, N), lst in files.items():
+        best = max(i for i, _ in lst)
+        keep += [(k, N, f) for i, f in lst if i == best]
+
+    out, dropped = {}, []
+    for k, N, f in sorted(keep):
         with open(f, "rb") as fh:
             tr = pickle.load(fh)
         clean = np.asarray(tr["metrics"].get("loss_clean_train", []), dtype=float)
