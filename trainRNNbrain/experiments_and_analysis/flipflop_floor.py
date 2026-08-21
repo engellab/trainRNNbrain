@@ -228,7 +228,7 @@ def main():
         print("  -> floors %s across k" % ("DIFFER" if pk < 0.05 else "are INDISTINGUISHABLE"))
         print("  seed scatter on top of k:     F(%d,%d) = %.2f, p = %.2g"
               % (d1s, d2s, fs, ps))
-        summary[N] = (seeds, pk)
+        summary[N] = (seeds, pk, dict(per_k), dict(zip(ks, shifts)))
         fl_sep = fl_s
 
         for i, (k, t, y) in enumerate(data):
@@ -269,6 +269,41 @@ def main():
     out = os.path.join(IMG_DIR, "flipflop_floor.png")
     fig.savefig(out, dpi=150)
     print(f"\nwrote {out}")
+
+    # ---- summary figure: L_inf vs k, all three N on one axes ------------------------------------
+    # Filled markers are floors that PASS the halved-range budget check (<20% shift) and can be
+    # compared; open markers failed it and are plotted only so the failure is visible rather than
+    # silently omitted. A line is drawn solid only through the identified points.
+    fig2, a2 = plt.subplots(figsize=(8.2, 6))
+    ncol = {500: "#1f77b4", 1000: "#d62728", 2000: "#2ca02c"}
+    for N in Ns:
+        if N not in summary:
+            continue
+        seeds, _, pk_floor, shift = summary[N]
+        xs = [k for k in ks if k in pk_floor]
+        ys = [pk_floor[k] for k in xs]
+        good = [shift[k] < 20 for k in xs]
+        a2.plot(xs, ys, "-", color=ncol.get(N, "grey"), lw=1.6, alpha=.45)
+        for x, y, g in zip(xs, ys, good):
+            a2.plot([x], [y], "o" if g else "o", color=ncol.get(N, "grey"), ms=11,
+                    mfc=ncol.get(N, "grey") if g else "white", mew=2)
+        for k in xs:
+            v = np.array(seeds[k])
+            a2.plot([k] * v.size, v, ".", color=ncol.get(N, "grey"), ms=6, alpha=.4)
+        a2.plot([], [], "o-", color=ncol.get(N, "grey"), lw=1.6, ms=9, label=f"N={N}")
+    a2.plot([], [], "o", color="grey", ms=10, label="filled = floor identified")
+    a2.plot([], [], "o", color="grey", ms=10, mfc="white", mew=2,
+            label="open = NOT identified (>20% shift)")
+    a2.set(xlabel="task complexity $k$ (bits)", ylabel="$L_\\infty$ per channel", xticks=ks,
+           yscale="log",
+           title="Per-channel loss floor vs task complexity\n"
+                 "small dots = individual seeds; only filled points are comparable")
+    a2.legend(fontsize=9)
+    a2.grid(alpha=.3, which="both")
+    fig2.tight_layout()
+    out2 = os.path.join(IMG_DIR, "flipflop_floor_vs_k.png")
+    fig2.savefig(out2, dpi=150)
+    print(f"wrote {out2}")
 
 
 if __name__ == "__main__":
