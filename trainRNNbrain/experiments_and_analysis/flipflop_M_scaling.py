@@ -30,6 +30,19 @@ are relative and a cell near M = 2000 does not dominate one near M = 300.
 Reported at several matched performance levels and at the endpoint, both silence criteria, because a
 law that holds at one reading is a coincidence.
 
+CRITICAL: b IS NOT A PROPERTY OF THE TASK, IT IS A PROPERTY OF THE READING DEPTH. Measured on this
+sweep, b falls monotonically as the level approaches the floor:
+
+    excess over floor   10.4x   5.7x   3.5x   2.0x   1.1x
+    b (N=1000->2000)     1.11   1.04   0.95   0.87   0.58
+
+and it is still falling at the deepest level 300k can reach. This resolves an apparent contradiction
+with CDDM, where M ~ N^0.31 looked like saturation while the flip-flop looked linear. CDDM was read
+at 0.08x above its floor; the flip-flop cannot be read closer than ~1.1x above its own. The two are
+the SAME curve sampled ~14x apart in relative depth, not two different scaling regimes. Any b quoted
+from this script must carry the depth it was measured at, and b ~ 1.0 is specifically the SHALLOW
+value.
+
 Output: img/internal_figures/flipflop_M_scaling.png
 
 Usage:  python flipflop_M_scaling.py
