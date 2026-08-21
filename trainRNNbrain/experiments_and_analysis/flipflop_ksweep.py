@@ -22,7 +22,14 @@ If the k-ordering is the same under both, it does not matter which is "correct" 
 comparison needs no further defence. If they disagree, that is the finding and it gets reported.
 
 L* must be reachable by the WORST cell in the grid, which drags the common level shallow - the
-regime where CDDM's saturation verdict was weakest. Levels are therefore swept, not fixed.
+regime where CDDM's saturation verdict was weakest. Levels are therefore swept, not fixed, AND THE
+DEPTH DEPENDENCE IS ITSELF A RESULT: at N=2000 the scale-free silent fraction falls 8.4-fold across k
+when read at L*=0.022 but only 1.8-fold at L*=0.0055, and the hard-criterion ordering vanishes
+altogether there. Reading shallow overstates the effect badly - at the deepest reachable level k=6
+still leaves ~35% of units functionally silent, not ~8%. Only the DIRECTION survives every depth.
+
+0.0055 is the deepest level every N=2000 seed reaches, and it consumes 256k-297k of the 300k budget,
+so it is the floor of what this sweep can resolve rather than a chosen stopping point.
 
 Losses come from `loss_clean_train`: the NOISE-FREE task loss, recorded at every probe. Not
 TrainLosses.json, which is the noisy optimiser objective and has inverted a conclusion twice here.
@@ -154,7 +161,7 @@ def table(by, ks, Ns, thr, title):
 
 def main():
     """Report silencing vs task complexity at the endpoint and at matched performance."""
-    levels = [float(a) for a in sys.argv[1:]] or [0.022, 0.015, 0.010]
+    levels = [float(a) for a in sys.argv[1:]] or [0.022, 0.015, 0.010, 0.0055]
     by, dropped = load()
     ks = sorted({k for k, _ in by})
     Ns = sorted({N for _, N in by})
