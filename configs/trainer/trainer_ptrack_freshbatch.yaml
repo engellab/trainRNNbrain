@@ -1,0 +1,77 @@
+# @package trainer
+# trainer_ptrack_plain.yaml with same_batch OFF, for tasks whose trials are drawn from a continuous
+# distribution rather than an enumerable condition grid.
+#
+# WHY THIS EXISTS. same_batch=True draws ONE batch and reuses it for every iteration. On CDDM that is
+# defensible: get_batch() returns all 450 conditions, so "the batch" IS the task and repeating it is
+# repeating the full condition set. On the n-bit flip-flop it is not: pulse times are drawn i.i.d.
+# from an exponential inter-event distribution, so a fixed batch is 256 samples of a continuous
+# space. Training a 2000-unit network on 256 frozen trials for a million iterations measures
+# memorisation, not the task, and the "loss floor" it converges to is a memorisation floor with no
+# bearing on task difficulty.
+#
+# The cost is a fresh batch every iteration. TaskNBitFlipFlop.generate_input_target_stream was
+# vectorised for this (the per-timestep membership scan it used was ~40% of a GPU step at k=8).
+_target_: trainRNNbrain.trainer.Trainer.Trainer
+trainer_tag: "BaseTrainer"
+max_iter: 3000
+anneal_noise: False
+lr: 0.001
+weight_decay: 1e-6
+max_grad_norm: 50.0
+lr_scale_exp: 0.3333333333333333
+same_batch: False
+monitor: False              # no per-penalty loss/gradient monitoring: saves a backward pass per active term
+task_safe_gradients: False  # plain descent on task + sum(lambda_k * penalty_k) — no projection
+                            # False = plain descent on task + sum(lambda_k * penalty_k)
+track_participation: True   # log per-unit participation during training (participation-trace experiment)
+track_every: 10             # iterations between probes (a noise-free forward pass, ~3 pct overhead)
+store_participation_every: 100   # how often the FULL per-unit participation vector is stored; the
+                                 # scalar metrics are recorded at every probe. Only bulky item.
+track_valid: False           # evaluate the noise-free probe on a HELD-OUT batch too (coherences
+                            # interleaved with the training grid). Costs one extra forward pass per
+                            # probe; the training-batch clean loss is free either way.
+track_valid_every: 50        # iterations between held-out evaluations (its own cadence:
+                            # the held-out batch is ~as large as the training one, so probing it
+                            # every track_every would cost ~18% of runtime for no added resolution)
+track_drift: False              # weight drift + directional persistence (W_inp, W_rec, W_out).
+                                 # Nothing about the weights is written to disk: reference snapshots
+                                 # live in CPU RAM and everything is reduced to scalars on the fly.
+drift_lags: [100, 1000, 10000]   # lags for ||W(t)-W(t-L)||/||W(t)|| and ||dp||/||p||. Several are
+                                 # needed: diffusion grows as sqrt(L), systematic drift as L.
+# Penalties available in Trainer but INACTIVE here (all default to 0.0 in the Trainer signature,
+# so omitting them keeps them off): lambda_iwm / rwm / owm (input, recurrent, output weight-magnitude
+# caps), lambda_hm (hidden-state magnitude), lambda_tv (across-trial output variability), lambda_fri
+# and lambda_hi (Gini/HHI inequality of rates or hidden drive), lambda_htvar (temporal variance of
+# hidden drive), lambda_cl (clustering), lambda_effdim (eigenvalue tail energy). Add the lambda and
+# its *_args block back here to enable one. NOTE lambda_orth is kept explicitly below because its
+# Trainer default is 0.3, NOT 0 — dropping it from this file would silently switch it on.
+lambda_orth: 0.0
+orth_args:
+  orth_input_only: True
+lambda_met: 0
+met_args: {}
+lambda_rws: 0.05 # sparsity
+rws_args:
+  tg_deg: 20
+  eps: 1e-12
+lambda_frm: 0.2 # magnitude of firing rates
+frm_args:
+  cap_fr: 0.3
+  tau: 0.1
+  g_top: 3.0
+  g_bot: 3.0
+  alpha: 1.0
+  beta: 1.0
+  eps: 1e-12
+  aggregation: mean   # neuron-level pooling of per-unit FR-deviation penalty: 'mean' or 'logsumexp'
+  tau_n: 1.0          # logsumexp temperature: small -> max (fights worst outlier); large -> mean. Ignored if aggregation=mean
+dropout: False
+dropout_args:
+  dropout_kind: "mute"
+  sampling_method: "participation"
+  eta: 0.5
+  drop_rate: 0.05
+  dropout_beta: 1.0
+  activity_q: 0.9
+

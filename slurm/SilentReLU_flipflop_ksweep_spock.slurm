@@ -135,7 +135,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   +experiment=silent_units_largeN \
   task=NBitFlipFlop \
   task.n_inputs="$K" task.n_outputs="$K" \
-  model=rnn_relu_standard trainer=trainer_ptrack_plain \
+  model=rnn_relu_standard trainer=trainer_ptrack_freshbatch \
   model.equation_type=h model.N="$N" \
   trainer.max_iter="$IT" \
   trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
