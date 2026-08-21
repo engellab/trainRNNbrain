@@ -25,7 +25,21 @@
 # Target variance stays k-independent out to k=8 (0.720-0.738 measured), so R^2 remains directly
 # comparable across the whole extended range - the property the entire cross-k comparison rests on.
 #
-# WHY 1000000 ITERATIONS (raised from 300000 after the first sweep).
+# BATCH 1024, FRESH EVERY ITERATION (trainer_ptrack_freshbatch). The first sweep ran same_batch=True
+# with 256 trials, i.e. it trained 2000-unit networks on 256 FROZEN trials for 300k iterations and
+# measured memorisation. Every result from it is void. Measured cost at B=1024, fresh batches:
+# 0.240 s/iter at N=500, 0.215 at N=1000 (k=3), 0.550 at N=2000 (k=8) - N now dominates, because the
+# N^2 matmul finally outweighs the 300-step sequential loop at this batch size.
+#
+# WHY 500000 ITERATIONS. The grid costs ~21 GPU-seconds per iteration-step across all 63 jobs, so
+# 500k is ~2,900 GPU-h (~9 days at 13 concurrent GPUs) and 1M would be ~5,800 (~19 days), which is
+# not viable. 500k is also defensible on its own terms rather than only on cost: at 1024 fresh trials
+# per step the run sees 512 MILLION distinct trials instead of 256 total, so there is no memorisation
+# phase for the loss to keep descending through. The true task floor should be reached EARLIER and
+# sit HIGHER than the memorisation floor did, which is what made the first sweep's floors
+# unidentifiable.
+#
+# SUPERSEDED - the reasoning for the 1M budget, kept because it explains what depth is needed.
 # The 300k sweep could not read any cell closer than ~1.1x excess over its own floor, while CDDM was
 # read at 0.08x. Since the M-vs-N exponent b falls monotonically with reading depth (1.11 / 1.04 /
 # 0.95 / 0.87 / 0.58 at 10.4x / 5.7x / 3.5x / 2.0x / 1.1x excess), the 300k sweep sits entirely in a
@@ -70,7 +84,7 @@
 # dominates, not the N^2 matmul), so all three sizes get the same wall-time request. The 0.21 s/iter
 # tail is real node-to-node variation, and 1M x 0.21 = 58 h, hence 72 h - the first sweep's N=500
 # array was nearly killed by a request sized from the median rather than the slow tail.
-#   sbatch --array=1-63 --time=72:00:00
+#   sbatch --array=1-63 --time=144:00:00
 # Timing override for a calibration run: ITERS_OVERRIDE=600 sbatch --array=45 ...
 #
 # Output: $SAVE_TO/FlipFlop_std_ksweep/EqType=h_k=<k>_N=<N>_iters=<IT>/<per-net subfolder>
@@ -82,7 +96,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --gres=gpu:1
 #SBATCH --mem=32G
-#SBATCH --time=72:00:00
+#SBATCH --time=144:00:00
 #SBATCH --array=1-63
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
@@ -118,7 +132,7 @@ fi
 
 KS=(2 3 4 5 6 7 8)
 NS=(500 1000 2000)
-IT=1000000
+IT=500000
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); N_IDX=$(((TID / 3) % 3)); K_IDX=$((TID / 9))
