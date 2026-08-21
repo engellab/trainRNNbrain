@@ -2,9 +2,8 @@
 """
 How does the ACTIVE UNIT COUNT scale with network size and task complexity?
 
-The companion test (flipflop_collapse.py) asked whether the silent FRACTION collapses onto a single
-variable and found it does not - the exponent diverges and the model degenerates into k-only. This
-asks the same question of the absolute count M, which is a different target and cannot be inferred
+The companion test (flipflop_collapse.py) asks whether the silent FRACTION collapses onto a single
+variable. This asks the same question of the absolute count M, which is a different target and cannot be inferred
 from the fraction result:
 
     M = N (1 - f),  so if f = F(x) with x = N/k^a, then M = N G(x) - still carrying an explicit N.
@@ -30,22 +29,20 @@ are relative and a cell near M = 2000 does not dominate one near M = 300.
 Reported at several matched performance levels and at the endpoint, both silence criteria, because a
 law that holds at one reading is a coincidence.
 
-CRITICAL: b IS NOT A PROPERTY OF THE TASK, IT IS A PROPERTY OF THE READING DEPTH. Measured on this
-sweep, b falls monotonically as the level approaches the floor:
-
-    excess over floor   10.4x   5.7x   3.5x   2.0x   1.1x
-    b (N=1000->2000)     1.11   1.04   0.95   0.87   0.58
-
-and it is still falling at the deepest level 300k can reach. This resolves an apparent contradiction
-with CDDM, where M ~ N^0.31 looked like saturation while the flip-flop looked linear. CDDM was read
-at 0.08x above its floor; the flip-flop cannot be read closer than ~1.1x above its own. The two are
-the SAME curve sampled ~14x apart in relative depth, not two different scaling regimes. Any b quoted
-from this script must carry the depth it was measured at, and b ~ 1.0 is specifically the SHALLOW
-value.
+ALWAYS REPORT b WITH THE READING DEPTH IT WAS MEASURED AT, expressed as excess over that task's own
+floor. b is not a property of the task alone: it varies with how close to the floor the reading is
+taken, so a bare exponent is not comparable across tasks or across levels.
 
 Output: img/internal_figures/flipflop_M_scaling.png
 
 Usage:  python flipflop_M_scaling.py
+NOTE ON PROVENANCE. Every number that this file previously quoted from the flip-flop came from the
+first sweep, which ran `same_batch=True` and therefore trained on 256 frozen trials - memorisation,
+not the task. Those numbers are RETRACTED and have been stripped rather than updated; the data is
+quarantined in `data/trained_RNNs/RETRACTED_samebatch_NBitFlipFlop_ksweep/`. Nothing here has yet
+been run against the corrected fresh-batch sweep, so this file currently states METHOD only, with no
+results. Do not reintroduce a remembered figure into these docstrings.
+
 """
 
 import os

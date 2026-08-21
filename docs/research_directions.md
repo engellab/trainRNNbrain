@@ -273,9 +273,12 @@ architecture?
 the task is simple" is currently asserted without evidence, and the K contribution has never been
 measured because K has never been measured.
 
-**Status note.** The k-sweep now running (k = 2…6 × N = 500/1000/2000 × 3 seeds, 300k iterations)
-supplies the task-complexity axis of this design for the flip-flop family. It does *not* supply the
-K axis — those runs are all unpenalized.
+**Status note.** ⛔ The first flip-flop k-sweep (k = 2…6, 300k iterations) is **RETRACTED**: it ran
+`same_batch=True`, so those networks saw 256 frozen trials for 300k iterations and measured
+memorisation rather than the task. A corrected sweep (k = 2…8 × N = 500/1000/2000 × 3 seeds, fresh
+batches of 1024, 400–500k iterations) is running as of 2026-08-21. It will supply the
+task-complexity axis of this design for the flip-flop family. It does *not* supply the K axis —
+those runs are all unpenalized.
 
 ---
 

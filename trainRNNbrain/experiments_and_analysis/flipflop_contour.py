@@ -15,17 +15,23 @@ HONESTY CONSTRAINTS BUILT INTO THE FIGURE.
   a reading aid; the numbers are the data.
 
   Unreachable cells are left blank, not filled. A common L* must be reached by every seed in a cell,
-  and the deeper levels are simply not attained by the smaller networks within 300k iterations -
-  N=500 never reaches 0.010. Interpolating over those cells would invent the part of the map that
-  the sweep could not measure, so they are hatched instead.
+  and deeper levels may simply not be attained by the smaller networks within the budget.
+  Interpolating over those cells would invent the part of the map the sweep could not measure, so
+  they are marked instead.
 
-  Both criteria get a row. The hard count (p < 1e-6) saturates at M=N by k~4 and resolves nothing
-  beyond; the scale-free count keeps rising and is still short of N at k=6. "Non-zero" and "doing
-  work" are different claims and the hard criterion is the flattering one.
+  Both criteria get a row, because "non-zero" and "doing work" are different claims and the hard
+  criterion is the flattering one.
 
 Output: img/internal_figures/flipflop_contour.png
 
 Usage:  python flipflop_contour.py [L* ...]
+NOTE ON PROVENANCE. Every number that this file previously quoted from the flip-flop came from the
+first sweep, which ran `same_batch=True` and therefore trained on 256 frozen trials - memorisation,
+not the task. Those numbers are RETRACTED and have been stripped rather than updated; the data is
+quarantined in `data/trained_RNNs/RETRACTED_samebatch_NBitFlipFlop_ksweep/`. Nothing here has yet
+been run against the corrected fresh-batch sweep, so this file currently states METHOD only, with no
+results. Do not reintroduce a remembered figure into these docstrings.
+
 """
 
 import os

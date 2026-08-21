@@ -9,27 +9,17 @@ so silencing can be measured AS A FUNCTION of task demand rather than at a singl
 
 TWO READINGS ARE REPORTED, AND BOTH MUST AGREE BEFORE ANY ORDERING IN k IS BELIEVED.
 
-  endpoint    every cell at the same 300k iterations. Confounded: the cells reach very different
-              performance (clean loss 0.0037 to 0.021), and silencing tracks training depth, so a
+  endpoint    every cell at its own final iteration. Confounded: cells reach very different
+              performance, and silencing tracks training depth, so a
               cell that trained further will silence more for reasons unrelated to k.
   matched     every cell read at the iteration where its smoothed noise-free loss stably crosses a
               common level L*. Comparable across k WITHOUT any floor fitting, because the flip-flop's
-              target variance is k-independent (0.727-0.738 measured over k=2..6, a 1.5% spread):
+              target variance is k-independent (0.720-0.738 measured over k=2..8, a 2.5% spread):
               each bit is generated i.i.d. and the loss averages over channels, so MSE is already
               per-channel-normalised and R^2 = 1 - MSE/0.735 means the same thing at every k.
 
 If the k-ordering is the same under both, it does not matter which is "correct" and the cross-k
 comparison needs no further defence. If they disagree, that is the finding and it gets reported.
-
-L* must be reachable by the WORST cell in the grid, which drags the common level shallow - the
-regime where CDDM's saturation verdict was weakest. Levels are therefore swept, not fixed, AND THE
-DEPTH DEPENDENCE IS ITSELF A RESULT: at N=2000 the scale-free silent fraction falls 8.4-fold across k
-when read at L*=0.022 but only 1.8-fold at L*=0.0055, and the hard-criterion ordering vanishes
-altogether there. Reading shallow overstates the effect badly - at the deepest reachable level k=6
-still leaves ~35% of units functionally silent, not ~8%. Only the DIRECTION survives every depth.
-
-0.0055 is the deepest level every N=2000 seed reaches, and it consumes 256k-297k of the 300k budget,
-so it is the floor of what this sweep can resolve rather than a chosen stopping point.
 
 Losses come from `loss_clean_train`: the NOISE-FREE task loss, recorded at every probe. Not
 TrainLosses.json, which is the noisy optimiser objective and has inverted a conclusion twice here.
@@ -37,6 +27,13 @@ TrainLosses.json, which is the noisy optimiser objective and has inverted a conc
 Output: img/internal_figures/flipflop_ksweep.png
 
 Usage:  python flipflop_ksweep.py [L* ...]
+NOTE ON PROVENANCE. Every number that this file previously quoted from the flip-flop came from the
+first sweep, which ran `same_batch=True` and therefore trained on 256 frozen trials - memorisation,
+not the task. Those numbers are RETRACTED and have been stripped rather than updated; the data is
+quarantined in `data/trained_RNNs/RETRACTED_samebatch_NBitFlipFlop_ksweep/`. Nothing here has yet
+been run against the corrected fresh-batch sweep, so this file currently states METHOD only, with no
+results. Do not reintroduce a remembered figure into these docstrings.
+
 """
 
 import os
@@ -84,6 +81,14 @@ def load():
     for (k, N), lst in files.items():
         best = max(i for i, _ in lst)
         keep += [(k, N, f) for i, f in lst if i == best]
+
+    if not keep:
+        raise SystemExit(
+            f"no runs under {SWEEP}.\n"
+            f"The same_batch=True sweep is RETRACTED and quarantined in\n"
+            f"  data/trained_RNNs/RETRACTED_samebatch_NBitFlipFlop_ksweep/\n"
+            f"because it trained on 256 frozen trials. The corrected fresh-batch sweep has not\n"
+            f"landed yet; nothing in this file can be run until it does.")
 
     out, dropped = {}, []
     for k, N, f in sorted(keep):
@@ -171,7 +176,14 @@ def table(by, ks, Ns, thr, title):
 
 def main():
     """Report silencing vs task complexity at the endpoint and at matched performance."""
-    levels = [float(a) for a in sys.argv[1:]] or [0.022, 0.015, 0.010, 0.0055]
+    # Levels are DERIVED from the data, not hardcoded: the deepest level every seed of some cell
+    # reaches sets the floor of what the sweep can resolve, and the ladder runs from 4x that up to
+    # it. Hardcoding them would silently carry the previous sweep's loss range onto a new one.
+    by_probe = load()[0]
+    deepest = max(float(np.convolve(t["clean"], np.ones(WINDOW) / WINDOW, "valid")[-1])
+                  for v in by_probe.values() for t in v)
+    levels = [float(a) for a in sys.argv[1:]] or list(
+        np.round(np.logspace(np.log10(4 * deepest), np.log10(deepest), 4), 5))
     by, dropped = load()
     ks = sorted({k for k, _ in by})
     Ns = sorted({N for _, N in by})

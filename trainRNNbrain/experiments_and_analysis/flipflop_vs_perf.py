@@ -3,10 +3,9 @@
 Active units and silent fraction as CONTINUOUS functions of performance, not at chosen levels.
 
 WHY THIS REPLACES PICKING AN L*. Comparing cells at one matched loss forces two awkward choices:
-which level, and what to do about the fact that the floor DIFFERS with N (~0.012 at N=500 vs ~0.0033
-at N=2000), so a common absolute level sits at different depths relative to each network's own
-asymptote. The repair - match at a common fraction of the way to the floor - needs L_inf, which the
-halved-range budget check says is not identified at N=500 or N=1000.
+which level, and what to do when the floor differs with N, since a common absolute level then sits at
+different depths relative to each network's own asymptote. The repair - match at a common fraction of
+the way to the floor - needs L_inf, which is not always identifiable within the budget.
 
 Plotting against performance itself dissolves the problem. Each cell is read at EVERY level it
 attains, giving a curve; cells are then compared over the range where their curves overlap, which is
@@ -23,6 +22,13 @@ a dense grid of levels rather than three or four, so the curve is the protocol r
 Output: img/internal_figures/flipflop_vs_perf.png
 
 Usage:  python flipflop_vs_perf.py
+NOTE ON PROVENANCE. Every number that this file previously quoted from the flip-flop came from the
+first sweep, which ran `same_batch=True` and therefore trained on 256 frozen trials - memorisation,
+not the task. Those numbers are RETRACTED and have been stripped rather than updated; the data is
+quarantined in `data/trained_RNNs/RETRACTED_samebatch_NBitFlipFlop_ksweep/`. Nothing here has yet
+been run against the corrected fresh-batch sweep, so this file currently states METHOD only, with no
+results. Do not reintroduce a remembered figure into these docstrings.
+
 """
 
 import os

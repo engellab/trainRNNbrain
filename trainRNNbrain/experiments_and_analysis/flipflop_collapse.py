@@ -36,6 +36,13 @@ The exponent should also be stable across levels; if it drifts, say so.
 Output: img/internal_figures/flipflop_collapse.png
 
 Usage:  python flipflop_collapse.py
+NOTE ON PROVENANCE. Every number that this file previously quoted from the flip-flop came from the
+first sweep, which ran `same_batch=True` and therefore trained on 256 frozen trials - memorisation,
+not the task. Those numbers are RETRACTED and have been stripped rather than updated; the data is
+quarantined in `data/trained_RNNs/RETRACTED_samebatch_NBitFlipFlop_ksweep/`. Nothing here has yet
+been run against the corrected fresh-batch sweep, so this file currently states METHOD only, with no
+results. Do not reintroduce a remembered figure into these docstrings.
+
 """
 
 import os

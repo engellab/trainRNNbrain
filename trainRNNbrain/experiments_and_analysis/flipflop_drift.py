@@ -2,11 +2,11 @@
 """
 Did the flip-flop networks reach diffusive drift, or are updates still biased? A stopping criterion.
 
-WHY ASK. Matching on an absolute loss level is uncomfortable here because the floor DIFFERS with N
-(~0.012 at N=500, ~0.0033 at N=2000), so a common L* reads different sizes at different depths
-relative to their own asymptotes. The natural repair - match at a common fraction of the way to the
-floor - needs L_inf, which the halved-range budget check says is not identified at N=500 or N=1000.
-So a criterion that does not reference the loss at all would be worth having.
+WHY ASK. Matching on an absolute loss level is uncomfortable whenever the floor differs with N, since
+a common level then reads different sizes at different depths relative to their own asymptotes. The
+natural repair - match at a common fraction of the way to the floor - needs L_inf, which is not
+always identifiable within the budget. So a criterion that does not reference the loss at all would
+be worth having.
 
 WHAT WOULD COUNT. If training has stopped making systematic progress and is only jittering, then:
 
@@ -29,6 +29,13 @@ justifies the loss-matching protocol rather than leaving it looking like an arbi
 Output: img/internal_figures/flipflop_drift.png
 
 Usage:  python flipflop_drift.py
+NOTE ON PROVENANCE. Every number that this file previously quoted from the flip-flop came from the
+first sweep, which ran `same_batch=True` and therefore trained on 256 frozen trials - memorisation,
+not the task. Those numbers are RETRACTED and have been stripped rather than updated; the data is
+quarantined in `data/trained_RNNs/RETRACTED_samebatch_NBitFlipFlop_ksweep/`. Nothing here has yet
+been run against the corrected fresh-batch sweep, so this file currently states METHOD only, with no
+results. Do not reintroduce a remembered figure into these docstrings.
+
 """
 
 import os

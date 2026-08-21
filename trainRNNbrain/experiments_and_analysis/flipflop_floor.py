@@ -4,9 +4,8 @@ Is the per-channel loss floor the same for every k? Stretched-exponential fits t
 
 WHY THIS IS THE PER-CHANNEL FLOOR. The training loss is a masked MSE averaged over ALL axes,
 channels included, so it is already a per-channel quantity. Each bit is generated i.i.d. and the
-target variance is k-independent (0.727-0.738 measured over k=2..6, a 1.5% spread), so L_inf is
-directly comparable across k with no normalisation and no per-k rescaling. Fitting it answers "does
-one bit cost the same accuracy regardless of how many other bits share the network".
+target variance is k-independent (measured 0.720-0.738 over k=2..8), so L_inf is directly comparable
+across k with no normalisation.
 
 MODEL. L(t) = L_inf + A exp(-(t/tau)^beta), fitted in LOG space on log-binned medians so the two
 decades before the floor are not swamped by the 30000 probes near it. The stretched form won by AICc
@@ -28,6 +27,13 @@ Losses come from `loss_clean_train` (noise-free, every probe), never TrainLosses
 Output: img/internal_figures/flipflop_floor.png
 
 Usage:  python flipflop_floor.py [T_START]
+NOTE ON PROVENANCE. Every number that this file previously quoted from the flip-flop came from the
+first sweep, which ran `same_batch=True` and therefore trained on 256 frozen trials - memorisation,
+not the task. Those numbers are RETRACTED and have been stripped rather than updated; the data is
+quarantined in `data/trained_RNNs/RETRACTED_samebatch_NBitFlipFlop_ksweep/`. Nothing here has yet
+been run against the corrected fresh-batch sweep, so this file currently states METHOD only, with no
+results. Do not reintroduce a remembered figure into these docstrings.
+
 """
 
 import os
@@ -69,6 +75,13 @@ def load():
         if L.size == 0 or np.isnan(L).any():
             continue
         out.setdefault((int(m.group(1)), int(m.group(2))), []).append(L)
+    if not out:
+        raise SystemExit(
+            f"no runs under {SWEEP}.\n"
+            f"The same_batch=True sweep is RETRACTED and quarantined in\n"
+            f"  data/trained_RNNs/RETRACTED_samebatch_NBitFlipFlop_ksweep/\n"
+            f"because it trained on 256 frozen trials. The corrected fresh-batch sweep has not\n"
+            f"landed yet; nothing in this file can be run until it does.")
     return out
 
 
