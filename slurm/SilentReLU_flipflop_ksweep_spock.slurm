@@ -21,7 +21,14 @@
 # Grid (63 jobs) = 7 complexities x 3 sizes x 3 seeds, h equation, no penalties.
 #   k in {2,3,4,5,6,7,8}  swept via task.n_inputs = task.n_outputs (one channel per bit)
 #   N in {500,1000,2000}
-# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..62): REP=TID%3; N_IDX=(TID/3)%3; K_IDX=TID/9
+# Index decode (TID = SLURM_ARRAY_TASK_ID-1): REP=TID%3; N_IDX=(TID/3)%3; K_IDX=TID/9
+#
+# k=1 IS APPENDED AT THE END of KS rather than inserted at the front, so every task index already
+# submitted keeps its meaning. Tasks 64-66 are k=1 at N=500. It exists to settle the loss-floor
+# model: the total floor needs an interaction term (dropping it costs dAICc +188 and an 8% residual),
+# but C(k,2) grows too fast - a free exponent on it fits at 0.81, and a plain k^1.5 fits equally well.
+# The two survivors make DIFFERENT out-of-sample predictions for the per-channel floor at k=1,
+# 0.02440 vs 0.02373, a gap ~7x the residual scale. Neither has seen k=1, so it is a real test.
 # Target variance stays k-independent out to k=8 (0.720-0.738 measured), so R^2 remains directly
 # comparable across the whole extended range - the property the entire cross-k comparison rests on.
 #
@@ -130,7 +137,7 @@ else
   echo "FATAL: $REPO/CODE_VERSION.txt missing — cannot verify which code this is." >&2; exit 1
 fi
 
-KS=(2 3 4 5 6 7 8)
+KS=(2 3 4 5 6 7 8 1)
 NS=(500 1000 2000)
 IT=500000
 
