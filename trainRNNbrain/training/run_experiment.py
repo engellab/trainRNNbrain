@@ -174,6 +174,20 @@ def run_training(cfg: DictConfig) -> None:
             if not (datasaver is None): datasaver.save_data(jsonify(last_net_params), f"{score}_LastParams_{taskname}.json")
             if not (datasaver is None): datasaver.save_data(jsonify(best_net_params),f"{score}_BestParams_{taskname}.json")
 
+        # Adam's moment estimates, so a run can be WARM-STARTED rather than restarted. Without them a
+        # resumed run rebuilds exp_avg / exp_avg_sq from scratch and spends a few thousand iterations
+        # in a transient unrelated to the science - which is why the earlier warm-start idea was
+        # rejected as introducing a confound. Saved unconditionally: one file of ~2x the parameter
+        # count (two moments per parameter), negligible beside the participation trace, and it cannot
+        # be reconstructed after the fact.
+        # NOTE: this only makes warm starts POSSIBLE. There is still no load path in this script;
+        # resuming needs code that restores the RNN parameters AND this state_dict together.
+        try:
+            torch.save(opt.state_dict(),
+                       os.path.join(datasaver.data_folder, f"{score}_AdamState_{taskname}.pt"))
+        except Exception as e:                      # never let a diagnostic kill a finished run
+            print(f"WARNING: could not save Adam state: {e}")
+
         if cfg.trainer.track_participation:
             # pkl, not json: (max_iter/track_every) x N float32 is ~12 MB as a pickle but ~100 MB as indented json
             mon = dict(trainer.participation_monitor)
