@@ -65,7 +65,7 @@ set -eo pipefail
 export PYTHONUNBUFFERED=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-REPO="${REPO:-$HOME/trainRNNbrain_ff}"
+REPO="${REPO:-$HOME/trainRNNbrain}"
 SAVE_TO="${SAVE_TO:-$HOME/trainRNNbrain/data/trained_RNNs}"
 
 export PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}"
@@ -74,10 +74,9 @@ REPO_REAL=$(readlink -f "$REPO")
 if [ "$PKG" != "$REPO_REAL" ]; then
   echo "FATAL: trainRNNbrain resolves to $PKG, expected $REPO_REAL — aborting." >&2; exit 1
 fi
-if [ -f "$REPO/CODE_VERSION.txt" ]; then
-  echo "code: $PKG @ $(cat "$REPO/CODE_VERSION.txt")"
-else
-  echo "FATAL: $REPO/CODE_VERSION.txt missing — cannot verify which code this is." >&2; exit 1
+echo "code: $PKG @ $(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo UNKNOWN)"
+if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
+  echo "WARNING: $REPO has uncommitted changes; the commit above does not fully describe this run." >&2
 fi
 # The .npz saver lost dict-valued parameters (activation_args stored as its KEYS) until the
 # storable_ fix. Refuse to run on code that predates it, or these nets cannot be reconstructed.
