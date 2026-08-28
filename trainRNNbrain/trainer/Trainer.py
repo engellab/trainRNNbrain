@@ -799,9 +799,21 @@ class Trainer():
         self.optimizer.zero_grad(set_to_none=True)
         for p, g in zip(params, g_tot):
             p.grad = g
-        
-        torch.nn.utils.clip_grad_norm_(params, max_norm=self.max_grad_norm)
-        self.optimizer.step()
+
+        # Skip a non-finite update instead of letting the clip poison the weights.
+        # clip_grad_norm_ does NOT guard inf/nan (error_if_nonfinite defaults to False): one inf
+        # makes the total norm inf, so clip_coef = max_norm/inf = 0. Clean grads are scaled to a
+        # harmless 0.0, but the grad carrying the overflow becomes inf*0 = nan, so the optimizer
+        # writes NaN into that parameter; on the next forward pass it contaminates the whole
+        # network and the run trains on nan to completion without ever exiting non-zero.
+        # This cost 18 frm jobs (all of N=2000 k>=6) before it was caught. Dropping the batch is
+        # inert for any run that never overflows.
+        if any(g is not None and not torch.isfinite(g).all() for g in g_tot):
+            self.nonfinite_skips = getattr(self, "nonfinite_skips", 0) + 1
+            self.optimizer.zero_grad(set_to_none=True)
+        else:
+            torch.nn.utils.clip_grad_norm_(params, max_norm=self.max_grad_norm)
+            self.optimizer.step()
 
         # --- 4) now it's safe to mutate weights in-place ---
         # For weight_boundary="reflective" the constraints are baked into the forward pass

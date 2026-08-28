@@ -6773,3 +6773,191 @@ but any cell with historic `nan_` collisions has permanently lost the overwritte
 Everything is submitted and accounted for except **frm k=5 N=1000**, which needs 2 replacement seeds
 once the collision fix is in place — worth re-running now that a second divergence would no longer be
 invisible.
+
+---
+
+## 2026-08-28 — code moved to git; Della on the same commit; frm k=5 N=1000 reseeded
+
+### Everything now flows through git, no rsynced worktrees
+
+Three commits pushed, and both clusters plus the local checkout are at **`6a35cff`**:
+
+| commit | contents |
+|---|---|
+| `816f6bd` | the three data-integrity fixes, the analysis consolidation, the new scripts, the launchers (65 files) |
+| `a22451a` | untrack four generated outputs under `data/` |
+| `6a35cff` | launchers use `~/trainRNNbrain` and report the real git commit, warning if the checkout is dirty |
+
+The `~/trainRNNbrain_ff` worktrees were populated by rsync, so `CODE_VERSION.txt` had to be written by
+hand and could silently disagree with what was running. Both clusters already had `~/trainRNNbrain` as
+a checkout of this remote, so the launchers now point there and print `git rev-parse HEAD`.
+
+### ⚠️ A near-miss worth recording: a merge would have orphaned 127 GB
+
+The Della pull ABORTED, and the reason mattered. **`~/trainRNNbrain/data` on Della is a SYMLINK to
+`/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data`, holding 127 GB of results.** Four generated files
+were tracked under `data/`, so git wanted to replace that symlink with a real directory — which would
+have made every result on that cluster invisible. Git's refusal to overwrite untracked paths is the
+only reason it was caught.
+
+Those four files had been force-added against the repo's own `.gitignore`, which already declares
+`/data/` and `data/trained_RNNs/`. Untracking them was both the correct fix and what unblocked the
+pull. Verified afterwards: symlink intact, 127 GB still present. Spock's `data` is a real directory
+(33 GB) and was never at risk, but the same commit would have hit any future symlinked checkout.
+
+⚠️ **Spock keeps `~/trainRNNbrain_ff` until its 67 in-flight jobs drain.** SLURM copies the batch
+script at submission, so those jobs still reference that path and deleting it would break them. It
+carries both fixes, so those runs are consistent with the git version. They were NOT cancelled and
+resubmitted: that would discard days of compute to change a folder name, and the code they run is
+already the fixed code.
+
+### frm k=5 N=1000 reseeded
+
+Original seeds: tasks 40 and 41 both diverged (and collided, losing one); task 42 is healthy at
+330k/400k with r2 = 0.939. So the cell had **1 usable seed of 3**.
+
+Submitted 2 replacements on Della (job 13100032, `--array=40,41`). `seed="random"` resolves from
+`time.time_ns()`, so these get fresh seeds automatically. Put on Della rather than Spock because
+Spock has 67 jobs in flight and Della had 24.
+
+**With the naming fix in place, a repeat divergence will now be visible rather than silently
+overwriting its sibling** — which is the whole reason this cell was worth re-running rather than just
+accepting n=1.
+
+---
+
+# ▶ SESSION HANDOFF — 2026-08-28 12:05  (read this first next session)
+
+## What we are trying to establish, in priority order
+
+1. **Is there a CEILING on active units, or is M ~ N^0.44 unbounded?** Over N = 500..2000 the
+   exponent b is constant, which is a pure power law with no ceiling — but CDDM's fit put a ceiling
+   near 880 active units. Extrapolating `M = 18.9 N^0.44` predicts M = 673 at N=4000, so a ceiling
+   near 800 only starts bending the curve above N ≈ 4000. **This is the one open question the
+   existing data cannot answer**, and the N=4000 run is the discriminating measurement.
+
+2. **Does `both` (rws+frm) behave like rws, like frm, or in between?** Answered on two axes already
+   (rws does NOT rescue frm: `both` recovers 16% of the frm→none gap on W_inp settling and 0% on
+   silence). Still needs the PR law, which requires k≥3 at **two sizes** — hence the N=1000 cells.
+
+3. **Does either penalty change the interference term b in `floor(k) = a + b√k`?** rws: no (CIs
+   overlap at all three sizes). **frm: b +50%, a unchanged** — the pre-registered structure with the
+   sign REVERSED. Needs N=1000/2000 frm to confirm beyond N=500.
+
+4. **Complete the k=1 baseline.** `none` at k=1 was only ever submitted at N=500 (tasks 64-66 of the
+   ksweep); k=1 anchors the floor law's intercept and the low end of every "k=1→8" statement.
+
+## Jobs in flight
+
+### SPOCK — 67 tasks (`~/trainRNNbrain`, commit 6a35cff; ⚠️ in-flight jobs still reference `~/trainRNNbrain_ff`)
+
+| array | job | state | what | why |
+|---|---|---|---|---|
+| 5904416 | **FFbigN** | 12 R, 36 PD | N=4000, `none`+`rws`, k=1..8, 3 seeds, 100k iter | **the ceiling test (Q1)** |
+| 5904341/2/3 | **FFpenL** | 36 R, 73 PD | frm+both @400k | Q2, Q3 |
+| 5924467/8 | **FFk** | 2 PD | `none` k=1 at N=1000 (500k) and N=2000 (400k) | Q4 |
+
+FFpenL queued breakdown: frm N=1000 ×10, frm N=2000 ×24, both N=500 ×15, both N=2000 ×24.
+FFbigN progress: k=1 at ~58k/100k, k=2 ~57k, k=3 ~14–50k, k=4 ~19–26k. **Runs at 2.20 s/iter in
+production (not the 1.24 the short calibration suggested) → 61 h/job**, inside the 96 h request.
+Only `none` (tasks 1–24) matters for Q1; `rws` (25–48) is secondary.
+
+### DELLA — 26 tasks (`~/trainRNNbrain`, commit 6a35cff)
+
+| array | state | what | why |
+|---|---|---|---|
+| 13099674 | 4 R, 20 PD | `both` k=1..8 × N=1000 × 3 seeds, 400k | **unlocks the PR law for `both` (Q2)** |
+| 13100032 | 2 PD | frm k=5 N=1000, replacement seeds | that cell had 2 of 3 seeds diverge |
+
+## Expected timing
+
+- **~29–30 Aug** frm N=1000 completes; `both` N=1000 completes on Della (~29 h/job, one gpu-medium wave)
+- **~1 Sep** N=4000 `none` k=1..8 — **the ceiling answer**
+- **~1–2 Sep** `both` becomes fittable (k≥3 at two sizes)
+- **~2–3 Sep** everything else; N=4000 `rws` ~6 Sep
+
+## Standing rules that keep being violated
+
+- **Read-out criterion is `excess`** — 1.10× each run's OWN floor, floor fitted over that condition's
+  OWN budget. Do NOT force a common range: that is what invalidated frm's floor and forced a retraction.
+- **Report M and PR together.** They dissociate: M is k-independent, PR rises with k (c ≈ 0.05–0.12
+  under all six criteria). M saturates under frm/both (M/N → 1.00) and cannot be used there at all.
+- **frm has no diffusion read-out** — its W_inp never settles (α plateaus at 0.90). Use matched loss.
+- **Della's `data` is a SYMLINK to /scratch (127 GB).** Never let git materialise `data/` as a real
+  directory there.
+- **Sync Della results to the local mirror before analysing** — every analysis script reads the local
+  copy, not a cluster. Della writes to its own tree.
+
+## Analysis that is ready to re-run the moment data lands
+
+`pr_matrix.py` (PR/N over the grid, per penalty, ± δ sweep), `flipflop_penalties.py`,
+`drift_matrix.py`, `excess_time_matrix.py`, `flipflop_decisive.py`, `criterion_search.py`.
+The `both` panels are already wired and will populate automatically.
+
+---
+
+## ▶ frm DIVERGES SYSTEMATICALLY AT LARGE N AND k — 2026-08-28 14:54
+
+Health check of the in-flight grid. **18 of 50 running Spock jobs were dead** — NaN loss, still
+burning wall-clock. Every one of them was `frm`. 0 `both`, 0 `none`, 0 `rws`, 0 bigN. Della clean
+(20/20 healthy, but only 10-44k iterations in, so not yet informative).
+
+### The failure is one-step overflow, not slow drift
+
+```
+iteration 6335/400000, train: 0.083706, r2: 0.909225     <- healthy
+iteration 6336/400000, train: inf,      r2: -1.75e+26    <- one step
+iteration 6337/400000, train: nan,      r2: nan          <- dead for the next 355k iterations
+```
+
+**Mechanism.** `Trainer.py:803` clips with `torch.nn.utils.clip_grad_norm_(params, max_norm=50)`.
+That call does NOT guard non-finite gradients (`error_if_nonfinite` defaults to False). With an
+`inf` anywhere in the gradient the total norm is `inf`, so `clip_coef = 50/inf = 0`, and the clip
+multiplies: `inf * 0 = nan`. Clipping therefore CONVERTS a single overflow into permanently NaN
+weights. The run then trains on NaN forever without ever exiting non-zero.
+
+### Divergence probability rises with BOTH N and k
+
+Fraction of seeds lost (3 seeds/cell):
+
+| frm     | k=1 | k=2 | k=3 | k=4 | k=5 | k=6 | k=7 | k=8 |
+|---------|-----|-----|-----|-----|-----|-----|-----|-----|
+| N=500   |  0  |  0  |  0  |  0  |  0  |  0  |  0  |  0  |
+| N=1000  |  0  |  0  |  0  | 1/3 | 2/3 | 1/3 | 2/3 |  -  |
+| N=2000  | 1/3 | 1/3 | 1/3 | 1/3 | 2/3 |**3/3**|**3/3**|**3/3**|
+
+N=500 is untouched — which is exactly why this was invisible until the large-N cells landed.
+`both` (which CONTAINS frm) has 0/15 losses so far; rws stabilising frm is a live hypothesis, not
+yet a claim, since `both` at N=2000 k>=6 has not run.
+
+### Impact on the analysis: none silently, but real gaps
+
+`pr_matrix.py:70` and `drift_matrix.load()` both drop any run with NaN in its loss, so **no
+contaminated cell can reach a figure**. The damage is missing data, not wrong data:
+
+* **frm N=2000 k=6,7,8 = ZERO surviving seeds**; k=5 = 1 seed. Q3 (does frm change the
+  interference coefficient b?) is fittable at N=2000 only over k=1..5 with 2,2,2,2,1 seeds.
+* frm N=500 complete 24/24; frm N=1000 thin at k>=5.
+
+### Action taken
+
+Cancelled the 18 dead jobs (they were blocking ~18 GPUs from the 32 pending `both` tasks, which
+are the ones Q2 needs). Remaining 33 Spock jobs verified healthy, 0 NaN. Surviving frm N=2000
+k=1..4 runs are at 290-350k/400k and will finish normally.
+
+Only **3** pending tasks are frm (N=1000 k=8); everything else queued is `both`, bigN or FFk.
+
+### The fix, not yet deployed
+
+Skip the update instead of letting the clip poison it:
+
+```python
+if not all(torch.isfinite(g).all() for g in g_tot):
+    self.optimizer.zero_grad(set_to_none=True)
+    return                      # drop this batch, keep the weights
+torch.nn.utils.clip_grad_norm_(params, max_norm=self.max_grad_norm)
+```
+
+This is inert for any run that never overflows, so it does not break comparability with the
+completed N=500 frm cells. NOT deployed — deploying means re-running frm N=2000 k=6,7,8 (9 jobs
+x ~61 h) and that is a compute decision, not a code decision.
