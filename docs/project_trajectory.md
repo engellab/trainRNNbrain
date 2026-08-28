@@ -6961,3 +6961,43 @@ torch.nn.utils.clip_grad_norm_(params, max_norm=self.max_grad_norm)
 This is inert for any run that never overflows, so it does not break comparability with the
 completed N=500 frm cells. NOT deployed — deploying means re-running frm N=2000 k=6,7,8 (9 jobs
 x ~61 h) and that is a compute decision, not a code decision.
+
+### Fix deployed and frm re-submitted — 2026-08-28 15:10
+
+Guard committed as `ab98f89` and pushed. Deployed to: Della `~/trainRNNbrain` (git pull, symlink
+intact), Spock `~/trainRNNbrain` (git pull), and Spock `~/trainRNNbrain_ff` (NOT a git repo — a
+plain rsync copy — so `Trainer.py` was copied in; it differed from the fixed file by the patch
+alone). Updating `_ff` matters because the 66 pending tasks in the OLD arrays launch from it, and
+20 of them are `both` at N=2000 k>=3 — `both` contains frm and carries the same risk. Running
+jobs already imported their module, so they are unaffected either way.
+
+Validated before trusting: `tests/test_clip_nan.py` (mechanism + fix) and a 60-iteration local
+frm run on the patched trainer (loss 0.42 -> 0.39, r2 0.47 -> 0.51, saved normally) — the guard
+is inert when nothing overflows.
+
+⚠️ The first version of the diagnosis was WRONG in one detail and the test caught it. I claimed
+clip spreads NaN to every parameter in one step. It does not: clean grads are scaled to a
+harmless 0.0, and only the parameter carrying the overflow goes NaN. The whole-network
+contamination happens on the NEXT forward pass. Outcome identical, mechanism different.
+
+**Seeds.** The launcher passes `seed="random"`, so re-runs draw fresh seeds automatically.
+
+**Re-submitted (all frm; task ids verified against 4 known jobs before submitting):**
+
+| where | array | tasks | cells | time / QOS |
+|-------|-------|-------|-------|-----------|
+| Della | 13115552 | 43,44,52,53,54,61,62,63,70,71,72 | N=2000: k=5 x2, k=6/7/8 x3 | 96 h, `gpu-long` (10 concurrent) |
+| Spock | 5928695 | 31,49,58,59 | N=1000: k=4 x1, k=6 x1, k=7 x2 | 48 h |
+
+N=2000 went to Della `gpu-long` deliberately: at ~0.55 s/iter x 400k it needs ~61 h (83 h on a
+slow node), which does not fit `gpu-medium`'s 72 h cap, and `gpu-long`'s 10-concurrent limit
+exactly fits 11 jobs while being a far less contended queue than Spock's 66-deep backlog.
+
+**Expected inventory once everything lands** (in-flight survivors + these re-runs):
+frm N=500 3/3 all k (already complete); frm N=1000 3/3 all k except k=8 (3 in flight, unfixed
+code, at risk); frm N=2000 3/3 for k=5..8, but only 2/3 for k=1..4 — those four cells each lost
+one seed to the bug and were NOT re-submitted, since 2 seeds still fit the floor law. Re-run them
+if the k=1..4 error bars turn out to matter.
+
+After cancelling the 18 dead jobs Spock went 33 -> 47 running as freed GPUs took pending `both`
+tasks, which is the Q2 critical path.
