@@ -39,8 +39,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
-from plot_M_vs_N import active_count
+from common import IMG_DIR, active_count
 from flipflop_ksweep import load, PROBE_EVERY, WINDOW, TGT_VAR
 
 NLEV = 45          # levels per decade-and-a-half of loss; the curve is this finely sampled

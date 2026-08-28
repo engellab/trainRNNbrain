@@ -31,7 +31,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_loss_fit import load_losses, IMG_DIR
+from common import load_losses, IMG_DIR
 from test_floor_vs_N import losses_from_logs
 
 K = 101

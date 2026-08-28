@@ -43,7 +43,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_loss_fit import load_losses, IMG_DIR
+from common import load_losses, IMG_DIR
 
 T_MIN = 20
 N_BINS = 220

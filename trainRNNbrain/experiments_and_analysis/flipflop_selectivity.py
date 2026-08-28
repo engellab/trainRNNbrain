@@ -52,8 +52,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
-from plot_M_vs_N import active_count
+from common import IMG_DIR, active_count, participation
 from flipflop_fixedpoints import best_net, load_net
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 
@@ -116,11 +115,6 @@ def decode(r, b):
     ss_res = ((b - traj) ** 2).sum(axis=1)
     ss_tot = ((b - b.mean(axis=1, keepdims=True)) ** 2).sum(axis=1)
     return traj, 1 - ss_res / np.maximum(ss_tot, 1e-12)
-
-
-def participation(r):
-    """Per-unit participation, the project's standard metric: std over samples + 0.9-quantile."""
-    return r.std(axis=1) + np.quantile(np.abs(r), 0.9, axis=1)
 
 
 def main():

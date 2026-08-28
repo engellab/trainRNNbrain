@@ -48,7 +48,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_loss_fit import load_losses, fit_loss, IMG_DIR
+from common import IMG_DIR, aicc, load_losses
+from plot_loss_fit import fit_loss
 
 TMAXES = [25000, 50000, 100000, 150000, 200000]
 LOSS_RX = re.compile(r"iteration (\d+)/(\d+), train: ([0-9.eE+-]+)")
@@ -104,11 +105,6 @@ def floors(by, tmax):
                     Ns.append(float(N))
                     Ls.append(Li)
     return np.array(Ns), np.array(Ls)
-
-
-def aicc(rss, n, k):
-    """Small-sample corrected AIC for a Gaussian least-squares fit."""
-    return n * np.log(rss / n) + 2 * k + (2 * k * (k + 1)) / max(n - k - 1, 1e-9)
 
 
 def fit_models(Ns, Ls):

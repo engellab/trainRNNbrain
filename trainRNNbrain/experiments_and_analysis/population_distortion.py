@@ -58,14 +58,10 @@ from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.analyzers.PerformanceAnalyzer import PerformanceAnalyzer
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 from trainRNNbrain.utils import unjsonify, filter_kwargs
+from common import hhi, participation
 
 SILENT_THR = 1e-6      # participation below this = silent
 SEL_THR = 0.10         # eta^2 above this = selective to that variable
-
-
-def participation(fr):
-    """Per-unit participation: std + 0.9-quantile of |rate|, pooled over time and conditions."""
-    return fr.std(axis=(1, 2)) + np.quantile(np.abs(fr), 0.9, axis=(1, 2))
 
 
 def participation_ratio(X):
@@ -96,15 +92,6 @@ def eta2(resp, groups):
         m = groups == g
         between += m.mean() * (resp[:, m].mean(axis=1) - gm) ** 2
     return between / np.maximum(total, 1e-30)
-
-
-def hhi(v):
-    """Herfindahl concentration of a non-negative vector: 1/N if even, 1 if one element has it all."""
-    s = v.sum()
-    if s <= 0:
-        return float("nan")
-    p = v / s
-    return float((p ** 2).sum())
 
 
 def analyse_net(folder, task, inputs, conditions, dec_on):

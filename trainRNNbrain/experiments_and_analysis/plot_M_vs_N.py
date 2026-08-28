@@ -36,31 +36,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import load_traces
-from plot_loss_fit import IMG_DIR
-
-CRITERIA = [("hard", r"$p_i<10^{-6}$"), ("scalefree", r"$p_i<0.05\,q_{95}(p)$")]
-
-
-def smooth_loss(L, t):
-    """Training loss averaged over a +-2% window ending at iteration t (raw loss is very noisy)."""
-    w = max(int(0.02 * t), 50)
-    return float(L[max(t - w, 0):t].mean())
-
-
-def T_at_loss(L, target):
-    """First iteration at which the smoothed loss reaches `target`, or None if never."""
-    ts = np.arange(2000, len(L), 200)
-    sm = np.array([smooth_loss(L, t) for t in ts])
-    hit = ts[sm <= target]
-    return int(hit[0]) if len(hit) else None
-
-
-def active_count(p, criterion):
-    """Number of active units in a participation vector under the named criterion."""
-    if criterion == "hard":
-        return int((p >= 1e-6).sum())
-    return int((p >= 0.05 * np.quantile(p, 0.95)).sum())
+from common import CRITERIA, IMG_DIR, T_at_loss, active_count, load_traces, smooth_loss
 
 
 def ladder(by, n_rungs=4, t_floor=5000):

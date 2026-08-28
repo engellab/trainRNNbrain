@@ -44,7 +44,7 @@ OmegaConf.register_new_resolver("eval", eval, replace=True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "../../data/trained_RNNs")
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
+from common import IMG_DIR
 BASELINE = "CDDM_4a031e_g0"
 DEAD_ABS = 0.01
 COND = {

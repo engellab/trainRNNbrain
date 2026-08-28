@@ -13,11 +13,39 @@ from matplotlib import pyplot as plt
 import datetime, random
 import sys
 import inspect
+from collections.abc import Mapping
 from pathlib import Path
 from trainRNNbrain.utils import import_any, get_source_code, make_subfolder_tag, filter_kwargs
 from pprint import pprint
+from omegaconf import DictConfig, ListConfig
 OmegaConf.register_new_resolver("eval", eval)
 os.environ['HYDRA_FULL_ERROR'] = '1'
+
+
+
+def storable_(v):
+    """Convert one parameter value into something np.savez round-trips without losing content.
+
+    ⚠️ THE BUG THIS FIXES. `np.asarray` on an OmegaConf DictConfig ITERATES it, and iterating a
+    DictConfig yields its KEYS - so `activation_args = {"name": "relu", "slope": 1.0}` was stored as
+    `array(['name', 'slope'])` with the values silently discarded. Every .npz written before this fix
+    has that defect, and reconstructing a network from one raises an opaque IndexError deep inside
+    RNN_numpy.configure_activation_. Analysis code can recover the value from the saved config
+    (see experiments_and_analysis/silence_is_taskset.load_params), but new files should be correct.
+
+    Mappings are stored as a 0-d object array, which round-trips through
+    `np.load(..., allow_pickle=True)[key].item()`.
+
+    Args:
+        v: a parameter value - array, scalar, list, or mapping (possibly an OmegaConf container).
+    Returns:
+        ndarray safe to hand to np.savez.
+    """
+    if isinstance(v, (DictConfig, ListConfig)):
+        v = OmegaConf.to_container(v, resolve=True)
+    if isinstance(v, Mapping):
+        return np.array(dict(v), dtype=object)
+    return np.asarray(v)
 
 
 @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
@@ -156,23 +184,29 @@ def run_training(cfg: DictConfig) -> None:
             score = np.round(score, 7)
 
         data_folder = make_subfolder_tag(cfg, net_params, score, taskname)
+        # ⚠️ FILES CARRY THE SEED TOO. The folder is already seed-unique (see make_subfolder_tag),
+        # so this is defence in depth: it keeps every file self-identifying if one is ever copied out
+        # of its folder, and makes a diverged run's files distinguishable rather than all "nan_*".
+        # Safe for the analysis code: every glob is prefix-agnostic ("*ParticipationTrace.pkl",
+        # "*_LastParams_*"), and folder-based parsing (common.r2_from_dir) is untouched.
+        stem = f"{score}_s{seed}"
 
         full_data_folder = os.path.join(data_save_path, data_folder)
         datasaver = DataSaver(full_data_folder)
 
         print(f"r2 validation: {score}")
-        if not (datasaver is None): datasaver.save_data(cfg, f"{score}_config.yaml")
+        if not (datasaver is None): datasaver.save_data(cfg, f"{stem}_config.yaml")
         if light:
             # binary, not json: 100 M float32 is 400 MB as npz but ~2 GB as indented json, and
             # jsonify would first materialise it as Python floats (~24 bytes each).
             for nm, prm in (("LastParams", last_net_params), ("BestParams", best_net_params)):
                 src = prm if isinstance(prm, dict) else OmegaConf.to_container(prm, resolve=True)
-                arrs = {k: np.asarray(v) for k, v in src.items()
+                arrs = {k: storable_(v) for k, v in src.items()
                         if v is not None and not isinstance(v, (str, bool))}
-                np.savez(os.path.join(datasaver.data_folder, f"{score}_{nm}_{taskname}.npz"), **arrs)
+                np.savez(os.path.join(datasaver.data_folder, f"{stem}_{nm}_{taskname}.npz"), **arrs)
         else:
-            if not (datasaver is None): datasaver.save_data(jsonify(last_net_params), f"{score}_LastParams_{taskname}.json")
-            if not (datasaver is None): datasaver.save_data(jsonify(best_net_params),f"{score}_BestParams_{taskname}.json")
+            if not (datasaver is None): datasaver.save_data(jsonify(last_net_params), f"{stem}_LastParams_{taskname}.json")
+            if not (datasaver is None): datasaver.save_data(jsonify(best_net_params),f"{stem}_BestParams_{taskname}.json")
 
         # Adam's moment estimates, so a run can be WARM-STARTED rather than restarted. Without them a
         # resumed run rebuilds exp_avg / exp_avg_sq from scratch and spends a few thousand iterations
@@ -184,7 +218,7 @@ def run_training(cfg: DictConfig) -> None:
         # resuming needs code that restores the RNN parameters AND this state_dict together.
         try:
             torch.save(opt.state_dict(),
-                       os.path.join(datasaver.data_folder, f"{score}_AdamState_{taskname}.pt"))
+                       os.path.join(datasaver.data_folder, f"{stem}_AdamState_{taskname}.pt"))
         except Exception as e:                      # never let a diagnostic kill a finished run
             print(f"WARNING: could not save Adam state: {e}")
 
@@ -192,33 +226,33 @@ def run_training(cfg: DictConfig) -> None:
             # pkl, not json: (max_iter/track_every) x N float32 is ~12 MB as a pickle but ~100 MB as indented json
             mon = dict(trainer.participation_monitor)
             mon["metrics"] = {k: np.asarray(v, dtype="float32") for k, v in mon["metrics"].items()}
-            if not (datasaver is None): datasaver.save_data(mon, f"{score}_ParticipationTrace.pkl")
+            if not (datasaver is None): datasaver.save_data(mon, f"{stem}_ParticipationTrace.pkl")
 
         # the total loss per iteration, saved regardless of `monitor` (which controls only the
         # per-penalty breakdown) so the training curve is always available to align against the
         # participation trace. ~300 KB for 30000 iterations.
         if not (datasaver is None): datasaver.save_data({"train_losses": train_losses, "val_losses": val_losses},
-                                                        f"{score}_TrainLosses.json")
+                                                        f"{stem}_TrainLosses.json")
 
         fig_trainloss = plot_train_val_losses(train_losses, val_losses)
         if disp: plt.show()
-        if not (datasaver is None): datasaver.save_figure(fig_trainloss, f"{score}_TrainLoss.png")
+        if not (datasaver is None): datasaver.save_figure(fig_trainloss, f"{stem}_TrainLoss.png")
 
         if monitor:
-            if not (datasaver is None): datasaver.save_data(jsonify(trainer.loss_monitor), f"{score}_LossBreakdown.json")
+            if not (datasaver is None): datasaver.save_data(jsonify(trainer.loss_monitor), f"{stem}_LossBreakdown.json")
             fig_loss_breakdown = plot_loss_breakdown(trainer.loss_monitor)
             if disp: plt.show()
-            if not (datasaver is None): datasaver.save_figure(fig_loss_breakdown, f"{score}_LossBreakdown.png")
+            if not (datasaver is None): datasaver.save_figure(fig_loss_breakdown, f"{stem}_LossBreakdown.png")
 
-            if not (datasaver is None): datasaver.save_data(jsonify(trainer.gradients_monitor), f"{score}_GradsRaw.json")
-            if not (datasaver is None): datasaver.save_data(jsonify(trainer.scaled_gradients_monitor), f"{score}_GradsScaled.json")
+            if not (datasaver is None): datasaver.save_data(jsonify(trainer.gradients_monitor), f"{stem}_GradsRaw.json")
+            if not (datasaver is None): datasaver.save_data(jsonify(trainer.scaled_gradients_monitor), f"{stem}_GradsScaled.json")
 
             fig_grads_raw = plot_loss_breakdown(trainer.gradients_monitor)
             if disp: plt.show()
-            if not (datasaver is None): datasaver.save_figure(fig_grads_raw, f"{score}_GradsRaw.png")
+            if not (datasaver is None): datasaver.save_figure(fig_grads_raw, f"{stem}_GradsRaw.png")
             fig_grads_scaled = plot_loss_breakdown(trainer.scaled_gradients_monitor)
             if disp: plt.show()
-            if not (datasaver is None): datasaver.save_figure(fig_grads_scaled, f"{score}_GradsScaled.png")
+            if not (datasaver is None): datasaver.save_figure(fig_grads_scaled, f"{stem}_GradsScaled.png")
 
         if light:
             # the trace figure needs only the logged monitor, no numpy forward pass, so keep it

@@ -29,8 +29,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import load_traces, IMG_DIR
-from plot_drift_curves import series
+from common import IMG_DIR, load_traces, series
 
 
 def silent_series(trace, criterion, N):

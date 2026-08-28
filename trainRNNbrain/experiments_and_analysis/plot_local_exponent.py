@@ -35,7 +35,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_loss_fit import load_losses, IMG_DIR
+from common import load_losses, IMG_DIR
 from plot_powerlaw_coords import doubling_difference
 
 T_MIN = 4000          # first t at which L(t/2) is past the initial transient

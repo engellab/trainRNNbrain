@@ -38,7 +38,7 @@ import calibrate_inhibitory_boost as C
 from plot_init_vs_trained import rnn_numpy_from_params, build_cddm_batch, peak_and_participation
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
+from common import IMG_DIR
 CTX_CHANNELS = (0, 1)          # CDDM context-cue input channels (motion cue, color cue)
 FRACS = (0.25, 0.5, 0.75, 1.0)
 DEAD_ABS = 0.01

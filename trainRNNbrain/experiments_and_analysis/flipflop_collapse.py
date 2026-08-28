@@ -54,10 +54,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
-from flipflop_ksweep import load, stable_crossing, silence_at, TGT_VAR
+from common import IMG_DIR, stable_crossing
+from flipflop_ksweep import load, silence_at, TGT_VAR
 
 N_BOOT = 400
+# Bootstrap RNG. Seeded, because an unseeded global np.random makes the reported CIs
+# irreproducible: two runs of identical code returned b = [0.353, 0.430] and [0.349, 0.431].
+BOOT_RNG = np.random.default_rng(0)
 
 
 def points(by, ks, Ns, thr, crit):
@@ -150,7 +153,7 @@ def main():
 
             boot = []
             for _ in range(N_BOOT):
-                i = np.random.randint(0, n, n)
+                i = BOOT_RNG.integers(0, n, n)
                 if len(np.unique(K[i])) < 3 or len(np.unique(NN[i])) < 2:
                     continue
                 boot.append(best_collapse(K[i], NN[i], Y[i], best_fam,

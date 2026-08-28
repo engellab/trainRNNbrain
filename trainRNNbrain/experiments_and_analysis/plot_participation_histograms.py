@@ -44,7 +44,7 @@ SWEEP = next((a for a in sys.argv[1:] if not a.startswith("-")), "CDDM_4a031e") 
 TAG = SWEEP.replace("CDDM_", "")
 SUF = "" if SWEEP == "CDDM_4a031e" else f"_{TAG}"
 ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
+from common import IMG_DIR
 CACHE = os.path.join(ROOT, "participation_by_condition.npz")
 
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_LmbdRWS=(?P<rws>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")

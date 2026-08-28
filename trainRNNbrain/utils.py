@@ -259,7 +259,26 @@ def numpify(function_torch):
     return lambda x: function_torch(torch.Tensor(x)).detach().numpy()
 
 def make_subfolder_tag(cfg, net_params, score, taskname):
-    ''' Create a concise tag string summarizing the training configuration. '''
+    """Concise per-network folder name summarising the training configuration.
+
+    ⚠️ THE SEED IS PART OF THE NAME, AND MUST STAY THAT WAY. The name previously began with the
+    validation score, so every DIVERGED run of a cell was called `nan_<taskname>_...` and the seeds
+    silently OVERWROTE ONE ANOTHER. Observed: frm k=5 N=1000 ran three seeds, two diverged, and the
+    cell left exactly one `nan_` folder on disk - so the divergence count was under-reported and the
+    cell looked like it had one missing seed rather than two failed ones. Any cell with two or more
+    divergences collapsed into a single folder.
+
+    The seed is appended rather than prefixed so that `score` remains the first underscore-delimited
+    field: `experiments_and_analysis.common.r2_from_dir` parses it as
+    `float(basename.split("_")[0])`, and putting anything before it would break every caller.
+
+    Args:
+        cfg: the resolved Hydra config (cfg.seed holds the CONCRETE seed, already resolved from
+            "random" by run_experiment); net_params: the network's parameter dict;
+        score: validation score, or nan for a diverged run; taskname: e.g. "NBitFlipFlop".
+    Returns:
+        str folder name, unique per (score, seed) so diverged siblings cannot collide.
+    """
     t = cfg.trainer
     def abbr(k):
         return 'L'+k[7:] if k.startswith('lambda_') else ''.join(w[0].upper() for w in k.split('_') if w)
@@ -273,6 +292,7 @@ def make_subfolder_tag(cfg, net_params, score, taskname):
     parts = [
         f'{score}_{taskname}_{net_params["activation_args"]["name"]}',
         f'N={net_params["N"]}',
+        f'seed={getattr(cfg, "seed", "NA")}',
         *[f'{abbr(k)}={fmt(td[k])}' for k in core_keys],
         *[f'{abbr(k)}={fmt(lambdas[k])}' for k in sorted(lambdas)]
     ]

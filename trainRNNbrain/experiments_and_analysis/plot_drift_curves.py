@@ -48,62 +48,11 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from common import IMG_DIR, load_traces, series
 
 LAGS = [100, 1000, 10000]
 MATS = ["W_inp", "W_rec", "W_out"]
 HERE = os.path.dirname(os.path.abspath(__file__))
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
-
-
-def load_traces(sweep):
-    """Load every ParticipationTrace under a sweep folder, grouped by network size.
-
-    Args:
-        sweep: path to the sweep folder holding `EqType=..._N=<N>_iters=<I>/<net>/` subfolders.
-    Returns:
-        dict {N (int): list of trace dicts}, each trace as written by Trainer (keys `iters`,
-        `participation`, `participation_iters`, `metrics`).
-    """
-    # A size can appear at more than one budget (N=100 was run at 50k and again at 200k). Keep only
-    # the LONGEST run per size, otherwise the two would be pooled as if they were extra seeds.
-    files = {}
-    for f in sorted(glob.glob(os.path.join(sweep, "*", "*", "*ParticipationTrace.pkl"))):
-        m = re.search(r"_N=(\d+)_iters=(\d+)", f)
-        if m:
-            files.setdefault((int(m.group(1)), int(m.group(2))), []).append(f)
-    best = {}
-    for (N, iters) in files:
-        if iters >= best.get(N, -1):
-            best[N] = iters
-    out = {}
-    for (N, iters), fs in sorted(files.items()):
-        if iters != best[N]:
-            continue
-        for f in fs:
-            with open(f, "rb") as fh:
-                tr = pickle.load(fh)
-            lf = glob.glob(os.path.join(os.path.dirname(f), "*TrainLosses.json"))
-            tr["loss"] = np.array(json.load(open(lf[0]))["train_losses"], dtype=float) if lf else None
-            out.setdefault(N, []).append(tr)
-    return out
-
-
-def series(trace, key):
-    """Extract one metric as (iterations, values) with the NaN padding removed.
-
-    Metrics that are only defined once per lag (the drift distances) are stored NaN-padded on the
-    full probe grid; the cosines are defined at every probe. Both are handled by dropping NaNs.
-
-    Args:
-        trace: a trace dict from load_traces.
-        key: metric name, e.g. "drift_W_rec_lag1000".
-    Returns:
-        (iters, vals) float arrays of equal length, possibly empty.
-    """
-    it = np.asarray(trace["iters"], dtype=float)
-    v = np.asarray(trace["metrics"][key], dtype=float)
-    ok = np.isfinite(v)
-    return it[ok], v[ok]
 
 
 def running_median(y, w):

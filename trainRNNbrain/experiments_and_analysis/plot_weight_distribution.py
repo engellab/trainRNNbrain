@@ -23,7 +23,7 @@ from trainRNNbrain.utils import unjsonify
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "../../data/trained_RNNs")
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
+from common import IMG_DIR
 OUT = os.path.join(IMG_DIR, "weight_distribution_sticky_vs_reflective_h_N1000.png")
 EPS = 1e-12
 

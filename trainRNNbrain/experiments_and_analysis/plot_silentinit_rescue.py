@@ -36,7 +36,7 @@ from plot_init_vs_trained import (build_cddm_batch, peak_and_participation, rnn_
 HERE = os.path.dirname(os.path.abspath(__file__))
 SWEEP = "CDDM_d9e0ec_g0_silentinit"
 ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
+from common import IMG_DIR
 FRAC = 0.25
 DEAD_ABS = 0.01
 PEN = {"0": ("none (control)", "#c44e52"), "0.2": ("frm=0.2 (rescuer)", "#4c72b0")}

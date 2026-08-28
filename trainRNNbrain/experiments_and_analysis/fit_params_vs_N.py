@@ -28,7 +28,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_loss_fit import load_losses, IMG_DIR
+from common import load_losses, IMG_DIR
 from plot_loss_curves import logbin_stats, f_pow_floor, f_stretch1
 
 FIT_FROM = 2000

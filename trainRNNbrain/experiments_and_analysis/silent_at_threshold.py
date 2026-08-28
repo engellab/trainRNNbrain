@@ -39,8 +39,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import load_traces, IMG_DIR
-from plot_M_vs_N import active_count
+from common import IMG_DIR, active_count, aicc, load_traces, stable_crossing
 
 WINDOW = 2001
 N_FIT_MIN = 500      # N=100 sits at 99.3% active, hard against the M <= N ceiling; including it
@@ -67,11 +66,6 @@ MODELS = [("power law", m_power, [10.0, 0.5], ([1e-6, -1], [1e6, 3])),
           ("saturating (exponential)", m_expsat, None, ([1, 1], [1e7, 1e8]))]
 
 
-def aicc(rss, n, k):
-    """Small-sample corrected AIC for a Gaussian least-squares fit."""
-    return n * np.log(rss / n) + 2 * k + (2 * k * (k + 1)) / max(n - k - 1, 1e-9)
-
-
 def fit_models(Ns, Ms):
     """Fit every candidate M(N) law to per-seed points and rank by AICc.
 
@@ -94,23 +88,6 @@ def fit_models(Ns, Ms):
     return sorted(out, key=lambda z: z[2])
 
 
-def stable_crossing(L, thr, window=WINDOW):
-    """Last iteration at which the smoothed loss is still above `thr`; None if never below.
-
-    Args:
-        L: per-iteration loss array; thr: threshold; window: centred running-mean width (odd).
-    Returns:
-        iteration index (1-based) after which the smoothed loss stays below thr, or None.
-    """
-    h = window // 2
-    s = np.convolve(L, np.ones(window) / window, mode="valid")
-    it = np.arange(h + 1, len(L) - h + 1)
-    above = it[s > thr]
-    if not len(above) or above[-1] >= it[-1]:
-        return None
-    return int(above[-1])
-
-
 def main():
     """Report and plot the silent fraction at each size's stable crossing of each threshold."""
     thrs = [float(a) for a in sys.argv[1:] if not a.startswith("--")] or [0.023, 0.025]
@@ -125,7 +102,7 @@ def main():
         for N in Ns:
             T, h, s = [], [], []
             for t in by[N]:
-                x = stable_crossing(t["loss"], thr)
+                x = stable_crossing(t["loss"], thr, window=WINDOW, base=1)
                 P = np.array(t["participation"])
                 I = np.array(t["participation_iters"])
                 if x is None or x > I[-1]:

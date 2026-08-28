@@ -36,10 +36,10 @@ from plot_init_vs_trained import (build_cddm_batch, peak_and_participation, rnn_
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 import sys
+from common import IMG_DIR, r2_from_dir
 SWEEP = sys.argv[1] if len(sys.argv) > 1 else "CDDM_731df4_g0_masterinhib"  # pass the frozen folder to analyse it
 TAG = SWEEP.replace("CDDM_", "")
 ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
 DEAD_ABS = 0.01
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_MIF=(?P<mif>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")
 FRACS = [0.25, 0.5, 0.75, 1.0]
@@ -53,11 +53,6 @@ def target_set(cfg_seed, N, exc2inhR, frac):
     T = np.random.default_rng(int(cfg_seed) + SEED_OFFSET).choice(
         others, int(round(frac * (N - 1))), replace=False)
     return mstr, T
-
-
-def r2_from_dir(leaf_dir):
-    """Validation R^2 from the leading score in the net folder name."""
-    return float(os.path.basename(leaf_dir).split("_")[0])
 
 
 def analyse():

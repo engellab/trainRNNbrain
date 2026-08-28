@@ -32,40 +32,18 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from plot_participation_histograms import build_cddm_batch, net_participation, PENALTY, EQ_NAME
+from common import IMG_DIR, hhi, r2_from_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SWEEP = sys.argv[1] if len(sys.argv) > 1 else "CDDM_4a031e"   # sweep folder under data/trained_RNNs
 TAG = SWEEP.replace("CDDM_", "")
 SUF = "" if SWEEP == "CDDM_4a031e" else f"_{TAG}"
 ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
 
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_LmbdRWS=(?P<rws>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")
 N_TARGET = 1000
 OUT = os.path.join(IMG_DIR, f"r2_vs_hhi_N1000{SUF}.png")
 CACHE_CSV = os.path.join(ROOT, "r2_hhi_N1000.csv")   # per-net (eq, rws, frm, hhi, r2); skips forward passes
-
-
-def hhi(participation):
-    """Herfindahl-Hirschman Index of a participation vector.
-
-    Args:
-        participation: ndarray (N,) of per-unit participation (>= 0; silent units ~ 0).
-    Returns:
-        float H = sum_i (p_i / sum_j p_j)^2 over finite units, or nan if total is non-positive.
-        H in [1/N, 1]; 1/N = perfectly even, larger = concentrated in fewer units.
-    """
-    p = participation[np.isfinite(participation)]
-    tot = p.sum()
-    if tot <= 0 or p.size == 0:
-        return np.nan
-    s = p / tot
-    return float(np.sum(s * s))
-
-
-def r2_from_dir(leaf_dir):
-    """Validation R^2 of a net, parsed from the leading score in its folder name."""
-    return float(os.path.basename(leaf_dir).split("_")[0])
 
 
 def compute_rows():

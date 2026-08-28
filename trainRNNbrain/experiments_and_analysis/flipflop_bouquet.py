@@ -36,7 +36,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
+from common import IMG_DIR
 from flipflop_fixedpoints import best_net, load_net, find_fixed_points, classify, N_STARTS
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 

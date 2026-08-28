@@ -42,8 +42,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
-from flipflop_ksweep import load, stable_crossing, silence_at, PROBE_EVERY, TGT_VAR
+from common import IMG_DIR, stable_crossing
+from flipflop_ksweep import load, silence_at, PROBE_EVERY, TGT_VAR
 
 
 def grid(by, ks, Ns, thr):

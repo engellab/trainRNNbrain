@@ -49,7 +49,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_loss_fit import load_losses, logbin, IMG_DIR
+from common import load_losses, logbin, IMG_DIR
 from plot_local_exponent import doubling_curve
 
 T_MIN = 4000

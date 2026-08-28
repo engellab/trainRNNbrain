@@ -5173,3 +5173,1603 @@ seeds with ±4% spread do not close that gap — it is a real criterion dependen
 **Consequence for `paper.md`:** the saturation claim must be stated as criterion-dependent. The one
 out-of-sample point that tests it does not adjudicate, and reading it at the intended depth is not
 possible with the budget that was run.
+
+---
+
+## 2026-08-25 — First penalised flip-flop cells: floor, active units, learning dynamics across the grid
+
+New script [`flipflop_grid.py`](../trainRNNbrain/experiments_and_analysis/flipflop_grid.py) reads both
+sweeps into one (penalty, k, N) index and emits `flipflop_grid_{floor,active,dynamics}.png`.
+Coverage at this reading: `none` k=1..8 (N=500), k=2..7 (N=1000, N=2000); `rws` k=1..4 (N=500),
+k=1..5 (N=1000); `frm` k=1..2 (N=500) only; `both` nothing.
+
+### Method: the two quantities need DIFFERENT range rules, and the data forced the split
+
+Budgets are unequal — 500k (`none` N=500/1000), 400k (`none` N=2000), 150k (k=1 and the entire
+penalty grid). Truncating every floor fit to the common 150k costs ≤1.9% on most cells but **4.0% on
+k=5 N=2000**, where the truncated fit falls into the A/τ degeneracy and drags that cell's √k residual
+to 3.46% against 0.59% for the same cell fitted over its own budget. Bounding τ to the fitted range
+was tried as a fix and **rejected**: it binds on most cells and pushes `a` at N=2000 to 0.0218,
+breaking the N-independence the untruncated fits show cleanly. So both fits are reported, and:
+
+- cross-k / cross-N **within** a condition → full-budget fits (already near-matched at 500/500/400k)
+- cross-**penalty** → matched 150k on both sides, the one comparison where ranges truly differ
+- **active units → matched 150k always.** That count has not converged and never gets full budget.
+
+### 1. Floor: the √k law survives at all three N, and `rws` does not move it
+
+Full-budget fits of `floor_per_channel(k) = a + b·√k`:
+
+| pen | N | nk | a | b | max resid |
+|---|---|---|---|---|---|
+| none | 500 | 8 | 0.02052 | 0.00302 | 0.60% |
+| none | 1000 | 6 | 0.02041 | 0.00304 | 0.24% |
+| none | 2000 | 6 | 0.02070 | 0.00290 | 0.59% |
+| rws | 500 | 4 | 0.02054 | 0.00309 | 0.20% |
+| rws | 1000 | 5 | 0.02077 | 0.00303 | 0.24% |
+
+**N-independence now confirmed at three sizes**, not two: `a` spans 0.0204–0.0207 and `b` 0.0029–0.0031
+across a 4× size range.
+
+⚠️ **`rws` is the pre-registered "neither moves" outcome.** Against `none` read at matched 150k
+(a = 0.02069 / 0.01999, b = 0.00286 / 0.00305), `rws` sits inside the seed scatter on **both**
+parameters. rws does not reduce cross-channel interference and does not improve single-channel
+accuracy. Per `penalty_vs_interference.md` this is the outcome that kills H for this arm — it is not
+to be rescued with a different statistic. **frm and both still decide the actual test**, and frm has
+only 4 nets so far.
+
+⚠️ **`frm` moves the floor the WRONG way, preliminarily.** k=1: 0.02534 vs `none` 0.02340 (+8.3%);
+k=2: 0.02731 vs 0.02487 (+9.8%). On CDDM at N=5000 frm *beat* unpenalised by 37%. Two cells, one of
+them n=1, so this is a flag not a finding — but the direction is opposite and it needs the rest of
+the frm row before anything is said about it.
+
+### 2. Active units: sublinear, and the penalty does not change the exponent
+
+`M ~ N^b`, scale-free criterion, all cells read at 150k:
+
+| pen | mean b | per-k |
+|---|---|---|
+| none | **0.41 ± 0.05** | 0.40 / 0.47 / 0.45 / 0.42 / 0.35 / 0.34 (k=2..7) |
+| rws | **0.40 ± 0.06** | 0.50 / 0.34 / 0.40 / 0.35 (k=1..4) |
+
+⚠️ b = 0.41 here vs **0.37** logged 2026-08-24 — that was read at each cell's endpoint, this at a
+matched 150k. Shallower reading gives higher b, exactly the documented monotone depth dependence. The
+comparison against CDDM's 0.31–0.35 must be redone at matched depth before it means anything.
+
+Two things worth following up:
+
+- **`rws` alone INCREASES silencing.** At k=1 N=500 it gives M=122 vs `none`'s 165, and hard-criterion
+  M collapses from 484 to 309. This does not contradict the frm-modulated-by-rws claim (that is about
+  `both`, which has not landed), but rws on its own is not "purposing all units for useful compute".
+- **At N=2000, M saturates in k past k=3**: 367 / 368 / 378 / 367 / 369 for k=3..7, while N=500 and
+  N=1000 are still climbing. If it holds when k=8 N=2000 lands, the active-unit ceiling is set by N
+  once the task is complex enough, not by task demand.
+
+`frm` drives the silent fraction to **0.7–1.6%** — the pre-registered prerequisite that λ is not
+mis-scaled on this task **passes**, so the frm floor result above will be interpretable.
+
+### 3. Learning dynamics: A and τ are not identifiable; report t½, t₉₀, β
+
+Several cells fit τ ≈ 100 against a fit starting at t = 2000. Below the fit window the stretched
+exponential degenerates toward a power law and `A` becomes an extrapolated t=0 amplitude the data
+never constrains, with A and τ trading off along that valley. **Ratios of the excess *within* the
+fitted range are identified**, so the reported quantities are t½ and t₉₀ (iterations to remove half /
+90% of the excess over L∞) plus β.
+
+| pen | β | t½ | t₉₀ vs k |
+|---|---|---|---|
+| none | 0.3–0.5 | 5.0k → 6.6k (k=1→8) | **17.5k → 34.6k, roughly doubles** |
+| rws | 0.5–0.7 | 5.2k–6.0k | 18.3k–20.6k, **flat in k** |
+
+β well below 1 everywhere: a broad spectrum of timescales, not a single relaxation rate. Larger N
+learns *faster* at fixed k. Unpenalised, added bits cost mostly in the long tail — t₉₀ doubles while
+t½ moves only ~30%. **`rws` removes that k-dependence** (over k=1..4, where `none` still rises 27%)
+and raises β, i.e. it narrows the timescale spectrum. That is the closest thing yet to a mechanistic
+version of the "rws makes networks less heterogeneous" claim, but it rests on four k values.
+
+---
+
+## 2026-08-25 (later) — Standardised plotting, and M(N,k) under four read-out criteria
+
+New: [`plotstyle.py`](../trainRNNbrain/experiments_and_analysis/plotstyle.py) (colours, bands,
+contours, save; one variable = one visual channel across every figure) and
+[`flipflop_figures.py`](../trainRNNbrain/experiments_and_analysis/flipflop_figures.py), which emits
+`flipflop_fig{1_curves,2_floor,3_active,4_criteria}.png`. `common.py` gained `series`, `drift_alpha`
+and `diffusive_onset`.
+
+### The headline: b is robust, the k-dependence of M is NOT
+
+Four read-out criteria, 58 unpenalised runs, k=1..8, N ∈ {500,1000,2000}:
+
+| criterion | matches | mean T | seed CV of T | b in M~N^b |
+|---|---|---|---|---|
+| `iter` | training budget | 150 000 | 0.00 | 0.41 ± 0.05 |
+| `loss` | absolute clean loss L* = 0.03204 | 27 700 | 0.06 | 0.42 ± 0.08 |
+| `excess` | 1.10 × each cell's OWN fitted floor | 39 600 | 0.10 | 0.42 ± 0.07 |
+| `drift` | weight motion stops being directed (α<0.6) | 31 000 | 0.13 | 0.46 ± 0.06 |
+
+**b < 1 under every criterion, and the four agree to within their spread.** The sublinear-recruitment
+claim does not depend on when the network is read, which is the objection it most needed to survive.
+
+⚠️ **But M vs k is criterion-dependent, and that is a finding, not a nuisance.** At N=500 the active
+fraction M/N *rises* with k under `iter` (0.33 → 0.48 over k=1..8) and is *flat* under all three
+matched criteria (0.51–0.61, no trend). Reading: at a fixed 150k budget the high-k cells are less
+converged — `loss`/`excess`/`drift` all read them 2–3× later than k=1 — and less-converged networks
+have more active units. **The apparent "harder task recruits more units" is a convergence-depth
+artifact.** At matched performance, active-unit count is essentially k-independent while it remains
+strongly N-dependent. Anything in `paper.md` claiming M tracks task demand has to be checked against
+this.
+
+### Floors, now at three sizes with the √k law fitted per N
+
+| N | a | b | max resid |
+|---|---|---|---|
+| 500 | 0.02069 | 0.00286 | 0.67% |
+| 1000 | 0.01999 | 0.00305 | 0.66% |
+| 2000 | 0.02059 | 0.00281 | 3.46% ⚠️ |
+
+The N=2000 residual is the known k=5 truncation artifact (its full-budget fit gives 0.59%); it is
+left visible in fig2 panel (e) rather than smoothed away.
+
+### Two measurement bugs found and fixed
+
+**The first `drift` definition was wrong.** Requiring α to stay below threshold until the end of the
+run let one late noisy excursion reset the answer to near the final iteration: sibling seeds of k=4
+N=500 returned 40k, 44k and **458k**, and k=8 cells returned ~470k against a 500k budget — the
+criterion was reporting the BUDGET, not the dynamics. Redefined as the first crossing that persists
+for 5 probes; seed CV fell to 0.13 and onset now rises monotonically with k (24k at k=1 → ~45k at
+k=8). **Standing rule added: report the within-cell seed CV of any new read-out rule.** A rule whose
+T scatters across sibling seeds is measuring noise.
+
+**Averaging over an inconsistent set of sizes.** The first version of fig4(c) averaged M/N over
+"whatever sizes this k has". k=1 and k=8 exist at N=500 only; since M/N falls with N, both ends of
+the curve were pushed up and a spurious U shape appeared that was about coverage, not complexity.
+Both panels now use a single size and say which.
+
+### Data gaps
+
+k=8 at N=1000 and N=2000 have finished on Spock but their folders synced EMPTY (directory names
+only), so k=8 has no b value here. k=1 was only ever run at N=500 by design. The last unpenalised
+job, k=7 N=2000, was still running. Re-sync needed once the SSH session is back.
+
+---
+
+## 2026-08-25 (evening) — The k-dependence of M is a convergence artifact: c = 0.18 at fixed compute, c = 0 at matched performance
+
+Full grid now local (k=2..8 × N ∈ {500,1000,2000}, 3 seeds; k=1 at N=500 only; one k=8 N=2000 seed
+diverged). `flipflop_figures.py` gained `fit_law` + `fig_law` → `flipflop_fig5_law.png`: the joint
+power law `M = A·N^b·k^c` fitted under FIVE comparison criteria, each tested against the saturated
+model (a free mean per cell) by a lack-of-fit F-test.
+
+| criterion | b | c [95% CI] | lack-of-fit p | verdict |
+|---|---|---|---|---|
+| endpoint (own final iteration) | 0.39 | 0.137 [0.075, 0.222] | 1.7e-08 | **REJECTED** |
+| fixed compute, t = 150k | 0.41 | **0.179 [0.152, 0.208]** | 0.77 | law OK |
+| matched loss L\* | 0.43 | −0.023 [−0.064, 0.019] | 0.50 | law OK |
+| matched excess (1.10 × own floor) | 0.41 | −0.038 [−0.074, 0.002] | 0.53 | law OK |
+| matched dynamics (α < 0.6) | 0.45 | 0.004 [−0.042, 0.053] | 0.55 | law OK |
+
+**The conclusion, stated plainly: at equal compute more bits DO recruit more units (c = 0.18,
+CI excludes 0, law fits at p = 0.77); at equal performance or equal dynamical state they do not
+(c ≈ 0, CI straddles 0). b stays 0.39–0.45 throughout.** The k-dependence is entirely accounted for
+by convergence depth — high-k cells are further from their floor at any fixed budget, and
+less-converged networks carry more active units. Confirmed independently by the per-cell means:
+M rises +27–33% from k=2 to k=8 under fixed compute at every N, but is +7%/−4%/−15% (N=500/1000/2000)
+under matched loss.
+
+⚠️ **Correction to the earlier reading of `flipflop_M_scaling`.** The endpoint column's rejection
+(p = 1.7e-08) was attributed to the law's functional form. It is not: "endpoint" reads N=2000 at 400k
+and the other sizes at 500k, so it mixes reading depths and manufactures per-cell structure no smooth
+law can absorb. **Endpoint is not a clean test of anything and should not be quoted as one.** With
+budgets equalised (`fixed compute`) the identical law fits the same data at p = 0.77.
+
+⚠️ **A single power law cannot express an N × k interaction.** Under matched loss the k-trend is
++7% at N=500 but −15% at N=2000 — a sign change that `c ≈ 0` averages over. The lack-of-fit test does
+not flag it (p = 0.50), but with 3 seeds/cell that test has limited power, so the interaction is
+UNRESOLVED, not absent. Read c together with the per-cell table, never alone.
+
+Figure convention fixed: BEFORE/AFTER now say "before/after collapsing", each column names its
+criterion concretely (what is held equal), and the p-value is labelled a lack-of-fit test with its
+verdict — the previous titles let "endpoint" read as the meaning of "BEFORE".
+
+---
+
+## 2026-08-25 (evening, 2) — ⚠️ On the flip-flop, silence exists ONLY in the scale-free sense
+
+Prompted by the question "can we check the absolute active units, not the scale-free ones?".
+`flipflop_figures.py` now emits `flipflop_fig5_law.png` and `flipflop_fig5_law_hard.png`.
+
+**Active fraction M/N under the two silence rules, unpenalised flip-flop:**
+
+| N | hard (p ≥ 1e-6) | scale-free (p ≥ 0.05·q95) |
+|---|---|---|
+| 500 | 0.967 – 1.000 | 0.33 – 0.61 |
+| 1000 | 0.990 – 0.999 | 0.24 – 0.39 |
+| 2000 | 0.997 – 1.000 | 0.15 – 0.27 |
+
+**Under the absolute criterion 97–100% of units are active in every cell**, so the joint power law
+returns `b = 1.00–1.01` with CIs like [1.00, 1.01] at all five comparison criteria: M = N exactly, no
+saturation, no k-dependence, nothing to explain. **The entire flip-flop silent-unit result rests on
+the scale-free (relative) criterion.** That has to be stated in `paper.md` as a limitation, not
+discovered by a referee.
+
+⚠️ This is a REAL DIFFERENCE FROM CDDM, where hard silence is substantial (N=10000 read 1463/10000
+active under `hard`). Unpenalised flip-flop networks keep every unit fractionally above 1e-6; the
+`rws` penalty does create hard silence here (M_hard 484 → 309 at k=1 N=500). Why the two tasks differ
+is open and not resolved by anything run so far.
+
+⚠️ Two hard-criterion fits come back "REJECTED" at p = 0.017 and p = 0.0049 with c = +0.007 and
+−0.003. Statistically real, scientifically empty: with M/N ≈ 1 the residual variance is tiny and the
+F-test resolves sub-1% structure. **Significance without magnitude — always read c and p together.**
+
+### The conclusion on which law wins
+
+The five columns are NOT five rival models of one dataset; they are one law form fitted to five
+DIFFERENT measurements, because each criterion reads the networks at a different time. Ranking them
+by whether the comparison is fair:
+
+1. **ENDPOINT — disqualified.** Mixed budgets (400k vs 500k), a defect rather than a choice.
+2. **FIXED COMPUTE — answers "same training budget".** `c = 0.179 [0.152, 0.208]`, law fits.
+3. **MATCHED PERFORMANCE / k-fair / DYNAMICS — answer "equally good networks".** `c ≈ 0`.
+
+The paper's claim must survive the deflationary objection *"your big networks are just less trained"*,
+which requires comparing equally-good networks. So **matched performance is the criterion**, and the
+winning law is
+
+> **M ≈ 21 · N^0.42, independent of k**  (scale-free criterion; b = 0.41–0.45 across the three
+> matched criteria, c straddling 0 in all three).
+
+**This is the PRE-REGISTERED outcome for pathology.** The k-sweep launcher fixed in advance: "if M\*
+tracks task demand it must move with k... Flat M\*(k) would mean a genuine pathology rather than
+spare capacity." At matched performance M\*(k) is flat, so the spare-capacity reading is the one that
+fails. The apparent rise at fixed compute (+27–33% from k=2 to k=8) is convergence depth.
+
+Remaining caveats, both unresolved: the scale-free-only nature of the effect (above), and the N × k
+interaction under matched loss (+7% at N=500 vs −15% at N=2000) that a single power law averages to
+c ≈ 0 and the lack-of-fit test lacks the power to resolve at 3 seeds/cell.
+
+---
+
+## 2026-08-25 (night) — Flip-flop vs CDDM hard silence: NOT a bug, NOT a contradiction
+
+Prompted by "is it genuinely true? is it a bug, or a task-specific law?".
+
+### The falsification test, and it killed my first hypothesis
+
+I hypothesised that CDDM's exact zeros were an artifact of `same_batch=True` — the network trains on
+450 fixed conditions and participation is measured on those same trials, so a unit can be driven
+below threshold on that finite set while not being truly dead. New script
+[`silence_is_taskset.py`](../trainRNNbrain/experiments_and_analysis/silence_is_taskset.py)
+re-measures trained CDDM nets on HELD-OUT coherences (midpoints between trained ones, 392 unseen
+conditions), thresholds fixed in advance (>20% relative drop = artifact, <5% = real).
+
+**Result: hard-silent fraction 0.621 → 0.624, a −0.5% relative change. HYPOTHESIS FALSIFIED.**
+CDDM's dead units are dead for any input in the trained range. The zeros are a real network property.
+
+### What the difference actually is
+
+Participation spectra are BIMODAL in both tasks, and both silence ~78–84% of units. They differ only
+in WHERE the silent mode sits:
+
+| | silent mode | active mode | exactly 0 | \|W_inp\| | \|W_inp\|/\|W_rec\| |
+|---|---|---|---|---|---|
+| flip-flop (21 nets) | 2.0–2.9e-4 | 0.79–1.1 | 0.2–0.6% | 97.6 | 2.25 |
+| CDDM (3 nets) | exactly 0 | ~0.06 | 70–72% | 16.0 | 1.03 |
+
+Both silent modes are 3–4 orders below their own active mode. **The 1e-6 absolute threshold simply
+falls above CDDM's silent mode and below the flip-flop's.** The scale-free criterion agrees across
+both tasks (0.84 vs 0.85 at N=2000) precisely because it does not depend on that accident.
+
+**Mechanism, consistent with the task demand:** the flip-flop must let a sparse input pulse trigger a
+decisive state flip, so training amplifies W_inp ~6x more than CDDM does (97.6 vs 16.0; inp/rec 2.25
+vs 1.03). Those large input weights inject a small transient into every unit on every pulse, lifting
+the silent mode off exactly-zero to ~2e-4. CDDM's inputs are sustained graded coherences and need no
+such gain.
+
+### Consequence
+
+⚠️ **`p < 1e-6` is NOT a task-portable definition of silence.** It is calibrated to CDDM's dynamic
+range and reports ~0% silence on the flip-flop, where the scale-free rule reports ~84%. `paper.md`
+must define silence scale-free and present the absolute count as a task-specific diagnostic, not as
+the primary measure. Reporting both remains mandatory — this is the sharpest instance yet of the two
+disagreeing.
+
+⚠️ Separate pre-existing BUG found: the saved `.npz` parameter files LOSE `activation_args`.
+`np.savez` stores a dict argument as an array of its KEYS — the file literally contains
+`array(['name','slope'])`, values discarded. Reconstructing a net from `.npz` alone fails with an
+opaque indexing error inside `RNN_numpy`; `silence_is_taskset.py` restores it from the saved config.
+Any dict-valued parameter has the same problem. Worth fixing in the saver.
+
+### CDDM under the same read-out battery (`cddm_criteria.py`)
+
+The double-check requested: does CDDM's saturating law depend on the criterion, as the flip-flop's
+did not?
+
+| criterion | mean T | b (scale-free) | b (hard) |
+|---|---|---|---|
+| endpoint | 200 000 | 0.53 | 0.52 |
+| fixed iteration | 100 000 | 0.55 | 0.52 |
+| matched loss L\* | 9 300 | 0.60 | 0.80 |
+| matched excess | 11 000 | 0.59 | 0.78 |
+| drift | — | **DISQUALIFIED** | **DISQUALIFIED** |
+
+**Saturation is confirmed on CDDM under every usable criterion (b = 0.52–0.60, all << 1).** Compared
+against the flip-flop's b = 0.41–0.46, both tasks are sublinear; CDDM's exponent is somewhat higher.
+
+⚠️ **The `drift` criterion does NOT port to CDDM.** Alpha is already ~0.5 by the second probe for
+every N ≥ 500, so there is no ballistic→diffusive transition inside the recorded window; the original
+implementation returned iteration 1000 (loss still 0.033–0.040 against a final 0.019–0.025) and a
+meaningless b = 0.94 that would have read as "no saturation". **`common.diffusive_onset` now requires
+a prior DIRECTED phase and returns nan otherwise** — an onset presupposes a prior state. Flip-flop is
+unaffected (62/64 runs, seed CV 0.12). This is the second time this one criterion has produced a
+plausible-looking number from a definition defect; both times a seed-scatter or start-of-trace check
+caught it.
+
+⚠️ On CDDM the HARD criterion is strongly criterion-sensitive (b = 0.52 → 0.80) while the scale-free
+one is not (0.53 → 0.60). The hard reads at 9–11k are taken before much hard silencing has happened.
+Another reason the scale-free rule is the primary measure.
+
+⚠️ The criteria land two orders of magnitude apart in depth on CDDM (9k vs 200k) but only one on the
+flip-flop (27k vs 150k), and b falls with depth — so the flip-flop's tighter agreement across criteria
+is partly because its criteria happen to land closer together, not only because the law is cleaner.
+
+---
+
+## 2026-08-25 (night, 2) — npz saver bug FIXED; flip-flop absolute silence threshold recalibrated
+
+### 1. Saver bug fixed
+
+`run_experiment.py` built its .npz payload with `np.asarray(v)`. On an **OmegaConf DictConfig that
+ITERATES to its keys**, so `activation_args = {"name": "relu", "slope": 1.0}` was written as
+`array(['name','slope'])` with the values silently discarded, and any net reconstructed from a .npz
+alone raised an opaque IndexError inside `RNN_numpy.configure_activation_`. New helper
+`run_experiment.storable_` converts OmegaConf containers to plain Python and stores mappings as 0-d
+object arrays, which round-trip through `np.load(..., allow_pickle=True)[k].item()`. Round-trip
+verified for DictConfig, dict, list, ndarray and scalar.
+
+⚠️ **Every .npz written before this fix still has the defect.** Analysis code must restore
+`activation_args` from the saved config (`silence_is_taskset.load_params` does).
+
+### 2. A task-calibrated absolute threshold for the flip-flop: p < 4e-2
+
+`1e-6` was calibrated on CDDM and sits below BOTH of the flip-flop's modes, which is why it reported
+~0% silence there. New script
+[`flipflop_hard_threshold.py`](../trainRNNbrain/experiments_and_analysis/flipflop_hard_threshold.py)
+derives the threshold from the data by Otsu's method on log10(p) (`common.otsu_threshold`, added with
+a self-check), with the adoption criteria fixed in advance.
+
+| pre-registered check | result |
+|---|---|
+| spread across cells < 1 decade | **PASS** — 0.50 decades (10–90 pct: 2.3e-2 .. 7.4e-2) |
+| agrees with scale-free, median \|ΔM\|/N < 0.05 | **PASS** — 0.030 |
+| must differ from 1e-6 | **PASS** — 41 000× larger |
+
+**Adopted: `p < 4e-2` for the n-bit flip-flop** (against `1e-6` for CDDM). Silent fractions under it
+track the scale-free rule closely (e.g. k=3 N=2000: 0.714 vs 0.732) where the old rule gave 0.002.
+
+⚠️ The threshold drifts systematically with both axes — 5.5e-2 at N=500 → 3.4e-2 at N=2000, and
+6.8e-2 at k=1 → 2.7e-2 at k=8, a 2–2.5× range inside the 0.5-decade spread. A single constant is a
+simplification, defensible only because the valley is nearly empty (below).
+
+**A speculation of mine was wrong and is corrected here:** I guessed Otsu would recover the
+scale-free rule's own constant. It does not — Otsu gives 4.1e-2 against `0.05·q95` = 1.13e-1, a factor
+2.7 apart, and the two are essentially UNCORRELATED across nets (r = 0.13). They nevertheless
+classify the same units (|ΔM|/N = 0.030) because the valley between the modes is nearly empty, so any
+threshold inside it returns the same answer. That insensitivity is the strongest evidence yet that
+the bimodal split is a real structural feature rather than an artifact of either rule.
+
+### 3. The law is unchanged under the recalibrated threshold
+
+| criterion | b (p<4e-2) | b (scale-free) | c (p<4e-2) | c (scale-free) |
+|---|---|---|---|---|
+| endpoint | 0.34 | 0.39 | 0.118 | 0.137 |
+| fixed compute | 0.36 | 0.41 | **0.178** | **0.179** |
+| matched performance | 0.41 | 0.43 | −0.017 | −0.023 |
+| matched perf., k-fair | 0.39 | 0.41 | −0.034 | −0.038 |
+| matched dynamics | 0.44 | 0.46 | −0.003 | 0.001 |
+
+**Every conclusion survives**: b sublinear (0.34–0.44) at every criterion, c ≈ 0.18 at fixed compute
+and ≈ 0 at matched performance. So the earlier apparent conflict between the absolute and relative
+rules was entirely a mis-calibrated constant, not a disagreement about the science.
+
+### fig5 regenerated under the calibrated threshold
+
+`flipflop_figures.py` now emits three versions of the law figure, one per silence rule:
+`flipflop_fig5_law.png` (scale-free), **`flipflop_fig5_law_abs.png` (absolute, p >= 4e-2,
+task-calibrated)**, and `flipflop_fig5_law_hard.png` (absolute, p >= 1e-6, kept and explicitly
+labelled DEGENERATE so the failure mode stays visible rather than being quietly deleted).
+`common.active_count` now accepts a float as an explicit absolute threshold.
+
+The calibrated absolute figure reproduces the scale-free one panel for panel: `c = 0.178
+[0.157, 0.201]` at fixed compute against the scale-free `0.179 [0.152, 0.208]`, and `c` straddling
+zero at all three matched criteria. b runs 0.34–0.44 against the scale-free 0.39–0.46 — slightly
+lower throughout, because a fixed absolute cut counts marginally fewer units active than a rule that
+rescales with each network, but the ordering and every verdict are identical.
+
+---
+
+## 2026-08-25 (night, 3) — Diffusion read-out swept over 5 variables x 5 thresholds
+
+New: [`flipflop_diffusion.py`](../trainRNNbrain/experiments_and_analysis/flipflop_diffusion.py).
+`common` gained `drift_alpha_pairwise` (per-decade alpha), `scalar_alpha` (Hurst-type exponent of a
+scalar trajectory, self-checked against a synthetic random walk and a pure ramp), and `_drift_key` so
+`drift_alpha` also accepts `"p"` — the participation vector, logged as `dp_lag*`.
+
+### The variables settle in a clear ORDER — a result in its own right
+
+| variable | final alpha | seed sd | per-decade disagreement | settles at |
+|---|---|---|---|---|
+| W_out | 0.011 | 0.015 | 0.009 | ~5k (then frozen) |
+| participation vector | 0.318 | 0.355 | **0.204** ⚠️ | ~25k |
+| W_rec | 0.252 | 0.089 | 0.091 | ~40k |
+| W_inp | 0.198 | 0.206 | **0.302** ⚠️ | ~100k |
+
+**Output weights freeze first, then the participation structure, then the recurrent weights, and the
+input weights keep moving longest** — consistent with W_inp being the matrix that grows 54x on this
+task while W_rec barely moves.
+
+⚠️ `W_out` and `M(t)` are UNUSABLE as read-outs: their alpha is already below every swept threshold
+at the first probe, so `diffusive_onset` correctly returns nan (the "requires a prior directed phase"
+guard added earlier). Reported rather than hidden.
+
+⚠️ `W_inp` and the participation vector FAIL the single-power-law check (per-decade disagreement
+0.302 and 0.204 against W_rec's 0.091), so a threshold on their alpha is averaging two regimes.
+**W_rec is the best-founded drift variable** and should be the default.
+
+### 13 trusted (variable, threshold) combinations, and they agree
+
+Combinations scored by the seed CV of their read-out time; all 13 kept are CV 0.09–0.25.
+
+| variable | thresholds | mean T | b | c |
+|---|---|---|---|---|
+| W_rec | 0.50–0.80 | 19k–41k | 0.45–0.47 | −0.010 … +0.072 |
+| W_inp | 0.50–0.80 | 46k–73k | 0.44–0.46 | −0.031 … −0.018 |
+| participation | 0.50–0.60 | 16k–22k | 0.47–0.52 | −0.043 … +0.001 |
+
+**b = 0.465 ± 0.025, range [0.44, 0.52]. c = −0.009 ± 0.030, range [−0.043, +0.072].**
+
+So across 13 independent diffusion read-outs — three different variables, five thresholds, read-out
+times spanning 16k to 73k iterations — c is indistinguishable from zero everywhere except
+W_rec@0.80 (+0.072, the shallowest read of all). **The k-independence of M at matched dynamics is not
+an artifact of the one variable or the one threshold used before.**
+
+⚠️ **An unexplained offset.** Diffusion read-outs give b = 0.465 ± 0.025 while the loss-based ones
+give 0.41–0.43. The gap (~0.04) is larger than the spread within either family and does NOT track
+read-out depth: W_inp reads DEEPER than the loss criteria (46k–73k vs 29k–41k) yet still returns the
+higher b. Not resolved; flagged so it is not quietly averaged away.
+
+### The settling time itself: T = A N^beta k^gamma
+
+`flipflop_diffusion.py` gained `fit_settling_law`. This asks how the DYNAMICS depend on N and k,
+rather than how the active-unit count does.
+
+| variable | thresholds | beta (size) | gamma (complexity) | T(k=8)/T(k=1) |
+|---|---|---|---|---|
+| **W_inp** | 0.50–0.80 | −0.14 … −0.18 | **0.426 … 0.499** | **2.43x … 2.82x** |
+| participation | 0.50–0.60 | −0.15 … −0.24 | 0.480 … 0.504 | 2.7x … 2.9x |
+| W_rec | 0.50–0.70 | −0.21 … −0.37 | 0.158 … 0.430 | 1.4x … 2.4x |
+
+**W_inp: gamma = 0.458 ± 0.027 across all five thresholds**, every CI excluding zero. Going from 1 to
+8 bits lengthens the time the input weights keep moving directionally by **+160%**. The participation
+vector independently agrees (0.48–0.50); W_rec is lower and threshold-sensitive.
+
+**beta is NEGATIVE everywhere: larger networks settle FASTER**, matching the earlier finding that
+t_half falls with N at fixed k.
+
+### The mechanism test — and it passes quantitatively
+
+If `c > 0` at fixed compute is *only* slower convergence at higher k, reading each network at a
+k-compensated iteration `t ∝ k^gamma` must remove it. gamma comes from the WEIGHT drift and never
+touches M or the participation vector, so this is not circular.
+
+| read-out | b | c [95% CI] |
+|---|---|---|
+| fixed compute, t = 150 000 | 0.41 | **0.179 [0.150, 0.208]** |
+| k-compensated, t = 50 000·k^0.458 | 0.41 | **0.001 [−0.039, 0.035]** |
+| matched performance (reference) | 0.41 | −0.038 [−0.076, 0.004] |
+
+**100% of the fixed-compute k-effect is removed**, and b is untouched at 0.41 in all three.
+
+gamma is BRACKETED, not merely fitted — c is driven positive by too little compensation and negative
+by too much, at every base time:
+
+| gamma | c at base 30k | 50k | 80k |
+|---|---|---|---|
+| 0 (none) | +0.028 | +0.057 | +0.106 |
+| 0.34 (W_rec) | −0.024 | +0.029 | +0.049 |
+| **0.458 (W_inp)** | **−0.043** | **+0.001** | **+0.025** |
+| 0.50 (participation) | −0.053 | −0.010 | +0.014 |
+| 0.70 (over) | −0.087 | −0.050 | −0.027 |
+
+⚠️ Note the uncompensated k-effect GROWS with read-out depth (c = 0.028 at 30k → 0.106 at 80k →
+0.179 at 150k). Low-k networks converge and silence fully while high-k ones are still silencing, so
+the gap widens with training. A shallow fixed-compute read understates the artifact.
+
+⚠️ This is a CONSISTENCY result, not independent evidence. The compensated read-out is "matched
+dynamics" implemented through a fitted scaling instead of per-run, so its agreement with the
+per-run matched criteria confirms the mechanism is quantitatively sufficient — it does not add a
+new independent measurement of c.
+
+---
+
+# ★ HEADLINE RESULT — matched on W_inp diffusion, active units depend on N and not on k
+
+Script: [`flipflop_decisive.py`](../trainRNNbrain/experiments_and_analysis/flipflop_decisive.py)
+
+![Active units depend on size, not complexity](../img/internal_figures/flipflop_decisive.png)
+
+*Same networks, same measure, same silence rule — only the read-out time differs between rows. Top:
+read at a fixed budget, where a k effect appears. Bottom: read where W_inp stops moving directionally,
+where it does not. Panel (c) divides out the size dependence and looks for any k trend in what is
+left: a clear rise at fixed compute (median 13 → 18.7), flat scatter at matched diffusion.*
+
+## The comparison criterion: W_inp diffusion
+
+Networks are compared at the iteration where the lag exponent of the INPUT-weight displacement,
+|W_inp(t+L) − W_inp(t)| ~ L^α, falls below 0.6 and stays there — i.e. where the input weights stop
+moving directionally and start merely jittering (α = 1 directed, 0.5 unbiased random walk, < 0.5
+confined).
+
+**W_inp is chosen because it moves the LONGEST of anything measurable.** Measured settling times:
+
+| variable | settles at | note |
+|---|---|---|
+| W_out | ~5k | then frozen (α → 0.01) |
+| participation vector | ~25k | |
+| W_rec | ~19k–41k | |
+| **W_inp** | **~35k–122k (mean 63k)** | the last thing still moving |
+
+Matching at the W_inp point is therefore the most conservative dynamical read-out available: every
+other variable has already settled, so nothing is being compared mid-flight. It needs no threshold on
+the loss, no fitted floor, and no claim that the task has converged. 64/64 runs reach it.
+
+## The result
+
+| read-out | b (size) | c (complexity) | M(k=8)/M(k=1) |
+|---|---|---|---|
+| fixed compute, t = 150 000 | 0.405 [0.377, 0.434] | **0.179 [0.150, 0.208]** | 1.45× [1.37, 1.54] |
+| **matched W_inp diffusion** | **0.441 [0.403, 0.477]** | **−0.026 [−0.078, 0.021]** | **0.95× [0.85, 1.04]** |
+
+**Same networks, same measure, same silence rule — only the read-out time differs.**
+
+- **M depends on N**: b = 0.44, CI comfortably excluding both 0 and 1. Sublinear, so added units are
+  increasingly not recruited; the silent count N − M therefore grows with N as well.
+- **M does not depend on k**: c = −0.026 with a CI straddling zero. An 8× increase in task complexity
+  changes the active-unit count by −5% [−15%, +4%].
+
+Panel (c) of the figure is the decisive one: dividing out the size dependence (plotting M/N^b) leaves
+a clear upward trend at fixed compute (median 13 → 18.7 over k=1..8) and a flat scatter at matched
+diffusion (median ~16.4, no trend).
+
+## Why the fixed-compute k-effect is not evidence of task demand
+
+The settling time itself scales as **T ~ N^(−0.16) · k^(0.458)** (W_inp, γ = 0.458 ± 0.027 over five
+thresholds, every CI excluding zero): 8 bits keep the input weights moving 2.6× longer than 1 bit.
+At any fixed budget, high-k networks are therefore proportionally less converged, and less-converged
+networks hold more active units. Reading at a k-compensated iteration t ∝ k^0.458 — with γ taken from
+the WEIGHT dynamics, never from M — removes **100%** of the fixed-compute effect
+(c: 0.179 → 0.001 [−0.039, 0.035]) while leaving b untouched.
+
+## Status
+
+This is the outcome the k-sweep pre-registered: *"if M\* tracks task demand it must move with k...
+Flat M\*(k) would mean a genuine pathology rather than spare capacity."* M\*(k) is flat under three
+matched-performance criteria, five diffusion thresholds, three drift variables, and both silence
+rules. The spare-capacity reading predicted the opposite and fails.
+
+⚠️ Standing caveats: the effect is measured with the scale-free rule (or the task-calibrated absolute
+rule, 4e-2 — not the CDDM-calibrated 1e-6, which is degenerate here); the N × k interaction under
+matched loss (+7% at N=500, −15% at N=2000) is unresolved at 3 seeds/cell; and diffusion read-outs
+give b ≈ 0.465 against the loss-based 0.41–0.43, an unexplained ~0.04 offset.
+
+---
+
+## 2026-08-25 (night, 4) — ⚠️ frm is NOT CONVERGED at 150k; the "frm worsens the floor" flag is RETRACTED
+
+Checked before starting the penalty characterisation, because the decisive criterion needs the
+networks to have settled.
+
+**Two independent measures agree that `frm` has not converged at the 150k penalty budget:**
+
+| condition | W_inp reaches α<0.6 within budget | loss fall over last third |
+|---|---|---|
+| none (400–500k budget) | 64/64, median 63k | −0.3% … +0.1% |
+| **rws** (150k) | **43/43, median 54k, range 40–97k** | 0.0% … +0.4% |
+| **frm** (150k) | **0/4 — still BALLISTIC** | **+5.4% … +8.4%** |
+
+frm's α(W_inp) starts at ~1.0 and *ends* at 0.87–1.005, never sustaining a drop below 0.6; its
+minimum over the whole run is 0.58–0.74. The loss is still descending ~8% over the final tenth.
+
+### Retraction
+
+The 2026-08-25 flag that **"frm moves the floor the WRONG way (+8.3% at k=1, +9.8% at k=2)"** is
+**RETRACTED**. Those were stretched-exponential floors fitted to a curve that is still descending, so
+they are not floors at all. The apparent excess (~8–10%) is almost exactly the amount the loss is
+still falling over the last third of the run (8.4%). Nothing can be said about frm's floor, in either
+direction, from a 150k run.
+
+### Consequences for the penalty programme
+
+- **`rws` is ready to characterise now.** Converged by both measures, the W_inp diffusion criterion is
+  available, and N=500 is complete for k=1..8 with N=1000 nearly so.
+- **`frm` at 150k is unusable** for anything that assumes convergence — floors, matched-performance
+  read-outs, and the diffusion criterion all require it. Only fixed-compute statements are safe, and
+  those are exactly the ones the headline analysis showed to be confounded by convergence depth.
+- **`both` contains frm and has NOT STARTED** (tasks 145–216, still queued behind rws/frm). It will
+  almost certainly hit the same wall. There is still time to raise its budget before it runs.
+
+The 150k budget was justified in the launcher header from CDDM penalty measurements: "the clean task
+loss reaches within 2% of its final value at 4.6k–14.6k (rws, frm)". **That transfers to rws on the
+flip-flop and does NOT transfer to frm** — a fourth instance of a CDDM-calibrated constant failing on
+this task, after the 1e-6 silence threshold and the drift criterion.
+
+---
+
+## 2026-08-25 (night, 5) — frm/both re-submitted at 400k; large-N point sized by measurement
+
+### Actions taken
+
+1. **Code synced to Spock with the `storable_` saver fix** (version 95320a6). The frm/both launcher
+   refuses to start on code lacking `storable_`, so no new run can write a .npz with dict-valued
+   parameters silently discarded.
+2. **Cancelled every PENDING frm and both task in the 150k grid** (44 frm + 47 both; the first count
+   of "25 both" came from a truncated `squeue %K` field, and SLURM re-expanded bracketed ranges as
+   neighbours were cancelled, so it took several passes). No compute was lost — none had started.
+   **Running frm jobs (11) were left to finish**: the compute is already spent and the cells document
+   the non-convergence. All rws cells were left untouched; rws converges inside 150k.
+3. **Submitted `frm` + `both` at 400k**, k=1..8, N ∈ {500,1000,2000}, 3 seeds = 144 jobs
+   (`SilentReLU_flipflop_frmboth_long_spock.slurm`, arrays 5904341/2/3), one array per size so the
+   wall-time request matches the cell: 48h at N=500/1000, 96h at N=2000.
+
+**Why 400k and not 500k.** 500k at N=2000 is 76h median but 103h on a 1.35x slow node, over Spock's
+4-day cap — the failure mode the k-sweep header warns about. 400k also MATCHES the unpenalised N=2000
+budget exactly, so floors can be fitted over an identical range instead of a mismatched one.
+
+### The large-N point: what is affordable, and what is not
+
+Cost model from the three measured points: `t = 0.163 + 9.667e-8 N^2` s/iter (batch 1024, fresh).
+
+| N | lever | none+rws @100k | frm+both @ N-scaled converged budget |
+|---|---|---|---|
+| 3000 | 6x | 39h slow — Spock | 116h slow — Della, fits |
+| 3500 | 7x | 51h slow — Spock | 147h slow — **just over Della's 144h cap** |
+| 4000 | 8x | 64h slow — Spock | 186h — impossible |
+| 5000 | 10x | 97h slow — Della | 271h — impossible |
+
+**The full request (all k, all four penalties, N=5000) is 21 225 GPU-h ≈ 68 days at 13 concurrent
+GPUs, and its frm/both cell cannot run at any converged budget on any available QOS.**
+
+⚠️ **Large-N penalty cells are DEFERRED, and not only on cost.** We do not yet know what budget frm
+actually needs — 400k is an extrapolation from "it had not settled by 150k". Submitting N≥3000 frm
+before the 400k re-run reports back would risk repeating exactly the mistake that produced the
+retracted 150k floors. The correct order is: let 400k establish frm's real settling time, then size
+the large-N penalty cells from a measurement.
+
+**What the large-N point is FOR** is the ceiling question, and that needs only `none` and `rws`. Over
+N=500..2000, M ~ N^0.44 with b constant — a power law with NO ceiling — whereas CDDM's fit put a
+ceiling near 880. Extrapolating M = 18.9 N^0.44 predicts M = 594 at N=3000 and 741 at N=5000, so a
+ceiling near 800 only starts bending the curve above N ~ 4000. **Larger N is the discriminating
+measurement, not a precision gain**, which argues for 4000-5000 over 3000.
+
+`SilentReLU_flipflop_bigN_spock.slurm` written (48 jobs = none+rws x k=1..8 x 3 seeds at one size,
+100k iterations, `BIGN` selects the size). ⚠️ 100k is sized for the diffusion and matched-performance
+read-outs (which land at 29k-48k at this size) and is NOT deep enough for a floor comparison against
+the 400-500k unpenalised cells.
+
+**Timing calibration submitted at N = 3000, 4000, 5000** (600 iterations each) rather than trusting
+the model, which mispredicts the measured N=500 point by 25%. Submission of the real grid waits on it.
+⚠️ SUPERSEDED — the calibration found a CUDA OOM at N>=4000, not a timing number. See "night, 6".
+
+### N=4000 submitted (array 5904416)
+
+`BIGN=4000 sbatch --array=1-48 --time=96:00:00 --mem=48G SilentReLU_flipflop_bigN_spock.slurm`
+= none + rws × k=1..8 × 3 seeds, 100k iterations. Index decode verified by hand before submitting
+(task 1 → k=1/none/rep0; task 25 → k=1/rws/rep0; task 48 → k=8/rws/rep2).
+
+**Wall time requested at Spock's full 96h cap deliberately.** The model predicts 47h median / 64h on
+a 1.35x slow node, so 96h survives a **2x cost-model error** — and the model is only anchored by
+measurements up to N=2000. Under-running costs a full re-run from scratch (no checkpoint/resume);
+over-requesting costs nothing but queue priority. Memory raised 32G → 48G: activations at N=4000,
+batch 1024, T=300 are ~4.9 GB and the older request had no headroom.
+
+The three timing calibrations (N=3000/4000/5000, 600 iterations) are still queued behind the 144
+frm/both jobs. They are now a confirmation rather than a blocker, and will be checked against the
+first real N=4000 job's reported s/iter.
+
+**Queue after all submissions:** 36 FFpen running (rws + 11 frm at 150k, left to finish), 144 FFpenL
+(frm/both @ 400k), 48 FFbigN (N=4000), 3 calibrations, 1 FFk.
+
+---
+
+# STATE OF PLAY — 2026-08-25, 17:45
+
+A standalone summary of what the flip-flop line has established, each claim with the figure that
+supports it, plus what is currently in the queue. Everything below is the fresh-batch sweep; the
+`same_batch=True` data remains retracted and quarantined.
+
+---
+
+## 1. The headline: active units scale with SIZE, not with task COMPLEXITY
+
+Matched at the point where the input weights stop moving directionally:
+
+| read-out | b (size) | c (complexity) | M(k=8)/M(k=1) |
+|---|---|---|---|
+| fixed compute, t = 150 000 | 0.405 [0.377, 0.434] | 0.179 [0.150, 0.208] | 1.45× |
+| **matched W_inp diffusion** | **0.441 [0.403, 0.477]** | **−0.026 [−0.078, 0.021]** | **0.95×** |
+
+![Decisive figure](../img/internal_figures/flipflop_decisive.png)
+
+`b` = exponent on N, `c` = exponent on k in `M = A·N^b·k^c`. b ≈ 0.44 means quadrupling N buys only
+1.8× the active units — sublinear, so added units are increasingly not recruited. c ≈ 0 means 8× the
+task complexity changes the count by −5% [−15%, +4%].
+
+**This is the pre-registered signature of pathology.** The k-sweep launcher fixed in advance: *"if M\*
+tracks task demand it must move with k... Flat M\*(k) would mean a genuine pathology rather than
+spare capacity."* M\*(k) is flat. The spare-capacity reading predicted the opposite and fails.
+
+---
+
+## 2. The result does not depend on WHEN the networks are read
+
+Five comparison criteria, and the k-effect appears only in the two compute-based ones:
+
+![Law under five criteria](../img/internal_figures/flipflop_fig5_law.png)
+
+| criterion | b | c | verdict |
+|---|---|---|---|
+| endpoint (budgets differ ⚠️) | 0.39 | 0.137 [0.075, 0.222] | law REJECTED — mixed depths |
+| fixed compute | 0.41 | **0.179 [0.152, 0.208]** | law OK |
+| matched loss L\* | 0.43 | −0.023 [−0.064, 0.019] | law OK |
+| matched excess over own floor | 0.41 | −0.038 [−0.074, 0.002] | law OK |
+| matched dynamics | 0.46 | 0.001 [−0.045, 0.050] | law OK |
+
+Read-out times, and how each criterion moves the answer:
+
+![Criterion comparison](../img/internal_figures/flipflop_fig4_criteria.png)
+![Active units under four criteria](../img/internal_figures/flipflop_fig3_active.png)
+
+⚠️ `endpoint` is disqualified: it reads N=2000 at 400k and the other sizes at 500k, mixing depths and
+manufacturing per-cell structure no smooth law can absorb. With budgets equalised, the identical law
+on the same data fits at p = 0.77 instead of being rejected at p = 1.7e-08.
+
+---
+
+## 3. Nor on WHICH dynamical variable, or WHICH threshold
+
+Thirteen trusted (variable, threshold) combinations spanning read-out times from 16k to 73k:
+
+![Diffusion robustness](../img/internal_figures/flipflop_diffusion.png)
+
+**b = 0.465 ± 0.025, c = −0.009 ± 0.030.** The variables settle in a clear order — W_out freezes by
+~5k, the participation vector by ~25k, W_rec at ~19–41k, and **W_inp last at ~35–122k**, which is why
+W_inp is the criterion of record.
+
+⚠️ `W_out` and `M(t)` are unusable (already below every threshold at the first probe — no directed
+phase to transition from). `W_inp` and the participation vector fail the single-power-law check
+(per-decade α disagreement 0.302 and 0.204 vs W_rec's 0.091), so W_rec is the best-*founded* variable
+even though W_inp is the longest-lived.
+
+**The mechanism, measured:** the settling time itself obeys `T ~ N^(−0.16)·k^(0.458)`. Reading at a
+k-compensated iteration `t ∝ k^0.458` — with γ from the WEIGHT dynamics, never from M — removes
+**100%** of the fixed-compute k-effect (c: 0.179 → 0.001) while leaving b untouched. γ is bracketed:
+too little compensation leaves c > 0, too much drives it negative.
+
+---
+
+## 4. The loss floor: exact, N-independent, and √k in complexity
+
+![Floor vs complexity and size](../img/internal_figures/flipflop_fig2_floor.png)
+
+`floor_per_channel(k) = a + b√k` with **a = 0.0205, b = 0.0030**, residuals at the seed-noise level,
+and a and b constant across a 4× size range — so the floor is a **task property, not a capacity
+limit**. Fits come from a stretched exponential:
+
+![Stretched-exponential fits](../img/internal_figures/flipflop_fig1_curves.png)
+
+⚠️ `A` and `τ` in `L∞ + A·exp(−(t/τ)^β)` are **not individually identified** once τ falls below the
+fit's start — compare through `L∞` and `excess_time`, never A or τ alone.
+
+---
+
+## 5. "Silent" needs a task-calibrated threshold; `p < 1e-6` does not travel
+
+![Task-calibrated threshold](../img/internal_figures/flipflop_hard_threshold.png)
+
+The flip-flop's participation is bimodal with its silent mode at ~1e-3 and active mode at ~1e0.
+`1e-6` — calibrated on CDDM, whose silent mode is exactly 0 — sits below **both**, reports ~0%
+silence, and makes the whole law degenerate (`M = N`, b = 1.00, nothing measured):
+
+![Degenerate under 1e-6](../img/internal_figures/flipflop_fig5_law_hard.png)
+
+Derived from the data by Otsu's method on log participation, the flip-flop threshold is **4e-2**
+(three adoption checks passed: spread 0.50 decades, agreement with scale-free 0.030, 41 000× larger
+than 1e-6). Under it every conclusion is unchanged:
+
+![Law under the calibrated threshold](../img/internal_figures/flipflop_fig5_law_abs.png)
+
+⚠️ Otsu (4.1e-2) and the scale-free rule's `0.05·q95` (1.13e-1) differ by 2.7× and are **uncorrelated
+across nets (r = 0.13)**, yet classify the same units (|ΔM|/N = 0.030) — because the valley between
+the modes is nearly empty. That insensitivity is the strongest evidence the bimodal split is
+structural rather than an artifact of either rule.
+
+---
+
+## 6. CDDM's exact zeros are real, and CDDM saturates under the same battery
+
+![Held-out coherence test](../img/internal_figures/silence_is_taskset.png)
+
+Hypothesis that CDDM's 72–83% exactly-zero units were an artifact of measuring on the same 450 frozen
+conditions: **FALSIFIED.** Re-measured on 392 unseen coherence midpoints, the hard-silent fraction
+moved 0.621 → 0.624 (−0.5%, inside the pre-set 5% band). The units are dead for any input.
+
+![CDDM under the same criteria](../img/internal_figures/cddm_criteria.png)
+
+CDDM saturates under every usable criterion (**b = 0.52–0.60**) against the flip-flop's 0.41–0.46.
+⚠️ The `drift` criterion does **not** port to CDDM — α is already ~0.5 by the second probe, so
+`common.diffusive_onset` now requires a prior directed phase and correctly returns nan there.
+
+---
+
+## 7. Open questions, stated as such
+
+- **Is there a ceiling?** b = 0.44 is constant over 500–2000, i.e. an *unbounded* power law, whereas
+  CDDM's fit put a ceiling near 880. Extrapolating `M = 18.9·N^0.44` gives 673 at N=4000 — a ceiling
+  near 800 only bends the curve above N ≈ 4000. **The N=4000 run now in flight is the discriminating
+  measurement.**
+- **The N × k interaction is unresolved.** Under matched loss the k-trend is +7% at N=500 but −15% at
+  N=2000; a single `c` averages across that sign change. Needs more seeds, not more cells.
+- **An unexplained offset:** diffusion read-outs give b ≈ 0.465, loss-based ones 0.41–0.43. The gap
+  exceeds the spread within either family and does not track read-out depth.
+- **What budget does frm actually need?** 400k is extrapolated from "had not settled by 150k".
+
+---
+
+## 8. Jobs in flight (2026-08-25 17:45)
+
+| array | job | count | configuration | purpose |
+|---|---|---|---|---|
+| 5904416 | **FFbigN** | 48 | N=4000, none+rws, k=1..8, 3 seeds, 100k, 96h/48G | **the ceiling test** |
+| 5904341/2/3 | **FFpenL** | 144 | frm+both, N ∈ {500,1000,2000}, k=1..8, 3 seeds, **400k** | replaces the unconverged 150k frm |
+| 5749772/3/4 | FFpen | 36 running | rws @150k (converged, kept) + 11 frm @150k (left to finish) | rws cells stand |
+| 5904289/90/91 | FFcal | 3 | N=3000/4000/5000, 600 iters | timing confirmation |
+| 5688852 | FFk | 1 | k=7 N=2000, 3rd seed | 2 seeds already in hand |
+
+**Cancelled:** 44 pending frm + 47 pending both at 150k (no compute lost — none had started).
+
+### What each will settle
+
+- **FFbigN (~1–2 days):** whether b falls below 0.44 at N=4000 (real ceiling) or holds (unbounded
+  power law). This is the one open question the current data cannot answer.
+- **FFpenL (~2–4 days):** first check is whether 400k actually converges frm — by BOTH measures
+  (α reaching 0.6, loss flat over the final third). Large-N penalty cells stay deferred until that
+  reports, so they are sized from a measurement rather than a second extrapolation.
+
+⚠️ **Deferred and why:** frm/both at N ≥ 3000 needs ~290k iterations at 1.35 s/iter = 147 h on a slow
+node, against Della's 144 h cap — and the full request (all k, all four penalties, N=5000) came to
+**21 225 GPU-h ≈ 68 days** at 13 concurrent GPUs. The ceiling question needs only none+rws, so that
+is what was submitted.
+
+---
+
+## 2026-08-25 (night, 6) — ⚠️ CUDA OOM at N>=4000: a scaling bug in participation tracking
+
+**The timing calibration caught this before 48 jobs burned.** Submitted at N=3000/4000/5000 to size the
+wall-time request; instead it exposed a hard failure:
+
+| N | result |
+|---|---|
+| 3000 | ✅ completed, **0.795 s/iter measured** |
+| 4000 | ❌ `torch.OutOfMemoryError` — tried to allocate 13.73 GiB with 37.29 GiB already resident |
+| 5000 | ❌ `torch.OutOfMemoryError` — tried to allocate 11.45 GiB |
+
+Both died inside `Trainer.participation_from_states_` at
+`fr.std(dim=1) + torch.quantile(fr.abs(), 0.9, dim=1)`. `torch.quantile` SORTS its input, so it needs
+~2x the tensor, and the old code also materialised the full activation `fr` alongside `states`. At
+N=4000, T=300, batch 1024 that is states (4.6 GB) + fr (4.6) + |fr| (4.6) + sort (~9) ≈ 23 GB of
+transient on a 44 GiB card already holding the graph.
+
+**The N=4000 array (5904416, 48 jobs) was HELD before any element started** — `scontrol hold`, no
+compute lost.
+
+### Fix
+
+`participation_from_states_` now processes the unit axis in chunks of 512, applying the activation
+per chunk so a second full-size copy is never held. Peak transient falls from ~4x the state tensor to
+state + ~1.2 GB, independent of N.
+
+**Equivalence verified, and my first claim about it was too strong.** It is NOT bitwise identical in
+float64: `std` is a reduction whose summation order depends on block shape, giving last-bit
+differences of 4e-16 to 3e-15. The docstring was corrected to say so. What matters is the production
+dtype: in **float32** the measured difference over 6000 units of a realistic bimodal population is
+**exactly 0.0**, and **zero** units change silence class under the hard (1e-6), task-calibrated
+absolute (4e-2), or scale-free rule.
+
+### Cost model refitted on the MEASURED point
+
+The old model (anchored only up to N=2000) over-predicted by ~35%:
+
+| N | s/iter | 100k median | 100k slow node |
+|---|---|---|---|
+| 3000 | 0.82 (measured 0.795) | 23h | 31h |
+| 4000 | 1.27 | 35h | 48h |
+| 5000 | 1.86 | 52h | **70h — now fits Spock's 96h cap** |
+
+⚠️ **This revises an earlier statement.** N=5000 was described as "Della only (97h slow)"; on measured
+timings it is 70h slow and fits Spock. The 10x size lever is therefore available at no extra
+infrastructure cost, should the ceiling test want it.
+
+### Provenance gap, recorded rather than hidden
+
+The FFpenL array (frm/both @400k) was submitted BEFORE the Trainer fix was synced, so elements that
+started earlier ran the unchunked participation and later ones will pick up the chunked version.
+Since the two are numerically identical in float32 (above), this does not affect any result, but the
+split is recorded and `CODE_VERSION.txt` on Spock now reads
+`95320a6+trainer-chunked-participation-2026-08-25` so the two code states are distinguishable.
+N ≤ 2000 never hit the OOM path (states at N=2000 is 2.5 GB, old peak ~10 GB on a 44 GiB card).
+
+### Resolution: N=4000 verified and released; N=5000 blocked by a DIFFERENT limit
+
+Re-calibration after the chunking fix:
+
+| N | result |
+|---|---|
+| 4000 | ✅ **no OOM**, 400 iterations in 8:15 = **1.24 s/iter** (refit predicted 1.27) |
+| 5000 | ❌ still OOM — but now in `RNN_torch.forward`, NOT in participation tracking |
+
+**The two failures are different problems.** The participation OOM is fixed. N=5000's remaining
+failure is the BPTT graph itself: 300 timesteps x 5000 units x batch 1024 of stored activations,
+which no change to the read-out path can help. Resolving it needs a smaller batch (changes the
+training regime and breaks comparability), gradient checkpointing (not implemented), or a larger
+card. Note also that this run landed on a 39.52 GiB A100 rather than the 44.39 GiB device the N=4000
+job got, so the exact N at which it breaks is partly node-dependent.
+
+⚠️ **Therefore the earlier revision "N=5000 now fits Spock at 70h" is itself WITHDRAWN.** Wall time
+was never the binding constraint at N=5000; GPU memory is. N=4000 is the largest size that runs with
+the current training code and batch size.
+
+**Array 5904416 (N=4000, 48 jobs) RELEASED** after verification. At the measured 1.24 s/iter, 100k
+iterations is 34h median and 47h on a 1.35x slow node, against the 96h request — 2x margin.
+
+**Queue as released:** 48 FFbigN (N=4000), 22 FFpenL (frm/both @400k, 19 running), 32 FFpen
+(rws @150k + remaining frm @150k), 1 FFk.
+
+---
+
+## 2026-08-26 17:00 — frm at 400k: the LOSS converges, the INPUT WEIGHTS never do
+
+First 8 cells of the 400k re-run landed (frm, N=500, k=1..3). Both convergence tests re-run.
+
+### Test 1 — loss: PASSES
+
+| budget | loss fall over the last third (median) | per-net values |
+|---|---|---|
+| frm @150k | 3.7% | 0.7, 1.9, 22.6, 5.4% |
+| **frm @400k** | **1.0%** | −5.4, 1.1, 1.3, −1.9, 1.7, 3.5, 1.0, 0.4% |
+| none (reference) | ~0% | −0.3 … +0.1% |
+
+Values now straddle zero. **Fitted floors and matched-loss read-outs are valid for frm at 400k**, so
+the retracted "frm worsens the floor" question becomes answerable once enough cells land — but it must
+be re-derived from these runs, not recovered from the 150k numbers.
+
+### Test 2 — W_inp diffusion: FAILS, and NOT because the budget is short
+
+| variable | reached α<0.6 | α at end | onsets |
+|---|---|---|---|
+| **W_rec** | **6/8** | 0.84 | 47k–183k |
+| **W_inp** | **0/8** | 0.87 (range 0.61–1.17) | — |
+| W_out | 1/8 | 0.17 | 9k |
+| participation vector | 1/8 | 0.52 | 11k |
+
+*(unpenalised reference: W_inp 64/64 at median 63k, W_rec 62/64.)*
+
+**This is a property of frm, not a budget problem.** The loss has stopped improving while the input
+weights are still in directed motion — α stays at 0.61–1.17 through 400k, with no sign of decay.
+Consistent with what frm penalises: it constrains firing-rate magnitude, so it keeps driving weights
+after the task term has plateaued. Extending the budget further would not fix it; there is no reason
+to expect W_inp ever settles under frm.
+
+### Methodological consequence
+
+⚠️ **A cross-condition diffusion comparison (none vs frm vs both) must use `W_rec`, not `W_inp`.**
+W_inp is the criterion of record for the UNPENALISED analysis because it is the last variable to
+settle there — the most conservative choice. It does not exist as a read-out under frm. W_rec is the
+only drift variable available in both conditions, and it was already flagged as the best-*founded*
+one anyway (per-decade α disagreement 0.091 vs W_inp's 0.302).
+
+The headline unpenalised result stands unchanged: it is an internal comparison among unpenalised
+networks, where W_inp is available and appropriate, and b/c were shown stable across W_rec, W_inp and
+the participation vector at five thresholds each.
+
+### Queue at 17:00
+
+41 FFpenL running, 3 pending ranges (~85 tasks: 30 frm + 55 both). All old 150k FFpen jobs have now
+finished. ⚠️ **FFbigN (N=4000, 48 jobs) has still not started after 21 hours** — it sits behind the
+entire FFpenL backlog on priority.
+
+---
+
+## 2026-08-26 (later) — ⚠️ TWO CORRECTIONS to the frm diffusion reading
+
+Both prompted by the challenge "if W_inp is still updated, how come W_rec is in a diffuse mode?" —
+which was right to be suspicious, because the answer is that W_rec ISN'T.
+
+### Correction 1 — "W_rec provides a usable diffusion read-out for frm (6/8)" is WITHDRAWN
+
+Median α per 50k block tells a different story from the crossing detector:
+
+| | 50k | 150k | 250k | 350k | 400k |
+|---|---|---|---|---|---|
+| frm W_rec | 0.91 | 0.77 | 0.78 | 0.73 | **0.74** |
+| frm W_inp | 0.98 | 0.92 | 0.90 | 0.90 | **0.91** |
+| none W_rec | 0.67 | 0.27 | 0.24 | 0.25 | 0.25 |
+| none W_inp | 0.94 | 0.25 | 0.13 | 0.15 | 0.20 |
+
+**Under frm, W_rec PLATEAUS at 0.74 — above the 0.6 threshold. It never settles.** The "6/8" came
+from `diffusive_onset` firing on transient noise: α is noisy per probe, so a run plateauing at 0.74
+still produces runs of 5 consecutive probes below 0.6 by chance. `persist=5` was insufficient.
+
+**Fix:** `diffusive_onset` now additionally requires the TAIL MEDIAN of smoothed α to be below the
+threshold — a run must still be settled at the end, not merely have dipped once. Self-check extended
+with a synthetic plateau-plus-dip case. Effect: frm W_rec 6/8 → **2/8**; frm W_inp 0/8 (unchanged);
+**the unpenalised headline data is unaffected — W_inp 65/65 at median 61k, W_rec 63/65.**
+
+⚠️ Consequence: **the diffusion criterion is NOT available for frm on any variable.** frm must be
+compared by matched LOSS, which does converge at 400k (median fall over the last third 1.0%). The
+recommendation to "use W_rec for cross-condition diffusion matching" is withdrawn. This is the THIRD
+time this one criterion has produced a plausible-looking number from a definition defect.
+
+### Correction 2 — "there is no reason to expect W_inp ever settles under frm" was ASSERTED, not measured
+
+Stated before checking the trajectory. Having now checked, the claim is SUPPORTED but was not
+evidence-based when made: α(W_inp) under frm sits at 0.91, 0.90, 0.91, 0.90, 0.91 across the blocks
+from 200k to 400k — **flat over 200 000 iterations**, while unpenalised it fell 0.94 → 0.20 over the
+same span. The defensible statement is "shows no sign of settling across 200k iterations of plateau",
+not "never".
+
+**The obvious mechanism was tested and REFUTED.** If W_inp's directed motion were just norm inflation
+(‖W_inp‖ is still creeping up under frm, 44 → 66, where unpenalised it froze at 89.1 by 150k), the
+displacement would be radial and functionally meaningless. Decomposing |ΔW|/‖W‖ at lag 10 000 over the
+second half of training:
+
+| | total displacement | explained by norm change | cos between successive updates |
+|---|---|---|---|
+| frm | 0.0565 | 0.0024 (**4%**) | 0.455 |
+| none | 0.0139 | 0.0003 (2%) | 0.706 |
+
+Only 4% is norm change, so it is genuine reorganisation, and the displacement per lag is **4x larger**
+than unpenalised. Note also that frm has the LOWER consecutive-update cosine (0.455 vs 0.706) yet the
+HIGHER α — consecutive steps are noisier, but the direction persists over long lags. **No verified
+mechanism for why frm sustains this; recorded as an open question rather than explained away.**
+
+### rws ACCELERATES settling; frm PREVENTS it — so `both` is a genuine tug-of-war
+
+All traces truncated to a common 150 000 iterations before measuring, so onsets are range-matched
+(rws is 150k by construction; none and frm truncated from 400-500k). N=500, W_inp, corrected detector.
+
+| penalty | settled | median onset | α at 150k |
+|---|---|---|---|
+| none | 20/24 | 65k | 0.53 |
+| **rws** | 19/24 | **55k** | **0.44** |
+| **frm** | 0/8 | — | **0.86** |
+
+**rws settles the input weights FASTER than no penalty at all** (55k vs 65k) and reaches a lower α
+(0.44 vs 0.53), while **frm stops them settling entirely** (plateau at 0.86-0.91). The two penalties
+push the input-weight dynamics in OPPOSITE directions.
+
+⚠️ Earlier "rws 43/43, median 54k" was computed with the pre-fix detector and pooled all sizes; the
+range-matched N=500 figure is 19/24 at 55k. The conclusion (rws settles, frm does not) is unchanged
+and in fact sharpened.
+
+⚠️ The 55k vs 65k onset gap is suggestive, not tested — no CI computed. The α difference at a matched
+150k (0.44 vs 0.53) is the more robust of the two comparisons.
+
+**This makes `both` a sharp experiment rather than a routine cell.** The standing hypothesis has been
+that rws positively modulates frm. The dynamics now give it a concrete, falsifiable form:
+
+- if `both` settles → rws dominates, and it rescues the pathological non-settling frm induces
+- if `both` plateaus like frm → frm dominates, and rws cannot rescue it
+- if `both` settles LATER than none but does settle → genuine intermediate, a real modulation
+
+⚠️ **No `both` nets exist yet** — 72 tasks queued, none started, sitting behind the frm backlog and
+ahead of nothing. Both `both` and FFbigN are now scientifically interesting; FFbigN remains the one
+answering a question the existing data cannot answer at all (the ceiling), whereas `both` answers a
+question the existing data now poses very sharply.
+
+---
+
+## 2026-08-27 — Per-penalty analysis: floor, W_inp diffusion, M(N,k)
+
+New script [`flipflop_penalties.py`](../trainRNNbrain/experiments_and_analysis/flipflop_penalties.py).
+Coverage: none 64 runs (k=1..8, N=500/1000/2000), rws 43 (k=1..8, N=500/1000), frm 12 (k=1..3,
+N=500/1000), **both: still no data**. Budgets differ (none 400-500k, rws 150k, frm 400k), so every
+trace is truncated to a common 150k before any fit or read-out.
+
+⚠️ **The N=4000 ceiling test has NO usable data.** The "2 completed nets" reported this morning were
+the 400- and 600-iteration TIMING CALIBRATION runs, which write a full trace and are
+indistinguishable from an experiment unless the trace LENGTH is checked. `load()` now drops anything
+shorter than 50k and counts it. Real N=4000 jobs are at 9k-17k of 100k.
+
+### 1. Floor law — rws does NOT reduce interference
+
+| pen | N | a (single-channel) | b (interference) |
+|---|---|---|---|
+| none | 500 | 0.02069 [0.02042, 0.02123] | 0.00286 [0.00262, 0.00302] |
+| none | 1000 | 0.02029 | 0.00289 |
+| none | 2000 | 0.02065 | 0.00276 |
+| **rws** | 500 | 0.02105 [0.02061, 0.02200] | **0.00276 [0.00236, 0.00303]** |
+| **rws** | 1000 | 0.02115 | **0.00277** |
+
+**b overlaps completely with unpenalised at both sizes.** The pre-registered interference hypothesis
+(docs/experiments/penalty_vs_interference.md) predicted rws would LOWER b; it does not. `a` is if
+anything slightly higher. **H is not supported for rws** — consistent with the earlier reading, now
+on the full k=1..8 grid at two sizes.
+
+⚠️ frm's floor is NOT reportable: it needs ~400k to converge, so a fit truncated at 150k is fitted to
+a still-descending curve — the exact defect that forced the earlier retraction. frm floors can only
+be compared against `none` at 400k, which excludes rws (150k data). Range-matching and convergence
+cannot both be satisfied across all three conditions with the budgets currently on disk.
+
+### 2. W_inp diffusion (range-matched at 150k)
+
+| pen | settled | median onset | α at the cap |
+|---|---|---|---|
+| none | 60/64 | 60k | 0.50 |
+| **rws** | 33/43 | **53k** | **0.43** |
+| **frm** | **0/12** | NEVER | **0.87** |
+
+rws settles the input weights faster and further than no penalty at all; frm prevents settling
+entirely. Unchanged from yesterday, now on 12 frm runs including N=1000.
+
+### 3. ★ NEW RESULT — rws makes active units DEPEND on task complexity
+
+At MATCHED DIFFUSION (fixed compute is confounded; frm cannot be read this way at all). rws lacks
+N=2000, so `none` is refitted on the same two sizes as a control:
+
+| condition | n | b (size) | c (complexity) |
+|---|---|---|---|
+| none, all sizes | 60 | 0.441 [0.404, 0.478] | −0.030 [−0.083, +0.019] |
+| **none, N=500/1000 (control)** | 41 | **0.493 [0.428, 0.561]** | **−0.019 [−0.077, +0.037]** |
+| **rws, N=500/1000** | 33 | **0.490 [0.403, 0.585]** | **+0.136 [+0.092, +0.173]** |
+
+**Same sizes, same criterion, same truncation: b is identical (0.493 vs 0.490), c is not.** The CIs
+on c are cleanly separated — unpenalised straddles zero, rws excludes it. Going k=1 → 8 recruits
+8^0.136 = **+32%** more units under rws, and nothing under none.
+
+**Reading, offered as interpretation not measurement:** unpenalised networks recruit a
+task-demand-INDEPENDENT number of units — the pathology. Under rws the count DOES scale with demand.
+That is rws partially repairing the pathology, and it is a performance-independent argument for the
+penalty of exactly the kind the programme was looking for. ⚠️ It rests on 33 rws runs at two sizes;
+it needs N=2000 rws (20 nets already on Spock, not yet analysed here) and ideally `both` before it is
+load-bearing.
+
+### 4. ⚠️ frm's exponent is a CEILING EFFECT, not a scaling law
+
+| pen | N | mean M/N |
+|---|---|---|
+| none | 500 / 1000 / 2000 | 0.409 / 0.283 / 0.183 |
+| rws | 500 / 1000 | 0.384 / 0.231 |
+| **frm** | **500 / 1000** | **0.993 / 0.949** |
+
+frm drives M/N to 0.95-0.99 — it abolishes silence by construction, which is what it is for. Its
+fitted b ≈ 0.91 is therefore a ceiling at M = N, not a measured exponent, and must not be set beside
+none/rws's b as though it measured the same thing.
+
+### ★ THE PRE-REGISTERED INTERFERENCE TEST RESOLVES — for frm, in the OPPOSITE direction
+
+frm now has k=1..7 at N=500 (21 nets at 400k), enough to fit the floor law where frm is CONVERGED.
+This is the comparison flagged as impossible at a 150k truncation. Both conditions fitted on
+[2000, 400 000]; restricted to the common k range 2..7 because `none` covers k=2..8 and frm k=1..7.
+
+| | a (single-channel floor) | b (interference amplitude) |
+|---|---|---|
+| none | 0.02068 [0.02051, 0.02087] | 0.00296 [0.00288, 0.00303] |
+| **frm** | 0.02050 [0.01926, 0.02289] | **0.00460 [0.00360, 0.00532]** |
+| change | **−0.9%, CIs overlap** | **+55.7%, CIs separated** |
+
+Raw floors show the gap WIDENING with k, which is what b measures:
+k=2: none 0.02488 vs frm 0.02677 (+7.6%) → k=7: none 0.02852 vs frm 0.03245 (+13.8%).
+
+**frm INCREASES cross-channel interference by ~56%, leaving single-channel accuracy untouched.**
+
+The pre-registration (docs/experiments/penalty_vs_interference.md) fixed three outcomes: *b falls with
+a unchanged* → penalty reduces interference; *a falls with b unchanged* → not an interference story;
+*neither moves* → hypothesis dead. The observed pattern is the FIRST structure — the effect really is
+on the interference axis and not on single-channel accuracy — but with the sign reversed. **H is not
+merely unsupported; the opposite holds.**
+
+### Controls run before believing it
+
+1. **k-range matched.** The uncontrolled fit (none k=2..8 vs frm k=1..7) gave +57.6%; restricted to
+   the common k=2..7 it gives +55.7%. Not a range artifact.
+2. **Residual convergence is not k-dependent.** frm's loss still falls 1.1–5.2% over the final third
+   (none: ~0%), so frm floors are biased somewhat high — but the bias does NOT trend with k
+   (slope +0.04% per bit, flat). A uniform bias inflates `a`, not `b`, and `a` did not move. The
+   k=7 frm cell is the most converged (−0.4%) and shows the LARGEST gap, so the widening is not
+   non-convergence.
+
+⚠️ Caveats: N=500 only; frm's floors carry a residual high bias of a few percent from incomplete
+convergence, so +56% is an estimate rather than a precise figure; and `both` — the condition that
+would say whether rws rescues this — still has no data.
+
+⚠️ Note this is the OPPOSITE sign from the rws result in the same section: rws leaves b unchanged
+(0.00276 vs 0.00286), frm raises it 56%. The two penalties do different things to the floor as well
+as to the weight dynamics.
+
+### rws grid completed (N=2000 synced) — the k-dependence SHRINKS but survives
+
+rws now has the full grid: 72 nets, k=1..8 at N=500/1000/2000. Refitting M = A N^b k^c at matched
+W_inp diffusion, with `none` on the same sizes:
+
+| condition | n | b (size) | c (complexity) |
+|---|---|---|---|
+| none, 3 sizes | 60 | 0.441 [0.404, 0.478] | −0.030 [−0.083, +0.019] |
+| **rws, 3 sizes** | 58 | **0.440 [0.392, 0.486]** | **+0.083 [+0.044, +0.120]** |
+| none, 2 sizes (previous) | 41 | 0.493 | −0.019 [−0.077, +0.037] |
+| rws, 2 sizes (previous) | 38 | 0.466 | +0.124 [+0.084, +0.156] |
+
+⚠️ **Adding N=2000 nearly HALVED the effect: c = +0.136 → +0.083.** The two-size estimate overstated
+it, and the k=1→8 recruitment gain drops from +32% to **+19%**. The finding survives — the CI still
+excludes zero and `none` still straddles it, with b identical between conditions (0.441 vs 0.440) —
+but the magnitude reported yesterday was inflated by the narrow size range. This is why the N=2000
+cells were flagged as needed before the result could be load-bearing.
+
+### Floor law, full grid
+
+| pen | N | a | b |
+|---|---|---|---|
+| none | 500/1000/2000 | 0.02069 / 0.02029 / 0.02065 | 0.00286 / 0.00289 / 0.00276 |
+| **rws** | 500/1000/2000 | 0.02105 / 0.02126 / 0.02138 | **0.00276 / 0.00270 / 0.00261** |
+| frm | 500 | 0.02103 | **0.00440** |
+
+rws's b is consistently a shade below none's at every size (0.00276/0.00270/0.00261 vs
+0.00286/0.00289/0.00276) but every CI overlaps, so this is not a resolved reduction — at best a hint
+worth revisiting when `both` lands. frm's +50% remains the only change that clears its CI.
+
+### W_inp diffusion, full grid at the 150k truncation
+
+| pen | settled | median onset | α at cap |
+|---|---|---|---|
+| none | 60/64 | 60k | 0.50 |
+| rws | 58/72 | 64k | 0.47 |
+| frm | 1/27 | (113k, single run) | 0.79 |
+
+⚠️ **Correction to yesterday's "rws settles FASTER than none".** On the full grid rws's median onset
+is 64k against none's 60k — slightly SLOWER, not faster. The earlier 53k came from the two-size
+subset. What survives is the α at the cap (0.47 vs 0.50, rws marginally lower) and, unambiguously,
+the contrast with frm, which does not settle at all (1/27, α 0.79).
+
+---
+
+## 2026-08-28 — ★ `both` lands: rws does NOT rescue frm
+
+First 9 `both` cells (k=1,2,3 × 3 seeds, N=500, 400k). The three-way prediction was fixed on
+2026-08-26 before any `both` data existed:
+
+> *both settles like none* → rws dominates and rescues frm's non-settling;
+> *both plateaus like frm* → frm dominates;
+> *both settles but later* → genuine intermediate, a real modulation.
+
+### Axis 1 — W_inp settling. N=500, k=1-3 only, so all four conditions are compared on the same cells.
+
+| pen | 50k | 100k | 150k | 200k | 300k | 400k | settled |
+|---|---|---|---|---|---|---|---|
+| none | 0.95 | 0.33 | 0.20 | 0.17 | 0.16 | **0.14** | 9/9 @44k |
+| rws | 0.95 | 0.54 | 0.51 | — | — | — | 8/9 @50k |
+| frm | 0.98 | 0.94 | 0.92 | 0.90 | 0.91 | **0.90** | **0/9** |
+| **both** | 0.96 | 0.91 | 0.86 | 0.78 | 0.80 | **0.78** | **1/9 @202k** |
+
+**The third outcome, but only weakly.** `both` plateaus at 0.78 against frm's 0.90 and none's 0.14 —
+it recovers **16%** of the frm→none gap, and only 1 of 9 runs ever settles (frm 0/9, none 9/9).
+rws shifts frm's dynamics measurably but does not rescue them.
+
+### Axis 2 — silence. rws recovers NOTHING here.
+
+| pen | mean M/N at 150k | per k (1/2/3) |
+|---|---|---|
+| none | 0.356 | 0.33 / 0.36 / 0.38 |
+| rws | 0.291 | 0.24 / 0.30 / 0.33 |
+| frm | 0.992 | 0.99 / 1.00 / 0.99 |
+| **both** | **1.000** | 1.00 / 1.00 / 1.00 |
+
+`both` has **literally zero silent units** — slightly more saturated than frm alone (recovery: −1%).
+On a scale where none = 0.356 and frm = 0.992, rws moves the combination not at all.
+
+### Reading
+
+**On the two axes measured, frm dominates the combination and rws does not modulate it.** The
+standing hypothesis — that rws positively modulates frm — is not supported for either the
+input-weight dynamics or the silent fraction.
+
+⚠️ **This does NOT test the hypothesis as originally stated.** The original framing was about
+HETEROGENEITY: "frm alone simply makes neurons make large transients, while rws makes the transients
+go away and purposes all units for useful compute... it makes networks less heterogeneous on top of
+it." That is a claim about the DISTRIBUTION of activity across units, pre-registered in
+docs/experiments/frm_rws_heterogeneity.md with metrics A1-A6 — **none of which have been run.**
+Silence fraction and weight settling are not substitutes for it. The heterogeneity test is now the
+outstanding item, and `both` cells finally exist to run it on.
+
+⚠️ Also note `both`'s M/N = 1.000 exactly saturates the scale-free measure, so `b` and `c` cannot be
+fitted for it at all — the same ceiling problem as frm, but complete. Any `both` comparison must use
+a measure that is not already saturated.
+
+⚠️ 9 cells, k=1-3, N=500 only. The k=4-8 and larger-N `both` cells are still running.
+
+---
+
+## 2026-08-28 — ★ Criterion search: `excess` wins, and M vs PR DISSOCIATE
+
+New: [`criterion_search.py`](../trainRNNbrain/experiments_and_analysis/criterion_search.py).
+Scoring thresholds fixed BEFORE running any candidate (scratchpad/criteria_spec.md): coverage ≥ 90%
+in every condition, within-cell seed CV ≤ 0.30, and for `none` the fitted c must straddle 0 (three
+independent matched criteria say it should, and the k-compensation test showed fixed-compute's
+c = +0.179 is entirely convergence depth).
+
+### Candidates and outcomes — 180 runs across all four conditions
+
+| criterion | coverage (none/rws/frm/both) | seed CV | c for `none` | verdict |
+|---|---|---|---|---|
+| `iter@150k` | 100/100/100/100 | 0.00 | **+0.179 \*** | FAILS deconfounding |
+| `drift(W_inp)` | 100/81/**3**/**11** | 0.12 | −0.026 | FAILS coverage on frm, both |
+| `drift(W_rec)` | 97/94/**9**/**0** | 0.12 | +0.001 | FAILS coverage |
+| `slope<0.05` (new, floor-free) | 100/100/97/100 | 0.07–**0.51** | −0.011 | FAILS seed CV on `both` |
+| `rho<0.05peak` (new, floor-free) | 100/100/80/100 | 0.10–**0.49** | −0.039 | FAILS coverage + CV |
+| `loss` | 100/100/100/100 | 0.03–0.06 | +0.016 | passes, but see below |
+| **`excess`** | **100/100/100/100** | **0.04–0.06** | **−0.029** | **PASSES everything** |
+
+⚠️ `loss` passes the thresholds but is NOT equivalent: it disagrees with `excess` in SIGN on rws
+(c = −0.113 vs +0.074) and its k-slope on frm is 0.91, i.e. it reads high-k cells far later. That is
+the known k-unfairness of an absolute loss level — the floor rises with k, so one L\* sits at a
+different depth for each k. `excess` corrects exactly that by using each cell's OWN floor.
+
+**The two floor-free candidates were the interesting failures.** `slope` (read where the log-log
+learning rate ρ = −dlogL/dlogt first falls below a threshold and stays) needs no fit, no floor and no
+convergence assumption, and it deconfounds `none` correctly. It fails only on `both`, where its seed
+CV reaches 0.44–0.51. Worth revisiting if more `both` cells make it stabler.
+
+### ★ PROGRAM MINIMUM (within a penalty condition): use `excess`
+
+Read each run at 1.10 × its OWN fitted floor, with the floor fitted over that condition's own
+sufficient range. 100% coverage everywhere, seed CV 0.04–0.06, read-out time rises with k
+(dlogT/dlogk = 0.17–0.47) as it must.
+
+⚠️ Range-matching across conditions is NOT required here and was actively harmful: it is only ever a
+proxy for "the floor is correctly estimated". Verify convergence per condition instead, then fit each
+over its own range. Truncating everything to 150k to be "fair" is what made frm's floor invalid.
+
+### ★ PROGRAM MAXIMUM (across penalties): `excess` + PARTICIPATION RATIO, not M
+
+**The criterion was never the blocker for cross-penalty comparison — the OUTCOME MEASURE was.** At
+any read-out, the thresholded count saturates:
+
+| pen | M/N | PR/N |
+|---|---|---|
+| none (N=500) | 0.564 | 0.392 |
+| rws (N=500) | 0.564 | 0.346 |
+| frm (N=500) | **0.994** | 0.968 |
+| both (N=500) | **1.000** | 0.925 |
+
+M/N = 0.99–1.00 for frm and both: the measure cannot tell them apart or fit an exponent. **PR is
+graded and does** (0.968 vs 0.925), so `common.participation_ratio` was added. ⚠️ PR is exactly
+1/HHI — algebraically identical to the existing `hhi`, provided under both names because they read
+differently. Never report both as independent evidence.
+
+### ★ AND A NEW RESULT — M and PR dissociate for `none`
+
+| criterion | c for M | c for PR |
+|---|---|---|
+| loss | +0.016 | **+0.053 \*** |
+| excess | −0.029 | **+0.084 \*** |
+| drift(W_inp) | −0.026 | **+0.098 \*** |
+| drift(W_rec) | +0.001 | **+0.108 \*** |
+| slope<0.05 | −0.011 | **+0.119 \*** |
+| rho<0.05peak | −0.039 | **+0.089 \*** |
+
+*(\* = CI excludes zero)*
+
+**Under all six deconfounding criteria, M is k-independent and PR rises with k (c ≈ 0.05–0.12).**
+This is not a contradiction of the headline; it is a refinement:
+
+> As task complexity grows, the SAME NUMBER of units stay above threshold, but activity spreads MORE
+> EVENLY among them. The network does not recruit more units — it uses the ones it has more uniformly.
+
+The count does not track task demand; the effective dimensionality does. That reconnects directly to
+the task-intrinsic-dimensionality literature, which measures PR-like quantities rather than
+thresholded counts — the observable mismatch flagged when that literature was first checked.
+
+⚠️ `both` remains unfittable for a two-variable law, but for COVERAGE reasons (k=1–3 at N=500 only),
+not saturation. It needs k≥3 at ≥2 sizes.
+
+---
+
+## 2026-08-28 — δ robustness: the `excess` read-out is insensitive to the threshold
+
+Swept δ ∈ {0.03, 0.05, 0.10, 0.15} (read at 1.03/1.05/1.10/1.15 × each run's own floor).
+
+**This is a strong test because δ moves the read-out time by ~2x**: median T at δ=0.03 is 1.5-1.9x the
+value at δ=0.10 (none 1.52, rws 1.59, frm 1.94). If the conclusions depended on read-out depth they
+would move.
+
+### PR exponents — stable
+
+| pen | c at 1.03 | 1.05 | 1.10 | 1.15 |
+|---|---|---|---|---|
+| none | +0.097 \* | +0.092 \* | +0.084 \* | +0.104 \* |
+| rws | +0.214 \* | +0.211 \* | +0.187 \* | +0.163 \* |
+| frm | −0.008 | −0.008 | −0.008 | −0.008 |
+
+*(\* = CI excludes 0)*. frm's c is identical to three decimals at every δ.
+
+### M exponents — also stable, with one marginal cell
+
+| pen | c at 1.03 | 1.05 | 1.10 | 1.15 |
+|---|---|---|---|---|
+| none | **−0.039 [−0.078, −0.000] \*** | −0.032 | −0.029 | −0.001 |
+| rws | +0.080 \* | +0.087 \* | +0.074 \* | +0.057 \* |
+| frm | −0.005 \* | −0.002 | −0.003 | −0.002 |
+
+⚠️ At δ=0.03 `none`'s M just clears zero, with an upper CI bound of −0.000. That is the only δ at
+which M is non-zero for `none`, it is marginal, and it is NEGATIVE — the opposite sign to PR's +0.097
+at the same δ. So it sharpens the dissociation rather than threatening it. frm's −0.005 at δ=0.03
+likewise clears zero but is scientifically zero at that magnitude (significance without magnitude,
+the same pattern as the hard-criterion fits).
+
+### The M vs PR dissociation holds at EVERY δ
+
+M straddles zero (or is marginally negative); PR is positive and excludes zero. Four thresholds, two
+outcome measures, same answer.
+
+### A prediction of mine that was WRONG
+
+I expected coverage to degrade at δ=0.03, reasoning that the fitted floor is only identified to ~1-2%
+so a 3% target sits barely outside its own uncertainty. **Coverage is 100% at every δ, and the seed
+CV does not rise either** (none 0.072/0.069/0.056/0.066, rws 0.053/0.049/0.049/0.045, frm
+0.091/0.101/0.060/0.081). The floor-fit noise does not propagate into the read-out time at the level
+that matters. Recorded because the reasoning was sound and the prediction still failed.
+
+**Conclusion: δ = 0.10 is not a tuned choice.** Anything in 1.03-1.15 gives the same exponents, the
+same signs, the same dissociation, and equally good coverage and seed stability.
+
+---
+
+## 2026-08-28 — the missing k=1 baseline cells, submitted
+
+**Gap found:** the unpenalised sweep runs `--array=1-63` with `KS=(2 3 4 5 6 7 8 1)` and
+`K_IDX = TID/9`, so tasks 1-63 cover **k=2..8 only**. k=1 sits at `KS[7]`, reachable only by tasks
+64-72, and `sacct` confirms only **64, 65, 66** were ever submitted — k=1 at N=500. Tasks 67-69
+(k=1, N=1000) and 70-72 (k=1, N=2000) were never launched.
+
+k=1 coverage when every queued job finishes, before this fix:
+
+| penalty | N=500 | N=1000 | N=2000 | N=4000 |
+|---|---|---|---|---|
+| **none** | ✓ | **✗ never submitted** | **✗ never submitted** | ✓ (running) |
+| rws | ✓ | ✓ | ✓ | ✓ (running) |
+| frm | ✓ | ✓ | ✓ (running) | — |
+| both | ✓ | queued | queued | — |
+
+**Every penalty condition had full k=1 coverage; the baseline did not.** Consequences: every
+penalty-vs-none contrast at k=1 was N=500-only; the floor law's intercept `a` (the single-channel
+floor) was extrapolated from k≥2 at N=1000 and N=2000, when k=1 exists precisely to pin it — the
+launcher header describes k=1 as the out-of-sample test that discriminated `C(k,2)` from `k^1.5`
+(0.02440 vs 0.02373, a gap 7x the residual scale); and every "k=1→8" figure quoted so far rests on
+one size at its lower end. The `·` at k=1 in the N=1000/2000 rows of every matrix figure was not data
+in transit, it was data never requested.
+
+**Submitted** (arrays 5924467, 5924468), matching the existing cells' budgets exactly so floor fits
+stay range-matched:
+- tasks 67-69: k=1, N=1000, 500k iterations, 72h request
+- tasks 70-72: k=1, N=2000, 400k iterations (`ITERS_OVERRIDE`), 96h request
+
+Decode verified by hand before submitting. ~290 GPU-h, negligible beside the ~5,400 already queued.
+
+⚠️ These run on the CURRENT code (chunked `participation_from_states_`, `storable_` saver) while the
+existing k=2..8 `none` cells ran the pre-fix version. The chunking was verified numerically identical
+in float32 — zero units change silence class under any of the three rules — so the cells are
+comparable, but the code split is recorded.
+
+---
+
+## 2026-08-28 — Della brought online; `both` N=1000 moved there
+
+**Della setup.** It held the repo but with PRE-FIX code (no `storable_`, no chunked
+`participation_from_states_`) and no flip-flop data. Current code synced to `~/trainRNNbrain_ff`;
+environment verified end to end (torch 2.7.0+cu128, repo resolves correctly, both fixes importable).
+`CODE_VERSION.txt` set to `95320a6+trainer-chunked-participation-2026-08-25`, matching Spock.
+
+**Submitted:** job 13098724, `both` k=1..8 × N=1000 × 3 seeds, 400k iterations
+([`SilentReLU_flipflop_both_N1000_della.slurm`](../slurm/SilentReLU_flipflop_both_N1000_della.slurm)).
+
+**Why this cell.** `both` is the ONLY condition whose PR law cannot be fitted — it needs k≥3 at ≥2
+sizes and has k=1..4 at N=500 only. On Spock its tasks queued behind the frm backlog on ~37 shared
+slots, putting the second size at 1-2 September. Della runs all 24 in one wave.
+
+⚠️ **Della assigns QOS by WALL TIME and it caps concurrency**: <2h → gputest, 3 jobs; 2-24h →
+gpu-short, 44; 24-72h → gpu-medium, 24; 72-144h → gpu-long, **10**. Requested **48h**: 1.65x margin
+over the measured 29h AND keeps all 24 tasks in a single gpu-medium wave. Asking for 72h+ would have
+halved concurrency to 10 for no benefit. This is a trap — the natural instinct to request generous
+wall time makes the array slower.
+
+⚠️ **A DECODE GUARD was added to the launcher.** The index arithmetic is byte-identical to the Spock
+version so task 76 means the same cell on both clusters, but a mistyped `--array` would then silently
+run the wrong cell and contradict Spock rather than erroring. The script aborts unless the task
+decodes to `both`/N=1000; verified it rejects tasks 73 and 82 (both N=500).
+
+**Spock duplicates cancelled** — the 24 matching tasks (5904342_76, _77, _78, _85, ...) were
+identified by decoding every queued index, confirmed **all PENDING with none running** before
+cancelling, so no compute was lost. Recheck confirms 0 both/N=1000 tasks remain queued on Spock, and
+the freed slots go to the frm backlog.
+
+⚠️ **Della writes to ITS OWN `~/trainRNNbrain/data/trained_RNNs`.** Those cells must be synced back to
+the local mirror before any analysis — every analysis script reads the local copy, not a cluster.
+This is a new failure mode: results can exist and still be invisible to the analysis.
+
+**Queue after the move:** Spock 12 FFbigN running + 36 FFpenL running + 5 FFpenL / 1 FFbigN / 2 FFk
+pending; Della 24 FFbothD.
+
+---
+
+## 2026-08-28 — ⚠️ COLLISION BUG: diverged runs were OVERWRITING each other
+
+Found while auditing seed coverage. `frm k=5 N=1000` showed "1 done + 1 queued" against a target of 3
+seeds — but `sacct` said tasks 40 and 41 both COMPLETED and 42 is RUNNING. All three were accounted
+for; the disk showed one folder.
+
+**Cause.** The per-network folder is named by its validation score, so **every diverged run of a cell
+is called `nan_<taskname>_...`** and later ones silently overwrite earlier ones. Tasks 40 and 41 both
+ended `r2 validation: nan` and collapsed into a single `nan_` folder.
+
+**Consequences, project-wide** (quantified after the full log audit):
+
+| cell | diverged jobs | `nan_` folders | overwritten |
+|---|---|---|---|
+| none k=2 N=2000 | 1 | **0** | — never wrote at all (a different failure) |
+| none k=8 N=2000 | 1 | 1 | 0 |
+| frm k=2 N=2000 (150k, retracted) | 2 | 1 | **1** |
+| frm k=4 N=1000 (400k) | 1 | 1 | 0 |
+| frm k=5 N=1000 (400k) | 2 | 1 | **1** |
+
+**7 divergences across the project, 4 folders on disk, 2 genuinely overwritten.** Collisions only
+occur when ≥2 runs of the SAME cell diverge, so the two `none` cases (different cells) were never at
+risk. ⚠️ An earlier note in this entry said 3 were lost; that was wrong — one `none` case produced no
+folder at all rather than being overwritten.
+
+**What was actually lost is VISIBILITY, not much data.** The analyses already drop NaN runs, so they
+were correctly using 2 (or 1) seeds all along. What could not be seen was WHY a cell was short: a
+missing seed and a failed seed looked identical.
+
+Usable seeds per affected cell: none k=2 N=2000 → 2; none k=8 N=2000 → 2; frm k=4 N=1000 → 2;
+**frm k=5 N=1000 → 1** (pending task 42).
+- The divergence count has been UNDER-REPORTED everywhere. Any cell with ≥2 diverged seeds looked
+  like it had one.
+- A cell short on seeds could not be distinguished from a cell whose seeds had failed.
+- frm k=5 N=1000 in particular has **two of three seeds diverged**, not one seed missing.
+
+**Fix.** The seed is now part of both the folder name and every file name:
+
+```
+0.9476656_s1234567_NBitFlipFlop_relu;N=1000;seed=1234567;LR=0.001;...   (folder)
+0.9476656_s1234567_ParticipationTrace.pkl                                (files)
+nan_s111_...  vs  nan_s222_...                                           (diverged siblings differ)
+```
+
+⚠️ The seed is APPENDED, never prefixed: `common.r2_from_dir` parses the score as
+`float(basename.split("_")[0])`, so anything before it breaks every caller. Verified the score is
+still the first underscore-delimited field, and that all four analysis globs
+(`*ParticipationTrace.pkl`, `*TrainLosses.json`, `*_LastParams_*.npz`, `*_config.yaml`) still match —
+they are prefix-agnostic by construction.
+
+Deployed to Spock and Della. ⚠️ Existing folders keep the old names; the analysis globs handle both,
+but any cell with historic `nan_` collisions has permanently lost the overwritten runs.
+
+### Full seed audit (done + queued vs a target of 3)
+
+| pen | N=500 | N=1000 | N=2000 |
+|---|---|---|---|
+| rws | k=1–8 ✓ | k=1–8 ✓ | k=1–8 ✓ |
+| frm | k=1–8 ✓ | k=1–4 ✓, **k=5 SHORT**, k=6–8 ✓ | k=1–8 ✓ |
+| both | k=1–8 ✓ | k=1–8 ✓ (Della) | k=1–8 ✓ |
+
+Everything is submitted and accounted for except **frm k=5 N=1000**, which needs 2 replacement seeds
+once the collision fix is in place — worth re-running now that a second divergence would no longer be
+invisible.

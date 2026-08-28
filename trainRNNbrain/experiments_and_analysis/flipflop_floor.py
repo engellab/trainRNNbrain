@@ -49,7 +49,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
+from common import IMG_DIR, logbin, stretched
 
 SWEEP = "data/trained_RNNs/NBitFlipFlop_std_ksweep"
 PROBE_EVERY = 10
@@ -83,30 +83,6 @@ def load():
             f"because it trained on 256 frozen trials. The corrected fresh-batch sweep has not\n"
             f"landed yet; nothing in this file can be run until it does.")
     return out
-
-
-def logbin(t, y, nbins=NBINS):
-    """Median-reduce (t, y) into log-spaced bins so the fit is not dominated by late iterations.
-
-    Args:
-        t, y: equal-length arrays, t > 0; nbins: number of log-spaced bins.
-    Returns:
-        (tb, yb) bin-centre and bin-median arrays, with empty bins dropped.
-    """
-    edges = np.logspace(np.log10(t[0]), np.log10(t[-1]), nbins + 1)
-    idx = np.digitize(t, edges) - 1
-    tb, yb = [], []
-    for b in range(nbins):
-        m = idx == b
-        if m.sum() > 2:
-            tb.append(np.median(t[m]))
-            yb.append(np.median(y[m]))
-    return np.array(tb), np.array(yb)
-
-
-def curve(t, Li, A, tau, beta):
-    """Stretched-exponential approach to a floor: L_inf + A exp(-(t/tau)^beta)."""
-    return Li + A * np.exp(-np.power(np.clip(t / tau, 1e-12, None), beta))
 
 
 def prep(L, t_end=None):
@@ -162,7 +138,7 @@ def fit_joint(data, mode):
         r = []
         for i, (_, t, y) in enumerate(data):
             A, tau, beta = p[nfloor + 3 * i: nfloor + 3 * i + 3]
-            r.append(np.log(np.clip(curve(t, p[slot[i]], A, tau, beta), 1e-12, None)) - np.log(y))
+            r.append(np.log(np.clip(stretched(t, p[slot[i]], A, tau, beta), 1e-12, None)) - np.log(y))
         return np.concatenate(r)
 
     sol = least_squares(resid, p0, bounds=(lo, hi), max_nfev=200000)
@@ -295,7 +271,10 @@ def main():
         seeds, _, pk_floor, shift = summary[N]
         xs = [k for k in ks if k in pk_floor]
         ys = [pk_floor[k] for k in xs]
-        good = [shift[k] < 20 for k in xs]
+        # A cell whose halved-range fit did not converge has no entry in `shift` at all (k=7 at
+        # N=2000, which currently has one seed). Treat "not checked" as NOT identified rather than
+        # crashing: it draws an open marker, which is exactly the "failure stays visible" intent.
+        good = [shift.get(k, float("inf")) < 20 for k in xs]
         a2.plot(xs, ys, "-", color=ncol.get(N, "grey"), lw=1.6, alpha=.45)
         for x, y, g in zip(xs, ys, good):
             a2.plot([x], [y], "o" if g else "o", color=ncol.get(N, "grey"), ms=11,

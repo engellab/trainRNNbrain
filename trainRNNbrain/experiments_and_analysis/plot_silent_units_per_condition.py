@@ -28,7 +28,7 @@ SWEEP = sys.argv[1] if len(sys.argv) > 1 else "CDDM_4a031e"   # sweep folder und
 TAG = SWEEP.replace("CDDM_", "")
 SUF = "" if SWEEP == "CDDM_4a031e" else f"_{TAG}"             # suffix non-default sweeps' figures
 CSV = os.path.join(HERE, "../../data/trained_RNNs", SWEEP, "silent_units_per_condition.csv")
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
+from common import IMG_DIR
 OUT = os.path.join(IMG_DIR, f"silent_units_per_condition{SUF}.png")
 
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_LmbdRWS=(?P<rws>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")

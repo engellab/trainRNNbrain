@@ -34,7 +34,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_loss_fit import load_losses, fit_loss, logbin, IMG_DIR
+from common import load_losses, logbin, IMG_DIR
+from plot_loss_fit import fit_loss
 
 TMAXES = [20000, 30000, 50000, 75000, 100000, 150000, 200000]
 

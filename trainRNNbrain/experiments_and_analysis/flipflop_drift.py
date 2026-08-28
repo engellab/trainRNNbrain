@@ -46,7 +46,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
+from common import IMG_DIR, drift_alpha, series
 from flipflop_ksweep import load
 
 LAGS = (100, 1000, 10000)
@@ -69,35 +69,6 @@ def series(trace, key):
     return it[m], v[m]
 
 
-def alpha_series(trace, W="W_rec"):
-    """Lag-scaling exponent alpha over training, from the three logged lags.
-
-    d(L) ~ L^alpha, so alpha is the slope of log d against log L. Fitted per probe across whichever
-    lags have a value there.
-
-    Args:
-        trace: a loaded trace; W: which weight matrix.
-    Returns:
-        (iters, alpha) float arrays; empty if fewer than two lags are available.
-    """
-    grids = {}
-    for L in LAGS:
-        it, v = series(trace, f"drift_{W}_lag{L}")
-        for i, val in zip(it, v):
-            if val > 0:
-                grids.setdefault(i, {})[L] = val
-    its, al = [], []
-    for i in sorted(grids):
-        d = grids[i]
-        if len(d) < 2:
-            continue
-        x = np.log(np.array(sorted(d)))
-        y = np.log(np.array([d[L] for L in sorted(d)]))
-        its.append(i)
-        al.append(np.polyfit(x, y, 1)[0])
-    return np.array(its), np.array(al)
-
-
 def main():
     """Test whether any flip-flop network reaches isotropic jitter by 300k iterations."""
     by, _ = load()
@@ -114,7 +85,7 @@ def main():
             for t in by.get((k, N), []):
                 _, c = series(t, "cos_W_rec")
                 cs.append(np.mean(c[-2000:]))
-                ia, a = alpha_series(t)
+                ia, a = drift_alpha(t)
                 if a.size:
                     als.append(np.mean(a[-20:]))
                 _, d = series(t, "drift_W_rec_lag1000")
@@ -149,7 +120,7 @@ def main():
             w = 501
             ax[0][0].plot(it[w - 1:], np.convolve(c, np.ones(w) / w, mode="valid"),
                           color=cols[ks.index(k)], lw=1.3, alpha=.85)
-            ia, a = alpha_series(t)
+            ia, a = drift_alpha(t)
             ax[0][1].plot(ia, a, color=cols[ks.index(k)], lw=1.3, alpha=.85)
             it2, d = series(t, "drift_W_rec_lag1000")
             ax[0][2].plot(it2, d, color=cols[ks.index(k)], lw=1.3, alpha=.85)

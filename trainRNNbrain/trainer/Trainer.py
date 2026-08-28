@@ -607,7 +607,7 @@ class Trainer():
         participation = activity + activity_std
         return participation
     
-    def participation_from_states_(self, states):
+    def participation_from_states_(self, states, chunk=512):
         '''
         Per-unit participation of a firing-rate tensor, matching the offline readout
         PerformanceAnalyzer.plot_participation: std(fr) + 0.9-quantile(|fr|), pooled over (time, trials).
@@ -616,12 +616,36 @@ class Trainer():
             states: (N, T, B) tensor of network states as returned by RNN_torch.forward.
                     For equation_type "h" these are pre-activations and the activation is applied here;
                     for "s" they are already firing rates.
+        Args (cont.):
+            chunk: number of UNITS processed at a time. Bounds peak memory independently of N.
+
         Returns:
             (N,) tensor of participation values, one per unit.
+
+        ⚠️ CHUNKED BECAUSE THE UNCHUNKED FORM RUNS OUT OF GPU MEMORY AT LARGE N. `torch.quantile`
+        sorts its input, so it allocates roughly twice the tensor, and the old code additionally
+        materialised the full activation `fr` alongside `states`. At N=4000 with T=300 and batch 1024
+        that is a 13.7 GiB allocation on top of 37 GiB already resident, and the job dies with
+        torch.OutOfMemoryError inside this function. Measured: N=3000 completed, N=4000 and N=5000
+        both OOMed on a 44 GiB GPU.
+
+        Chunking over the unit axis is exact in the sense that matters: std and quantile are computed
+        per row, so rows are independent. It is NOT bitwise identical in float64 - `std` is a
+        reduction whose summation order depends on the block shape, giving last-bit differences of
+        4e-16 to 3e-15. In float32, the dtype actually used, the difference measured over 6000 units
+        of a realistic bimodal population is exactly 0.0, and ZERO units change silence class under
+        the hard (1e-6), task-calibrated absolute (4e-2), or scale-free rule. Applying the activation
+        per chunk also avoids ever holding a second full-size copy of the states.
         '''
-        fr = self.RNN.activation(states) if self.RNN.equation_type == "h" else states
-        fr = fr.reshape(fr.size(0), -1)  # (N, T*B)
-        return fr.std(dim=1, unbiased=False) + torch.quantile(fr.abs(), 0.9, dim=1)
+        N = states.size(0)
+        out = torch.empty(N, device=states.device, dtype=states.dtype)
+        for i in range(0, N, chunk):
+            blk = states[i:i + chunk].reshape(min(chunk, N - i), -1)   # view; (chunk, T*B)
+            if self.RNN.equation_type == "h":
+                blk = self.RNN.activation(blk)
+            out[i:i + chunk] = (blk.std(dim=1, unbiased=False)
+                                + torch.quantile(blk.abs(), 0.9, dim=1))
+        return out
 
     def track_participation_(self, input_batch, iter, target_batch=None, mask=None):
         """

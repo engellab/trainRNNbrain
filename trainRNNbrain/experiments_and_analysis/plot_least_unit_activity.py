@@ -28,13 +28,13 @@ from omegaconf import OmegaConf, DictConfig
 from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.utils import unjsonify, filter_kwargs
 from plot_participation_histograms import build_cddm_batch, EQ_NAME
+from common import IMG_DIR, r2_from_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SWEEP = sys.argv[1] if len(sys.argv) > 1 else "CDDM_4a031e"   # sweep folder under data/trained_RNNs
 TAG = SWEEP.replace("CDDM_", "")
 SUF = "" if SWEEP == "CDDM_4a031e" else f"_{TAG}"
 ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
 
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_LmbdRWS=(?P<rws>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")
 N_TARGET = 1000
@@ -71,11 +71,6 @@ def net_least_unit(params_json, input_batch):
     part = np.where(np.isfinite(part), part, np.inf)         # never pick a diverged unit
     idx = int(np.argmin(part))
     return fr[idx], float(part[idx]), idx
-
-
-def r2_from_dir(leaf_dir):
-    """Validation R^2 of a net, parsed from the leading score in its folder name."""
-    return float(os.path.basename(leaf_dir).split("_")[0])
 
 
 def collect():

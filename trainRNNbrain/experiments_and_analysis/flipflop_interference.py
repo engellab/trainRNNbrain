@@ -59,9 +59,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
+from common import IMG_DIR, participation
 from flipflop_fixedpoints import SWEEP, load_net
-from flipflop_selectivity import rates_and_targets, selectivity, participation
+from flipflop_selectivity import rates_and_targets, selectivity
 
 N_PERM = 200          # label permutations for the structural null
 N_STATES = 16         # operating points at which the linear response is evaluated

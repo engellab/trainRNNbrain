@@ -44,7 +44,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import load_traces, IMG_DIR
+from common import load_traces, IMG_DIR
 
 PEN_SWEEP = "data/trained_RNNs/CDDM_std_g0_penalties"
 NONE_SWEEP = "data/trained_RNNs/CDDM_std_g0_drift"

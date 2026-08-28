@@ -52,12 +52,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import load_traces
-from plot_loss_fit import IMG_DIR
-from plot_M_vs_N import T_at_loss, active_count, ladder, CRITERIA
+from common import CRITERIA, IMG_DIR, T_at_loss, active_count, aicc, load_traces
+from plot_M_vs_N import ladder
 
 N_MIN = 500          # ceiling-free sizes only; see module docstring
 N_BOOT = 4000
+# Bootstrap RNG. Seeded, because an unseeded global np.random makes the reported CIs
+# irreproducible: two runs of identical code returned b = [0.353, 0.430] and [0.349, 0.431].
+BOOT_RNG = np.random.default_rng(0)
 
 
 def collect(by, levels, criterion):
@@ -116,12 +118,6 @@ def ols(X, y):
     beta, *_ = np.linalg.lstsq(X, y, rcond=None)
     r = y - X @ beta
     return beta, float(r @ r), len(y) - X.shape[1]
-
-
-def aicc(rss, n, k):
-    """Small-sample corrected AIC for a Gaussian least-squares fit."""
-    a = n * np.log(rss / n) + 2 * k
-    return a + (2 * k * (k + 1)) / max(n - k - 1, 1e-9)
 
 
 def sat_hyper(N, Mstar, N0):
@@ -217,7 +213,7 @@ def main():
             lk = np.polyfit(np.log(Ns), np.log(Ms), 1)[0]
             boot = []
             for _ in range(N_BOOT):
-                idx = np.random.randint(0, len(Ns), len(Ns))
+                idx = BOOT_RNG.integers(0, len(Ns), len(Ns))
                 if len(np.unique(Ns[idx])) < 2:
                     continue
                 boot.append(np.polyfit(np.log(Ns[idx]), np.log(Ms[idx]), 1)[0])

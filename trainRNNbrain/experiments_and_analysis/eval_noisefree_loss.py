@@ -39,7 +39,7 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments, get_tr
 from trainRNNbrain.utils import filter_kwargs
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_loss_fit import IMG_DIR
+from common import IMG_DIR
 
 
 def masked_mse(output, target, mask):

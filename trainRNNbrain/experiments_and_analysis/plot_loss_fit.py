@@ -33,9 +33,9 @@ from scipy.optimize import curve_fit
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from common import IMG_DIR, logbin
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
 FIT_STARTS = [2000, 5000, 10000]     # fit-window start times, for the stability check
 BUDGETS = [50000, 100000, 200000, 300000, 1000000]
 
@@ -67,25 +67,6 @@ def load_losses(sweep):
             L = np.array(json.load(open(f))["train_losses"], dtype=float)
             out.setdefault(N, []).append((os.path.basename(f)[:9], L))
     return out
-
-
-def logbin(t, y, nbins=60):
-    """Median-reduce (t, y) into log-spaced bins, so the fit is not dominated by late iterations.
-
-    Args:
-        t, y: equal-length arrays; nbins: number of log-spaced bins.
-    Returns:
-        (tb, yb) bin-centre and bin-median arrays, empty bins dropped.
-    """
-    edges = np.logspace(np.log10(t[0]), np.log10(t[-1]), nbins + 1)
-    idx = np.digitize(t, edges) - 1
-    tb, yb = [], []
-    for b in range(nbins):
-        m = idx == b
-        if m.sum() > 2:
-            tb.append(np.median(t[m]))
-            yb.append(np.median(y[m]))
-    return np.array(tb), np.array(yb)
 
 
 def fit_loss(L, t_start):

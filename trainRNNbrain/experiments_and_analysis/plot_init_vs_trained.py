@@ -51,7 +51,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SWEEP = next((a for a in sys.argv[1:] if not a.startswith("-")), "CDDM_fb2792_g0_softplus25")
 TAG = SWEEP.replace("CDDM_", "")
 ROOT = os.path.join(HERE, "../../data/trained_RNNs", SWEEP)
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
+from common import IMG_DIR
 CACHE = os.path.join(ROOT, "init_vs_trained.npz")
 
 COND_RE = re.compile(r"EqType=(?P<eq>[hs])_N=(?P<N>\d+)_LmbdRWS=(?P<rws>[\d.]+)_LmbdFR=(?P<frm>[\d.]+)")

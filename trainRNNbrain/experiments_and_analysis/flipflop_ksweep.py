@@ -47,8 +47,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
-from plot_M_vs_N import active_count
+from common import IMG_DIR, active_count, stable_crossing
 
 SWEEP = "data/trained_RNNs/NBitFlipFlop_std_ksweep"
 PROBE_EVERY = 10       # trainer.track_every; loss_clean_train is indexed in probes, not iterations
@@ -104,27 +103,6 @@ def load():
     return out, dropped
 
 
-def stable_crossing(loss, thr, window=WINDOW):
-    """Last probe index at which the smoothed loss is still above `thr`.
-
-    "Stably" rather than "first time below" because the loss is not monotone: a first-crossing rule
-    fires on a transient dip. Returns None if the run never gets below thr, or if it is still above
-    at the end (which would mean the crossing is not inside the run).
-
-    Args:
-        loss: noise-free loss per probe; thr: threshold; window: centred running-mean width in probes.
-    Returns:
-        probe index, or None.
-    """
-    h = window // 2
-    s = np.convolve(loss, np.ones(window) / window, mode="valid")
-    idx = np.arange(h, len(loss) - h)
-    above = idx[s > thr]
-    if not len(above) or above[-1] >= idx[-1]:
-        return None
-    return int(above[-1])
-
-
 def silence_at(trace, N, probe):
     """Silent-unit percentages and active count at the participation probe nearest `probe`.
 
@@ -157,7 +135,7 @@ def table(by, ks, Ns, thr, title):
         for N in Ns:
             rows = []
             for t in by.get((k, N), []):
-                x = None if thr is None else stable_crossing(t["clean"], thr)
+                x = None if thr is None else stable_crossing(t["clean"], thr, window=WINDOW, base=0)
                 if thr is not None and x is None:
                     continue
                 h, s, a = silence_at(t, N, x)

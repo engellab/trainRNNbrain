@@ -54,10 +54,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plot_drift_curves import IMG_DIR
-from flipflop_ksweep import load, stable_crossing, silence_at
+from common import IMG_DIR, stable_crossing
+from flipflop_ksweep import load, silence_at
 
 N_BOOT = 300
+# Bootstrap RNG. Seeded, because an unseeded global np.random makes the reported CIs
+# irreproducible: two runs of identical code returned b = [0.353, 0.430] and [0.349, 0.431].
+BOOT_RNG = np.random.default_rng(0)
 GRID_A = np.linspace(-6.0, 6.0, 481)     # alpha, signed: M may rise OR fall with k
 GRID_B = np.linspace(-3.0, 3.0, 241)     # beta
 
@@ -156,7 +159,7 @@ def main():
 
             bb, bc = [], []
             for _ in range(N_BOOT):
-                i = np.random.randint(0, n, n)
+                i = BOOT_RNG.integers(0, n, n)
                 if len(np.unique(K[i])) < 3 or len(np.unique(NN[i])) < 2:
                     continue
                 r = fit_powerlaw(K[i], NN[i], M[i])
@@ -203,8 +206,12 @@ def main():
             m = K == k
             if m.sum():
                 ax[0][j].plot(NN[m], M[m], "o", color=cols[ks.index(k)], ms=7, label=f"k={k}")
+        # ⚠️ BEFORE/AFTER refer to the CHANGE OF X-VARIABLE, not to two datasets or two times.
+        # The reading depth (`lab`) identifies the COLUMN and must appear in both titles, or the pair
+        # reads as "BEFORE = endpoint, AFTER = a power law", which is meaningless.
         ax[0][j].set(xscale="log", yscale="log", xlabel="$N$", ylabel="active units $M$",
-                     title=f"BEFORE — {lab}\nfive separate curves")
+                     title=f"[{lab}]  BEFORE collapse\n"
+                           f"raw $M$ vs $N$ — one curve per $k$")
         u = NN * K ** (c / b)
         for k in ks:
             m = K == k
@@ -216,14 +223,17 @@ def main():
                       label=f"$M \\propto u^{{{b:.2f}}}$")
         ax[1][j].set(xscale="log", yscale="log",
                      xlabel=f"$u = N\\,k^{{{c / b:.2f}}}$", ylabel="active units $M$",
-                     title=f"AFTER — $M = A\\,N^{{{b:.2f}}}k^{{{c:.2f}}}$\n"
-                           f"var. expl. {r2:.3f}; vs saturated p = {p:.3g}")
+                     title=f"[{lab}]  AFTER collapse onto $u=N k^{{{c / b:.2f}}}$\n"
+                           f"$M = A\\,N^{{{b:.2f}}}k^{{{c:.2f}}}$;  lack-of-fit p = {p:.3g} "
+                           f"({'law OK' if p > 0.05 else 'LAW REJECTED'})")
         for a_ in (ax[0][j], ax[1][j]):
             a_.legend(fontsize=8)
             a_.grid(alpha=.3, which="both")
     fig.suptitle("Active-unit count as a joint power law in size and task complexity\n"
-                 "scale-free criterion; a law is credible only if it matches a free mean per cell",
-                 fontsize=12)
+                 "scale-free criterion. Rows: same points BEFORE vs AFTER rescaling the x-axis — a "
+                 "real law fuses the per-$k$ curves into one.\n"
+                 "Lack-of-fit p tests the law against a FREE MEAN PER CELL; LARGE p = the law is as "
+                 "good as 20 free numbers, small p = it is not.", fontsize=11)
     fig.tight_layout()
     out = os.path.join(IMG_DIR, "flipflop_M_scaling.png")
     fig.savefig(out, dpi=150)

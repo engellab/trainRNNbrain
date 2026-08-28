@@ -22,7 +22,7 @@ from matplotlib import pyplot as plt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CSV = os.path.join(HERE, "../../data/trained_RNNs/CDDM_fb2792_g0_noise/silent_units_per_condition.csv")
-IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
+from common import IMG_DIR
 OUT = os.path.join(IMG_DIR, "silent_vs_noise_fb2792_g0_noise.png")
 
 EQ_STYLE = {"h": ("h (hidden)", "#c44e52"), "s": ("s (rate)", "#4c72b0")}
