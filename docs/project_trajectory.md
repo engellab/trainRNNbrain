@@ -7173,3 +7173,31 @@ which would argue for escalating to option 2 (tail-only Huberisation of p_over).
 ⚠️ The selection-bias caveat still stands and is NOT solved by this fix: cells that needed skips
 or rollbacks to survive are not drawn from the same distribution as cells that never spiked. The
 printed skip count is what makes that auditable — report it alongside any frm N=2000 number.
+
+### Every remaining gap submitted — 2026-08-29 13:05
+
+Coverage audit across both clusters (206 networks saved). `rws` is COMPLETE (72/72, all three
+sizes). `none` is complete at N=500 and needs only k=1 (FFk arrays, queued) plus one k=8 N=2000
+seed. `both` was already fully queued (71 jobs). `frm` was the only arm with unqueued holes.
+
+Submitted to close every remaining deficit:
+
+| cluster | job | tasks | cells | time |
+|---------|-----|-------|-------|------|
+| Della | `13156475` | 9,18,26,27,36 | frm N=2000 k=1,2,3 x2,4 | 96 h `gpu-long` |
+| Spock | `5942790` | 42,68,69 | frm N=1000 k=5, k=8 x2 | 48 h |
+| Spock | `5942797` | 63 | none N=2000 k=8 | 96 h |
+
+⚠️ **The ksweep launcher defaults to IT=500000 but every existing `none` N=2000 cell is at
+iters=400000.** Submitting it plain would have written a SEPARATE `iters=500000` directory - a new
+orphan cell, not a third seed - and the budget mismatch inside a cell is the error that has
+manufactured a spurious trend three times in this project. Resubmitted with
+`--export=ALL,ITERS_OVERRIDE=400000`; the first attempt (`5942791`) relied on ambient environment
+propagation and was cancelled rather than trusted.
+
+Also cancelled `13115552_72` (frm N=2000 k=8, pre-fix commit `ab98f89`, only 12.5k iterations in).
+It was PENDING during the earlier health sweep so it escaped that cancel, then started and became
+a duplicate of `13152868_72`.
+
+⚠️ `bigN` covers **both `none` AND `rws`** at N=4000 (PEN_NAME=(none rws), 48 tasks, k=1..8);
+41 still queued. No extra N=4000 jobs are needed - k=5..8 are in the array, just not yet run.
