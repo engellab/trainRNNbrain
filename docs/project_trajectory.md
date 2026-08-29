@@ -7001,3 +7001,77 @@ if the k=1..4 error bars turn out to matter.
 
 After cancelling the 18 dead jobs Spock went 33 -> 47 running as freed GPUs took pending `both`
 tasks, which is the Q2 critical path.
+
+---
+
+## ▶ THE GUARD WORKS BUT DOES NOT RESCUE frm AT N=2000 — 2026-08-29 11:30
+
+⚠️ **Correction to yesterday's note.** I reported "the fix is working" after inspecting ONE
+re-run job. That was premature — a single sample. Across the full re-run array, **8 of 10 fixed-code
+jobs failed anyway**, in a NEW failure mode.
+
+### What the guard did and did not do
+
+It did exactly what it was designed to do: weights are never NaN-poisoned any more. What it does
+NOT do is keep the run useful. Observed on `13115552` (all at commit `ab98f89`):
+
+| task | cell | finite loss, last 5k | iteration | verdict |
+|------|------|---------------------|-----------|---------|
+| _70 | k=8 N=2000 | 99.9% | 39,989 | training normally, loss 1.43 -> 0.107 |
+| _62 | k=7 N=2000 | 100.0% | 40,871 | training normally |
+| _43,_44,_52,_53,_54,_61,_63,_71 | k=5..8 N=2000 | **0.0%** | 82k-91k | **frozen** |
+
+**The new failure mode is a frozen run, not a poisoned one.** The forward pass overflows to inf,
+so the gradient is non-finite, so the guard skips the update — which means the weights never move,
+so the next forward pass overflows identically. A deterministic trap. The frozen runs last saw a
+finite loss 30k-55k iterations ago and will never recover.
+
+**Tell for spotting it:** a frozen job runs about TWICE AS FAST, because skipping the optimizer
+step is cheaper than taking it. The dead jobs were at iteration ~88k while the healthy ones were
+at ~40k after identical wall-clock. Iteration count running ahead of its siblings is a red flag,
+not a sign of progress.
+
+⚠️ **"Contains nan" is no longer a valid health test.** Under the guard a perfectly healthy run
+contains occasional inf/nan lines (_70 spikes ~1% of the time and recovers). Health must be
+measured as the FRACTION of finite losses in a recent tail; <50% means frozen.
+
+### It is not a learning-rate artefact
+
+`run_experiment.py:92` sets `lr = 1e-3 * (100/N)^0.333`, so lr already FALLS with N
+(5.9e-4 / 4.7e-4 / 3.7e-4 at N=500/1000/2000). Instability rises with N despite smaller steps.
+Mechanism is intrinsic to frm at large N and high k, not step size.
+
+### Surviving frm inventory (seeds saved on disk, Spock)
+
+| frm | k=1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|-----|-----|---|---|---|---|---|---|---|
+| N=500 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| N=1000 | 3 | 3 | 3 | 2 | 1 | 2 | 1 | 0 |
+| N=2000 | 2 | 2 | 1 | 1 | 1 | **0** | **0** | **0** |
+
+In flight and expected to land: Spock `5928695` (fixed code) adds N=1000 k=4 +1, k=6 +1, k=7 +2
+-> those three cells reach 3. Della `13115552_62/_70` add N=2000 k=7 +1 and k=8 +1 (~60 h out).
+Still missing after that: N=1000 k=5 (+2) and k=8 (+3); N=2000 k=6 (all 3) and thin everywhere.
+
+### ⚠️ SELECTION BIAS — the most important consequence
+
+The surviving frm N=2000 runs are **conditioned on not having diverged**. If instability
+correlates with anything the paper measures (recurrent gain, participation, floor), the survivors
+are a biased sample and "frm at N=2000" statistics inherit that bias. Re-running until 3 seeds
+survive does NOT fix this — it selects harder. Any frm N=2000 claim must state the yield
+(currently ~20% at k>=5) alongside the number.
+
+### Cancelled this session
+
+8 frozen fixed-code jobs (Della `13115552`), 1 old-code dead (Della `13100032_41`), 2 old-code
+dead (Spock `5904342_67/_68`, k=8 N=1000). Kept `13115552_62/_70` — both healthy.
+
+### Options, not yet chosen
+
+1. **Drop N=2000 from the frm arm** and fit the interference law on N=500 (complete) and N=1000
+   (complete after `5928695` lands). Cheapest, no bias, loses the third size.
+2. **Escape hatch**: checkpoint last-good weights, and on prolonged skipping restore them and back
+   off lr. Real fix for the trap, but it is new training machinery mid-experiment.
+3. **Warm up lambda_frm** from 0 so the network never gets pushed into the unstable region
+   abruptly. Keeps the final penalty identical; changes the trajectory.
+4. Over-submit and take survivors — REJECTED as primary strategy, it worsens the selection bias.
