@@ -19,6 +19,13 @@ anneal_noise: False
 lr: 0.001
 weight_decay: 1e-6
 max_grad_norm: 50.0
+# Gradient-spike defences. An update whose gradient norm exceeds spike_factor x the running EMA is
+# DROPPED, not clipped (Adam is scale-invariant, so clipping barely limits a spike's effect).
+# After restore_after consecutive skips the weights are rolled back to the last snapshot, because
+# a skip freezes the weights and nothing else can move them out of an overflowing region.
+spike_factor: 100.0
+snapshot_every: 1000
+restore_after: 500
 lr_scale_exp: 0.3333333333333333
 same_batch: False
 monitor: False              # no per-penalty loss/gradient monitoring: saves a backward pass per active term

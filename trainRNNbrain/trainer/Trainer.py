@@ -121,8 +121,15 @@ class Penalties:
 
         over = torch.relu(activity - cap)
         under = torch.relu(cap - activity)
-        p_over  = torch.pow(over  / (cap + eps), g_top)
-        p_under = torch.pow(under / (cap + eps), g_bot)
+        # float64 for the powers ONLY. `over`/`under` are shape (N,) - the reduction over the
+        # T*B axis already happened - so this costs N doubles, not the (N, T*B) tensor. The
+        # function is unchanged; it is evaluated without overflowing. In fp32, (over/cap)^3
+        # overflows at over/cap ~ 7e12, which an effective recurrent gain of only 1.10 reaches
+        # after T=300 steps; the reported loss then goes inf while the GRADIENT is still finite,
+        # so a non-finite-gradient guard never sees it. fp64 moves that wall to gain ~1.6.
+        cap64 = cap.double() if torch.is_tensor(cap) else cap
+        p_over  = torch.pow(over.double()  / (cap64 + eps), g_top)
+        p_under = torch.pow(under.double() / (cap64 + eps), g_bot)
 
         if aggregation == 'logsumexp' and tau_n is not None:
             tau_n = torch.as_tensor(tau_n, device=dev, dtype=dt)
@@ -362,7 +369,10 @@ class Trainer():
                  drift_lags=(100, 1000, 10000),
                  valid_batch=None,
                  track_valid_every=50,
-                 max_grad_norm=10.0):
+                 max_grad_norm=10.0,
+                 spike_factor=100.0,
+                 snapshot_every=1000,
+                 restore_after=500):
         self.RNN = RNN
         self.Penalties = Penalties(RNN=self.RNN) # dataclass containing all the penalty methods
         self.max_sigma_rec = self.RNN.sigma_rec
@@ -379,6 +389,20 @@ class Trainer():
         self.monitor = monitor
         self.max_iter = max_iter
         self.max_grad_norm = max_grad_norm
+        # --- gradient-spike defences (see train_step) -------------------------------------------
+        # An update whose gradient norm exceeds spike_factor x the running scale is DROPPED rather
+        # than clipped. Clipping is near-useless here: Adam normalises by sqrt(v), so tightening
+        # max_grad_norm from 50 to 0.1 was measured to cut the damage of one spike only from 287
+        # to 233 normal-sized steps. Skipping costs 0 - Adam's moments never see the spike.
+        self.spike_factor = spike_factor
+        self.snapshot_every = snapshot_every      # accepted steps between last-good snapshots
+        self.restore_after = restore_after        # consecutive skips before rolling back
+        self.gnorm_ref = None                     # EMA of accepted gradient norms
+        self.consecutive_skips = 0
+        self.n_skipped = 0                        # reported at the end of training
+        self.n_restored = 0
+        self._last_good = None
+        self._accepted = 0
         self.anneal_noise = anneal_noise
         
         # make sure masks exist, on the right device, and don’t require grad
@@ -800,20 +824,48 @@ class Trainer():
         for p, g in zip(params, g_tot):
             p.grad = g
 
-        # Skip a non-finite update instead of letting the clip poison the weights.
-        # clip_grad_norm_ does NOT guard inf/nan (error_if_nonfinite defaults to False): one inf
-        # makes the total norm inf, so clip_coef = max_norm/inf = 0. Clean grads are scaled to a
-        # harmless 0.0, but the grad carrying the overflow becomes inf*0 = nan, so the optimizer
-        # writes NaN into that parameter; on the next forward pass it contaminates the whole
-        # network and the run trains on nan to completion without ever exiting non-zero.
-        # This cost 18 frm jobs (all of N=2000 k>=6) before it was caught. Dropping the batch is
-        # inert for any run that never overflows.
-        if any(g is not None and not torch.isfinite(g).all() for g in g_tot):
-            self.nonfinite_skips = getattr(self, "nonfinite_skips", 0) + 1
+        # DROP an anomalous update rather than clip it.
+        #
+        # Two failure modes, one test. (1) A non-finite gradient: clip_grad_norm_ does NOT guard
+        # inf/nan (error_if_nonfinite defaults to False), so total_norm=inf makes clip_coef =
+        # max_norm/inf = 0 and the offending grad becomes inf*0 = nan, which the optimizer writes
+        # into the weights; the next forward pass spreads it and the run trains on nan to
+        # completion without ever exiting non-zero. (2) A finite but enormous gradient: clipping
+        # bounds its norm but NOT its effect, because Adam divides by sqrt(v) and is therefore
+        # scale-invariant - measured, one spike drags the weights 287 normal-sized steps at
+        # max_grad_norm=50 and still 233 at 0.1. Skipping is the only thing that costs zero:
+        # Adam's m and v never see the spike at all.
+        #
+        # clip_grad_norm_ returns the PRE-clip norm, so the test is free.
+        total_norm = torch.nn.utils.clip_grad_norm_(params, max_norm=self.max_grad_norm)
+        spike = (self.gnorm_ref is not None
+                 and float(total_norm) > self.spike_factor * self.gnorm_ref)
+        if (not torch.isfinite(total_norm)) or spike:
             self.optimizer.zero_grad(set_to_none=True)
+            self.n_skipped += 1
+            self.consecutive_skips += 1
+            # Sustained skipping means the weights are parked in a region where every batch
+            # overflows. Because a skip freezes the weights, nothing can move them back out on
+            # its own - the run would spin to its wall-clock limit doing nothing (18 jobs did).
+            # Roll back to the last good snapshot and reset Adam, whose moments are stale.
+            if self._last_good is not None and self.consecutive_skips >= self.restore_after:
+                with torch.no_grad():
+                    for prm, good in zip(params, self._last_good):
+                        prm.copy_(good)
+                self.optimizer.state.clear()
+                self.gnorm_ref = None
+                self.consecutive_skips = 0
+                self.n_restored += 1
         else:
-            torch.nn.utils.clip_grad_norm_(params, max_norm=self.max_grad_norm)
             self.optimizer.step()
+            n = float(total_norm)
+            self.gnorm_ref = n if self.gnorm_ref is None else 0.99 * self.gnorm_ref + 0.01 * n
+            self.consecutive_skips = 0
+            self._accepted += 1
+            # snapshot the FIRST accepted step too, else a run that diverges before
+            # snapshot_every has nothing to roll back to and spins to its wall-clock limit.
+            if self._last_good is None or self._accepted % self.snapshot_every == 0:
+                self._last_good = [prm.detach().clone() for prm in params]
 
         # --- 4) now it's safe to mutate weights in-place ---
         # For weight_boundary="reflective" the constraints are baked into the forward pass

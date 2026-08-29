@@ -136,6 +136,10 @@ def run_training(cfg: DictConfig) -> None:
         rnn_trained, train_losses, val_losses, best_net_params, last_net_params = trainer.run_training(train_mask=mask, same_batch=cfg.trainer.same_batch)
         toc = time.perf_counter()
         print(f"Executed training in {toc - tic:0.4f} seconds")
+        if getattr(trainer, "n_skipped", 0) or getattr(trainer, "n_restored", 0):
+            print(f"gradient spikes: {trainer.n_skipped} updates skipped "
+                  f"({100.0 * trainer.n_skipped / max(1, cfg.trainer.max_iter):.3f}% of iterations), "
+                  f"{trainer.n_restored} rollbacks to last-good weights")
 
         ###########################################################################
         if monitor:
