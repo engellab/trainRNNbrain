@@ -7143,3 +7143,33 @@ New config keys in `trainer_ptrack_freshbatch.yaml`: `spike_factor: 100.0`, `sna
 `tests/test_gradient_spikes.py` pins all three load-bearing claims and supersedes
 `test_clip_nan.py`. Deployed at `5bb405d` to Spock `~/trainRNNbrain`, Della `~/trainRNNbrain`
 (symlink intact) and the Spock `~/trainRNNbrain_ff` rsync copy that the old arrays launch from.
+
+### frm N=2000 resubmitted under the defences — 2026-08-29 12:40
+
+Cancelled Della `13115552_62` / `_70` (frm N=2000 k=7/k=8, ~40k/400k, still on the pre-fix commit
+`ab98f89`). They were healthy at the time but under the old code the N=2000 k>=5 failure rate was
+8/10, and at 10% through they had ~50 h each still to burn before probably dying.
+
+Resubmitted as Della array **`13152868`**, tasks 43,44,52,53,54,61,62,63,70,71,72 = 11 jobs,
+`gpu-long`, 96 h, running commit `5bb405d`:
+
+| cell | new seeds | already saved |
+|------|-----------|---------------|
+| frm N=2000 k=5 | 2 | 1 |
+| frm N=2000 k=6 | 3 | 0 |
+| frm N=2000 k=7 | 3 | 0 |
+| frm N=2000 k=8 | 3 | 0 |
+
+⚠️ **k=1..4 were NOT topped up and remain thin**: k=1 = 2 seeds, k=2 = 2, k=3 = **1**, k=4 = 1 + one
+run finishing (Spock `5904343_34` at 392k/400k) -> 2. **k=3 at a single seed has no error bar** and
+is the weakest cell in the frm N=2000 row; topping k=1..4 back to 3 would be 5 more jobs.
+
+Watch for on the first completions: the `gradient spikes: N updates skipped (...), M rollbacks`
+line that `run_experiment.py` now prints. Zero on N=500/1000 is expected and confirms the guard is
+inert there; a non-zero count at N=2000 with the run still converging is the fix doing its job.
+A large count WITH rollbacks means the network is repeatedly re-entering the unstable region,
+which would argue for escalating to option 2 (tail-only Huberisation of p_over).
+
+⚠️ The selection-bias caveat still stands and is NOT solved by this fix: cells that needed skips
+or rollbacks to survive are not drawn from the same distribution as cells that never spiked. The
+printed skip count is what makes that auditable — report it alongside any frm N=2000 number.
