@@ -7075,3 +7075,71 @@ dead (Spock `5904342_67/_68`, k=8 N=1000). Kept `13115552_62/_70` — both healt
 3. **Warm up lambda_frm** from 0 so the network never gets pushed into the unstable region
    abruptly. Keeps the final penalty identical; changes the trajectory.
 4. Over-submit and take survivors — REJECTED as primary strategy, it worsens the selection bias.
+
+---
+
+## ▶ frm SPIKE DEFENCES IMPLEMENTED (options 1 + 3a) — 2026-08-29
+
+### Root cause, quantified
+
+The penalty is not misdesigned — it faithfully reports a genuine dynamical blow-up, and T=300
+timesteps is the amplifier. If the effective recurrent gain drifts to G, a perturbation grows
+as G^300 within one trial:
+
+| gain G | peak rate | over/cap | frm loss | fp32 |
+|--------|-----------|----------|----------|------|
+| 1.00 | 1 | 5.5 | 16.5 | ok |
+| 1.04 | 1.3e5 | 7.1e5 | **3.5e16** | ok |
+| 1.10 | 2.6e12 | 1.4e13 | 3.0e38 | **INF** |
+
+Inverting the observed max loss (5e16, run `13115552_70`) gives **gain = 1.0404**; fp32 overflow
+needs **gain = 1.0974**. The whole catastrophe lives between gain 1.00 and 1.11. Higher k needs
+stronger recurrence (2^k attractors) and larger N shrinks `cap` (0.223 / 0.200 / 0.182 at
+N=500/1000/2000), so divergence tracks both — as observed.
+
+**The cubic gives no restoring force until it is far too late.** d(over/cap)^3/d(rate) at N=2000:
+
+| peak rate | over/cap | p_over | gradient |
+|-----------|----------|--------|----------|
+| 1.0 | 0.006 | 2.5e-7 | **7.6e-6** (nothing) |
+| 1.5 | 0.55 | 0.17 | 3.1 |
+| 2.0 | 3.05 | 28.3 | **152** (cliff) |
+
+Two structural notes: the logsumexp is NOT the problem — its softness scale is tau*log(M) = 1.264
+with M = 300*1024 = 307,200, i.e. ~7 caps, so it behaves as a smooth average, not a hair-trigger
+max. And the penalty is wildly asymmetric: `p_under <= 1` always (activity >= 0), while `p_over`
+is unbounded — a silent unit costs 0.10, a unit at 10x cap costs 72.9.
+
+### What was implemented
+
+**(1) Drop anomalous updates; roll back when stuck.** `clip_grad_norm_` already returns the
+PRE-clip norm, so the test is free. An update whose norm exceeds `spike_factor` x a running EMA is
+skipped. ⚠️ **Clipping harder is NOT a substitute** — Adam divides by sqrt(v) and is scale
+invariant, so one spike drags the weights 287 normal-sized steps at max_grad_norm=50 and still
+233 at 0.1 (a 500x tighter clip buys 19%). Skipping costs exactly 0. Because a skip freezes the
+weights, sustained skipping is itself the trap that spun 18 jobs to their wall-clock limit, so
+after `restore_after` consecutive skips the weights roll back to the last snapshot and Adam's
+state is cleared. The first accepted step snapshots, so a run diverging before `snapshot_every`
+still has somewhere to return to.
+
+**(3a) float64 powers.** `over`/`under` are shape (N,) — the reduction over the T*B axis already
+happened — so this costs N doubles, NOT the (N, T*B) tensor. Same function, evaluated without
+overflow; the wall moves from gain 1.10 to ~1.6. This also closes a hole in the previous guard,
+which tested GRADIENT finiteness: between gain 1.10 and 1.60 the VALUE overflows while the
+gradient stays finite, so that guard never fired there.
+
+New config keys in `trainer_ptrack_freshbatch.yaml`: `spike_factor: 100.0`, `snapshot_every: 1000`,
+`restore_after: 500`. `run_experiment.py` prints the skip/rollback count when non-zero.
+
+### Old results are NOT compromised — verified, not assumed
+
+* The objective is unchanged. fp64 vs fp32 differs by ~1e-7 relative, far under seed noise.
+* At the default `spike_factor=100` the trigger fired **0 times** in 100- and 300-iteration local
+  runs, matching the 0-1 spikes per 400,000 iterations measured in the completed N=500/1000 frm
+  logs. The guard is inert in the regime the existing runs occupied.
+* Forced firing (`spike_factor=1.2`, `restore_after=3`) gave 61 skips and 14 rollbacks with
+  training completing normally — the machinery works end to end, through production code.
+
+`tests/test_gradient_spikes.py` pins all three load-bearing claims and supersedes
+`test_clip_nan.py`. Deployed at `5bb405d` to Spock `~/trainRNNbrain`, Della `~/trainRNNbrain`
+(symlink intact) and the Spock `~/trainRNNbrain_ff` rsync copy that the old arrays launch from.
