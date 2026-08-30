@@ -7201,3 +7201,55 @@ a duplicate of `13152868_72`.
 
 ⚠️ `bigN` covers **both `none` AND `rws`** at N=4000 (PEN_NAME=(none rws), 48 tasks, k=1..8);
 41 still queued. No extra N=4000 jobs are needed - k=5..8 are in the array, just not yet run.
+
+---
+
+## ▶ `both` IS HEALTHY — IT WAS BEING KILLED BY THE WALL CLOCK — 2026-08-30 12:30
+
+`both` at N=1000 shows **no numerical trouble whatsoever**. Every saved network and every running
+job is converged and stable:
+
+* 9 saved, r2 = 0.9378 … 0.9538, declining monotonically with k (0.952 at k=1 -> 0.938 at k=6)
+* 12 running, median r2 0.931-0.946, median loss 0.040-0.051, last-probe r2 == median r2
+* zero non-finite probes, zero negative r2, no spikes
+
+**The losses in this condition were entirely operational.** The Della `both` N=1000 array was
+submitted with `--time=48:00:00`, but 400k iterations at N=1000 needs **~57 h** (measured: 336k in
+48 h = 0.514 s/iter — nearly 2x the 0.26 s/iter the launcher's sizing assumed for this size).
+Healthy runs were being SIGKILLed at ~84% completion, and because results are written only at the
+end, each timeout loses the entire run.
+
+`sacct -j 13099674` : 9 COMPLETED, 4 TIMEOUT (tasks 77, 85, 87, 94), 11 RUNNING — of which 6 were
+already past or within an hour of the wall.
+
+⚠️ **A user cannot extend a running job's wall clock.** `scontrol update JobId=... TimeLimit=...`
+returns "Access/permission denied" for both RUNNING and PENDING jobs. Once a job is submitted with
+too short a `--time`, the only remedy is resubmission. Beware: `scontrol update ... && echo ok`
+prints the success message anyway, because scontrol exits 0 while printing the denial to stderr —
+always verify with `squeue -o "%l"` rather than trusting the exit status.
+
+Resubmitted as Della **`13200159`**, tasks 77,85,87,94,96,104,114,122,123,140, `--time=72:00:00`
+(`gpu-medium`, 24 concurrent, 57 h need + margin). Cancelled the 6 doomed runs rather than let
+them burn another hour to no purpose.
+
+### The same trap, caught before it fired, at N=2000
+
+Measured projections for `both` N=2000 against Spock's limit:
+
+| cell | projected total |
+|------|-----------------|
+| k=5 | 83.5 - 86.0 h |
+| k=6 | 85.3 - 86.7 h |
+| k=7, k=8 (pending) | ~90-95 h extrapolated |
+
+⚠️ **Spock's hard wall-clock cap is 96 h** — `--time=120:00:00` and `144:00:00` are both rejected
+("Requested time limit is invalid"), and `--qos=long` / `--qos=very-long` do NOT lift it. So k=7/k=8
+had roughly a 1-5 h margin, and the trajectory's own 1.35x slow-node factor would blow straight
+through it, losing ~96 GPU-hours per job.
+
+Those 6 tasks (133,134,135,142,143,144) were still PENDING, so moving them cost nothing: cancelled
+on Spock, resubmitted as Della **`13200242`** at `--time=144:00:00` (`gpu-long`, 6-day limit).
+
+**Rule going forward: size `--time` from a MEASURED s/iter for that exact (penalty, N, k), not from
+the launcher's header comment.** `both` is ~2x slower than the sizing table claims, because it
+evaluates two penalties per step.
