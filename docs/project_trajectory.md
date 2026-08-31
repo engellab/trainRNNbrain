@@ -7253,3 +7253,54 @@ on Spock, resubmitted as Della **`13200242`** at `--time=144:00:00` (`gpu-long`,
 **Rule going forward: size `--time` from a MEASURED s/iter for that exact (penalty, N, k), not from
 the launcher's header comment.** `both` is ~2x slower than the sizing table claims, because it
 evaluates two penalties per step.
+
+---
+
+## ▶ MIG SLICES WERE THE REAL KILLER — 2026-08-31 10:55
+
+251 networks saved. `none` N=1000 and `rws` are now COMPLETE (24/24 each at all their sizes);
+`none` N=4000 is at 19/24.
+
+### The frm "breakage" was largely starvation, not divergence
+
+Split the frm N=2000 array by the GPU it landed on and the picture is unambiguous:
+
+| GPU | tasks | median r2 | iterations reached | outcome |
+|-----|-------|-----------|--------------------|---------|
+| full `a100` | _43,_44,_52,_61,_70,_71 | **0.933 - 0.941** | 215k - 239k | all finish in 31-38 h |
+| `3g.40gb` MIG | _53,_54,_62,_63 | 0.276 … -516 | 106k - 109k | ALL time out |
+
+⚠️ **`--gpus-per-node=1` lets SLURM satisfy the request with a MIG SLICE** - a partitioned A100 that
+the node advertises as gres `3g.40gb`, not `a100`. Sliced tasks ran 1.5-2.2x slower, so they both
+overran their wall clock AND had far fewer iterations at any given moment. Fixed in the Della
+launcher by naming the gres TYPE, which slices cannot match:
+
+```
+#SBATCH --gres=gpu:a100:1        # was: --gpus-per-node=1
+```
+
+**Recovery takes ~100k iterations.** `13152868_44` read r2 = **-1.43 at 120k** and r2 = **+0.941 at
+238k** - it escaped the unstable region entirely, given time. `_54` likewise went 0.38 -> 0.933.
+So a low r2 at ~100k does NOT mean a broken run; it may simply be pre-recovery. This retracts the
+"5/10 broken" read from 2026-08-30, which sampled the MIG tasks mid-recovery and mistook slow
+hardware for numerical failure. The spike defences are working: every task given a full GPU and
+enough iterations converged.
+
+### Wall-clock losses continue
+
+A 5th timeout: `13100032_40` (frm k=5 N=1000) died at 303k/400k, healthy, on a 48 h limit.
+The 48 h default is simply too short for N=1000 at 400k (~57 h needed).
+
+### Actions
+
+* Cancelled `13152868_53,_54,_62,_63` (needed 122-127 h, had 50 h - certain loss).
+* Cancelled the PENDING `13156475` and `13200242`, both submitted with the MIG-permitting script.
+* Resubmitted on full a100s, all verified `TresPerNode=gres/gpu:a100:1`:
+  `13251599`+`13251624` (frm N=2000 k=6,7, 96 h), `13251625` (frm N=2000 k=1-4, 96 h),
+  `13251626` (both N=2000 k=7,8, 144 h).
+* LEFT `13200159` (both N=1000) running: 9 of its 10 tasks are on MIG slices, but they need
+  42-45 h with ~50 h left, so they are projected to finish. Tight, not doomed - `_140` has the
+  thinnest margin at 4.8 h. Cancelling would have cost 22 h of progress each for a worse position.
+
+⚠️ Check `squeue -o "%N"` + `scontrol show node` for the gres type when a job looks anomalously
+slow, BEFORE concluding the science is broken.
