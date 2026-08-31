@@ -32,7 +32,12 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --gpus-per-node=1
+# ⚠️ --gpus-per-node=1 lets SLURM satisfy the request with a MIG SLICE (a partitioned A100; the
+# node advertises it as gres `3g.40gb`, not `a100`). Measured on the frm N=2000 array: full-a100
+# tasks reached 238k iterations while 3g.40gb tasks reached 109k in the same wall-clock - 2.2x
+# slower - so every sliced task overran its limit and lost the whole run at ~27% completion.
+# Naming the gres TYPE excludes MIG, because slices advertise a different type string.
+#SBATCH --gres=gpu:a100:1
 #SBATCH --mem-per-gpu=32G
 #SBATCH --time=48:00:00
 #SBATCH --mail-type=FAIL
