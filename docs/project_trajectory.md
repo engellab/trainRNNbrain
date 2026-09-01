@@ -7325,7 +7325,7 @@ at the end, so each failure loses the whole run.
 | `std_bigN/*iters=400,600`, `*N=3000*`, `*N=5000*` | 451 M | timing-calibration + off-grid probes, already filtered out of every count |
 | `~/trainRNNbrain_pen` | 280 M | code-only copy, NO data dir, referenced by 0 running jobs |
 | logs >7 d in `~/trainRNNbrain_logs` | 2.7→2.3 G | gzipped, not deleted — forensics preserved |
-| `~/trainRNNbrain/log` (1229 old slurm logs) | 460→~50 M | gzipped; superseded by `~/trainRNNbrain_logs` |
+| `~/trainRNNbrain/log` (1229 old slurm logs) | 460→366 M | gzipped; superseded by `~/trainRNNbrain_logs` |
 
 Result: **97 G → 89 G, 6.3 G free.**
 
