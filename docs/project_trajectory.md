@@ -7304,3 +7304,45 @@ The 48 h default is simply too short for N=1000 at 400k (~57 h needed).
 
 ⚠️ Check `squeue -o "%N"` + `scontrol show node` for the gres type when a job looks anomalously
 slow, BEFORE concluding the science is broken.
+
+---
+
+## ▶ SPOCK QUOTA AUDIT — 2026-09-01
+
+Soft-limit warning on `/ifs/people` (95 G soft, 100 G hard). `df` showed the filesystem at
+**100%, 0 bytes available** — running jobs would have failed on save, and results are written only
+at the end, so each failure loses the whole run.
+
+⚠️ `/usr/people/pt1290` and `/mnt/cup/people/pt1290` are the SAME filesystem
+(`cup-private:/ifs/people`), so every repo copy counts once against the same quota.
+
+### Deleted (all regenerable or already excluded from analysis) — 8 G recovered
+
+| item | size | why safe |
+|------|------|----------|
+| `~/.cache/pip` | 3.5 G | download cache |
+| `conda clean -a` | ~3 G | package cache; envs are hardlinked and unaffected |
+| `std_bigN/*iters=400,600`, `*N=3000*`, `*N=5000*` | 451 M | timing-calibration + off-grid probes, already filtered out of every count |
+| `~/trainRNNbrain_pen` | 280 M | code-only copy, NO data dir, referenced by 0 running jobs |
+| logs >7 d in `~/trainRNNbrain_logs` | 2.7→2.3 G | gzipped, not deleted — forensics preserved |
+| `~/trainRNNbrain/log` (1229 old slurm logs) | 460→~50 M | gzipped; superseded by `~/trainRNNbrain_logs` |
+
+Result: **97 G → 89 G, 6.3 G free.**
+
+⚠️ The earlier coverage tables were INFLATED by those calibration folders — `none` N=4000 k=1 read
+4 seeds when the truth is 3. Any inventory script must exclude `iters=` values below 50000 and
+N outside {500,1000,2000,4000}. Note `std_pen` folders carry NO `iters=` field at all, so a naive
+"iters < 50000" filter silently drops the entire rws arm — filter only when the field is present.
+
+### NOT deleted — needs a decision
+
+| item | size | note |
+|------|------|------|
+| `.conda/envs/RNN_training_pipeline` | **9.7 G** | last touched **2023-01-27**; all 105 `conda activate` lines in the slurm scripts use `torch-env`; unreferenced in the repo. Biggest remaining win. |
+| `CDDM_*` trained nets | 23 G | the CDDM comparison arm of the paper |
+| `~/OvercomingBiases` | 22 G | a different project |
+| `RETRACTED_samebatch_NBitFlipFlop_ksweep` | 1.8 G | deliberately QUARANTINED as a record of the retracted same_batch sweep, not dead weight |
+
+⚠️ `~/trainRNNbrain_ff` (1.2 G) must NOT be deleted yet — despite being a legacy rsync copy, the
+still-running arrays `5904343`, `5904416`, `5924468` use it as BOTH their sbatch script path and
+their live code (`code: /mnt/cup/people/pt1290/trainRNNbrain_ff`). Remove only once they drain.
