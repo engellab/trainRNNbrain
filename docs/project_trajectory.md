@@ -7346,3 +7346,28 @@ N outside {500,1000,2000,4000}. Note `std_pen` folders carry NO `iters=` field a
 ⚠️ `~/trainRNNbrain_ff` (1.2 G) must NOT be deleted yet — despite being a legacy rsync copy, the
 still-running arrays `5904343`, `5904416`, `5924468` use it as BOTH their sbatch script path and
 their live code (`code: /mnt/cup/people/pt1290/trainRNNbrain_ff`). Remove only once they drain.
+
+### Quota resolved: 97 G -> 77 G (19 G free) — 2026-09-01
+
+Deleted with approval, after recording both to `~/deleted_records/`:
+`RNN_training_pipeline.packages.txt` (200 exact package specs, so the env is reconstructible) and
+`RETRACTED_samebatch.manifest.txt` (60 entries naming every quarantined cell and its r2).
+
+* `.conda/envs/RNN_training_pipeline` — unused since 2023-01-27, 0 references anywhere including
+  a full grep of the 22 G `~/OvercomingBiases` tree; all 105 `conda activate` lines use `torch-env`.
+* `RETRACTED_samebatch_NBitFlipFlop_ksweep` — the quarantined same_batch=True sweep.
+
+⚠️ **`du` on a conda env is an UPPER BOUND, not a reclaim estimate.** Deleting the 9.7 G env freed
+only ~2 G, because its files are HARDLINKS into `.conda/pkgs` — removing the env just decremented
+the link count while the package cache kept the inodes alive. The space only came back on a SECOND
+`conda clean -a`, which could not have run earlier: while the env existed those packages counted as
+"in use" and were skipped. Order matters — delete the env FIRST, then clean. That second pass took
+`.conda` from 17 G to 7.0 G.
+
+⚠️ **A `ps | grep <name>` safety check matches ITSELF** (and the ssh command line carrying it). The
+first scan reported "5 processes using RNN_training_pipeline" and would have blocked a correct
+deletion; scanning `/proc/*/exe` found zero. Verify process usage by executable path, not by
+command-line text.
+
+`torch-env` verified intact after the clean: torch 2.7.0+cu126, numpy 2.4.6, `trainRNNbrain`
+imports and the non-finite-gradient guard is present. No running or queued job is affected.
