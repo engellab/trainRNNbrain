@@ -7454,3 +7454,58 @@ script that selects runs by directory listing needs `float(basename.split("_")[0
 `6009131` none N=1000 k=1 (iters 500000, launcher default) · `6009132` none N=2000 k=1 x2
 (`ITERS_OVERRIDE=400000`) · `6009133` none N=4000 k=8 + rws N=4000 k=2 · `6009134` frm N=1000
 k=5,6,7x2,8 · `6009135` both N=2000 k=4. Task ids were chosen to avoid the 16 already in flight.
+
+---
+
+## ▶ SESSION HANDOFF — 2026-09-02
+
+### Read this first
+
+⚠️ **Count usable seeds with an r2 filter, not by excluding `nan` directory names.**
+`float(basename.split("_")[0]) >= 0.5`. Every coverage figure reported before today was inflated:
+11 runs with NEGATIVE r2 were being counted as valid seeds. The score distribution is cleanly
+bimodal — failures top out at -0.317, the lowest success is 0.857, nothing in between — so the
+threshold is not a judgement call.
+
+⚠️ **Those 11 failures were caused by the spike guard, not by seeds or task difficulty.** They
+skipped 90-99.8% of all updates (798 rollbacks x 500 consecutive skips out of 400,000). The
+earlier "failure rate by condition" table, including frm N=1000 at 28%, measured that bug. It is
+retracted, and so is the selection-bias framing built on it.
+
+### Guard fixed at `79a1063`, deployed to Spock, Della and the Spock `_ff` rsync copy
+
+* `spike_factor` **100 -> 1e6**. PROVEN defect: at 100 it fired on 6.0% / 12.2% / 17.9% of ordinary
+  gradients at lognormal sigma 3 / 4 / 5, which is what an frm run near instability produces. A real
+  catastrophe is ~1e30x normal, so 1e6 still catches 50/50 injected catastrophes at a mild 1e12
+  ratio with a 0.00-0.30% false-positive rate.
+* Reference is now a **rolling median over EVERY step**, accepted or skipped. The old EMA updated
+  only on acceptance and could never refresh while the guard was firing.
+* `_last_good` snapshots are **gated on the loss being at or below its running median**, so a
+  rollback cannot restore an already-broken state.
+
+⚠️ NOT fully characterised: a synthetic i.i.d. model does NOT reproduce the exact 99.8% figure
+(the old EMA rule skips <1% there). The false-positive rate is proven; the precise trigger for
+99.8% is not. Do not write it up as a solved root cause.
+
+### Running now (36 tasks, every cell provisioned to 3 usable seeds, none short, none over)
+
+| where | arrays | covering |
+|-------|--------|----------|
+| Spock | `6009324`-`6009330` (17) | frm N=2000 k=1,3,4; frm N=1000 k=5x2,6,7x2,8; both N=2000 k=4,6; frm N=2000 k=8; none N=1000 k=1; none N=2000 k=1 x2 (`ITERS_OVERRIDE=400000`); bigN none k=8 + rws k=2 |
+| Della | `13344547` (2) | frm N=2000 k=6, k=7 |
+| both | pre-existing | `5904343`, `5904416`, `5942797`, `5979262_18/_26`, `13251599`, `13251626` |
+
+`5979262_26` (frm k=3 N=2000) was deliberately LEFT running on the old guard — median r2 0.9462 at
+104k and its guard never fired, so restarting would have cost 16 h for nothing.
+
+### State
+
+* 299 usable networks; complete rows: none N=500, rws N=500/1000/2000, frm N=500, both N=500/1000.
+* Local mirror sync from both clusters was still running at sign-off (ksweep done, 741 MB; `pen`
+  already current; penlong in progress). Re-run the per-directory rsync to finish it —
+  ⚠️ one rsync call per directory; multiple remote sources in a single call silently prints usage
+  and exits 0.
+* Spock disk 83 G / 95 G after the 20 G cleanup. `~/trainRNNbrain_ff` (1.2 G) still cannot be
+  deleted — `5904343`, `5904416` run their live code from it.
+* ⚠️ The N=4000 ceiling test is NOT complete: `none` N=4000 k=8 has 2 usable seeds, not 3.
+  Yesterday's "Q1 can now be answered" is retracted until the third lands.
