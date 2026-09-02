@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import time
 from trainRNNbrain.training.training_utils import multi_iqr_scale
 from dataclasses import dataclass
-from collections import defaultdict
+from collections import defaultdict, deque
 
 @dataclass
 class Penalties:
@@ -370,7 +370,9 @@ class Trainer():
                  valid_batch=None,
                  track_valid_every=50,
                  max_grad_norm=10.0,
-                 spike_factor=100.0,
+                 spike_factor=1e6,
+                 gnorm_window=1000,
+                 gnorm_min_samples=100,
                  snapshot_every=1000,
                  restore_after=500):
         self.RNN = RNN
@@ -394,10 +396,26 @@ class Trainer():
         # than clipped. Clipping is near-useless here: Adam normalises by sqrt(v), so tightening
         # max_grad_norm from 50 to 0.1 was measured to cut the damage of one spike only from 287
         # to 233 normal-sized steps. Skipping costs 0 - Adam's moments never see the spike.
+        # ⚠️ spike_factor must be LARGE. At 100 the guard fired on 6-18% of ordinary gradients
+        # once their distribution was heavy-tailed (measured on lognormal streams with sigma 3-5,
+        # which is what an frm run near instability actually produces). A real catastrophe is
+        # ~1e30x the normal norm - the observed non-finite cases came from gradients of ~1e27
+        # against a normal ~1e-3 - so 1e6 still catches 50/50 injected catastrophes while its
+        # false-positive rate stays at 0.00-0.30%. See tests/test_spike_guard_no_deadlock.py.
         self.spike_factor = spike_factor
+        # ⚠️ The reference MUST be a rolling median over EVERY step, accepted or skipped. The first
+        # version used an EMA updated only on ACCEPTED steps and it deadlocked: once the reference
+        # was seeded low, every gradient exceeded spike_factor x it, so every step was skipped, so
+        # the reference never updated. After restore_after skips the rollback set it to None, one
+        # step was accepted, it re-seeded from that single sample, and the trap closed again -
+        # a 1-in-(restore_after+1) acceptance ratio. Measured: 798 rollbacks x 500 skips = 99.8%
+        # of 400000 iterations skipped, across 11 runs that all finished with negative r2.
+        # A median over all observed norms cannot go stale, and is robust to the spikes themselves.
+        self.gnorm_window = deque(maxlen=gnorm_window)
+        self.gnorm_min_samples = gnorm_min_samples
+        self.loss_window = deque(maxlen=gnorm_window)
         self.snapshot_every = snapshot_every      # accepted steps between last-good snapshots
         self.restore_after = restore_after        # consecutive skips before rolling back
-        self.gnorm_ref = None                     # EMA of accepted gradient norms
         self.consecutive_skips = 0
         self.n_skipped = 0                        # reported at the end of training
         self.n_restored = 0
@@ -838,8 +856,13 @@ class Trainer():
         #
         # clip_grad_norm_ returns the PRE-clip norm, so the test is free.
         total_norm = torch.nn.utils.clip_grad_norm_(params, max_norm=self.max_grad_norm)
-        spike = (self.gnorm_ref is not None
-                 and float(total_norm) > self.spike_factor * self.gnorm_ref)
+        n_now = float(total_norm)
+        # Record EVERY finite norm, skipped or not, so the reference can never go stale.
+        if np.isfinite(n_now):
+            self.gnorm_window.append(n_now)
+        ref = (float(np.median(self.gnorm_window))
+               if len(self.gnorm_window) >= self.gnorm_min_samples else None)
+        spike = ref is not None and ref > 0 and n_now > self.spike_factor * ref
         if (not torch.isfinite(total_norm)) or spike:
             self.optimizer.zero_grad(set_to_none=True)
             self.n_skipped += 1
@@ -853,18 +876,20 @@ class Trainer():
                     for prm, good in zip(params, self._last_good):
                         prm.copy_(good)
                 self.optimizer.state.clear()
-                self.gnorm_ref = None
                 self.consecutive_skips = 0
                 self.n_restored += 1
         else:
             self.optimizer.step()
-            n = float(total_norm)
-            self.gnorm_ref = n if self.gnorm_ref is None else 0.99 * self.gnorm_ref + 0.01 * n
             self.consecutive_skips = 0
             self._accepted += 1
             # snapshot the FIRST accepted step too, else a run that diverges before
             # snapshot_every has nothing to roll back to and spins to its wall-clock limit.
-            if self._last_good is None or self._accepted % self.snapshot_every == 0:
+            # ⚠️ Only snapshot a state that is actually GOOD. Gating on an accepted-step counter
+            # alone lets a snapshot be taken while the network is already broken, and rollback
+            # then restores the broken state - it can never climb back out.
+            healthy = (len(self.loss_window) < self.gnorm_min_samples
+                       or self.loss_window[-1] <= float(np.median(self.loss_window)))
+            if self._last_good is None or (self._accepted % self.snapshot_every == 0 and healthy):
                 self._last_good = [prm.detach().clone() for prm in params]
 
         # --- 4) now it's safe to mutate weights in-place ---
@@ -885,6 +910,8 @@ class Trainer():
             loss_k = penalty_dict_raw[k] if L != 0 else Trainer.zero_(self.RNN.device)
             loss_val += L * loss_k
         loss_val = float(loss_val.detach().cpu().item())
+        if np.isfinite(loss_val):
+            self.loss_window.append(loss_val)      # feeds the snapshot health gate above
         r2_val = Trainer.r2_score(output_full, target_output, mask)
         
         # additional monitoring

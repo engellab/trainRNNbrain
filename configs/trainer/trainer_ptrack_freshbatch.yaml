@@ -19,11 +19,14 @@ anneal_noise: False
 lr: 0.001
 weight_decay: 1e-6
 max_grad_norm: 50.0
-# Gradient-spike defences. An update whose gradient norm exceeds spike_factor x the running EMA is
+# Gradient-spike defences. An update whose gradient norm exceeds spike_factor x a rolling MEDIAN is
 # DROPPED, not clipped (Adam is scale-invariant, so clipping barely limits a spike's effect).
 # After restore_after consecutive skips the weights are rolled back to the last snapshot, because
 # a skip freezes the weights and nothing else can move them out of an overflowing region.
-spike_factor: 100.0
+spike_factor: 1.0e6      # only genuine catastrophes (~1e30x normal); 100 fired on 6-18% of
+                         # ordinary gradients once their distribution went heavy-tailed
+gnorm_window: 1000       # rolling median over EVERY step, accepted or skipped - cannot go stale
+gnorm_min_samples: 100
 snapshot_every: 1000
 restore_after: 500
 lr_scale_exp: 0.3333333333333333
