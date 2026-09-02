@@ -7371,3 +7371,30 @@ command-line text.
 
 `torch-env` verified intact after the clean: torch 2.7.0+cu126, numpy 2.4.6, `trainRNNbrain`
 imports and the non-finite-gradient guard is present. No running or queued job is affected.
+
+### Grid nearly closed; straggler moved off the gpu-long queue — 2026-09-02
+
+309 networks saved, 9 of 14 rows COMPLETE (none N=500/1000/4000, rws N=500/1000/2000, frm N=500,
+both N=500/1000). 45 completions in 24 h with ZERO failures — the MIG fix and the wall-clock
+resizing are both holding.
+
+**The N=4000 ceiling test is complete** (none N=4000 = 24/24), so Q1 from the original handoff
+— does M keep following N^0.44 or bend toward a CDDM-like saturation near ~880 — can now be
+answered. Nothing blocks that analysis.
+
+Every remaining cell has enough jobs in flight; nothing new needed. Expected: rws N=4000, both
+N=2000 k=5/6 and none N=2000 k=8 today; frm N=1000 k=5 on Sep 3; frm N=2000 k=6/7 Sep 3 pm;
+frm N=2000 k=1-4 Sep 4; both N=2000 k=7/8 Sep 5.
+
+⚠️ The last job to finish was NOT on the critical path anyone was watching. `13252006_72`
+(frm N=2000 k=8, third seed) sat `PENDING (QOSMaxJobsPerUserLimit)` behind Della's 10-slot
+gpu-long cap: 31 h until a slot freed, then ~77 h = ~108 h, i.e. Sep 6-7, one to two days behind
+everything else. Moved to Spock, which had **0 pending** and measures 59-64 h for frm N=2000
+(`5979262_9` projects 59 h, `_36` 64 h) inside a 96 h cap — about 38 h faster. Cancelled on Della
+before it ever started, resubmitted as Spock `6009087_72`.
+
+**Lesson: a QOS concurrency cap can make a single queued job the longest pole while every running
+job looks healthy.** Check pending reasons, not just running-job ETAs, when forecasting completion.
+
+Disk after the quota cleanup: 83 G used, 13 G free — climbing as results land. ~40 completions
+still to come; watch it.
