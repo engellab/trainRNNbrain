@@ -7398,3 +7398,59 @@ job looks healthy.** Check pending reasons, not just running-job ETAs, when fore
 
 Disk after the quota cleanup: 83 G used, 13 G free — climbing as results land. ~40 completions
 still to come; watch it.
+
+---
+
+## ▶ ⚠️ COVERAGE COUNTS WERE INFLATED BY FAILED RUNS — 2026-09-02
+
+Every coverage table reported in this project counted a saved run as a seed if its directory name
+did not begin with `nan`. **That misses the failures that DID save.** A run that finishes training
+without diverging numerically, but never learns the task, is written out with its (negative) r2 as
+the directory prefix and was counted as a valid seed.
+
+**15 of 314 saved flip-flop runs are failures.** The split is unambiguous — there is a clean gap in
+the score distribution with nothing between them:
+
+```
+failures:  -12.41 -9.98 -9.62 -5.00 -3.90 -1.54 -1.51 -1.11 -1.10 -0.73 -0.32   + 4 nan
+successes:                                              0.857 0.891 0.910 ...
+```
+
+Any threshold in (-0.32, 0.857) gives the same answer; `r2 >= 0.5` is used.
+
+### Corrected coverage — three rows previously called COMPLETE are not
+
+| cell | reported | actually usable |
+|------|----------|-----------------|
+| none N=1000 k=1 | 3 | **2** |
+| none N=2000 k=1 | 3 | **1** |
+| none N=4000 k=8 | 3 | **2** |
+| rws N=4000 k=2 | 3 | **2** |
+| frm N=1000 k=5 | 2 | **1** |
+| frm N=1000 k=7 | 3 | **1** |
+| frm N=1000 k=8 | 3 | **2** |
+| both N=2000 k=4 | 3 | **2** |
+
+⚠️ **The N=4000 ceiling test is NOT complete** — k=8 has 2 usable seeds, not 3. The claim logged
+yesterday that Q1 "can now be answered" is RETRACTED until that third seed lands.
+
+Totals: 299 usable (not 309), 90/112 full cells (not 97).
+
+### `nan` audit
+
+Zero `nan`-prefixed directories in the flip-flop data on Spock. The only ones anywhere are 12 in
+old CDDM experiments on Della (1.28 G), unrelated to this paper. But 4 runs carry a literal `nan`
+r2 INSIDE the flip-flop set — those are among the 15 above, so `nan` runs are caught by the r2
+filter regardless of how the directory happens to be named.
+
+### Every analysis script must apply the r2 filter
+
+`pr_matrix.py` and `drift_matrix.py` drop runs whose LOSS trace contains NaN, which catches the 4
+nan runs but **not** the 11 negative-r2 ones — those have perfectly finite losses, just large. Any
+script that selects runs by directory listing needs `float(basename.split("_")[0]) >= 0.5`.
+
+### Submitted to close the real gaps (11 jobs, all Spock)
+
+`6009131` none N=1000 k=1 (iters 500000, launcher default) · `6009132` none N=2000 k=1 x2
+(`ITERS_OVERRIDE=400000`) · `6009133` none N=4000 k=8 + rws N=4000 k=2 · `6009134` frm N=1000
+k=5,6,7x2,8 · `6009135` both N=2000 k=4. Task ids were chosen to avoid the 16 already in flight.
