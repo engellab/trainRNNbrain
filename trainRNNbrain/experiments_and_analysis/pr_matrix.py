@@ -44,12 +44,19 @@ import plotstyle as ps
 
 ROOTS = {"ksweep": "data/trained_RNNs/NBitFlipFlop_std_ksweep",
          "pen": "data/trained_RNNs/NBitFlipFlop_std_pen",
-         "penlong": "data/trained_RNNs/NBitFlipFlop_std_penlong"}
+         "penlong": "data/trained_RNNs/NBitFlipFlop_std_penlong",
+         # ⚠️ bigN carries the ONLY N=4000 cells (none and rws). It was missing here while
+         # drift_matrix had it, so every PR figure silently fitted N over 500/1000/2000 only -
+         # three points - and the size exponent b was reported without the size that most
+         # constrains it. N=4000 also runs a 100k budget against 400-500k elsewhere, so read-outs
+         # must be budget-independent (the excess criterion), never the endpoint.
+         "bigN": "data/trained_RNNs/NBitFlipFlop_std_bigN"}
 SKIP = {("pen", "frm")}          # retracted 150k frm cells; frm comes from penlong
 PENS = ["none", "rws", "frm", "both"]
 PROBE = 10
 T_START = 2000
 MIN_ITERS = 50_000
+R2_MIN = 0.5           # below this the run never solved the task; see load()
 EXCESS_DELTA = 0.10
 
 
@@ -63,6 +70,17 @@ def load():
                 continue
             pen = m.group(3) or "none"
             if (tag, pen) in SKIP:
+                continue
+            # ⚠️ DROP RUNS THAT NEVER LEARNED THE TASK. 11 runs in the grid ended with NEGATIVE r2
+            # (to -12.4) yet perfectly FINITE losses, so the isnan() check below misses them. Their
+            # floors and participation ratios describe a network that never solved the task.
+            # Score is the folder-name prefix; the success/failure gap is -0.32 .. 0.857, so any
+            # cut inside it gives the same answer.
+            try:
+                r2 = float(os.path.basename(f).split("_")[0])
+            except ValueError:
+                r2 = float("nan")
+            if not (r2 >= R2_MIN):
                 continue
             with open(f, "rb") as fh:
                 tr = pickle.load(fh)

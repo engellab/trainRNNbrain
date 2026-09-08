@@ -40,6 +40,10 @@ CRITERIA = [("hard", r"$p_i<10^{-6}$"), ("scalefree", r"$p_i<0.05\,q_{95}(p)$")]
 
 SILENT_HARD = 1e-6          # absolute participation below which a unit counts as silent
 SILENT_REL = 0.05           # ... or this fraction of the 95th percentile, for the scale-free rule
+SILENT_FLIPFLOP = 4e-2      # task-calibrated absolute threshold for the n-bit flip-flop, from
+                            # Otsu's method on log participation (flipflop_hard_threshold.py).
+                            # SILENT_HARD=1e-6 is a CDDM number and sits BELOW both flip-flop
+                            # modes, so it reports ~0% silence on this task - do not reuse it here.
 
 
 # --------------------------------------------------------------------------------------------

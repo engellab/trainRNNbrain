@@ -52,6 +52,7 @@ PENS = ["none", "rws", "frm", "both"]
 TAIL_WINDOW = 50_000
 T_CAP = 150_000
 MIN_ITERS = 50_000     # shorter traces are timing-calibration runs, not experiments
+R2_MIN = 0.5           # below this the run never solved the task; see load() for why
 
 
 def load():
@@ -73,6 +74,18 @@ def load():
             pen = m.group(3) or "none"
             if (tag, pen) in SKIP:
                 continue
+            # ⚠️ DROP RUNS THAT NEVER LEARNED THE TASK. 11 runs in the grid finished with NEGATIVE
+            # r2 (down to -12.4) and perfectly FINITE losses, so the NaN check below does not catch
+            # them. Their weights are wandering in a region that has nothing to do with a solution,
+            # which is exactly the kind of run whose drift exponent would be meaningless here.
+            # The score is the folder-name prefix; the success/failure gap is -0.32 .. 0.857, so
+            # any cut inside it gives the same answer.
+            try:
+                r2 = float(os.path.basename(f).split("_")[0])
+            except ValueError:
+                r2 = float("nan")
+            if not (r2 >= R2_MIN):
+                dropped.append(f"failed run (r2={r2:.3f})"); continue
             with open(f, "rb") as fh:
                 tr = pickle.load(fh)
             L = tr["metrics"].get("loss_clean_train", [])

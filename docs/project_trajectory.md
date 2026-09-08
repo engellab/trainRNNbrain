@@ -7509,3 +7509,93 @@ retracted, and so is the selection-bias framing built on it.
   deleted — `5904343`, `5904416` run their live code from it.
 * ⚠️ The N=4000 ceiling test is NOT complete: `none` N=4000 k=8 has 2 usable seeds, not 3.
   Yesterday's "Q1 can now be answered" is retracted until the third lands.
+
+---
+
+## ▶ THE MOTIVATING QUESTION IS ANSWERED — 2026-09-08
+
+Full grid complete (336/336 usable seeds, 14/14 rows, N = 500/1000/2000 for all four penalties,
+plus N=4000 for `none` and `rws`). Everything below reads each network at the `excess` criterion -
+the iteration where its loss first reaches 1.10x its OWN fitted floor - which is budget-independent
+and therefore valid across the 100k / 150k / 400k / 500k budget spread.
+
+### 1. Active units grow far too slowly to be a route to a large active population
+
+`M = A N^b k^c` fitted per penalty on the absolute active count (Otsu threshold 4e-2):
+
+| pen | A | b | c | M at N=4000, k=3 | N needed for M=1000 | for M=2000 |
+|-----|------|-------|--------|------|---------|---------|
+| none | 33.0 | **0.373** | -0.053 | 688 | **1.1e4** | **7.0e4** |
+| rws | 9.0 | 0.566 | +0.043 | 1032 | 3.8e3 | 1.3e4 |
+| frm | 1.37 | 0.952 | -0.012 | 3646 | 1.0e3 | 2.1e3 |
+| both | 1.02 | 0.998 | -0.001 | 3981 | 1.0e3 | 2.0e3 |
+
+**Unpenalised, reaching 1000 active units needs N ~ 11,000, and 2000 active units needs N ~ 70,000.**
+That is the quantitative form of "prohibitively large": the largest network trained here is 4,000
+and yields 688.
+
+### 2. Task complexity matters, but weakly
+
+`c` is small everywhere: -0.053 (none), +0.043 (rws), -0.012 (frm), -0.001 (both). Over the full
+k = 1..8 range that is a factor of 8^0.05 ~ 1.11 - about 11%, against the factor of ~8 that N
+contributes over the same span of sizes. Complexity is a real but second-order effect, and its
+SIGN is not even consistent across penalties.
+
+### 3. ⚠️ b ~ 1.0 for frm and both is NOT a scaling law - it is a 100% ceiling
+
+Active FRACTION M/N:
+
+| pen | N=500 | N=1000 | N=2000 | N=4000 |
+|-----|-------|--------|--------|--------|
+| none | 0.610 | 0.414 | 0.269 | **0.170** |
+| rws | 0.639 | 0.469 | 0.356 | 0.262 |
+| frm | 0.998 | 0.996 | 0.964 | - |
+| both | **1.000** | **1.000** | **0.998** | - |
+
+`both` has essentially EVERY unit active, so M = N identically and b = 0.998 [0.997, 0.999] is
+arithmetic, not a discovered exponent. Do not report it as a scaling result. The penalties work by
+ABOLISHING SILENCE, not by improving how recruitment scales.
+
+Note the unpenalised trend: the active fraction FALLS with N (0.61 -> 0.17). Bigger unpenalised
+networks are progressively emptier.
+
+### 4. Power law vs ceiling - N=4000 does separate them, for rws
+
+`flipflop_ceiling.py`. Two tests: a model-free local slope d log M/d log N (constant = power law,
+falling = saturation), and AICc between `A N^b k^c` and `M_max (N/(N+N0)) k^c` (both 3 parameters).
+
+| pen | 500->1000 | 1000->2000 | 2000->4000 | dAICc | verdict |
+|-----|-----------|------------|------------|-------|---------|
+| none | 0.441 | 0.379 | **0.341** | +9.9 | power favoured, but slope falls monotonically |
+| rws | 0.552 | 0.606 | 0.554 | **+58.0** | power, unambiguous - flat slope |
+| frm | 0.996 | 0.953 | - | -5.0 | ⚠️ only 3 sizes, cannot separate |
+| both | 0.999 | 0.997 | - | -2.3 | ⚠️ only 3 sizes, cannot separate |
+
+⚠️ **`none` is genuinely undecided and the two tests disagree.** AICc says power law; the local
+slope declines at every step, which is the saturation signature. It is also the only condition
+whose verdict is CRITERION-DEPENDENT: under PR the slope falls much harder (0.439/0.279/0.226) and
+AICc FLIPS to saturation (-2.7). Under the scale-free count it stays power (+14.9). rws is power
+under all three. The discriminating experiment is N=8000: slope ~0.34 under a power law versus
+~0.25 under the ceiling implied by the fitted M_max ~ 830.
+
+⚠️ The M_max values fitted for frm and both (2.1e4 and 4.5e5) lie far outside the data and are
+meaningless; their "saturation favoured" labels are 3-point artefacts and the script flags them.
+
+### Conclusion this supports
+
+Unpenalised networks cannot deliver a large active population at any feasible size, and task
+complexity will not rescue that. rws and frm each address it directly - frm/both by driving the
+active fraction to ~1, rws by lifting the exponent from 0.37 to 0.57 while keeping a real
+distribution. That is the motivation for the penalties, now with numbers behind it.
+
+### Bugs found while producing this
+
+* ⚠️ `pr_matrix.ROOTS` was MISSING `bigN`, the only source of N=4000. Every PR figure ever produced
+  by it - including the six delta-sweep figures generated earlier today - fitted N over three sizes
+  only, omitting the size that most constrains b. `drift_matrix` had bigN; `pr_matrix` never did.
+  Fixed. Regenerate any PR figure produced before this.
+* ⚠️ Neither `pr_matrix` nor `drift_matrix` filtered on r2. The 11 negative-r2 runs have FINITE
+  losses, so the existing isnan() checks missed them entirely. Both now gate on r2 >= 0.5.
+* `SILENT_FLIPFLOP = 4e-2` is now a named constant in common.py; it was previously only prose in a
+  docstring, so callers kept reaching for the CDDM-calibrated `SILENT_HARD = 1e-6`, which sits
+  below BOTH flip-flop modes and reports ~0% silence.

@@ -21,7 +21,15 @@ invites exactly the wrong reading - that the state is visiting them.
 
 Output: img/internal_figures/flipflop_bouquet_k<k>_N<N>.gif  (+ a static .png)
 
-Usage:  python flipflop_bouquet.py [k] [N] [n_trials]
+Usage:  python flipflop_bouquet.py [k] [N] [n_trials] [pen] [space]
+        pen   : none | rws | frm | both        (default none)
+        space : out | pca                      (default out)
+
+⚠️ `space=pca` projects onto PC1-3 of the RATES. That basis is NOT lossless: on this
+task PC1-3 carry only ~52% of the rate variance, so structure can be hidden by the
+projection rather than absent from the network. Output space is exact for k=3 and is
+the default for that reason. Use pca to see the population geometry, out to judge
+whether the memory states are actually visited.
 """
 
 import os
@@ -41,6 +49,53 @@ from flipflop_fixedpoints import best_net, load_net, find_fixed_points, classify
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 
 CACHE = "data/trained_RNNs/_fixedpoint_cache"
+PENLONG = "data/trained_RNNs/NBitFlipFlop_std_penlong"
+
+
+def best_net_pen(k, N, pen):
+    """Folder of the highest-r2 network for one (k, N, penalty) cell.
+
+    Args:
+        k: number of bits; N: network size; pen: "none", "rws", "frm" or "both".
+    Returns:
+        path to the net folder. `none` defers to best_net (the unpenalised sweep); the penalised
+        conditions live under std_penlong, whose folder names carry `pen=<name>`.
+    """
+    if pen == "none":
+        return best_net(k, N)
+    pat = os.path.join(PENLONG, f"EqType=h_k={k}_N={N}_pen={pen}_iters=*", "*")
+    cands = [d for d in glob.glob(pat) if os.path.isdir(d)]
+    cands = [d for d in cands if _score(d) >= 0.5]   # drop runs that never learned the task
+    if not cands:
+        raise SystemExit(f"no usable networks under {pat}")
+    return max(cands, key=_score)
+
+
+def _score(folder):
+    """Final r2 encoded as the prefix of a net folder name; -inf if it is not a number."""
+    try:
+        return float(os.path.basename(folder).split("_")[0])
+    except ValueError:
+        return float("-inf")
+
+
+def pca_project(rates):
+    """Project rates onto their leading three principal components (PCA over NEURONS).
+
+    Args:
+        rates: (N, T, B) firing rates - the first axis is the neuron axis being reduced.
+    Returns:
+        (proj, var_explained) where proj is (T, B, 3) and var_explained is the fraction of total
+        rate variance carried by PC1-3.
+    """
+    N, T, B = rates.shape
+    X = rates.reshape(N, T * B).T                      # (samples, neurons)
+    X = X - X.mean(axis=0, keepdims=True)
+    # economy SVD: we only need the top 3 right-singular vectors
+    U, S, Vt = np.linalg.svd(X, full_matrices=False)
+    var = S ** 2
+    proj = (X @ Vt[:3].T).reshape(T, B, 3)
+    return proj, float(var[:3].sum() / var.sum())
 
 
 def cached_fixed_points(folder, W_rec, b, seeds):
@@ -89,17 +144,31 @@ def main():
     N = int(sys.argv[2]) if len(sys.argv) > 2 else 1000
     n_trials = int(sys.argv[3]) if len(sys.argv) > 3 else 25
 
-    folder = best_net(k, N)
-    print(f"network: {os.path.basename(folder)[:60]}")
+    pen = sys.argv[4] if len(sys.argv) > 4 else "none"
+    space = sys.argv[5] if len(sys.argv) > 5 else "out"
+
+    folder = best_net_pen(k, N, pen)
+    print(f"network: {os.path.basename(folder)[:60]}  (pen={pen}, r2={_score(folder):.4f})")
     rnn, p = load_net(folder)
     W_rec, b = p["W_rec"], p["bias"]
 
     rates = run_trials(rnn, folder, n_trials)
     print(f"  rates {rates.shape}")
-    W_out = p["W_out"]
-    T = np.einsum("on,ntb->tbo", W_out, rates)              # (time, trial, k) output space
-    print(f"  output range per channel: "
-          + ", ".join(f"[{T[..., j].min():+.2f}, {T[..., j].max():+.2f}]" for j in range(3)))
+    if space == "pca":
+        T, ve = pca_project(rates)                          # (time, trial, 3) PC space
+        axlab = ("PC1", "PC2", "PC3")
+        extra = f"PC1-3 hold {100*ve:.1f}% of rate variance"
+        print(f"  {extra}")
+        lim = 1.05 * float(np.abs(T).max())
+        lims = ((-lim, lim),) * 3
+    else:
+        W_out = p["W_out"]
+        T = np.einsum("on,ntb->tbo", W_out, rates)          # (time, trial, k) output space
+        axlab = ("out 1", "out 2", "out 3")
+        extra = "output space, exact for k=3"
+        lims = ((-1.25, 1.25),) * 3
+        print(f"  output range per channel: "
+              + ", ".join(f"[{T[..., j].min():+.2f}, {T[..., j].max():+.2f}]" for j in range(3)))
 
     def draw(ax, elev, azim):
         """Render one view of the trajectory bouquet in output space."""
@@ -107,14 +176,13 @@ def main():
         for t in range(T.shape[1]):
             ax.plot(T[:, t, 0], T[:, t, 1], T[:, t, 2], "-", lw=1.0, alpha=.55,
                     color=plt.cm.turbo(t / max(T.shape[1] - 1, 1)), zorder=1)
-        ax.set(xlabel="out 1", ylabel="out 2", zlabel="out 3",
-               xlim=(-1.25, 1.25), ylim=(-1.25, 1.25), zlim=(-1.25, 1.25))
+        ax.set(xlabel=axlab[0], ylabel=axlab[1], zlabel=axlab[2],
+               xlim=lims[0], ylim=lims[1], zlim=lims[2])
         ax.view_init(elev=elev, azim=azim)
         ax.grid(alpha=.2)
 
-    ttl = (f"{k}-bit flip-flop, N={N} — real population trajectories, output space "
-           f"($W_{{out}}\\,r(t)$, exact for k=3)\n"
-           f"{n_trials} trials, colour = trial")
+    ttl = (f"{k}-bit flip-flop, N={N}, pen={pen} — real population trajectories\n"
+           f"{extra}  ·  {n_trials} trials, colour = trial")
 
     fig = plt.figure(figsize=(8, 7.4))
     ax = fig.add_subplot(111, projection="3d")
@@ -125,7 +193,7 @@ def main():
         draw(ax, elev=18 + 12 * np.sin(2 * np.pi * i / 120), azim=i * 3)
         return ()
 
-    out_gif = os.path.join(IMG_DIR, f"flipflop_bouquet_k{k}_N{N}.gif")
+    out_gif = os.path.join(IMG_DIR, f"flipflop_bouquet_k{k}_N{N}_{pen}_{space}.gif")
     FuncAnimation(fig, frame, frames=120, blit=False).save(
         out_gif, writer=PillowWriter(fps=20), dpi=90)
     print(f"wrote {out_gif}")
@@ -135,7 +203,7 @@ def main():
         draw(fig2.add_subplot(1, 3, j + 1, projection="3d"), e, a)
     fig2.suptitle(ttl, fontsize=11)
     fig2.tight_layout()
-    out_png = os.path.join(IMG_DIR, f"flipflop_bouquet_k{k}_N{N}.png")
+    out_png = os.path.join(IMG_DIR, f"flipflop_bouquet_k{k}_N{N}_{pen}_{space}.png")
     fig2.savefig(out_png, dpi=150)
     print(f"wrote {out_png}")
 

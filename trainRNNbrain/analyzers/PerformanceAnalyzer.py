@@ -38,7 +38,7 @@ class PerformanceAnalyzer():
         scores = [v for v in scores if not math.isnan(v) and not math.isinf(v)]
         return np.mean(scores)
 
-    def plot_trials(self, input_batch, target_batch, mask, sigma_rec=0.03, sigma_inp=0.03, labels=None, conditions=None):
+    def plot_trials(self, input_batch, target_batch, mask, sigma_rec=0.03, sigma_inp=0.03, labels=None, conditions=None, ylim=(-0.1, 1.2)):
         n_inputs = input_batch.shape[0]
         n_steps = input_batch.shape[1]
         batch_size = input_batch.shape[2]
@@ -62,7 +62,7 @@ class PerformanceAnalyzer():
                 tag = labels[i] if not (labels is None) else ''
                 axes[k].plot(predicted_output[i, :, k], color=colors[i], linewidth=2, label=f'predicted {tag}')
                 axes[k].plot(mask, target_batch[i, mask, k], color=colors[i], linewidth=2, linestyle='--', label=f'target {tag}')
-            axes[k].set_ylim([-0.1, 1.2])
+            axes[k].set_ylim(list(ylim))   # default suits 0..1 tasks (CDDM); flip-flop targets are +/-1
             axes[k].spines.right.set_visible(False)
             axes[k].spines.top.set_visible(False)
             if k != batch_size - 1:

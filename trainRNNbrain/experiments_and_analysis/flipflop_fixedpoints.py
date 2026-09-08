@@ -105,7 +105,14 @@ def load_net(folder):
     p = {kk: d[kk] for kk in d.files}
     p["activation_name"] = "relu"
     p.pop("activation_args", None)
-    return RNN_numpy(**filter_kwargs(RNN_numpy, p), seed=0), p
+    # ⚠️ equation_type IS NOT SAVED IN THE .npz, and RNN_numpy defaults it to "s". Every flip-flop
+    # net in this project is trained with "h" (the folder names say EqType=h), so omitting it
+    # silently simulates a DIFFERENT dynamical system: measured on a net whose saved score is
+    # r2=0.9457, simulating with "s" gives r2=-1.73 and with "h" gives +0.96. Read it from the
+    # run's own config, which is the source of truth for what was trained.
+    cfgs = glob.glob(os.path.join(folder, "*_config.yaml"))
+    eq = str(OmegaConf.load(cfgs[0]).model.equation_type) if cfgs else "h"
+    return RNN_numpy(**filter_kwargs(RNN_numpy, p), equation_type=eq, seed=0), p
 
 
 def trajectory_states(rnn, folder, k):
