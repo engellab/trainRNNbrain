@@ -8018,3 +8018,146 @@ variant, so it is not an amplitude effect. The inertia elbow agrees independentl
 after subsampling to 275 the embedding is near-saturated (275 points, m=45-50 normalised) where
 silhouette behaves badly. The null corrects the BIAS, not the VARIANCE. Repeat at a larger common n
 before relying on it. The frm-vs-both contrast is solid - both have thousands of live units.
+
+## ▶ THE PAPER'S STRUCTURE RESULT: TUNED-UNIT FRACTION AND THE SELECTIVITY STAR — 2026-09-09 16:43
+
+`flipflop_arms.py` (full grid, cached in `data/arms_cache.npz`), `flipflop_unitcloud.py` (the
+picture that made it obvious), `flipflop_diversity.py` (the k=8 selectivity numbers).
+
+### What the metric is, in plain terms
+
+The n-bit flip-flop asks the network to REMEMBER k bits, each of which is currently +1 or -1. Take
+one unit and write down its firing rate at every moment of every trial. Alongside it write down what
+the k bits were at that same moment. Now ask: **can this unit's activity be predicted from what the
+bits currently are?** That is an ordinary linear regression - fit
+`rate = b0 + b1*bit1 + ... + bk*bitk` - and R^2 is the fraction of the unit's activity the bits
+account for.
+
+A unit with R^2 near 1 is doing the task: watch it and you can read off the remembered bits. A unit
+with R^2 near 0 is active but its activity has nothing to do with what is being remembered. We call
+the first kind TUNED. The **tuned fraction** is simply how many of a network's non-silent units are
+of the first kind.
+
+The regression weights (b1..bk) also say WHICH bits a unit cares about, and that vector is the
+unit's "selectivity". Plotting every unit as a point in that space is what
+`unitcloud_sel_N2000_k3.gif` shows.
+
+### The picture that reframed everything: it is a STAR, not a blob
+
+Units do not scatter randomly in selectivity space. At k=3 they form a **6-ARMED STAR** - dense arms
+running along +-bit1, +-bit2, +-bit3, with a core at the origin. Most units care about ONE bit;
+mixed-selectivity units are rare. There are 2k arms, one per signed bit axis.
+
+⚠️ THIS IS WHY THE EARLIER STRUCTURE STATISTICS KEPT REVERSING. A star is neither a set of clusters
+nor a manifold nor a Gaussian, and silhouette scores, intrinsic dimension and multivariate kurtosis
+were each fitting one of those wrong models to it. LOOK AT THE DATA BEFORE CHOOSING A STATISTIC.
+
+### The result
+
+R^2 distribution over live units, N=2000, k=3, 3 seeds:
+
+| pen | live/N | R2 q25 | R2 median | R2 q75 | tuned units per 2000 |
+|-----|--------|--------|-----------|--------|----------------------|
+| none | 0.141 | 0.109 | 0.464 | 0.721 | **209** |
+| rws | 0.151 | 0.135 | 0.449 | 0.704 | 225 |
+| frm | 0.864 | **0.001** | 0.335 | 0.673 | **1012** |
+| both | 1.000 | **0.607** | **0.700** | 0.749 | **1817** |
+
+**The distribution is the result, not the threshold.** `both` is tight and high (0.61/0.70/0.75):
+essentially every unit is tuned, to a similar degree, with no untuned population at all. `frm`'s
+LOWER QUARTILE IS 0.001 - a quarter of its live units have zero linear task tuning, which is the
+"active but meaningless" population quantified directly, and it agrees with what temporal PR said
+from the occupancy side. `none` and `rws` are broadly spread, 0.11 to 0.72.
+
+Threshold robustness (fraction of live units above each cut): the ordering is unchanged from 0.05 to
+0.25, and the margin WIDENS at the strict end - at R^2 >= 0.5 it is `both` 0.813 against 0.39-0.40
+for all three others. Nothing depends on the 0.15 gate.
+
+⚠️ REPORT THE COUNT, NOT ONLY THE PER-LIVE-UNIT RATE. As a fraction of live units `none` looks
+respectable at 0.745, but only 14% of its units are alive. Per network: none 209, rws 225, frm 1012,
+both 1817. **frm alone already gives 5x more tuned units than unpenalised**; adding rws takes it to
+8.7x AND removes the untuned quarter. An earlier framing here was unfair to frm by quoting only the
+per-live-unit rate.
+
+### Arm structure, over the whole grid
+
+Cluster count FIXED at 2k (one per signed bit axis), 100 tuned units per net, scored against
+uniform random directions on the sphere:
+
+| pen | tuned frac (k>=2) | silhouette excess | arm purity excess | arm evenness |
+|-----|-------------------|-------------------|-------------------|--------------|
+| none | 0.70 | 0.619 | 0.248 | 0.944 |
+| rws | 0.75 | 0.656 | 0.246 | 0.944 |
+| frm | 0.74 | **0.535** | 0.244 | 0.928 |
+| both | **0.94** | 0.654 | 0.247 | 0.924 |
+
+**frm alone blurs the arms and rws sharpens them back**: frm is lowest at every k (0.194 vs 0.416 at
+k=2) with the widest seed band; `both` recovers to rws levels and overtakes everything by k=7-8.
+Note this separates frm from both, NOT penalised from unpenalised - none and rws already have clean
+stars, they simply have almost nothing in them.
+
+⚠️ CLEAN NEGATIVE, WORTH REPORTING: **arm PURITY is identical in all four conditions** (0.244-0.248,
+curves superimposed at every k). How single-bit-selective a tuned unit is, is set by the TASK, not
+by the penalty. This rules out a whole class of explanation and is why purity and silhouette are not
+redundant - silhouette also sees the spread AROUND each arm, which purity cannot.
+
+### Limits to state in the paper
+
+* The regressors are the TARGET BIT STATES. A unit encoding transitions, timing, or a nonlinear
+  conjunction of bits scores low without being uninformative, so "untuned" means "not linearly
+  predicted by the current bit state", which is narrower than "carries no task information".
+  ⚠️ The obvious control - add the input pulse trains and bit-product terms and see whether frm's
+  zero-R^2 quarter recovers - HAS NOT BEEN RUN. Do it before the claim goes in print.
+* k=1 is degenerate for every arm statistic (one bit, two arms, purity 1.0 by construction).
+* Silhouette needs its random-direction null; it has no meaningful zero.
+
+### The defensible sentence
+
+frm makes every unit active but leaves a quarter of them untuned and blurs the tuning arms; rws
+sharpens the arms back while keeping the units. The result is **8.7x more task-tuned units than
+unpenalised, in a star that is at least as clean**, with a tuned-R^2 distribution so tight that
+essentially every unit contributes.
+
+### ⚠️ RETRACTION RECORD FOR THIS THREAD — five claims that did not survive
+
+Kept because each failed for a DIFFERENT and reusable reason. Every one of them looked solid when
+first measured.
+
+1. **"frm+rws produces ~7-9 discrete cell types."** From k-means silhouette at k=3. RETRACTED: the
+   peak cluster count was 7 at k=3 but 22-30 at k=1, 5 and 8 - i.e. against the search boundary,
+   which was the pre-registered refutation criterion. A single grid cell is not a result.
+
+2. **"none and rws show real cluster structure."** RETRACTED and INVERTED: raw silhouette peaked at
+   0.912 for `none`, apparently near-perfect - and the permutation null scored 0.912 too. With an
+   amplitude-dominated embedding, k=2 splits off one extreme unit and shuffled data does the same.
+   ⚠️ SILHOUETTE HAS NO MEANINGFUL ZERO. Never report it without a null.
+
+3. **"Penalisation raises intrinsic dimensionality (2.1 -> 4.4)."** RETRACTED TWICE. First the
+   values were wrong: `d = n/sum(log mu)` is the MLE for the FULL sample and the code trimmed the
+   top 10% of mu before applying it, inflating every ID by ~30% (true d=3 read as 4.04). Trimming
+   belongs with the CDF-slope estimator. Then, with corrected values, the ordering did not replicate
+   across k at all. ⚠️ CALIBRATE AN ESTIMATOR AGAINST KNOWN GROUND TRUTH AT THE ACTUAL SAMPLE SIZE
+   BEFORE TRUSTING IT - that is what caught the trim bug.
+
+4. **"frm+rws has the LIGHTEST tails (Mardia kurtosis 696 vs 912)."** RETRACTED AND INVERTED: Mardia
+   was computed on each net's own 99%-variance embedding, whose dimension m ranges 14-88, and its
+   Gaussian expectation is m(m+2). m correlates with the statistic at r = +0.755. At matched m=10 the
+   ordering flips: `both` is the HEAVIEST on all five independent tail measures.
+
+5. **"frm+rws has the heaviest tails"** (the corrected version of 4). Technically right but the
+   INTERPRETATION was wrong: it is not outlier contamination. The cloud is a 6-armed star and the
+   arms ARE the tails, so "heavier-tailed" means "more units recruited into the tuning arms". The
+   number was fine; the model behind it was not.
+
+⚠️ THE COMMON THREAD: every failure came from applying a statistic whose implicit model (clusters,
+manifold, Gaussian) did not match the data, or from a confound (dimension, sample size, amplitude)
+that the statistic silently absorbed. The fix that finally worked was to PLOT THE POINT CLOUD AND
+LOOK AT IT, then choose statistics matched to the shape actually there. `flipflop_unitcloud.py`
+exists for that purpose; run it first next time.
+
+Scripts retained rather than deleted, since each carries its own defect documented in its docstring:
+`flipflop_clustering.py` (null design), `flipflop_epairs.py` (saturating statistic; ePAIRS is pinned
+near +1 in every condition because all ratios are < 0.25), `flipflop_manifold.py` (ID with a null
+that saturates), `flipflop_structure_matrix.py` (⚠️ ITS MARDIA COLUMN IS CONFOUNDED - superseded by
+`flipflop_heavytail.py` at fixed m), `flipflop_heavytail.py` (five tail measures, correct but see
+point 5 for how to read them).

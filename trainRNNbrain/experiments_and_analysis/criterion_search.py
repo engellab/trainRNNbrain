@@ -57,7 +57,8 @@ import plotstyle as ps
 
 ROOTS = {"ksweep": "data/trained_RNNs/NBitFlipFlop_std_ksweep",
          "pen": "data/trained_RNNs/NBitFlipFlop_std_pen",
-         "penlong": "data/trained_RNNs/NBitFlipFlop_std_penlong"}
+         "penlong": "data/trained_RNNs/NBitFlipFlop_std_penlong",
+         "bigN": "data/trained_RNNs/NBitFlipFlop_std_bigN"}   # the only N=4000 cells
 SKIP = {("pen", "frm")}          # the retracted 150k frm cells
 PROBE = 10
 T_START = 2000
@@ -76,6 +77,13 @@ def load():
                 continue
             pen = m.group(3) or "none"
             if (tag, pen) in SKIP:
+                continue
+            # runs that never learned the task have FINITE losses, so the isnan check below misses
+            # them; their read-out times are meaningless. Score gap is -0.32 .. 0.857.
+            try:
+                if not (float(os.path.basename(f).split("_")[0]) >= 0.5):
+                    continue
+            except ValueError:
                 continue
             with open(f, "rb") as fh:
                 tr = pickle.load(fh)
@@ -163,6 +171,73 @@ def first_below_loss(L, target):
     return float((hit[0] + w // 2 + 1) * PROBE) if len(hit) else float("nan")
 
 
+def t_r2(run, target):
+    """First iteration where the clean-loss r2 proxy reaches `target`.
+
+    r2 = 1 - L/Var(target). The stored clean loss is already an MSE against the target, and the
+    target variance is fixed per task, so a common r2 is reachable by every condition where a
+    common absolute LOSS is not: the achievable floor rises with k, but r2 normalises it away.
+    Measured: the lowest FINAL r2 anywhere in the grid is 0.857, so any target below that is
+    defined for 100% of runs.
+
+    Args:
+        run: run dict; target: r2 level to read at (0..1).
+    Returns:
+        iteration, or nan if never reached.
+    """
+    L = run["loss"]
+    var = float(np.nanmax(L[:50])) if L.size >= 50 else float(np.nanmax(L))
+    if not np.isfinite(var) or var <= 0:
+        return float("nan")
+    return first_below_loss(L, (1.0 - target) * var)
+
+
+def t_dp(run, frac):
+    """First iteration where PARTICIPATION drift falls to `frac` of its own early peak.
+
+    ⚠️ SELF-REFERENTIAL BY CONSTRUCTION, which is the point. `drift(W_inp) < 0.6` is an ABSOLUTE
+    threshold and frm/both never reach it, so that criterion is undefined for half the grid.
+    Measuring each run against its OWN peak drift guarantees the level is reachable, and it reads
+    the network when the quantity actually being measured - participation - has stopped moving.
+
+    Args:
+        run: run dict; frac: fraction of the early peak drift (e.g. 0.10).
+    Returns:
+        iteration, or nan.
+    """
+    d = np.asarray(run["trace"]["metrics"].get("dp_lag1000", []), dtype=float)
+    if d.size < 400 or not np.isfinite(d).any():
+        return float("nan")
+    w = 201
+    s_ = np.convolve(np.nan_to_num(d, nan=0.0), np.ones(w) / w, mode="valid")
+    peak = float(np.nanmax(s_[:max(10, s_.size // 10)]))
+    if not np.isfinite(peak) or peak <= 0:
+        return float("nan")
+    hit = np.flatnonzero(s_ <= frac * peak)
+    return float(hit[0] * PROBE) if hit.size else float("nan")
+
+
+def t_wdisp(run, frac, var="W_rec"):
+    """First iteration where |W(t)-W(0)| reaches `frac` of its own FINAL displacement.
+
+    Parameter-space analogue of the loss criteria: read every network once it has travelled the
+    same proportion of the distance it will ever travel. Self-referential, so always defined.
+
+    Args:
+        run: run dict; frac: fraction of final displacement; var: which weight matrix norm.
+    Returns:
+        iteration, or nan.
+    """
+    n = np.asarray(run["trace"]["metrics"].get(f"norm_{var}", []), dtype=float)
+    if n.size < 10 or not np.isfinite(n).any():
+        return float("nan")
+    d = np.abs(n - n[0])
+    if not np.isfinite(d[-1]) or d[-1] <= 0:
+        return float("nan")
+    hit = np.flatnonzero(d >= frac * d[-1])
+    return float(hit[0] * PROBE) if hit.size else float("nan")
+
+
 def build_criteria(runs):
     """Attach every candidate criterion's read-out iteration to each run."""
     for r in runs:
@@ -175,7 +250,13 @@ def build_criteria(runs):
              "loss": first_below_loss(r["loss"], Lstar),
              "excess": (first_below_loss(r["loss"], 1.10 * r["L_inf"]) if r["L_inf"] else np.nan),
              "drift(W_inp)": diffusive_onset(r["trace"], "W_inp", thresh=0.6),
-             "drift(W_rec)": diffusive_onset(r["trace"], "W_rec", thresh=0.6)}
+             "drift(W_rec)": diffusive_onset(r["trace"], "W_rec", thresh=0.6),
+             "r2@0.85": t_r2(r, 0.85),
+             "r2@0.90": t_r2(r, 0.90),
+             "dp<10%peak": t_dp(r, 0.10),
+             "dp<25%peak": t_dp(r, 0.25),
+             "|dW_rec|@90%": t_wdisp(r, 0.90),
+             "|dW_rec|@50%": t_wdisp(r, 0.50)}
         for th in (0.02, 0.05, 0.10):
             T[f"slope<{th}"] = first_sustained(t_r, rho, th) if len(rho) else np.nan
         if len(rho):
