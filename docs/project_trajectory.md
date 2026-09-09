@@ -7932,3 +7932,89 @@ Two portability fixes found while dry-running:
 * ⚠️ `SilentReLU_flipflop_frmboth_bigN_spock.slurm` had inherited `#SBATCH --array=1-144` from the
   N<=2000 script while having only 48 tasks. Submitted without an explicit --array it would have
   launched 96 tasks whose index decodes out of range. Default removed.
+
+## ▶ FUNCTIONAL DIVERSITY AND CLUSTERING: frm+rws MAKES ~7-9 CELL TYPES — 2026-09-09 14:56
+
+Three new measures, all at N=2000 unless stated, all on live units only (silent units otherwise
+dominate every one of them). These answer a question none of the earlier heterogeneity work touched:
+`pr_matrix` (PR over units), `flipflop_temporal_pr` (PR over time) and `flipflop_heterogeneity`
+(A1-A6) all measure HOW MUCH and WHEN a unit is active, never WHAT it does.
+
+### 1. Functional diversity — `flipflop_diversity.py`
+
+    D_shape   PR of the CORRELATION spectrum: each unit's time course centred and scaled to unit
+              norm, so trace = n_live and loud units cannot dominate. Counts distinct response
+              SHAPES. D_PR (covariance) mixes shape with amplitude; the ratio separates them.
+    redundancy  mean |correlation| over unit pairs. -> 1 clones, -> 0 unrelated.
+    sel_PR    each unit regressed on the k target bit time courses; loadings normalised; PR of their
+              second-moment matrix = effective number of SELECTIVITY directions, bounded by k.
+    R2_med    median variance explained by those k regressors.
+
+k=8, N=2000, 3 seeds:
+
+| pen | live | D_PR | D_shape | ratio | redundancy | sel_PR (max 8) | R2_med |
+|-----|------|------|---------|-------|------------|----------------|--------|
+| none | 0.176 | 14.3 | 22.4 | 1.6 | 0.125 | 7.45 | 0.402 |
+| rws | 0.215 | 14.1 | 22.0 | 1.6 | 0.113 | 7.70 | 0.413 |
+| frm | 0.925 | 15.1 | **10.7** | 0.7 | **0.189** | **4.84** | 0.496 |
+| both | 1.000 | 12.9 | 13.7 | 1.1 | 0.138 | **7.99** | **0.736** |
+
+**The units are NOT redundant copies** - mean |correlation| is 0.11-0.19 everywhere, so the low
+dimensionality is a low-dimensional latent structure with diverse loadings, which is what cortical
+populations look like. That is the positive claim the "model of cortical computation" framing needs.
+
+**frm collapses functional diversity while inflating the unit count**: 93% of units active but
+selectivity spanning only 4.84 of 8 task dimensions, the lowest D_shape of any condition, and the
+highest redundancy. **rws restores it to the ceiling**: 7.99/8, with task-explained variance nearly
+doubled (0.736 vs 0.496). A second axis, independent of occupancy, on which rws converts frm's units
+from nominal to meaningful.
+
+⚠️ THE R2 REGRESSORS ARE THE TARGET BITS ONLY. A unit encoding input pulses, transitions or internal
+memory would score low without being meaningless. Add the input trains as regressors before putting
+"frm units are less task-explained" in the paper.
+
+### 2. Variance explained — `flipflop_variance_explained.py`
+
+Fixed cut through the same spectra as `dimensionality_matrix.png` (same cache), so the two are
+like-for-like. Grid means: VE@5 = 0.712 none / 0.714 rws / 0.694 frm / **0.756 both**.
+
+VE@5 is set by TASK COMPLEXITY, not by N or penalty - every condition falls ~0.95 at k=1 to ~0.50 at
+k=8 with the N curves lying on top of each other. Same conclusion D_PR gave, now from a fixed cut
+with no moment ratio involved; two independent readings of the spectrum agreeing is worth more than
+either alone.
+
+⚠️ frm has the LOWEST VE@5 (0.694) AND the HIGHEST D_PR (8.88) and D_95 (20.4 vs 15-17). Not a
+contradiction - VE@5 sees only the first five eigenvalues, D_PR is a moment over all of them. frm
+has a lighter head AND a heavier tail. Never quote VE@5 alone.
+
+### 3. Clustering — `flipflop_clustering.py`
+
+Units as points in sample space, centred over units, projected onto the PCs carrying 99% of the
+across-unit variance, k-means for 2..30 clusters.
+
+⚠️⚠️ THE NAIVE COMPARISON IS NOT MERELY NOISY, IT IS BACKWARDS. Raw silhouette peaks at 0.912 for
+`none` - apparently near-perfect clustering. THE PERMUTATION NULL SCORES 0.912 TOO. With an
+amplitude-dominated embedding, k=2 splits off one extreme unit and shuffled data does that just as
+well. `none` and `rws` have NO real cluster structure; reporting raw silhouette would have inverted
+the entire result.
+
+Two controls are mandatory and both are in the script: every condition subsampled to a COMMON live
+unit count (285 vs 2000 otherwise, and m(99%) ranges 13 to 54), and every curve scored against a
+per-net null in which each unit's samples are permuted independently.
+
+| pen | raw: peak sil | at k | null | GAP | | norm: peak gap | at k |
+|-----|---------------|------|------|-----|-|----------------|------|
+| none | 0.912 | 2 | 0.912 | **-0.000** | | 0.543 | 27 |
+| rws | 0.855 | 2 | 0.857 | **-0.001** | | 0.470 | 27 |
+| frm | 0.403 | 30 | 0.100 | 0.304 | | 0.426 | 21 |
+| both | 0.516 | 7 | -0.023 | **0.539** | | **0.564** | **9** |
+
+**frm+rws produces ~7-9 tight, well-separated response types.** It is the only condition with a
+sharp, well-localised optimum; the others are still rising at k=30, the signature of no natural
+cluster count (a continuum being chopped finer). Holds in both the raw and the unit-normalised
+variant, so it is not an amplitude effect. The inertia elbow agrees independently.
+
+⚠️ THE none/rws-vs-both CONTRAST IS NOT YET SETTLED. none and rws have only 282/302 live units, so
+after subsampling to 275 the embedding is near-saturated (275 points, m=45-50 normalised) where
+silhouette behaves badly. The null corrects the BIAS, not the VARIANCE. Repeat at a larger common n
+before relying on it. The frm-vs-both contrast is solid - both have thousands of live units.

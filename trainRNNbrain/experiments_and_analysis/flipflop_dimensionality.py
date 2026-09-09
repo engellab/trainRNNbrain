@@ -10,6 +10,7 @@ numbers answer different questions and are not interchangeable.
 
     D_PR = (sum lambda)^2 / sum lambda^2        lambda = eigenvalues of cov(rates over samples)
     D_95 = smallest number of PCs carrying 95% of the variance
+    VE_n = fraction of total variance carried by the leading n PCs (n = 1, 5, 10)
 
 Rates are the noise-free forward pass on a fresh batch, relu applied (equation_type "h" stores
 pre-activations), pooled over time and trials into (samples, neurons) and centred per neuron. Silent
@@ -102,19 +103,24 @@ def spectrum(rates):
 
 
 def measures(lam):
-    """(D_PR, D_95) from an eigenvalue spectrum.
+    """Dimensionality summaries of one activity covariance spectrum.
 
     Args:
         lam: (n,) non-negative eigenvalues, descending.
     Returns:
-        (float, float): participation ratio of the spectrum, and PCs to reach VAR_FRAC.
+        dict with d_pr (participation ratio), d_95 (PCs to reach VAR_FRAC) and ve1/ve5/ve10, the
+        cumulative variance fraction carried by the leading 1, 5 and 10 PCs. The VE numbers are the
+        direct, assumption-free reading of the spectrum: D_PR and D_95 are both single summaries of
+        a shape that VE reports at a fixed cut.
     """
     tot = lam.sum()
     if tot <= 0:
-        return float("nan"), float("nan")
-    d_pr = float(tot ** 2 / (lam ** 2).sum())
-    d_95 = float(np.searchsorted(np.cumsum(lam) / tot, VAR_FRAC) + 1)
-    return d_pr, d_95
+        return dict(d_pr=np.nan, d_95=np.nan, ve1=np.nan, ve5=np.nan, ve10=np.nan)
+    cum = np.cumsum(lam) / tot
+    at = lambda n: float(cum[min(n, cum.size) - 1])
+    return dict(d_pr=float(tot ** 2 / (lam ** 2).sum()),
+                d_95=float(np.searchsorted(cum, VAR_FRAC) + 1),
+                ve1=at(1), ve5=at(5), ve10=at(10))
 
 
 def compute():
@@ -123,17 +129,24 @@ def compute():
     Returns:
         dict of arrays with keys pen, k, N, d_pr, d_95 (one entry per run).
     """
+    FIELDS = ("pen", "k", "N", "d_pr", "d_95", "ve1", "ve5", "ve10")
     if os.path.exists(CACHE):
         z = np.load(CACHE, allow_pickle=True)
-        return {kk: z[kk] for kk in z.files}
+        # A cache written before a field was added would silently make that field unavailable, so
+        # recompute rather than half-answer.
+        if all(f in z.files for f in FIELDS):
+            return {kk: z[kk] for kk in z.files}
+        print("cache predates the variance-explained fields; recomputing")
     fold = run_folders()
     print(f"simulating {len(fold)} nets ({N_TRIALS} trials each, every {T_STEP}nd timepoint)")
-    rec = {kk: [] for kk in ("pen", "k", "N", "d_pr", "d_95")}
+    rec = {kk: [] for kk in FIELDS}
     for i, (folder, pen, k, N) in enumerate(fold, 1):
         net, _ = load_net(folder)
-        d_pr, d_95 = measures(spectrum(run_trials(net, folder, N_TRIALS)))
-        for kk, v in zip(rec, (pen, k, N, d_pr, d_95)):
+        m = measures(spectrum(run_trials(net, folder, N_TRIALS)))
+        for kk, v in zip(("pen", "k", "N"), (pen, k, N)):
             rec[kk].append(v)
+        for kk in ("d_pr", "d_95", "ve1", "ve5", "ve10"):
+            rec[kk].append(m[kk])
         if i % 25 == 0 or i == len(fold):
             print(f"  {i}/{len(fold)}")
     rec = {kk: np.array(v) for kk, v in rec.items()}
