@@ -166,9 +166,20 @@ elif [ "$PHASE" = "warm" ]; then
   # `while read` rather than `mapfile`: mapfile is a bash-4 builtin, so a mapfile version cannot be
   # dry-run on macOS (bash 3.2) - which is exactly where this resolution logic gets checked against
   # the local data mirror before submission.
+  #
+  # ⚠️ DIVERGED RUNS MUST BE FILTERED HERE, NOT ASSUMED ABSENT. The folder prefix is the run's r2,
+  # and a diverged run is named `nan_...`. Spock's copy of the k=3 N=2000 frm cell has FOUR
+  # subfolders - three good and one `nan_` - while the local mirror has only the three, so a dry-run
+  # against the mirror cannot see this. Apply the same r2 >= 0.5 gate every analysis script uses.
+  # Sorting alone is not a defence: `nan` happens to sort last here, so reps 0-2 would have picked
+  # the right parents BY LUCK, and a differently-named failure would silently corrupt the pairing.
   CAND=()
-  while IFS= read -r _d; do CAND+=("$_d"); done \
-    < <(find "$BDIR" -mindepth 1 -maxdepth 1 -type d | sort)
+  while IFS= read -r _d; do
+    _r=$(basename "$_d"); _r=${_r%%_*}
+    case "$_r" in ''|*[!0-9.eE+-]*) continue ;; esac      # non-numeric prefix => not a scored run
+    awk -v r="$_r" 'BEGIN{exit !(r+0 >= 0.5)}' || continue
+    CAND+=("$_d")
+  done < <(find "$BDIR" -mindepth 1 -maxdepth 1 -type d | sort)
   if [ "${#CAND[@]}" -ne "$NEED" ]; then
     echo "FATAL: expected exactly $NEED run folder(s) under $BDIR, found ${#CAND[@]}:" >&2
     printf '  %s\n' "${CAND[@]}" >&2; exit 1
