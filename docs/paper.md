@@ -292,6 +292,69 @@ Every intervention below was chosen because it *could* plausibly have removed th
 > regularizer fails or makes it worse; and — §1.3 — the resulting populations differ in ways that
 > change scientific conclusions.
 
+### 3.1 The rescued units are task-tuned, not merely non-zero ✅
+
+The obvious objection to §3 is that `frm` could be buying non-zero units that do nothing —
+precisely the failure mode `rws` alone exhibits (§2.1). It is not. Measured over the full
+(N, k) grid of the n-bit flip-flop.
+
+**The metric, plainly.** The task asks the network to remember k bits, each currently +1 or −1.
+Take one unit, write down its firing rate at every moment of every trial, and alongside it what the
+bits were at that moment. Then ask: *can this unit's activity be predicted from what the bits
+currently are?* That is a regression, and R² is the fraction of the unit's activity the bits
+account for. A unit near 1 is doing the task — watch it and you can read off the remembered bits.
+A unit near 0 is active but its activity has nothing to do with what is being remembered.
+
+> **The regressors must be half-wave rectified**, `relu(+b_j)` and `relu(−b_j)` — 2k regressors plus
+> an intercept — not the k signed bit traces. ReLU units are non-negative and many fall to *exactly*
+> zero for one sign of a bit, which a line through three levels cannot fit. The rectified basis spans
+> the linear one (`relu(b) − relu(−b) = b`) plus the absolute values. Using the signed basis
+> understates R² by ~0.14 in every condition and manufactures a spurious untuned population under
+> `frm`. No regularization is needed and this is checked, not assumed: condition number 6.7,
+> in-sample vs 5-fold-CV R² gap 0.0005, n/p ≈ 1370.
+
+**Selectivity space is a star, not a blob.** Plotting each unit at its 2k regression weights
+(`unitcloud_sel_N2000_k3.gif`) shows a **6-armed star** at k=3 — dense arms along ±bit1, ±bit2,
+±bit3 with a core at the origin. Most units are tuned to one bit; the joint R² and the best
+single-bit R² differ by 0.003, so there is almost no mixed selectivity to speak of. Arm occupancy is
+near-perfectly even (335/328/355/342/312/328 of 2000 at N=2000, k=3).
+
+**Result**, per N=2000 network at k=3:
+
+| | tuned/live | median R² (tuned) | median Hoyer sparsity | live/N | **tuned units / 2000** |
+|---|---|---|---|---|---|
+| `none` | 0.857 | 0.609 | 0.766 | 0.141 | **241** |
+| `rws` | 0.847 | 0.634 | 0.807 | 0.151 | 255 |
+| `frm` | 0.811 | 0.839 | 0.748 | 0.864 | **1401** |
+| `both` | **0.959** | **0.901** | **0.841** | **1.000** | **1918** |
+
+`both` wins on every axis at once: most units alive, the highest fraction of those tuned, the best
+explained, and the most sparsely tuned. **~8× more task-tuned units than unpenalized, each explained
+to R² = 0.90 rather than 0.61.**
+
+**The two penalties do different jobs, and this is the cleanest evidence of it.** `frm` delivers the
+units and their tuning quality (R² 0.84 vs 0.61 unpenalized) but has the *lowest* Hoyer sparsity of
+all four conditions — its tuning is smeared across channels. `rws` alone has almost no units but the
+sparsest tuning of the unpenalized pair (0.807 vs 0.766). Together: `frm` recruits, `rws` sharpens.
+This is the same division of labour the temporal-participation analysis found in the time domain,
+now in the tuning domain, and it is the argument for using both rather than either.
+
+**They get better as the task gets harder.** Median R² moves in *opposite directions* with k:
+`none` declines 0.658 → 0.540 from k=1 to k=8 while `both` rises 0.871 → 0.913. All four N curves
+lie on top of each other within each condition, so this is task complexity, not network size. The
+unpenalized network dilutes its task representation as demands grow; the penalized one concentrates
+it.
+
+> **Report both halves.** Median R² alone is conditional on being tuned and flatters conditions with
+> few live units; tuned fraction alone ignores tuning quality. The product — tuned units per network
+> — is the honest summary, and it is the column that carries the 8× claim.
+
+⬜ **Not yet done**: the regressors are bit *states*, so a unit encoding transitions, timing, or a
+nonlinear conjunction scores low without being uninformative. Adding the input pulse trains and
+bit-product terms would bound how much of the residual is structure rather than noise.
+
+---
+
 ---
 
 ## 4. Does the rescue prevent, or resurrect?

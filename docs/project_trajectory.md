@@ -8019,104 +8019,108 @@ after subsampling to 275 the embedding is near-saturated (275 points, m=45-50 no
 silhouette behaves badly. The null corrects the BIAS, not the VARIANCE. Repeat at a larger common n
 before relying on it. The frm-vs-both contrast is solid - both have thousands of live units.
 
-## ▶ THE PAPER'S STRUCTURE RESULT: TUNED-UNIT FRACTION AND THE SELECTIVITY STAR — 2026-09-09 16:43
+## ▶ THE PAPER'S STRUCTURE RESULT: SINGLE-UNIT SELECTIVITY — 2026-09-09 17:20
 
-`flipflop_arms.py` (full grid, cached in `data/arms_cache.npz`), `flipflop_unitcloud.py` (the
-picture that made it obvious), `flipflop_diversity.py` (the k=8 selectivity numbers).
+`flipflop_arms.py` (grid sweep, `data/arms_cache.npz`), `flipflop_selectivity_matrix.py` (the
+figure, laid out like pr_matrix), `flipflop_unitcloud.py` (the picture that reframed everything).
+
+⚠️ THIS SECTION REPLACES AN EARLIER VERSION (commit 13e23d9) WHOSE NUMBERS WERE COMPUTED ON A
+MISSPECIFIED BASIS. Those regressed each unit on the k SIGNED bit traces. ReLU units are
+non-negative and many drop to EXACTLY zero for one sign of a bit, which a line through three levels
+cannot fit. The correct basis is HALF-WAVE RECTIFIED - relu(+b_j) and relu(-b_j), so 2k regressors
+plus an intercept. It spans the linear one (relu(b) - relu(-b) = b) plus the absolute values, so it
+is strictly richer, and it raised median R^2 by ~0.14 in EVERY condition. Do not quote the old
+numbers.
 
 ### What the metric is, in plain terms
 
-The n-bit flip-flop asks the network to REMEMBER k bits, each of which is currently +1 or -1. Take
-one unit and write down its firing rate at every moment of every trial. Alongside it write down what
-the k bits were at that same moment. Now ask: **can this unit's activity be predicted from what the
-bits currently are?** That is an ordinary linear regression - fit
-`rate = b0 + b1*bit1 + ... + bk*bitk` - and R^2 is the fraction of the unit's activity the bits
-account for.
+The task asks the network to REMEMBER k bits, each currently +1 or -1. Take one unit and write down
+its firing rate at every moment of every trial; alongside it write down what the bits were at that
+same moment. Then ask: **can this unit's activity be predicted from what the bits currently are?**
+That is a regression, and R^2 is the fraction of the unit's activity the bits account for. A unit
+near 1 is doing the task - watch it and you can read off the remembered bits. A unit near 0 is
+active but its activity has nothing to do with what is being remembered.
 
-A unit with R^2 near 1 is doing the task: watch it and you can read off the remembered bits. A unit
-with R^2 near 0 is active but its activity has nothing to do with what is being remembered. We call
-the first kind TUNED. The **tuned fraction** is simply how many of a network's non-silent units are
-of the first kind.
+The regression weights also say WHICH of the 2k channels a unit cares about. **Hoyer sparsity** of
+that weight vector, `(sqrt(d) - ||b||_1/||b||_2)/(sqrt(d) - 1)` with d = 2k, is 1 when all the
+tuning sits on one channel and 0 when it is spread evenly. It needs no threshold, no clustering and
+no null, and it is the per-unit dual of the participation ratios used elsewhere here, since
+`||b||_1/||b||_2 = sqrt(PR of the loading vector)`.
 
-The regression weights (b1..bk) also say WHICH bits a unit cares about, and that vector is the
-unit's "selectivity". Plotting every unit as a point in that space is what
-`unitcloud_sel_N2000_k3.gif` shows.
+### The picture that reframed everything: it is a STAR
 
-### The picture that reframed everything: it is a STAR, not a blob
+`unitcloud_sel_N2000_k3.gif`. Units do not scatter randomly in selectivity space: at k=3 they form a
+**6-ARMED STAR**, dense arms along +-bit1, +-bit2, +-bit3 with a core at the origin. Most units care
+about ONE bit. There are 2k arms, one per signed bit channel - which is also why the rectified basis
+is the natural one.
 
-Units do not scatter randomly in selectivity space. At k=3 they form a **6-ARMED STAR** - dense arms
-running along +-bit1, +-bit2, +-bit3, with a core at the origin. Most units care about ONE bit;
-mixed-selectivity units are rare. There are 2k arms, one per signed bit axis.
+⚠️ LOOK AT THE DATA BEFORE CHOOSING A STATISTIC. A star is neither clusters nor a manifold nor a
+Gaussian, and silhouette, intrinsic dimension and multivariate kurtosis were each fitting one of
+those wrong models to it. That is why five earlier claims reversed; see the retraction record below.
 
-⚠️ THIS IS WHY THE EARLIER STRUCTURE STATISTICS KEPT REVERSING. A star is neither a set of clusters
-nor a manifold nor a Gaussian, and silhouette scores, intrinsic dimension and multivariate kurtosis
-were each fitting one of those wrong models to it. LOOK AT THE DATA BEFORE CHOOSING A STATISTIC.
+### The result, full grid, rectified basis
 
-### The result
+Median R^2 over TUNED units (R^2 >= 0.15), mean over N:
 
-R^2 distribution over live units, N=2000, k=3, 3 seeds:
+| pen | k=1 | k=2 | k=4 | k=6 | k=8 | mean |
+|-----|-----|-----|-----|-----|-----|------|
+| none | 0.658 | 0.681 | 0.635 | 0.574 | **0.540** | 0.615 |
+| rws | 0.672 | 0.668 | 0.655 | 0.619 | 0.595 | 0.639 |
+| frm | 0.869 | 0.770 | 0.808 | 0.883 | 0.870 | 0.843 |
+| both | 0.871 | 0.875 | 0.900 | 0.904 | **0.913** | **0.897** |
 
-| pen | live/N | R2 q25 | R2 median | R2 q75 | tuned units per 2000 |
-|-----|--------|--------|-----------|--------|----------------------|
-| none | 0.141 | 0.109 | 0.464 | 0.721 | **209** |
-| rws | 0.151 | 0.135 | 0.449 | 0.704 | 225 |
-| frm | 0.864 | **0.001** | 0.335 | 0.673 | **1012** |
-| both | 1.000 | **0.607** | **0.700** | 0.749 | **1817** |
+**R^2 moves in OPPOSITE DIRECTIONS with task complexity**: `none` declines 0.658 -> 0.540 from k=1
+to k=8 while `both` rises 0.871 -> 0.913. Penalised networks get BETTER at dedicating units to the
+task as it hardens; unpenalised ones get worse. All four N curves lie on top of each other inside
+each panel, so this is task complexity, not size.
 
-**The distribution is the result, not the threshold.** `both` is tight and high (0.61/0.70/0.75):
-essentially every unit is tuned, to a similar degree, with no untuned population at all. `frm`'s
-LOWER QUARTILE IS 0.001 - a quarter of its live units have zero linear task tuning, which is the
-"active but meaningless" population quantified directly, and it agrees with what temporal PR said
-from the occupancy side. `none` and `rws` are broadly spread, 0.11 to 0.72.
+Median Hoyer sparsity (mean over the grid): none 0.736, **rws 0.808**, frm 0.769, **both 0.857**.
+⚠️ NOTE rws ALONE BEATS frm ALONE on sparsity, and frm REDUCES it relative to rws. Sparsity is rws's
+contribution; the same division of labour the temporal-PR analysis found, now in the tuning domain.
 
-Threshold robustness (fraction of live units above each cut): the ordering is unchanged from 0.05 to
-0.25, and the margin WIDENS at the strict end - at R^2 >= 0.5 it is `both` 0.813 against 0.39-0.40
-for all three others. Nothing depends on the 0.15 gate.
+Both halves together, per N=2000 network at k=3:
 
-⚠️ REPORT THE COUNT, NOT ONLY THE PER-LIVE-UNIT RATE. As a fraction of live units `none` looks
-respectable at 0.745, but only 14% of its units are alive. Per network: none 209, rws 225, frm 1012,
-both 1817. **frm alone already gives 5x more tuned units than unpenalised**; adding rws takes it to
-8.7x AND removes the untuned quarter. An earlier framing here was unfair to frm by quoting only the
-per-live-unit rate.
+| pen | tuned/live | med R^2 given tuned | med Hoyer | live/N | tuned units per 2000 |
+|-----|------------|---------------------|-----------|--------|----------------------|
+| none | 0.857 | 0.609 | 0.766 | 0.141 | **241** |
+| rws | 0.847 | 0.634 | 0.807 | 0.151 | 255 |
+| frm | 0.811 | 0.839 | 0.748 | 0.864 | **1401** |
+| both | **0.959** | **0.901** | **0.841** | **1.000** | **1918** |
 
-### Arm structure, over the whole grid
+`both` wins on every axis at once: most units alive, highest fraction of those tuned, best explained,
+most sparsely tuned. **~8x more task-tuned units than unpenalised, each explained to 0.90 rather
+than 0.61.**
 
-Cluster count FIXED at 2k (one per signed bit axis), 100 tuned units per net, scored against
-uniform random directions on the sphere:
+⚠️ ALWAYS REPORT BOTH HALVES. Median R^2 alone is conditional on being tuned and flatters conditions
+with few live units; tuned fraction alone ignores how good the tuning is. The product - tuned units
+per network - is the honest summary.
 
-| pen | tuned frac (k>=2) | silhouette excess | arm purity excess | arm evenness |
-|-----|-------------------|-------------------|-------------------|--------------|
-| none | 0.70 | 0.619 | 0.248 | 0.944 |
-| rws | 0.75 | 0.656 | 0.246 | 0.944 |
-| frm | 0.74 | **0.535** | 0.244 | 0.928 |
-| both | **0.94** | 0.654 | 0.247 | 0.924 |
+⚠️ THE RECTIFIED BASIS REHABILITATES frm. On the old misspecified basis frm showed 1012 tuned units
+and a "zero-R^2 quarter"; correctly fitted it has **1401** tuned units at median R^2 0.84. That
+quarter was largely an artefact of fitting a line to rectified responses. frm's real deficit is
+SPARSITY (0.748, lowest of the four), not tuning quality. An earlier framing here was unfair to frm.
 
-**frm alone blurs the arms and rws sharpens them back**: frm is lowest at every k (0.194 vs 0.416 at
-k=2) with the widest seed band; `both` recovers to rws levels and overtakes everything by k=7-8.
-Note this separates frm from both, NOT penalised from unpenalised - none and rws already have clean
-stars, they simply have almost nothing in them.
+### Method notes that must survive into the paper
 
-⚠️ CLEAN NEGATIVE, WORTH REPORTING: **arm PURITY is identical in all four conditions** (0.244-0.248,
-curves superimposed at every k). How single-bit-selective a tuned unit is, is set by the TASK, not
-by the penalty. This rules out a whole class of explanation and is why purity and silhouette are not
-redundant - silhouette also sees the spread AROUND each arm, which purity cannot.
-
-### Limits to state in the paper
-
-* The regressors are the TARGET BIT STATES. A unit encoding transitions, timing, or a nonlinear
-  conjunction of bits scores low without being uninformative, so "untuned" means "not linearly
-  predicted by the current bit state", which is narrower than "carries no task information".
-  ⚠️ The obvious control - add the input pulse trains and bit-product terms and see whether frm's
-  zero-R^2 quarter recovers - HAS NOT BEEN RUN. Do it before the claim goes in print.
-* k=1 is degenerate for every arm statistic (one bit, two arms, purity 1.0 by construction).
-* Silhouette needs its random-direction null; it has no meaningful zero.
+* 2k+1 parameters per unit (7 at k=3), ordinary least squares, **no regularisation** - and that is
+  checked, not assumed: design matrix (9600, 7), condition number 6.7, in-sample vs 5-fold-CV R^2
+  gap 0.0005, n/p ~ 1370. The pairs relu(+b)+relu(-b) = 1[b != 0] do not collapse onto the intercept
+  because each bit sits at zero for a different 23-33% of samples.
+* One JOINT regression per unit, not k separate ones and no maximum taken. At k=3 the joint R^2 and
+  the max of three single-bit R^2 differ by 0.003 - a second, free confirmation of the star, since
+  mixed selectivity would make the joint far exceed the max.
+* Arm counts at N=2000, k=3 are 335/328/355/342/312/328 across the six arms: near-perfectly even.
+* Arm PURITY is identical in all four conditions (0.244-0.248 excess over random, curves
+  superimposed at every k). How single-channel-selective a TUNED unit is, is set by the task, not by
+  the penalty. Purity and Hoyer are not redundant: Hoyer also sees units whose tuning is weak.
+* k=1 is degenerate for every arm statistic (one bit, two arms).
 
 ### The defensible sentence
 
-frm makes every unit active but leaves a quarter of them untuned and blurs the tuning arms; rws
-sharpens the arms back while keeping the units. The result is **8.7x more task-tuned units than
-unpenalised, in a star that is at least as clean**, with a tuned-R^2 distribution so tight that
-essentially every unit contributes.
+frm makes every unit active and genuinely task-tuned, but its tuning is the least sparse of any
+condition; rws sharpens tuning onto single channels. Together they give **~8x more task-tuned units
+than unpenalised, each explained to R^2 = 0.90 and tuned to essentially one channel** - and unlike
+the unpenalised network, they get BETTER as the task gets harder.
 
 ### ⚠️ RETRACTION RECORD FOR THIS THREAD — five claims that did not survive
 
