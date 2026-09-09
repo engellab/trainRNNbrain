@@ -26,7 +26,7 @@ evenly among them. Row 3 of the figure carries M/N so the two are never quoted i
 
 Output: img/internal_figures/pr_matrix.png
 
-Usage:  python pr_matrix.py [EXCESS_DELTA]
+Usage:  python pr_matrix.py [EXCESS_DELTA | iter=150000 | rho=0.10 | r2=0.98]
 """
 
 import os
@@ -37,10 +37,14 @@ import pickle
 import numpy as np
 from scipy.optimize import least_squares
 import matplotlib.pyplot as plt
+from omegaconf import OmegaConf
+
+from trainRNNbrain.tasks.TaskNBitFlipFlop import TaskNBitFlipFlop
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import IMG_DIR, active_count, logbin, participation_ratio, stretched
 import plotstyle as ps
+from criterion_search import rho_series, first_sustained
 
 ROOTS = {"ksweep": "data/trained_RNNs/NBitFlipFlop_std_ksweep",
          "pen": "data/trained_RNNs/NBitFlipFlop_std_pen",
@@ -58,6 +62,66 @@ T_START = 2000
 MIN_ITERS = 50_000
 R2_MIN = 0.5           # below this the run never solved the task; see load()
 EXCESS_DELTA = 0.10
+R2_FRAC = 0.98         # r2= mode: read where R^2 reaches this fraction of its fitted ceiling
+
+
+def target_variance():
+    """R^2 denominator: global variance of the target over the masked window.
+
+    R^2(t) = 1 - loss_clean_train(t) / V EXACTLY, because `loss_clean_train` is the numerator of
+    Trainer.r2_score - same mask, same noise-free probe, same fresh-batch distribution. No R^2 trace
+    is stored during training, so this affine map is the only way to get one. Validated against an
+    independent oracle (RNN_numpy forward + training_utils.r2, a different code path) on 5 runs
+    spanning k=1..8 and N=500..2000: max |diff| = 0.0016.
+
+    ⚠️ NOT the folder-name r2, which comes from eval_step(noise=True) and so reads ~0.010 LOWER
+    than any noise-free number. It is a biased oracle and must not be used to check this.
+
+    Task params are read from a run config, never hardcoded. V is k-INDEPENDENT to <1% (0.7192 over
+    k=1..8) because every bit channel is an i.i.d. copy of the same pulse process, so one value
+    serves the whole grid.
+
+    Returns:
+        float: population variance of the target, ~0.724 for this grid.
+    """
+    cfg = OmegaConf.load(sorted(glob.glob(
+        os.path.join(ROOTS["ksweep"], "*", "*", "*_config.yaml")))[0])
+    T = int(cfg.task.T)
+    # The affine map holds only if the mask is the whole trial; CDDM's two-window mask would need
+    # the target restricted before taking the variance. Fail loudly rather than silently mis-scale.
+    assert [eval(m) for m in cfg.task.mask_params] == [(0, T)], \
+        f"target_variance() assumes a full-trial mask, got {cfg.task.mask_params}"
+    t = TaskNBitFlipFlop(n_steps=T, n_inputs=int(cfg.task.n_inputs),
+                         n_outputs=int(cfg.task.n_outputs), mu=float(cfg.task.mu),
+                         n_flip_steps=int(cfg.task.n_flip_steps), batch_size=20000, seed=0)
+    _, tgt, _ = t.get_batch()
+    return float(((tgt - tgt.mean()) ** 2).mean())
+
+
+def r2_time(L, floor, V, frac):
+    """Iteration where the smoothed R^2 first reaches `frac` x this run's fitted R^2 ceiling.
+
+    The ceiling is R2_max = 1 - floor/V, so the condition R^2 >= frac * R2_max rearranges to
+    L <= (1 - frac) * V + frac * floor: frac of the run's own floor PLUS an absolute slack of
+    (1 - frac) * V set by the task, not by the run. That is what makes it different from `excess`,
+    whose whole tolerance scales with the floor and so hands a run with a poor floor a
+    proportionally wider window.
+
+    Args:
+        L: (n_probes,) noise-free loss trace, indexed in probes of PROBE iterations.
+        floor: fitted loss floor L_inf for this run, or None if the fit failed.
+        V: target variance from target_variance().
+        frac: fraction of the ceiling to read at (0.98 as requested).
+    Returns:
+        float: iteration of first sustained crossing, or nan if never reached / no floor.
+    """
+    w = 21
+    if floor is None or len(L) < w:
+        return float("nan")
+    thr = (1.0 - frac) * V + frac * floor
+    s = np.convolve(L, np.ones(w) / w, mode="valid")
+    hit = np.flatnonzero(s <= thr)
+    return float((hit[0] + w // 2 + 1) * PROBE) if len(hit) else float("nan")
 
 
 def load():
@@ -163,6 +227,18 @@ def fit_law(runs, pen, fn):
         v = measure(r, fn)
         if np.isfinite(v) and v > 0:
             K.append(r["k"]); NN.append(r["N"]); Y.append(v)
+    return fit_power_law(K, NN, Y)
+
+
+def fit_power_law(K, NN, Y):
+    """Least-squares Y = A N^b k^c in logs, with 2000-resample bootstrap CIs on b and c.
+
+    Args:
+        K, NN, Y: equal-length sequences of k, N and the positive statistic being fitted.
+    Returns:
+        dict with A, b, c, b_ci, c_ci, n; or None if the design cannot support the fit
+        (needs >=8 points, >=2 distinct N and >=3 distinct k).
+    """
     if len(Y) < 8 or len(set(NN)) < 2 or len(set(K)) < 3:
         return None
     K, NN, Y = np.array(K, float), np.array(NN, float), np.array(Y, float)
@@ -186,20 +262,74 @@ def fit_law(runs, pen, fn):
 def main():
     """Compute PR/N and M/N at the excess read-out and plot them over the (N, k) grid."""
     global EXCESS_DELTA
+    fixed_iter = rho_frac = r2_frac = None
     if len(sys.argv) > 1:
-        EXCESS_DELTA = float(sys.argv[1])
+        if sys.argv[1].startswith("iter="):
+            fixed_iter = float(sys.argv[1].split("=")[1])
+        elif sys.argv[1].startswith("rho="):
+            rho_frac = float(sys.argv[1].split("=")[1])
+        elif sys.argv[1].startswith("r2="):
+            r2_frac = float(sys.argv[1].split("=")[1])
+        else:
+            EXCESS_DELTA = float(sys.argv[1])
     ps.setup()
+    V = target_variance() if r2_frac is not None else None
     runs = load()
     for r in runs:
         r["floor"] = fit_floor(r["loss"], r["budget"])       # OWN budget, not a common range
-        r["T"] = excess_time(r["loss"], r["floor"], EXCESS_DELTA)
+        if rho_frac is not None:
+            # rho = -dlog(L)/dlog(t): the local log-log slope of the loss, i.e. how fast the loss
+            # still improves per decade. Floor-free and fit-free, and because it is a LOG
+            # derivative it is invariant to the overall loss scale, so conditions with different
+            # achievable floors are directly comparable. Read where rho first falls below
+            # `rho_frac` of its OWN early peak and stays there (self-referential, so the level is
+            # reachable by construction - unlike an absolute alpha < 0.5).
+            t_r, rho = rho_series(r["loss"])
+            if len(rho):
+                peak = float(np.max(rho[:max(3, len(rho) // 3)]))
+                r["T"] = (first_sustained(t_r, rho, rho_frac * peak) if peak > 0 else float("nan"))
+            else:
+                r["T"] = float("nan")
+        elif r2_frac is not None:
+            # R^2 = 1 - L/V, so the fitted loss floor IS the fitted R^2 ceiling; no second fit.
+            r["r2max"] = 1.0 - r["floor"] / V if r["floor"] is not None else float("nan")
+            # A ceiling <= 0 means the fitted floor is no better than predicting the target mean,
+            # i.e. the floor fit failed - one none/k=1/N=1000 run fits L_inf = 0.728 against a
+            # final loss of 0.023. The excess criterion cannot see this (1.01 x a huge floor is
+            # crossed at t=590) and carries the garbage read-out into every pr_matrix_dX figure.
+            # Expressing the read-out in R^2 makes the failure checkable, so check it.
+            r["T"] = (r2_time(r["loss"], r["floor"], V, r2_frac)
+                      if r["r2max"] > 0 else float("nan"))
+        elif fixed_iter is not None:
+            # ⚠️ FIXED-ITERATION READ-OUT, kept only as the confounded reference. Harder tasks
+            # settle later (settling time ~ k^0.458), so every k is read at a DIFFERENT depth of
+            # its own convergence and the fitted c inherits that difference. It is also UNDEFINED
+            # for any run whose budget is shorter than the chosen iteration - at 150k that silently
+            # removes every N=4000 cell, whose budget is 100k.
+            r["T"] = fixed_iter if fixed_iter <= r["budget"] else float("nan")
+        else:
+            r["T"] = excess_time(r["loss"], r["floor"], EXCESS_DELTA)
     n_before = {p: sum(1 for r in runs if r["pen"] == p) for p in PENS}
     runs = [r for r in runs if np.isfinite(r["T"])]
     ks = sorted({r["k"] for r in runs})
     Ns = sorted({r["N"] for r in runs})
     have = [p for p in PENS if any(r["pen"] == p for r in runs)]
-    print(f"read-out: loss reaches {1+EXCESS_DELTA:.2f} x each run's OWN floor "
-          f"(floor fitted over that run's own budget)\n")
+    if r2_frac is not None:
+        print(f"read-out: R^2 = 1 - L/V reaches {r2_frac:.3f} x each run's OWN fitted ceiling\n"
+              f"  V (target variance) = {V:.5f}, k-independent\n"
+              f"  ceiling R2_max = 1 - floor/V, per run; threshold on the loss is "
+              f"{1-r2_frac:.3f}*V + {r2_frac:.3f}*floor\n")
+        for p in PENS:
+            sel = [r for r in runs if r["pen"] == p and np.isfinite(r.get("r2max", np.nan))]
+            if sel:
+                rm = np.array([r["r2max"] for r in sel])
+                print(f"  {p:5s}  fitted R2_max  median {np.median(rm):.4f}  "
+                      f"[{np.min(rm):.4f}, {np.max(rm):.4f}]  ->  read at "
+                      f"{r2_frac*np.median(rm):.4f}")
+        print()
+    else:
+        print(f"read-out: loss reaches {1+EXCESS_DELTA:.2f} x each run's OWN floor "
+              f"(floor fitted over that run's own budget)\n")
     for p in PENS:
         sel = [r for r in runs if r["pen"] == p]
         if not sel:
@@ -289,12 +419,19 @@ def main():
                    va="bottom", ha="left",
                    bbox=dict(fc="white", ec="0.7", alpha=.85, boxstyle="round,pad=0.3"))
             b.legend(fontsize=7, loc="upper right")
+    readout_txt = (f"every network read where its $R^2$ reaches {r2_frac:.3f}x its OWN fitted ceiling"
+                   if r2_frac is not None else
+                   f"every network read where its loss reaches {1+EXCESS_DELTA:.2f}x its OWN floor")
     fig.suptitle("Participation ratio over the (N, k) grid, per penalty\n"
-                 f"every network read where its loss reaches {1+EXCESS_DELTA:.2f}x its OWN floor  ·  "
+                 f"{readout_txt}  ·  "
                  "PR/N = effective fraction of units participating (1.0 = perfectly even)",
                  fontsize=12.5)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    return ps.save(fig, f"pr_matrix_d{1+EXCESS_DELTA:.2f}", tight=False)
+    name = (f"pr_matrix_r2_{r2_frac:.3f}" if r2_frac is not None
+            else f"pr_matrix_rho{rho_frac:.2f}peak" if rho_frac is not None
+            else f"pr_matrix_iter{int(fixed_iter/1000)}k" if fixed_iter is not None
+            else f"pr_matrix_d{1+EXCESS_DELTA:.2f}")
+    return ps.save(fig, name, tight=False)
 
 
 if __name__ == "__main__":

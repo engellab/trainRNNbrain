@@ -7599,3 +7599,82 @@ distribution. That is the motivation for the penalties, now with numbers behind 
 * `SILENT_FLIPFLOP = 4e-2` is now a named constant in common.py; it was previously only prose in a
   docstring, so callers kept reaching for the CDDM-calibrated `SILENT_HARD = 1e-6`, which sits
   below BOTH flip-flop modes and reports ~0% silence.
+
+## ▶ PENALTIES RECRUIT UNITS WITHOUT RECRUITING DIMENSIONS — 2026-09-09 12:21
+
+`flipflop_dimensionality.py`, all 336 usable runs, end-of-training nets. Effective dimensionality of
+the population activity, two measures off the same spectrum:
+
+    D_PR = (sum lambda)^2 / sum lambda^2      lambda = eigenvalues of cov(rates), centred per neuron
+    D_95 = PCs carrying 95% of the variance
+
+Rates are the noise-free forward pass on a fresh batch, relu applied (equation_type "h" stores
+pre-activations), pooled over time and trials. Silent units contribute zero variance, so neither
+measure can be inflated by them. Cached in `data/dimensionality_cache.npz`; delete to recompute.
+
+### The headline
+
+D = A N^b k^c fitted per penalty:
+
+| pen | b (size) | c (complexity) | n |
+|-----|----------|----------------|---|
+| none | **-0.02** [-0.03, -0.01] | +0.89 [+0.87, +0.91] | 96 |
+| rws | **+0.01** [-0.00, +0.02] | +0.91 [+0.89, +0.93] | 96 |
+| frm | **+0.23** [+0.19, +0.27] | +0.77 [+0.73, +0.81] | 72 |
+| both | **+0.09** [+0.07, +0.11] | +0.86 [+0.84, +0.88] | 72 |
+
+**Dimensionality is set by the task, not by the network.** For none and rws, b is indistinguishable
+from zero: D_PR is ~2.1 at k=1 and ~14 at k=8 whether the network has 500 units or 4000. An 8-fold
+increase in N buys no extra dimensions. c ~ 0.9 everywhere, so D grows very nearly linearly in k,
+about 1.8k.
+
+**This runs opposite to the participation story and that is the point.** `pr_matrix` says frm and
+both drive PR/N towards 1 - every unit engaged, activity spread evenly. This says frm and both put
+the population in the SAME ~2k dimensions as everyone else. `both` at N=2000, k=8 has M/N = 1.00,
+i.e. 2000 active units, occupying 12.7 effective dimensions. The penalties recruit units without
+recruiting dimensions: the extra units are redundant within a task-determined subspace, not new
+computation. M and D_PR are answering different questions and must never be quoted as if
+interchangeable.
+
+### Applying BOTH penalties lowers dimensionality; neither alone does
+
+Per-cell D_PR ratio against `none` at matched (N, k), paired Wilcoxon over shared cells:
+
+| pen | N=500 | N=1000 | N=2000 | median ratio, all cells | p |
+|-----|-------|--------|--------|-------------------------|---|
+| rws | 0.957 | 0.962 | 0.949 | 0.990 | 0.054 |
+| frm | 0.886 | 1.087 | **1.245** | 1.018 | 0.26 |
+| both | **0.812** | **0.863** | 0.937 | **0.868** | **8.3e-07** |
+
+`both` is 13% BELOW unpenalised, consistently and significantly. Neither penalty alone does this:
+rws is null (p = 0.054, ratio 0.99), and frm is not a reduction at all - it is 0.89 at N=500 but
+1.25 at N=2000, i.e. its effect REVERSES with size, which is what b = +0.23 encodes. So the
+dimensionality reduction is a property of the COMBINATION, not of either penalty summed.
+
+⚠️ The `both` effect SHRINKS with N (0.81 -> 0.86 -> 0.94) and the N=2000 range already crosses 1.0
+(max 1.13). Do not extrapolate it to larger networks without N=4000 for frm and both, which the grid
+does not have.
+
+### frm is the unstable condition
+
+frm has the only non-zero b AND much the noisiest spectra: D_95 seed-sd reaches +-14.5 at
+(N=2000, k=5) and +-9.7 at k=8, against +-0.5 in every other condition. That is consistent with the
+transient behaviour seen in `flipflop_active_vs_loss.py`, where frm's loss spikes to 1e4 and its
+active fraction swings between 1.0 and 0.4 at the loss floor. frm's dimensionality numbers should
+carry that caveat wherever they are quoted.
+
+### Sampling was validated before use, not assumed
+
+D_PR is a ratio of spectrum moments and is biased when the sample count approaches the true
+dimensionality. Pre-registered bar: accept if D_PR moves less than 5% when the sample count doubles.
+Measured on N=2000 runs, 960 -> 9600 samples gives 6.62 -> 6.71 (+1.4%) and 5.64 -> 5.75 (+2.0%).
+4800 samples used (32 trials, every 2nd timepoint), far into the converged regime for D ~ 2-15.
+
+### Bug found while producing this
+
+⚠️ `std_bigN` contains CALIBRATION folders trained for 400-600 iterations (`_iters=600` in the
+folder name). `pr_matrix.load` drops them via `MIN_ITERS` on the trace length, but any script that
+globs `*LastParams*.npz` instead of the trace picks them up, and an untrained net's spectrum is not
+a result. In the first pass they added a spurious N=3000 row and a 25th none/N=4000 run. Now gated
+on `trainer.max_iter >= MIN_ITERS`, giving exactly 336 = the known grid count. **Audit any other
+folder-globbing script for the same hole.**
