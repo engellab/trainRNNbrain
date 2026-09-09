@@ -7894,3 +7894,41 @@ Validation before any cluster submission (local, N=40, k=2, 60 iterations):
   for W_rec, W_inp, W_out, bias and y_init. Threshold set before running: exact equality, no tolerance.
 * the switch takes effect: base folder tag carries `Lrws=0`, the warm run's carries `Lrws=0.05`, and
   the saved config records `init_from` for provenance.
+
+### REVISED 2026-09-09 14:05 — reuse the existing 400k nets; no base phase needed
+
+The base phase is now OPTIONAL and off by default. The four arms branch from the existing penlong
+frm and both nets at N=2000, k=3 (3 seeds each), so only the 12 warm runs are needed.
+
+⚠️ THE OBJECTION TO REUSE WAS WRONG AND THE DATA SAYS SO. The worry was that a short switch is a
+~2% perturbation to a 400k-converged net. Measured on the existing `both` runs' participation
+traces, PR/N reaches **0.90 within 1000 iterations** and 0.96 by 5k - rws acts almost immediately,
+because its gradient does not care how converged the TASK loss is. At S ~ 743 the rws term is
+(743-20)^2/400 ~ 1307 per row, times lambda 0.05 -> ~65, against a task loss of ~0.03. It dominates
+from the first step. Reusing the nets is also strictly BETTER than fresh parents: the intervention
+then speaks to the very networks the 45%-vs-6.2% result was measured on.
+
+| | PR/N at 1k | 5k | 10k | 20k | final |
+|--|-----------|-----|-----|-----|-------|
+| both, 3 seeds | 0.90-0.92 | 0.71-0.96 | 0.78-0.96 | 0.92-0.94 | 0.942-0.946 |
+| frm, 3 seeds | 0.55-0.88 | 0.53-0.69 | 0.64-0.68 | 0.54-0.76 | 0.468-0.708 |
+
+⚠️ WARM PHASE RAISED FROM 10k TO 50k BECAUSE THE ARMS ARE NOT SYMMETRIC. rws acts in ~1k, so A1 is
+covered many times over; but frm's heterogeneity develops SLOWLY (PR/N drifts 0.57 -> 0.47 over
+400k) and nothing pushes S back up once rws has pulled it to ~20. A null in A3 at 50k is SUGGESTIVE
+of hysteresis but cannot be distinguished from "not yet" - report it that way, do not call it
+irreversibility.
+
+⚠️ RUN ON SPOCK. The k=3 N=2000 penlong parents live on Spock; Della's penlong copy holds other
+cells only. `SilentReLU_flipflop_switch_spock.slurm` is byte-identical below the scheduler block.
+    PHASE=warm sbatch --array=1-12 --time=16:00:00 slurm/SilentReLU_flipflop_switch_spock.slurm
+
+Parent resolution dry-run against the local mirror confirms the pairing: tasks 1 and 4 (A1/A2,
+rep 0) resolve to the SAME frm parent, tasks 7 and 10 (A3/A4, rep 0) to the same both parent.
+
+Two portability fixes found while dry-running:
+* `mapfile` is a bash-4 builtin, absent on macOS bash 3.2, so the resolution logic could not be
+  dry-run locally at all. Replaced with a portable `while read` loop.
+* ⚠️ `SilentReLU_flipflop_frmboth_bigN_spock.slurm` had inherited `#SBATCH --array=1-144` from the
+  N<=2000 script while having only 48 tasks. Submitted without an explicit --array it would have
+  launched 96 tasks whose index decodes out of range. Default removed.

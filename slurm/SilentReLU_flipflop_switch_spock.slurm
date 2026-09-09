@@ -1,5 +1,9 @@
 #!/bin/bash
-# PENALTY-SWITCH INTERVENTION: does rws MOLD transient units into sustained ones? — DELLA.
+# PENALTY-SWITCH INTERVENTION: does rws MOLD transient units into sustained ones? — SPOCK.
+#
+# Byte-identical science, arms and index decode to the Della twin; only the scheduler
+# directives, modules and log paths differ. RUN IT HERE: the k=3 N=2000 penlong parents
+# live on Spock, and Della's penlong copy does not have that cell.
 #
 # The cross-sectional frm-vs-both comparison shows frm leaves 45% of units low-occupancy (13.6%
 # dead + 31.8% alive but active <10% of the time) against 6.2% under frm+rws. It CANNOT show that
@@ -24,8 +28,7 @@
 # pushes it back up: weight decay is 1e-6 and frm has no term that sees S. A null in A3 at 50k is
 # SUGGESTIVE of hysteresis but cannot be distinguished from "not yet". Report it that way.
 #
-# ⚠️ THE k=3 N=2000 penlong PARENTS LIVE ON SPOCK, NOT DELLA. Della's penlong copy has other cells
-# only. Use the Spock twin of this script, or stage the parent folders across first.
+# The k=3 N=2000 penlong parents are already on this cluster, so nothing needs staging.
 #
 #   arm  warm-start from   continue under   role
 #   A1   frm base          frm + rws        TREATMENT: do transient units become sustained?
@@ -61,20 +64,19 @@
 #
 # Output: $SAVE_TO/NBitFlipFlop_std_switch/{base,warm}_.../
 
-#SBATCH --job-name=FFswitch
+#SBATCH --job-name=FFswitchS
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --gres=gpu:a100:1
-#SBATCH --mem-per-gpu=32G
+#SBATCH --gres=gpu:1
+#SBATCH --mem=32G
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
-#SBATCH --output=/home/pt1290/trainRNNbrain_logs/%x.%A_%a.out
-#SBATCH --error=/home/pt1290/trainRNNbrain_logs/%x.%A_%a.err
+#SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
+#SBATCH --error=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.err
 
 module purge
-module load cudatoolkit/12.8
-module load anaconda3/2024.10
+module load anacondapy/2024.02
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate torch-env
 

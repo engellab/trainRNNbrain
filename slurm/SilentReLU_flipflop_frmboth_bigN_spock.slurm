@@ -32,7 +32,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=64G
 #SBATCH --time=48:00:00
-#SBATCH --array=1-144
+# NO --array DEFAULT ON PURPOSE: this grid has 48 tasks, and the 1-144 inherited
+# from the N<=2000 script would launch 96 tasks whose index decodes out of range.
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
