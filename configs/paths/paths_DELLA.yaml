@@ -1,2 +1,11 @@
 # @package paths
 save_to: "/home/pt1290/trainRNNbrain/data/trained_RNNs"
+
+# Warm start: folder of a finished run whose *LastParams*.npz initialises this one. null = fresh
+# init (the normal case). The PENALTY IS NOT INHERITED - lambda_frm/lambda_rws come from this run's
+# trainer config, which is what makes a penalty-switch experiment possible.
+init_from: null
+# Restore the source run's Adam moments too. OFF by default: carrying momentum shaped by the old
+# objective across a penalty SWITCH imports the old search direction and confounds the very effect
+# being measured. Turn on only when continuing under the SAME penalty.
+init_adam: false

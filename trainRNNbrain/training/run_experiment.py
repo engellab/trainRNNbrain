@@ -94,6 +94,61 @@ def run_training(cfg: DictConfig) -> None:
         lr = cfg.trainer.lr * scale
         opt = torch.optim.Adam(rnn_torch.parameters(), lr=lr, weight_decay=cfg.trainer.weight_decay)
 
+        # WARM START. `paths.init_from` names a finished run's folder; its LastParams are copied into
+        # this net and (optionally) its Adam moments into this optimizer, so training CONTINUES from
+        # that network instead of from a fresh initialisation. The save half has existed since the
+        # AdamState commit; this is the load half, which that commit explicitly left unwritten.
+        #
+        # ⚠️ THE PENALTY CONFIG IS NOT INHERITED. Only weights (and moments) come from the source
+        # run; lambda_frm / lambda_rws come from THIS run's config. That is the whole point - the
+        # penalty-switch experiment warm-starts an frm net and continues under frm+rws.
+        #
+        # ⚠️ ADAM MOMENTS ARE OFF BY DEFAULT (`init_adam: false`). Carrying frm-shaped momentum
+        # across a penalty switch imports the old objective's search direction into the new one,
+        # which is exactly the confound the switch is meant to isolate. Enable only when continuing
+        # under the SAME penalty, where it removes a restart transient instead of adding a bias.
+        init_from = cfg.paths.get("init_from", None) if "paths" in cfg else None
+        if init_from:
+            src = sorted(Path(init_from).glob("*LastParams*.np[zy]"))
+            if not src:
+                raise FileNotFoundError(f"warm start: no *LastParams*.npz in {init_from}")
+            loaded = np.load(src[0], allow_pickle=True)
+            with torch.no_grad():
+                for nm, prm in rnn_torch.named_parameters():
+                    if nm not in loaded.files:
+                        raise KeyError(f"warm start: '{nm}' missing from {src[0].name}; "
+                                       f"file has {sorted(loaded.files)}")
+                    arr = np.asarray(loaded[nm], dtype=np.float32)
+                    if tuple(arr.shape) != tuple(prm.shape):
+                        raise ValueError(f"warm start: '{nm}' is {arr.shape} in the checkpoint but "
+                                         f"{tuple(prm.shape)} in this model — N/k mismatch?")
+                    prm.copy_(torch.from_numpy(arr).to(prm.device, prm.dtype))
+            # y_init is NOT a Parameter (it is the initial state, set from the seed at
+            # construction) so the loop above skips it, yet it is saved and it changes the
+            # dynamics. Restore it explicitly.
+            if "y_init" in loaded.files and getattr(rnn_torch, "y_init", None) is not None:
+                with torch.no_grad():
+                    yi = torch.from_numpy(np.asarray(loaded["y_init"], dtype=np.float32))
+                    rnn_torch.y_init.copy_(yi.to(rnn_torch.y_init.device, rnn_torch.y_init.dtype))
+            done = {nm for nm, _ in rnn_torch.named_parameters()} | {"y_init"}
+            # Anything array-valued in the checkpoint that was NOT restored is a silent divergence
+            # between the source net and this one. Masks are rebuilt from config by construction and
+            # are expected here; anything else is not, so say so rather than dropping it quietly.
+            skipped = sorted(k for k in loaded.files
+                             if k not in done and np.asarray(loaded[k]).ndim > 0
+                             and not k.endswith("_mask"))
+            if skipped:
+                print(f"WARNING: warm start did not restore array(s) {skipped} — "
+                      f"they come from this run's config instead")
+            print(f"warm start: loaded {sorted(done & set(loaded.files))} from {src[0]}")
+            if cfg.paths.get("init_adam", False):
+                ast = sorted(Path(init_from).glob("*AdamState*.pt"))
+                if not ast:
+                    raise FileNotFoundError(f"warm start: init_adam set but no *AdamState*.pt "
+                                            f"in {init_from}")
+                opt.load_state_dict(torch.load(ast[0], map_location=rnn_torch.device))
+                print(f"warm start: restored Adam moments from {ast[0]}")
+
         # defining the trainer
         trainer_cfg = OmegaConf.create(cfg.trainer)
         trainer_target = getattr(trainer_cfg, "_target_", None)

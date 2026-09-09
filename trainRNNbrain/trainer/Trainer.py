@@ -470,7 +470,8 @@ class Trainer():
         # "metrics": scalar series aligned to "iters" (NaN where a lag was not due this probe).
         # "participation": the per-unit matrix, on its own coarser cadence. Nothing about the
         # weights is ever written to disk — everything is reduced to scalars during training.
-        self.participation_monitor = ({"iters": [], "participation": [], "participation_iters": [],
+        self.participation_monitor = ({"iters": [], "participation": [], "temporal_pr": [],
+                                       "participation_iters": [],
                                        "metrics": defaultdict(list)}
                                       if track_participation else None)
         # Weight-drift bookkeeping. Reference snapshots at several lags, because a single short lag
@@ -695,6 +696,9 @@ class Trainer():
 
         Recorded at every probe (into monitor["metrics"], aligned to monitor["iters"]):
           silent_1em6                  number of units with participation < 1e-6
+          temporal_pr                  per-unit (sum r)^2/sum r^2 over the probe's (time, trial)
+                                       samples, stored on the store_participation_every cadence
+                                       alongside `participation` and sharing its iteration index
           loss_clean_train             masked MSE of the SAME noise-free probe on the training batch
           loss_clean_valid             the same on a held-out batch, if valid_batch was supplied.
                                        Recorded on its own coarser cadence (track_valid_every), so
@@ -745,6 +749,25 @@ class Trainer():
 
         if iter % self.store_participation_every == 0:
             mon["participation"].append(p.cpu().numpy().astype("float32"))
+            # Per-unit TEMPORAL participation ratio (sum r)^2 / sum r^2 over the pooled
+            # (time, trial) samples of this same noise-free probe: the effective number of samples
+            # each unit is active for, i.e. PR along TIME rather than along units. Divided by the
+            # sample count it is the Treves-Rolls lifetime sparseness.
+            #
+            # WHY IT IS TRACKED. frm pins each unit's soft-max (peak-ish) activity and succeeds at
+            # it - CV across live units is 0.125 under frm and 0.112 under frm+rws - while temporal
+            # PR differs by 2.2x between those conditions. Occupancy is the axis the penalties
+            # actually separate on, and it CANNOT be recovered from the stored participation vector
+            # (std + q90), which is why it has to be computed here, from the rates, before they are
+            # discarded. Costs one reduction over a tensor the probe already materialised.
+            with torch.no_grad():
+                rr = states if self.RNN.equation_type != "h" else self.RNN.activation(states)
+                rr = rr.reshape(rr.size(0), -1).double()
+                num = rr.sum(dim=1) ** 2
+                den = (rr * rr).sum(dim=1)
+                tpr = torch.where(den > 0, num / den.clamp_min(1e-300),
+                                  torch.zeros_like(den))       # 0 for an all-silent unit
+            mon["temporal_pr"].append(tpr.cpu().numpy().astype("float32"))
             mon["participation_iters"].append(int(iter))
 
         nan = float("nan")

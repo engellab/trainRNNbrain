@@ -7678,3 +7678,219 @@ globs `*LastParams*.npz` instead of the trace picks them up, and an untrained ne
 a result. In the first pass they added a spurious N=3000 row and a 25th none/N=4000 run. Now gated
 on `trainer.max_iter >= MIN_ITERS`, giving exactly 336 = the known grid count. **Audit any other
 folder-globbing script for the same hole.**
+
+## ▶ WHAT rws ADDS TO frm: IT MOLDS TRANSIENT UNITS INTO SUSTAINED ONES — 2026-09-09 13:30
+
+`flipflop_temporal_pr.py`, plus the peakiness comparison in the session scratchpad. N=2000, k in
+(2,5,8), 3 seeds per condition, noise-free rates over 64 trials.
+
+### The measure: temporal PR, the dual of the PR used everywhere else
+
+    temporal PR_i = (sum_s r_is)^2 / sum_s r_is^2      s = pooled (time, trial) samples
+
+`pr_matrix` reports PR over UNITS - the effective number of units carrying activity. This is PR over
+TIME - the effective number of samples each unit is active for. Divided by the sample count it is
+exactly the Treves-Rolls lifetime sparseness, bounded in (0, 1], threshold-free.
+
+### frm hits its own target; what it does not constrain is occupancy
+
+frm's penalised quantity is `tau * (logsumexp(r/tau) - log M)` with tau = 0.1 - a SOFT-MAX over
+(time, trials), i.e. a peak-ish statistic - driven two-sided toward
+`cap = 0.3 * log1p(100)/log1p(N)`. It succeeds at that:
+
+| quantity, CV across LIVE units | frm | both |
+|--------------------------------|-----|------|
+| frm's own soft-max activity | 0.125 | 0.112 |
+| temporal PR | **0.800** | **0.361** |
+| duty cycle (frac of samples > 0.5 x own peak) | 0.766 | 0.355 |
+
+Units under frm reach the right PEAK. They differ in how much of the time they sit there, and frm
+has no term that sees this.
+
+### Eleven peakiness measures, only the occupancy family separates the conditions
+
+CV across live units, ratio frm/both, identical liveness mask throughout:
+
+| measure | CV frm | CV both | ratio |
+|---------|--------|---------|-------|
+| sparseness (Treves-Rolls) | 0.800 | 0.361 | **2.21** |
+| temporal PR | 0.800 | 0.361 | **2.21** |
+| duty@0.5 | 0.768 | 0.354 | 2.17 |
+| duty@0.25 | 0.805 | 0.381 | 2.11 |
+| duty@0.75 | 0.789 | 0.410 | 1.93 |
+| gini | 0.250 | 0.207 | 1.21 |
+| peak/median | 7.392 | 6.796 | 1.09 |
+| peak/mean | 0.969 | 0.921 | 1.05 |
+| q90/median | 7.529 | 7.165 | 1.05 |
+| kurtosis | 1.267 | 1.944 | 0.65 |
+| drive_z = mean(drive)/std(drive) | 1.534 | 2.838 | **0.54** |
+
+⚠️ `peak/mean` FAILS despite carrying the same information (`peak/mean ~ 1/duty`): the reciprocal
+has a heavy right tail dominated by the few lowest-duty units, which exist in BOTH conditions and
+swamp the CV. Use the bounded form.
+
+⚠️ `peak/median` and `q90/median` are DEGENERATE HERE. The median rate is exactly zero for 75% of
+frm units and 59% of both units - the typical unit is silent more than half the time. Never
+substitute a median-based peakiness measure on this task.
+
+### The distribution is BIMODAL, and rws empties one mode
+
+Summary CVs hid the structure. Fractions of ALL N units, N=2000, k=3, 3 seeds:
+
+| | dead | live but tPR/n < 0.1 | 0.1-0.25 | 0.25-0.45 | > 0.45 |
+|--|------|----------------------|----------|-----------|--------|
+| frm | 0.136 | **0.318** | 0.128 | 0.284 | 0.134 |
+| both | 0.000 | **0.062** | 0.040 | 0.619 | 0.279 |
+
+Under frm, **45% of units are low-occupancy** (13.6% fully dead + 31.8% alive but on under 10% of
+the time). Under frm+rws that is **6.2%**, with 62% landing in the 0.25-0.45 band against 28%.
+
+⚠️ THE QUASI-SILENT GROUP IS INVISIBLE TO EVERY SILENCE CRITERION IN THIS PROJECT. Those units pass
+`participation >= SILENT_FLIPFLOP = 4e-2` comfortably. They have the correct peak activity - exactly
+what frm asks - and are simply rarely on. The dead/alive boundary cuts through the middle of a
+single continuous low-occupancy population; "silent unit" counts and temporal PR are not the same
+measurement and must not be conflated.
+
+### Reading: rws molds transient units into sustained ones
+
+frm alone yields a population split between properly engaged units and technically-active-but-barely-on
+units. Adding rws collapses the second group into the first. Silence is then the limiting case of
+low occupancy rather than a separate phenomenon, which supersedes the earlier framing of rws as
+doing two separate things (dead-unit rescue plus duty-cycle compression) - it is one effect along a
+continuum.
+
+⚠️ THIS IS A CROSS-SECTIONAL INFERENCE AND CANNOT SUPPORT THE WORD "MOLDS" ON ITS OWN. Comparing
+independently trained frm and frm+rws networks cannot distinguish (a) the same units being pushed to
+higher occupancy from (b) frm+rws finding a different solution in which different units occupy those
+roles. Only a within-network intervention that tracks the SAME units across a penalty switch can
+separate these. See the intervention design logged below.
+
+### Two mechanisms proposed and BOTH REFUTED
+
+1. *Tonic-vs-transient loophole, measured as peak/mean* - predicted CV ratio > 1.5, measured 1.06.
+   The occupancy story survived only when measured with a bounded statistic.
+2. *rws makes the operating point more uniform*, predicted CV of `mean(drive)/std(drive)` larger
+   under frm. Measured the OPPOSITE: 1.534 frm vs 2.838 both, ratio 0.54. Capping effective
+   in-degree makes drive statistics MORE heterogeneous while making occupancy MORE homogeneous.
+
+So the phenomenon is solid across five occupancy measures, and the mechanism linking rws's
+`S = (sum|w|)^2/sum w^2 <= 20` to occupancy is STILL OPEN. A nonlinear-compression account (duty
+~ Phi(drive_z) saturating) is untested speculation.
+
+## ▶ PLANNED: PENALTY-SWITCH INTERVENTION TO TEST "MOLDING" — designed 2026-09-09 13:30
+
+The cross-sectional frm-vs-both comparison above establishes a DIFFERENCE but cannot establish
+MOLDING. Two accounts fit it equally: (a) rws pushes the same low-occupancy units up, (b) frm+rws
+converges on a different solution in which different units occupy those roles. Only tracking unit
+IDENTITY across a penalty switch separates them.
+
+### Design: four arms, N=2000, k=3, 3 seeds each = 12 runs
+
+| arm | warm-start from | continue training with | role |
+|-----|-----------------|------------------------|------|
+| A1 | frm net | frm + rws | TREATMENT: do transient units become sustained? |
+| A2 | frm net | frm | control: extra training + optimiser restart |
+| A3 | both net | frm only | REVERSE: does bimodality return? |
+| A4 | both net | frm + rws | control |
+
+⚠️ A2 AND A4 ARE NOT OPTIONAL. Warm-starting resets Adam state and adds iterations; without the
+same-penalty arms every change is attributable to those rather than to the penalty switch.
+
+### Metrics, all tracked PER UNIT across the switch
+
+* primary endpoint: fraction low-occupancy = dead + (live and tPR/n < 0.1)
+* identity: Spearman(tPR_before, tPR_after). This is what makes the experiment worth running.
+* molding signature: regression of `delta tPR_i` on `tPR_before_i`
+* mechanism: within-network regression of `delta tPR_i` on `delta S_i`, S = (sum|w|)^2/sum w^2 per
+  row. Cross-sectionally S barely varies inside a condition (all frm rows ~743), so it cannot be
+  tested there; DURING the transition rows change at different rates, which finally provides the
+  within-network variation needed to test the mechanism directly.
+* confound guard: task r2 every probe. If adding rws breaks the task, occupancy changes are about a
+  broken network, not about rws.
+
+### Pre-registered predictions
+
+A1  low-occupancy fraction falls 0.45 -> below 0.15; `delta tPR` vs `tPR_before` correlation
+    rho < -0.4; identity preserved, Spearman(before, after) > 0.5.
+    FALSIFIED IF the fraction is unchanged (rws does not act on existing units), OR identity
+    correlation ~ 0 - that would mean RESHUFFLING, not molding, and the word must be dropped.
+A2  no change beyond drift. If A2 moves, the effect is extra training, not rws.
+A3  low-occupancy fraction rises 0.06 -> above 0.20.
+A4  no change.
+
+⚠️ A3 MAY SHOW HYSTERESIS, AND THAT IS A RESULT, NOT A FAILURE. Once rws has sparsified W_rec to
+S ~ 20, nothing pushes S back up: weight decay is 1e-6 and frm has no term that sees S. If A3 does
+NOT revert, rws's contribution is a STRUCTURAL change to connectivity that frm alone cannot undo -
+a stronger and more interesting claim than reversibility. Predict the direction, accept either
+answer.
+
+### Cost and the implementation blocker
+
+50k iterations at N=2000 is ~7.6 h (from the measured 400k ~ 61 h), so 12 runs fit one Della
+gpu-short wave. Cheap.
+
+⚠️ WARM START DOES NOT EXIST IN THE CODEBASE. `run_experiment.py:225` SAVES `*_AdamState_*.pt` but
+nothing ever loads it, and there is no path to initialise from `*LastParams*.npz`. This must be
+added first: a config key naming the source folder, with the launcher passing the per-task folder
+(the one place a launcher may override config, since it is the swept parameter). Fresh Adam state is
+acceptable and arguably preferable - frm-specific momentum should not carry across the switch - but
+the weights must be loaded exactly.
+
+### Cheap immediate probe: weight surgery, and what it can and cannot show
+
+Sparsify each row of an frm net's W_rec to S ~ 20 (keep the largest weights) and measure temporal PR
+with NO retraining. This asks whether low in-degree is SUFFICIENT for high occupancy.
+⚠️ It destroys task performance, so a change in occupancy is confounded by the network being broken.
+Its value is as a NEGATIVE result: if surgery alone does not raise occupancy, rws acts through the
+LEARNING DYNAMICS rather than through the connectivity statistic per se. Do not report a positive
+surgery result as evidence for the mechanism.
+
+### IMPLEMENTED 2026-09-09 13:50 — warm start, temporal-PR tracking, launcher
+
+Concrete parameters: N=2000, k=3. Base phase 50k iterations, warm phase 10k. 6 base runs
+(frm x3 seeds, both x3 seeds) + 12 warm runs (4 arms x 3 seeds) = 18 jobs.
+
+⚠️ 6 BASE RUNS, NOT 12, AND THIS IS DELIBERATE. A1 and A2 branch from the SAME frm parent, A3 and A4
+from the same both parent. That makes A1-vs-A2 a PAIRED contrast with between-seed variance removed;
+giving each arm its own parent would cost twice the base compute and lose the pairing.
+
+⚠️ WHY A FRESH 50k BASE RATHER THAN THE EXISTING 400k penlong NETS. A 10k switch is a 2.5%
+perturbation to a 400k-converged net and would probably show nothing. At 50k the net is converged in
+loss (frm and both both reach 1.03x floor by ~30-100k at N=2000) but still plastic.
+
+Three pieces of code:
+
+1. `run_experiment.py` — the warm-start LOAD path. The AdamState commit added the SAVE half and its
+   own comment recorded that "there is still no load path in this script"; this is that half.
+   `paths.init_from` names a source run folder, `paths.init_adam` (default false) optionally
+   restores the moments. Strict: every `named_parameters()` entry must be present with matching
+   shape or it raises. `y_init` is restored explicitly because it is NOT a Parameter yet is saved
+   and does change the dynamics. Any other array-valued key that goes unrestored prints a warning
+   rather than being dropped silently.
+   ⚠️ THE PENALTY IS NOT INHERITED — only weights. lambda_frm/lambda_rws come from the new run's
+   config, which is exactly what makes the switch possible.
+   ⚠️ ADAM MOMENTS OFF BY DEFAULT: frm-shaped momentum carried across the switch would import the
+   old objective's search direction, the confound the experiment exists to isolate.
+
+2. `Trainer.track_participation_` — per-unit temporal PR, stored on the
+   `store_participation_every` cadence beside `participation` and sharing `participation_iters`.
+   Computed from the probe's rates, which are then discarded, so it CANNOT be added retrospectively
+   and cannot be recovered from the stored participation vector (std + q90). Base phase stores every
+   100 iterations, warm phase every 10 (1000 samples over the switch, ~8 MB per run at N=2000).
+
+3. `slurm/SilentReLU_flipflop_switch_della.slurm` — both phases behind `PHASE=base|warm`.
+   The warm phase resolves its parent by globbing the base tag and FAILS if the match is not exactly
+   one folder: zero means the base did not finish, more than one means a rerun left a duplicate and
+   the arm would silently branch from whichever sorts first.
+
+⚠️ HYDRA CANNOT PARSE AN UNQUOTED RUN FOLDER. Run folders contain ';' and '=' (e.g.
+`...relu;N=2000;seed=...;Lfrm=0.1`), both hydra override-grammar characters, so `paths.init_from`
+must be single-quoted INSIDE the override: `"paths.init_from='$SRC'"`. Unquoted it dies with
+`LexerNoViableAltException`.
+
+Validation before any cluster submission (local, N=40, k=2, 60 iterations):
+* temporal PR recorded with the right shape and range (values < n_samples).
+* warm start with `trainer.lr=0` reproduces the source weights BIT-IDENTICALLY — max|diff| = 0.000e+00
+  for W_rec, W_inp, W_out, bias and y_init. Threshold set before running: exact equality, no tolerance.
+* the switch takes effect: base folder tag carries `Lrws=0`, the warm run's carries `Lrws=0.05`, and
+  the saved config records `init_from` for provenance.
