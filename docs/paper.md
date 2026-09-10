@@ -7,13 +7,14 @@ experimental record (configs, job IDs, repro instructions) is [`project_trajecto
 interpretation never quietly becomes result.
 
 **Architecture policy — main text vs supplement.** Every main-text result is stated for **standard
-unconstrained RNNs**: no Dale's law, no I/O sign constraints, self-connections allowed, trainable
-bias, no cubic term, plain multi-objective gradients. **Dale-constrained and I/O-positive networks
-are supplementary throughout** (§S1) — a robustness check on the main claims, never the basis of
-one. A result stated only for constrained networks reads as niche and is easy to dismiss.
+unconstrained RNNs**: no sign constraints on the recurrent or input/output weights, self-connections
+allowed, trainable bias, no cubic term, plain multi-objective gradients. **Sign-constrained
+architectures are supplementary throughout** (§S1) — a robustness check on the main claims, never
+the basis of one. A result stated only for constrained networks reads as niche and is easy to
+dismiss.
 
 Where a main-text number is currently derived from constrained networks because that is the only
-data with the relevant manipulation, it is marked ⚠️ **Dale-derived, standard-RNN version pending**
+data with the relevant manipulation, it is marked ⚠️ **derived in constrained networks (§S1), unconstrained version pending**
 rather than presented as settled.
 
 **Working titles**
@@ -54,7 +55,8 @@ at 1e-9…1e-2 instead of zero. Same population, concealed depth — see §S1.)
 standard unconstrained networks **4.4% of units are already hard-silent at initialization and 21% sit
 below the 0.01 line** before a single training step: with signed input weights a unit can start
 net-negative and never fire. Training takes it from 4.4% to 41.5%. The older "0% silent at init"
-result is **Dale-specific** — I/O positivity guarantees every unit a positive push, so nothing can be
+result is **specific to the sign-constrained architecture** (§S1) — I/O positivity guarantees every
+unit a positive push, so nothing can be
 exactly zero there. It also isn't a bug: an independently written Euler integrator reproduces the
 per-unit peak rates exactly (max abs diff 0.0) ✅.
 
@@ -260,12 +262,12 @@ Every intervention below was chosen because it *could* plausibly have removed th
 |---|---|---|
 | 1 | Equation type `h` vs `s` | both affected ✅ |
 | 2 | Cubic saturation term γ: 0.1 → 0 | no change ✅ |
-| 3 | Dale boundary: sticky → reflective | no change ✅ |
-| 4 | **Removing Dale's law entirely** | no change in the silent fraction ✅ |
+| 3 | Weight-boundary handling: sticky → reflective | no change ✅ |
+| 4 | **Sign-constrained vs unconstrained connectivity** (§S1) | no change in the silent fraction ✅ |
 | 5 | **Removing I/O positivity** | no change in the fraction; converts soft floors into hard zeros ✅ (§S1) |
 | 6 | **Trainable bias** (`[-1,1]`, zero init) | no rescue ✅ (55.3% → 54.9%) |
 | 7 | **Self-connections** allowed | no rescue ✅ — and the network trains the diagonal into self-*inhibition*: corr(self-weight, log participation) = **−0.51**, active units at −0.060 vs silent at −0.007. The cheapest escape from silence is one it declines to take. |
-| 8 | Activation: softplus(β=25), leaky-ReLU | persists, 40–64% (Dale) ✅; ⬜ standard-RNN rerun |
+| 8 | Activation: softplus(β=25), leaky-ReLU | persists, 40–64% ✅ (constrained nets, §S1); ⬜ unconstrained rerun |
 | 9 | Recurrent noise σ_rec ∈ {0, .01, .05, .1} | never helps; σ=0 is the *worst* regime (~80%) ✅; ⬜ rerun |
 | 10 | `rws` sparsity penalty | fails (§2) ✅ |
 | 11 | `met` metabolic penalty, 4 decades | fails, and at λ=10 makes it worse ✅ |
@@ -276,8 +278,7 @@ Every intervention below was chosen because it *could* plausibly have removed th
 
 **`frm` is the one that works, and it works completely** ✅:
 
-- Silent fraction → **exactly 0 under both criteria**, in every cell, every architecture (Dale,
-  unconstrained, ±bias), and every activation tested — and it stays 0 through 200k iterations, at
+- Silent fraction → **exactly 0 under both criteria**, in every cell, every architecture tested (§S1), and every activation tested — and it stays 0 through 200k iterations, at
   every size up to N=2000, where the unpenalized network has reached 79% ✅.
 - No tail whatsoever: the *minimum* participation of any unit in any `frm` net is 4.8e-2 — about a
   sixth of the median, with nothing approaching zero. Contrast `rws` (§2.1), which produces exactly
@@ -452,15 +453,13 @@ through all 30000), h equation, per 1000 units ✅:
 
 | | ever dips below 0.01 | ends below | **silent ≥500 iters, then recovers** |
 |---|---|---|---|
-| standard, none | 83.4% | 54.9% | 95.8 |
-| standard, **frm** | 48.9% | **0%** | **0.6** |
-| Dale, none | 96.0% | 53.6% | 85.0 |
-| Dale, **frm** | 94.4% | **0%** | **369.4** |
+| none | 83.4% | 54.9% | 95.8 |
+| **frm** | 48.9% | **0%** | **0.6** |
 
-**Both, and which one depends on the architecture.** In standard RNNs `frm` **prevents** — units dip
-briefly during the early collapse and are caught within a few hundred iterations; essentially none
-endure a long silent episode. In Dale networks it genuinely **resurrects** — 369 units per network
-were silent for ≥500 consecutive iterations and returned.
+**It prevents.** Units dip briefly during the early collapse and are caught within a few hundred
+iterations; essentially none endure a long silent episode before recovering. (In the constrained
+architectures of §S1 the answer is different — there the penalty genuinely *resurrects* long-silent
+units — so this is an architecture-dependent answer, and the unconstrained one is reported here.)
 
 Two by-products of the same analysis ✅: silence is **not strictly irreversible** even without
 penalties (~96 units per network recover spontaneously), and the split *begins* within the first few
@@ -469,8 +468,8 @@ within ~20 iterations and only the eventual-active subset climbs back out. Note 
 does **not** finish early — see §6.1.
 
 ⬜ Optional sharpening, 20 jobs: force a random 25% of units silent at init (bias = −1, frozen) and
-follow those specific units. Only needed if a referee insists on "can it revive a unit dead from the
-very start". The Dale resurrection number already carries most of that weight.
+follow those specific units. Needed only if a referee insists on "can it revive a unit dead from the
+very start" — the resurrection result in §S1 already carries most of that weight.
 
 *(The earlier master-inhibitor / frozen-clamp experiments asked this same question through
 hand-built silencing constructions. They are superseded by the trace analysis, which answers it on
@@ -552,51 +551,60 @@ data the size argument needs.
 ### 6.3 Is the rescue preventive or genuinely restorative? — **answered, architecture-dependent** ✅
 
 See §4. In standard RNNs `frm` **prevents** (0.6 units per network recover from a long silent
-episode); in Dale networks it **resurrects** (369 per network).
+episode); in the sign-constrained networks of §S1 it **resurrects** (369 per network).
 
 What remains open is the harder case: can it revive a unit dead **from initialization and stays
 dead**? §1.1's finding that 4.4% *are* hard-silent at init in standard networks means the material
 now exists. ⬜ 20 jobs would settle it. Optional.
 
-### 6.4 Is the silence just spare capacity — is the task too easy?
+### 6.4 Is the silence just spare capacity — is the task too easy? — **answered: no** ✅
 
-**Status: open, and now the single most important gap.** The deflationary reading, and the one a
-referee will default to: CDDM is low-dimensional, unpenalized networks solve it with ~60–150
-effective units, and a 5000-unit network trivially has units to spare.
+The deflationary reading, and the one a referee will default to: the task is low-dimensional,
+unpenalized networks solve it with a modest number of effective units, and a large network trivially
+has units to spare. If that were right, the number of active units should track **task demand**.
 
-**§1.2 sharpened this objection rather than answering it.** A task-determined ceiling of ~880 active
-units is *precisely what the spare-capacity story predicts*. Right now the paper's headline result
-and its deflationary explanation are observationally identical.
+This section previously asked for exactly one experiment: *scale the task, not the network, and ask
+whether the active count moves.* The n-bit flip-flop grid is that experiment. `k` is a clean
+complexity dial — the network must hold `k` independent bits, so the task's memory demand is
+proportional to `k` by construction — and it was run at k = 1…8 crossed with N = 500…4000, three
+seeds per cell, every network read at a budget-independent criterion (§Methods).
 
-The test is to scale the **task**, not the network, and ask whether `M*` moves:
+Fitting `M = A·N^b·k^c` to the absolute active count:
 
-- more contexts (CDDM generalises naturally to 3–4 modalities);
-- more stimulus dimensions / finer coherence resolution;
-- compositional variants; or simply a second, harder task from the repo.
+| penalty | b (size) | **c (complexity)** | M at N=4000, k=3 | N needed for M=1000 | for M=2000 |
+|---|---|---|---|---|---|
+| none | 0.373 | **−0.053** | 688 | **1.1×10⁴** | **7.0×10⁴** |
+| rws | 0.566 | **+0.043** | 1032 | 3.8×10³ | 1.3×10⁴ |
+| frm | 0.952 | −0.012 | 3646 | 1.0×10³ | 2.1×10³ |
+| both | 0.998 | −0.001 | 3981 | 1.0×10³ | 2.0×10³ |
 
-Then measure `M(N)` at matched performance in each, and ask whether the **ceiling** — not the
-fraction — tracks task demand while remaining independent of N.
+**The active count is essentially independent of task complexity.** Across all four conditions `c`
+lies in [−0.053, +0.043]. Over the full k = 1…8 range that is a factor of 8^0.05 ≈ **1.11 — an 11%
+change** — against the ~8× that network size contributes over the same span. Its **sign is not even
+consistent** across conditions, which is what one expects of an effect indistinguishable from zero.
 
-**This converts the result from a curiosity into a law with two axes:** *trained RNNs recruit a
-number of units set by the task, not a fraction of the network.* Every answer is publishable, but
-they are different papers. If `M*` rises with task complexity, the conclusion is partly a
-recommendation (*don't train 1000-unit RNNs on simple tasks and then analyse the population*), and
-it composes with §1.2 because you cannot cheaply buy a large active population by enlarging the
-network either. If `M*` is flat regardless of task complexity, it is a genuine pathology and the
-paper is much stronger.
+An eight-fold increase in the number of bits the network must hold buys it about a tenth more active
+units. **Spare capacity is not the explanation:** on that account, a task demanding eight times the
+memory should recruit substantially more units, and it does not.
 
-### 6.5 Can the rescue be made biologically realistic? — the σ_log gap
+The companion number rules out the other escape — that one could simply build a bigger network.
+Unpenalized, reaching 1000 active units requires **N ≈ 11,000**, and 2000 requires **N ≈ 70,000**;
+the largest network trained here is 4,000 and yields 688. And the active *fraction* falls
+monotonically with size (0.61 → 0.41 → 0.27 → **0.17** at N = 500 → 4000): bigger unpenalized
+networks are progressively emptier.
 
-**Status: open, and it undercuts the recommendation.** `frm` removes the silence but flattens the
-rate distribution (σ_log 1.20 → 0.26 against a cortical value of ~1; §1.3). Recommending `frm` to
-the field while it produces a population too uniform to be cortex is a real weakness.
+> **This is the branch that makes the result a pathology rather than a curiosity.** The two
+> possibilities were: if the ceiling tracks task demand, the paper is partly a recommendation
+> (*don't train large RNNs on simple tasks and then analyse the population*); if it is flat
+> regardless of demand, it is a genuine pathology. **It is flat.** Trained RNNs recruit a number of
+> units set by neither the network size (which buys sub-linearly) nor the task (which barely
+> matters at all).
 
-⬜ The natural knobs already exist in the implementation and have **never been swept**: `frm`'s
-`cap_fr` (the rate above which a unit stops being pushed) and its unused `logsumexp` aggregation,
-which penalises the *softmin* of the rates rather than the mean and should therefore act only on the
-lowest tail — exactly the shape needed to remove zeros without compressing the top. A single sweep
-over `cap_fr` × aggregation at N=1000 would report σ_log, silent fraction, and R² jointly, and turn
-this limitation into a tuned recommendation.
+⬜ **One caveat worth stating**: `k` scales the task's *memory* demand cleanly, but not necessarily
+its dimensionality in every sense. The measured effective dimensionality of the activity does rise
+with k (≈ 1.8k, §3.1), confirming the dial is doing what it claims — the network genuinely occupies
+more dimensions — while the active-unit count does not follow. That dissociation is itself the
+result: **more task dimensions, same number of units.**
 
 ### 6.6 Smaller open items
 
@@ -606,7 +614,7 @@ this limitation into a tuned recommendation.
   (DMTS / GoNoGo / MemoryAngle / …). Overlaps with 6.4 but is a weaker version of it: showing the
   effect on a second task establishes generality; showing `M*` *moves* with task complexity
   establishes mechanism.
-- **Activation and noise reruns** ⬜ — established in Dale networks, not yet repeated in standard ones.
+- **Activation and noise reruns** ⬜ — established in the constrained networks of §S1, not yet repeated in unconstrained ones.
 - **Reverse engineering / identifiability** ⬜ — see §7.
 
 ---
