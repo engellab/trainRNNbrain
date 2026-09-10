@@ -374,9 +374,11 @@ for 50k iterations. A1 and A2 branch from the **identical** frm parent; A3 and A
 | **A3** | both → frm | 0.353 → **0.228** | 0.000 → **0.088** | 0.325 | 1.9 |
 | **A4** | both → frm+rws *(control)* | 0.354 → 0.359 | 0.000 → 0.000 | 0.145 | 1.4 |
 
-*churn = dead↔alive transitions per unit, sampled every 10 iterations. See the caveat below — the
-comparison should be quoted at coarser sampling, where it is ~10× rather than 1.9×. A3/A4 have not
-yet been recomputed at that rate.*
+*churn = dead↔alive boundary crossings per unit, sampled every 250 iterations (see the caveat
+below on why the rate must be stated). All four arms: A4 **0.13**, A1 **0.35**, A3 1.54, A2
+**2.70** — the arms sort by whether `rws` is active after the switch, not by which parent they came
+from, with no overlap between the groups and a 20× spread. Equivalently: **95% of units under
+`frm+rws` never cross the silence boundary once in 50k iterations, against 47% under `frm` alone.***
 
 > **Both same-penalty controls are load-bearing.** A4 is inert (median +0.005, ρ(start,end) = 0.78),
 > so warm-starting and 50k extra iterations do nothing on their own. But **A2 is not inert**

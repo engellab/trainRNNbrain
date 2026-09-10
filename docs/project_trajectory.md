@@ -8282,8 +8282,45 @@ different phenomena: **A1's residual churn is fast flicker at the 10-iteration s
 persistent switching that survives any sampling rate.** Counting them as equivalent turned a ~10x
 separation into 1.9x. Quote the coarse-sampled figure and state the rate.
 
-⚠️ A3 AND A4 CHURN ARE STILL AT THE FINE SAMPLING (1.9 and 1.4) and have not been recomputed - the
-cluster was unreachable. Do not compare them against A1/A2's corrected values until they are.
+**ALL FOUR ARMS, RECOMPUTED AT THE 250-ITERATION RATE** (2026-09-10, `flipflop_switch_summary.py`,
+3-seed means):
+
+| arm | switch | rws after? | churn | never flip | flip 4+ |
+|-----|--------|-----------|-------|------------|---------|
+| A4 | both -> frm+rws | ON | **0.13** | 0.95 | 0.012 |
+| A1 | frm -> frm+rws | ON | **0.35** | 0.83 | 0.022 |
+| A3 | both -> frm | OFF | 1.54 | 0.70 | 0.194 |
+| A2 | frm -> frm | OFF | **2.70** | 0.47 | **0.359** |
+
+**The arms sort by whether rws is active after the switch, not by which parent they came from**, with
+no overlap between the two groups and a 20x spread from A4 to A2. A3 starts from a perfectly stable
+`both` network and climbs to 1.54 once rws is removed, so churn is not a property the network keeps -
+it is suppressed only while rws is on. The most legible form: **95% of units under frm+rws never
+cross the silence boundary once in 50k iterations, against 47% under frm alone.**
+
+⚠️ There is a SECONDARY parent effect within each group (A4 < A1 and A3 < A2): arms descended from a
+`both` net churn less than arms descended from an frm net, whichever penalty they end under. Do not
+state the ordering as purely rws-determined.
 
 **rho is affected by ties at zero.** Excluding units dead at the switch: A1 0.225 -> 0.344,
 A2 0.444 -> 0.507. The gap narrows but survives; quote the live-only version.
+
+### Endpoint stability differs between arms, and it matters for how endpoints are quoted
+
+Comparing the full-resolution endpoint (iteration 49,990) against the subsampled one (49,750):
+
+| arm | median tPR @49,990 | @49,750 | difference |
+|-----|--------------------|---------|------------|
+| A1 | 0.353 | 0.355 | 0.002 |
+| A4 | 0.359 | 0.357 | 0.002 |
+| A2 | 0.209 | 0.239 | **0.030** |
+| A3 | 0.228 | 0.200 | **0.028** |
+
+The two rws-ON arms have endpoints reproducible to 0.002; the two rws-OFF arms move by ~0.03
+depending on which iteration you happen to sample, **because they are still oscillating at the end of
+the run**. This is the same instability the churn statistic measures, showing up as endpoint
+irreproducibility. ⚠️ Quote A2/A3 endpoints with that uncertainty attached, or average over a window
+rather than taking the last snapshot.
+
+⚠️ A3 HAS NOT CONVERGED at 50k - its dead fraction is still rising and its occupancy still falling.
+The reverse direction is therefore a LOWER BOUND on how far removing rws would eventually take it.
