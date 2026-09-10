@@ -8527,3 +8527,40 @@ are scaffolding: they motivated measuring S and cancellation, and their failed p
 assemblies, but they do not derive the result and should not be presented as doing so. And the
 training-stability half (frm alone spikes more at large N) has a modest effect and NO established
 mechanism - the one proposed was refuted (per-step kick ~ N^0.46 frm vs N^0.59 both).
+
+## ▶ READOUT TEST OF THE ASSEMBLY PICTURE: W_out targets clean units, but is not sparser — 2026-09-10 15:19
+
+Pavel's prediction: under frm the readout should target the clean, selective minority and disregard
+the mixed units, so W_out should be SPARSER under frm than under both. Tested on N=2000, 3 seeds,
+k=3 and k=8. The intuition is right; the predicted consequence is not.
+
+**(B) Readout weight tracks unit cleanliness under frm, not under both.** Per live unit, Spearman
+between total |W_out| and cleanliness (top loading / second loading), and the median-weight ratio
+clean (>=2x) vs mixed:
+
+    k=3   frm  rho 0.70   clean/mixed 4.1x        both  rho 0.38   clean/mixed 1.09x
+    k=8   frm  rho 0.69   clean/mixed 3.6x        both  rho 0.49   clean/mixed 1.28x
+
+Under frm the readout gives clean units ~4x the weight of mixed ones. Under both it does not
+discriminate - there is nothing to discriminate between.
+
+**(A) But W_out is NOT sparser.** Effective units read per output channel, S_out = (Σ|w|)²/Σw²,
+as a fraction of live units, and Hoyer sparsity of the readout rows:
+
+    k=3   frm  0.262  Hoyer 0.500       both  0.265  Hoyer 0.496
+    k=8   frm  0.126  Hoyer 0.661       both  0.145  Hoyer 0.633
+
+Identical. frm has ~1700 live units of which ~60% are clean - ~1000 - which is plenty to spread a
+readout over. **The readout is selective about WHICH units it reads, not HOW MANY.** Sparsity was
+the wrong consequence to look for; the targeting ratio is where the effect lives.
+
+**(C) The readout is aimed more precisely under both.** Fraction of |W_out[c]| on units whose
+assembly is bit c (chance 1/k):
+    k=3   frm 0.799 (2.4x)     both 0.909 (2.7x)
+    k=8   frm 0.769 (6.2x)     both 0.875 (7.0x)
+
+⚠️ NOTED, NOT PURSUED: within the on-bit weight, the sign-correct share (positive on '+' units,
+negative on '-' units) is LOWER under both (0.708 / 0.646) than frm (0.776 / 0.724) - the wrong
+direction for the picture. Small, secondary, and possibly an argmax-assignment artefact (both's
+assemblies are E/I-balanced internally, so a unit's sign category may be ambiguous). Revisit with
+the soft assignment if it ever matters.
