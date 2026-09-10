@@ -8684,3 +8684,59 @@ occupancy and R² results where it is the right word.
 
 The pitch, once the matched-n table exists: cortex has this property; standard trained networks
 generally don't; here is a training condition under which they do, and here is the mechanism.
+
+## ▶ MODULARITY OF EACH PARTITION ON ITS OWN, MATCHED n — REVISES "both IS MOST MODULAR" — 2026-09-10 16:17
+
+Pavel: "I never saw the modularity results alone." Right - the ARI table showed agreement between
+two partitions without showing whether either was any good, and the matched-n gap was still open.
+Both fixed here. n = 275 live units in every condition, n_clusters = 2k, 4 subsamples x 3 seeds.
+Each partition scored against its OWN null (wiring: within-row permutation, which preserves every
+unit's in-degree; activity: each unit's time series permuted, which destroys cross-correlation).
+
+| pen | WIRING Q | Q_null | excess | contrast | ACTIVITY Q | Q_null | excess | contrast | silh | ARI(W,A) |
+|-----|---------|--------|--------|----------|-----------|--------|--------|----------|------|----------|
+| none | 0.395 | 0.069 | 0.327 | 6.5x | 0.368 | 0.030 | 0.338 | 5.5x | 0.41 | 0.61 ± 0.09 |
+| rws | 0.542 | 0.146 | **0.396** | 13.5x | 0.361 | 0.030 | 0.331 | 5.5x | 0.41 | 0.62 ± 0.07 |
+| frm | 0.196 | 0.058 | **0.138** | **2.1x** | 0.315 | 0.030 | 0.285 | 4.6x | 0.42 | **0.30 ± 0.08** |
+| both | 0.524 | **0.321** | 0.203 | 10.8x | 0.360 | 0.030 | 0.330 | 5.4x | **0.55** | 0.48 ± 0.15 |
+
+contrast = mean within-cluster edge / mean between-cluster edge (1 = no block structure; NOT
+null-corrected, the Q-excess column is). silh = silhouette of the activity clusters at distance
+1-|corr|.
+
+### Finding 1: activity modularity is the SAME in every condition
+
+Q excess 0.29-0.34 and contrast 4.6-5.5x across all four, frm included. **Every condition has
+clearly modular activity.** The one difference is that both's activity clusters are tighter
+(silhouette 0.55 vs 0.41). So "frm units are functionally disorganised" is WRONG as a statement
+about activity - their activity groups as cleanly as anyone's.
+
+### Finding 2: wiring modularity is where they differ, and frm is the outlier
+
+Q excess 0.33 / 0.40 / **0.14** / 0.20; contrast 6.5 / 13.5 / **2.1** / 10.8. frm's wiring is
+barely above its null while its activity is as modular as the others'. That is the precise form of
+"function present but not implemented in the recurrent wiring": both partitions measured, each
+against its own null, and only one of them collapses under frm.
+
+### ⚠️ Correction 1: both's raw wiring Q is inflated by sparsity
+
+both's row-shuffle null is 0.321 against 0.06-0.15 for the others. A sparse random graph (S ≈ 20
+targets per row) looks modular to spectral clustering BY ITSELF - the classic modularity-of-random-
+graphs effect. Null-corrected, both's wiring excess is 0.20, BETWEEN frm and none. ⚠️ Never quote
+raw Q across conditions with different sparsity; the row-shuffle null is what makes it comparable.
+
+### ⚠️ Correction 2: "both is most task-aligned" (13:xx entry) was an unmatched-n artefact — WITHDRAWN
+
+Matched, ARI(W,A) is 0.61 / 0.62 / 0.30 / 0.48 ± 0.15. both DROPS and its spread balloons, because
+subsampling 275 of 2000 units cuts each of its six assemblies to ~45 members and spectral
+clustering on that is noisy. This is the known asymmetry of matched-n: fair to the statistic,
+unfair to the condition with more structure per unit. Report it as: frm is the outlier (0.30);
+none, rws and both are comparable within their spreads.
+
+### What survives, stated at the honest magnitude
+
+**Modularity is the default. frm destroys it in the wiring. rws preserves it under frm.** both is
+NOT more modular than none or rws - it has the SAME modularity extended to all 2000 units instead
+of 275. That was always the magnitude in the assembly-share table (none 3.1x chance, rws 3.7x, both
+4.0x) and it is the right way to say it. The gain from adding rws to frm is not more structure per
+unit; it is structure at all, across every unit, where frm alone has none in the wiring.

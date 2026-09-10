@@ -488,15 +488,26 @@ of `frm+rws` units sits at 0.35–0.38 at every k from 1 to 8; the modal `frm`-a
 is quasi-silent. The temporal-participation uniformity, the disappearance of dead units, and the
 R²/Hoyer results of §3.1–3.2 are all this single fact.
 
-**The modules are not an artifact of the labels.** Clustering the wiring alone — spectral
-partition of `|W_rec|` into 2k communities, no bit signal used — gives modularity Q = 0.39 / 0.54 /
-**0.19** / 0.49 for none / rws / `frm` / both, and the same partition of the *activity* correlations
-agrees with the wiring partition at ARI 0.57 / 0.65 / **0.30** / 0.56. `frm` is half as modular as
-any other condition and is the only one whose wiring and activity communities disagree. Checked
-against the label-based assignment afterwards, the label-free wiring partition recovers the task
-assemblies best under both (ARI 0.66) and worst under `frm` (0.24). (Louvain does not recover the
-number 2k unprompted, and eigenvalue outliers of `W_rec` do not count the assemblies, because they
-are internally E/I-balanced rather than self-exciting; §Methods.)
+**The modules are not an artifact of the labels, and it is the wiring, not the activity, that
+`frm` lacks.** With every condition subsampled to the same 275 live units, 2k clusters, and each
+partition scored against its own shuffle null: the *activity* is modular to the same degree in all
+four conditions (Q above null 0.29–0.34; within-cluster correlations 4.6–5.5× between-cluster),
+`frm` included. The *wiring* is not: Q above null is 0.33 / 0.40 / **0.14** / 0.20 for none / rws /
+`frm` / both, and within-cluster weights exceed between-cluster weights by 6.5 / 13.5 / **2.1** /
+10.8×. `frm`'s activity groups as cleanly as anyone's while its recurrent wiring is barely above
+chance — function present, not carried by `W_rec`. Wiring and activity partitions agree at ARI
+0.61 / 0.62 / **0.30** / 0.48 (±0.08–0.15): `frm` is the outlier; the other three are comparable
+within their spreads. (Both's raw wiring modularity is inflated by its sparsity — a sparse random
+graph looks modular to spectral clustering by itself, null 0.32 vs 0.06–0.15 — so only
+null-corrected values are comparable across conditions. Louvain does not recover the number 2k
+unprompted, and eigenvalue outliers of `W_rec` do not count the assemblies, because they are
+internally E/I-balanced rather than self-exciting; §Methods.)
+
+> **The honest magnitude.** Modularity is the *default* — the unpenalized network builds it among
+> its few survivors. `frm` destroys it in the wiring; `rws` preserves it. Adding `rws` to `frm` does
+> not make the network *more* modular than an unpenalized one; it gives the *same* modularity across
+> all 2,000 units instead of 275. The gain is not structure per unit — it is structure at all, in
+> every unit, where `frm` alone has none in the wiring.
 
 > **What the wiring–activity agreement means, and what to call it.** It is *structure–function
 > correspondence* — whether the modules in the anatomy are the modules in the physiology — and it is
@@ -513,10 +524,9 @@ are internally E/I-balanced rather than self-exciting; §Methods.)
 > connectivity (Dubreuil et al. 2022) and from function (Yang et al. 2019), but not, to our
 > knowledge, tested for coincidence ⬜ verify.
 
-⬜ **Before this table is quotable:** subsample every condition to a common live-unit count (none
-~280 vs both 2,000 — every other cross-condition statistic in this paper needed this and this one
-has not had it); add a seed spread (the `frm`-vs-rest gap will survive, the ordering among the
-other three will not and should be reported as a tie); and sweep the cluster count around 2k.
+⬜ **Still open on this table:** the cluster count is fixed at 2k; a sweep around it, or a
+stability-based choice, would close the last methodological question. (Matched-n and seed spread
+are now done — see the values above.)
 ⬜ **Testable hypothesis left open:** whether `frm`'s selectivity is carried by `W_inp` rather than
 `W_rec`, which is what "function without block structure in the recurrent weights" would require.
 
