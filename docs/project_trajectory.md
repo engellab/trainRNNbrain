@@ -8182,6 +8182,10 @@ every 10 iterations (5000 snapshots x 2000 units per run).
 `churn` = dead<->alive transitions per unit over the 50k iterations. It is the statistic that
 turned out to matter and it was not in the pre-registered plan.
 
+⚠️ CORRECTED 2026-09-10 09:05, TWO STATISTICS IN THIS TABLE WERE MIS-USED. See "Statistics that had
+to be corrected" at the end of this entry. The churn column understates the effect (it is
+sampling-rate dependent) and the corr(delta,start) column supports nothing at all.
+
 ### 1. A4 validates the design
 
 The `both -> both` control changes NOTHING: median 0.354 -> 0.359, dead 0.000 -> 0.000, rho = 0.78,
@@ -8204,9 +8208,12 @@ connectivity.** Do not describe it as reshaping the network into a new stable re
 
 ### 3. The mechanism is STABILISATION, not elevation
 
-Under frm alone units cycle in and out of silence continuously: **3.2 dead<->alive transitions per
-unit**, against 1.4 with rws. The ~10% dead fraction under frm is a DYNAMIC EQUILIBRIUM, not a fixed
-set of casualties - at any moment ~10% are dead, but not the same 10%.
+Under frm alone units cycle in and out of silence continuously. Sampled every 250 iterations, which
+is the rate at which the comparison is meaningful (see the correction note below): **2.94
+transitions per unit under frm alone against 0.30 with rws, nearly 10x**. Under frm 43% of units
+never cross the boundary and **38.7% cross it four or more times**; with rws that is 83% and 1.7%.
+The ~10% dead fraction under frm is a DYNAMIC EQUILIBRIUM, not a fixed set of casualties - at any
+moment ~10% are dead, but not the same 10%.
 
 That explains the identity numbers, which otherwise look like reshuffling. A2 has rho = 0.48 WITH NO
 PENALTY CHANGE AT ALL; A4, where nothing changes, holds 0.78. So the low rho in A1 (0.26) is not rws
@@ -8221,10 +8228,11 @@ checkpoint in every arm.
 ### Verdict against what was pre-registered
 
 * "Molding" as defined in the plan (identity rho > 0.5): **NOT SUPPORTED**, A1 gives 0.26.
-* The molding SIGNATURE passes decisively: corr(delta tPR, starting tPR) = **-0.67** against the
-  control's -0.40. Units that start lowest gain the most.
+* The second criterion, corr(delta tPR, starting tPR), **ALSO FAILS** once its null is computed -
+  see the correction note. BOTH pre-registered molding criteria therefore fail.
 * Correct description is neither molding nor reshuffling: **rws levels the distribution and pins it
-  in place.**
+  in place.** That rests on the dead-fraction change, the IQR compression and the churn collapse,
+  none of which depend on the two broken statistics.
 
 ⚠️ SUPERSEDES THE CROSS-SECTIONAL FRAMING. "frm makes units active but transient; rws molds them
 into sustained ones" becomes **"frm cannot hold units alive; rws stabilises them there"** - causal,
@@ -8243,3 +8251,39 @@ other run reports zero skips. Ruled out first:
   than 0.1, against swings of 0.3-0.5 in the figure. Two orders of magnitude too small.
 Plot a clean seed (rep 1) and say which; `switch_trajectories_rep0.png` is kept only as the
 documented example of the frm spike problem.
+
+### ⚠️ Statistics that had to be corrected — 2026-09-10 09:05
+
+**corr(delta, start) SUPPORTS NOTHING AND THE CLAIM BUILT ON IT IS WITHDRAWN.** The statistic has a
+large built-in negative bias: if the endpoint were unrelated to the start, `corr(a, b-a)` is already
+about -0.7 to -0.8 purely from regression to the mean. Against each arm's OWN shuffled-endpoint null
+(endpoints permuted across units, both marginals preserved):
+
+| arm | observed | own null | excess |
+|-----|----------|----------|--------|
+| A1 | -0.667 | -0.773 | **+0.106** |
+| A2 | -0.394 | -0.685 | **+0.291** |
+
+Both observed values are LESS NEGATIVE than chance, so the statistic is measuring rank preservation,
+not "low starters gain most" - and the excess is LARGER IN THE CONTROL, the opposite direction from
+the claim. The raw -0.67 vs -0.40 comparison is invalid because the arms have different final
+spreads, and the spread sets the null. ⚠️ NEVER COMPARE corr(x, y-x) ACROSS GROUPS WITH DIFFERENT
+VARIANCES WITHOUT A PER-GROUP NULL.
+
+**CHURN IS SAMPLING-RATE DEPENDENT AND THE REPORTED NUMBERS UNDERSTATE THE EFFECT ~5x.**
+
+| arm | every 10 iters (as first reported) | every 250 iters | never flip | flip 4+ times |
+|-----|------------------------------------|-----------------|------------|---------------|
+| A1 | 1.7 | **0.30** | 83% | 1.7% |
+| A2 | 3.2 | **2.94** | 43% | **38.7%** |
+
+A1's count collapses 5.7x under coarser sampling while A2's barely moves (1.09x), so the two are
+different phenomena: **A1's residual churn is fast flicker at the 10-iteration scale; A2's is slow,
+persistent switching that survives any sampling rate.** Counting them as equivalent turned a ~10x
+separation into 1.9x. Quote the coarse-sampled figure and state the rate.
+
+⚠️ A3 AND A4 CHURN ARE STILL AT THE FINE SAMPLING (1.9 and 1.4) and have not been recomputed - the
+cluster was unreachable. Do not compare them against A1/A2's corrected values until they are.
+
+**rho is affected by ties at zero.** Excluding units dead at the switch: A1 0.225 -> 0.344,
+A2 0.444 -> 0.507. The gap narrows but survives; quote the live-only version.

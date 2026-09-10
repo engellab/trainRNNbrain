@@ -373,7 +373,9 @@ for 50k iterations. A1 and A2 branch from the **identical** frm parent; A3 and A
 | **A3** | both → frm | 0.353 → **0.228** | 0.000 → **0.088** | 0.325 | 1.9 |
 | **A4** | both → frm+rws *(control)* | 0.354 → 0.359 | 0.000 → 0.000 | 0.145 | 1.4 |
 
-*churn = dead↔alive transitions per unit over 50k iterations.*
+*churn = dead↔alive transitions per unit, sampled every 10 iterations. See the caveat below — the
+comparison should be quoted at coarser sampling, where it is ~10× rather than 1.9×. A3/A4 have not
+yet been recomputed at that rate.*
 
 > **Both same-penalty controls are load-bearing.** A4 is inert (median +0.005, ρ(start,end) = 0.78),
 > so warm-starting and 50k extra iterations do nothing on their own. But **A2 is not inert**
@@ -387,9 +389,19 @@ hysteresis — once `rws` has pulled the effective in-degree to its target, noth
 effect is dynamically maintained, not a one-time rewiring.**
 
 **The mechanism is stabilization, not elevation.** Under `frm` alone units cycle in and out of
-silence continuously — **3.2 dead↔alive transitions per unit**, against 1.4 with `rws`. The ~10%
-dead fraction under `frm` is a *dynamic equilibrium*, not a fixed set of casualties: at any moment
-~10% are dead, but not the same 10%. This is visible directly in the trajectory figures, where the
+silence continuously. Sampled every 250 iterations — the rate at which the comparison is meaningful,
+see the caveat — there are **2.94 dead↔alive transitions per unit under `frm` alone against 0.30
+with `rws`, nearly 10×**. Under `frm` 43% of units never cross the boundary and **38.7% cross it
+four or more times**; with `rws` those are 83% and 1.7%. The ~10% dead fraction under `frm` is a
+*dynamic equilibrium*, not a fixed set of casualties: at any moment ~10% are dead, but not the same
+10%.
+
+> **Churn is sampling-rate dependent and must be quoted with its rate.** At 10-iteration sampling
+> the counts are 1.7 vs 3.2, only 1.9×. `frm+rws`'s count collapses 5.7× under coarser sampling
+> while `frm`-alone's barely moves (1.09×), because they are different phenomena: the residual churn
+> under `frm+rws` is fast flicker at the finest timescale, whereas `frm`-alone's is slow, persistent
+> switching that survives any sampling rate. Counting the two as equivalent understates the effect
+> five-fold. This is visible directly in the trajectory figures, where the
 `frm`-only arm's dead fraction sawtooths between 0 and 0.24 for the entire run while the `frm+rws`
 arm drops to zero within a few hundred iterations and stays.
 
@@ -397,16 +409,27 @@ That also resolves an apparent paradox in the identity statistics. Rank correlat
 and final occupancy is only 0.26 under A1 — which looks like `rws` scrambling the population. But
 A2, where the penalty does *not* change, gives 0.48, while A4 (nothing changes) gives 0.78. So the
 low value under A1 is `rws` **stopping** a reshuffling that `frm` was doing anyway, then compressing
-the distribution (IQR 0.330 → 0.179) so ranks lose resolution. The distinguishing statistic is
-`corr(Δ occupancy, starting occupancy)` = **−0.67** against the control's −0.40: the units that
-start lowest gain the most.
+the distribution (IQR 0.330 → 0.179) so ranks lose resolution. The distinguishing statistics are the ones that do not
+depend on rank: the dead fraction (0.106 → 0.000 vs 0.106 → 0.094), the IQR compression, and the
+churn collapse.
+
+> **A statistic we tried and discarded.** `corr(Δ occupancy, starting occupancy)` looks like the
+> natural test of "low starters gain most", and gives −0.67 for A1 against −0.40 for the control.
+> It supports nothing. The statistic carries a large built-in negative bias — with an endpoint
+> unrelated to the start, `corr(a, b−a)` is already ≈ −0.7 from regression to the mean — and the
+> bias depends on the group's variance, which differs between arms. Against each arm's own
+> shuffled-endpoint null the *excess* is +0.11 for A1 and +0.29 for the control: both are less
+> negative than chance, and the control shows more identity preservation, the opposite of the
+> apparent reading. Never compare `corr(x, y−x)` across groups with different variances without a
+> per-group null.
 
 **No task cost.** Final loss 0.027–0.030 across all four arms (±0.002), r² 0.934–0.948 at every
 checkpoint.
 
 > **The claim this supports, and the one it does not.** Not "`rws` molds transient units into
-> sustained ones" — that was our pre-registered hypothesis and its identity criterion (ρ > 0.5)
-> fails. The supported claim is **`frm` cannot hold units alive; `rws` stabilizes them there** —
+> sustained ones" — that was our pre-registered hypothesis and **both** its criteria fail: identity
+> ρ = 0.26 against the required > 0.5, and the `corr(Δ, start)` signature evaporates once its null
+> is computed. The supported claim is **`frm` cannot hold units alive; `rws` stabilizes them there** —
 > causal, reversible, and measured within the same networks.
 
 ⬜ **Caveat**: one run of twelve (A1 seed 0) hit the `frm` gradient-spike problem — 498 skipped
