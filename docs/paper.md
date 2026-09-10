@@ -498,6 +498,28 @@ assemblies best under both (ARI 0.66) and worst under `frm` (0.24). (Louvain doe
 number 2k unprompted, and eigenvalue outliers of `W_rec` do not count the assemblies, because they
 are internally E/I-balanced rather than self-exciting; §Methods.)
 
+> **What the wiring–activity agreement means, and what to call it.** It is *structure–function
+> correspondence* — whether the modules in the anatomy are the modules in the physiology — and it is
+> a different axis from heterogeneity: `frm`'s wiring is *homogeneous*, everyone connected to
+> everyone, while its activity is heterogeneous. Under `frm` the units are still functionally
+> organized (activity partition vs task assemblies: 0.41), but the recurrent wiring does not carry
+> that organization (0.24). **Under both, the function is implemented in the recurrent weights as
+> blocks one can read off the matrix; under `frm` the same function exists but leaves no block
+> structure in `W_rec`.** This is the sharpest form of the "useful as a tool" claim: a network can
+> only be reverse-engineered from its weights if the weights reflect its function. It is also the
+> property cortex has — like-to-like connectivity (Ko et al. 2011; Cossell et al. 2015 ⬜ verify) —
+> and one that standard trained networks reportedly lack (Hod/Casper/Filan et al. ~2021 on weight
+> vs activation clusterability ⬜ verify). Trained-RNN population structure has been found from
+> connectivity (Dubreuil et al. 2022) and from function (Yang et al. 2019), but not, to our
+> knowledge, tested for coincidence ⬜ verify.
+
+⬜ **Before this table is quotable:** subsample every condition to a common live-unit count (none
+~280 vs both 2,000 — every other cross-condition statistic in this paper needed this and this one
+has not had it); add a seed spread (the `frm`-vs-rest gap will survive, the ordering among the
+other three will not and should be reported as a tie); and sweep the cluster count around 2k.
+⬜ **Testable hypothesis left open:** whether `frm`'s selectivity is carried by `W_inp` rather than
+`W_rec`, which is what "function without block structure in the recurrent weights" would require.
+
 > **Why the penalties need each other.** `frm` demands every unit be active but says nothing about
 > *how*. With thousands of units and a handful of states, the cheap way to keep everyone alive is
 > to listen to everyone — some drive always arrives from somewhere — and that is exactly what `frm`

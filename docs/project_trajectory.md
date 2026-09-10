@@ -8619,3 +8619,68 @@ The assembly picture survives with the labels removed: modularity, wiring–acti
 and the recovery of task assemblies from wiring alone all single out frm as unstructured and both
 as the most task-aligned. The two spectral/graph routes that were expected to COUNT the assemblies
 do not, for reasons that are consistent with the picture rather than against it.
+
+## ▶ WHAT ARI(W, A) MEANS, WHAT TO CALL IT, AND WHAT IT NEEDS BEFORE IT IS A RESULT — 2026-09-10 16:10
+
+Follow-up to the task-free confirmation above, prompted by "what exactly does this tell us?"
+
+### The meaning
+
+ARI(W, A) high means the groups drawn from the ANATOMY (|W_rec|) are the groups drawn from the
+PHYSIOLOGY (activity correlations): strongly wired units co-fluctuate, weakly wired ones don't.
+
+Under frm it is low (0.30) for an asymmetric reason. The units ARE functionally organised - the
+activity partition matches the task assemblies at 0.41, well above chance - but the recurrent
+wiring does not reflect that organisation (wiring vs task 0.24; spectral clustering on a
+near-uniform |W_rec| is cutting mostly noise). **Under both, the functional organisation is
+implemented in the recurrent weights as blocks you can read off the matrix. Under frm the same
+function exists but is implemented some other way that leaves no block structure in W_rec** -
+presumably through the input weights plus a diffuse recurrent layer acting as a mixing stage rather
+than as a memory. ⚠️ That last clause is a hypothesis: whether frm's selectivity is carried by W_inp
+rather than W_rec is TESTABLE and has not been tested.
+
+Why it matters: (1) cortex has like-to-like connectivity, so a network where wiring and co-activity
+are unrelated is a poor model of it regardless of task performance; (2) reverse-engineering a
+network from its weights requires the weights to reflect function - under frm they do not, under
+both they do, which is the sharpest form of "useful as a tool" produced so far; (3) it says where
+the memory lives.
+
+### ⚠️ The word: this is STRUCTURE-FUNCTION CORRESPONDENCE, not heterogeneity
+
+Pavel proposed reporting it as a heterogeneity measure. It is not one. frm's wiring is the OPPOSITE
+of heterogeneous - it is homogeneous, diffuse, everyone connected to everyone. What is heterogeneous
+under frm is the ACTIVITY (broad occupancy distribution). Modularity and heterogeneity are
+different axes: a network can be homogeneous-and-non-modular (frm's wiring) or
+heterogeneous-and-modular (both's activity across assemblies). Report it as "anatomical modularity
+matches functional modularity under frm+rws and not under frm", and keep "heterogeneity" for the
+occupancy and R² results where it is the right word.
+
+### ⚠️ Three things it needs before the table is quotable
+
+1. **MATCHED UNIT COUNT - NOT DONE.** Every earlier cross-condition comparison in this project had
+   to be subsampled to equal n because the statistics move with n. This one was not: none ~280 live
+   units, frm ~1600, both 2000. Spectral clustering and ARI on 280 vs 2000 points are not
+   automatically comparable. Run it subsampled before quoting anything.
+2. **Seed spread.** 3-seed means, no error bars. Bootstrap over units or add seeds. The frm-vs-rest
+   gap (0.30 vs 0.56+) will survive; the ordering AMONG none/rws/both (0.56-0.65) is probably noise
+   and must be reported as a tie.
+3. **Cluster count.** n = 2k is principled here (the task's state count is known) but a reader will
+   ask what other n give. A sweep or a stability-based choice closes it.
+
+### Prior work — ⚠️ RECALLED, NOT VERIFIED; check every citation before use
+
+* Neuroscience target - like-to-like connectivity: Ko et al. 2011 (Nature), similarly tuned V1
+  neurons preferentially connected; Cossell et al. 2015 (Nature), synaptic strength tracks response
+  correlation. That is "wiring groups = activity groups" measured in cortex - the standard frm+rws
+  meets and frm does not.
+* Closest ANN precedent: Hod, Casper, Filan et al. (~2021, "Detecting modularity in deep neural
+  networks"; Filan et al., "clusterability") graph-cluster weights, cluster activations, and ask
+  whether they agree. Recollection: standard trained nets often do NOT show aligned weight and
+  activation clusters - which makes a training condition that PRODUCES alignment the novel part.
+* Trained RNNs: Dubreuil, Valente, Mastrogiuseppe & Ostojic 2022 (Nat Neurosci), population
+  structure in low-rank RNNs found from connectivity; Yang et al. 2019 (Nat Neurosci), functional
+  clusters in multitask RNNs from task-variance profiles. Neither, as recalled, tests whether the
+  wiring partition and the activity partition coincide - that is the specific addition here.
+
+The pitch, once the matched-n table exists: cortex has this property; standard trained networks
+generally don't; here is a training condition under which they do, and here is the mechanism.
