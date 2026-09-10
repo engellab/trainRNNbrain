@@ -8458,3 +8458,72 @@ modest, and **no mechanism for it is established.** Do not claim one.
   (S~835); the top-20 version reads frm at 0.350 where the full row gives 0.284.
 * Intermediate weights are not saved, so the assembly share is known at switch endpoints only, not
   along the trajectory.
+
+## ▶ THE MECHANISM IN SEVEN IDEAS — pedagogical summary, 2026-09-10 15:17
+
+The theory entry above (14:31) records the analysis in the order it was done, refutations included.
+This entry records it in the order it should be UNDERSTOOD. Each idea was tested; each rests on the
+one before.
+
+**1. A ReLU network has a hidden freedom.** relu(a·x) = a·relu(x), so scaling a unit's incoming
+weights and bias by a and its outgoing weights by 1/a leaves the input-output map unchanged. The
+task loss is identical for every a. Gradient descent gets no signal about how loud a unit should be;
+loudness drifts, and a unit that drifts to zero has zero gradient and never returns. Weight decay
+formally selects an a but at 1e-6 it barely acts, and where it acts it selects by SHRINKING - it
+kills weak units, it does not save them. **frm pins the loudness above zero.** It is the only
+intervention in paper.md §3 that touches the symmetry, which is why it is the only one that works.
+
+**2. rws measures how many units a unit listens to.** S = (Σ|W_j|)²/ΣW_j² per row is the effective
+in-degree: 20 equal inputs → 20; 2000 equal inputs → 2000; one dominant input → 1. rws penalises
+(S-20)². Measured: frm alone S ≈ 740-835 (every unit listens to nearly everyone); with rws S ≈ 20.
+
+**3. The task has a natural modular solution.** k bits in 2 states = 2k things to remember; the
+natural recurrent memory is an assembly per state. Assign each unit to a state (argmax of its 2k
+rectified loadings, or the soft tuning-overlap version - both give the same ordering) and measure
+the fraction of its incoming |W| mass from same-state units, against chance.
+
+**4. The unpenalised network already builds assemblies; frm is the one condition that destroys
+them.** Assembly share, N=2000, hard/soft as multiples of chance:
+    k=3:  none 3.1/2.1   rws 3.7/2.4   frm 1.7/1.3   both 4.0/2.8
+    k=8:  none 5.1/2.0   rws 8.8/3.7   frm 3.2/1.8   both 11.5/6.3
+The unpenalised network organises its ~230-320 survivors into assemblies unprompted. frm recruits
+5x more units but their wiring drops to near chance. rws restores it above the unpenalised level.
+
+**5. Causally, from the switch nets** (N=2000, k=3, 3 seeds, spread < 0.03):
+    A1 frm → frm+rws   0.28 → 0.64   rws added: assemblies built
+    A2 frm → frm       0.28 → 0.29   control
+    A3 both → frm      0.67 → 0.28   rws removed: assemblies dissolved
+    A4 both → frm+rws  0.67 → 0.67   control
+Reversible, seed-independent, endpoints on the cross-sectional values: a state variable set by the
+active penalty.
+
+**6. A unit in an assembly inherits its activity pattern from the task.** It is on when its state
+holds. A bit is at +1 for 36% of samples regardless of k, so the modal occupancy (histogram peak of
+temporal PR/n over live units, bin 0.02, mean of 3 seeds) should be 0.36:
+    k=1  task 0.355  both 0.377  frm 0.163
+    k=3  task 0.362  both 0.350  frm 0.030
+    k=5  task 0.360  both 0.363  frm 0.023
+    k=8  task 0.361  both 0.357  frm 0.017
+Under rws the peak sits at the task duty to within 0.02 at every k; under frm the peak sits at
+zero (the modal live frm unit is quasi-silent; its MEDIAN 0.32 is the middle of an IQR of 0.40).
+⚠️ Mode, not median, is the right statistic: the distributions are bimodal and the median is pulled
+by the upper population. The temporal-PR uniformity, the dead-unit rescue and the R²/Hoyer results
+are all this one fact.
+
+**7. Why the two penalties need each other.** frm demands every unit be active but says nothing
+about how. With 2000 units and 6 states, the CHEAP way to keep everyone alive is to listen to
+everyone - some drive always arrives from somewhere - and that is exactly what frm alone produces:
+active but diffuse, S ≈ 800, share near chance, modal occupancy zero. The EXPENSIVE way is to join
+an assembly. Gradient descent takes the cheap way when it is available. **rws forbids it**: with S
+capped at 20 a unit cannot listen to everyone, and the only remaining way to satisfy frm is the
+modular one - which is what the task wanted anyway, since the unpenalised network builds the same
+assemblies among the few units it keeps.
+    frm alone:  active but diffuse        S≈800, share 0.28, mode ≈ 0
+    rws alone:  modular but mostly dead   share 0.63, ~15% alive
+    frm + rws:  active AND modular        share 0.67, all units, mode = task duty
+
+⚠️ Two things this does NOT establish. The mean-field moment equations that started the analysis
+are scaffolding: they motivated measuring S and cancellation, and their failed prediction pointed at
+assemblies, but they do not derive the result and should not be presented as doing so. And the
+training-stability half (frm alone spikes more at large N) has a modest effect and NO established
+mechanism - the one proposed was refuted (per-step kick ~ N^0.46 frm vs N^0.59 both).

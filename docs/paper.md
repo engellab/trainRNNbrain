@@ -443,6 +443,67 @@ Figures use a clean seed; the affected run is retained as a documented example.
 
 ---
 
+### 3.3 Why the two penalties compose: `frm` breaks a symmetry, `rws` preserves the task's assemblies ✅
+
+The results of §3.1–3.2 have one mechanism behind them. Stated in the order it should be read.
+
+**A ReLU network has a hidden freedom.** Because `relu(a·x) = a·relu(x)`, scaling a unit's
+incoming weights and bias by `a` and its outgoing weights by `1/a` leaves the network's function
+unchanged. The task loss is identical for every `a`, so gradient descent receives no signal about
+how loud a unit should be. Loudness drifts; a unit that drifts to zero has zero gradient and never
+returns. Weight decay formally selects an `a`, but at the values used here it barely acts, and
+where it acts it selects by *shrinking* — it removes weak units rather than rescuing them. **`frm`
+pins the activity scale above zero.** It is the only intervention in §3 that touches this
+symmetry, which is why it is the only one that works.
+
+**`rws` measures how many units a unit listens to.** `S = (Σ|W_j|)² / ΣW_j²` per row of `W_rec` is
+the effective in-degree, and `rws` penalises `(S − 20)²`. Under `frm` alone every unit listens to
+nearly the whole population (`S ≈ 800`); with `rws`, to about 20.
+
+**The task's natural solution is modular, and the unpenalized network finds it.** A k-bit
+flip-flop has 2k states to hold, and the natural recurrent memory is an assembly per state.
+Assigning each tuned unit to a state and measuring the fraction of its recurrent input that comes
+from same-state units (against chance):
+
+| | k = 3 | k = 8 |
+|---|---|---|
+| `none` | 3.1× | 5.1× |
+| `rws` | 3.7× | 8.8× |
+| **`frm`** | **1.7×** | **3.2×** |
+| `both` | 4.0× | 11.5× |
+
+The unpenalized network organizes its few survivors into assemblies unprompted. **`frm` is the
+one condition that destroys them** — five times the units, wired near chance. `rws` restores the
+structure above the unpenalized level, and it strengthens with k. (Soft, assignment-free
+tuning-overlap version gives the same ordering; §Methods.)
+
+**This is causal.** Taking a trained `frm` network and adding `rws` raises its assembly share
+0.28 → 0.64 within 50k iterations; taking a trained `frm+rws` network and removing `rws` drops it
+0.67 → 0.28; same-penalty controls do not move (seed spread < 0.03). Assembly structure is a state
+variable set by whichever penalty is active.
+
+**A unit in an assembly inherits its activity from the task.** It is on when its state holds, and
+a bit is in a given state 36% of the time by task design, independent of k. The modal occupancy
+of `frm+rws` units sits at 0.35–0.38 at every k from 1 to 8; the modal `frm`-alone unit at k ≥ 3
+is quasi-silent. The temporal-participation uniformity, the disappearance of dead units, and the
+R²/Hoyer results of §3.1–3.2 are all this single fact.
+
+> **Why the penalties need each other.** `frm` demands every unit be active but says nothing about
+> *how*. With thousands of units and a handful of states, the cheap way to keep everyone alive is
+> to listen to everyone — some drive always arrives from somewhere — and that is exactly what `frm`
+> alone produces: active but diffuse. The expensive way is to join an assembly. Gradient descent
+> takes the cheap way when it is available; **`rws` forbids it.** With the in-degree capped, a unit
+> cannot listen to everyone, and the only remaining way to satisfy `frm` is the modular one — the
+> solution the task wanted all along. `frm` alone: active but diffuse. `rws` alone: modular but
+> mostly dead. Together: active *and* modular.
+
+⬜ **Not established**: `frm` alone is more prone to loss spikes at large N (≈5× at N = 2000), but
+the mechanism proposed for it — that the in-degree cap bounds the per-step perturbation to each
+unit — was tested and refuted (per-step participation drift scales as N^0.46 vs N^0.59). No
+mechanism for the stability difference is claimed.
+
+---
+
 ---
 
 ## 4. Does the rescue prevent, or resurrect?
