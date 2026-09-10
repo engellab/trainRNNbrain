@@ -8829,3 +8829,97 @@ unit combine", with the elementary patterns set by the population, not the task.
 different question from Rigotti-style mixed selectivity (nonlinearity in task variables), and in
 the flip-flop they coincide only because the elementary patterns are single bits. d must be chosen
 by a task-agnostic criterion in general; here the sweep k..4k shows the ordering is stable.
+
+## ▶ STORYLINE RESTRUCTURED; FOUR-AXIS CHARACTERISATION ON BOTH TASKS — 2026-09-10 19:02
+
+**Trigger.** A peer-review pass on paper.md found it was two papers on two datasets (CDDM for
+silence/saturation/distortion, flip-flop for mechanism/composition), with `rws` a villain in §2 and a
+hero in §3, §1.2 and §6.4 contradicting each other on whether 1000 active units is reachable,
+§3.1 contradicting itself on mixed selectivity, and the leaky-ReLU row of the "what we tried"
+table undermining the dead-gradient half of the mechanism. Pavel's instructions: restructure;
+run the missing analyses on CDDM from local data (no cluster); de-emphasise saturation ("saturating
+or not, a lot of units are needed" — show on both tasks); define mixed selectivity via regression;
+characterise none/rws/frm/both on both tasks with ONE bounded statistic (Hoyer sparsity) for
+dimensionality, participation, temporal sparseness and selectivity; separate main from
+supplementary; propose (not run) the missing experiments in `research_directions.md`.
+
+**New files.** `characterize.py` (→ `characterize_matrix.png`, `data/characterize_cache.pkl`),
+`docs/research_directions.md`. `docs/paper.md` rewritten from scratch (old structure in git).
+
+### The four Hoyer axes, both tasks, N = 2000, mean of 3 seeds (full N tables in the script output)
+
+hoyer(v) = (√d − ‖v‖₁/‖v‖₂)/(√d − 1); ‖v‖₁/‖v‖₂ = √PR, so it is PR normalised to [0,1] and flipped.
+
+| axis (d) | CDDM none / rws / frm / both | flip-flop k=3 none / rws / frm / both |
+|---|---|---|
+| active fraction | 0.15 / 0.14 / 1.00 / 1.00 | 0.14 / 0.15 / 0.86 / 1.00 |
+| participation (N) | 0.93 / 0.92 / 0.22 / 0.23 | 0.77 / 0.78 / 0.21 / 0.03 |
+| selectivity (7 or 2k coefs) | 0.48 / 0.41 / 0.32 / 0.45 | 0.76 / 0.80 / 0.63 / 0.90 |
+| temporal (S samples) | 0.73 / 0.69 / 0.71 / 0.74 | 0.41 / 0.43 / 0.53 / 0.39 |
+| D_PR (raw) | 2.3 / 2.2 / 8.2 / 8.5 | 6.2 / 6.1 / 8.9 / 5.5 |
+| dim Hoyer (N) | 0.988 / 0.989 / 0.958 / 0.956 | 0.966 / 0.966 / 0.955 / 0.969 |
+
+CDDM: 150 of 450 conditions (every third) so N=10000 fits in memory; live = scale-free rule;
+regression on decision-epoch mean per condition with [ctx, relu(±mot), relu(±col), relu(±choice)] +
+intercept. Flip-flop: as flipflop_arms.py (time-resolved, 2k rectified regressors), live = 4e-2.
+
+**What replicates across tasks (every seed):**
+- Active count without a floor grows as ~√N: CDDM b = 0.53 (N = 100…10000), flip-flop b = 0.58
+  (500…4000). N for 1000 active units: 1.3e4 and 1.4e4. rws: 2.6e4 / 1.7e4. frm/both: b ≈ 1.
+  End-of-training nets (CDDM budgets differ by N) → conservative. Saturation vs power law is now
+  a supplement sentence.
+- Participation concentration: none/rws 0.8–0.9, frm/both ≤ 0.3. On CDDM frm ≈ both; on the
+  flip-flop both (0.03) is flatter than frm (0.21).
+- Selectivity: both > frm on both tasks (CDDM 0.45 vs 0.32; flip-flop 0.90 vs 0.63), and frm's
+  selectivity FALLS with N on both tasks (CDDM 0.37 → 0.36 → 0.32; flip-flop 0.86 → 0.82 → 0.63 over
+  N = 500 → 2000) while both's holds or rises (0.40 → 0.45; 0.84 → 0.90). At CDDM N = 5000 frm and
+  both are equal (0.38 vs 0.39, sd 0.05) — the CDDM margin is modest.
+- frm raises D_PR with N on both tasks (CDDM 5.0 → 10.3 over 500 → 5000; flip-flop 5.6 → 8.9 over
+  500 → 2000); none/rws are flat (task-set).
+
+**What is flip-flop-specific (now marked so in the paper):**
+- Temporal sparseness: frm 0.53 vs both 0.39 on the flip-flop; on CDDM 0.71 vs 0.74 vs none 0.73 —
+  no penalty effect at all. The "rws makes units sustained" result does not transfer.
+- The participation floor (both 0.03 vs frm 0.21) and the dimensionality reduction under both (5.5
+  < none 6.2; on CDDM both raises D_PR like frm).
+- frm's live fraction falling with N (0.99 → 0.86); on CDDM it is 1.00 at every N.
+
+**Dimensionality Hoyer with d = N is uninformative** (0.94–0.99 everywhere) because D_PR ≪ N in every
+network; D_PR is the number to read. Kept in the table for completeness, said so in Methods.
+
+### Joint vs best-single-bit R² — resolves the §3.1 contradiction
+
+The old text said "joint and best-single-bit R² differ by 0.003, so no mixed selectivity" AND "frm is
+the mixed condition (Hoyer 0.748)". Measured per condition, N = 2000, k = 3, tuned units:
+
+| | median joint R² | median best-bit R² | median gap | q90 gap | frac gap > 0.1 |
+|---|---|---|---|---|---|
+| none | 0.66–0.81 | 0.64–0.81 | 0.001–0.002 | 0.006–0.051 | 0.005–0.064 |
+| rws | 0.59–0.71 | 0.59–0.71 | 0.002 | 0.010–0.043 | 0.020–0.037 |
+| both | 0.87–0.88 | 0.87–0.88 | 0.001 | 0.010–0.107 | 0.023–0.105 |
+| **frm** | 0.60–0.79 | 0.45–0.75 | 0.006–0.044 | **0.22** | **0.24–0.38** |
+
+Both statements were true of different things: the MEDIAN tuned unit is single-bit in every
+condition, and frm has a distinct SUBPOPULATION (a quarter to a third of tuned units) that is
+genuinely multi-bit. "Mixed selectivity under frm" is a subpopulation claim, and is now written that
+way. Mixed selectivity is DEFINED in the paper as 1 − Hoyer of the rectified-regression coefficients.
+
+### The restructured storyline (paper.md)
+
+1. Most units silent; active count ~√N on both tasks → 10⁴ units for 10³ active; not spare capacity.
+2. Why: the ReLU scale symmetry. Stated as the best-supported interpretation with the two direct
+   tests it lacks (T1 activation without dead zone, T2 gain-normalisation control) named in the text.
+   rws introduced here as the regularizer that looks like it helps and does not (threshold artifact)
+   because it does not touch the symmetry.
+3. The fix: frm; zero silent; no task cost; prevents rather than resurrects; rescued units tuned.
+4. What frm alone produces: alive, diffuse, degrading with N (the four axes, both tasks).
+5. What rws adds: the modular solution extended to every unit — four-axis table (both tasks),
+   assemblies (flip-flop; CDDM = A3 in research_directions), causal switch (flip-flop).
+6. Consequences for RNN-as-model; two limitations in the main text (σ_log; purity ≠ realism, and the
+   dark-neuron literature).
+7. Methods (Hoyer as the one statistic; rectified basis; criteria; matched performance; loss term).
+8. Venue: Nat Comms if T1–T2 are run; PLOS CB with §2 as interpretation otherwise.
+S1–S7 supplements; retracted-claims list extended with the four retractions of the last two days.
+
+Main vs supplementary is now enforced by a rule written into research_directions.md: a result
+enters the main text only if removing it breaks a link in the storyline.

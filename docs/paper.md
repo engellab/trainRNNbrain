@@ -1,877 +1,419 @@
-# Paper plan — silent units in trained RNNs
+# Paper plan — silent units in trained ReLU RNNs
 
-Working document: the *argument*, what supports each claim, and what is missing. The full
-experimental record (configs, job IDs, repro instructions) is [`project_trajectory.md`](project_trajectory.md).
+Restructured 2026-09-10 (the previous structure is in git history before commit `a2541c2`'s
+successor). Working document: the *argument*, what supports each claim, what is missing. The
+experimental record is [`project_trajectory.md`](project_trajectory.md); what is proposed but not
+done, and what is deliberately left out, is [`research_directions.md`](research_directions.md).
 
 **Every claim carries an evidence status** — ✅ measured, 🟡 preliminary, ⬜ planned — so that
-interpretation never quietly becomes result.
+interpretation never quietly becomes result. **Every main-text claim is shown on both tasks** (CDDM
+and the n-bit flip-flop) or is explicitly marked as task-specific. Sign-constrained architectures
+are supplementary throughout (§S1).
 
-**Architecture policy — main text vs supplement.** Every main-text result is stated for **standard
-unconstrained RNNs**: no sign constraints on the recurrent or input/output weights, self-connections
-allowed, trainable bias, no cubic term, plain multi-objective gradients. **Sign-constrained
-architectures are supplementary throughout** (§S1) — a robustness check on the main claims, never
-the basis of one. A result stated only for constrained networks reads as niche and is easy to
-dismiss.
+**Working title.** *Why trained RNNs leave most units silent, and what it takes to make every unit
+count.*
 
-Where a main-text number is currently derived from constrained networks because that is the only
-data with the relevant manipulation, it is marked ⚠️ **derived in constrained networks (§S1), unconstrained version pending**
-rather than presented as settled.
-
-**Working titles**
-
-- *Trained RNNs recruit a fixed number of units, not a fixed fraction*
-- *Most units in trained RNNs are silent, and the standard regularizer makes it worse*
-- *Silent units distort what RNN models tell us about neural populations*
+**The argument in five sentences.** (1) A ReLU RNN trained on a neuroscience task leaves most of its
+units silent, and enlarging the network does not fix this: the active count grows as roughly the
+square root of N on both tasks, so a thousand active units costs a network of ten thousand. (2) The
+cause is a symmetry: a ReLU unit's gain is a flat direction of the task loss, so nothing keeps any
+unit alive, and standard regularizers either do not touch this or make it worse. (3) A floor on each
+unit's activity (`frm`) removes the symmetry and every unit stays alive, at no task cost, but the
+units it keeps alive are diffuse: they listen to the whole population, mix several task variables,
+and their tuning degrades as N grows. (4) A cap on each unit's effective in-degree (`rws`), useless
+on its own, forces the recruited units into the modular, single-variable, assembly-wired solution
+that the unpenalized network builds for its few survivors — and this is causal and reversible within
+a network. (5) Which population an RNN model presents to analysis is therefore a training choice, and
+we characterize the four resulting populations on both tasks with one bounded statistic.
 
 ---
 
-## 1. The problem
+## 1. Most units are silent, and size does not fix it ✅ (both tasks)
 
-RNNs are used as models of cortical circuits, and the comparison to data is made at the level of the
-**population**: dimensionality, selectivity distributions, functional cell classes, correlation
-structure. That comparison assumes the model's population is the thing being modelled.
+### 1.1 The phenomenon
 
-**It usually isn't**, and the problem has three parts, each of which makes the next one worse:
-units go silent (§1.1); enlarging the network does not buy active units, because the active count
-saturates (§1.2); and the surviving population has statistics that differ materially from the ones
-a recording would produce (§1.3).
+In standard ReLU RNNs (unconstrained weights, trainable bias, `h` equation) trained on CDDM,
+**41–46% of units never fire** at N = 1000; 31–42% sit at exactly 0.0 at every timestep of every
+condition. Training creates most of it (4.4% are hard-silent at initialization) and does not stop
+creating it: silence keeps climbing at 10⁵ iterations while the loss is flat (§S2). On the flip-flop
+at N = 2000, k = 3, **86% of units are silent** under the task-calibrated criterion.
 
-### 1.1 Most units in a trained RNN never fire
+> Two silence criteria are reported everywhere — hard (`p < 10⁻⁶`) and scale-free
+> (`p < 0.05·q95(p)`) — because they disagree, and the disagreement has flipped a conclusion in this
+> project (§2.3). Never one alone. (§S4)
 
-In standard ReLU RNNs trained on a context-dependent decision task (CDDM), a large fraction of units
-never fire ✅ (N = 1000, unconstrained + trainable bias, 5 nets per row):
+### 1.2 The active count grows as ~√N, on both tasks
 
-| | silent (peak rate < 0.01) | scale-free criterion (peak < 5% of p95) |
+End-of-training networks, unpenalized, three seeds per size (`characterize.py`):
+
+| task | sizes | `M ∝ N^b` | N for 1,000 active units | for 2,000 |
+|---|---|---|---|---|
+| CDDM | 100 – 10,000 | b = 0.53 | **1.3 × 10⁴** | 4.6 × 10⁴ |
+| flip-flop (k=3) | 500 – 4,000 | b = 0.58 | **1.4 × 10⁴** | 4.6 × 10⁴ |
+
+Under matched performance rather than end of training (§S2, CDDM) the exponent is lower still,
+0.31–0.36, and the growth is significantly decelerating (curvature p = 0.001). The end-of-training
+numbers above are *conservative* for the claim — large networks were trained for fewer iterations
+and are read earlier in their silencing — and they agree across tasks. **Whether or not the count
+saturates, a thousand active units costs a network of order 10⁴.** The active *fraction* falls
+monotonically with size on both tasks (CDDM 0.74 → 0.09 from N = 100 to 10,000; flip-flop 0.32 →
+0.14 from 500 to 4,000): bigger networks are emptier.
+
+### 1.3 It is not spare capacity ✅ (flip-flop)
+
+If silence were the network idling on an easy task, the active count should track task demand. Over
+k = 1…8 bits crossed with N = 500…4000, fitting `M = A·N^b·k^c`: **c ∈ [−0.05, +0.04] in every
+condition**, an 11% change over an eight-fold increase in memory demand, with inconsistent sign.
+Meanwhile the activity's dimensionality does rise with k (≈ 1.8k). *More task dimensions, the same
+number of units.* Trained RNNs recruit a number of units set by neither the size nor the task.
+
+---
+
+## 2. Why: a symmetry that nothing standard breaks
+
+### 2.1 The mechanism ✅ argued, ⬜ two direct tests proposed
+
+Because `relu(a·x) = a·relu(x)`, scaling a unit's incoming weights and bias by `a` and its outgoing
+weights by `1/a` leaves the network's function unchanged. The task loss is identical for every `a`,
+so gradient descent receives no signal about how loud any unit should be. Loudness drifts; the ReLU
+zero is an absorbing end of the drift, because a unit at zero has zero gradient.
+
+Evidence that this is the right picture: the collapse is *global and early* — the whole population
+goes quiet within ~20 iterations and only the eventual survivors climb back (§S5); silence grows
+monotonically with training time (30k → 300k iterations makes it worse) and with N; the network
+declines even the cheapest escape (with self-connections allowed it trains the diagonal into
+self-*inhibition*, corr(self-weight, log participation) = −0.51). And the one intervention that
+works (§3) is the one that pins the scale.
+
+> ⚠️ **Two things a referee will ask, and we have not measured.** (i) Leaky-ReLU and softplus
+> units have gradient everywhere; in *sign-constrained* networks silence persisted under them at
+> 40–64%. If that holds unconstrained, the dead-gradient half of this paragraph is wrong and the
+> symmetry alone must carry the explanation. (ii) Weight decay also breaks the symmetry; we assert
+> it "barely acts" at 10⁻⁶ without a sweep, and the direct control — a gain-normalization step that
+> removes the flat direction and nothing else — has not been run. Both are specified in
+> `research_directions.md` T1–T2. Until then, §2.1 is the best-supported interpretation, not a result.
+
+### 2.2 What does not work ✅ (CDDM; activation rows in constrained nets, §S1)
+
+Fifteen interventions, condensed. Architecture (`h`/`s` equation, cubic term, boundary handling,
+sign constraints, I/O positivity, trainable bias, self-connections): no change. Activation
+(softplus, leaky-ReLU): persists, 40–64% (constrained; ⬜ unconstrained). Recurrent noise: never
+helps, σ = 0 is worst. Longer training and larger networks: worse, monotonically. The field-standard
+metabolic cost `mean(fr²)` over four decades of λ: never rescues, and at λ = 10 makes it worse
+(N = 100: 12% → 59% silent). Full table in §S3.
+
+### 2.3 The sparsity penalty does not rescue, and looks like it does ✅ (CDDM)
+
+`rws` — a penalty driving each unit's effective in-degree `S = (Σ|W|)²/ΣW²` toward 20 — is the
+one standard-looking regularizer that *appears* to help: at N = 2000 hard-silent falls from 79% to
+60%. It is a threshold artifact. Under the scale-free criterion `rws` is **worse** than baseline
+(86% vs 81%), the gap grows with N (12 → 21 → 26 pp at N = 500/1000/2000), and the "rescued" units
+sit just above 10⁻⁶ doing nothing. `rws` cannot rescue because it does not touch the scale
+symmetry; what it does do becomes visible only in §5.
+
+---
+
+## 3. The fix: pin the activity scale ✅ (both tasks)
+
+`frm` drives each unit's soft-max firing rate toward a cap (`τ·logsumexp(r/τ)` with τ = 0.1, cap
+`0.3·log1p(100)/log1p(N)`, λ = 0.1). It is the one intervention in §2.2 that addresses the symmetry,
+and it is the one that works, on both tasks:
+
+| | CDDM | flip-flop k=3 |
 |---|---|---|
-| h equation, no penalty | **45.6%** | 48.0% |
-| s equation, no penalty | **41.9%** | 46.2% |
+| silent fraction under `frm`, every N tested | **0.0%** (both criteria; min participation 4.8 × 10⁻², nothing near zero) | **0.0–14%** (N = 500 → 2000; §4) |
+| active count law | `M ∝ N^1.00` | `M ∝ N^0.90` |
+| task cost (noise-free loss, N = 2000) | **14% better** than unpenalized; `both` 35% better | no cost in the switch experiment (§5.3); ⬜ grid-wide time-to-floor (A5) |
 
-These are not merely quiet units. **31–42% of units are at exactly 0.0** — literally switched off,
-never crossing threshold at any timestep in any condition ✅. (In constrained networks this is
-hidden: non-negative input weights guarantee every unit a small positive push, so silent units sit
-at 1e-9…1e-2 instead of zero. Same population, concealed depth — see §S1.)
+> **Name the tautology before a referee does.** "A floor on firing removes sub-floor units" is
+> nearly circular. The content is elsewhere: it costs nothing and *helps* at large N; unpenalized
+> networks concentrate onto a task-independent absolute number of units; the standard regularizers
+> fail or make it worse; and the population it produces differs from the unpenalized one in ways
+> that change conclusions (§6).
 
-**Most of the silence is created by training** ✅ — but, corrected 2026-07-28, **not all of it**. In
-standard unconstrained networks **4.4% of units are already hard-silent at initialization and 21% sit
-below the 0.01 line** before a single training step: with signed input weights a unit can start
-net-negative and never fire. Training takes it from 4.4% to 41.5%. The older "0% silent at init"
-result is **specific to the sign-constrained architecture** (§S1) — I/O positivity guarantees every
-unit a positive push, so nothing can be
-exactly zero there. It also isn't a bug: an independently written Euler integrator reproduces the
-per-unit peak rates exactly (max abs diff 0.0) ✅.
+**Prevention, not resurrection** ✅ (CDDM, unconstrained). From participation traces logged every
+10 iterations: unpenalized, 96 units per 1,000 endure ≥ 500 silent iterations and recover; under
+`frm`, 0.6. Units dip in the early collapse and are caught within a few hundred iterations. (In
+sign-constrained networks `frm` genuinely resurrects, §S1.)
 
-### 1.2 The active count saturates: enlarging the network does not buy active units
-
-✅ **Measured 2026-08-19–20** (standard RNN, h equation, no penalty, 3 seeds per size,
-N ∈ {100, 500, 1000, 2000, 5000}; figures `silent_at_threshold.png`, `saturation_test.png`).
-
-This is the paper's answer to the sharpest objection it faces: *"why make every unit compute — just
-train a bigger network and prune the silent ones?"*
-
-**The comparison had to be made fair first**, and this took most of the effort (§6.1). Networks of
-different sizes cannot be compared at a fixed iteration count, because the learning rate is rescaled
-with N and larger networks train more slowly per step. They are instead compared at **matched
-performance**: each size is read at the iteration `T_N` where its smoothed noise-free training loss
-*stably* reaches a common level `L*` = 0.023. This is licensed by a separate result — the loss floor
-is size-independent to within 1.6%, and what deviation exists is in the conservative direction
-(§6.1) ✅.
-
-| N | `T_N` (iterations to reach L*) | silent, hard | silent, scale-free | **active units** |
-|---|---|---|---|---|
-| 100 | 32.0k ± 2.2k | 0.7% ± 0.5 | 18.3% ± 1.7 | **99.3 ± 0.5** |
-| 500 | 37.6k ± 1.1k | 26.1% ± 1.5 | 41.5% ± 1.3 | **369.3 ± 7.7** |
-| 1000 | 44.9k ± 0.5k | 50.8% ± 1.9 | 62.6% ± 2.2 | **492.3 ± 19.0** |
-| 2000 | 58.5k ± 1.5k | 70.3% ± 0.9 | 76.4% ± 0.9 | **593.3 ± 18.9** |
-| 5000 | 91.1k ± 2.7k | 85.4% ± 0.6 | 87.0% ± 0.3 | **731.7 ± 31.1** |
-
-**A 50× larger network buys 7.4× the active units — and that ratio is still shrinking.** Restricting
-the fit to `N ≥ 500` (so the N=100 ceiling, where the network is too small to waste units, cannot
-drive it), `M ∝ N^0.31` under the hard criterion and `N^0.36` under the scale-free one. **Doubling
-the active population therefore costs roughly a 9× larger network.**
-
-**The growth is significantly decelerating** ✅ — three tests, all pre-registered before the N=5000
-seeds landed:
-
-1. **Pooled curvature.** Fitting `log M = a + k·log N + c·(log N)²` over all seed-level points at
-   `N ≥ 500` gives **c = −0.118 ± 0.033, F(1,42) = 12.79, p = 0.001** under the hard criterion
-   (c = −0.034 ± 0.013, p = 0.012 scale-free). Saturation predicts `c < 0`; `c` is negative in both.
-2. **Local exponent.** The exponent falls monotonically with the depth of the matched level, from
-   0.69 at `L*` = 0.0257 to 0.31 at `L*` = 0.0230 — the better the networks are trained, the more
-   sublinear the recruitment.
-3. **Model comparison.** At every matched level the **saturating (hyperbolic) fit beats the power
-   law** under the hard criterion (ΔAICc = −9.1 to −17.8, decisive). Under the scale-free criterion
-   the power law wins at shallow levels and the saturating fit wins at the deepest one — so the
-   evidence for a hard ceiling is *criterion-dependent*, while the evidence for deceleration is not.
-
-The asymptote implied by the hyperbolic fit at the deepest matched level is
-**M\* ≈ 880 active units (profile-likelihood 95% upper bound 939)** under the hard criterion, 795
-(<882) under the scale-free one — i.e. a task-determined ceiling of order 10³, reached by a network
-of a few thousand units and not exceeded by making it larger.
-
-⚠️ **State this caveat in the paper.** `M*` is not a single number: it falls as the matched level
-gets deeper (3972 at `L*` = 0.0257 → 880 at `L*` = 0.0230). Better-trained networks use *fewer*
-units, so the ceiling is not a capacity limit that training fills up — it is a target that training
-keeps tightening toward (§6.1: silencing has not stopped even at 10⁵ iterations). Any quoted `M*`
-is therefore an upper bound *at the performance level where it was read*, and the honest claim is
-the **deceleration**, not a specific asymptote.
-
-**Consequence.** Pruning cannot deliver a large active population at any size, because the ceiling
-is set by the task rather than the parameter budget. Activity regularization is the only route:
-`frm` at N=1000 gives 1000 active units at the same performance (§3).
-
-### 1.3 The surviving population's statistics are materially distorted
-
-The argument that turns this from tidiness into a validity problem. **Recorded cortical populations
-do not contain 45–85% of neurons that never fire during a task** — so an RNN that does is not the
-population being claimed as a model, and every population-level comparison inherits the distortion.
-
-✅ **Measured 2026-08-17** (N=1000, 5 nets per cell, all conditions at R² = 0.84–0.87 — see
-`project_trajectory.md`, figure `population_distortion.png`). Networks that perform identically
-differ by:
-
-- **3.5× in effective dimensionality** (participation ratio 2.22 → 7.74);
-- **1.7× in choice selectivity measured over active units** (33.5% → 58.3%). The 3× figure from
-  all-unit fractions is inflated by dilution, since silent units are non-selective by construction —
-  and context selectivity actually *falls* among active units, 42.3% → 31.1%;
-- **2× in total metabolic cost** (31.1 → 14.6 — the concentrated solution being the *more*
-  expensive one);
-- **100× in energy concentration** (HHI 0.123 → 0.0012, i.e. cost carried by an effective 8 units
-  versus ~850).
-
-Separately, within unpenalized networks the same selectivity statistic reads 24.3% over all units
-but 42.3% over active units only — and a recording experiment sees only the latter.
-
-| Statistic | Why it is distorted |
-|---|---|
-| **Dimensionality / participation ratio** | computed over an effectively ~500-unit circuit while reported as N=1000 |
-| **Selectivity distributions** (context, motion, colour, choice) | silent units are untuned by construction, diluting every proportion by an arbitrary factor |
-| **Functional clustering / cell classes** | a large "unresponsive" cluster with no counterpart in a recorded population |
-| **Metabolic cost of the computation** | unpenalized nets concentrate high rates in few units; `frm` nets spread moderate rates over all. Total energy may match while the distribution differs entirely |
-| **Correlation structure / eigenspectrum** | inherits the above |
-
-The claim: *your conclusion about the circuit depends on whether you regularized activity, and
-nobody reports it* — and by §1.2 the distortion **grows with N**, so it is worst in exactly the
-large networks the field is moving toward.
-
-⚠️ **One statistic goes the other way, and belongs in the paper as a limitation.** Rate heterogeneity
-across active units, measured as **σ_log** (the std of log₁₀ mean rate — the shape parameter of the
-lognormal that cortical rate distributions follow, ~1 in cortex), is **1.20 (h) / 1.01 (s) without
-penalties — the biological value — and collapses to 0.26 / 0.15 under `frm`**, a fifth of a decade.
-CV (3.62 → 0.49) and the p90/median tail (6.2 → 1.7) agree. So `frm` trades one unrealism (half the
-population silent) for another (a population too uniform). See §6.5.
-
-✅ **But the revived units are genuinely modulated, not tonic.** Within-trial temporal CV is 1.29
-under `frm` versus 1.43 without — only ~10% lower — so the penalty is *not* satisfied by units
-sitting constantly at the cap. This closes a worry open since the first sweeps. (`both` does flatten
-modulation, to 0.96.)
-
-⬜ **Does the rescued network function better?** — still open, no new training needed:
-
-- **Noise robustness** — raise σ_rec at evaluation, compare R² decay. (A first attempt found a
-  size effect at p=0.084 that **failed to localise** — p=0.31 at |coh|<0.02, p=0.81 at coh=0, and
-  the wrong sign — and was **retracted** 2026-08-16. Do not resurrect it without a pre-registered
-  localisation test.)
-- **Lesion robustness of the top contributors** — ablate the highest-participation units and measure
-  degradation. *Design note:* naive random ablation is misleading, because in a half-dead network
-  half the lesions hit units that do nothing, making it look artificially robust. Ablate by
-  participation rank, or express degradation per *active* unit removed.
-- **Generalization** — held-out coherences (the interleaved-midpoint validation batch is now logged
-  during training, §6.1) or a shifted stimulus distribution.
+**The rescued units are task-tuned** ✅ (both tasks). Regressing each unit on rectified task
+variables (§7 for the basis), per N = 2000 network: flip-flop, tuned units 241 (none) → 1,401 (`frm`)
+at median R² 0.61 → 0.84; CDDM, tuned fraction of live units 0.85 → 0.42 but live units 308 →
+2,000, so 262 → 840 tuned units at R² 0.32 → 0.69. `frm` is not buying non-zero units that do
+nothing.
 
 ---
 
-## 2. Standard activity regularizers do not fix it — and at strength make it worse
+## 4. What the floor alone produces: alive, diffuse, and degrading with N ✅ (both tasks)
 
-Activity regularization in RNN training is routine — metabolic-cost terms are standard practice in
-this literature. But the usual penalties act on the wrong side of the distribution: they penalize
-*high* rates, pushing the whole population down.
+The rescued population is not the unpenalized population scaled up. Four properties, each a Hoyer
+sparsity (0 = spread evenly, 1 = concentrated on one; §7), N = 2000, three seeds:
 
-| Penalty | Effect on silence |
-|---|---|
-| **`rws`** — recurrent-weight sparsity (λ=0.05) | **Does not rescue — and the appearance that it does is a threshold artifact** ✅, see below. |
-| **`met`** — metabolic cost, `mean(fr²)`, the field-standard form | ✅ **Never rescues, and at strength makes it worse.** Across λ ∈ {0.01, 0.1, 1, 10} and N ∈ {100, 500, 1000} the silent fraction never falls below baseline. At λ=10 it rises sharply where there is headroom — N=100: **12% → 59%** scale-free silent; N=500: 41% → 69% — while R² stays 0.81–0.87, so this is not a penalty destroying the task. Flat at N=1000, where the baseline is already ~42% and little room remains. |
+| axis | vector | CDDM: none / frm | flip-flop: none / frm |
+|---|---|---|---|
+| **participation** | per-unit participation, d = N | 0.93 / **0.22** | 0.77 / **0.21** |
+| **selectivity** | \|tuning coefficients\|, d = 7 or 2k | 0.48 / **0.32** | 0.76 / **0.63** |
+| temporal | a unit's trace over samples | 0.73 / 0.71 | 0.41 / **0.53** |
+| dimensionality (D_PR) | covariance eigenvalues | 2.3 / **8.2** | 6.2 / **8.9** |
 
-### 2.1 `rws` produces units that are non-zero but functionally dead ✅
+Read down the `frm` column:
 
-The sharpest single illustration of why **two silence criteria must always be reported**, and a
-result that only became visible once N=2000 landed (2026-08-20).
+- **It spreads activity over units** — participation sparsity falls from ~0.8–0.9 to ~0.2 on both
+  tasks. That is the rescue, seen as a distribution rather than a count.
+- **Its units are less selective, and get less selective as N grows**, on both tasks: flip-flop
+  0.86 → 0.82 → 0.63 and CDDM 0.37 → 0.36 → 0.32 from N = 500 to 2000, while `none` holds level.
+  In the joint-versus-single-variable regression the median tuned unit is single-bit in *every*
+  condition (gap 0.001–0.002), but **24–38% of `frm`'s tuned units gain > 0.1 R² from a second bit,
+  against 0.5–10% under the other three** (flip-flop, N = 2000, k = 3). Mixed selectivity under `frm`
+  is a distinct subpopulation, not the typical unit. Task-free, the same: `frm` has the lowest fraction
+  of units following one population factor (NMF, 0.31–0.56 vs 0.77–0.88 for `both`; §S6).
+- **It listens to everyone.** Effective in-degree `S ≈ 800` at N = 2000 against ~20 with `rws`.
+  The recurrent wiring has no block structure (modularity above null 0.14 vs 0.33 unpenalized) while
+  the *activity* is as modular as anyone's (0.29 vs 0.34): function present, not written into `W_rec`
+  (§S7).
+- **It raises dimensionality with N** on both tasks (CDDM D_PR 5 → 10 over N = 500 → 5000; flip-flop
+  5.6 → 8.9 over 500 → 2000) where the unpenalized network's dimensionality is set by the task and
+  flat in N.
+- **On the flip-flop it is also transient and unstable**: units burst (temporal sparsity 0.53 vs
+  0.41), ~10% are dead at any moment but not the same 10% (2.9 dead↔alive crossings per unit over
+  50k iterations), and its live count falls with N (0.99 → 0.86 of N). ⚠️ **Task-specific**: on CDDM
+  `frm`'s temporal sparsity equals the unpenalized value and its live fraction is 1.0 at every N.
 
-Measured at a **matched iteration budget** (the `none` baseline read from its participation trace at
-the iteration where the penalty run stopped, since the unpenalized runs were given up to 2× the
-budget and silencing never settles — §6.1):
-
-| N=2000, budget 150k | `none` | `rws` | `frm` | `both` |
-|---|---|---|---|---|
-| silent, **hard** (`p<1e-6`) | 78.9% | **60.5%** ← looks like a rescue | 0.0% | 0.0% |
-| silent, **scale-free** (`p<0.05·q95`) | 80.9% | **86.0%** ← worse than baseline | 0.0% | 0.0% |
-
-`rws` lifts units just across the 1e-6 line while leaving them far below any functional threshold:
-it converts hard zeros into a long tail of tiny-but-nonzero rates. The effect **grows with N** —
-the hard/scale-free gap is 11.9 pp at N=500, 20.7 at N=1000, **25.5 at N=2000** — and it is absent
-in every other condition (`none`'s two criteria agree to within 2 pp at every size).
-
-This is also the resolution of an apparent late-training "resurrection" under `rws`: the hard-silent
-count peaks and then falls back (75.5% → 60.5% at N=2000, peaking at iteration 76k), with the drop
-scaling steeply in N (3.2 / 10.2 / **15.0** pp at N = 500 / 1000 / 2000) and absent in `none`
-(≤1.0 pp). **No units are revived** — they cross 1e-6 without becoming active, which the scale-free
-criterion sees straight through. Anyone reporting a single hard threshold would publish this as a
-rescue.
-
-`rws` also silences on a **completely different timescale**: median first crossing at iteration 3287
-versus 16 for the unpenalized net ✅. It does not participate in the early collapse; it kills units
-slowly, late in training.
-
-### 2.2 Task cost: `frm` and `both` cost nothing, and at N=2000 they *help* ✅
-
-⚠️ **Read the loss column carefully — this bit the project twice.** `TrainLosses.json` records what
-the optimizer descends: task + λ·penalty, evaluated with **noise on**. That quantity is ~65% noise
-floor plus a penalty term, so ordering conditions by it compares regularization strengths rather
-than performance. At N=2000 it reads `rws` 0.02432 (apparently the worst condition) while `rws`'s
-noise-free task loss is 0.00745 (better than `rws` at N=500 or N=1000). **Every task-performance
-number below is the noise-free masked MSE of the final weights on a shared batch**, evaluated
-post-hoc by an independent numpy integrator, not the recorded training column.
-
-| noise-free task loss | `none` | `rws` | `frm` | `both` |
-|---|---|---|---|---|
-| N=500, train / held-out | 0.00851 / 0.01598 | 0.00835 / 0.01569 | 0.00980 / 0.01757 | 0.00844 / 0.01571 |
-| N=1000, train / held-out | 0.00907 / 0.01664 | 0.00792 / 0.01532 | 0.00876 / 0.01628 | 0.00828 / 0.01509 |
-| N=2000, train / held-out | 0.00888 / 0.01628 | 0.00713 / 0.01442 | 0.00760 / 0.01463 | **0.00578 / 0.01226** |
-
-Held-out = interleaved coherence midpoints, never seen in training. Three things follow:
-
-1. **The activity penalties are not paid for in performance.** `frm` is ~15% worse than `none` at
-   N=500, level at N=1000, and **14% better at N=2000**; `both` is level, better, and **35% better**.
-   The earlier "+5% task cost of `frm`" figure was computed from the total objective and is
-   **retracted**.
-2. **The advantage grows with N** — exactly where the unpenalized silence is worst. At N=2000 `both`
-   attains the best task loss of any condition *and* keeps all 2000 units active.
-3. **Generalization tracks training loss, with a constant ~1.85× gap in every condition.** No penalty
-   trades train for held-out performance; the gap is a property of the coherence grid, not of
-   regularization.
-
-⬜ **Extension running**: the same grid at N=5000 (Spock array `5670493`), to check whether the
-advantage keeps growing into the regime where unpenalized silence reaches 85%.
+The cheap way to satisfy "be active" when you may listen to anyone is to listen to a little of
+everything. `frm` alone takes it.
 
 ---
 
-## 3. What we tried, and what worked
+## 5. What the in-degree cap adds: the modular solution, extended to every unit ✅ (both tasks, one part flip-flop only)
 
-Every intervention below was chosen because it *could* plausibly have removed the effect.
+### 5.1 The four populations, one statistic (both tasks)
 
-| # | Intervention | Result |
+Same table as §4 with all four conditions, N = 2000, mean of three seeds (`characterize_matrix.png`):
+
+| axis | CDDM none / rws / frm / **both** | flip-flop none / rws / frm / **both** |
 |---|---|---|
-| 1 | Equation type `h` vs `s` | both affected ✅ |
-| 2 | Cubic saturation term γ: 0.1 → 0 | no change ✅ |
-| 3 | Weight-boundary handling: sticky → reflective | no change ✅ |
-| 4 | **Sign-constrained vs unconstrained connectivity** (§S1) | no change in the silent fraction ✅ |
-| 5 | **Removing I/O positivity** | no change in the fraction; converts soft floors into hard zeros ✅ (§S1) |
-| 6 | **Trainable bias** (`[-1,1]`, zero init) | no rescue ✅ (55.3% → 54.9%) |
-| 7 | **Self-connections** allowed | no rescue ✅ — and the network trains the diagonal into self-*inhibition*: corr(self-weight, log participation) = **−0.51**, active units at −0.060 vs silent at −0.007. The cheapest escape from silence is one it declines to take. |
-| 8 | Activation: softplus(β=25), leaky-ReLU | persists, 40–64% ✅ (constrained nets, §S1); ⬜ unconstrained rerun |
-| 9 | Recurrent noise σ_rec ∈ {0, .01, .05, .1} | never helps; σ=0 is the *worst* regime (~80%) ✅; ⬜ rerun |
-| 10 | `rws` sparsity penalty | fails (§2) ✅ |
-| 11 | `met` metabolic penalty, 4 decades | fails, and at λ=10 makes it worse ✅ |
-| 12 | **Longer training** (30k → 300k iterations) | makes it worse, monotonically ✅ — silence is not a transient of under-training |
-| 13 | **Larger networks** | makes it worse, monotonically ✅ (§1.2) |
-| 14 | **Connectivity scale** (spectral radius, density) | ⬜ planned — is silence simply weak recurrent drive? |
-| 15 | **`frm` firing-rate-magnitude penalty** (λ=0.1) | ✅ **works** |
+| active fraction | 0.15 / 0.14 / 1.00 / **1.00** | 0.14 / 0.15 / 0.86 / **1.00** |
+| participation sparsity | 0.93 / 0.92 / 0.22 / **0.23** | 0.77 / 0.78 / 0.21 / **0.03** |
+| selectivity sparsity | 0.48 / 0.41 / 0.32 / **0.45** | 0.76 / 0.80 / 0.63 / **0.90** |
+| temporal sparsity | 0.73 / 0.69 / 0.71 / 0.74 | 0.41 / 0.43 / 0.53 / **0.39** |
+| D_PR | 2.3 / 2.2 / 8.2 / 8.5 | 6.2 / 6.1 / 8.9 / **5.5** |
 
-**`frm` is the one that works, and it works completely** ✅:
+What replicates across tasks, in every seed: **`both` keeps all units active *and* restores the
+selectivity of the unpenalized survivors** (CDDM 0.45 vs `frm` 0.32; flip-flop 0.90 vs 0.63), and
+its selectivity does *not* degrade with N where `frm`'s does (flip-flop `both` 0.84 → 0.86 → 0.90;
+CDDM 0.40 → 0.41 → 0.45 over N = 500 → 2000). The difference between `frm` and `both` is not how
+many units are alive; it is what kind of unit they are.
 
-- Silent fraction → **exactly 0 under both criteria**, in every cell, every architecture tested (§S1), and every activation tested — and it stays 0 through 200k iterations, at
-  every size up to N=2000, where the unpenalized network has reached 79% ✅.
-- No tail whatsoever: the *minimum* participation of any unit in any `frm` net is 4.8e-2 — about a
-  sixth of the median, with nothing approaching zero. Contrast `rws` (§2.1), which produces exactly
-  the tail `frm` does not.
-- **No task cost, and a growing benefit with N** ✅: level with `none` at N=1000 and 14% better at
-  N=2000 on the noise-free task loss; `both` is 35% better at N=2000 (§2.2).
-- Effective participating units (1/HHI) rise from ~60–150 to ~700–900 of 1000.
+What is flip-flop-specific: the participation floor (`both` 0.03 vs `frm` 0.21; on CDDM they are
+equal), the temporal stabilization (§5.3), and the dimensionality reduction (`both` 5.5 below
+`none` 6.2; on CDDM `both` raises it like `frm`). ⚠️ These are reported as flip-flop results.
 
-> **Name the tautology before a referee does.** "A penalty on sub-cap firing removes sub-cap units"
-> is nearly circular. The non-trivial content is: it *improves* performance at large N; unpenalized nets
-> concentrate onto a *task-determined absolute number* of units regardless of N; the standard
-> regularizer fails or makes it worse; and — §1.3 — the resulting populations differ in ways that
-> change scientific conclusions.
+### 5.2 Mechanism: `rws` forbids the diffuse solution and the task's own assemblies return (flip-flop; ⬜ CDDM = A3)
 
-### 3.1 The rescued units are task-tuned, not merely non-zero ✅
-
-The obvious objection to §3 is that `frm` could be buying non-zero units that do nothing —
-precisely the failure mode `rws` alone exhibits (§2.1). It is not. Measured over the full
-(N, k) grid of the n-bit flip-flop.
-
-**The metric, plainly.** The task asks the network to remember k bits, each currently +1 or −1.
-Take one unit, write down its firing rate at every moment of every trial, and alongside it what the
-bits were at that moment. Then ask: *can this unit's activity be predicted from what the bits
-currently are?* That is a regression, and R² is the fraction of the unit's activity the bits
-account for. A unit near 1 is doing the task — watch it and you can read off the remembered bits.
-A unit near 0 is active but its activity has nothing to do with what is being remembered.
-
-> **The regressors must be half-wave rectified**, `relu(+b_j)` and `relu(−b_j)` — 2k regressors plus
-> an intercept — not the k signed bit traces. ReLU units are non-negative and many fall to *exactly*
-> zero for one sign of a bit, which a line through three levels cannot fit. The rectified basis spans
-> the linear one (`relu(b) − relu(−b) = b`) plus the absolute values. Using the signed basis
-> understates R² by ~0.14 in every condition and manufactures a spurious untuned population under
-> `frm`. No regularization is needed and this is checked, not assumed: condition number 6.7,
-> in-sample vs 5-fold-CV R² gap 0.0005, n/p ≈ 1370.
-
-**Selectivity space is a star, not a blob.** Plotting each unit at its 2k regression weights
-(`unitcloud_sel_N2000_k3.gif`) shows a **6-armed star** at k=3 — dense arms along ±bit1, ±bit2,
-±bit3 with a core at the origin. Most units are tuned to one bit; the joint R² and the best
-single-bit R² differ by 0.003, so there is almost no mixed selectivity to speak of. Arm occupancy is
-near-perfectly even (335/328/355/342/312/328 of 2000 at N=2000, k=3).
-
-**Result**, per N=2000 network at k=3:
-
-| | tuned/live | median R² (tuned) | median Hoyer sparsity | live/N | **tuned units / 2000** |
-|---|---|---|---|---|---|
-| `none` | 0.857 | 0.609 | 0.766 | 0.141 | **241** |
-| `rws` | 0.847 | 0.634 | 0.807 | 0.151 | 255 |
-| `frm` | 0.811 | 0.839 | 0.748 | 0.864 | **1401** |
-| `both` | **0.959** | **0.901** | **0.841** | **1.000** | **1918** |
-
-`both` wins on every axis at once: most units alive, the highest fraction of those tuned, the best
-explained, and the most sparsely tuned. **~8× more task-tuned units than unpenalized, each explained
-to R² = 0.90 rather than 0.61.**
-
-**The two penalties do different jobs, and this is the cleanest evidence of it.** `frm` delivers the
-units and their tuning quality (R² 0.84 vs 0.61 unpenalized) but has the *lowest* Hoyer sparsity of
-all four conditions — its tuning is smeared across channels. `rws` alone has almost no units but the
-sparsest tuning of the unpenalized pair (0.807 vs 0.766). Together: `frm` recruits, `rws` sharpens.
-This is the same division of labour the temporal-participation analysis found in the time domain,
-now in the tuning domain, and it is the argument for using both rather than either.
-
-**They get better as the task gets harder.** Median R² moves in *opposite directions* with k:
-`none` declines 0.658 → 0.540 from k=1 to k=8 while `both` rises 0.871 → 0.913. All four N curves
-lie on top of each other within each condition, so this is task complexity, not network size. The
-unpenalized network dilutes its task representation as demands grow; the penalized one concentrates
-it.
-
-> **Report both halves.** Median R² alone is conditional on being tuned and flatters conditions with
-> few live units; tuned fraction alone ignores tuning quality. The product — tuned units per network
-> — is the honest summary, and it is the column that carries the 8× claim.
-
-**Task-free check: the same ordering from factors the population defines itself.** The regression
-presupposes the bits. Dropping that, factor the live-unit rate matrix by NMF (non-negative matrix
-factorization: each unit's trace written as a non-negative sum of d shared non-negative time
-courses, discovered from the population; d swept over k..4k, nothing uses the bits) and read, per
-unit, the effective number of factors carrying its variance, `n_eff = (Σ h²)² / Σ h⁴` with factors
-at unit norm: 1 = one factor, 2 = two equal ones. Calibrated on synthetic populations built from the
-bit traces before any real net was read (pure units 1.000; equal two-arm sums 1.997 against a truth
-of 2). Per N=2000 network, NMF at d = 2k, median n_eff and fraction of units with > 91% of their
-variance on one factor:
-
-| | k=3 median | k=3 pure fraction | k=8 median | k=8 pure fraction |
-|---|---|---|---|---|
-| `none` | 1.11–1.16 | 0.52–0.66 | 1.26–1.58 | 0.32–0.46 |
-| `rws` | 1.13–1.16 | 0.55–0.58 | 1.11–1.14 | 0.54–0.56 |
-| `frm` | 1.09–1.54 | 0.31–0.56 | 1.30–1.77 | 0.28–0.42 |
-| `both` | **1.001–1.005** | **0.77–0.88** | **1.03–1.09** | 0.52–0.64 |
-
-`frm` is the mixed condition in every seed at both k, and a second decomposition with nothing in
-common with NMF (Plumbley's non-negative ICA, usable at k=3 only) singles it out the same way.
-`both` is the purest under NMF in every seed, by a wide margin at k=3 and a narrow one at k=8, where
-its pure fraction overlaps `rws`; the non-negative ICA does not reproduce `both > none, rws`, so that
-half of the claim rests on one method. This is the regression result of the table above with the
-task variables removed: `frm` recruits units whose activity mixes several population patterns,
-`rws` on top of it leaves units that follow one.
-
-> **What "pure" means here.** A factor is whatever shared non-negative pattern the population
-> contains, linear in the inputs or not: synthetic units tuned to a conjunction of two bits are
-> recovered as their own factor and read n_eff = 1. Purity is relative to the finest patterns that
-> have anchor units, so a unit that is a sum of finer patterns reads as mixed. The measure asks how
-> many of the population's elementary patterns a unit combines, not whether it is a nonlinear
-> function of the experimenter's variables; in the flip-flop the two coincide because the elementary
-> patterns are single bits.
-
-⬜ **Not yet done**: the regressors are bit *states*, so a unit encoding transitions, timing, or a
-nonlinear conjunction scores low without being uninformative (the NMF check above shows conjunction
-units would read as pure, so that part of the worry is bounded). Adding the input pulse trains and
-bit-product terms would bound how much of the residual is structure rather than noise.
-
----
-
-### 3.2 What `rws` adds to `frm`: it stabilizes the rescue ✅
-
-§3.1 shows the rescued units are task-tuned. This asks what the *second* penalty contributes, and
-answers it causally rather than by comparing independently trained networks — which cannot
-distinguish "rws moves these units" from "frm+rws finds a different solution with different units in
-those roles".
-
-**Design.** Four arms, N=2000, k=3, 3 seeds, warm-started from converged 400k networks and continued
-for 50k iterations. A1 and A2 branch from the **identical** frm parent; A3 and A4 from the identical
-`both` parent, so each contrast is paired.
-
-| arm | switch | median tPR | dead fraction | final IQR | churn |
-|---|---|---|---|---|---|
-| **A1** | frm → frm+rws | 0.157 → **0.353** | 0.106 → **0.000** | 0.179 | **1.7** |
-| **A2** | frm → frm *(control)* | 0.159 → 0.209 | 0.106 → 0.094 | 0.330 | **3.2** |
-| **A3** | both → frm | 0.353 → **0.228** | 0.000 → **0.088** | 0.325 | 1.9 |
-| **A4** | both → frm+rws *(control)* | 0.354 → 0.359 | 0.000 → 0.000 | 0.145 | 1.4 |
-
-*churn = dead↔alive boundary crossings per unit, sampled every 250 iterations (see the caveat
-below on why the rate must be stated). All four arms: A4 **0.13**, A1 **0.35**, A3 1.54, A2
-**2.70** — the arms sort by whether `rws` is active after the switch, not by which parent they came
-from, with no overlap between the groups and a 20× spread. Equivalently: **95% of units under
-`frm+rws` never cross the silence boundary once in 50k iterations, against 47% under `frm` alone.***
-
-> **Both same-penalty controls are load-bearing.** A4 is inert (median +0.005, ρ(start,end) = 0.78),
-> so warm-starting and 50k extra iterations do nothing on their own. But **A2 is not inert**
-> (+0.050): continued frm training moves the population by itself. Reading A1 against zero rather
-> than against A2 would have attributed that to `rws`.
-
-**The effect is symmetric and fully reversible.** Forward (A1−A2) vs reverse (A3−A4): median tPR
-+0.146 / −0.130; dead fraction −0.094 / +0.088; IQR −0.151 / +0.180. We had predicted possible
-hysteresis — once `rws` has pulled the effective in-degree to its target, nothing pushes it back
-(weight decay is 1e-6 and `frm` has no term that sees it). It reverts almost exactly. **`rws`'s
-effect is dynamically maintained, not a one-time rewiring.**
-
-**The mechanism is stabilization, not elevation.** Under `frm` alone units cycle in and out of
-silence continuously. Sampled every 250 iterations — the rate at which the comparison is meaningful,
-see the caveat — there are **2.94 dead↔alive transitions per unit under `frm` alone against 0.30
-with `rws`, nearly 10×**. Under `frm` 43% of units never cross the boundary and **38.7% cross it
-four or more times**; with `rws` those are 83% and 1.7%. The ~10% dead fraction under `frm` is a
-*dynamic equilibrium*, not a fixed set of casualties: at any moment ~10% are dead, but not the same
-10%.
-
-> **Churn is sampling-rate dependent and must be quoted with its rate.** At 10-iteration sampling
-> the counts are 1.7 vs 3.2, only 1.9×. `frm+rws`'s count collapses 5.7× under coarser sampling
-> while `frm`-alone's barely moves (1.09×), because they are different phenomena: the residual churn
-> under `frm+rws` is fast flicker at the finest timescale, whereas `frm`-alone's is slow, persistent
-> switching that survives any sampling rate. Counting the two as equivalent understates the effect
-> five-fold. This is visible directly in the trajectory figures, where the
-`frm`-only arm's dead fraction sawtooths between 0 and 0.24 for the entire run while the `frm+rws`
-arm drops to zero within a few hundred iterations and stays.
-
-That also resolves an apparent paradox in the identity statistics. Rank correlation between starting
-and final occupancy is only 0.26 under A1 — which looks like `rws` scrambling the population. But
-A2, where the penalty does *not* change, gives 0.48, while A4 (nothing changes) gives 0.78. So the
-low value under A1 is `rws` **stopping** a reshuffling that `frm` was doing anyway, then compressing
-the distribution (IQR 0.330 → 0.179) so ranks lose resolution. The distinguishing statistics are the ones that do not
-depend on rank: the dead fraction (0.106 → 0.000 vs 0.106 → 0.094), the IQR compression, and the
-churn collapse.
-
-> **A statistic we tried and discarded.** `corr(Δ occupancy, starting occupancy)` looks like the
-> natural test of "low starters gain most", and gives −0.67 for A1 against −0.40 for the control.
-> It supports nothing. The statistic carries a large built-in negative bias — with an endpoint
-> unrelated to the start, `corr(a, b−a)` is already ≈ −0.7 from regression to the mean — and the
-> bias depends on the group's variance, which differs between arms. Against each arm's own
-> shuffled-endpoint null the *excess* is +0.11 for A1 and +0.29 for the control: both are less
-> negative than chance, and the control shows more identity preservation, the opposite of the
-> apparent reading. Never compare `corr(x, y−x)` across groups with different variances without a
-> per-group null.
-
-**No task cost.** Final loss 0.027–0.030 across all four arms (±0.002), r² 0.934–0.948 at every
-checkpoint.
-
-> **The claim this supports, and the one it does not.** Not "`rws` molds transient units into
-> sustained ones" — that was our pre-registered hypothesis and **both** its criteria fail: identity
-> ρ = 0.26 against the required > 0.5, and the `corr(Δ, start)` signature evaporates once its null
-> is computed. The supported claim is **`frm` cannot hold units alive; `rws` stabilizes them there** —
-> causal, reversible, and measured within the same networks.
-
-⬜ **Caveat**: one run of twelve (A1 seed 0) hit the `frm` gradient-spike problem — 498 skipped
-updates, 1.12% of probes above 10× median loss — producing transient population-wide collapses in
-its trajectory. Ruled out as the spike guard (0 rollbacks in every run) and as batch noise (on a
-fixed network across 12 batches the population median moves by sd 0.0011 and no unit by >0.1).
-Figures use a clean seed; the affected run is retained as a documented example.
-
----
-
-### 3.3 Why the two penalties compose: `frm` breaks a symmetry, `rws` preserves the task's assemblies ✅
-
-The results of §3.1–3.2 have one mechanism behind them. Stated in the order it should be read.
-
-**A ReLU network has a hidden freedom.** Because `relu(a·x) = a·relu(x)`, scaling a unit's
-incoming weights and bias by `a` and its outgoing weights by `1/a` leaves the network's function
-unchanged. The task loss is identical for every `a`, so gradient descent receives no signal about
-how loud a unit should be. Loudness drifts; a unit that drifts to zero has zero gradient and never
-returns. Weight decay formally selects an `a`, but at the values used here it barely acts, and
-where it acts it selects by *shrinking* — it removes weak units rather than rescuing them. **`frm`
-pins the activity scale above zero.** It is the only intervention in §3 that touches this
-symmetry, which is why it is the only one that works.
-
-**`rws` measures how many units a unit listens to.** `S = (Σ|W_j|)² / ΣW_j²` per row of `W_rec` is
-the effective in-degree, and `rws` penalises `(S − 20)²`. Under `frm` alone every unit listens to
-nearly the whole population (`S ≈ 800`); with `rws`, to about 20.
-
-**The task's natural solution is modular, and the unpenalized network finds it.** A k-bit
-flip-flop has 2k states to hold, and the natural recurrent memory is an assembly per state.
-Assigning each tuned unit to a state and measuring the fraction of its recurrent input that comes
-from same-state units (against chance):
+A k-bit flip-flop has 2k states and its natural recurrent memory is an assembly per state. The
+fraction of a tuned unit's recurrent input coming from same-state units, over chance:
 
 | | k = 3 | k = 8 |
 |---|---|---|
-| `none` | 3.1× | 5.1× |
-| `rws` | 3.7× | 8.8× |
-| **`frm`** | **1.7×** | **3.2×** |
-| `both` | 4.0× | 11.5× |
+| none | 3.1× | 5.1× |
+| rws | 3.7× | 8.8× |
+| **frm** | **1.7×** | **3.2×** |
+| both | 4.0× | 11.5× |
 
-The unpenalized network organizes its few survivors into assemblies unprompted. **`frm` is the
-one condition that destroys them** — five times the units, wired near chance. `rws` restores the
-structure above the unpenalized level, and it strengthens with k. (Soft, assignment-free
-tuning-overlap version gives the same ordering; §Methods.)
+The unpenalized network builds assemblies unprompted among its survivors; `frm` is the one condition
+that dissolves them; `rws` restores them, more strongly the harder the task. Wiring modularity above
+its null: 0.33 / 0.40 / **0.14** / 0.20; activity modularity the same in all four (§S7). A unit in an
+assembly inherits its activity from the task: a bit is in a given state 36% of the time by design,
+and the modal occupancy of a `both` unit is 0.35–0.38 at every k from 1 to 8.
 
-**This is causal.** Taking a trained `frm` network and adding `rws` raises its assembly share
-0.28 → 0.64 within 50k iterations; taking a trained `frm+rws` network and removing `rws` drops it
-0.67 → 0.28; same-penalty controls do not move (seed spread < 0.03). Assembly structure is a state
-variable set by whichever penalty is active.
-
-**A unit in an assembly inherits its activity from the task.** It is on when its state holds, and
-a bit is in a given state 36% of the time by task design, independent of k. The modal occupancy
-of `frm+rws` units sits at 0.35–0.38 at every k from 1 to 8; the modal `frm`-alone unit at k ≥ 3
-is quasi-silent. The temporal-participation uniformity, the disappearance of dead units, and the
-R²/Hoyer results of §3.1–3.2 are all this single fact.
-
-**The modules are not an artifact of the labels, and it is the wiring, not the activity, that
-`frm` lacks.** With every condition subsampled to the same 275 live units, 2k clusters, and each
-partition scored against its own shuffle null: the *activity* is modular to the same degree in all
-four conditions (Q above null 0.29–0.34; within-cluster correlations 4.6–5.5× between-cluster),
-`frm` included. The *wiring* is not: Q above null is 0.33 / 0.40 / **0.14** / 0.20 for none / rws /
-`frm` / both, and within-cluster weights exceed between-cluster weights by 6.5 / 13.5 / **2.1** /
-10.8×. `frm`'s activity groups as cleanly as anyone's while its recurrent wiring is barely above
-chance — function present, not carried by `W_rec`. Wiring and activity partitions agree at ARI
-0.61 / 0.62 / **0.30** / 0.48 (±0.08–0.15): `frm` is the outlier; the other three are comparable
-within their spreads. (Both's raw wiring modularity is inflated by its sparsity — a sparse random
-graph looks modular to spectral clustering by itself, null 0.32 vs 0.06–0.15 — so only
-null-corrected values are comparable across conditions. Louvain does not recover the number 2k
-unprompted, and eigenvalue outliers of `W_rec` do not count the assemblies, because they are
-internally E/I-balanced rather than self-exciting; §Methods.)
-
-> **The honest magnitude.** Modularity is the *default* — the unpenalized network builds it among
-> its few survivors. `frm` destroys it in the wiring; `rws` preserves it. Adding `rws` to `frm` does
-> not make the network *more* modular than an unpenalized one; it gives the *same* modularity across
-> all 2,000 units instead of 275. The gain is not structure per unit — it is structure at all, in
-> every unit, where `frm` alone has none in the wiring.
-
-> **What the wiring–activity agreement means, and what to call it.** It is *structure–function
-> correspondence* — whether the modules in the anatomy are the modules in the physiology — and it is
-> a different axis from heterogeneity: `frm`'s wiring is *homogeneous*, everyone connected to
-> everyone, while its activity is heterogeneous. Under `frm` the units are still functionally
-> organized (activity partition vs task assemblies: 0.41), but the recurrent wiring does not carry
-> that organization (0.24). **Under both, the function is implemented in the recurrent weights as
-> blocks one can read off the matrix; under `frm` the same function exists but leaves no block
-> structure in `W_rec`.** This is the sharpest form of the "useful as a tool" claim: a network can
-> only be reverse-engineered from its weights if the weights reflect its function. It is also the
-> property cortex has — like-to-like connectivity (Ko et al. 2011; Cossell et al. 2015 ⬜ verify) —
-> and one that standard trained networks reportedly lack (Hod/Casper/Filan et al. ~2021 on weight
-> vs activation clusterability ⬜ verify). Trained-RNN population structure has been found from
-> connectivity (Dubreuil et al. 2022) and from function (Yang et al. 2019), but not, to our
-> knowledge, tested for coincidence ⬜ verify.
-
-⬜ **Still open on this table:** the cluster count is fixed at 2k; a sweep around it, or a
-stability-based choice, would close the last methodological question. (Matched-n and seed spread
-are now done — see the values above.)
-⬜ **Testable hypothesis left open:** whether `frm`'s selectivity is carried by `W_inp` rather than
-`W_rec`, which is what "function without block structure in the recurrent weights" would require.
+> **The honest magnitude.** `both` is *not* more modular than the unpenalized network. It has the
+> same modularity extended from 275 units to 2,000. The gain from `rws` is structure in every unit
+> where `frm` alone has none in the wiring — not more structure per unit.
 
 > **Why the penalties need each other.** `frm` demands every unit be active but says nothing about
-> *how*. With thousands of units and a handful of states, the cheap way to keep everyone alive is
-> to listen to everyone — some drive always arrives from somewhere — and that is exactly what `frm`
-> alone produces: active but diffuse. The expensive way is to join an assembly. Gradient descent
-> takes the cheap way when it is available; **`rws` forbids it.** With the in-degree capped, a unit
-> cannot listen to everyone, and the only remaining way to satisfy `frm` is the modular one — the
-> solution the task wanted all along. `frm` alone: active but diffuse. `rws` alone: modular but
-> mostly dead. Together: active *and* modular.
+> how. With thousands of units and a handful of states, the cheap way is to listen to everyone;
+> `frm` alone takes it. With the in-degree capped, a unit cannot, and the only remaining way to
+> satisfy the floor is to draw its ~20 inputs from units carrying the same signal — an assembly.
+> `frm` alone: active but diffuse. `rws` alone: modular but mostly dead (§2.3). Together: active and
+> modular.
 
-⬜ **Not established**: `frm` alone is more prone to loss spikes at large N (≈5× at N = 2000), but
-the mechanism proposed for it — that the in-degree cap bounds the per-step perturbation to each
-unit — was tested and refuted (per-step participation drift scales as N^0.46 vs N^0.59). No
-mechanism for the stability difference is claimed.
+### 5.3 It is causal and reversible ✅ (flip-flop, N = 2000, k = 3, 3 seeds)
 
----
+Four arms warm-started from converged 400k networks and trained 50k more; paired same-penalty
+controls.
 
----
+| arm | switch | median temporal PR | dead fraction | assembly share |
+|---|---|---|---|---|
+| A1 | `frm` → `frm+rws` | 0.157 → **0.353** | 0.106 → **0.000** | 0.28 → **0.64** |
+| A2 | `frm` → `frm` (control) | 0.159 → 0.209 | 0.106 → 0.094 | — |
+| A3 | `both` → `frm` | 0.353 → **0.228** | 0.000 → **0.088** | 0.67 → **0.28** |
+| A4 | `both` → `both` (control) | 0.354 → 0.359 | 0.000 → 0.000 | — |
 
-## 4. Does the rescue prevent, or resurrect?
-
-A per-unit gradient argument says rescue should be impossible: a dead ReLU has zero derivative
-everywhere, so no gradient — including from the penalty — reaches its incoming weights.
-
-Answered directly from the participation traces (per-unit participation logged every 10 iterations
-through all 30000), h equation, per 1000 units ✅:
-
-| | ever dips below 0.01 | ends below | **silent ≥500 iters, then recovers** |
-|---|---|---|---|
-| none | 83.4% | 54.9% | 95.8 |
-| **frm** | 48.9% | **0%** | **0.6** |
-
-**It prevents.** Units dip briefly during the early collapse and are caught within a few hundred
-iterations; essentially none endure a long silent episode before recovering. (In the constrained
-architectures of §S1 the answer is different — there the penalty genuinely *resurrects* long-silent
-units — so this is an architecture-dependent answer, and the unconstrained one is reported here.)
-
-Two by-products of the same analysis ✅: silence is **not strictly irreversible** even without
-penalties (~96 units per network recover spontaneously), and the split *begins* within the first few
-hundred iterations, preceded by a **global collapse** in which the entire population goes quiet
-within ~20 iterations and only the eventual-active subset climbs back out. Note it begins early but
-does **not** finish early — see §6.1.
-
-⬜ Optional sharpening, 20 jobs: force a random 25% of units silent at init (bias = −1, frozen) and
-follow those specific units. Needed only if a referee insists on "can it revive a unit dead from the
-very start" — the resurrection result in §S1 already carries most of that weight.
-
-*(The earlier master-inhibitor / frozen-clamp experiments asked this same question through
-hand-built silencing constructions. They are superseded by the trace analysis, which answers it on
-the natural initialization in the standard architecture. Keep at most as supplementary.)*
+Forward and reverse effects are equal and opposite; controls are inert (A4) or drift mildly (A2 — the
+control that makes reading A1 against zero wrong). Dead↔alive crossings per unit at 250-iteration
+sampling: 0.35 with `rws` active after the switch, 2.70 without. No task cost (loss 0.027–0.030 in
+every arm). The pre-registered hypothesis — that `rws` *molds* transient units into sustained ones —
+**failed** both its criteria (identity ρ = 0.26 < 0.5; the `corr(Δ, start)` signature vanishes
+against its null, §S5). The supported claim is narrower and better: **`frm` cannot hold units alive
+on this task; `rws` stabilizes them there, and the structure is a state set by whichever penalty is
+active, not by training history.**
 
 ---
 
-## 5. Why the floor exists (mechanism of the matched level)
+## 6. Consequences: the population an RNN presents to analysis is a training choice ✅ (CDDM; ⬜ flip-flop = A6)
 
-Needed because §1.2 rests on `L*` = 0.023 being a meaningful common performance level rather than an
-arbitrary stopping point.
+Networks that perform identically (R² 0.84–0.87, N = 1000) differ by 3.5× in effective
+dimensionality (2.2 → 7.7), 1.7× in choice selectivity *among active units* (34% → 58%), 2× in total
+metabolic cost (the concentrated solution is the expensive one), and 100× in how concentrated that
+cost is (carried by an effective 8 units vs ~850). Every population-level comparison with data —
+dimensionality, selectivity fractions, cell classes, correlation structure — inherits this, and by
+§1.2 it is worst in exactly the large networks the field is moving toward.
 
-✅ **98% of the residual loss comes from |coh| < 0.05**, where the target is *discontinuous* at
-coh = 0: the correct choice flips sign across an infinitesimal stimulus change, so no smooth network
-output can match it. The floor is **task structure, not capacity** — which is exactly why it does
-not move with N. Ruled out as alternative causes: training noise, weight decay, and fit bias
-(§6.1) ✅.
+**Two limitations that belong in the main text.**
 
-This also disposes of a reading a referee will try: the networks are not "failing to converge to
-different floors because they are different sizes" — they are all converging to the same
-task-imposed floor, from different directions and at different rates.
-
----
-
-## 6. Open questions
-
-In dependency order — 6.4 gates the framing of the whole thing.
-
-### 6.1 Does training converge? — **answered, and the answer forced a new protocol** ✅
-
-**Status: resolved 2026-08-14 → 08-18.** This consumed the most effort of anything in the project
-and produced a methodological result worth its own methods paragraph.
-
-**It does not converge in any strict sense.** The loss is flat over the final 10% at every size, but
-the silent fraction is still climbing, and *seven* candidate stopping criteria all fail:
-
-- relative parameter change (`‖ΔW‖/‖W‖`) decays as a **power law** in iteration (exponent −0.29 to
-  −0.57), so a 1% criterion extrapolates to 0.5–5.6 **million** iterations;
-- the drift/jitter distinction via the lag-scaling exponent α is unusable — α wanders below 0.5
-  (sub-diffusive/caged) and back, so there is no stable crossing;
-- criteria on the raw loss trace fire ~7× too early, because the single-batch loss is noisy and its
-  minimum is a **noise lottery** (an earlier "median of 101 lowest losses" statistic was retracted
-  for this reason);
-- criteria on the silent-unit count never fire, because silencing never stops.
-
-The full negative record — what was tried, why each failed, and the three traps (mismatched fit
-ranges manufacture trends; a criterion satisfied only because the run *ended*; noise-lottery
-statistics) — is written up self-containedly in `project_trajectory.md`.
-
-**What replaced it: matched performance.** Read each size at the iteration `T_N` where its
-**smoothed** clean training loss stably crosses a common level `L*` — "stably" meaning the last
-iteration at which the centred 2001-iteration mean is still above threshold, with explicit guards
-against a rising trend and against sub-unit resolution. `T_N` scales as ≈ `N^0.27` (32k → 91k over
-N = 100 → 5000), i.e. slowly, which is why fixed-iteration comparison is biased and why the bias
-runs in the direction of *underestimating* silence at large N.
-
-**What licenses it:** the loss floor must not depend on N, or "the same loss" would not mean "the
-same performance". ✅ Fitted with three decay families (power law, exponential, stretched
-exponential; the stretched form wins by AICc after fixing the unidentifiable τ), the floor is
-**size-independent to within 1.6%**, and the residual deviation is a slight *rise* with N — the
-conservative direction, since it means large networks are read at a marginally harder standard, not
-an easier one. Cause of the residual rise: **optimization difficulty, not capacity** — ruled out
-noise, weight decay, and fit bias.
-
-### 6.2 Does the active-unit count saturate? — **answered: it decelerates significantly** ✅
-
-**Status: answered 2026-08-19–20, moved into §1.2.** Curvature is significantly negative
-(p = 0.001 hard, p = 0.012 scale-free); the saturating fit beats the power law at every matched
-level under the hard criterion; a 50× network buys 7.4× the active units, and doubling the active
-count costs ≈9× the network. Remaining caveats, both in §1.2: the ceiling estimate depends on the
-matched level, and the model-comparison verdict (though not the deceleration) depends on the
-silence criterion.
-
-⬜ **N = 10000 in flight** (Della `12599054`, 3 seeds, 80k iterations, ETA 2026-08-23 ~22:00). It
-adds one point at 2× the current largest size. The power law predicts ~830 active units there and
-the hyperbolic fit ~760 — a 9% gap, which three seeds at ±31 units can resolve. This is the last
-data the size argument needs.
-
-### 6.3 Is the rescue preventive or genuinely restorative? — **answered, architecture-dependent** ✅
-
-See §4. In standard RNNs `frm` **prevents** (0.6 units per network recover from a long silent
-episode); in the sign-constrained networks of §S1 it **resurrects** (369 per network).
-
-What remains open is the harder case: can it revive a unit dead **from initialization and stays
-dead**? §1.1's finding that 4.4% *are* hard-silent at init in standard networks means the material
-now exists. ⬜ 20 jobs would settle it. Optional.
-
-### 6.4 Is the silence just spare capacity — is the task too easy? — **answered: no** ✅
-
-The deflationary reading, and the one a referee will default to: the task is low-dimensional,
-unpenalized networks solve it with a modest number of effective units, and a large network trivially
-has units to spare. If that were right, the number of active units should track **task demand**.
-
-This section previously asked for exactly one experiment: *scale the task, not the network, and ask
-whether the active count moves.* The n-bit flip-flop grid is that experiment. `k` is a clean
-complexity dial — the network must hold `k` independent bits, so the task's memory demand is
-proportional to `k` by construction — and it was run at k = 1…8 crossed with N = 500…4000, three
-seeds per cell, every network read at a budget-independent criterion (§Methods).
-
-Fitting `M = A·N^b·k^c` to the absolute active count:
-
-| penalty | b (size) | **c (complexity)** | M at N=4000, k=3 | N needed for M=1000 | for M=2000 |
-|---|---|---|---|---|---|
-| none | 0.373 | **−0.053** | 688 | **1.1×10⁴** | **7.0×10⁴** |
-| rws | 0.566 | **+0.043** | 1032 | 3.8×10³ | 1.3×10⁴ |
-| frm | 0.952 | −0.012 | 3646 | 1.0×10³ | 2.1×10³ |
-| both | 0.998 | −0.001 | 3981 | 1.0×10³ | 2.0×10³ |
-
-**The active count is essentially independent of task complexity.** Across all four conditions `c`
-lies in [−0.053, +0.043]. Over the full k = 1…8 range that is a factor of 8^0.05 ≈ **1.11 — an 11%
-change** — against the ~8× that network size contributes over the same span. Its **sign is not even
-consistent** across conditions, which is what one expects of an effect indistinguishable from zero.
-
-An eight-fold increase in the number of bits the network must hold buys it about a tenth more active
-units. **Spare capacity is not the explanation:** on that account, a task demanding eight times the
-memory should recruit substantially more units, and it does not.
-
-The companion number rules out the other escape — that one could simply build a bigger network.
-Unpenalized, reaching 1000 active units requires **N ≈ 11,000**, and 2000 requires **N ≈ 70,000**;
-the largest network trained here is 4,000 and yields 688. And the active *fraction* falls
-monotonically with size (0.61 → 0.41 → 0.27 → **0.17** at N = 500 → 4000): bigger unpenalized
-networks are progressively emptier.
-
-> **This is the branch that makes the result a pathology rather than a curiosity.** The two
-> possibilities were: if the ceiling tracks task demand, the paper is partly a recommendation
-> (*don't train large RNNs on simple tasks and then analyse the population*); if it is flat
-> regardless of demand, it is a genuine pathology. **It is flat.** Trained RNNs recruit a number of
-> units set by neither the network size (which buys sub-linearly) nor the task (which barely
-> matters at all).
-
-⬜ **One caveat worth stating**: `k` scales the task's *memory* demand cleanly, but not necessarily
-its dimensionality in every sense. The measured effective dimensionality of the activity does rise
-with k (≈ 1.8k, §3.1), confirming the dial is doing what it claims — the network genuinely occupies
-more dimensions — while the active-unit count does not follow. That dissociation is itself the
-result: **more task dimensions, same number of units.**
-
-### 6.6 Smaller open items
-
-- **Connectivity scale** ⬜ — is silence simply insufficient recurrent drive? Spectral radius was only
-  ever checked *at initialization* (0% silent at every radius), never in trained networks.
-- **Generality across tasks** ⬜ — everything is CDDM. 17 task configs exist in the repo
-  (DMTS / GoNoGo / MemoryAngle / …). Overlaps with 6.4 but is a weaker version of it: showing the
-  effect on a second task establishes generality; showing `M*` *moves* with task complexity
-  establishes mechanism.
-- **Activation and noise reruns** ⬜ — established in the constrained networks of §S1, not yet repeated in unconstrained ones.
-- **Reverse engineering / identifiability** ⬜ — see §7.
+- **Rate heterogeneity goes the wrong way.** σ_log (std of log₁₀ mean rate across active units) is
+  1.2 unpenalized — the cortical value — and 0.26 under `frm`: one unrealism traded for another.
+  Within-trial modulation survives (temporal CV 1.29 vs 1.43), so the penalty is not satisfied by
+  tonic firing, but `both` flattens modulation further (0.96). ⬜ The cap × temperature sweep that
+  would turn this into a recommendation is T4 in `research_directions.md`.
+- **Pure selectivity is not a claim of realism.** Mixed selectivity is a computational feature of
+  cortex in the literature this paper will be reviewed by. Our claim is scoped to *identifiability
+  and analysis validity*: a population whose units each follow one task variable, wired in blocks
+  one can read off `W_rec`, is one whose computation can be recovered from its weights. Whether
+  cortex is like that is not claimed. Likewise, "cortex does not have 45–85% silent neurons" must
+  engage the dark-neuron literature: the RNN silence is exact zeros with zero gradient, not sparse
+  firing, and the argument is about the analysis pipeline.
 
 ---
 
-## 7. Possible framing: RNNs as a testbed for identifiability
+## 7. Methods that must be stated
 
-A framing worth considering for the introduction, and the one that would make §1.3 land hardest.
-RNNs are valuable precisely because, unlike a brain, the ground truth is available: one can subsample
-units from a trained RNN exactly as an electrode subsamples a cortex, fit the standard population
-models to the subsample, and ask how well the underlying system is recovered.
-
-Under that frame the silent-unit result is a statement about **identifiability**: a network whose
-computation is carried by a task-determined ~10³ units, of which a recording sees a random subset,
-is a system where the population statistics one measures (§1.3) depend on a training choice nobody
-reports. And the `frm`-rescued networks then serve as a **proof of usability**: activity-regularized
-networks are easier to reverse-engineer, because the computation is distributed over units that all
-actually fire.
-
-⬜ Nothing here is measured yet. The minimal experiment: subsample K units from `none` and `frm`
-networks matched on performance, fit the same population model to both, and show that recovery of
-the known ground truth is better for `frm` at every K. This closes the loop with the introduction
-and is the strongest available answer to "so what should I do differently?".
-
----
-
-## 8. Methods points that must be stated
-
-- Training noise (σ_rec = σ_inp = 0.05, σ_out = 0.03) — retained deliberately; standard in
-  neuroscience RNNs, absent in vanilla ML ones.
-- `lr` is rescaled as `lr × (100/N)^0.333`, so **N and learning rate co-vary** in the size sweep.
-  This is precisely why the matched-performance protocol (§6.1) is necessary.
-- **The matched-performance protocol itself** — the stable-crossing definition, the smoothing
-  window, the guards, and the size-independence check on the floor. This is a reusable contribution
-  for anyone comparing RNNs across sizes and should be written as such.
-- **Participation metric**: `p_i = std_{t,c}(r_i) + q_0.9(|r_i|)`; two silence criteria are reported
-  throughout — hard (`p < 1e-6`) and scale-free (`p < 0.05·q95(p)`) — because the silent fraction is
-  threshold-dependent (13% at <1e-4, 44% at <1e-2, 49% at <5e-2 in the same networks). Never report
-  one threshold alone.
-- Loss is reported **noise-free and on the training conditions**, with a held-out set of interleaved
-  coherence midpoints logged in parallel. Noisy single-batch loss is not a usable convergence signal.
-- Penalized runs use plain multi-objective descent (the earlier task-safe gradient projection is off).
-  **Comparing total objectives across penalties is meaningless**; only the task term is comparable.
-- **A practical result worth its own paragraph** ✅: strong activity penalties can make training
-  diverge, and *not* through gradient explosion. `frm` builds a self-exciting recurrent loop with
-  gain > 1 to overcome inhibition; explicit Euler then overflows within the trial while gradient
-  norms remain ~1, so clipping is useless. The fix is a smaller integration step plus a bounding
-  nonlinearity (dt 1 → 0.5 with γ = 0.1 cut the divergence rate from ~50% to ~10%). This is exactly
-  the kind of finding a tools-and-methods paper should carry.
-- Per-net spread or CIs, not just means over 3–5 nets.
+- **One statistic for four axes.** Hoyer sparsity `(√d − ‖v‖₁/‖v‖₂)/(√d − 1)` of a non-negative
+  vector; `‖v‖₁/‖v‖₂ = √PR`, so it is the participation ratio normalized to [0, 1] and flipped.
+  Applied to covariance eigenvalues (dimensionality; ⚠️ with d = N this saturates near 1 because
+  D_PR ≪ N everywhere, so D_PR is the informative number and Hoyer is reported for completeness),
+  per-unit participation (concentration over units), one unit's trace (temporal sparseness; the dual
+  of temporal PR), and one unit's tuning coefficients (selectivity; **mixed selectivity is defined as
+  1 − this**).
+- **The regression basis is half-wave rectified**: `relu(+x), relu(−x)` for each signed task
+  variable plus an intercept. ReLU units fall to exactly zero for one sign of a variable, which a line
+  through three levels cannot fit; the signed basis understates R² by ~0.14 and manufactures a
+  spurious untuned population under `frm`. No regularization (condition number 6.7, CV gap 0.0005).
+  Flip-flop: 2k regressors, time-resolved. CDDM: 7 regressors (context, ± motion, ± colour, ± choice)
+  on the decision-epoch mean per condition. R² and tuned fractions are not comparable across tasks;
+  orderings across penalties within a task are.
+- **Silence criteria.** CDDM: hard 10⁻⁶ and scale-free `0.05·q95`; flip-flop: `4 × 10⁻²`, Otsu-
+  calibrated on log participation (the CDDM threshold sits below both flip-flop modes and reports
+  0% silence there). Participation `p_i = std(r_i) + q₀.₉(|r_i|)`.
+- **Matched-performance protocol** for cross-N comparison on CDDM (§S2): read each size at the
+  iteration where the smoothed noise-free loss stably crosses a common level; licensed by a floor that
+  is size-independent to 1.6%. The learning rate is rescaled `lr × (100/N)^{1/3}`, so N and lr
+  co-vary and fixed-iteration comparison is biased toward *under*-estimating silence at large N.
+- **Loss is reported noise-free on the task term only.** `TrainLosses.json` is task + λ·penalty with
+  noise on; comparing it across penalties has produced a wrong conclusion twice.
+- Penalties: `frm` λ = 0.1, τ = 0.1, cap `0.3·log1p(100)/log1p(N)`; `rws` λ = 0.05, target in-degree
+  20; weight decay 10⁻⁶; training noise σ_rec = σ_inp = 0.05, σ_out = 0.03. ⚠️ None of the penalty
+  hyper-parameters has a sensitivity sweep in the main text (T3, T4).
+- **A practical result** ✅: strong activity penalties can make training diverge without gradient
+  explosion (`frm` builds a self-exciting loop with gain > 1; explicit Euler overflows within the
+  trial while gradient norms stay ~1). dt 1 → 0.5 with a bounding nonlinearity cut divergence from
+  ~50% to ~10%.
+- Per-network spread in every table; n = 3 seeds per cell throughout, 5 for the CDDM distortion set.
+  Pre-registered vs post-hoc is marked: §5.3's molding hypothesis was pre-registered and failed;
+  §4's mixed-selectivity subpopulation and §5.1's cross-task table were exploratory.
 
 ---
 
-## 9. Venue and priorities
+## 8. Venue
 
-**Target: PLOS Computational Biology (Methods).** It requires correct, complete, useful work rather
-than novelty impact — which fits. Fallbacks: eNeuro (Research Methods and New Tools), NBDT (welcomes
-careful, unglamorous, control-heavy work). bioRxiv preprint immediately. **eLife is now viable** —
-the earlier objection was that §1.3 did not exist; it does as of 2026-08-17. JOSS for the package as
-a companion citation.
+Target **Nature Communications** (repository set up per `paper_repo_setup.md`); the story is a
+mechanism with a fix and a characterization, shown on two tasks. Honest fallback if T1–T2 are not
+run before submission: **PLOS Computational Biology**, with §2.1 stated as interpretation. bioRxiv
+immediately.
 
-**Priority order (revised 2026-08-20):**
-
-1. ⬜ **Task scaling** (§6.4) — *the one thing that decides what the paper claims.* Without it, the
-   saturation result and the spare-capacity dismissal are indistinguishable.
-2. ⬜ **`cap_fr` × `logsumexp` sweep** (§6.5) — cheap, one grid at N=1000, converts the σ_log
-   limitation into a tuned recommendation.
-3. 🟡 **N=10000** — in flight, ETA 2026-08-23; last point the size argument needs.
-4. 🟡 **Penalty grid at N ∈ {2000, 5000}** — in flight; checks `frm` survives the 85%-silence regime.
-5. ⬜ **Subsample-and-fit identifiability demo** (§7) — closes the loop with the introduction.
-6. ⬜ **Lesion / generalization robustness** (§1.3) — no new training.
-7. ⬜ Second task; activation / noise / connectivity-scale reruns.
-
-**Done since the last revision:** metabolic-cost sweep (§2), population-distortion analyses (§1.3),
-standard-RNN N sweep to N=5000 (§1.2), matched-performance protocol (§6.1), floor mechanism (§5).
+**What decides which:** T1 (activation without a dead zone) and T2 (gain-normalization control).
+With them, §2 is a measured mechanism. Without them, it is the best-supported reading.
 
 ---
 
-## S1. Supplementary: Dale-constrained and I/O-positive networks
+## S1. Supplementary: Dale-constrained and I/O-positive networks ✅
 
-**Not part of the main argument.** Every claim in §§1–7 is established in standard unconstrained
-RNNs. This section exists for two narrow purposes: to show the phenomenon is *not* an artifact of
-the constrained architecture much of this literature uses, and to record the specific places where
-the constrained case behaves differently. Readers who do not work with Dale-constrained models can
-skip it.
+Not part of the main argument. Silence is overwhelmingly excitatory (53–55% of E units vs 3.5–5% of
+I units, falsifying the readout-starvation hypothesis); I/O positivity conceals how dead the units
+are (2.2% hard-dead vs 31.4% unconstrained at the same total silent fraction; every hard-zero unit
+in an unconstrained net has Σ`W_inp` < 0); `rws` reverses sign under Dale; `frm` resurrects rather
+than prevents; the `s` equation is more sensitive to constraints than `h`.
 
-1. **Silence is overwhelmingly excitatory** ✅: 53–55% of excitatory units vs 3.5–5.0% of inhibitory
-   units silent (h, none). This **falsifies** the natural hypothesis that the excitatory-only readout
-   starves inhibitory units of gradient — the opposite happens. Likely load-bearing redundancy: 200
-   inhibitory units carry the whole network's inhibition at 4× weight and are individually
-   indispensable, while 800 excitatory units are mutually redundant.
-2. **I/O positivity conceals how dead the units are** ✅: with `W_inp ≥ 0` and non-negative inputs,
-   every unit gets a positive push at every timestep, so no unit is *exactly* zero (2.2% hard-dead vs
-   31.4% unconstrained) — while the total silent fraction is unchanged (44.2% vs 42.7%). Every one of
-   the 285 hard-zero units in an unconstrained net has Σ`W_inp` < 0 (100%, no exceptions).
-3. **`rws` reverses sign** ✅: worse than baseline under Dale, mildly better unconstrained.
-4. **`frm` resurrects rather than prevents** ✅ (§4) — in standard RNNs it prevents.
-5. **The `s` equation is more sensitive to constraints** ✅: 55.1% → 32.6% silent when Dale and I/O
-   positivity are removed, while `h` is unchanged.
+## S2. Supplementary: convergence and the matched-performance protocol ✅
 
----
+Training does not converge in any strict sense: seven stopping criteria fail (parameter change decays
+as a power law, exponent −0.29 to −0.57, so a 1% criterion extrapolates to 10⁶ iterations; loss-
+trace criteria fire 7× too early; silent-count criteria never fire). The replacement is matched
+performance, with the floor shown size-independent to 1.6% by three decay families; the floor itself
+is task structure (98% of residual loss from |coh| < 0.05 where the target is discontinuous), not
+capacity. `T_N ∝ N^0.27`. Under this protocol M(N) is significantly decelerating (curvature
+c = −0.118 ± 0.033, p = 0.001), the saturating fit beats the power law under the hard criterion
+(ΔAICc −9 to −18) but not the scale-free one, and the implied ceiling depends on the matched level
+(3972 → 880 as L* deepens). The main text therefore claims the cost of active units, not a ceiling.
+
+## S3. Supplementary: the full "what we tried" table ✅
+
+Fifteen rows (§2.2), with the self-inhibition result (self-weights trained negative, active units at
+−0.060 vs silent at −0.007) and the divergence mechanism (§7).
+
+## S4. Supplementary: two silence criteria, and the `rws` artifact ✅
+
+The hard/scale-free gap is 11.9 / 20.7 / 25.5 pp under `rws` at N = 500 / 1000 / 2000 and ≤ 2 pp in
+every other condition; the apparent late-training "resurrection" under `rws` (hard-silent 75.5% →
+60.5%, peaking at iteration 76k) is units crossing 10⁻⁶ without becoming active. `rws` silences on
+a different timescale (median first crossing at iteration 3287 vs 16).
+
+## S5. Supplementary: the penalty-switch intervention in full ✅
+
+Churn at both sampling rates (1.7 vs 3.2 at every 10 iterations; 0.30 vs 2.94 at every 250 — different
+phenomena: fast flicker under `both`, slow persistent switching under `frm`); the identity statistics
+and why rank correlation is not the right readout (IQR compression 0.330 → 0.179); the
+`corr(Δ, start)` statistic and its regression-to-the-mean bias (excess over per-arm null +0.11 vs
++0.29, the *opposite* of the naive reading); the one seed with the `frm` gradient-spike problem (498
+skipped updates), retained as a documented example. The global early collapse and spontaneous
+recovery statistics (96 units per 1,000 unpenalized) also live here.
+
+## S6. Supplementary: selectivity without task variables ✅
+
+NMF of the rate matrix, factors at unit norm, effective number of factors per unit `(Σh²)²/Σh⁴`;
+calibrated before any real network was read (pure 1.000; equal two-arm sums 1.997 vs truth 2); the
+L1 form of the statistic and a random-angle mixed synthetic were both rejected by calibration and
+why; non-negative ICA cross-check at k = 3 (it does not identify the arms in 16 dimensions). Result:
+`frm` lowest pure fraction in every seed at k = 3 and 8 under both methods; `both` highest under NMF
+by a wide margin at k = 3 and a narrow one at k = 8. What "pure" means (relative to the finest
+anchored population pattern; a conjunction unit reads pure) and how it differs from Rigotti-style
+nonlinear mixing (interaction terms ⬜ S8).
+
+## S7. Supplementary: modularity, wiring–activity correspondence, readout ✅
+
+Matched n (275), 2k clusters, each partition against its own null: activity Q above null 0.34 /
+0.33 / 0.29 / 0.33, wiring 0.33 / 0.40 / 0.14 / 0.20; `both`'s raw wiring Q inflated by sparsity
+(null 0.32 vs 0.06–0.15); ARI(wiring, activity) 0.61 / 0.62 / 0.30 / 0.48 ± 0.15 — `frm` the outlier,
+the rest comparable. Eigenvalue outliers of `W_rec` do not count assemblies (they are E/I-balanced);
+Louvain does not recover 2k unprompted. `W_out` targets clean units 4× under `frm` but is not
+sparser. Prior work to verify: like-to-like connectivity (Ko 2011, Cossell 2015); weight vs
+activation clusterability (Hod/Casper/Filan ~2021); structure from connectivity (Dubreuil 2022) and
+from function (Yang 2019).
 
 ## Retracted claims (kept so they are not re-derived)
 
-- **"Median of the 101 lowest losses" as a performance statistic** — a noise-lottery on the noisy
-  single-batch loss; the raw trace dips below any threshold ~7× too early.
-- **"93–96% of the loss is irreducible"** — model-dependent, and the model is misspecified.
-- **A size effect in noise tolerance** — p = 0.084 whole-task but failed to localise (p = 0.31 at
-  |coh| < 0.02, p = 0.81 at coh = 0, wrong sign).
-- **"Training never reaches a stationary regime" (aging framing)** — overstated. The loss *has*
-  converged; the motion is along a flat manifold.
-- **"`frm` costs ~5% in task loss"** — computed from the total objective (task + λ·penalty), not the
-  task term. On the noise-free task loss `frm` is level with `none` at N=1000 and *better* at
-  N=2000 (§2.2). This is the same total-vs-task trap that invalidated an earlier penalty table;
-  it has now caught the analysis twice, so **never quote `TrainLosses.json` across penalty
-  conditions**.
-- **"`rws` partially rescues silent units at large N"** — a hard-threshold artifact. Under the
-  scale-free criterion `rws` is *worse* than baseline at every size, and the gap grows with N
-  (§2.1).
-- **Monotone decay exponent γ with N** — an artifact of mismatched fit ranges (N=2000 fitted over
-  300k while others were fitted over 200k). Mismatched fit ranges manufactured a spurious trend
-  three separate times in this project.
+- "Median of the 101 lowest losses" as a performance statistic — noise lottery.
+- "93–96% of the loss is irreducible" — model-dependent.
+- A size effect in noise tolerance — failed to localize.
+- "Training never reaches a stationary regime" — overstated; motion is along a flat manifold.
+- "`frm` costs ~5% in task loss" — computed from the total objective; on the task term it is level or
+  better. **Never quote `TrainLosses.json` across penalty conditions.**
+- "`rws` partially rescues at large N" — hard-threshold artifact (§S4).
+- Monotone decay exponent with N — mismatched fit ranges; this manufactured a trend three times.
+- "7–9 functional cell types", silhouette without null, intrinsic-dimension ordering, Mardia
+  kurtosis ordering — the selectivity space is a 2k-armed star and each fitted the wrong model.
+- "`both` is the most task-aligned / most modular" — unmatched-n artifact; matched, `both` has the
+  unpenalized modularity extended to all units.
+- "`rws` molds transient units into sustained ones" — pre-registered, both criteria failed; it
+  stabilizes.
+- "`frm` has an untuned quarter" — misspecified (signed) regression basis.
