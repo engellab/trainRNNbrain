@@ -8165,3 +8165,81 @@ near +1 in every condition because all ratios are < 0.25), `flipflop_manifold.py
 that saturates), `flipflop_structure_matrix.py` (⚠️ ITS MARDIA COLUMN IS CONFOUNDED - superseded by
 `flipflop_heavytail.py` at fixed m), `flipflop_heavytail.py` (five tail measures, correct but see
 point 5 for how to read them).
+
+## ▶ THE PENALTY-SWITCH INTERVENTION: rws STABILISES, IT DOES NOT MOLD — 2026-09-10 08:33
+
+Spock array `6112117`, 12 runs of 50k iterations, warm-started from the 400k penlong nets at
+N=2000, k=3. `flipflop_switch_trajectories.py` for the figures; traces carry per-unit temporal PR
+every 10 iterations (5000 snapshots x 2000 units per run).
+
+| arm | switch | median tPR (all) | median tPR (live) | dead frac | final IQR | rho(start,end) | corr(delta,start) | churn |
+|-----|--------|------------------|-------------------|-----------|-----------|----------------|-------------------|-------|
+| A1 | frm -> frm+rws | 0.157 -> **0.353** | 0.233 -> 0.352 | 0.106 -> **0.000** | 0.179 | +0.26 | **-0.67** | **1.7** |
+| A2 | frm -> frm | 0.159 -> 0.209 | 0.231 -> 0.222 | 0.106 -> 0.094 | 0.330 | +0.48 | -0.40 | **3.2** |
+| A3 | both -> frm | 0.353 -> **0.228** | 0.353 -> 0.228 | 0.000 -> **0.088** | 0.325 | +0.21 | -0.46 | 1.9 |
+| A4 | both -> frm+rws | 0.354 -> 0.359 | 0.354 -> 0.359 | 0.000 -> 0.000 | 0.145 | **+0.78** | -0.23 | 1.4 |
+
+`churn` = dead<->alive transitions per unit over the 50k iterations. It is the statistic that
+turned out to matter and it was not in the pre-registered plan.
+
+### 1. A4 validates the design
+
+The `both -> both` control changes NOTHING: median 0.354 -> 0.359, dead 0.000 -> 0.000, rho = 0.78,
+the highest identity of any arm. Warm-starting, resetting Adam and 50k extra iterations are inert on
+their own, so every effect in A1 and A3 is the penalty switch. ⚠️ A2 IS NOT INERT (median +0.050),
+which is exactly why both same-penalty controls were needed rather than reading A1 against zero.
+
+### 2. Symmetric and fully reversible
+
+| | forward (A1-A2) | reverse (A3-A4) |
+|--|-----------------|-----------------|
+| median tPR | **+0.146** | **-0.130** |
+| dead fraction | **-0.094** | **+0.088** |
+| final IQR | -0.151 | +0.180 |
+
+⚠️ THE HYSTERESIS PREDICTION WAS WRONG. The design doc predicted A3 might not revert, since once rws
+has pulled S to ~20 nothing pushes it back (weight decay 1e-6, frm has no term seeing S). It reverts
+almost exactly. **rws's effect is dynamically maintained, not a one-time structural change to
+connectivity.** Do not describe it as reshaping the network into a new stable regime.
+
+### 3. The mechanism is STABILISATION, not elevation
+
+Under frm alone units cycle in and out of silence continuously: **3.2 dead<->alive transitions per
+unit**, against 1.4 with rws. The ~10% dead fraction under frm is a DYNAMIC EQUILIBRIUM, not a fixed
+set of casualties - at any moment ~10% are dead, but not the same 10%.
+
+That explains the identity numbers, which otherwise look like reshuffling. A2 has rho = 0.48 WITH NO
+PENALTY CHANGE AT ALL; A4, where nothing changes, holds 0.78. So the low rho in A1 (0.26) is not rws
+scrambling the population - it is rws STOPPING a scrambling frm was doing anyway, and then
+compressing the distribution (IQR 0.330 -> 0.179) so ranks lose resolution.
+
+### 4. No task cost
+
+Final loss 0.027-0.030 in all four arms, differences of +-0.002. r2 held 0.934-0.948 at every
+checkpoint in every arm.
+
+### Verdict against what was pre-registered
+
+* "Molding" as defined in the plan (identity rho > 0.5): **NOT SUPPORTED**, A1 gives 0.26.
+* The molding SIGNATURE passes decisively: corr(delta tPR, starting tPR) = **-0.67** against the
+  control's -0.40. Units that start lowest gain the most.
+* Correct description is neither molding nor reshuffling: **rws levels the distribution and pins it
+  in place.**
+
+⚠️ SUPERSEDES THE CROSS-SECTIONAL FRAMING. "frm makes units active but transient; rws molds them
+into sustained ones" becomes **"frm cannot hold units alive; rws stabilises them there"** - causal,
+reversible, and what the intervention actually shows.
+
+### Two artefacts found while reading the traces, both ruled out
+
+⚠️ ABRUPT POPULATION-WIDE COLLAPSES appear in the A1 rep 0 trajectory figure. They are transient loss
+excursions - at every large jump the noise-free loss spikes (0.030 -> 0.51, 0.031 -> 0.34) with
+corr(|d median tPR|, |d loss|) = +0.48, and 1.12% of probes exceed 10x the median loss against the
+guard's 498 skipped updates = 0.996% of iterations. **Only task 1 of the twelve is affected**; every
+other run reports zero skips. Ruled out first:
+* NOT the spike guard - `0 rollbacks to last-good weights` in every run.
+* NOT batch noise - `same_batch=False` draws a fresh 1024-trial batch per probe, but on a FIXED net
+  across 12 independent batches the population median moves by sd 0.0011 and NO unit moves by more
+  than 0.1, against swings of 0.3-0.5 in the figure. Two orders of magnitude too small.
+Plot a clean seed (rep 1) and say which; `switch_trajectories_rep0.png` is kept only as the
+documented example of the frm spike problem.

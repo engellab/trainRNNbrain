@@ -355,6 +355,68 @@ bit-product terms would bound how much of the residual is structure rather than 
 
 ---
 
+### 3.2 What `rws` adds to `frm`: it stabilizes the rescue ✅
+
+§3.1 shows the rescued units are task-tuned. This asks what the *second* penalty contributes, and
+answers it causally rather than by comparing independently trained networks — which cannot
+distinguish "rws moves these units" from "frm+rws finds a different solution with different units in
+those roles".
+
+**Design.** Four arms, N=2000, k=3, 3 seeds, warm-started from converged 400k networks and continued
+for 50k iterations. A1 and A2 branch from the **identical** frm parent; A3 and A4 from the identical
+`both` parent, so each contrast is paired.
+
+| arm | switch | median tPR | dead fraction | final IQR | churn |
+|---|---|---|---|---|---|
+| **A1** | frm → frm+rws | 0.157 → **0.353** | 0.106 → **0.000** | 0.179 | **1.7** |
+| **A2** | frm → frm *(control)* | 0.159 → 0.209 | 0.106 → 0.094 | 0.330 | **3.2** |
+| **A3** | both → frm | 0.353 → **0.228** | 0.000 → **0.088** | 0.325 | 1.9 |
+| **A4** | both → frm+rws *(control)* | 0.354 → 0.359 | 0.000 → 0.000 | 0.145 | 1.4 |
+
+*churn = dead↔alive transitions per unit over 50k iterations.*
+
+> **Both same-penalty controls are load-bearing.** A4 is inert (median +0.005, ρ(start,end) = 0.78),
+> so warm-starting and 50k extra iterations do nothing on their own. But **A2 is not inert**
+> (+0.050): continued frm training moves the population by itself. Reading A1 against zero rather
+> than against A2 would have attributed that to `rws`.
+
+**The effect is symmetric and fully reversible.** Forward (A1−A2) vs reverse (A3−A4): median tPR
++0.146 / −0.130; dead fraction −0.094 / +0.088; IQR −0.151 / +0.180. We had predicted possible
+hysteresis — once `rws` has pulled the effective in-degree to its target, nothing pushes it back
+(weight decay is 1e-6 and `frm` has no term that sees it). It reverts almost exactly. **`rws`'s
+effect is dynamically maintained, not a one-time rewiring.**
+
+**The mechanism is stabilization, not elevation.** Under `frm` alone units cycle in and out of
+silence continuously — **3.2 dead↔alive transitions per unit**, against 1.4 with `rws`. The ~10%
+dead fraction under `frm` is a *dynamic equilibrium*, not a fixed set of casualties: at any moment
+~10% are dead, but not the same 10%. This is visible directly in the trajectory figures, where the
+`frm`-only arm's dead fraction sawtooths between 0 and 0.24 for the entire run while the `frm+rws`
+arm drops to zero within a few hundred iterations and stays.
+
+That also resolves an apparent paradox in the identity statistics. Rank correlation between starting
+and final occupancy is only 0.26 under A1 — which looks like `rws` scrambling the population. But
+A2, where the penalty does *not* change, gives 0.48, while A4 (nothing changes) gives 0.78. So the
+low value under A1 is `rws` **stopping** a reshuffling that `frm` was doing anyway, then compressing
+the distribution (IQR 0.330 → 0.179) so ranks lose resolution. The distinguishing statistic is
+`corr(Δ occupancy, starting occupancy)` = **−0.67** against the control's −0.40: the units that
+start lowest gain the most.
+
+**No task cost.** Final loss 0.027–0.030 across all four arms (±0.002), r² 0.934–0.948 at every
+checkpoint.
+
+> **The claim this supports, and the one it does not.** Not "`rws` molds transient units into
+> sustained ones" — that was our pre-registered hypothesis and its identity criterion (ρ > 0.5)
+> fails. The supported claim is **`frm` cannot hold units alive; `rws` stabilizes them there** —
+> causal, reversible, and measured within the same networks.
+
+⬜ **Caveat**: one run of twelve (A1 seed 0) hit the `frm` gradient-spike problem — 498 skipped
+updates, 1.12% of probes above 10× median loss — producing transient population-wide collapses in
+its trajectory. Ruled out as the spike guard (0 rollbacks in every run) and as batch noise (on a
+fixed network across 12 batches the population median moves by sd 0.0011 and no unit by >0.1).
+Figures use a clean seed; the affected run is retained as a documented example.
+
+---
+
 ---
 
 ## 4. Does the rescue prevent, or resurrect?
