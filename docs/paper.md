@@ -488,6 +488,16 @@ of `frm+rws` units sits at 0.35–0.38 at every k from 1 to 8; the modal `frm`-a
 is quasi-silent. The temporal-participation uniformity, the disappearance of dead units, and the
 R²/Hoyer results of §3.1–3.2 are all this single fact.
 
+**The modules are not an artifact of the labels.** Clustering the wiring alone — spectral
+partition of `|W_rec|` into 2k communities, no bit signal used — gives modularity Q = 0.39 / 0.54 /
+**0.19** / 0.49 for none / rws / `frm` / both, and the same partition of the *activity* correlations
+agrees with the wiring partition at ARI 0.57 / 0.65 / **0.30** / 0.56. `frm` is half as modular as
+any other condition and is the only one whose wiring and activity communities disagree. Checked
+against the label-based assignment afterwards, the label-free wiring partition recovers the task
+assemblies best under both (ARI 0.66) and worst under `frm` (0.24). (Louvain does not recover the
+number 2k unprompted, and eigenvalue outliers of `W_rec` do not count the assemblies, because they
+are internally E/I-balanced rather than self-exciting; §Methods.)
+
 > **Why the penalties need each other.** `frm` demands every unit be active but says nothing about
 > *how*. With thousands of units and a handful of states, the cheap way to keep everyone alive is
 > to listen to everyone — some drive always arrives from somewhere — and that is exactly what `frm`

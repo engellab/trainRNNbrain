@@ -8564,3 +8564,58 @@ negative on '-' units) is LOWER under both (0.708 / 0.646) than frm (0.776 / 0.7
 direction for the picture. Small, secondary, and possibly an argmax-assignment artefact (both's
 assemblies are E/I-balanced internally, so a unit's sign category may be ambiguous). Revisit with
 the soft assignment if it ever matters.
+
+## ▶ TASK-FREE CONFIRMATION OF THE ASSEMBLY PICTURE — 2026-09-10 15:36
+
+Pavel's objection: the assembly result assigns units to states by regressing on the bit signals, so a
+referee will say the modules are an artefact of the labels. Answered with three methods that never
+see a bit signal. N=2000, k=3, 3 seeds, live units only.
+
+### What works: modularity and wiring–activity agreement, with the cluster count matched
+
+Spectral clustering with n = 2k = 6 fixed for every condition (the NUMBER of task states is a
+design fact; no label is used to form any partition), on |W_rec| and separately on the activity
+correlation matrix:
+
+| pen | Q of wiring partition | ARI wiring~activity | ARI wiring~task (check) | ARI activity~task (check) |
+|-----|----------------------|---------------------|-------------------------|---------------------------|
+| none | 0.39 | 0.57 | 0.55 | 0.52 |
+| rws | 0.54 | 0.65 | 0.55 | 0.50 |
+| **frm** | **0.19** | **0.30** | **0.24** | 0.41 |
+| **both** | 0.49 | 0.56 | **0.66** | **0.70** |
+
+Two statements now hold with no labels anywhere: **frm's wiring is half as modular as any other
+condition**, and **frm is the only condition where the communities found in the wiring disagree
+with the communities found in the activity** (ARI 0.30 against 0.56–0.65). The check column then
+vindicates the label-based analysis: the label-free wiring partition recovers the task-defined
+assemblies BEST under both (0.66) and WORST under frm (0.24). Louvain at default resolution gives
+the same ordering (Q = 0.53 / 0.65 / 0.26 / 0.57).
+
+⚠️ MATCH THE CLUSTER COUNT. Unmatched Louvain (4–5 communities, differing by condition) depressed
+every ARI unequally and made none-vs-both unreadable. Fixing n = 2k was what made the table honest.
+
+### What does not work, honestly
+
+**Louvain does not discover 6 on its own.** Resolution sweep, communities found:
+    none  3 / 4 / 4.7 / 5.3 / 17      rws  4 / 4 / 4 / 5.3 / 13
+    frm   1 / 4 / 28 / 98 / 296       both 3 / 5 / 11 / 16 / 35      (res 0.5 / 1 / 1.5 / 2 / 3)
+none/rws/both plateau at 3–5; frm's count explodes with resolution, the signature of NO intrinsic
+scale. That is a qualitative statement about frm, not a recovery of the number 6. Do not claim
+"the assemblies emerge unprompted" from Louvain.
+
+**Eigenvalue outliers do NOT count assemblies.** Outliers beyond a bulk edge set by shuffling W
+(within-row shuffle: preserves each unit's in-degree and norm, destroys block alignment):
+    none 19    rws 20    frm 21    both 94
+Nowhere near 2k = 6, and both has the MOST. The "one outlier per block" intuition assumes each
+block is net self-exciting; the assemblies here are E/I-BALANCED internally ((E-I)/(E+I) ≈ -0.05,
+14:31 entry), and a balanced block has no dominant positive eigenvalue. both's 94 outliers are
+genuine structure — S ≈ 20 rows with specific targets are far from any shuffle — but not structure
+organised as six modes. ⚠️ RMT outlier counting is the wrong instrument for balanced assemblies.
+Observed and NOT pursued: the largest real eigenvalue is 0.99 under both against 2.34 under frm.
+
+### Net
+
+The assembly picture survives with the labels removed: modularity, wiring–activity concordance,
+and the recovery of task assemblies from wiring alone all single out frm as unstructured and both
+as the most task-aligned. The two spectral/graph routes that were expected to COUNT the assemblies
+do not, for reasons that are consistent with the picture rather than against it.
