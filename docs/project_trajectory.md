@@ -8324,3 +8324,137 @@ rather than taking the last snapshot.
 
 ⚠️ A3 HAS NOT CONVERGED at 50k - its dead fraction is still rising and its occupancy still falling.
 The reverse direction is therefore a LOWER BOUND on how far removing rws would eventually take it.
+
+## ▶ WHY THE TWO PENALTIES COMPOSE: A SCALING / MEAN-FIELD ACCOUNT, TESTED — 2026-09-10 14:31
+
+Started from Pavel's first-moment scaling argument and ended somewhere different. Every step below
+was tested on the trained weights; two of the intermediate theories were refuted and are recorded.
+
+### 1. The scaling argument, and the tension the second moment adds
+
+Drive to unit i: `D_i = sum_j W_ij r_j`. With presynaptic mean `m`, temporal variance `v`, and
+row cancellation `c_i = |sum_j W_ij| / sum_j |W_ij|`:
+
+    E_t[D_i]   = m * c_i * ||W_i||_1
+    Var_t[D_i] = v * ||W_i||_2^2          (uncorrelated-fluctuation mean field)
+
+The first-moment requirement `E[D] = O(1)` with in-degree K and weight scale w gives `w ~ 1/K`
+(Pavel's `1/p`) — but then `Var[D] ~ v/K -> 0`. The variance requirement gives `w ~ 1/sqrt(K)` —
+but then `E[D] ~ sqrt(K) m` diverges unless signs cancel. **Both moments cannot be O(1) at large K
+without a balanced row whose mean is a small residual of large cancelling terms. At K = O(1) the
+tension vanishes**: `w = O(1)` satisfies both. `S = ||W||_1^2/||W||_2^2` is exactly the effective
+in-degree and rws pins it at 20 (measured 743 -> 21).
+
+### 2. frm: breaks the ReLU scale symmetry — this part is clean
+
+ReLU is positively homogeneous, so `(W_rec, W_inp, b, W_out) -> (W_rec, aW_inp, ab, W_out/a)` leaves
+the input-output map invariant with `h -> ah`. Per-unit activity scale is a FLAT direction of the
+task loss; nothing sets it, and per unit it can drift to zero where the ReLU gradient vanishes and it
+stays. frm pins that scale. This is why every other intervention in paper.md §3 fails: none of them
+touch the symmetry.
+
+### 3. ⚠️ REFUTED: the uncorrelated mean-field predictions for rws
+
+Predicted (pre-registered): sparse rows need LESS cancellation (c larger under both); the operating
+point `z_i = (m/sqrt v) c_i sqrt(S_i)` is LESS variable under both. Measured, N=2000 k=3:
+
+| pen | S | \|w\|_2 | c | c/random-sign baseline | c*sqrt(S) |
+|-----|---|---------|---|------------------------|-----------|
+| frm | 835 | 1.06 | 0.155 | 4.4x ABOVE | 4.2 |
+| both | 20 | 1.40 | 0.130 | 0.6x BELOW | 0.59 |
+
+Both predictions backwards. `both` rows are MORE balanced than chance, frm rows LESS; the
+mean-to-fluctuation ratio is 7x larger under frm. The uncorrelated mean field is the wrong tool
+because the activity is ~6-dimensional (D_PR); presynaptic rates are anything but independent. The
+right variables are the 2k bit-state subpopulations. (Weights DO grow as rows sparsify, 1.06 ->
+1.40, consistent with the norm rising 60 -> 90 during the switch.)
+
+### 4. What the weights actually show: bit-state ASSEMBLIES
+
+Assign each tuned live unit to a bit-state by argmax over its 2k rectified loadings. Measure the
+fraction of each row's total |W| mass that comes from units in the SAME state ("assembly share"),
+against the chance level (fraction of units in that state). Full row, not top-20 — the top-20 view
+flattered frm, whose rows are dense.
+
+| k | none | rws | frm | both | chance |
+|---|------|-----|-----|------|--------|
+| 3 | 0.532 (3.1x) | 0.627 (3.7x) | **0.284 (1.7x)** | 0.665 (4.0x) | 0.17 |
+| 5 | 0.494 (4.8x) | 0.619 (6.1x) | **0.266 (2.5x)** | 0.650 (6.5x) | 0.10 |
+| 8 | 0.377 (5.2x) | 0.593 (8.5x) | **0.240 (3.3x)** | 0.728 (11.6x) | 0.07 |
+
+⚠️ THE UNPENALISED NETWORK ALREADY BUILDS ASSEMBLIES. Among its ~230-330 surviving units, 38-53% of
+weight mass is within-assembly, 3-5x chance, at every k. **Assemblies are the task's natural
+solution. frm is the ONLY condition that departs from it** — dissolving them to near chance while
+recruiting every unit. rws restores them, to above the unpenalised level, and the structure
+STRENGTHENS relative to chance as k grows (11.6x at k=8, sixteen assemblies of ~125 units).
+
+Within an assembly the connectivity is near E/I balanced: `(E-I)/(E+I)` = -0.05 (both), -0.05
+(none), -0.16 (frm). ⚠️ NOT push-pull between opposite states: 81% of a `both` unit's INHIBITION
+also comes from its own assembly (neg->same 0.813; neg->opposite only 0.144). Each assembly is a
+self-contained E/I module — the natural motif for holding one bit.
+
+### 5. CAUSAL: assembly share follows the active penalty, reversibly
+
+Switch nets (N=2000, k=3, 3 seeds), cross-sectional parents frm 0.284 / both 0.665:
+
+| arm | switch | end (3 seeds) | mean | predicted |
+|-----|--------|---------------|------|-----------|
+| A1 | frm -> frm+rws | 0.636 0.642 0.635 | **0.638** | rises -> hit |
+| A2 | frm -> frm | 0.284 0.300 0.287 | 0.290 | stays -> hit |
+| A3 | both -> frm | 0.297 0.270 0.285 | **0.284** | falls -> hit |
+| A4 | both -> frm+rws | 0.635 0.685 0.688 | 0.669 | stays -> hit |
+
+Four for four, seed spread < 0.03, endpoints on the cross-sectional values. Assembly structure is a
+state variable set by whichever penalty is active — the same causal signature occupancy showed.
+
+### 6. Occupancy is inherited from the task, and this is why it is uniform
+
+A unit inside a bit-state assembly is ON exactly when that state holds. The task's per-state duty
+(fraction of samples with a given bit at +1) is 0.36 at every k. Modal temporal PR/n:
+
+| k | task duty | both mode | frm mode |
+|---|-----------|-----------|----------|
+| 1 | 0.355 | **0.377** | 0.163 |
+| 3 | 0.362 | **0.350** | 0.030 |
+| 5 | 0.360 | **0.363** | 0.023 |
+| 8 | 0.361 | **0.357** | 0.017 |
+
+Under rws the modal occupancy equals the task duty to within 0.02 at every k; every unit that
+gained rws in the switch converged to it (A1 mode 0.350 from a parent mode near 0). The modal frm
+unit at k >= 3 is near-dead. **The temporal-PR uniformity, the dead-unit rescue, and the R^2/Hoyer
+results are all the same fact: units in assemblies inherit the task's statistics; units outside
+them have parameter-set, heterogeneous occupancy.**
+
+### 7. The composition argument — the answer to "why do the penalties make sense together"
+
+frm demands every unit reach the activity cap. With 2000 units and 2k = 6 states to encode, the
+cheapest way to keep everyone active is diffuse input from the whole population: it satisfies frm
+and destroys selectivity (frm's assembly share near chance, R^2 0.84, Hoyer 0.75, modal occupancy
+near 0). The in-degree cap forbids that route — a unit with ~20 effective inputs cannot average
+over the population — so the only way to satisfy BOTH penalties is for every unit to join an
+assembly. **frm forces activity; rws forbids the cheap way to get it; the network takes the
+expensive way, which is the modular one the task wanted anyway.** Neither alone: frm alone gives
+active-but-diffuse, rws alone gives modular-but-mostly-dead.
+
+### 8. ⚠️ REFUTED: the training-stability mechanism
+
+Argued: a gradient step shifts unit i's drive by `eta * delta_i * sum_j r_j ~ eta N m`, growing with
+N under frm, while rws pins the small weights so only K respond (`~ eta K`, N-independent). Tested
+as the RMS change in per-unit participation between consecutive 100-iteration stores, last 20% of
+training, median over runs: **frm ~ N^+0.46, both ~ N^+0.59 — indistinguishable.** The mechanism
+is wrong.
+
+What survives, weakly: the DIRECT loss-spike fraction (probes > 10x own median) at N=2000 is 0.0036
+under frm vs 0.0007 under both on the median run (5x), and frm's grows 12x from N=500->2000 against
+both's 3.5x. `both` has its own outlier runs (N=1000 mean 0.0094 on a median of 0.0003). Real,
+modest, and **no mechanism for it is established.** Do not claim one.
+
+### Method notes
+
+* `c_i` and `S_i` from `W_rec` rows; assembly state from argmax over the 2k rectified regression
+  loadings (R^2 >= 0.15, live); assembly share = same-state fraction of the row's |W| mass; chance =
+  fraction of tuned units in that state, computed per net.
+* ⚠️ Use the FULL row. Top-20 |W| is the whole row under both (S~20) but a sliver under frm
+  (S~835); the top-20 version reads frm at 0.350 where the full row gives 0.284.
+* Intermediate weights are not saved, so the assembly share is known at switch endpoints only, not
+  along the trajectory.
