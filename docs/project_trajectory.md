@@ -8740,3 +8740,92 @@ NOT more modular than none or rws - it has the SAME modularity extended to all 2
 of 275. That was always the magnitude in the assembly-share table (none 3.1x chance, rws 3.7x, both
 4.0x) and it is the right way to say it. The gain from adding rws to frm is not more structure per
 unit; it is structure at all, across every unit, where frm alone has none in the wiring.
+
+## ▶ TASK-FREE SELECTIVITY: HOW MANY POPULATION FACTORS DOES A UNIT COMBINE — 2026-09-10 17:53
+
+**Why.** §3.1's selectivity is measured against guessed task variables (the rectified bits). Pavel
+asked for the same property measured from activity alone, "with respect to factors recovered with a
+more general method". Script: `flipflop_mixedsel.py [k] [N]` → `img/internal_figures/mixedsel_N{N}_k{k}.png`.
+
+**Measure.** Rate matrix X (live units × 9,600 samples; 32 noise-free trials, no inputs, no targets).
+NMF (non-negative matrix factorisation) X ≈ H F with d non-negative factor time courses F and
+non-negative loadings H. Factors are scaled to unit norm, so h_ij² is the share of unit i's trace
+carried by factor j, and
+
+    n_eff_i = (Σ_j h_ij²)² / Σ_j h_ij⁴
+
+is the effective number of factors carrying the unit: 1 = pure, 2 = two equal factors. "Pure" =
+n_eff < 1.2, i.e. more than ~91% of the unit's variance on one factor. Best of six NMF starts by
+reconstruction error (a bad local optimum that reads every pure unit as ~2 factors has ~6× the
+error). d is swept over k, 2k, 3k, 4k; nothing in the fit uses the bits.
+
+**Why NMF and not PCA/ICA.** PCA's factors rotate freely, so pure units read as mixtures. NMF's
+non-negativity pins the factors when each factor has a pure unit (separability): a unit that is
+exactly zero over a stretch can only be built from factors that are zero there. Verified: on a
+synthetic pure population the 2k factors correlate 1.00 with the 2k rectified bit traces, none given.
+
+**Calibration (fixed before looking; gates each method per k).** Synthetic populations from the real
+bit traces. `pure` (relu(±b_j), random gain) must read < 1.15; `sum2` (relu(s1 b_i) + relu(s2 b_j),
+equal gains, truth exactly 2, mixed in with pure anchors) must read > 1.7 on the sum2 half.
+NMF: pure 1.000 / sum2 1.997 (k=3), 1.000 / 1.994 (k=8). PASS.
+
+Three things the calibration caught before any real number was read:
+- The L1 form (Σh)²/Σh² was the first statistic. It reads 2.1 for one loading of 1 plus five of 0.1
+  (95% one factor) and failed the nnICA pure check at 1.55. Replaced by the variance-share form.
+- The first mixed synthetic, relu(w1 b_i + w2 b_j) with random unit-norm w, read ~1.35 and "failed".
+  That is its correct value (median split of a random angle is 85/15), so it is not a calibration
+  target. Replaced by sum2, whose truth is 2.
+- A mixed population WITHOUT pure anchors is not identifiable for NMF (it makes the mixed shapes the
+  factors). Real nets always have anchors; the calibration now does too.
+
+**Cross-check: non-negative ICA (Plumbley).** Whiten to d components keeping the mean, rotate on the
+orthogonal group until every component is non-negative, best of 6 starts. No reconstruction
+objective, no multiplicative updates. Passes calibration at k=3 (pure 1.045, sum2 2.08).
+At k=8 it is NOT usable: on a pure synthetic in d=16 a rotation with LOWER negativity than the true
+arms exists (J 0.069 vs 0.100), so no optimiser returns the arms; it reads 1.5–2.3 on pure units.
+(It scraped the k=8 gate at 1.122 on one batch; ignore its k=8 columns.)
+
+**Result, N=2000, NMF at d=2k, all live units, three seeds each.**
+
+| | k=3 median n_eff | k=3 pure fraction | k=8 median n_eff | k=8 pure fraction |
+|---|---|---|---|---|
+| none | 1.11 / 1.16 / 1.14 | 0.66 / 0.52 / 0.52 | 1.26 / 1.58 / 1.34 | 0.46 / 0.32 / 0.44 |
+| rws  | 1.16 / 1.13 / 1.13 | 0.57 / 0.58 / 0.55 | 1.14 / 1.11 / 1.13 | 0.56 / 0.56 / 0.54 |
+| frm  | 1.54 / 1.36 / 1.09 | 0.31 / 0.41 / 0.56 | 1.52 / 1.77 / 1.30 | 0.32 / 0.28 / 0.42 |
+| both | **1.005 / 1.001 / 1.001** | **0.77 / 0.88 / 0.79** | **1.03 / 1.06 / 1.09** | 0.55 / 0.64 / 0.52 |
+
+nnICA at k=3 (median / pure fraction): none 1.03/0.71, 1.03/0.75, 1.04/0.68; rws 1.03/0.80,
+1.02/0.79, 1.01/0.80; frm 1.26/0.45, 1.24/0.47, 1.21/0.49; both 1.05/0.82, 1.09/0.64, 1.07/0.63.
+
+**What holds across methods, seeds and k.** `frm` is the mixed-selective condition: lowest pure
+fraction and highest n_eff in every seed at both k under NMF, and the only condition nnICA separates
+from the rest at k=3. This is the task-free version of its lowest Hoyer sparsity in §3.1.
+
+**What holds under NMF only.** `both` is the purest: lowest median in every seed at both k, highest
+pure fraction in every seed at k=3 (0.77–0.88 vs ≤ 0.66 for anyone else). At k=8 its pure fraction
+(0.52–0.64) overlaps `rws` (0.54–0.56); only the median still separates them. nnICA at k=3 does not
+put `both` above `none`/`rws` (its `both` reading moved 0.63–0.92 across batches in two runs, so it
+is unstable on the 2000-unit nets). So "both is purest" is an NMF result with a modest margin at
+k=8, not a two-method result. "frm is most mixed" is.
+
+**Two observations from the figure.** (i) At k=3, `frm`'s n_eff histogram has a second mode at
+exactly 2, and at d=k `frm` reads pure (1.00–1.02) while no one else does: a large class of frm
+units loads equally on both signs of one bit, i.e. responds to a bit regardless of its sign, which
+fits their switch-locked transient activity. Not seen at k=8 (d=k reads 1.7–2.3). (ii) The
+sorted correlation matrices show the blocks; `both` has the cleanest 2k blocks with the negative
+antipodal off-blocks. The entropy of the correlation histogram was tried as a block-crispness number
+and does NOT transfer (calibrates pure 2.95 < mixed 5.22 bits, but real `both` reads highest,
+4.6–4.9, because its pure units differ in temporal profile rather than being copies). No calibrated
+block-crispness number is claimed; n_eff is the measure and the block matrix is its picture.
+
+**Transferability (Pavel's XOR question).** NMF never sees the inputs, so factors need not be linear
+in them. Synthetic conjunction units relu(s1 b_i + s2 b_j − 1) (active only when two bits are in a
+given joint state): NMF recovers the 12 conjunction patterns (median corr 1.00 with truth) and the
+conjunction units read n_eff 1.000. Caveat that must travel with the measure: "pure" is relative
+to the finest patterns that have anchor units. In a population holding both arms and conjunctions,
+the arm units read as mixtures of conjunctions (median 1.5) because an arm IS a non-negative sum of
+conjunctions. n_eff therefore measures "how many of the population's elementary patterns does the
+unit combine", with the elementary patterns set by the population, not the task. That is a
+different question from Rigotti-style mixed selectivity (nonlinearity in task variables), and in
+the flip-flop they coincide only because the elementary patterns are single bits. d must be chosen
+by a task-agnostic criterion in general; here the sweep k..4k shows the ordering is stable.

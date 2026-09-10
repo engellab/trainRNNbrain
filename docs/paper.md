@@ -350,8 +350,42 @@ it.
 > few live units; tuned fraction alone ignores tuning quality. The product — tuned units per network
 > — is the honest summary, and it is the column that carries the 8× claim.
 
+**Task-free check: the same ordering from factors the population defines itself.** The regression
+presupposes the bits. Dropping that, factor the live-unit rate matrix by NMF (non-negative matrix
+factorization: each unit's trace written as a non-negative sum of d shared non-negative time
+courses, discovered from the population; d swept over k..4k, nothing uses the bits) and read, per
+unit, the effective number of factors carrying its variance, `n_eff = (Σ h²)² / Σ h⁴` with factors
+at unit norm: 1 = one factor, 2 = two equal ones. Calibrated on synthetic populations built from the
+bit traces before any real net was read (pure units 1.000; equal two-arm sums 1.997 against a truth
+of 2). Per N=2000 network, NMF at d = 2k, median n_eff and fraction of units with > 91% of their
+variance on one factor:
+
+| | k=3 median | k=3 pure fraction | k=8 median | k=8 pure fraction |
+|---|---|---|---|---|
+| `none` | 1.11–1.16 | 0.52–0.66 | 1.26–1.58 | 0.32–0.46 |
+| `rws` | 1.13–1.16 | 0.55–0.58 | 1.11–1.14 | 0.54–0.56 |
+| `frm` | 1.09–1.54 | 0.31–0.56 | 1.30–1.77 | 0.28–0.42 |
+| `both` | **1.001–1.005** | **0.77–0.88** | **1.03–1.09** | 0.52–0.64 |
+
+`frm` is the mixed condition in every seed at both k, and a second decomposition with nothing in
+common with NMF (Plumbley's non-negative ICA, usable at k=3 only) singles it out the same way.
+`both` is the purest under NMF in every seed, by a wide margin at k=3 and a narrow one at k=8, where
+its pure fraction overlaps `rws`; the non-negative ICA does not reproduce `both > none, rws`, so that
+half of the claim rests on one method. This is the regression result of the table above with the
+task variables removed: `frm` recruits units whose activity mixes several population patterns,
+`rws` on top of it leaves units that follow one.
+
+> **What "pure" means here.** A factor is whatever shared non-negative pattern the population
+> contains, linear in the inputs or not: synthetic units tuned to a conjunction of two bits are
+> recovered as their own factor and read n_eff = 1. Purity is relative to the finest patterns that
+> have anchor units, so a unit that is a sum of finer patterns reads as mixed. The measure asks how
+> many of the population's elementary patterns a unit combines, not whether it is a nonlinear
+> function of the experimenter's variables; in the flip-flop the two coincide because the elementary
+> patterns are single bits.
+
 ⬜ **Not yet done**: the regressors are bit *states*, so a unit encoding transitions, timing, or a
-nonlinear conjunction scores low without being uninformative. Adding the input pulse trains and
+nonlinear conjunction scores low without being uninformative (the NMF check above shows conjunction
+units would read as pure, so that part of the worry is bounded). Adding the input pulse trains and
 bit-product terms would bound how much of the residual is structure rather than noise.
 
 ---
