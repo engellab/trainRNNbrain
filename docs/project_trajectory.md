@@ -9872,3 +9872,20 @@ figures; `penalty_matched.png` un-embedded; build list replaced by a status list
 **Submitted 2026-09-11 15:08, code `aebe8d2`:** E3 weight-decay array **Spock 6163899** (9 jobs);
 A6 CDDM switch array **Spock 6163900** (12 jobs; parents verified present on Spock: the three
 CDDM_std_g0_penalties N=2000 `both`/`frm` folders). E1 6163782 still running.
+
+### Two retracted-claims lines made specific: what rws stabilizes, and modularity by five instruments — 2026-09-11 16:03
+
+Pavel: "what does it stabilize?" → membership of the active set (2.94 → 0.30 dead↔alive transitions
+per unit per 250 iterations; ≥4 crossings 38.7% → 1.7%), each unit's temporal occupancy (median
+tPR/n 0.157 → 0.353, IQR 0.330 → 0.179, mode at the duty cycle), and the weights (W_inp settles at
+~55k with rws, never under frm); all reversible (A3). Written into the retracted-claims list.
+Pavel: "can we measure modularity by multiple uncorrelated metrics?" → `wiring_structure.py` now has
+five: spectral Q excess (clustering), task-partition Q excess (labels), like-to-like Spearman
+(neither), same-role share (labels, per unit), ARI (two partitions). Flip-flop none/rws/frm/both:
+0.33/0.40/0.15/0.16; 0.33/0.44/0.12/0.49; 0.53/0.45/0.17/0.33; 3.1/3.7/1.5/3.8; 0.63/0.64/0.32/0.55.
+CDDM: 0.01/0.10/0.10/0.19; 0.00/0.08/0.04/0.14; 0.09/0.16/**0.61/0.58**; 0.9/1.1/1.2/2.1;
+0.61/0.51/0.67/0.48. Robust across all five: frm is the outlier; rws ≥ none. For `both` the
+label-based instruments read above none and the label-free ones below (sparsity-sensitive), so
+"extends role-organized wiring to all units" is the defensible sentence, "more modular" is not.
+NEW on CDDM: penalized nets wire strongly by activity correlation (like-to-like 0.6 vs 0.09
+unpenalized) with almost no task-role structure. Cache recomputed (`data/wiring_cache.pkl`).

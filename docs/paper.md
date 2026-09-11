@@ -369,6 +369,26 @@ task's natural solution is mixed and there is no assembly structure to lose; bot
 
 ![fig_CS1_wiring.png](../img/internal_figures/fig_CS1_wiring.png)
 
+Five wiring statistics of different construction, matched n = 275, N = 2000, 3 seeds (Q values are
+excess over each statistic's own null):
+
+| | ingredients | flip-flop none / rws / frm / both | CDDM none / rws / frm / both |
+|---|---|---|---|
+| spectral wiring modularity | clustering, no labels | 0.33 / 0.40 / **0.15** / 0.16 | 0.01 / 0.10 / 0.10 / 0.19 |
+| task-role partition modularity | labels, no clustering | 0.33 / 0.44 / **0.12** / **0.49** | 0.00 / 0.08 / 0.04 / 0.14 |
+| like-to-like (weight vs activity correlation, per pair) | neither | 0.53 / 0.45 / **0.17** / 0.33 | 0.09 / 0.16 / **0.61** / **0.58** |
+| same-role share over chance | labels, per unit | 3.1 / 3.7 / **1.5** / 3.8 | 0.9 / 1.1 / 1.2 / **2.1** |
+| ARI(wiring, activity partitions) | two partitions | 0.63 / 0.64 / **0.32** / 0.55 | 0.61 / 0.51 / 0.67 / 0.48 |
+
+On the flip-flop all five agree that the participation penalty alone is the outlier and that the
+sparsity penalty alone is at or above the unpenalized network; for `both` the label-based
+instruments read above `none` and the label-free ones below (see the retracted-claims note). On
+CDDM the like-to-like statistic is the surprise: the penalized networks wire strongly by activity
+correlation (0.61, 0.58) with almost no task-role structure — the diffuse `frm` wiring is not random,
+it follows correlation without following the task's factors.
+
+
+
 **CS2. The sparsity penalty alone does nothing to prevent silence.** ✅ fig_S1: the sparsity-penalty
 line sits on the unpenalized line on both tasks (0.14 vs 0.15 at N = 2000).
 
@@ -891,10 +911,28 @@ from function (Yang 2019).
 - Monotone decay exponent with N — mismatched fit ranges; this manufactured a trend three times.
 - "7–9 functional cell types", silhouette without null, intrinsic-dimension ordering, Mardia
   kurtosis ordering — the selectivity space is a 2k-armed star and each fitted the wrong model.
-- "`both` is the most task-aligned / most modular" — unmatched-n artifact; matched, `both` has the
-  unpenalized modularity extended to all units.
-- "`rws` molds transient units into sustained ones" — pre-registered, both criteria failed; it
-  stabilizes.
+- "`both` is the most task-aligned / most modular" — unmatched-n artifact. Re-measured 2026-09-11
+  with five wiring statistics of different construction, matched n = 275, flip-flop N = 2000
+  (`wiring_structure.py`): the answer depends on whether the instrument uses the task labels.
+  Label-based: modularity of the task-role partition above its null 0.33 (`none`) vs **0.49**
+  (`both`); same-role share over chance 3.1× vs 3.8×. Label-free: spectral wiring modularity above
+  its row-shuffle null 0.33 vs **0.16**; like-to-like correlation between a pair's weight and its
+  activity correlation 0.53 vs **0.33**; ARI(wiring, activity) 0.63 vs 0.55. What every instrument
+  agrees on: `frm` is the outlier (0.12 / 1.5× / 0.15 / 0.17 / 0.32), `rws` alone is at or above
+  `none` on all five. So `both` is *more* organized by task role than the unpenalized network and
+  *less* organized by the label-free measures, both of which are sensitive to its sparsity (S ≈ 20
+  rows leave most pair weights at zero). The defensible sentence: `both` extends role-organized
+  wiring to all 2000 units; it is not "more modular" in any label-free sense.
+- "`rws` molds transient units into sustained ones" — pre-registered, both criteria failed (identity
+  ρ = 0.26 < 0.5; corr(Δ, start) no better than its null). What it does instead, measured in the
+  switch (2026-09-10): it **stabilizes membership of the active set** (dead↔alive transitions per
+  unit per 250 iterations 2.94 under the participation penalty alone → 0.30 with the sparsity
+  penalty; units crossing ≥ 4 times 38.7% → 1.7%; the ~10% dead under the participation penalty is
+  a dynamic equilibrium of different units, not a fixed set), it **levels and pins each unit's
+  temporal occupancy** (median tPR/n 0.157 → 0.353, IQR 0.330 → 0.179, the mode at the task's duty
+  cycle), and it **lets the weights settle** (W_inp settles at ~55k iterations with `rws`, never
+  under `frm` alone; 2026-08-26). All three are dynamically maintained — remove `rws` and they
+  revert (A3) — so it is a state held by the active penalty, not a structural change.
 - "`frm` has an untuned quarter" — misspecified (signed) regression basis.
 - **"Silence is caused by the ReLU scale symmetry `relu(a·x) = a·relu(x)`"** — a bounded sigmoid,
   which has no such symmetry, silences the same fraction of units at the same size and iteration

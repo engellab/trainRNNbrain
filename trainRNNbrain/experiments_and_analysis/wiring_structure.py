@@ -18,6 +18,13 @@ Per network:
   Q_activity modularity of a spectral partition of the activity correlation matrix into n_roles
              clusters, minus the same with every unit's time series permuted (destroys correlation)
   ARI        adjusted Rand index between the wiring and activity partitions (matched n)
+  Q_task     modularity of |W_rec| under the TASK-ROLE partition itself (labels, no clustering), minus
+             the row-shuffle null (matched n, tuned units)
+  like2like  Spearman correlation over unit pairs between |W_ij| + |W_ji| and the activity correlation
+             |corr(r_i, r_j)| (no labels, no partition; the Ko 2011 statistic), matched n
+
+The five wiring statistics use different ingredients: Q_wiring (clustering, no labels), Q_task
+(labels, no clustering), like2like (neither), share (labels, per unit), ARI (two partitions).
 
 Figures:
   python wiring_structure.py            -> fig_CS1_wiring.png  (2 x 2: rows = tasks; left in-degree S per
@@ -31,6 +38,7 @@ import sys
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import spearmanr
 from sklearn.cluster import SpectralClustering
 from sklearn.metrics import adjusted_rand_score
 
@@ -89,8 +97,9 @@ def wiring_stats(W, W_out, rates, live, role, n_roles, rng):
         chance = (same.sum()) / max(tuned.sum() - 1, 1)
         share[i] = (absW[i, same].sum() / tot) / max(chance, 1e-12) if tot > 0 else np.nan
     X = rates.reshape(rates.shape[0], -1)
-    qs = dict(Qw=[], Qw0=[], Qa=[], Qa0=[], ari=[])
+    qs = dict(Qw=[], Qw0=[], Qa=[], Qa0=[], ari=[], Qt=[], Qt0=[], l2l=[])
     live_idx = np.flatnonzero(live)
+    tuned_idx = np.flatnonzero(tuned)
     for _ in range(N_SUB):
         sub = rng.choice(live_idx, min(MATCH_N, live_idx.size), replace=False)
         A = absW[np.ix_(sub, sub)]; A = 0.5 * (A + A.T); np.fill_diagonal(A, 0)
@@ -106,6 +115,18 @@ def wiring_stats(W, W_out, rates, live, role, n_roles, rng):
         qs["Qw"].append(modularity(A, lw)); qs["Qw0"].append(modularity(Ap, spectral(Ap, n_roles)))
         qs["Qa"].append(modularity(C, la)); qs["Qa0"].append(modularity(Cp, spectral(Cp, n_roles)))
         qs["ari"].append(adjusted_rand_score(lw, la))
+        # like-to-like: pair weight vs pair activity correlation, no labels, no partition
+        iu = np.triu_indices(sub.size, 1)
+        Wsym = absW[np.ix_(sub, sub)] + absW[np.ix_(sub, sub)].T
+        qs["l2l"].append(float(spearmanr(Wsym[iu], C[iu]).correlation))
+        # task-role partition on tuned units: labels, no clustering
+        subt = rng.choice(tuned_idx, min(MATCH_N, tuned_idx.size), replace=False)
+        At = absW[np.ix_(subt, subt)]; At = 0.5 * (At + At.T); np.fill_diagonal(At, 0)
+        Wtp = absW[np.ix_(subt, subt)].copy()
+        for r in range(Wtp.shape[0]):
+            Wtp[r] = rng.permutation(Wtp[r])
+        Atp = 0.5 * (Wtp + Wtp.T); np.fill_diagonal(Atp, 0)
+        qs["Qt"].append(modularity(At, role[subt])); qs["Qt0"].append(modularity(Atp, role[subt]))
     return dict(S=S, share=share, tuned=tuned, **{k: float(np.mean(v)) for k, v in qs.items()})
 
 
@@ -166,8 +187,9 @@ def main():
             ax[i, 1].hist(sh, bins=np.linspace(0, 8, 45), density=True, histtype="step", lw=1.8, color=COL[pen],
                           label=f"{LABEL[pen]}: median {np.median(sh):.2f}×")
             print(f"{task:9s} {pen:5s} S median {np.median(S):.0f}  share/chance median {np.median(sh):.2f}  "
-                  f"Qw excess {np.mean([r['Qw'] - r['Qw0'] for r in rr]):.3f}  Qa excess {np.mean([r['Qa'] - r['Qa0'] for r in rr]):.3f}  "
-                  f"ARI {np.mean([r['ari'] for r in rr]):.2f} ± {np.std([r['ari'] for r in rr]):.2f}")
+                  f"Qw excess {np.mean([r['Qw'] - r['Qw0'] for r in rr]):.3f}  Qtask excess {np.mean([r['Qt'] - r['Qt0'] for r in rr]):.3f}  "
+                  f"like2like {np.mean([r['l2l'] for r in rr]):.3f} ± {np.std([r['l2l'] for r in rr]):.3f}  "
+                  f"Qa excess {np.mean([r['Qa'] - r['Qa0'] for r in rr]):.3f}  ARI {np.mean([r['ari'] for r in rr]):.2f} ± {np.std([r['ari'] for r in rr]):.2f}")
         ax[i, 0].set(xlabel="log10 effective in-degree S of a tuned unit", ylabel="density", title=f"{task}, N={N_TARGET}: how many units a unit listens to")
         ax[i, 0].axvline(np.log10(20), color="0.4", ls=":", lw=1); ax[i, 0].text(np.log10(20) + 0.03, ax[i, 0].get_ylim()[1] * 0.9, "target 20", fontsize=8, color="0.4")
         ax[i, 1].axvline(1, color="0.4", ls=":", lw=1); ax[i, 1].text(1.05, ax[i, 1].get_ylim()[1] * 0.9, "chance", fontsize=8, color="0.4")
