@@ -9391,3 +9391,18 @@ assembly supplying the drive that W_inp no longer does per unit. Relevant to T5:
 per-unit input scale of ~1–2 at N ≤ 1000, which sits between the s = 0.5 and s = 2 points of the
 sweep; if s = 2 alone spreads activity without penalties, the comparison to `both` at matched
 per-unit input scale is the one to make.
+
+### One logged T5 run, to watch silencing as it happens — 2026-09-11 09:57
+
+The sweep's runs write their participation trace only on completion, so nothing about silence is
+visible mid-run. Added `trainer.log_silent_every` (null = off): on that cadence the participation
+probe prints the silent count under three criteria — hard `p < 1e-6`, scale-free `p < 0.05·q95(p)`,
+and the flip-flop absolute `p < 4e-2` — plus q95(p). Launched one run identical to the sweep's
+N=1000, k=3, s=5 cell (the per-unit input scale unpenalised networks converge to) with logging every
+500 iterations: Spock `6156830`, code `9c5f72d`,
+`slurm/SilentReLU_flipflop_winp_logged_spock.slurm`, output
+`NBitFlipFlop_std_winp_logged/EqType=h_k=3_N=1000_s=5_iters=150000/`; watch with
+`grep '[silence]' ~/trainRNNbrain_logs/FFwinpL.6156830_1.out`. Smoke-tested locally (N=100, 30
+iterations, logging every 10: lines print, counts move). Reference for reading it: the default-init
+ReLU N=1000 trace has the global collapse within ~20 iterations and is at scale-free silent ≈ 0.3
+by 100 iterations, 0.5 by 10k, 0.72–0.75 at 150k.
