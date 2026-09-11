@@ -9869,3 +9869,6 @@ start from a local N=2000 `both` net):** `slurm/SilentReLU_std_weightdecay_spock
 four arms × 3 seeds from CDDM_std_g0_penalties N=2000, 50k, participation every 10). Submission
 recorded below once done. Elaboration: P(c), C4, C5, S3, CS1, CS3, CS4 rewritten with the new
 figures; `penalty_matched.png` un-embedded; build list replaced by a status list.
+**Submitted 2026-09-11 15:08, code `aebe8d2`:** E3 weight-decay array **Spock 6163899** (9 jobs);
+A6 CDDM switch array **Spock 6163900** (12 jobs; parents verified present on Spock: the three
+CDDM_std_g0_penalties N=2000 `both`/`frm` folders). E1 6163782 still running.

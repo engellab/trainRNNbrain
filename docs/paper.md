@@ -435,9 +435,9 @@ Running on Spock (2026-09-11):
 - **E1** activations on the standard CDDM network — array 6163782, 9 jobs (C1's CDDM panel, C3's
   activation bars).
 - **E3 = T2** weight decay 0 / 10⁻⁵ / 10⁻⁴ vs the 10⁻⁶ baseline, N = 1000, 3 seeds —
-  `slurm/SilentReLU_std_weightdecay_spock.slurm` (C4c).
+  `slurm/SilentReLU_std_weightdecay_spock.slurm`, array 6163899 (C4c).
 - **A6** the four switch arms on CDDM, N = 2000, 50k iterations from the 150k penalty nets —
-  `slurm/SilentReLU_cddm_switch_spock.slurm` (CS3/CS4 as two-task claims).
+  `slurm/SilentReLU_cddm_switch_spock.slurm`, array 6163900 (CS3/CS4 as two-task claims).
 - **T5** input-scale sweep (C3, C4c).
 
 Still open:
