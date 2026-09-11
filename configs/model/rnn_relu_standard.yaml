@@ -31,3 +31,4 @@ sigma_inp: .05
 sigma_out: .03
 bias_range: [-1.0, 1.0]        # trainable, clamped to this range after every step
 bias_init: "zeros"             # start at 0
+input_row_norm: null          # T5 knob: rescale every W_inp row to this norm at init; null = default draw

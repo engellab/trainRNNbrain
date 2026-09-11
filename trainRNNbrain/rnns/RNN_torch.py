@@ -164,9 +164,16 @@ class RNN_torch(torch.nn.Module):
                  master_ctx_drive=1.0,
                  freeze_master=False,
                  n_inputs=6,
-                 n_outputs=2):
+                 n_outputs=2,
+                 input_row_norm=None):
         '''
         :param N: int, number of neural nodes in the RNN
+        :param input_row_norm: float or None. None (default) keeps the drawn W_inp (entries at std
+            1/sqrt(N), row norm ~sqrt(n_inputs/N)). A float rescales EVERY row of the drawn W_inp to
+            exactly this L2 norm, so every unit starts with the same input drive and the total
+            ||W_inp||_F is input_row_norm * sqrt(N). Exists for the initialisation-scale test
+            (docs/research_directions.md T5): trained unpenalised networks end with live rows at
+            norm ~5.4 and silent rows decayed to ~0.003 from an init of 0.039.
         :param activation_args: dictionary containing the name and parameters of the activation function in the dynamics of the RNN
         :param connectivity_density_rec: float, defines the sparcity of the connectivity
         :param spectral_rad: float, spectral radius of the initial connectivity matrix W_rec
@@ -265,6 +272,11 @@ class RNN_torch(torch.nn.Module):
                                         generator=self.random_generator,
                                         recurrent_density=self.connectivity_density_rec,
                                         self_connections=self.self_connections)
+
+        # initialisation-scale control: equalise every input row to the requested norm (T5)
+        self.input_row_norm = None if input_row_norm is None else float(input_row_norm)
+        if self.input_row_norm is not None:
+            W_inp = W_inp * (self.input_row_norm / W_inp.norm(dim=1, keepdim=True).clamp_min(1e-12))
 
         # deliberate silent-at-init perturbation: over-inhibit a fixed random `silent_init_frac` of
         # units (set S) by scaling the inhibitory columns (synapses from I-units, dale_mask==-1) of
