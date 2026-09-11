@@ -9253,7 +9253,7 @@ sigmoid, softplus, leaky and ReLU runs all share this init. Proposed as T5, and 
 signal integrated over 100+ steps, so the init mismatch is much smaller, yet the silent fraction is
 the same (~45% at N=1000). Not decisive — a test, not an argument, settles it.
 
-### Final W_inp scale vs N, unpenalised, k=3 (Pavel's follow-up) — 2026-09-11 09:12
+### Final W_inp scale vs N, unpenalised, k=3 (Pavel's follow-up) — 2026-09-11 09:29
 
 | N | live | mean\|W\| at init | mean\|W\| all | mean\|W\| live rows | mean\|W\| silent rows | median live row norm | ‖W_inp‖_F |
 |---|---|---|---|---|---|---|---|
