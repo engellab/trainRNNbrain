@@ -1,0 +1,27 @@
+# @package model
+# THE STANDARD RNN with a leaky-ReLU (leak 0.01) activation. Identical to rnn_relu_standard in every other
+# respect (no Dale, no I/O positivity, self-connections on, gamma 0, trainable bias in [-1, 1]).
+# Exists for E1 (paper.md elaboration, C1): the earlier leaky-ReLU (leak 0.01) runs used a different
+# architecture; this puts the activation test on the standard network.
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+RNN_tag: ""
+activation_args: {"name": "leaky_relu", "slope": 1.0, "leak_slope": 0.01}
+equation_type: "h"
+N: 100
+dt: 1
+tau: 10
+exc2inhR: 4.0                  # ignored when dale: false
+gamma: 0                       # cubic term OFF
+dale: false
+io_nonnegativity: false
+self_connections: true         # standard RNN: units may connect to themselves
+weight_boundary: "sticky"      # inert with dale/io_nonnegativity off
+weight_boundary_eps: 1.0e-12
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+bias_range: [-1.0, 1.0]        # trainable, clamped to this range after every step
+bias_init: "zeros"             # start at 0
+input_row_norm: null          # T5 knob: rescale every W_inp row to this norm at init; null = default draw
