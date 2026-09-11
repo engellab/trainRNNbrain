@@ -26,7 +26,7 @@ Most of what the main line needs is computable from the data in `dead_ReLU_data/
 | A5 | Training cost: iterations to 1.01× and 1.03× floor per penalty, both tasks | paper §3 "no task cost" — must include time | ⬜ flip-flop numbers exist in trajectory; CDDM losses on disk |
 | A6 | Distortion table (dimensionality, selectivity fractions, σ_log) on flip-flop | paper §6 — currently CDDM only | ⬜ half exists (`flipflop_dimensionality.py`, `flipflop_arms.py`) |
 
-| A7 | Why W_inp keeps drifting under the penalties: evaluate task, frm, rws and weight-decay gradients on the final weights — do they cancel while each is large? | paper §5 (nature of the `both` solution); trajectory 2026-09-11 09:30 | ⬜ one afternoon, local |
+| A7 | Why W_inp keeps drifting under the penalties: evaluate task, frm, rws and weight-decay gradients on the final weights — do they cancel while each is large? | paper §5 (nature of the `both` solution); trajectory 2026-09-11 09:02 | ⬜ one afternoon, local |
 
 **A3 design.** CDDM has four natural states (context × choice). Two versions, as on the flip-flop:
 hard assignment of each tuned unit to its dominant state and the fraction of its recurrent input

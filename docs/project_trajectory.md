@@ -9203,7 +9203,7 @@ intervening work tested it; every step inherited it. The rule that should have a
 claim gets a falsifying test named and run before anything is built on it, and until then it is
 labelled as interpretation in every place it is used, not only where it was introduced.
 
-## ▶ W_inp: AMPLITUDE, LATE DRIFT, AND THE INITIALISATION-SCALE QUESTION — 2026-09-11 09:30
+## ▶ W_inp: AMPLITUDE, LATE DRIFT, AND THE INITIALISATION-SCALE QUESTION — 2026-09-11 09:02
 
 **Pavel's questions.** Under `both`, W_inp keeps moving directionally after 400k iterations (lag
 exponent α > 0.5). Why? Is its amplitude growing or shrinking? Was W_inp initialised at a wrong
