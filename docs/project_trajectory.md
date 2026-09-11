@@ -9305,3 +9305,55 @@ live-row median drops to 3.6 and the max-channel share to 0.97 — the first sig
 second channel. Measurement only; no mechanism claimed. For T5 this fixes the target: the natural
 scaled init is per-row norm ≈ 5.4 on every unit (total 5.4·√N, i.e. ≈ 240 at N=2000), or the
 task-total ≈ 93–103 spread evenly, and both are worth a point in the sweep.
+
+## ▶ T5 SUBMITTED: IS THE SILENCE PARTLY AN INITIALISATION ARTEFACT? — W_inp initial row-norm sweep — 2026-09-11 09:45
+
+**Question.** Every network in the project initialises W_inp at std 1/√N per entry — row norm
+0.039 at N=2000 — which drives a τ=10 unit by ~0.02 per 10-step pulse, below the recurrent noise
+(σ_rec = 0.05). Trained unpenalised networks grow ‖W_inp‖_F 50× in their first 100k iterations;
+the units that survive are those whose rows are amplified to norm ≈ 5.4 (single-channel, at every
+k), and silent units' rows decay to ≈ 0.003, ten times below init (entries of 09:02, 09:29, 09:36).
+Does the silence depend on starting far below the operating scale? Nothing on disk answers this: all
+four activations tested share the init.
+
+**Design.** Unpenalised standard ReLU RNN, 3-bit flip-flop, `h` equation, N ∈ {500, 1000} × 3
+seeds, 150k iterations, batch 1024 fresh. New knob `model.input_row_norm` (RNN_torch, default null =
+the existing draw): every row of the drawn W_inp is rescaled to exactly the requested L2 norm s, so
+EVERY unit starts with the same input drive (the alternative — one global rescale — would keep the
+chi-distributed row norms of the random draw, a ~40% spread at k=3, and leave a seed for a race).
+Sweep s ∈ {0.5, 2, 5, 20}; the default 0.039 is the existing ksweep and is not rerun.
+
+| s | per-entry std (N=1000) | drive per pulse | what it tests |
+|---|---|---|---|
+| 0.039 (existing) | 0.022 | ~0.02 | below the noise floor |
+| 0.5 | 0.29 | ~0.2 | above noise, far below the unit scale |
+| 2 | 1.15 | ~0.7 | the task's total (~93) spread evenly over all units at N≈1000 |
+| 5 | 2.9 | ~1.8 | the unit scale every live unit ends at (5.4), on every unit |
+| 20 | 11.5 | ~7 | 4× oversupply: the network must shed input weight; weight decay 1e-6 is slow |
+
+Parameterised by per-row norm rather than total or per-entry amplitude because the per-row norm is
+what the trained networks hold invariant (5.4 at every k) while the total follows the live count.
+Launcher `slurm/SilentReLU_flipflop_winp_spock.slurm` (24 tasks; decode REP=TID%3,
+N_IDX=(TID/3)%2, S_IDX=TID/6). Output `NBitFlipFlop_std_winp/EqType=h_k=3_N=<N>_s=<s>_iters=150000/`.
+Code `06082b1`. Smoke-tested locally (N=100, s=5, 30 iterations: config records the knob, every row
+starts at norm 5, ‖W_inp‖_F = 50 = 5·√100; analysis script runs on the output). Spock array
+`6154727`, all 24 tasks RUNNING at 09:44; dependent read-out job `6154728`
+(`SilentReLU_flipflop_winp_analysis_spock.slurm`, CPU, afterany) writes the table to
+`~/trainRNNbrain_logs/FFwinpA.6154728.out`.
+
+**Read-out, fixed now** (`flipflop_winp_silence.py`, reusing `flipflop_sigmoid_silence.analyse`):
+silence under the scale-free, modulation and 4e-2 criteria; participation Hoyer and 1/HHI; the four
+axes; the silent fraction and Hoyer along training from the participation trace — the first thing
+to look at is whether the early global collapse (all units quiet within ~20 iterations) still
+happens when every unit is driven from the start; and the FINAL row norms of live and silent units
+plus ‖W_inp‖_F per s (does the network keep, grow or shed what it was given?). Comparison: the
+ksweep ReLU networks at the same k and N, read at matched iteration (150k) from their traces:
+scale-free silent 0.60–0.65 (N=500), 0.72–0.75 (N=1000); participation Hoyer 0.55–0.57, 0.64–0.66.
+
+**Decision rule.** Silent fraction < 20% at any s with task R² ≥ 0.9 → the initialisation scale is
+a cause of the silence: the paper must say the phenomenon depends on starting far below the
+operating scale, and a scaled input init becomes the first, penalty-free recommendation; §2
+rewritten. Silent fraction within the baseline's seed spread at matched iteration at every s →
+excluded, one sentence in §2.2 and the objective-level explanation stands. Intermediate (a monotone
+dependence on s that does not reach 20%) → reported as a dependence, and s = 20 tells whether an
+oversupplied input concentrates anyway.

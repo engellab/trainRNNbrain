@@ -89,7 +89,10 @@ These are the experiments a referee will ask for. Ordered by how much of the pap
   proposed here while the ReLU scale symmetry was thought to be the cause. It is only
   function-preserving for homogeneous activations and is withdrawn with that explanation.)*
 
-### T5. Is the silence partly an initialisation artefact? — W_inp initial scale (proposed 2026-09-11)
+### T5. Is the silence partly an initialisation artefact? — W_inp initial scale
+> **Status 2026-09-11 09:44 — RUNNING.** Spock array `6154727` (24 tasks: s ∈ {0.5, 2, 5, 20} per-row
+> norm × N ∈ {500, 1000} × 3 seeds, 150k it.), read-out job `6154728`. Design, read-out and decision
+> rule in the trajectory entry of this timestamp. Knob: `model.input_row_norm` (commit `06082b1`).
 - **Question.** W_inp is initialised at std 1/√N per entry (row norm 0.039 at N = 2000) and grows
   50× in the first 100k iterations to reach the task's operating scale; the units that survive are
   those whose input rows get amplified, and silent units' rows decay to 0.003. Would a W_inp
