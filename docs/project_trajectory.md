@@ -9041,7 +9041,7 @@ tasks and the dependent read-out job `6147887` run to completion on their own. *
 `flipflop_sigmoid_silence.py` for the figure and the trajectory entry against the decision rule.
 The local monitor now stays silent while the connection is down and reports once it is back.
 
-## ▶ RESULT: SILENCE IS NOT A ReLU PROPERTY — bounded sigmoid networks silence the same units — 2026-09-11 08:55
+## ▶ RESULT: SILENCE IS NOT A ReLU PROPERTY — bounded sigmoid networks silence the same units — 2026-09-11 08:50
 
 Spock `6147881` finished (6/6; N=500 6.3 h, N=1000 8.8 h). Read-out job `6147887` ran; runs synced
 to `data/trained_RNNs/NBitFlipFlop_std_sigmoid` and linked into `dead_ReLU_data/flipflop/`.
@@ -9093,7 +9093,7 @@ also the one case where the standard participation criterion needs a modulation 
 it — here they agreed to 0.00 because the floor is 0.002, but that is a property of this shift and
 slope, not a guarantee.
 
-### RETRACTION — the ReLU scale symmetry as the cause of silence — 2026-09-11 09:05
+### RETRACTION — the ReLU scale symmetry as the cause of silence — 2026-09-11, between 08:50 and 08:56 (exact time not recorded)
 
 Pavel: the sigmoid result negates the symmetry explanation (`relu(a·x) = a·relu(x)`, a unit's gain as
 a flat direction of the loss); strip it everywhere. Done in `paper.md` (five-sentence summary, §2.1,
@@ -9106,10 +9106,10 @@ objective has no term that keeps any particular unit active, and the walk to the
 activation-general (ReLU, softplus, leaky-ReLU, bounded sigmoid). What is still asserted rather
 than measured: that weight decay is the walker (T2).
 
-## ▶ THE ACTIVATION-FUNCTION EXPERIMENT, EXPLAINED — the phenomenon is general to positive activations — 2026-09-11 09:15
+## ▶ THE ACTIVATION-FUNCTION EXPERIMENT, EXPLAINED — the phenomenon is general to positive activations — 2026-09-11 08:56
 
-Self-contained account of the experiment whose pieces are logged at 2026-09-10 23:08, 2026-09-11
-08:55 and 09:05, written so it can be read on its own.
+Self-contained account of the experiment whose pieces are logged at 2026-09-10 23:08 and 2026-09-11
+08:50–08:56, written so it can be read on its own.
 
 **The question.** Is the silent-unit phenomenon a property of the ReLU nonlinearity, or of training
 itself? Every result in the paper had been obtained with ReLU units, whose positive part is linear
@@ -9181,7 +9181,7 @@ to positive activations**: four activations — hard floor (ReLU), soft floor (s
 and a bounded sigmoid with no homogeneity at all — silence the same fraction of units at the same
 size and iteration. Neither activation-specific explanation survives. The dead-gradient trap was
 excluded by softplus/leaky; the scale symmetry by the sigmoid, and it has been removed from the
-paper (retraction of 09:05). What stands is a statement about the objective: **the task loss has
+paper (retraction entry above). What stands is a statement about the objective: **the task loss has
 no term that keeps any particular unit active; a unit the solution does not need is walked down
 to the activation's floor and left there.** `frm` works because it adds that term.
 

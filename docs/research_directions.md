@@ -48,7 +48,7 @@ matched N, "no task cost" becomes "no task cost, at a training-time cost of X", 
 These are the experiments a referee will ask for. Ordered by how much of the paper they hold up.
 
 ### T1. Activation without a dead zone — leaky-ReLU and softplus, unconstrained
-> **Status 2026-09-11 08:55 — ANSWERED, T1 closed.** Softplus and leaky-ReLU (June Dale sweeps, rates
+> **Status 2026-09-11 08:50 — ANSWERED, T1 closed.** Softplus and leaky-ReLU (June Dale sweeps, rates
 > computed correctly) match ReLU on every axis. The sigmoid baseline (Spock `6147881`, 3-bit
 > flip-flop, N = 500/1000 × 3, `sigmoid(7.5(x−0.3))`, 150k it.) silences 0.75–0.77 of units at
 > N = 1000 vs ReLU's 0.72–0.75 at the same iteration, units parked at the lower asymptote. The
