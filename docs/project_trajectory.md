@@ -9571,3 +9571,75 @@ Loss > 0.2 episodes after 2k: default 2205–2216, 4056–4086, 8669–8714 (thr
 s=5 without any spike: a slow walk, scale-free 125 → 176 over 25k iterations (~2 units per 1000),
 with q95(p) still falling (2.8 → 1.6) as the oversupplied input is shed. s=1 after its spike sits at
 the default's level and flickers (hard zeros 18–52). Default: early collapse + spikes → 60%.
+
+## ▶ ONE STATEMENT, ONE FIGURE: elaboration figures rebuilt from cached outputs — 2026-09-11 12:21
+
+Pavel: the elaboration cited too many figures per claim and the existing figures (pr_matrix,
+M_vs_N, characterize_matrix) carry far more than any one claim needs. Rule adopted: one statement →
+one figure, two panels (CDDM | flip-flop) where both tasks have data, no unneeded panel. New
+scripts, all reading cached outputs only (no simulation):
+
+| claim | script | figure | key numbers |
+|---|---|---|---|
+| P1 silent fraction vs N | `fig_P1_silence.py` | `fig_P1_silence.png` | CDDM 0.26→0.91 (N=100→10k); FF 0.68→0.86 (500→4000); end of training |
+| P2 M vs N, matched read-out | `fig_P2_scaling.py` | `fig_P2_scaling.png` | CDDM b=0.36 (L*=0.0230, N≥500); FF b=0.45 at k=3, 0.40 [0.37,0.44] all-k, excess criterion |
+| C1 activations | `fig_C1_activations.py` | `fig_C1_activations.png` | CDDM scale-free 0.49/0.41/0.45 (hard 0.46/0.00/0.33); FF ReLU 0.72–0.75 vs sigmoid 0.75–0.77 at 150k |
+| C2 silence vs iteration | `fig_C2_training.py` | `fig_C2_training.png` | N=1000: CDDM 0.46–0.51 at 10k → 0.72–0.74 at 200k; FF 0.60 → 0.81 at 500k |
+| S1 active fraction vs N | `fig_cache_axis.py active` | `fig_S1_active.png` | frm CDDM 1.00 all N; FF 0.99/0.98/0.86; both 1.00 |
+| S4/CS3 selectivity vs N | `fig_cache_axis.py sel` | `fig_S4_selectivity.png` | FF frm 0.86→0.63, both 0.84→0.90; CDDM frm 0.37/0.36/0.32/0.38, both 0.40–0.45, none 0.50→0.37 |
+| S5 temporal sparsity vs N | `fig_cache_axis.py temp` | `fig_S5_temporal.png` | FF frm 0.36→0.53 vs 0.37–0.45; CDDM equal to N=2000, frm 0.79 vs 0.70–0.72 at N=5000 |
+| CS5 dimensionality vs N | `fig_cache_axis.py d_pr` | `fig_CS5_dimensionality.png` | CDDM none 2.1–2.4, frm 5.0→10.3, both 4.7→8.5→6.8; FF none 6.1–6.3, frm 5.6→8.9, both 5.0–5.5 |
+
+Three things the clean figures show that the prose had glossed over, now stated in the
+elaboration: (i) on CDDM frm's selectivity loss with N is small and non-monotone (0.37→0.32→0.38)
+and the UNPENALISED network's selectivity falls more (0.50→0.37) — "less selective as N grows" is a
+flip-flop result; on CDDM it is "lowest of the four at every N"; (ii) on CDDM `both` only matches
+the unpenalised selectivity, it does not exceed it; (iii) on CDDM at N=5000 frm's temporal
+sparsity is 0.79 vs 0.70–0.72 for the others — the "no transients on CDDM" null may be
+size-limited. Existing single-purpose figures kept for P3 (`flipflop_decisive.png`, to be reduced),
+C5 (`silent_at_threshold.png`), S2 (`noisefree_loss.png`), CS4 (`switch_summary.png`), CS5
+(`population_distortion.png`). Still without any figure: C3 (interventions bar chart), C4 (early
+collapse; needs the recovery script), S3/CS1/CS3 wiring (needs `wiring_structure.py`). Build list
+F1–F4 / S1–S4 / E1–E3 at the end of the elaboration in `paper.md`.
+
+### P1–P4 collapsed into one figure — 2026-09-11 12:31
+
+Pavel: show active units (not silent), both criteria, CDDM and flip-flop separately with all k,
+fit the laws with CIs on b and c, extrapolate to 1000 active units. `fig_P_active_units.py` →
+`fig_P_active_units.png` (replaces `fig_P1_silence` and `fig_P2_scaling`, both deleted).
+CDDM matched performance L*=0.0230, fit N≥500, seed-bootstrap CI: scale-free b=0.360 [0.342,
+0.375], N(1000)=1.4e4; hard b=0.308 [0.286, 0.328], N(1000)=9.8e3. Flip-flop excess criterion,
+92 runs, k=1..8, N=500..4000: scale-free b=0.404 [0.372, 0.435], c=−0.063 [−0.099, −0.026];
+absolute 4e-2 b=0.373 [0.343, 0.404], c=−0.053 [−0.083, −0.021]; N(1000, k=3)=1.08e4 / 1.09e4.
+⚠️ With N=4000 in the grid, c is slightly NEGATIVE and its CI excludes zero under both criteria
+(8× the bits → ~12% fewer units); §1.3's "CI straddles 0" row updated to −0.06 … +0.02. The
+elaboration's P1–P4 are now one block "P" with subclaims (a)–(d), all read off this figure.
+
+### fig_P_active_units: second row at matched compute (iteration 100k) — 2026-09-11 12:37
+
+Pavel asked for a fixed-iteration row under the matched-state row. 100k is the largest budget every
+cell reaches (CDDM N=5000 and flip-flop N=4000 both trained 100k), so that is the read-out, not
+150k. Results at 100k: CDDM scale-free b=0.436 [0.423, 0.448], N(1000)=1.4e4; hard b=0.424
+[0.399, 0.459], N(1000)=1.1e4 (N=5000 included after tolerating one probe step past the last
+trace sample, 99,900). Flip-flop, 96 runs incl. N=4000: scale-free b=0.411 [0.382, 0.444],
+c=+0.076 [−0.023, +0.158], N(1000, k=3)=1.8e4; absolute b=0.354 [0.325, 0.387], c=+0.086
+[−0.014, +0.169], N(1000, k=3)=2.2e4. So b is 0.31–0.44 under every read-out and criterion; the
+k exponent flips sign between read-outs (−0.06 matched, +0.08 fixed compute) and at 100k with
+N=4000 the fixed-compute effect is weaker than the +0.18 recorded at 150k on the three-size grid
+(2026-08-25). Elaboration P block now carries both rows in one table.
+
+### The s=5 twin avalanched too — all three twins at the default level by 50k — 2026-09-11 13:32
+
+`6156830` (s=5, 91× the default row norm), spike-free and on a slow walk until 30k (176 scale-free
+silent), jumped between 32k and 34k: **201 → 448 scale-free, hard zeros 13 → 119**, coinciding with a
+MILD loss excursion at iteration 32,339 (max 0.24, ~6× the floor, versus the 43× spike that did the
+same to s=1). It has held at 450–520 since (hard zeros decaying 119 → 72 as some units flicker
+back). At 49.5k the three twins read (scale-free / absolute / hard): default 624 / 592 / 2;
+s=1 556 / 463 / 0; s=5 515 / 454 / 62. Task R² 0.953 in all three.
+
+Measurement summary for this seed: the input scale sets WHEN the collapse happens — at once (0.055),
+at 12.6k after a large spike (18×), at 32k after a small one (91×) — not WHETHER. Every trajectory
+ends near 50–60% silent by 50k. Whether any seed at any s escapes to 150k is what the sweep says
+tonight; the single-seed answer to "does the init scale alleviate the problem" is: it delays it.
+
+Sweep status at 13:31: N=500 tasks at 75–89k iterations, N=1000 at ~53k; ETA ~16:30 and ~20:30.
