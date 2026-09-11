@@ -81,10 +81,12 @@ thousand.** ✅ [`fig_P_active_units.py`](../trainRNNbrain/experiments_and_analy
 [`fig_P_active_units.png`](../img/internal_figures/fig_P_active_units.png). Active units M vs N, unpenalized ReLU, each
 network read at a matched state (never end of training), under both silence criteria of each task,
 with the fitted law, bootstrap confidence intervals on the exponents, and the extrapolation to
-M = 1000 drawn on the panel. Left: CDDM, N = 100–5000. Right: k-bit flip-flop, k = 1–8,
-N = 500–4000. Top row at matched state (CDDM at matched performance; flip-flop at 1.10× each run's
+M = 1000 drawn on the panel. Left: CDDM, N = 500–5000 (N = 100 is excluded everywhere in the paper: it is fully active and exists
+for one condition only). Right: k-bit flip-flop, k = 1–8, N = 500–4000. Top row at matched state (CDDM at matched performance; flip-flop at 1.10× each run's
 own loss floor); bottom row at matched compute (iteration 100k). Four subclaims, all read off the
 top row:
+
+![fig_P_active_units.png](../img/internal_figures/fig_P_active_units.png)
 
 | | CDDM | flip-flop (joint fit over k = 1–8) |
 |---|---|---|
@@ -109,116 +111,298 @@ in their silencing. On k: at fixed compute the sign flips to positive (c ≈ +0.
 100k; +0.18 at 150k without N = 4000) and the difference is convergence depth — high-k networks
 settle 2.6× slower; the participation ratio does rise with k; the N × k interaction is unresolved
 (§1.3). The cost of 1000 active units is 10⁴ at matched state and 1–2 × 10⁴ at matched compute.
-⚠️ (c) is flip-flop only.
+⚠️ (c) is flip-flop only. Subclaim (c) on its own: [`fig_P3_complexity.py`](../trainRNNbrain/experiments_and_analysis/fig_P3_complexity.py) → [`fig_P3_complexity.png`](../img/internal_figures/fig_P3_complexity.png) —
+active units divided by the fitted size dependence, M/(A N^b), against k; c = +0.08 [−0.02, +0.16] at
+matched compute and −0.06 [−0.10, −0.03] at matched state.
+
+![fig_P3_complexity.png](../img/internal_figures/fig_P3_complexity.png)
 
 ### Characterization of the problem
 
 **C1. Silencing afflicts any non-negative activation.** ✅
-[`fig_C1_activations.py`](../trainRNNbrain/experiments_and_analysis/fig_C1_activations.py) → [`fig_C1_activations.png`](../img/internal_figures/fig_C1_activations.png). CDDM N = 1000, no penalty: scale-free
-silent fraction 0.49 (ReLU) / 0.41 (softplus) / 0.45 (leaky-ReLU); the hard criterion gives
-0.46 / 0.00 / 0.33 — softplus has no hard-silent unit because its floor is soft, so the scale-free
-criterion is the one that travels. Flip-flop N = 1000: ReLU and a bounded sigmoid climb the same
-curve, 0.72–0.75 vs 0.75–0.77 at the matched 150k iteration. ⚠️ The CDDM panel is the
-Dale-constrained architecture (the only one those activations were run on) — experiment E1 below
-redraws it on the standard network.
+[`fig_C1_activations.py`](../trainRNNbrain/experiments_and_analysis/fig_C1_activations.py) → [`fig_C1_activations.png`](../img/internal_figures/fig_C1_activations.png). CDDM N = 1000, no penalty: 510 (ReLU) /
+594 (softplus) / 548 (leaky-ReLU) active units of 1000 under the scale-free criterion; the hard
+criterion gives 540 / 1000 / 675 — softplus has no hard-silent unit because its floor is soft, so
+the scale-free criterion is the one that travels. Flip-flop k = 3, N = 1000: ReLU and a bounded
+sigmoid(7.5(x − 0.3)) follow the same curve, 247–282 vs 226–252 active at the matched 150k
+iteration, both still falling. The sigmoid was trained on the flip-flop (N = 500 and 1000, 3 seeds,
+150k); on CDDM the three non-ReLU activations come from the 2026-07-01 sweeps on the earlier
+architecture. ⬜ **E1 submitted 2026-09-11 13:39 (Spock 6163782, 9 jobs):** softplus, leaky-ReLU
+and sigmoid on the standard CDDM network, N = 1000, 3 seeds, the drift-sweep recipe; the CDDM
+panel is redrawn from it when it lands (~8 h).
+
+![fig_C1_activations.png](../img/internal_figures/fig_C1_activations.png)
 
 **C2. It worsens with longer training and larger networks.** ✅
-[`fig_C2_training.py`](../trainRNNbrain/experiments_and_analysis/fig_C2_training.py) → [`fig_C2_training.png`](../img/internal_figures/fig_C2_training.png) for training time (silent fraction vs iteration,
-N = 1000, both tasks, still rising at the end of every run); for size, the active count in fig_P falls
-as a fraction of N on both tasks.
+[`fig_C2_training.py`](../trainRNNbrain/experiments_and_analysis/fig_C2_training.py) → [`fig_C2_training.png`](../img/internal_figures/fig_C2_training.png) for training time (active units vs iteration,
+N = 1000, both tasks, still falling at the end of every run: CDDM 489–542 at 10k → 259–284 at 200k;
+flip-flop 389–402 → 185–195 at 500k); for size, fig_P: the active count grows
+only as N^0.3–0.45, so the silent count grows faster than the active one on both tasks.
 
-**C3. Many interventions failed.** 🟡 measured, figure to build. Fifteen rows (§S3): equation,
-cubic term, boundary handling, sign constraints, I/O positivity, trainable bias, self-connections,
-three activations, recurrent noise, longer training, larger N, metabolic cost over four decades.
-Current evidence is spread over [`silent_by_penalty_N1000_std.png`](../img/internal_figures/silent_by_penalty_N1000_std.png),
-[`silent_vs_metabolic.png`](../img/internal_figures/silent_vs_metabolic.png), [`silent_vs_noise_fb2792_g0_noise.png`](../img/internal_figures/silent_vs_noise_fb2792_g0_noise.png)
-and [`silent_constrained_vs_unconstrained_h.png`](../img/internal_figures/silent_constrained_vs_unconstrained_h.png).
-⬜ One bar chart, silent fraction per intervention at N = 1000 with the baseline as a line — build
-item F2. The self-connection result has no named script.
+![fig_C2_training.png](../img/internal_figures/fig_C2_training.png)
+
+**C3. Many interventions failed.** ✅ Everything below was tried
+on unpenalized networks and left most units silent:
+
+- **trainable bias** (range [−1, 1], initialized at 0; the standard network's default): no change.
+- **self-connections** (free, trainable diagonal): the network trains them *negative* — active units
+  at −0.060, silent units at −0.007; corr(self-weight, log participation) = −0.51. No rescue.
+- **activation**: softplus (β = 25), leaky-ReLU (leak 0.01), bounded sigmoid(7.5(x − 0.3)): the same
+  active count as ReLU at the same size and iteration (C1).
+- **recurrent noise** σ_rec ∈ {0, …}: never helps; σ = 0 is the worst.
+- **longer training**: 30k → 300k iterations loses more units, monotonically (C2).
+- **larger networks**: the active count grows as N^0.3–0.45, so the silent count grows faster (P).
+- **metabolic cost** `mean(fr²)` over four decades of λ: never rescues; at λ = 10 it makes it worse
+  (N = 100: 88 → 41 active units of 100).
+- **input weight scale** (T5, running 2026-09-11): W_inp rows initialized at norm 0.5–20 instead of
+  0.039. Logged twins at s = 5 and s = 1 reach the default active count by 50k iterations after a
+  spike-driven collapse (trajectory 2026-09-11 entries); sweep read-out pending.
+- **weight decay** 0 vs 10⁻⁶ (2026-07-28, N = 1000 and 2000, 3 seeds, 100k iterations, Della
+  11706899): run, but its active-unit read-out was never recorded and only the loss files were
+  synced to the laptop (task R² 0.85–0.88 in both arms). ⬜ Sync the traces and read them (T2).
+
+✅ [`fig_C3_interventions.py`](../trainRNNbrain/experiments_and_analysis/fig_C3_interventions.py) → [`fig_C3_interventions.png`](../img/internal_figures/fig_C3_interventions.png):
+active units at N = 1000 under each intervention, every bar labelled with its read-out iteration.
+Left panel, standard network, participation criterion, all read at 30k iterations unless stated:
+baseline (self-connections on, bias trainable) 414 ± 18; the same networks at 5k and 200k iterations
+587 and 272; self-connections off with the bias trainable 404; self-connections off with the bias
+fixed at 0 409 — so neither self-connections nor a trainable bias changes the count; metabolic cost
+λ = 0.01 / 0.1 / 1 / 10: 393 / 431 / 432 / 380. Right panel, the 2026-07-01 sweeps at 30k on their
+own peak-rate criterion with their own reference (not comparable to the left panel): recurrent
+noise σ = 0 / 0.01 / 0.05 / 0.1: 184 / 521 / 524 / 540 (σ = 0 is the worst); ReLU / softplus /
+leaky-ReLU 510 / 594 / 548. Nothing gets past ~600 of the 1000 units. The activation bars are
+redrawn from E1 on the standard network when it lands.
+
+![fig_C3_interventions.png](../img/internal_figures/fig_C3_interventions.png)
 
 **C4. Why: the loss has no term that keeps a unit active; the population is suppressed early, only
-needed units recover, nothing pulls the rest back.** 🟡. (a) The early global collapse (every
-participation quantile crashes within ~20 iterations; survivors climb back) and the
-prevention-vs-resurrection statistic (96 units per 1,000 endure ≥ 500 silent iterations and recover
-unpenalized; 0.6 under the participation penalty) were read from the participation-trace sweep of
-2026-07-25 but **have no script**. (b) Activation-generality (C1) is what licenses "a property of the
-objective, not the activation". (c) What *drives* units down is untested: weight decay (T2) and the
-initialization scale (T5, running). The abstract says (a)+(b) only. ⬜ Script S2 and figure F3
-(participation quantiles vs iteration, both tasks, none vs participation penalty).
+needed units recover, nothing pulls the rest back.** ✅ (a) measured with a script now, (c) driver
+still open. [`participation_recovery.py`](../trainRNNbrain/experiments_and_analysis/participation_recovery.py) → [`fig_C4_recovery.png`](../img/internal_figures/fig_C4_recovery.png): participation quantiles vs
+iteration (N = 1000, both tasks) and, per network, the number of units that were silent for ≥ 500
+iterations and are active at the end versus the number silent at the end. No penalty: CDDM 99 ± 4
+recover and 728 ± 10 stay down; flip-flop 82 ± 6 recover, 793 ± 4 stay down — once a unit is down it
+almost always stays down. Participation penalty: CDDM 0 silent at the end (2 ever endured 500 silent
+iterations); flip-flop 23 ± 16 silent at the end, but 784 ± 18 units endured ≥ 500 silent iterations
+and are active again — the flicker of S5, units repeatedly dipping below threshold and being pulled
+back. ⚠️ These traces are stored every 100 iterations, so the ~20-iteration global collapse recorded
+on 2026-07-25 from the every-10 sweeps is below this figure's resolution; the every-10 traces of
+those sweeps are not on the laptop. (b) Activation-generality (C1) is what licenses "a property of
+the objective, not the activation". (c) What *drives* units down is untested: weight decay — **E3
+submitted 2026-09-11** (wd 0 / 10⁻⁵ / 10⁻⁴ vs the 10⁻⁶ baseline, N = 1000, 3 seeds) — and the
+initialization scale (T5, running). The abstract says (a)+(b) only.
 
-**C5. Sparsity penalties do not rescue.** ✅ existing, single-purpose:
-[`silent_at_threshold.py`](../trainRNNbrain/experiments_and_analysis/silent_at_threshold.py) → [`silent_at_threshold.png`](../img/internal_figures/silent_at_threshold.png).
-`rws` cuts hard-silent units 79% → 60% at N = 2000 and is *worse* than baseline scale-free (86% vs
-81%): the "rescued" units sit just above 10⁻⁶. Also visible in fig_S1: the sparsity-penalty line
-tracks the unpenalized one on both tasks.
+![fig_C4_recovery.png](../img/internal_figures/fig_C4_recovery.png)
+
+**C5. Sparsity penalties do not rescue.** ✅ [`fig_C5_criteria.py`](../trainRNNbrain/experiments_and_analysis/fig_C5_criteria.py) → [`fig_C5_criteria.png`](../img/internal_figures/fig_C5_criteria.png):
+active units, no penalty vs sparsity penalty, under each task's two criteria. CDDM (read at the
+sparsity run's budget): under the hard criterion the sparsity penalty *raises* the count (790 vs 423
+at N = 2000, 2086 vs 711 at N = 5000) and under the scale-free criterion it *lowers* it (279 vs 383;
+440 vs 629) — the extra "active" units sit just above 10⁻⁶. Flip-flop (1.10× own floor): the CDDM
+threshold 10⁻⁶ counts nearly every flip-flop unit as active (1995 of 2000 unpenalized), which is why
+the task-calibrated 4·10⁻² threshold exists; under it and under the scale-free rule the sparsity
+penalty gives a modest, real increase (708 vs 583 and 638 vs 551 at N = 2000) — the lifted size
+exponent of the 2026-08-27 entry, not a rescue. §2.3, §S4.
+
+![fig_C5_criteria.png](../img/internal_figures/fig_C5_criteria.png)
 
 ### Solution
 
-**S1. The participation penalty keeps every unit active on both tasks.** ✅
-[`fig_cache_axis.py`](../trainRNNbrain/experiments_and_analysis/fig_cache_axis.py) `active` → [`fig_S1_active.png`](../img/internal_figures/fig_S1_active.png). Active fraction vs N, four conditions. CDDM:
-1.00 at every N under the participation penalty. Flip-flop: 0.99 / 0.98 / 0.86 at N = 500 / 1000 /
-2000 alone, 1.00 with both penalties. ⚠️ "Every unit" is exact on CDDM; on the flip-flop it needs
-the second penalty at N = 2000 — say "nearly every" in the solution paragraph.
+**S1. The participation penalty keeps nearly every unit active on both tasks.** ✅
+[`fig_cache_axis.py`](../trainRNNbrain/experiments_and_analysis/fig_cache_axis.py) → [`fig_S1_active.png`](../img/internal_figures/fig_S1_active.png) `active`. Active units vs N on log-log axes with
+the M = N diagonal, four conditions, end of training. CDDM: every unit at every N (500 / 1000 /
+2000 / 4996 of 5000). Flip-flop k = 3: 493 / 977 / 1728 of 500 / 1000 / 2000 with the participation
+penalty alone, 500 / 999 / 2000 with both penalties. The no-penalty and sparsity-only lines sit a
+factor 3–8 below the diagonal and diverge from it with N.
 
-**S2. At no cost in performance.** ✅ existing: [`eval_noisefree_loss.py`](../trainRNNbrain/experiments_and_analysis/eval_noisefree_loss.py)
-→ [`noisefree_loss.png`](../img/internal_figures/noisefree_loss.png) (CDDM, noise-free task loss at N = 2000: 14% better
-than unpenalized, 35% with both). Flip-flop: loss 0.027–0.030 in every switch arm
-(fig CS4) — one cell only. ⬜ Grid-wide flip-flop time-to-floor (A5) for a proper right panel.
-**Never quote `TrainLosses.json` across penalties.**
+![fig_S1_active.png](../img/internal_figures/fig_S1_active.png)
 
-**S3. The penalty is gamed: the cheapest way to stay active is weak input from the whole
-population.** 🟡 **no script.** Effective in-degree per unit ≈ 740–835 under the participation
-penalty at N = 2000 against ≈ 20 with the sparsity penalty; wiring modularity above null 0.14 vs
-0.33 unpenalized. Computed in a session scratchpad (2026-09-10 14:31) that no longer exists.
-This is the abstract's mechanism for the loophole. ⬜ Script S1 (`wiring_structure.py`) and figure
-F4 (in-degree distribution per condition, both tasks).
+**S2. At no cost in performance — TRUE ON CDDM, NOT ON THE FLIP-FLOP.** ✅ measured, ⚠️ the
+abstract overstates it. [`fig_S2_cost.py`](../trainRNNbrain/experiments_and_analysis/fig_S2_cost.py) → [`fig_S2_cost.png`](../img/internal_figures/fig_S2_cost.png).
+Task loss of the four conditions vs N, task term only, noise off (never `TrainLosses.json`).
 
-**S4. Such units mix task variables and become less selective as the network grows.** ✅
-[`fig_cache_axis.py`](../trainRNNbrain/experiments_and_analysis/fig_cache_axis.py) `sel` → [`fig_S4_selectivity.png`](../img/internal_figures/fig_S4_selectivity.png). Selectivity vs N, four conditions.
-Flip-flop: participation penalty alone 0.86 → 0.82 → 0.63 (N = 500 → 2000) while the other three hold
-0.7–0.9 — clear. CDDM: 0.37 → 0.36 → 0.32 → 0.38 (N = 500 → 5000) — **small, and not monotone;
-the unpenalized network's own selectivity also falls with N (0.50 → 0.37).** The mixed-selectivity
-*subpopulation* (24–38% of tuned units gain > 0.1 R² from a second bit vs 0.5–10% otherwise) is in
-[`flipflop_mixedsel.py`](../trainRNNbrain/experiments_and_analysis/flipflop_mixedsel.py) → [`mixedsel_N2000_k3.png`](../img/internal_figures/mixedsel_N2000_k3.png)
-(flip-flop, N = 2000). ⚠️ "Become less selective as the network grows" is a flip-flop result; on
-CDDM the honest statement is "less selective than the other conditions at every N".
+![fig_S2_cost.png](../img/internal_figures/fig_S2_cost.png)
 
-**S5. On the flip-flop they respond only transiently.** ✅
-[`fig_cache_axis.py`](../trainRNNbrain/experiments_and_analysis/fig_cache_axis.py) `temp` → [`fig_S5_temporal.png`](../img/internal_figures/fig_S5_temporal.png). Temporal sparsity vs N. Flip-flop:
-participation penalty 0.36 → 0.53 (N = 500 → 2000) against 0.37–0.45 for the other three. CDDM:
-equal to the others up to N = 2000, **but 0.79 vs 0.70–0.72 at N = 5000** — the CDDM null may be
-size-limited; the abstract's "on the flip-flop" qualifier stays until N = 5000 CDDM is looked at
-directly. The flicker statistics (10% dead at any moment, 2.9 dead↔alive crossings per unit) are in
-fig CS4's trajectories.
+| | no penalty | sparsity only | participation only | both |
+|---|---|---|---|---|
+| CDDM, noise-free MSE of final weights, N = 2000 | 0.0089 ± 0.0009 | 0.0071 | 0.0076 | **0.0058** |
+| CDDM, N = 5000 | 0.0085 | 0.0068 | **0.0053** | 0.0058 |
+| flip-flop k = 3, fitted loss floor, N = 1000 | 0.0256 ± 0.0000 | 0.0260 | **0.0275** | **0.0305 ± 0.0024** |
+| flip-flop, N = 2000 | 0.0257 | 0.0259 | **0.0291** | **0.0287** |
+
+CDDM: no cost at any N and a gain at N ≥ 2000 (participation penalty 14% below the unpenalized
+loss at N = 2000, both penalties 35% below). **Flip-flop: the participation penalty, alone or with
+the sparsity penalty, converges to a loss floor 7–19% above the unpenalized one at every N**
+(fitted over each run's own budget, 400k for the penalized runs, so this is not the 150k
+non-convergence that was retracted on 2026-08-25). In R² terms it is about one point (folder-name
+R² 0.953 unpenalized vs 0.941–0.948 penalized at N = 2000). The switch experiment's 0.027–0.030 in
+every arm is the same penalized floor; it had no unpenalized arm, so it could not see this.
+**The abstract's "at no cost in performance" must become "at no cost on CDDM and a ~1% R² cost on
+the flip-flop"** — see the wording list. Unpenalized flip-flop networks that run only to their
+own excess criterion, not 400k, would be the fairer comparison for the sparsity-only row; the
+participation-penalty rows are converged and the gap is real.
+
+**S3. The penalty is gamed by transients: the cheapest way to satisfy a soft-max activity floor is
+to burst.** ✅ [`fig_S3_transients.py`](../trainRNNbrain/experiments_and_analysis/fig_S3_transients.py) → [`fig_S3_transients.png`](../img/internal_figures/fig_S3_transients.png). Per-unit temporal
+participation ratio over the sample count (the fraction of time a unit is effectively active),
+flip-flop k = 3, N = 2000, four conditions, 3 seeds. Panel (a): the distribution over live units; a
+unit following one bit state sits at the task's duty cycle, 0.36. Panel (b): the median unit is at
+the duty cycle in every condition except the participation penalty alone (0.24 ± 0.06). Panel (c),
+the count that matters: **588 ± 80 burst units** (live but active less than 5% of the time) of 2000
+with the participation penalty alone, against 46 / 35 / 93 for none / sparsity only / both. The
+penalty is satisfied by bursts; the sparsity penalty added on top removes them, and 1999 of 2000
+units are then live at the task's duty cycle. The wiring side of the loophole (in-degree ≈ 700 vs
+≈ 20) is measured in CS1 (fig_CS1_wiring).
+
+![fig_S3_transients.png](../img/internal_figures/fig_S3_transients.png)
+
+**S4. Such units mix task variables — TRUE ON THE FLIP-FLOP; ON CDDM EVERY CONDITION MIXES, AND THE
+SPARSITY PENALTY MAKES IT WORSE.** ✅ measured, ⚠️ the abstract overstates it. Three figures: the
+picture on each task, then the count.
+
+[`fig_S4_cloud.py`](../trainRNNbrain/experiments_and_analysis/fig_S4_cloud.py) → [`fig_S4_cloud.png`](../img/internal_figures/fig_S4_cloud.png): flip-flop, every live unit at its three regression
+loadings on the three bits (the exact selectivity space at k = 3), N = 2000. No penalty and sparsity
+only: a six-armed star of pure units (275 / 297 live). Participation penalty alone: 1634 live units
+filling the space between the arms. Both penalties: the star, with all 2000 units on it.
+
+![fig_S4_cloud.png](../img/internal_figures/fig_S4_cloud.png)
+
+[`unit_stats.py`](../trainRNNbrain/experiments_and_analysis/unit_stats.py) → [`fig_S4_cloud_cddm.png`](../img/internal_figures/fig_S4_cloud_cddm.png) `cloud`: the mirror on CDDM, units at their (motion,
+colour, choice) loadings, N = 2000. A few high-participation units sit on the axes in the
+unpenalized network; the bulk is a core of mixed units in every condition, because the task is
+context-dependent and a unit that reads one input alone cannot do it.
+
+![fig_S4_cloud_cddm.png](../img/internal_figures/fig_S4_cloud_cddm.png)
+
+[`unit_stats.py`](../trainRNNbrain/experiments_and_analysis/unit_stats.py) → [`fig_S4_mixed.png`](../img/internal_figures/fig_S4_mixed.png) `mixed`: the count. A unit is mixed-selective if it is
+tuned (joint rectified regression R² ≥ 0.15) and the joint model beats the best single-variable
+model by more than 0.1 R². Flip-flop, N = 2000: **322 ± 68** mixed units with the participation
+penalty alone vs 7 / 3 / 102 for none / sparsity only / both (N = 500 → 2000: 42 → 71 → 322 alone,
+0 → 18 → 102 with both). CDDM, N = 2000: none 225 (of 308 live: most unpenalized CDDM units are
+mixed), sparsity only 188, participation alone 393, **both penalties 829 ± 104**, and at N = 5000
+1087 alone vs 2288 with both. **On CDDM the sparsity penalty does not restore single-variable
+selectivity; it doubles the number of mixed units.** The Hoyer selectivity curves
+([`fig_S4_selectivity.png`](../img/internal_figures/fig_S4_selectivity.png), from `fig_cache_axis.py sel`) say the same
+thing weakly (both ≈ none on CDDM) and are superseded by the count.
+
+![fig_S4_mixed.png](../img/internal_figures/fig_S4_mixed.png)
+
+[`unit_stats.py`](../trainRNNbrain/experiments_and_analysis/unit_stats.py) `tuning` → [`fig_S4_tuning.png`](../img/internal_figures/fig_S4_tuning.png): the two
+per-unit quantities behind the counts, as distributions at N = 2000 (seeds pooled). **How they are
+computed.** Each live unit's response is fitted by least squares on the task's rectified factors
+plus a constant — flip-flop: relu(+b_j), relu(−b_j) for the three remembered bits, six factors,
+time-resolved; CDDM: context, relu(±motion), relu(±colour), relu(±choice), seven factors, on the
+decision-epoch mean per condition. Left: the R² of that fit per live unit. Right: the Hoyer sparsity
+of the six (seven) coefficients per tuned unit (R² ≥ 0.15): 1 = one factor, 0 = all equal. The
+medians in fig_S4_selectivity were these medians, which is why that figure looked flat; the
+distributions do not.
+
+| N = 2000 | none | sparsity only | participation only | both |
+|---|---|---|---|---|
+| flip-flop: median R² (live units) | 0.60 (282) | 0.58 (301) | **0.47** (1728) | **0.87** (1999) |
+| flip-flop: median Hoyer (tuned units) | 0.83 (229) | 0.81 (254) | **0.62** (1149) | **0.89** (1855) |
+| CDDM: median R² (live units) | 0.32 (307) | 0.36 (278) | 0.68 (2000) | 0.57 (2000) |
+| CDDM: median Hoyer (tuned units) | 0.49 (260) | 0.41 (215) | **0.32** (834) | 0.44 (1383) |
+
+Flip-flop: with the participation penalty alone a quarter of the live units are barely explained by
+the bits at all (the R² spike at 0.1: the burst units) and the tuned ones spread across the whole
+Hoyer range; with both penalties nearly every unit is explained (R² 0.87) and the Hoyer
+distribution has a spike at 1.0 — one bit per unit. CDDM: the participation penalty alone gives a
+unimodal Hoyer distribution around 0.3 (every unit mixes); with both penalties the distribution is
+**bimodal** — a spike of pure units at 0.88 and a cluster of very mixed units at 0.15 — which is
+how the mixed *count* doubles while the median barely moves. So on CDDM the sparsity penalty does
+create single-factor units, but next to a larger population of more thoroughly mixed ones. (On
+CDDM the tuned count is well below the live count under the participation penalty — 834 of 2000 —
+because ~1000 live units have *no variance* across conditions in their decision-epoch mean: the
+onset-burst units of fig_S5_examples fire the same pulse in every condition, so the fit is
+undefined for them and they are neither tuned nor mixed.)
+
+![fig_S4_tuning.png](../img/internal_figures/fig_S4_tuning.png)
+
+Effective dimensionality as the actual participation ratio of the rate covariance (not a Hoyer
+value) is in CS5, [`fig_CS5_dimensionality.png`](../img/internal_figures/fig_CS5_dimensionality.png): CDDM 2.1–2.4
+unpenalized at every N vs 8.2 (participation alone) and 8.5 (both) at N = 2000; flip-flop 6.2 vs
+8.9 and 5.5.
+
+**Consequence for the abstract:** "every unit becomes selective for a single task variable" and
+takeaway 2 hold on the flip-flop only. On CDDM the honest statement is that the penalties change
+*which* mixed units the network builds, not whether it builds them. See the wording list.
+
+**S5. They respond only transiently — the participation penalty makes burst units on BOTH tasks; the
+sparsity penalty removes them on the flip-flop and NOT on CDDM.** ✅
+[`unit_stats.py`](../trainRNNbrain/experiments_and_analysis/unit_stats.py) → [`fig_S5_bursts.png`](../img/internal_figures/fig_S5_bursts.png) `bursts`: number of live units active less than 5% of
+the time (temporal PR / n < 0.05) vs N. Flip-flop: 22 → 248 → **591 ± 78** burst units (N = 500 →
+2000) with the participation penalty alone, 13 → 50 → 94 with both, 31–46 unpenalized. CDDM: 67 →
+285 → **811** → 2618 (N = 500 → 5000) alone, and 108 → 233 → **787** → 1103 with both — the sparsity
+penalty does not remove bursts on CDDM at N ≤ 2000. This replaces the Hoyer temporal-sparsity curves
+([`fig_S5_temporal.png`](../img/internal_figures/fig_S5_temporal.png)), which barely separated the conditions.
+
+![fig_S5_bursts.png](../img/internal_figures/fig_S5_bursts.png)
+
+[`unit_stats.py`](../trainRNNbrain/experiments_and_analysis/unit_stats.py) → [`fig_S5_examples.png`](../img/internal_figures/fig_S5_examples.png) `examples`: what the two kinds of unit look like — the
+four lowest- and four highest-tPR live units of a participation-penalty network on each task, six
+trials each.
+
+![fig_S5_examples.png](../img/internal_figures/fig_S5_examples.png)
+
+The distribution behind the flip-flop numbers is fig_S3. The flicker statistics (~200 of 2000
+units dead at any moment, not the same 200; 2.9 dead↔alive crossings per unit) are in fig CS4's
+trajectories. ⚠️ The abstract's "on the flip-flop task they respond only transiently" is right
+about where the *fix* works, but the transients themselves appear on both tasks.
 
 ### Characterization of the solution
 
 **CS1. The unpenalized network's survivors are highly selective and wired to units of the same
-role; the participation penalty alone gives mixed, diffusely connected units.** Selectivity: ✅
-fig_S4 (unpenalized 0.68–0.81 flip-flop, 0.37–0.50 CDDM; participation penalty lowest at every N on
-both tasks). Wiring: 🟡 **no script** — assembly share over chance 3.1× unpenalized vs 1.7×
-participation penalty (k = 3), wiring modularity 0.33 vs 0.14 (flip-flop only; CDDM ⬜ A3). Same
-gap as S3; figure F4.
+role; the participation penalty alone gives mixed, diffusely connected units.** ✅ Selectivity:
+fig_S4_tuning and fig_S4_mixed. Wiring: [`wiring_structure.py`](../trainRNNbrain/experiments_and_analysis/wiring_structure.py) → [`fig_CS1_wiring.png`](../img/internal_figures/fig_CS1_wiring.png), N = 2000,
+3 seeds, both tasks. Effective in-degree per tuned unit (median): flip-flop 80 / 20 / **726** / 20
+for none / sparsity / participation / both; CDDM 236 / 20 / **577** / 20. Same-role share of a
+tuned unit's input weight over chance (full row): flip-flop 3.1× / 3.6× / **1.6×** / 3.8×; CDDM
+0.93× / 1.1× / 1.2× / **2.1×**. Matched-n (275 live units) wiring modularity above its row-shuffle
+null: flip-flop 0.33 / 0.39 / **0.13** / 0.13; CDDM 0.01 / 0.10 / 0.09 / 0.19; activity modularity
+above its null 0.28–0.38 in every condition on both tasks; ARI(wiring, activity) flip-flop 0.61 /
+0.67 / **0.35** / 0.57, CDDM 0.57 / 0.52 / 0.63 / 0.47. **Flip-flop:** the unpenalized survivors
+wire by role (3.1× chance) and the participation penalty alone dissolves that (1.6×, in-degree
+726, wiring modularity a third of the others) while activity stays as modular as anyone's.
+**CDDM:** the unpenalized survivors do *not* wire by role (0.93×, wiring modularity at null) — the
+task's natural solution is mixed and there is no assembly structure to lose; both penalties
+*create* same-role wiring (2.1×) in the subpopulation of pure units that fig_S4_tuning shows.
+
+![fig_CS1_wiring.png](../img/internal_figures/fig_CS1_wiring.png)
 
 **CS2. The sparsity penalty alone does nothing to prevent silence.** ✅ fig_S1: the sparsity-penalty
 line sits on the unpenalized line on both tasks (0.14 vs 0.15 at N = 2000).
 
-**CS3. On top of the participation penalty it makes every unit selective for one variable, wired
-to units of the same role, and persistently active.** Selectivity ✅ fig_S4: both penalties 0.84 →
-0.90 on the flip-flop (vs 0.63 alone), 0.40–0.45 on CDDM (vs 0.32–0.38 alone; **on CDDM this only
-matches the unpenalized level, it does not exceed it**). Persistence ✅ fig_S5: 0.32–0.39 with both
-vs 0.53 alone on the flip-flop; on CDDM no difference up to N = 2000. Wiring 🟡 no script (assembly
-share 4.0× / 11.5× at k = 3 / 8; modal occupancy at the task duty). ⚠️ "Persistently active" is a
-flip-flop result.
+**CS3. On top of the participation penalty the sparsity penalty makes every unit selective for one
+variable, wired to units of the same role, and persistently active — FLIP-FLOP ONLY.** Selectivity
+✅ fig_S4_mixed: mixed units 322 → 102 at N = 2000 when the sparsity penalty is added (flip-flop);
+on CDDM 393 → 829, the opposite. Persistence ✅ fig_S5_bursts: burst units 591 → 94 (flip-flop);
+811 → 787 on CDDM, no change. Wiring ✅ fig_CS1_wiring: same-role share 3.8× chance with both penalties vs 1.6× alone (flip-flop); on CDDM 2.1× vs 1.2×, the one CS3 statistic that does move on CDDM. **Every part of CS3 is a flip-flop result; on CDDM
+the sparsity penalty changes neither the burst count nor the mixing, and the abstract's
+"every unit becomes selective for a single task variable" and takeaway 2 must say so.**
 
 **CS4. Turning the sparsity penalty on or off in a trained network moves the population back and
-forth, reversibly.** ✅ existing, single-purpose:
-[`flipflop_switch_summary.py`](../trainRNNbrain/experiments_and_analysis/flipflop_switch_summary.py) → [`switch_summary.png`](../img/internal_figures/switch_summary.png).
-Four arms from converged 400k networks: temporal PR 0.157 → 0.353 (penalty added) and 0.353 → 0.228
-(removed), dead fraction 0.106 → 0.000 and 0.000 → 0.088, controls inert; assembly-share endpoints
-0.28 ↔ 0.64–0.67 (🟡 no script). ⚠️ Flip-flop, N = 2000, k = 3, 3 seeds. **The switch never
-measured selectivity**, so the abstract's "more or less sharply selective" is inferred from fig_S4,
-not measured across the switch — add it (script S3) or reword to "more or less persistently active".
+forth, reversibly — persistence AND selectivity.** ✅ Four arms warm-started from converged 400k
+networks (flip-flop, N = 2000, k = 3, 3 paired seeds). Persistence, from the traces:
+[`flipflop_switch_summary.py`](../trainRNNbrain/experiments_and_analysis/flipflop_switch_summary.py) → [`switch_summary.png`](../img/internal_figures/switch_summary.png):
+temporal PR 0.157 → 0.353 (penalty added) and 0.353 → 0.228 (removed), dead units 212 → 0 of 2000
+and 0 → 176, controls inert. Selectivity, now measured at the parent and the endpoint of every arm:
+[`flipflop_switch_selectivity.py`](../trainRNNbrain/experiments_and_analysis/flipflop_switch_selectivity.py) → [`fig_CS4_selectivity.png`](../img/internal_figures/fig_CS4_selectivity.png):
+
+| arm | mixed-selective units | burst units | median Hoyer of tuning coefficients |
+|---|---|---|---|
+| A1 participation → + sparsity | 319 → **90** | 589 → **108** | 0.64 → **0.84** |
+| A2 participation → participation (control) | 319 → 276 | 589 → 643 | 0.64 → 0.71 |
+| A3 both → participation (sparsity removed) | 101 → **385** | 91 → **390** | 0.90 → **0.69** |
+| A4 both → both (control) | 101 → 95 | 91 → 92 | 0.90 → 0.90 |
+
+Adding the sparsity penalty removes three quarters of the mixed and burst units and sharpens the
+tuning; removing it brings them back; the controls move little. The pre-registered molding
+hypothesis failed (identity ρ = 0.26); the supported claim is that the state is set by whichever
+penalty is active. ⚠️ Flip-flop only; **A6 (the same four arms on CDDM) submitted 2026-09-11.**
+
+![switch_summary.png](../img/internal_figures/switch_summary.png)
+
+![fig_CS4_selectivity.png](../img/internal_figures/fig_CS4_selectivity.png)
 
 **CS5. Networks with identical performance differ several-fold in dimensionality, selectivity and
 temporal structure.** ✅ [`fig_cache_axis.py`](../trainRNNbrain/experiments_and_analysis/fig_cache_axis.py) `d_pr` → [`fig_CS5_dimensionality.png`](../img/internal_figures/fig_CS5_dimensionality.png): D_PR vs N.
@@ -228,35 +412,50 @@ Selectivity and temporal structure: fig_S4, fig_S5. The matched-performance CDDM
 metabolic cost and rate heterogeneity (σ_log 1.2 → 0.26, the limitation) is
 [`population_distortion.py`](../trainRNNbrain/experiments_and_analysis/population_distortion.py) → [`population_distortion.png`](../img/internal_figures/population_distortion.png).
 
-### What to build
+![fig_CS5_dimensionality.png](../img/internal_figures/fig_CS5_dimensionality.png)
 
-Figures (F) — each is one script, one statement, ≤ 2 panels:
+![population_distortion.png](../img/internal_figures/population_distortion.png)
 
-- **F1** P3: fixed-compute vs matched M/N^b vs k, from `flipflop_decisive.py` (drop its other panels).
-- **F2** C3: silent fraction per intervention at N = 1000, one bar chart, baseline as a line.
-- **F3** C4: participation quantiles vs iteration, none vs participation penalty, both tasks —
-  needs script S2.
-- **F4** S3/CS1/CS3: effective in-degree per unit and assembly share, four conditions, both tasks —
-  needs script S1.
+### What to build — status after the autonomous round of 2026-09-11
 
-Scripts (S) — turn 🟡 into ✅:
+Done this round (all one script, one statement, from data on disk):
 
-- **S1** `wiring_structure.py`: in-degree S per row, same-state assembly share vs chance (full row),
-  wiring/activity modularity against matched-n nulls, ARI(wiring, activity), W_out targeting. Both
-  tasks, four conditions, switch endpoints. **Highest priority.**
-- **S2** `participation_recovery.py`: from `ParticipationTrace.pkl`, the early collapse and the units
-  that endure ≥ T silent iterations and recover, per condition.
-- **S3** selectivity across the switch, added to `flipflop_switch_summary.py`.
-- **S4** move the scratchpad `joint_vs_single.py` into the repo; name the self-connection analysis.
+- **F1** P(c) → `fig_P3_complexity.py`. **F3** C4 → `participation_recovery.py`. **F4** CS1/CS3 →
+  `wiring_structure.py`. **F5** C5 → `fig_C5_criteria.py`.
+- **S1** `wiring_structure.py` (in-degree, same-role share vs chance, matched-n wiring/activity
+  modularity against their own nulls, ARI; both tasks). **S2** `participation_recovery.py`. **S3**
+  `flipflop_switch_selectivity.py` (mixed / burst / Hoyer at parent and endpoint of every arm).
+  **S4** superseded: the joint-vs-single statistic lives in `unit_stats.py`; the self-connection
+  result is the 2026-07-28 within-network test (no script survives; the cross-sweep numbers are
+  in fig_C3).
+- **E2 = A5** closed by `fig_S2_cost.py` (flip-flop floors per condition).
 
-Experiments (E):
+Running on Spock (2026-09-11):
 
-- **E1** softplus / leaky-ReLU / sigmoid on the standard CDDM network, N = 1000, 3 seeds (C1).
-- **E2 = A5** flip-flop time-to-floor across the penalty grid (S2's right panel).
-- **E3 = T2** weight-decay sweep including 0 (C4c). **T5** running (C4c).
-- **A3 / A6** CDDM wiring and CDDM switch (CS1, CS3, CS4 as two-task claims).
+- **E1** activations on the standard CDDM network — array 6163782, 9 jobs (C1's CDDM panel, C3's
+  activation bars).
+- **E3 = T2** weight decay 0 / 10⁻⁵ / 10⁻⁴ vs the 10⁻⁶ baseline, N = 1000, 3 seeds —
+  `slurm/SilentReLU_std_weightdecay_spock.slurm` (C4c).
+- **A6** the four switch arms on CDDM, N = 2000, 50k iterations from the 150k penalty nets —
+  `slurm/SilentReLU_cddm_switch_spock.slurm` (CS3/CS4 as two-task claims).
+- **T5** input-scale sweep (C3, C4c).
 
-Wording to settle in the abstract once the above is done: "every unit" → "nearly every unit" (S1);
+Still open:
+
+- **A3** is done as far as wiring goes (fig_CS1 has CDDM); the CDDM *switch* is A6 above.
+- The every-10 participation traces of the 2026-07-25 sweeps (the ~20-iteration collapse) are not
+  on the laptop; C4(a) cites the record for that number.
+- Read-outs to write when the runs land: C1/C3 activation panels from E1; a weight-decay panel for
+  C4 from E3; a CDDM version of `flipflop_switch_selectivity.py` for A6.
+
+**Reporting rule (Pavel, 2026-09-11): never a silent fraction — always the number of active units.**
+Wording to settle in the abstract once the above is done: **"at no cost in performance" → "at no cost
+on CDDM; on the flip-flop the loss floor is 7–19% higher, about one point of R²" (S2, measured
+2026-09-11, both in the solution paragraph and in takeaway 1); "every unit becomes selective for a
+single task variable" and takeaway 2 → flip-flop only — on CDDM every condition builds
+mixed-selective units and the sparsity penalty doubles their number (S4, CS3, measured 2026-09-11);
+"on the flip-flop task they respond only transiently" → the transients appear on both tasks, the
+sparsity penalty removes them on the flip-flop only (S5);** "every unit" → "nearly every unit" (S1);
 "less selective as the network grows" → flip-flop, or "less selective than any other condition"
 (S4); "persistently or transiently" → flip-flop (S5, CS3); "more or less sharply selective" →
 measured or reworded (CS4).

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Figure for elaboration claim S2: the penalties cost nothing in task performance.
+Figure for elaboration claim S2: what the penalties cost in task performance (CDDM: nothing; flip-flop: a
+10-15% higher loss floor, about one point of R^2).
 
 Two panels, task loss of the four conditions (none / rws / frm / both) vs N. Only the TASK term,
 noise off - never TrainLosses.json, which is task + lambda*penalty with noise on (paper.md §7).
@@ -21,6 +22,7 @@ import os
 import sys
 import glob
 import numpy as np
+import pickle
 import matplotlib.pyplot as plt
 from omegaconf import OmegaConf
 
@@ -33,6 +35,7 @@ PENS = ["none", "rws", "frm", "both"]
 COL = {"none": "#7f7f7f", "rws": "#2ca02c", "frm": "#d62728", "both": "#1f77b4"}
 LABEL = {"none": "no penalty", "rws": "sparsity only", "frm": "participation only", "both": "participation + sparsity"}
 FF_K = 3
+CACHE = "data/fig_S2_cost_cache.pkl"      # ponytail: the CDDM half simulates ~45 nets (~20 min); cache it. Delete to recompute.
 
 
 def cddm_losses():
@@ -86,10 +89,15 @@ def panel(ax, data, title, ylabel):
 def main():
     """Draw the two panels and write fig_S2_cost.png."""
     ps.setup()
+    if os.path.exists(CACHE):
+        cd = pickle.load(open(CACHE, "rb"))
+    else:
+        cd = cddm_losses()
+        pickle.dump(cd, open(CACHE, "wb"))
     fig, ax = plt.subplots(1, 2, figsize=(10.5, 4.2))
-    panel(ax[0], cddm_losses(), "CDDM: noise-free task loss, final weights", "masked MSE, noise off")
+    panel(ax[0], cd, "CDDM: noise-free task loss, final weights", "masked MSE, noise off")
     panel(ax[1], flipflop_floors(), f"flip-flop k={FF_K}: fitted floor of the noise-free task loss", "loss floor (task term only)")
-    fig.suptitle("S2 — the penalties do not cost task performance", fontsize=11)
+    fig.suptitle("S2 — task cost of the penalties: none on CDDM (a gain at large N); a 10–15% higher loss floor on the flip-flop", fontsize=10.5)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
     return ps.save(fig, "fig_S2_cost", tight=False)
 

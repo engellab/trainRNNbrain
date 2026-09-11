@@ -9825,3 +9825,47 @@ subset size, clean task loss trace. Analysis scripts that assume n_inputs == n_o
 own script keyed on `task.subsets`.
 
 Submitted 15:04: Spock jobs 6163876 (tasks 1-36, none) and 6163877 (tasks 37-72, both), code 884e4a3, all pending behind ~37 queued jobs.
+
+## ▶ AUTONOMOUS ROUND: build list F1/F3/F4/F5 + S1/S2/S3 done; E3 and A6 launchers — 2026-09-11 15:07
+
+Pavel: "work autonomously to address gaps in the story; address things from What to build."
+
+**New scripts / figures (all from data on disk):**
+- `fig_P3_complexity.py` → `fig_P3_complexity.png`: M/(A N^b) vs k, flip-flop unpenalised, 100k
+  (c=+0.08 [−0.02,+0.16]) vs matched state (c=−0.06 [−0.10,−0.03]).
+- `fig_C5_criteria.py` → `fig_C5_criteria.png`: none vs rws under each task's criteria. CDDM
+  N=2000: hard 790 (rws) vs 423 (none), scale-free 279 vs 383 — the artefact; N=5000 2086/711 vs
+  440/629. Flip-flop: 1e-6 counts 1995/2000 unpenalised units active (why 4e-2 exists); under
+  4e-2 and scale-free rws is modestly ABOVE none (708 vs 583; 638 vs 551 at N=2000).
+- `participation_recovery.py` → `fig_C4_recovery.png`: N=1000, traces every 100 iterations.
+  Units silent ≥500 iterations then active at end / silent at end: CDDM none 99±4 / 728±10, frm
+  2±1 / 0; flip-flop none 82±6 / 793±4, frm 784±18 / 23±16 (the flicker). The ~20-iteration
+  collapse is below this resolution (every-10 traces of the 2026-07-25 sweeps are not local).
+- `wiring_structure.py` → `fig_CS1_wiring.png` (cache `data/wiring_cache.pkl`), N=2000, 3 seeds,
+  both tasks, roles = argmax rectified loading of tuned units, matched n=275, 3 subsamples:
+
+  | | none | rws | frm | both |
+  |---|---|---|---|---|
+  | FF in-degree S median | 80 | 20 | **726** | 20 |
+  | FF same-role share / chance | 3.09 | 3.62 | **1.60** | 3.77 |
+  | FF wiring Q excess / activity Q excess / ARI | 0.33/0.33/0.61 | 0.39/0.33/0.67 | **0.13**/0.28/**0.35** | 0.13/0.31/0.57 |
+  | CDDM in-degree S median | 236 | 20 | **577** | 20 |
+  | CDDM same-role share / chance | **0.93** | 1.14 | 1.21 | **2.11** |
+  | CDDM wiring Q excess / activity Q excess / ARI | 0.01/0.38/0.57 | 0.10/0.29/0.52 | 0.09/0.36/0.63 | 0.19/0.32/0.47 |
+
+  Reproduces the 2026-09-10 scratchpad numbers on the flip-flop (3.1/3.7/1.7/4.0 shares; 0.33/0.40/
+  0.14/0.20 Q excess; 0.61/0.62/0.30/0.48 ARI). NEW on CDDM: unpenalised survivors do NOT wire by
+  role (0.93×, wiring Q at null); `both` creates same-role wiring (2.11×) — consistent with the
+  bimodal Hoyer (a pure subpopulation). `both`'s wiring Q excess is 0.13 here vs 0.20 recorded.
+- `flipflop_switch_selectivity.py` → `fig_CS4_selectivity.png` (cache
+  `data/switch_selectivity_cache.pkl`): parent vs endpoint per arm, 3 paired seeds. Mixed units
+  A1 319→90, A2 319→276, A3 101→385, A4 101→95; burst units 589→108, 589→643, 91→390, 91→92;
+  median Hoyer 0.64→0.84, 0.64→0.71, 0.90→0.69, 0.90→0.90. **Selectivity is reversible across
+  the switch** — the CS4 gap ("more or less sharply selective" was inferred) is closed.
+
+**Launchers written (smoke-tested locally, N=100 / 30 iterations for the wd override; CDDM warm
+start from a local N=2000 `both` net):** `slurm/SilentReLU_std_weightdecay_spock.slurm` (E3: wd
+0/1e-5/1e-4 × 3 seeds, N=1000, drift recipe) and `slurm/SilentReLU_cddm_switch_spock.slurm` (A6:
+four arms × 3 seeds from CDDM_std_g0_penalties N=2000, 50k, participation every 10). Submission
+recorded below once done. Elaboration: P(c), C4, C5, S3, CS1, CS3, CS4 rewritten with the new
+figures; `penalty_matched.png` un-embedded; build list replaced by a status list.

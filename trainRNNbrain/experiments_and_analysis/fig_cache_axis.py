@@ -33,6 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import plotstyle as ps
 
 CACHE = "data/characterize_cache.pkl"
+MIN_N = 500          # N = 100 excluded everywhere (Pavel, 2026-09-11)
 PENS = ["none", "rws", "frm", "both"]
 COL = {"none": "#7f7f7f", "rws": "#2ca02c", "frm": "#d62728", "both": "#1f77b4"}
 LABEL = {"none": "no penalty", "rws": "sparsity penalty only", "frm": "participation penalty only",
@@ -68,6 +69,8 @@ def load(path):
             task = "CDDM"
             mm = re.search(r"_pen=([a-z]+)", run)
             pen = mm.group(1) if mm else "none"
+        if int(m["N"]) < MIN_N:
+            continue
         m = dict(m, active_units=float(m["active_frac"]) * int(m["N"]))
         out[task][pen].setdefault(int(m["N"]), []).append(m)
     return out

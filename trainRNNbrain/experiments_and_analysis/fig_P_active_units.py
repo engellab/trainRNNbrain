@@ -6,7 +6,7 @@ that number scales with network size N and task complexity k, and what it costs 
 Two rows x two panels, unpenalised ReLU networks, each panel under BOTH silence criteria of its task:
 
   columns  left  CDDM, N = 100..5000 (CDDM_std_g0_drift). Criteria: hard p < 1e-6 and scale-free
-                 p < 0.05 q95(p). Fit M = A N^b over N >= 500 (N = 100 is fully active), bootstrap CI
+                 p < 0.05 q95(p). Fit M = A N^b, bootstrap CI
                  over seeds.
            right k-bit flip-flop, N = 500..4000, k = 1..8 (pr_matrix roots). Criteria: task-calibrated
                  absolute p < 4e-2 and scale-free. Fit M = A N^b k^c over the whole grid, bootstrap CI
@@ -39,7 +39,8 @@ from plot_M_vs_N import ladder
 import pr_matrix
 
 CDDM_SWEEP = "data/trained_RNNs/CDDM_std_g0_drift"
-CDDM_FIT_MIN_N = 500
+MIN_N = 500                      # N = 100 is excluded everywhere (Pavel, 2026-09-11): it is fully active and only one condition has it
+CDDM_FIT_MIN_N = MIN_N
 TARGET_M = 1000
 EXTRAP_K = 3
 FIXED_ITER = 100_000
@@ -61,6 +62,8 @@ def cddm_points(by, fixed_iter=None):
     Lstar = None if fixed_iter else ladder(by)[0]
     out = {c[0]: {} for c in CDDM_CRIT}
     for N in sorted(by):
+        if N < MIN_N:
+            continue
         for t in by[N]:
             I = np.asarray(t["participation_iters"])
             T = fixed_iter if fixed_iter else T_at_loss(t["loss"], Lstar)

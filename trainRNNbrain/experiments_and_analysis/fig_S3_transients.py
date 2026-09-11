@@ -16,7 +16,7 @@ k); a burst unit has tPR/n near 0. Flip-flop, k = 3, N = 2000, four conditions, 
   left   distribution of tPR/n over live units, one histogram per condition (seeds pooled), with the
          task duty cycle marked. The participation penalty alone puts the MODE at ~0; adding the
          sparsity penalty moves it to the duty cycle.
-  right  per-condition summary (mean ± sd over seeds): modal tPR/n, median tPR/n, and the fraction of live units with tPR/n < 0.05 (burst units).
+  right  per-condition summary (mean ± sd over seeds): median tPR/n and the fraction of live units with tPR/n < 0.05 (burst units).
 
 Usage:  python fig_S3_transients.py [N] [k]       (defaults 2000 3)
 Output: img/internal_figures/fig_S3_transients.png
@@ -84,29 +84,35 @@ def main():
                   f"mode {mode(res[pen][-1]['x']):.3f}  live {res[pen][-1]['live']}/{res[pen][-1]['N']}", flush=True)
     duty = np.mean([r["duty"] for p in PENS for r in res[p]])
 
-    fig, ax = plt.subplots(1, 2, figsize=(12, 4.4), gridspec_kw=dict(width_ratios=[1.35, 1]))
+    fig, ax = plt.subplots(1, 3, figsize=(14, 4.4), gridspec_kw=dict(width_ratios=[2, 1, 1]))
     for p in PENS:
         x = np.concatenate([r["x"] for r in res[p]])
         live = int(np.mean([r["live"] for r in res[p]]))
         ax[0].hist(x, bins=BINS, density=True, histtype="step", lw=1.8, color=COL[p], label=f"{LABEL[p]}: {live} live units of {res[p][0]['N']}")
     ax[0].axvline(duty, color="0.3", ls=":", lw=1)
-    ax[0].text(duty + 0.01, ax[0].get_ylim()[1] * 0.95, f"task duty cycle {duty:.2f}", fontsize=8, color="0.3", va="top")
+    ax[0].text(duty + 0.01, ax[0].get_ylim()[1] * 0.55, f"task duty cycle {duty:.2f}", fontsize=8, color="0.3", va="top")
     ax[0].set(xlabel="temporal PR / n_samples  (fraction of time a unit is effectively active)", ylabel="density over live units",
-              title=f"flip-flop k={k}, N={N}: how long each unit is active")
+              title="(a) how long each live unit is active")
     ax[0].legend(loc="upper right")
-
-    stats = [("mode of tPR/n", lambda r: mode(r["x"])), ("median tPR/n", lambda r: float(np.median(r["x"]))),
-             (f"burst units (tPR/n < {BURST})", lambda r: float((r["x"] < BURST).mean()))]
-    xs = np.arange(len(stats)); w = 0.2
-    for i, p in enumerate(PENS):
-        mu = [np.mean([f(r) for r in res[p]]) for _, f in stats]
-        sd = [np.std([f(r) for r in res[p]]) for _, f in stats]
-        ax[1].bar(xs + (i - 1.5) * w, mu, w, yerr=sd, color=COL[p], capsize=2, label=LABEL[p])
-        print(f"{p:5s} " + "  ".join(f"{lab}={m:.3f}±{s:.3f}" for (lab, _), m, s in zip(stats, mu, sd)))
+    for p in PENS:
+        print(f"{p:5s} mode of tPR/n per seed: " + ", ".join(f"{mode(r['x']):.3f}" for r in res[p]))
+    xs = np.arange(len(PENS))
+    med = [[float(np.median(r["x"])) for r in res[p]] for p in PENS]
+    ax[1].bar(xs, [np.mean(m) for m in med], 0.65, yerr=[np.std(m) for m in med], color=[COL[p] for p in PENS], capsize=2)
     ax[1].axhline(duty, color="0.3", ls=":", lw=1)
-    ax[1].set(xticks=xs, xticklabels=[s[0] for s in stats], ylim=(0, 0.75), title="per-condition summary (mean ± sd over seeds)")
-    ax[1].tick_params(axis="x", labelsize=8)
-    ax[1].legend(loc="upper left", fontsize=7.5)
+    ax[1].text(len(PENS) - 0.6, duty + 0.01, "task duty cycle", ha="right", fontsize=7.5, color="0.3")
+    ax[1].set(xticks=xs, xticklabels=[LABEL[p].replace(" ", "\n", 1) for p in PENS], ylim=(0, 0.5),
+              ylabel="median tPR / n over live units", title="(b) typical unit: fraction of time active")
+    burst = [[int((r["x"] < BURST).sum()) for r in res[p]] for p in PENS]
+    ax[2].bar(xs, [np.mean(b) for b in burst], 0.65, yerr=[np.std(b) for b in burst], color=[COL[p] for p in PENS], capsize=2)
+    for i, p in enumerate(PENS):
+        ax[2].text(i, np.mean(burst[i]) + np.std(burst[i]) + 8, f"{np.mean(burst[i]):.0f}", ha="center", fontsize=8)
+    ax[2].set(xticks=xs, xticklabels=[LABEL[p].replace(" ", "\n", 1) for p in PENS],
+              ylabel=f"burst units (live, active < {BURST:.0%} of the time)", title=f"(c) number of burst units of {res['none'][0]['N']}")
+    for a_ in ax[1:]:
+        a_.tick_params(axis="x", labelsize=7.5)
+    for p, b, m in zip(PENS, burst, med):
+        print(f"{p:5s} median tPR/n={np.mean(m):.3f}±{np.std(m):.3f}  burst units={np.mean(b):.0f}±{np.std(b):.0f}")
     fig.suptitle("S3 — the participation penalty alone is satisfied by bursts; adding the sparsity penalty moves units to the task's duty cycle",
                  fontsize=10.5)
     fig.tight_layout(rect=[0, 0, 1, 0.93])

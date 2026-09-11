@@ -43,11 +43,11 @@ def main():
     clouds = {p: cloud(folders[p][si], "sel") for p in PENS}
     lo = min(np.log10(c[1]).min() for c in clouds.values()); hi = max(np.log10(c[1]).max() for c in clouds.values())
 
-    fig = plt.figure(figsize=(13, 3.6))
+    fig = plt.figure(figsize=(9, 8.5))
     for i, p in enumerate(PENS):
         P, part = clouds[p]
-        ax = fig.add_subplot(1, 4, i + 1, projection="3d")
-        sc = ax.scatter(P[:, 0], P[:, 1], P[:, 2], c=np.log10(part), cmap="viridis", vmin=lo, vmax=hi, s=6, alpha=.7, lw=0)
+        ax = fig.add_subplot(2, 2, i + 1, projection="3d")
+        sc = ax.scatter(P[:, 0], P[:, 1], P[:, 2], c=np.log10(part), cmap="viridis", vmin=lo, vmax=hi, s=9, alpha=.75, lw=0)
         r = np.abs(P).max()
         for a in range(3):
             v = np.zeros((2, 3)); v[0, a], v[1, a] = -r, r
@@ -57,7 +57,7 @@ def main():
         ax.view_init(**VIEW)
         ax.set_xticklabels([]); ax.set_yticklabels([]); ax.set_zticklabels([])
         print(f"{p:5s} {len(P)} live units, |loading| range {r:.3g}")
-    fig.colorbar(sc, ax=fig.axes, shrink=0.6, pad=0.02, label="log10 participation")
+    fig.colorbar(sc, ax=fig.axes, shrink=0.45, pad=0.03, label="log10 participation")
     fig.suptitle(f"S4 — unit selectivity in the 3-bit space (flip-flop k={k}, N={N}): pure units sit on the axes, mixed units between them",
                  fontsize=10.5)
     return ps.save(fig, "fig_S4_cloud", tight=False)
