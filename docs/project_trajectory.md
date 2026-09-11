@@ -8327,6 +8327,9 @@ The reverse direction is therefore a LOWER BOUND on how far removing rws would e
 
 ## ▶ WHY THE TWO PENALTIES COMPOSE: A SCALING / MEAN-FIELD ACCOUNT, TESTED — 2026-09-10 14:31
 
+> ⚠️ **Superseded on the mechanism (2026-09-11).** This entry argues from the ReLU scale symmetry. That explanation was retracted after the bounded-sigmoid result (entry of 2026-09-11 08:50 and the retraction note below it): the cause is the objective's missing term, not the activation's homogeneity. The measurements here (in-degree S, assembly share, switch arms, occupancy) stand; the symmetry reasoning does not. For the paper's mechanism section use the 2026-09-11 entry only.
+
+
 Started from Pavel's first-moment scaling argument and ended somewhere different. Every step below
 was tested on the trained weights; two of the intermediate theories were refuted and are recorded.
 
@@ -8460,6 +8463,9 @@ modest, and **no mechanism for it is established.** Do not claim one.
   along the trajectory.
 
 ## ▶ THE MECHANISM IN SEVEN IDEAS — pedagogical summary, 2026-09-10 15:17
+
+> ⚠️ **Superseded on the mechanism (2026-09-11).** This entry argues from the ReLU scale symmetry. That explanation was retracted after the bounded-sigmoid result (entry of 2026-09-11 08:50 and the retraction note below it): the cause is the objective's missing term, not the activation's homogeneity. The measurements here (in-degree S, assembly share, switch arms, occupancy) stand; the symmetry reasoning does not. For the paper's mechanism section use the 2026-09-11 entry only.
+
 
 The theory entry above (14:31) records the analysis in the order it was done, refutations included.
 This entry records it in the order it should be UNDERSTOOD. Each idea was tested; each rests on the
@@ -9415,3 +9421,17 @@ the initial draw of every weight is identical up to the row rescaling of W_inp a
 batches follow the same sequence. The two logs give a direct pair of silencing trajectories at two
 input scales: `grep '[silence]'` on `FFwinpL.6156830_1.out` (s=5) and `FFwinpL.6157301_1.out` (s=1).
 Launcher now takes `S_OVERRIDE` / `SEED_OVERRIDE` for further pairs.
+
+### Third logged run: the DEFAULT init, same seed — 2026-09-11 11:03
+
+Spock `6163424`: identical to `6156830` (s=5) and `6157301` (s=1) — N=1000, k=3, unpenalised, seed
+3637570379, silence logged every 500 iterations — but with W_inp left as drawn
+(`model.input_row_norm=null`, i.e. entries at std 1/√N, row norm √(3/1000) ≈ 0.055, randomly spread
+across rows). This is the control the pair was missing: s=1 is 18× the default row norm and s=5 is
+90×, so neither is "the default". Read the three together with `grep '[silence]'` on
+`FFwinpL.{6163424,6157301,6156830}_1.out`.
+
+Interim from the pair at 14k iterations (scale-free / absolute silent of 1000): s=5 131 / 62, s=1
+139 / 72, both flat or falling since ~6k; the default-init ksweep trace at this size is ≈ 500 by
+10k. s=5's q95(p) has fallen 5.0 → 1.9 as the network sheds its oversized input drive, so its
+absolute count rises for that reason alone; its scale-free count is flat.
