@@ -9766,3 +9766,60 @@ Scale-free silent of 1000: default 633 (60k); s=1 580 (60k); s=5 557 (70k). All 
 the same slow rate (~2–3 units per 1000 iterations), hard zeros have decayed to 0–16 (the units sit
 just above exact zero), q95(p) 1.8–2.2 in all three. No further spikes. The ordering default > s=1
 > s=5 is the residue of when each collapsed; the trajectories are otherwise the same curve.
+
+## ▶ SIDE QUEST SUBMITTED: combinatorial task demand — the flip-flop with a 2^k−1 channel read-out (`NBitFlipFlopHyper`) — 2026-09-11 15:02
+
+**Why.** The plain k-bit flip-flop's demand is linear in k (k output channels), and the network's
+recruitment barely notices it: live units ∝ k^0.16, and at matched loss M ≈ 21·N^0.42 independent
+of k (the ksweep's pre-registered pathology outcome). The deflationary reply is that k bits are
+cheap — 2^k states but a k-dimensional read-out, and 44 units per bit at k=8 is still plenty. Pavel's
+steelman: make the demand itself combinatorial and see whether recruitment follows it, or whether
+the networks fail to train at all.
+
+**Task.** `trainRNNbrain/tasks/TaskNBitFlipFlopHyper.py`, config `configs/task/NBitFlipFlopHyper.yaml`.
+Same k pulse-train inputs and bit dynamics as `TaskNBitFlipFlop` (subclass; `get_batch` and
+`generate_input_target_stream` post-process the parent's target, inputs and conditions unchanged).
+Target = product of the bit states over EVERY non-empty subset of bits: the k singles, the C(k,2)
+pairs, …, the k-way parity — 2^k − 1 channels (3 / 15 / 63 / 255 at k = 2 / 4 / 6 / 8). Channel
+order is by binary mask (channel m−1 = ∏_{j∈m} bit_j; `task.subsets[c]` gives the bit tuple), so
+the singles are NOT channels 0..k−1. A bit is 0 before its first pulse, so every product containing
+it is 0 there. Built by the mask recursion P[m] = P[m∖top]·bit[top], one in-place multiply per
+channel: batch cost 0.16 s at k=8, B=1024 (vs 0.04 plain). Self-check (`python …Hyper.py`) verifies
+every channel against an independent itertools/np.prod construction at k = 2, 3, 4, 6, 8, and that
+inputs and conditions equal the parent's for the same seed. `n_outputs` must equal 2^k − 1; the
+class raises otherwise and the launcher passes both (Hydra cannot compute 2^k).
+
+⚠️ **Target variance is no longer channel-independent.** The plain task's cross-k comparability
+rested on every channel having variance ≈ 0.735. Here it falls with subset size, because a product
+is 0 until ALL its bits have pulsed once: at k=8, singles 0.70, pairs 0.56, 4-way 0.42, 8-way 0.29
+(k=4: 0.71 / 0.58 / 0.50 / 0.44). Consequences fixed now: (i) R² must be computed PER CHANNEL against
+that channel's own variance, not as 1 − MSE/0.735; (ii) the loss is the mean over all 2^k − 1
+channels, so at k=8 the singles are 8/255 of it — the network is judged almost entirely on
+high-order products, which is the intended demand but means the loss is not comparable in level to
+the plain task's floor law.
+
+**Grid (72 jobs, `slurm/SilentReLU_flipflop_hyper_spock.slurm`).** k ∈ {2, 4, 6, 8} × N ∈
+{500, 1000, 2000} × 3 seeds × pen ∈ {none, both}; tasks 1–36 unpenalised, 37–72 `both` (rws 0.05 +
+frm 0.1, the project's standard pair — Pavel's "frm + rws" read as the `both` arm, not two arms).
+Standard ReLU, h equation, `trainer_ptrack_freshbatch` (B=1024, fresh trials every iteration),
+150k iterations, participation stored every 100, 48 h requested (worst cell N=2000, k=8: ~0.71 s/iter
+→ 30 h). Output: `NBitFlipFlopHyper_std_hyper/EqType=h_k=<k>_N=<N>_pen=<none|both>/`. Smoke-tested
+locally end to end (N=50, k=3, 20 iterations, both penalties): saved W_out is 7×50, config records
+`n_outputs: 7`, participation trace written.
+
+**Pre-registered read-out (fixed before any cell finishes).** Active counts at 150k on the
+scale-free criterion, read exactly as the ksweep/penalty grids were (never a 150k penalised number
+against a 500k unpenalised one). Three outcomes, each a result:
+1. **M(k) rises steeply** with 2^k − 1 (exponent on k well above 0.16, or clearly multiplicative in
+   the channel count) → recruitment DOES track demand once demand is real; the plain flip-flop's
+   flat M(k) was cheap demand, and the paper's "active count does not track task demand" must be
+   narrowed to "…does not track the number of independent bits".
+2. **M(k) flat again (~k^0.2) AND the task solved** (per-channel R² at every subset size comparable
+   to the plain task's) → the pathology reading survives its strongest test.
+3. **High-k cells fail to train** (R² collapses at k=6/8 while M stays flat) → the silence is a
+   capacity ceiling the task cannot lift. Pavel's prior. Recorded as a result, not a failed run.
+The `both` arm asks whether the penalty rescues whichever of 2/3 happens (more live units AND
+higher R² at k=6/8 than `none` = rescue). Numbers to record per cell: live count at 150k, R² by
+subset size, clean task loss trace. Analysis scripts that assume n_inputs == n_outputs
+(`flipflop_*.py`, `unit_stats.py`) do NOT apply to this task unmodified — the read-out needs its
+own script keyed on `task.subsets`.
