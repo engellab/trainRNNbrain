@@ -16,9 +16,11 @@ count.*
 **The argument in five sentences.** (1) A ReLU RNN trained on a neuroscience task leaves most of its
 units silent, and enlarging the network does not fix this: the active count grows as roughly the
 square root of N on both tasks, so a thousand active units costs a network of ten thousand. (2) The
-cause, for ReLU units, is a symmetry: a unit's gain is a flat direction of the task loss, so nothing
-keeps any unit alive and the ReLU zero is where the drift ends; standard regularizers either do not
-touch this or make it worse (whether bounded activations escape it is untested, §2.1). (3) A floor on each
+cause is that the task loss has no term that keeps any unit's gain up: units the solution does not
+need are walked down to the activation's floor and left there. For ReLU this is an exact symmetry
+(the gain is a flat direction), but the same silent fraction appears at the same size and iteration
+under softplus, leaky-ReLU and a bounded sigmoid, so it is not a ReLU property; standard
+regularizers either do not touch it or make it worse. (3) A floor on each
 unit's activity (`frm`) removes the symmetry and every unit stays alive, at no task cost, but the
 units it keeps alive are diffuse: they listen to the whole population, mix several task variables,
 and their tuning degrades as N grows. (4) A cap on each unit's effective in-degree (`rws`), useless
@@ -70,14 +72,27 @@ number of units.* Trained RNNs recruit a number of units set by neither the size
 
 ---
 
-## 2. Why: a symmetry that nothing standard breaks
+## 2. Why: nothing in the loss keeps a unit alive
 
-### 2.1 The mechanism ✅ argued, ⬜ two direct tests proposed
+### 2.1 The mechanism ✅ activation-general, ⬜ one direct test proposed
 
-Because `relu(a·x) = a·relu(x)`, scaling a unit's incoming weights and bias by `a` and its outgoing
-weights by `1/a` leaves the network's function unchanged. The task loss is identical for every `a`,
-so gradient descent receives no signal about how loud any unit should be. Loudness drifts; the ReLU
-zero is an absorbing end of the drift, because a unit at zero has zero gradient.
+The task loss has no term that sets how loud any unit should be. For a ReLU unit this is an exact
+symmetry — `relu(a·x) = a·relu(x)`, so scaling incoming weights and bias by `a` and outgoing weights
+by `1/a` leaves the function unchanged and the loss is flat along `a` — and it is the cleanest way to
+see the point. But the point is general: units the solution does not need receive no gradient that
+holds their gain up, weight decay and noise walk them down to the activation's floor, and they stay
+there because the loss does not care and the gradient at the floor is small (zero for ReLU, ~0.01
+for leaky-ReLU, ~0.02 for softplus and the sigmoid at its lower asymptote).
+
+**Four activations, one silent fraction** ✅. Unpenalized, same size, read at the same iteration:
+ReLU, softplus (β = 25), leaky-ReLU (leak 0.01) on CDDM at N = 1000 (Dale) are indistinguishable on
+every axis (live 0.44 / 0.45 / 0.45; participation sparsity 0.74 / 0.73 / 0.74). On the flip-flop,
+a bounded `sigmoid(7.5(x − 0.3))` standard RNN silences 0.75–0.77 of its units at N = 1000 against
+ReLU's 0.72–0.75 at the same iteration, with the silent units parked at the lower asymptote (mean
+rate 0.002, none saturated high) and still silencing at 150k iterations exactly as ReLU does. A
+bounded, nonlinear, non-homogeneous positive part does not remove the phenomenon. Its concentration
+is milder in threshold-free terms (participation sparsity 0.54 vs 0.73) only because the floor is
+soft: silent units sit at 0.002 instead of 0.
 
 Evidence that this is the right picture: the collapse is *global and early* — the whole population
 goes quiet within ~20 iterations and only the eventual survivors climb back (§S5); silence grows
@@ -86,28 +101,16 @@ declines even the cheapest escape (with self-connections allowed it trains the d
 self-*inhibition*, corr(self-weight, log participation) = −0.51). And the one intervention that
 works (§3) is the one that pins the scale.
 
-> ⚠️ **What a referee will ask.** (i) ✅ Leaky-ReLU and softplus units have gradient everywhere, and
-> in the Dale-constrained N = 1000 CDDM sweeps they are indistinguishable from ReLU on every axis
-> (live 0.45 vs 0.44, participation sparsity 0.73 vs 0.74; trajectory 2026-09-10 23:08). The
-> dead-gradient half of this paragraph is therefore NOT the cause; the symmetry alone must carry the
-> explanation, and the paragraph above is to be rewritten that way. What the three share is a
-> linear positive part with a floor at zero. (ii) Weight decay also breaks the symmetry; we assert
-> it "barely acts" at 10⁻⁶ without a sweep, and the direct control — a gain-normalization step that
-> removes the flat direction and nothing else — has not been run. (iii) A bounded activation
-> (sigmoid, tanh) has no scale symmetry and no exact zero, so the absorbing state disappears by
-> construction — but nothing in the task loss keeps such a unit *modulated* either, and weight decay
-> drives it toward a constant `sigmoid(bias)`, which is silence for every population analysis in §6
-> while being invisible to the participation criterion (a unit parked at 0.9 has a high q90).
-> **No unpenalized sigmoid or tanh network exists in this project**: every one on disk was trained
-> with `frm+rws` on, under Dale. Testing this needs a modulation criterion (temporal std of the
-> rate), not the current one. All three are specified in `research_directions.md` T1–T2. Until then,
-> §2.1 is the best-supported interpretation, not a result.
+> ⚠️ **What remains untested.** Weight decay is asserted to be the walker; a sweep over it and the
+> direct control — a gain-normalization step after each update that fixes every unit's scale with no
+> penalty — have not been run (`research_directions.md` T2). Until then the *cause* of the walk is
+> the best-supported reading; that the walk is activation-general is measured.
 
 ### 2.2 What does not work ✅ (CDDM; activation rows in constrained nets, §S1)
 
 Fifteen interventions, condensed. Architecture (`h`/`s` equation, cubic term, boundary handling,
 sign constraints, I/O positivity, trainable bias, self-connections): no change. Activation
-(softplus, leaky-ReLU): persists, 40–64% (constrained; ⬜ unconstrained). Recurrent noise: never
+(softplus, leaky-ReLU, sigmoid): persists at the ReLU level (§2.1). Recurrent noise: never
 helps, σ = 0 is worst. Longer training and larger networks: worse, monotonically. The field-standard
 metabolic cost `mean(fr²)` over four decades of λ: never rescues, and at λ = 10 makes it worse
 (N = 100: 12% → 59% silent). Full table in §S3.
@@ -337,12 +340,13 @@ dimensionality, selectivity fractions, cell classes, correlation structure — i
 ## 8. Venue
 
 Target **Nature Communications** (repository set up per `paper_repo_setup.md`); the story is a
-mechanism with a fix and a characterization, shown on two tasks. Honest fallback if T1–T2 are not
+mechanism with a fix and a characterization, shown on two tasks. Honest fallback if T2 is not
 run before submission: **PLOS Computational Biology**, with §2.1 stated as interpretation. bioRxiv
 immediately.
 
-**What decides which:** T1 (activation without a dead zone) and T2 (gain-normalization control).
-With them, §2 is a measured mechanism. Without them, it is the best-supported reading.
+**What decides which:** T2 (weight-decay sweep and gain-normalization control). T1 is done: the
+phenomenon is activation-general. With T2, §2 is a measured mechanism; without it, the walk is
+measured and its driver is the best-supported reading.
 
 ---
 

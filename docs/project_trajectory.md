@@ -9040,3 +9040,55 @@ tasks and the dependent read-out job `6147887` run to completion on their own. *
 `~/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_std_sigmoid/` to the local tree and rerun
 `flipflop_sigmoid_silence.py` for the figure and the trajectory entry against the decision rule.
 The local monitor now stays silent while the connection is down and reports once it is back.
+
+## ▶ RESULT: SILENCE IS NOT A ReLU PROPERTY — bounded sigmoid networks silence the same units — 2026-09-11 08:55
+
+Spock `6147881` finished (6/6; N=500 6.3 h, N=1000 8.8 h). Read-out job `6147887` ran; runs synced
+to `data/trained_RNNs/NBitFlipFlop_std_sigmoid` and linked into `dead_ReLU_data/flipflop/`.
+Figure `img/internal_figures/sigmoid_silence.png`; script `flipflop_sigmoid_silence.py`.
+
+**Unpenalised sigmoid(7.5(x − 0.3)) vs ReLU, 3-bit flip-flop, standard RNN, 3 seeds each:**
+
+| act | N | iters | R² | scale-free silent | unmodulated | participation Hoyer | 1/HHI | sel | temp | D_PR |
+|---|---|---|---|---|---|---|---|---|---|---|
+| relu | 500 | 500k | 0.97 | 0.73 ± 0.00 | 0.69 ± 0.01 | 0.66 ± 0.01 | 67 | 0.74 | 0.41 | 6.4 |
+| sigmoid | 500 | 150k | 0.93* | 0.64 ± 0.04 | 0.62 ± 0.06 | 0.45 ± 0.04 | 163 | 0.67 | 0.18 | 5.5 |
+| relu | 1000 | 500k | 0.96 | 0.81 ± 0.00 | 0.79 ± 0.00 | 0.73 ± 0.01 | 86 | 0.82 | 0.42 | 6.4 |
+| sigmoid | 1000 | 150k | 0.97 | 0.76 ± 0.01 | 0.76 ± 0.01 | 0.54 ± 0.02 | 227 | 0.85 | 0.28 | 6.0 |
+
+\* one N=500 seed stalled at R² 0.84 (loss 0.116; its sel 0.37 / temp 0.01 pull the N=500 means
+down); the other two are at 0.97 like every other run.
+
+**At matched iteration (150k) the silent fractions coincide**: ReLU N=1000 read from its own trace
+at 150k is 0.72–0.75 vs sigmoid 0.75–0.77; N=500 0.60–0.65 vs 0.62–0.69. The trajectories in the
+figure lie on top of each other from ~10³ iterations on, and the sigmoid nets are STILL silencing at
+150k (N=1000: 0.63–0.73 at 37k → 0.68–0.75 at 75k → 0.75–0.77 at 150k), exactly as ReLU does.
+
+**The silent sigmoid units are parked at the lower asymptote, not saturated high**: unmodulated
+units have mean rate 0.0015–0.0026 (5th–95th percentile) and their max over all samples is < 0.1;
+none has mean > 0.5. The modulated units span 0.02–0.99. So "silent" means the same thing as under
+ReLU — held far below threshold — with the difference that the sigmoid unit still has a (small,
+0.02) gradient there. The concentration is somewhat weaker in the threshold-free measures
+(Hoyer 0.54 vs 0.73 at N=1000; 1/HHI 227 vs 86) because the floor is soft: silent units sit at
+0.002 rather than at exactly 0, which raises their participation share.
+
+**Decision (pre-registered 23:08).** Unmodulated 62–76% ≫ 30% and participation Hoyer ≥ 0.5 at
+N=1000 → **the phenomenon is general to positive activations.** Together with softplus and
+leaky-ReLU (entry of 23:08) that is four activations — hard floor, soft floor, leaky floor, and a
+bounded sigmoid with no homogeneity at all — with the same silent fraction at the same size and
+iteration. The ReLU scale symmetry is therefore NOT the cause; it is the exact form the flat
+direction takes for a homogeneous activation. The general statement, which is what §2 of the paper
+now says: **the task loss contains no term that keeps any particular unit's gain up. Gradient descent
+with weight decay walks the units the solution does not need down to the activation's floor, and
+they stay there because the loss does not care and the gradient at the floor is small (zero for
+ReLU, 0.01–0.02 for the others). A bounded nonlinear positive part does not change this.**
+
+What DOES remain open in the mechanism is only T2 (research_directions): whether weight decay is
+the walker (sweep WD ∈ {0, …, 1e-3}) and whether fixing each unit's gain directly (a
+gain-normalisation step, no penalty) prevents it. T1 is closed.
+
+**Consequence for the paper's scope.** Not "silent units in ReLU RNNs" but "silent units in trained
+RNNs with positive activations", which is the standard neuroscience setting. Sigmoid units are
+also the one case where the standard participation criterion needs a modulation criterion beside
+it — here they agreed to 0.00 because the floor is 0.002, but that is a property of this shift and
+slope, not a guarantee.
