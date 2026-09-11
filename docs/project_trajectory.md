@@ -9029,3 +9029,14 @@ the first 450 iterations, no errors; ETA ~6.5 h at N=500, ~9 h at N=1000, inside
 
 ⚠️ `slurm/*.slurm` is gitignored (`.gitignore:31`); every launcher in the repo was force-added.
 Use `git add -f` for new launchers or the commit silently omits them (it did here, once).
+
+### 2026-09-11 01:58 — connection to Spock lost from the laptop; jobs unaffected
+
+The local monitor lost SSH to Spock at 01:58 (`Could not resolve hostname` — the laptop's network
+or VPN dropped, and the ControlMaster socket in `~/.ssh/sockets/` is gone, so reconnecting needs
+Pavel's interactive `ssh spock` with Duo). Nothing on Spock depends on the laptop: the six training
+tasks and the dependent read-out job `6147887` run to completion on their own. **Morning step:** open
+`ssh spock`, then (a) read `~/trainRNNbrain_logs/FFsigA.6147887.out` for the table, and (b) rsync
+`~/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_std_sigmoid/` to the local tree and rerun
+`flipflop_sigmoid_silence.py` for the figure and the trajectory entry against the decision rule.
+The local monitor now stays silent while the connection is down and reports once it is back.
