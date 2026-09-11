@@ -9252,3 +9252,27 @@ sigmoid, softplus, leaky and ReLU runs all share this init. Proposed as T5, and 
 (iii) One argument against init scale as the whole story: on CDDM the input is a sustained O(1)
 signal integrated over 100+ steps, so the init mismatch is much smaller, yet the silent fraction is
 the same (~45% at N=1000). Not decisive — a test, not an argument, settles it.
+
+### Final W_inp scale vs N, unpenalised, k=3 (Pavel's follow-up) — 2026-09-11 09:12
+
+| N | live | mean\|W\| at init | mean\|W\| all | mean\|W\| live rows | mean\|W\| silent rows | median live row norm | ‖W_inp‖_F |
+|---|---|---|---|---|---|---|---|
+| 500 | 158 | 0.036 | 0.587 | 1.84 | 0.007 | 6.4 | **93.0** |
+| 1000 | 206 | 0.025 | 0.355 | 1.72 | 0.002 | 6.3 | **93.4** |
+| 2000 | 282 | 0.018 | 0.213 | 1.50 | 0.003 | 5.5 | **93.7** |
+| 4000 | 543 | 0.013 | 0.132 | 0.95 | 0.003 | 1.8 | **93.7** |
+
+(3 seeds per N; N=4000 from the 100k-iteration bigN runs, the others 500k.)
+
+**The total input weight is N-independent: ‖W_inp‖_F = 93.0–93.7 at every N (∝ N^0.00), against an
+initial 1.7 at every N.** What changes with N is how that fixed total is distributed: it is spread
+over more live units (158 → 543), so the per-live-unit scale falls, mean|W| over live rows
+∝ N^−0.31, and over all entries ∝ N^−0.72. Silent rows sit at 0.002–0.007, an order of magnitude
+below their init, at every N. The N=4000 live-row median (1.8 vs 5.5–6.4) is partly the shorter
+budget and partly the larger live count; the total is already at 93.7 there.
+
+Recorded as a measurement only. It says the task fixes the total input weight the solution needs
+(55× the init at every N), and the number of units the network chooses to carry it is the quantity
+the paper is about; it does not say why that number is what it is. Relevant to T5: a scaled init
+should target the total, i.e. ~93/√(N·k) per entry if spread over all units, and a
+spread-over-all-units init at that total is the natural control.
