@@ -16,8 +16,9 @@ count.*
 **The argument in five sentences.** (1) A ReLU RNN trained on a neuroscience task leaves most of its
 units silent, and enlarging the network does not fix this: the active count grows as roughly the
 square root of N on both tasks, so a thousand active units costs a network of ten thousand. (2) The
-cause is a symmetry: a ReLU unit's gain is a flat direction of the task loss, so nothing keeps any
-unit alive, and standard regularizers either do not touch this or make it worse. (3) A floor on each
+cause, for ReLU units, is a symmetry: a unit's gain is a flat direction of the task loss, so nothing
+keeps any unit alive and the ReLU zero is where the drift ends; standard regularizers either do not
+touch this or make it worse (whether bounded activations escape it is untested, §2.1). (3) A floor on each
 unit's activity (`frm`) removes the symmetry and every unit stays alive, at no task cost, but the
 units it keeps alive are diffuse: they listen to the whole population, mix several task variables,
 and their tuning degrades as N grows. (4) A cap on each unit's effective in-degree (`rws`), useless
@@ -90,8 +91,15 @@ works (§3) is the one that pins the scale.
 > 40–64%. If that holds unconstrained, the dead-gradient half of this paragraph is wrong and the
 > symmetry alone must carry the explanation. (ii) Weight decay also breaks the symmetry; we assert
 > it "barely acts" at 10⁻⁶ without a sweep, and the direct control — a gain-normalization step that
-> removes the flat direction and nothing else — has not been run. Both are specified in
-> `research_directions.md` T1–T2. Until then, §2.1 is the best-supported interpretation, not a result.
+> removes the flat direction and nothing else — has not been run. (iii) A bounded activation
+> (sigmoid, tanh) has no scale symmetry and no exact zero, so the absorbing state disappears by
+> construction — but nothing in the task loss keeps such a unit *modulated* either, and weight decay
+> drives it toward a constant `sigmoid(bias)`, which is silence for every population analysis in §6
+> while being invisible to the participation criterion (a unit parked at 0.9 has a high q90).
+> **No unpenalized sigmoid or tanh network exists in this project**: every one on disk was trained
+> with `frm+rws` on, under Dale. Testing this needs a modulation criterion (temporal std of the
+> rate), not the current one. All three are specified in `research_directions.md` T1–T2. Until then,
+> §2.1 is the best-supported interpretation, not a result.
 
 ### 2.2 What does not work ✅ (CDDM; activation rows in constrained nets, §S1)
 

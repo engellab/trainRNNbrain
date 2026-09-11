@@ -56,10 +56,19 @@ These are the experiments a referee will ask for. Ordered by how much of the pap
   half of the mechanism is wrong and §2 must be rewritten around the symmetry alone: loudness is a
   flat direction, weight decay and noise walk units down it, and the ReLU zero is where the walk
   ends but not why it starts. The `frm` fix survives either way; the *explanation* does not.
-- **Design.** `none`, N = 2000, unconstrained, trainable bias, both tasks; leaky-ReLU (slope 0.01)
-  and softplus (β = 25); 3 seeds each → 12 runs, 200k iterations.
-- **Outcome that changes the paper.** Silence persists (> 30% scale-free): rewrite §2. Silence
-  disappears: §2 stands and gains its cleanest control.
+- **Design.** `none`, N = 2000, unconstrained, trainable bias, both tasks; leaky-ReLU (slope 0.01),
+  softplus (β = 25), **sigmoid and tanh**; 3 seeds each → 24 runs, 200k iterations. ⚠️ Every sigmoid
+  and tanh network on disk (`CDDM_SparsityAndFRMagnitude-sigmoid_shifted*`, `CDDM_tanh_slope=*`) was
+  trained with `frm+rws` ON under Dale, so there is no unpenalized bounded-activation baseline to
+  reuse. ⚠️ For bounded activations silence must be read with a **modulation criterion** (temporal
+  std of the rate below a scale-free fraction of the population's), because a unit saturated at a
+  constant `sigmoid(bias)` is functionally dead yet passes the participation criterion (q90 > 0).
+  Report both criteria for every activation so the two notions of silence can be compared.
+- **Outcome that changes the paper.** Leaky/softplus silence persists (> 30% scale-free): rewrite
+  §2 around the symmetry alone (the ReLU zero is where the drift ends, not why it starts). Sigmoid/
+  tanh show > 30% unmodulated units: the phenomenon is "nothing keeps a unit alive", general to
+  activations, and §2 broadens. Sigmoid/tanh show < 5%: the paper's claim is scoped to ReLU-family
+  networks, which is still the neuroscience default, and says so in the title or first paragraph.
 
 ### T2. The symmetry test — weight decay sweep and a gain-normalisation control
 - **Question.** Is the scale symmetry actually the cause, or a story?
