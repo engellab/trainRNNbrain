@@ -9276,3 +9276,32 @@ Recorded as a measurement only. It says the task fixes the total input weight th
 the paper is about; it does not say why that number is what it is. Relevant to T5: a scaled init
 should target the total, i.e. ~93/√(N·k) per entry if spread over all units, and a
 spread-over-all-units init at that total is the natural control.
+
+### Final W_inp scale vs k, unpenalised, N=2000 — 2026-09-11 09:36
+
+| k | live | ‖W_inp‖_F | per-channel column norm | median live-row norm | max-channel share of a live row | mean\|W\| live rows | mean\|W\| silent rows |
+|---|---|---|---|---|---|---|---|
+| 1 | 253 | 82.6 ± 0.3 | 82.6 | 4.1 | 1.00 | 4.09 | 0.034 |
+| 2 | 240 | 89.5 ± 0.1 | 63.3 | 5.4 | 1.00 | 2.30 | 0.004 |
+| 3 | 282 | 93.7 ± 0.0 | 54.1 | 5.5 | 1.00 | 1.50 | 0.003 |
+| 4 | 299 | 96.6 ± 0.1 | 48.3 | 5.2 | 1.00 | 1.08 | 0.001 |
+| 5 | 303 | 98.9 ± 0.2 | 44.2 | 5.4 | 1.00 | 0.88 | 0.002 |
+| 6 | 307 | 100.7 ± 0.3 | 41.1 | 5.2 | 1.00 | 0.73 | 0.001 |
+| 7 | 319 | 102.3 ± 0.0 | 38.7 | 5.4 | 1.00 | 0.63 | 0.001 |
+| 8 | 351 | 103.3 ± 0.1 | 36.5 | 3.6 | 0.97 | 0.52 | 0.001 |
+
+Fits: ‖W_inp‖_F ∝ k^0.11; per-channel column norm ∝ k^−0.39; median live-row norm ∝ k^0.01;
+mean|W| over live rows ∝ k^−0.99; live units ∝ k^0.16.
+
+**Reading.** (i) A live unit's input row has norm ≈ 5.2–5.5 at every k from 2 to 7 and is
+single-channel (max-channel share 1.00): each live unit listens to exactly one bit with weight
+~5.4. That per-unit weight is the unit scale the dynamics require to flip a unit with a 10-step
+pulse, and it does not depend on k. (ii) The total ‖W_inp‖_F is therefore ≈ 5.4·√(live) and moves
+only as the live count does, k^0.11 (83 → 103), with seed spread ≤ 0.3 — the tightest invariant in
+the project. (iii) The mean over live rows falls as 1/k only because a row has k entries and one is
+non-zero; per channel, the network dedicates live/k units per bit, 253 at k=1 down to 44 at k=8:
+the same "active count does not track task demand" result (§1.3) in wiring terms. (iv) At k=8 the
+live-row median drops to 3.6 and the max-channel share to 0.97 — the first sign of rows carrying a
+second channel. Measurement only; no mechanism claimed. For T5 this fixes the target: the natural
+scaled init is per-row norm ≈ 5.4 on every unit (total 5.4·√N, i.e. ≈ 240 at N=2000), or the
+task-total ≈ 93–103 spread evenly, and both are worth a point in the sweep.
