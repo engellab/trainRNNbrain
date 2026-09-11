@@ -9406,3 +9406,12 @@ N=1000, k=3, s=5 cell (the per-unit input scale unpenalised networks converge to
 iterations, logging every 10: lines print, counts move). Reference for reading it: the default-init
 ReLU N=1000 trace has the global collapse within ~20 iterations and is at scale-free silent ≈ 0.3
 by 100 iterations, 0.5 by 10k, 0.72–0.75 at 150k.
+
+### Paired logged run at s=1, same seed — 2026-09-11 10:00
+
+Spock `6157301`, code `92837f8`: identical to `6156830` (N=1000, k=3, unpenalised, silence logged
+every 500 iterations) but W_inp rows at norm **1** instead of 5, with the SAME seed (3637570379), so
+the initial draw of every weight is identical up to the row rescaling of W_inp and the training
+batches follow the same sequence. The two logs give a direct pair of silencing trajectories at two
+input scales: `grep '[silence]'` on `FFwinpL.6156830_1.out` (s=5) and `FFwinpL.6157301_1.out` (s=1).
+Launcher now takes `S_OVERRIDE` / `SEED_OVERRIDE` for further pairs.
