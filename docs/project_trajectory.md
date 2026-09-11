@@ -9823,3 +9823,5 @@ higher R² at k=6/8 than `none` = rescue). Numbers to record per cell: live coun
 subset size, clean task loss trace. Analysis scripts that assume n_inputs == n_outputs
 (`flipflop_*.py`, `unit_stats.py`) do NOT apply to this task unmodified — the read-out needs its
 own script keyed on `task.subsets`.
+
+Submitted 15:04: Spock jobs 6163876 (tasks 1-36, none) and 6163877 (tasks 37-72, both), code 884e4a3, all pending behind ~37 queued jobs.
