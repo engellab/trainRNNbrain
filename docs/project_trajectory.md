@@ -9435,3 +9435,30 @@ Interim from the pair at 14k iterations (scale-free / absolute silent of 1000): 
 139 / 72, both flat or falling since ~6k; the default-init ksweep trace at this size is ≈ 500 by
 10k. s=5's q95(p) has fallen 5.0 → 1.9 as the network sheds its oversized input drive, so its
 absolute count rises for that reason alone; its scale-free count is flat.
+
+### The s=1 run lost 42% of its units in ONE loss spike — 2026-09-11 11:13
+
+`6157301` (s=1, seed 3637570379) was at 139–145 scale-free silent units of 1000 from 10k to 12.5k
+iterations, task R² 0.947. At iteration ~12,640 the training loss jumped from 0.038 to **1.63** (43×;
+R² 0.11 for one probe), recovered to R² 0.93 within ~100 iterations and to 0.947 by 16.5k — and in
+that event **41 units went to exact zero and the scale-free silent count went 141 → 559**. Since
+then it has held at 509–535 (hard 53–55) for 4,000 iterations: the units did not come back. The
+spike guard did not fire (spike_factor 1e6 catches only ~1e30× events; this was 43×), and no
+rollback happened. The default-init ksweep trace at this size is ≈ 500–550 at 13–17k: **after the
+spike the s=1 network sits exactly where the default-init network is, having got there by a single
+avalanche instead of an early collapse plus a slow walk.**
+
+Status of the three logged runs at this reading (largest single-iteration loss after iteration
+2000, and iteration ranges where the loss exceeded 0.2 = ~5× the floor):
+6156830: at iteration 17553; largest loss after iteration 2000 = 0.063312; loss>0.2 episodes (iteration ranges): none
+6157301: at iteration 17167; largest loss after iteration 2000 = 1.626027; loss>0.2 episodes (iteration ranges): 12647-12666
+6163424: at iteration 2966; largest loss after iteration 2000 = 0.371093; loss>0.2 episodes (iteration ranges): 2205-2216
+
+What this adds, as measurement: silencing does not have to be gradual. A properly scaled input
+removes the early collapse and holds silence at ~14% for 12k iterations, and then one transient
+instability of the recurrent dynamics kills ~400 units irreversibly while the task is re-solved by
+the rest. Whether the s=5 and default twins show the same event type is what their logs will say;
+the 24-run sweep's end-of-training silent fractions will be a mixture of "never spiked" and
+"spiked" networks unless the traces are read for the jump. **The read-out must therefore report
+silence along training, not only at the end, and count the jumps.** Interpretation is deferred to
+the full sweep.
