@@ -9357,3 +9357,37 @@ rewritten. Silent fraction within the baseline's seed spread at matched iteratio
 excluded, one sentence in §2.2 and the objective-level explanation stands. Intermediate (a monotone
 dependence on s that does not reach 20%) → reported as a dependence, and s = 20 tells whether an
 oversupplied input concentrates anyway.
+
+### W_inp: none vs both, k=3, N ∈ {500, 1000, 2000} (Pavel's follow-up) — 2026-09-11 09:48
+
+| metric (3 seeds) | none 500 | both 500 | none 1000 | both 1000 | none 2000 | both 2000 |
+|---|---|---|---|---|---|---|
+| live units | 158 | 500 | 206 | 998 | 282 | 2000 |
+| ‖W_inp‖_F | 93.0 | 55.5 | 93.4 | 66.1 | 93.7 | 72.8 |
+| per-channel column norm | 53.7 | 32.0 | 53.9 | 38.2 | 54.1 | 42.0 |
+| mean\|W\| all entries | 0.587 | 0.729 | 0.355 | 0.586 | 0.213 | 0.389 |
+| mean\|W\| live rows | 1.84 | 0.73 | 1.72 | 0.59 | 1.50 | 0.39 |
+| live row norm: mean | 5.51 | 2.17 | 5.14 | 1.74 | 4.48 | 1.15 |
+| live row norm: median | 6.34 | 2.17 | 6.28 | 1.65 | 5.45 | 0.93 |
+| live row norm: q10 / q90 | 0.02 / 11.8 | 1.01 / 3.25 | 0.03 / 9.8 | 0.36 / 3.12 | 0.03 / 8.2 | 0.05 / 2.53 |
+| Hoyer of row norms over ALL units (1 = one unit carries the input) | 0.61 | 0.13 | 0.66 | 0.17 | 0.71 | 0.30 |
+| max-channel share of a live row (median) | 1.00 | 1.00 | 1.00 | 0.99 | 1.00 | 0.99 |
+| max \|W\| entry | 16.2 | 8.8 | 14.1 | 8.4 | 11.9 | 8.1 |
+
+(median \|W\| over live-row entries is ~0.005–0.01 in both conditions because two of a row's three
+entries are ~0: rows are single-channel everywhere. `both` has 0–2 silent units per net, so its
+silent-row statistics are not meaningful and are omitted.)
+
+**Reading (measurement only).** (i) `none` holds the total at 93 regardless of N and puts it on
+158–282 units at row norm ≈ 5.4–6.3 each. (ii) `both` builds LESS total input weight (55 → 73,
+rising with N) and spreads it over every unit: per-unit row norm 2.2 → 1.65 → 0.93, falling roughly
+as N^−0.6, and the max entry is 8–9 against 12–16. (iii) Under `both` at N=2000 the 10th-percentile
+live row is 0.05 — a tenth of the units are alive with almost no direct input, i.e. driven through
+the recurrent assembly rather than by W_inp; at N=500 every unit still has direct input (q10 1.0).
+(iv) Rows are single-channel in both conditions (share ≈ 1.00). So the penalties do not change WHAT a
+unit listens to (one bit) but HOW the task's input weight is distributed: concentrated on a few
+units at the unit scale under `none`, thinned over everyone under `both`, with the recurrent
+assembly supplying the drive that W_inp no longer does per unit. Relevant to T5: `both` reaches a
+per-unit input scale of ~1–2 at N ≤ 1000, which sits between the s = 0.5 and s = 2 points of the
+sweep; if s = 2 alone spreads activity without penalties, the comparison to `both` at matched
+per-unit input scale is the one to make.
