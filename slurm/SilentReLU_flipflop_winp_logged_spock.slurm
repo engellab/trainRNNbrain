@@ -6,6 +6,8 @@
 # happens. Everything else identical to SilentReLU_flipflop_winp_spock.slurm.
 #
 # Output: $SAVE_TO/NBitFlipFlop_std_winp_logged/EqType=h_k=3_N=1000_s=5_iters=<IT>/<per-net subfolder>
+# Paired run at another s with the SAME seed:
+#   sbatch --export=ALL,S_OVERRIDE=1,SEED_OVERRIDE=<seed of the s=5 run> SilentReLU_flipflop_winp_logged_spock.slurm
 # Watch:  grep '\[silence\]' ~/trainRNNbrain_logs/FFwinpL.<jobid>_1.out
 
 #SBATCH --job-name=FFwinpL
@@ -45,8 +47,9 @@ if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
   echo "WARNING: $REPO has uncommitted changes; the commit above does not fully describe this run." >&2
 fi
 
-SS=(5)
+SS=(${S_OVERRIDE:-5})
 NS=(1000)
+SEED=${SEED_OVERRIDE:-random}
 K=3
 IT=${ITERS_OVERRIDE:-150000}
 
@@ -55,11 +58,11 @@ REP=0; N_IDX=0; S_IDX=0
 S=${SS[$S_IDX]}; N=${NS[$N_IDX]}
 
 TAG="std_winp_logged/EqType=h_k=${K}_N=${N}_s=${S}_iters=${IT}"
-echo "Task ${SLURM_ARRAY_TASK_ID}: k=${K} N=${N} s=${S} rep=${REP} iters=${IT}"
+echo "Task ${SLURM_ARRAY_TASK_ID}: k=${K} N=${N} s=${S} seed=${SEED} iters=${IT}"
 echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
-  seed="random" \
+  seed="$SEED" \
   +experiment=silent_units_largeN \
   task=NBitFlipFlop \
   task.n_inputs="$K" task.n_outputs="$K" \
