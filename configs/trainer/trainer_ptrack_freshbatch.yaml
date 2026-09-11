@@ -36,6 +36,9 @@ task_safe_gradients: False  # plain descent on task + sum(lambda_k * penalty_k) 
                             # False = plain descent on task + sum(lambda_k * penalty_k)
 track_participation: True   # log per-unit participation during training (participation-trace experiment)
 track_every: 10             # iterations between probes (a noise-free forward pass, ~3 pct overhead)
+log_silent_every: null           # print silent counts (three criteria) to stdout every this many iterations;
+                                 # null = never. The trace is written only on completion, so this is the
+                                 # only way to watch silencing during a run.
 store_participation_every: 100   # how often the FULL per-unit participation vector is stored; the
                                  # scalar metrics are recorded at every probe. Only bulky item.
 track_valid: False           # evaluate the noise-free probe on a HELD-OUT batch too (coherences

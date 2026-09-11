@@ -365,6 +365,7 @@ class Trainer():
                  track_participation=False,
                  track_every=10,
                  store_participation_every=None,
+                 log_silent_every=None,
                  track_drift=False,
                  drift_lags=(100, 1000, 10000),
                  valid_batch=None,
@@ -484,6 +485,9 @@ class Trainer():
         self.drift_lags = tuple(int(l) for l in drift_lags) if drift_lags else ()
         self.DRIFT_MATS = ("W_inp", "W_rec", "W_out")   # bias excluded: normally not trained here
         self.store_participation_every = int(store_participation_every or track_every)
+        # Print the silent count to stdout on this cadence (None = never). The trace above is only
+        # written to disk on completion, so this is the one way to watch silencing DURING a run.
+        self.log_silent_every = int(log_silent_every) if log_silent_every else None
         self._drift_refs = {}     # lag -> (iteration, {name: cpu weight copy})
         self._part_refs = {}      # lag -> (iteration, participation vector)
         self._prev_w = {}         # weights at the previous probe
@@ -730,6 +734,11 @@ class Trainer():
         mon["iters"].append(int(iter))
         met = mon["metrics"]
         met["silent_1em6"].append(float((p < 1e-6).sum()))
+        if self.log_silent_every and iter % self.log_silent_every == 0:
+            q95 = torch.quantile(p, 0.95)
+            print(f"[silence] iter {iter}: hard(p<1e-6) {int((p < 1e-6).sum())}/{p.numel()}  "
+                  f"scale-free(p<0.05*q95) {int((p < 0.05 * q95).sum())}/{p.numel()}  "
+                  f"flipflop(p<4e-2) {int((p < 4e-2).sum())}/{p.numel()}  q95(p)={float(q95):.4f}", flush=True)
 
         # Deterministic loss, free: this forward pass already happened for the participation probe.
         # The loss recorded every iteration during training is NOISY (train_step uses w_noise=True),
