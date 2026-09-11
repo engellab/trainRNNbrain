@@ -56,12 +56,10 @@ These are the experiments a referee will ask for. Ordered by how much of the pap
 > trajectory entry of that timestamp.
 - **Question.** Is silence a *gradient trap* (a unit at zero gets no gradient and cannot return) or
   an *attractor of the optimization* (units are pushed to zero even when gradient flows)?
-- **Why it matters.** Paper §2 explains silence through the ReLU scale symmetry and the dead
-  gradient. But the "what we tried" table already records 40–64% silence under softplus and
-  leaky-ReLU — in *sign-constrained* networks. If that replicates unconstrained, the dead-gradient
-  half of the mechanism is wrong and §2 must be rewritten around the symmetry alone: loudness is a
-  flat direction, weight decay and noise walk units down it, and the ReLU zero is where the walk
-  ends but not why it starts. The `frm` fix survives either way; the *explanation* does not.
+- **Why it mattered.** Paper §2 originally explained silence through a ReLU-specific mechanism (the
+  dead gradient at zero, and for a while the scale symmetry — both now retracted). The "what we
+  tried" table recorded 40–64% silence under softplus and leaky-ReLU in sign-constrained networks;
+  the question was whether any activation-specific account survives. None does.
 - **Design.** `none`, N = 2000, unconstrained, trainable bias, both tasks; leaky-ReLU (slope 0.01),
   softplus (β = 25), **sigmoid and tanh**; 3 seeds each → 24 runs, 200k iterations. ⚠️ Every sigmoid
   and tanh network on disk (`CDDM_SparsityAndFRMagnitude-sigmoid_shifted*`, `CDDM_tanh_slope=*`) was
@@ -70,24 +68,24 @@ These are the experiments a referee will ask for. Ordered by how much of the pap
   std of the rate below a scale-free fraction of the population's), because a unit saturated at a
   constant `sigmoid(bias)` is functionally dead yet passes the participation criterion (q90 > 0).
   Report both criteria for every activation so the two notions of silence can be compared.
-- **Outcome that changes the paper.** Leaky/softplus silence persists (> 30% scale-free): rewrite
-  §2 around the symmetry alone (the ReLU zero is where the drift ends, not why it starts). Sigmoid/
-  tanh show > 30% unmodulated units: the phenomenon is "nothing keeps a unit alive", general to
-  activations, and §2 broadens. Sigmoid/tanh show < 5%: the paper's claim is scoped to ReLU-family
-  networks, which is still the neuroscience default, and says so in the title or first paragraph.
+- **Outcome (realised).** Sigmoid showed > 30% unmodulated units (62–76%): the phenomenon is
+  "nothing in the objective keeps a unit alive", general to activations, and §2 was rewritten that
+  way. tanh was not run and is not needed for the claim.
 
-### T2. The symmetry test — weight decay sweep and a gain-normalisation control
-- **Question.** Is the scale symmetry actually the cause, or a story?
-- **Why it matters.** §2 says "`frm` is the only intervention that touches this symmetry" and
-  dismisses weight decay in one clause. That is an argument, not a measurement.
-- **Design.** (i) `none`, N = 2000, k = 3, weight decay ∈ {0, 1e-6, 1e-5, 1e-4, 1e-3}, 3 seeds → 15
-  runs. (ii) The direct control: after every optimizer step, rescale each unit's incoming weights
-  and bias by `1/g_i` and its outgoing weights by `g_i`, with `g_i` chosen to fix the unit's
-  activity scale (a projection that removes the flat direction and nothing else). No penalty.
-  3 seeds per task → 6 runs.
-- **Outcome that changes the paper.** (ii) removes silence → the symmetry is the cause and the
-  paper can say so. (ii) does not → `frm` works for a reason other than pinning the scale, and §2
-  becomes "an activity floor works; why is open".
+### T2. What walks the units down — weight decay sweep
+- **Question.** §2 says units the solution does not need are walked to the floor by weight decay and
+  noise. Is weight decay the walker?
+- **Why it matters.** The walk is measured (four activations, same silent fraction); its driver is
+  asserted. A referee will ask what happens at weight decay 0.
+- **Design.** `none`, N = 2000, k = 3, weight decay ∈ {0, 1e-6, 1e-5, 1e-4, 1e-3}, 3 seeds → 15
+  runs, both tasks if cheap. Read: silent fraction and participation Hoyer along training.
+- **Outcome that changes the paper.** Silence vanishes at WD = 0 → weight decay is the driver and the
+  paper names it. Silence persists at WD = 0 → the walk is driven by noise and the task gradient's
+  own dynamics, and §2 says "the objective does not hold a unit up, and training does not need to
+  push it down for it to fall". Either way §2 gains its missing measurement.
+- *(A gain-normalisation control that rescales each unit's incoming and outgoing weights was
+  proposed here while the ReLU scale symmetry was thought to be the cause. It is only
+  function-preserving for homogeneous activations and is withdrawn with that explanation.)*
 
 ### T3. Is "modular" a property of the constraint or of the number 20?
 - **Question.** Does the assembly / purity result depend on the in-degree target?

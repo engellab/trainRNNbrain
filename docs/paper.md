@@ -16,12 +16,12 @@ count.*
 **The argument in five sentences.** (1) A ReLU RNN trained on a neuroscience task leaves most of its
 units silent, and enlarging the network does not fix this: the active count grows as roughly the
 square root of N on both tasks, so a thousand active units costs a network of ten thousand. (2) The
-cause is that the task loss has no term that keeps any unit's gain up: units the solution does not
-need are walked down to the activation's floor and left there. For ReLU this is an exact symmetry
-(the gain is a flat direction), but the same silent fraction appears at the same size and iteration
-under softplus, leaky-ReLU and a bounded sigmoid, so it is not a ReLU property; standard
-regularizers either do not touch it or make it worse. (3) A floor on each
-unit's activity (`frm`) removes the symmetry and every unit stays alive, at no task cost, but the
+cause is that the task loss has no term that keeps any unit active: units the solution does not
+need are walked down to the activation's floor and left there, and the same silent fraction appears
+at the same size and iteration under ReLU, softplus, leaky-ReLU and a bounded sigmoid, so it is not
+a property of any activation; standard regularizers either do not touch it or make it worse. (3) A
+floor on each unit's activity (`frm`) supplies the missing term and every unit stays alive, at no
+task cost, but the
 units it keeps alive are diffuse: they listen to the whole population, mix several task variables,
 and their tuning degrades as N grows. (4) A cap on each unit's effective in-degree (`rws`), useless
 on its own, forces the recruited units into the modular, single-variable, assembly-wired solution
@@ -76,13 +76,16 @@ number of units.* Trained RNNs recruit a number of units set by neither the size
 
 ### 2.1 The mechanism ✅ activation-general, ⬜ one direct test proposed
 
-The task loss has no term that sets how loud any unit should be. For a ReLU unit this is an exact
-symmetry — `relu(a·x) = a·relu(x)`, so scaling incoming weights and bias by `a` and outgoing weights
-by `1/a` leaves the function unchanged and the loss is flat along `a` — and it is the cleanest way to
-see the point. But the point is general: units the solution does not need receive no gradient that
-holds their gain up, weight decay and noise walk them down to the activation's floor, and they stay
-there because the loss does not care and the gradient at the floor is small (zero for ReLU, ~0.01
-for leaky-ReLU, ~0.02 for softplus and the sigmoid at its lower asymptote).
+The task loss has no term that keeps any particular unit active. A unit the solution does not need
+receives no gradient that holds it up; weight decay and noise walk it down to the activation's
+floor, and it stays there because the loss does not care and the gradient at the floor is small
+(zero for ReLU, ~0.01 for leaky-ReLU, ~0.02 for softplus and the sigmoid at its lower asymptote).
+This is a statement about the objective, not about the activation, and the data say so.
+
+> **Retracted explanation.** An earlier version of this section attributed silence to the ReLU
+> scale symmetry (`relu(a·x) = a·relu(x)`, which makes a unit's gain a flat direction of the loss).
+> A bounded sigmoid has no such symmetry and silences the same fraction of units at the same size
+> and iteration (below). The symmetry is not the cause and is not used anywhere in the argument.
 
 **Four activations, one silent fraction** ✅. Unpenalized, same size, read at the same iteration:
 ReLU, softplus (β = 25), leaky-ReLU (leak 0.01) on CDDM at N = 1000 (Dale) are indistinguishable on
@@ -90,7 +93,7 @@ every axis (live 0.44 / 0.45 / 0.45; participation sparsity 0.74 / 0.73 / 0.74).
 a bounded `sigmoid(7.5(x − 0.3))` standard RNN silences 0.75–0.77 of its units at N = 1000 against
 ReLU's 0.72–0.75 at the same iteration, with the silent units parked at the lower asymptote (mean
 rate 0.002, none saturated high) and still silencing at 150k iterations exactly as ReLU does. A
-bounded, nonlinear, non-homogeneous positive part does not remove the phenomenon. Its concentration
+bounded, nonlinear positive part does not remove the phenomenon. Its concentration
 is milder in threshold-free terms (participation sparsity 0.54 vs 0.73) only because the floor is
 soft: silent units sit at 0.002 instead of 0.
 
@@ -99,12 +102,12 @@ goes quiet within ~20 iterations and only the eventual survivors climb back (§S
 monotonically with training time (30k → 300k iterations makes it worse) and with N; the network
 declines even the cheapest escape (with self-connections allowed it trains the diagonal into
 self-*inhibition*, corr(self-weight, log participation) = −0.51). And the one intervention that
-works (§3) is the one that pins the scale.
+works (§3) is the one that adds to the objective exactly the term it lacks: a floor on activity.
 
-> ⚠️ **What remains untested.** Weight decay is asserted to be the walker; a sweep over it and the
-> direct control — a gain-normalization step after each update that fixes every unit's scale with no
-> penalty — have not been run (`research_directions.md` T2). Until then the *cause* of the walk is
-> the best-supported reading; that the walk is activation-general is measured.
+> ⚠️ **What remains untested.** Weight decay is asserted to be the walker; a sweep over it,
+> including weight decay = 0, has not been run (`research_directions.md` T2). Until then the *driver*
+> of the walk is the best-supported reading; that the walk happens and is activation-general is
+> measured.
 
 ### 2.2 What does not work ✅ (CDDM; activation rows in constrained nets, §S1)
 
@@ -121,16 +124,16 @@ metabolic cost `mean(fr²)` over four decades of λ: never rescues, and at λ = 
 one standard-looking regularizer that *appears* to help: at N = 2000 hard-silent falls from 79% to
 60%. It is a threshold artifact. Under the scale-free criterion `rws` is **worse** than baseline
 (86% vs 81%), the gap grows with N (12 → 21 → 26 pp at N = 500/1000/2000), and the "rescued" units
-sit just above 10⁻⁶ doing nothing. `rws` cannot rescue because it does not touch the scale
-symmetry; what it does do becomes visible only in §5.
+sit just above 10⁻⁶ doing nothing. `rws` constrains wiring, not activity — nothing in it holds a
+unit up — so it cannot rescue; what it does do becomes visible only in §5.
 
 ---
 
-## 3. The fix: pin the activity scale ✅ (both tasks)
+## 3. The fix: a floor on each unit's activity ✅ (both tasks)
 
 `frm` drives each unit's soft-max firing rate toward a cap (`τ·logsumexp(r/τ)` with τ = 0.1, cap
-`0.3·log1p(100)/log1p(N)`, λ = 0.1). It is the one intervention in §2.2 that addresses the symmetry,
-and it is the one that works, on both tasks:
+`0.3·log1p(100)/log1p(N)`, λ = 0.1). It is the one intervention in §2.2 that gives the objective a
+term that holds every unit up, and it is the one that works, on both tasks:
 
 | | CDDM | flip-flop k=3 |
 |---|---|---|
@@ -431,3 +434,7 @@ from function (Yang 2019).
 - "`rws` molds transient units into sustained ones" — pre-registered, both criteria failed; it
   stabilizes.
 - "`frm` has an untuned quarter" — misspecified (signed) regression basis.
+- **"Silence is caused by the ReLU scale symmetry `relu(a·x) = a·relu(x)`"** — a bounded sigmoid,
+  which has no such symmetry, silences the same fraction of units at the same size and iteration
+  (0.75–0.77 vs 0.72–0.75 at N = 1000, flip-flop). The cause is the objective's missing term, not
+  the activation's homogeneity. Removed from every section on 2026-09-11.

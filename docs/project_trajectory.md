@@ -9092,3 +9092,16 @@ RNNs with positive activations", which is the standard neuroscience setting. Sig
 also the one case where the standard participation criterion needs a modulation criterion beside
 it — here they agreed to 0.00 because the floor is 0.002, but that is a property of this shift and
 slope, not a guarantee.
+
+### RETRACTION — the ReLU scale symmetry as the cause of silence — 2026-09-11 09:05
+
+Pavel: the sigmoid result negates the symmetry explanation (`relu(a·x) = a·relu(x)`, a unit's gain as
+a flat direction of the loss); strip it everywhere. Done in `paper.md` (five-sentence summary, §2.1,
+§2.3, §3 title and lead, retracted-claims list) and `research_directions.md` (T1 wording; T2's
+gain-normalisation control withdrawn — it was only function-preserving for homogeneous activations;
+T2 is now the weight-decay sweep alone). Entries above that argued from the symmetry (2026-09-10
+14:31 "scaling / mean-field account", the seven ideas, and the 23:08 entry's reading) are left as
+the record of what was believed and when; this note supersedes them. What stands: the task
+objective has no term that keeps any particular unit active, and the walk to the floor is
+activation-general (ReLU, softplus, leaky-ReLU, bounded sigmoid). What is still asserted rather
+than measured: that weight decay is the walker (T2).
