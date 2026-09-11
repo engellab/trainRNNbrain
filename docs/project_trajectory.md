@@ -9004,3 +9004,28 @@ reported as a second, penalty-free fix. If participation Hoyer ≥ 0.5 or unmodu
 phenomenon is general to positive activations, §2 broadens to "nothing keeps a unit alive", and the
 symmetry is demoted to the ReLU-specific *form* it takes. In between: reported as graded, with the
 Hoyer numbers, no headline.
+
+### Autonomous read-out arranged — 2026-09-10 23:25
+
+All six training tasks confirmed TRAINING at 23:10 (log check: code `a831629`, R² 0.57–0.73 within
+the first 450 iterations, no errors; ETA ~6.5 h at N=500, ~9 h at N=1000, inside the 14 h limit).
+
+- **Analysis script** `flipflop_sigmoid_silence.py` (commit `5d2f962`): sigmoid runs vs the ReLU
+  ksweep baseline (k=3, N=500/1000); silence under the scale-free, modulation and absolute criteria;
+  participation Hoyer and 1/HHI; the four axes with live = modulated units; trajectories from
+  `ParticipationTrace.pkl`. Activation is read from each run's config (older npz files store only
+  the dict keys). Tested end to end on the local smoke run + baselines; imports verified on Spock.
+- **Dependent Spock job** `6147887` (`SilentReLU_flipflop_sigmoid_analysis_spock.slurm`,
+  `--dependency=afterany:6147881`, CPU): runs the script once every training task has ended and
+  writes the table into `~/trainRNNbrain_logs/FFsigA.6147887.out` and the figure into the Spock
+  repo's `img/internal_figures/sigmoid_silence.png`. Readable in the morning without any laptop.
+- **Local monitor** polls Spock's queue every 15 min; when both jobs leave the queue the results are
+  rsynced to `data/trained_RNNs/NBitFlipFlop_std_sigmoid`, the analysis is rerun locally, and the
+  result is logged here against the pre-registered decision rule above.
+- ReLU baseline at these cells for reference (end of 500k iterations, this script): N=500 scale-free
+  silent 0.73, unmodulated 0.69, participation Hoyer 0.66, 1/HHI 68, R² 0.97; N=1000: 0.81, 0.79,
+  0.73, 87, 0.96. Note the ReLU nets ran 500k iterations against the sigmoid 150k; the trajectory
+  panels read both at matched iteration.
+
+⚠️ `slurm/*.slurm` is gitignored (`.gitignore:31`); every launcher in the repo was force-added.
+Use `git add -f` for new launchers or the commit silently omits them (it did here, once).
