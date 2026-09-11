@@ -8923,3 +8923,84 @@ S1–S7 supplements; retracted-claims list extended with the four retractions of
 
 Main vs supplementary is now enforced by a rule written into research_directions.md: a result
 enters the main text only if removing it breaks a link in the storyline.
+
+## ▶ IS SILENCE A PROPERTY OF THE ReLU FAMILY? — softplus/leaky re-read, and a sigmoid baseline SUBMITTED — 2026-09-10 23:08
+
+**Trigger.** Pavel: "as soon as we swap ReLU by some nonlinear positive-only function, the whole
+phenomenon may disappear — didn't we test that? shifted sigmoid?" Two answers, one from the disk and
+one from a new run.
+
+### 1. What the disk already says: smooth positive activations with gradient everywhere do NOT escape
+
+⚠️ **A bug in my first quick read, recorded so it is not repeated.** For `h`-equation networks
+`RNN_numpy.get_history()` returns the STATE y, and the rate is `activation(y)`. The flip-flop
+loaders apply `np.maximum(·, 0)` to the history, which is correct for ReLU only. My first pass on
+the softplus/leaky Dale nets used the raw history as the rate: strongly negative (silent) units then
+have large |y| and read as the MOST active, giving "0% silent" for every `h` net. Corrected by
+`rate = rnn.activation(y)` for `h`, `y` for `s`; the simulation was then verified against the task
+(R² 0.90–0.93 on the decision epoch vs 0.84–0.86 saved with noise).
+
+Four axes on the June Dale N=1000 CDDM sweeps (`CDDM_ptrack_g0` = ReLU, `CDDM_fb2792_g0_softplus25`,
+`CDDM_fb2792_g0_leakyrelu`; 4–5 nets per cell; live = scale-free participation rule):
+
+| act | eq | pen | live | 1/HHI | part Hoyer | sel Hoyer | temp Hoyer | D_PR |
+|---|---|---|---|---|---|---|---|---|
+| relu | h | none | 0.44 | 80 | 0.741 | 0.370 | 0.578 | 2.2 |
+| softplus25 | h | none | 0.45 | 86 | 0.729 | 0.384 | 0.562 | 2.4 |
+| leakyrelu | h | none | 0.45 | 83 | 0.741 | 0.365 | 0.579 | 2.2 |
+| relu | s | none | 0.40 | 131 | 0.659 | 0.319 | 0.530 | 2.8 |
+| softplus25 | s | none | 0.42 | 137 | 0.650 | 0.334 | 0.527 | 3.0 |
+| leakyrelu | s | none | 0.42 | 138 | 0.652 | 0.327 | 0.527 | 2.9 |
+| relu | h | both | 1.00 | 889 | 0.059 | 0.314 | 0.598 | 5.2 |
+| softplus25 | h | both | 1.00 | 881 | 0.063 | 0.340 | 0.586 | 4.9 |
+| leakyrelu | h | both | 1.00 | 884 | 0.062 | 0.338 | 0.602 | 5.1 |
+
+**Indistinguishable across activations on every axis.** Softplus (β=25) has no exact zero and
+leaky-ReLU (leak 0.01) has gradient everywhere; both concentrate activity onto the same ~45% of units
+with the same participation sparsity (0.73–0.74) as ReLU, and `frm+rws` redistributes it identically
+(0.06). This confirms the 2026-06 record (peak-based criterion, "40–64% persists") and kills the
+dead-gradient-trap half of the mechanism as the *cause*: units are not stuck at zero because the
+gradient vanishes there; they are driven there. What all three share is a LINEAR POSITIVE PART with
+a floor at zero — the scale symmetry is exact for ReLU and leaky-ReLU (both positively homogeneous)
+and asymptotically exact for softplus. Paper §2.1 must be rewritten around the symmetry alone; the
+"absorbing zero" is where the drift ends, not why it starts.
+
+### 2. What the disk cannot say: a bounded, nonlinear positive part
+
+Every sigmoid/tanh run on disk (`CDDM_SparsityAndFRMagnitude-sigmoid_shifted*`, 26 `CDDM_tanh_slope=*`
+roots, GELU) was trained with `frm+rws` ON under Dale. No unpenalized bounded-activation network
+exists. A sigmoid has no scale symmetry (not homogeneous), so if the symmetry is the cause the
+concentration should weaken or vanish; if "nothing keeps a unit alive" is the cause independent of
+the symmetry, it should persist as units parked at a constant output.
+
+**Submitted (Spock job `6147881`, 6 tasks, all RUNNING at 23:08; code pinned at `a831629`):**
+`slurm/SilentReLU_flipflop_sigmoid_spock.slurm` → `NBitFlipFlop_std_sigmoid/EqType=h_k=3_N={500,1000}_iters=150000/`.
+3-bit flip-flop, standard RNN (no Dale, no I/O positivity, trainable bias), `h` equation,
+activation `sigmoid(7.5·(x − 0.3))` (`configs/model/rnn_sigmoid_shifted_standard.yaml`; slope and
+shift from the earlier sigmoid_shifted sweep so f(0) ≈ 0.10 — a resting unit is nearly off, as with
+ReLU). No penalties. 3 seeds × N ∈ {500, 1000}. 150k iterations, batch 1024 fresh: ReLU costs
+0.215–0.24 s/iter here, slow tail ~0.3 → ≤ 12.5 h, inside the 14 h request. Smoke-tested locally
+first (N=100, 30 iters: trains, loss falls, config records the activation, npz saved).
+
+**Read-out, fixed now.** Comparison set: the ReLU `none` ksweep cells at k=3, N=500/1000.
+- Silence: (a) participation scale-free `p < 0.05·q95(p)`; (b) MODULATION criterion
+  `std_t(r) < 0.05·q95(std_t(r))` — required for sigmoid, where a unit saturated at a constant output
+  has q90 > 0 and passes (a) while being functionally dead; (c) the flip-flop absolute threshold
+  4e-2 for reference only (meaningless for a bounded activation).
+- Threshold-free: participation Hoyer sparsity and 1/HHI (effective participating units).
+- The four axes (`characterize.measure`), and the participation trajectory from
+  `ParticipationTrace.pkl` (fraction silent under (b) and participation Hoyer vs iteration), against
+  the ReLU trajectory.
+- ⚠️ `flipflop_fixedpoints.load_net` FORCES `activation_name="relu"`; the sigmoid analysis must build
+  RNN_numpy from the saved `activation_args` (script `flipflop_sigmoid_silence.py`, tested on the
+  smoke run).
+
+**Decision rule, fixed before the data.** ReLU baseline at these cells: live ≈ 0.32 (N=500) and 0.21
+(N=1000), participation Hoyer 0.66 / 0.73. If the sigmoid nets show participation Hoyer < 0.3 and
+unmodulated fraction < 10% at both N with task R² ≥ 0.8: **the concentration is a property of the
+homogeneous (ReLU-family) activation**, the paper's scope narrows to that family (which is the
+neuroscience default and says so up front), and "make the positive part nonlinear and bounded" is
+reported as a second, penalty-free fix. If participation Hoyer ≥ 0.5 or unmodulated ≥ 30%: the
+phenomenon is general to positive activations, §2 broadens to "nothing keeps a unit alive", and the
+symmetry is demoted to the ReLU-specific *form* it takes. In between: reported as graded, with the
+Hoyer numbers, no headline.

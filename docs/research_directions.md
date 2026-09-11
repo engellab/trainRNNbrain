@@ -48,6 +48,11 @@ matched N, "no task cost" becomes "no task cost, at a training-time cost of X", 
 These are the experiments a referee will ask for. Ordered by how much of the paper they hold up.
 
 ### T1. Activation without a dead zone — leaky-ReLU and softplus, unconstrained
+> **Status 2026-09-10 23:08.** The softplus/leaky half is ANSWERED from the June Dale sweeps once the
+> rates are computed correctly (trajectory entry of this timestamp): indistinguishable from ReLU on
+> every axis (live 0.45 vs 0.44, participation Hoyer 0.73 vs 0.74). The sigmoid half is RUNNING:
+> Spock `6147881`, 3-bit flip-flop, N = 500/1000 × 3 seeds, `sigmoid(7.5(x−0.3))`, 150k iterations,
+> unpenalized, standard RNN. Read-out and decision rule are fixed in the trajectory entry.
 - **Question.** Is silence a *gradient trap* (a unit at zero gets no gradient and cannot return) or
   an *attractor of the optimization* (units are pushed to zero even when gradient flows)?
 - **Why it matters.** Paper §2 explains silence through the ReLU scale symmetry and the dead

@@ -86,10 +86,12 @@ declines even the cheapest escape (with self-connections allowed it trains the d
 self-*inhibition*, corr(self-weight, log participation) = −0.51). And the one intervention that
 works (§3) is the one that pins the scale.
 
-> ⚠️ **Two things a referee will ask, and we have not measured.** (i) Leaky-ReLU and softplus
-> units have gradient everywhere; in *sign-constrained* networks silence persisted under them at
-> 40–64%. If that holds unconstrained, the dead-gradient half of this paragraph is wrong and the
-> symmetry alone must carry the explanation. (ii) Weight decay also breaks the symmetry; we assert
+> ⚠️ **What a referee will ask.** (i) ✅ Leaky-ReLU and softplus units have gradient everywhere, and
+> in the Dale-constrained N = 1000 CDDM sweeps they are indistinguishable from ReLU on every axis
+> (live 0.45 vs 0.44, participation sparsity 0.73 vs 0.74; trajectory 2026-09-10 23:08). The
+> dead-gradient half of this paragraph is therefore NOT the cause; the symmetry alone must carry the
+> explanation, and the paragraph above is to be rewritten that way. What the three share is a
+> linear positive part with a floor at zero. (ii) Weight decay also breaks the symmetry; we assert
 > it "barely acts" at 10⁻⁶ without a sweep, and the direct control — a gain-normalization step that
 > removes the flat direction and nothing else — has not been run. (iii) A bounded activation
 > (sigmoid, tanh) has no scale symmetry and no exact zero, so the absorbing state disappears by
