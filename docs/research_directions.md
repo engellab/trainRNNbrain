@@ -26,6 +26,8 @@ Most of what the main line needs is computable from the data in `dead_ReLU_data/
 | A5 | Training cost: iterations to 1.01× and 1.03× floor per penalty, both tasks | paper §3 "no task cost" — must include time | ⬜ flip-flop numbers exist in trajectory; CDDM losses on disk |
 | A6 | Distortion table (dimensionality, selectivity fractions, σ_log) on flip-flop | paper §6 — currently CDDM only | ⬜ half exists (`flipflop_dimensionality.py`, `flipflop_arms.py`) |
 
+| A7 | Why W_inp keeps drifting under the penalties: evaluate task, frm, rws and weight-decay gradients on the final weights — do they cancel while each is large? | paper §5 (nature of the `both` solution); trajectory 2026-09-11 09:30 | ⬜ one afternoon, local |
+
 **A3 design.** CDDM has four natural states (context × choice). Two versions, as on the flip-flop:
 hard assignment of each tuned unit to its dominant state and the fraction of its recurrent input
 mass from same-state units, against a row-shuffle null; and the label-free tuning-overlap version.
@@ -86,6 +88,25 @@ These are the experiments a referee will ask for. Ordered by how much of the pap
 - *(A gain-normalisation control that rescales each unit's incoming and outgoing weights was
   proposed here while the ReLU scale symmetry was thought to be the cause. It is only
   function-preserving for homogeneous activations and is withdrawn with that explanation.)*
+
+### T5. Is the silence partly an initialisation artefact? — W_inp initial scale (proposed 2026-09-11)
+- **Question.** W_inp is initialised at std 1/√N per entry (row norm 0.039 at N = 2000) and grows
+  50× in the first 100k iterations to reach the task's operating scale; the units that survive are
+  those whose input rows get amplified, and silent units' rows decay to 0.003. Would a W_inp
+  initialised at the operating scale change the silent fraction?
+- **Why it matters.** Every network in the project — all four activations included — shares this
+  init. If a correctly scaled init cuts silence substantially, part of the phenomenon is a
+  training-dynamics artefact of an under-scaled input, and the paper must say so; if it does not,
+  the objective-level explanation stands with one more alternative excluded. Either outcome changes
+  §2.
+- **Design.** Add `model.input_gain` (multiplies the drawn W_inp; default 1.0 so every existing run
+  is unchanged). `none`, 3-bit flip-flop, N = 500 and 1000, 3 seeds, 150k iterations, standard ReLU
+  RNN, `input_gain` ∈ {1 (control), 10, 50, 150} — 150× is the live rows' final scale; 10× puts a
+  pulse's drive at the noise level. 24 runs; ~6–9 h each on Spock. Read: silent fraction along
+  training (does the early global collapse still happen?), participation Hoyer, the four axes.
+- **Outcome that changes the paper.** Silence < 20% at any gain with task R² ≥ 0.9 → the init scale
+  is a cause and the recommendation is a scaled input init before any penalty; §2 rewritten.
+  Silence unchanged → excluded, one sentence in §2.2. Intermediate → reported as a dependence.
 
 ### T3. Is "modular" a property of the constraint or of the number 20?
 - **Question.** Does the assembly / purity result depend on the in-degree target?

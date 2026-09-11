@@ -9202,3 +9202,53 @@ dislodged only by Pavel asking whether a sigmoid network had ever been trained. 
 intervening work tested it; every step inherited it. The rule that should have applied: a mechanism
 claim gets a falsifying test named and run before anything is built on it, and until then it is
 labelled as interpretation in every place it is used, not only where it was introduced.
+
+## ▶ W_inp: AMPLITUDE, LATE DRIFT, AND THE INITIALISATION-SCALE QUESTION — 2026-09-11 09:30
+
+**Pavel's questions.** Under `both`, W_inp keeps moving directionally after 400k iterations (lag
+exponent α > 0.5). Why? Is its amplitude growing or shrinking? Was W_inp initialised at a wrong
+scale — and could that be why unpenalised units go silent?
+
+**Measured (flip-flop, k=3, N=2000, from the drift metrics in `ParticipationTrace.pkl` and the
+Best/Last parameter snapshots).**
+
+1. **Amplitude: up 50× early, then flat.** ‖W_inp‖_F, init → 1k → 10k → 100k → 400k:
+   none 1.7 → 7 → 27 → 94 → 94; both 1.7 → 8 → 23 → 68 → 73; frm 1.7 → 7 → 22 → 75 → 78; rws (150k)
+   1.7 → 8 → 30 → 93. Growth over the last 100k: −0.4% to +1.1% (rws +2–3%, it ended earlier).
+   ‖W_out‖ falls 2× (1.7 → 0.84–1.26); ‖W_rec‖ falls under none (53 → 40) and rises under frm/both
+   (53 → 66/83). So the late W_inp motion is a ROTATION at fixed norm, not growth.
+2. **Persistence of the late motion.** Over the last 100k: α_W_inp (from the lag-100 → lag-10000
+   drift ratio) none 0.51–0.58, rws 0.75–0.80, frm 0.83–0.85, both 0.65–0.67; cosine between
+   consecutive lag-1000 displacements none +0.66–0.69, rws +0.74–0.79, frm +0.70–0.72, both
+   +0.36–0.37. α_W_rec: none 0.20–0.26 (caged), penalised 0.52–0.64. α_W_out: none 0.01, both 0.2,
+   frm 0.3. The penalties keep every matrix moving directionally; unpenalised W_rec and W_out are
+   essentially frozen and only W_inp still moves.
+3. **How much moves, in absolute terms (Best → Last snapshots).** `both`, 343k → 400k: W_inp moves
+   6% of its norm, median row norm change 4.5%, median row angle change 0.9° (W_rec 17%, W_out 22%).
+   Small but persistent. `none`, 247k → 400k: W_inp 18%, W_rec 29%, W_out 29%, but the top-10% rows
+   by norm carry only 11% of the W_inp displacement — the motion is in the small rows. `frm`, 100k →
+   400k: W_rec moves 101% of its norm, W_out 95%, W_inp 56%, median row angle 79°: the frm network
+   reorganises its entire wiring between 100k and 400k while its loss is flat. This is the
+   weight-level face of frm's churn (§3.2 of the paper) and a stronger statement of it.
+4. **Per-unit input rows at the end.** Row-norm at init is 0.039 (std 1/√N per entry, 3 inputs).
+   none: live rows median 5.6 (q10–q90 0.03–8.3), silent rows 0.003 (0.002–0.006) — the silent
+   units' input rows decayed 10× BELOW init while live rows grew 150×. rws: same (3.4 vs 0.003).
+   frm: live 0.28, silent 0.15; both: 0.95 (0.06–2.5). Spearman(row norm, log participation) 0.43
+   under none.
+
+**Interpretation, labelled as such.** (i) Why the late drift persists under the penalties: the frm
+and rws gradients do not vanish at the task optimum, so the balance point of task gradient + penalty
+gradients + weight decay is a slow slide along near-flat directions of the combined objective, with
+W_inp following W_rec. Not tested; the test is to evaluate the four gradient components on the
+final weights and check that they nearly cancel while each is large (A7 below). (ii) The
+initialisation scale IS far from the task's operating scale: a 10-step ±1 pulse through a 0.022
+weight into a τ=10 unit produces a drive of ~0.02, below the recurrent noise (σ_rec 0.05) and the
+spectral-radius-1.2 recurrence. The network spends its first 100k iterations growing W_inp 50×.
+The global collapse (all units quiet within ~20 iterations, §S5) happens before W_inp has grown
+(1.7 → 7 by 1k), and the survivors are exactly the units whose input rows are then amplified; the
+rest never receive drive and their rows decay. Whether a correctly scaled W_inp at init would
+change the silent fraction is therefore a live question and NOT answered by anything on disk: the
+sigmoid, softplus, leaky and ReLU runs all share this init. Proposed as T5, and it is cheap.
+(iii) One argument against init scale as the whole story: on CDDM the input is a sustained O(1)
+signal integrated over 100+ steps, so the init mismatch is much smaller, yet the silent fraction is
+the same (~45% at N=1000). Not decisive — a test, not an argument, settles it.
