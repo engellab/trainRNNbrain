@@ -9105,3 +9105,100 @@ the record of what was believed and when; this note supersedes them. What stands
 objective has no term that keeps any particular unit active, and the walk to the floor is
 activation-general (ReLU, softplus, leaky-ReLU, bounded sigmoid). What is still asserted rather
 than measured: that weight decay is the walker (T2).
+
+## ▶ THE ACTIVATION-FUNCTION EXPERIMENT, EXPLAINED — the phenomenon is general to positive activations — 2026-09-11 09:15
+
+Self-contained account of the experiment whose pieces are logged at 2026-09-10 23:08, 2026-09-11
+08:55 and 09:05, written so it can be read on its own.
+
+**The question.** Is the silent-unit phenomenon a property of the ReLU nonlinearity, or of training
+itself? Every result in the paper had been obtained with ReLU units, whose positive part is linear
+and whose floor is a hard zero with zero gradient. A natural objection — Pavel's — is that swapping
+in a positive-only activation with a *nonlinear, bounded* positive part could make the whole thing
+disappear, and that the project had never checked. Two activation-specific explanations were in
+circulation and both would predict that: the dead-gradient trap (a unit at exactly zero receives no
+gradient and cannot return) and the scale symmetry (`relu(a·x) = a·relu(x)` makes a unit's gain a
+flat direction of the loss, so nothing holds it up).
+
+**What already existed on disk, once read correctly.** June 2026 CDDM sweeps at N = 1000 under
+Dale with softplus (β = 25) and leaky-ReLU (leak 0.01): smooth or leaky floors, gradient everywhere,
+no dead-gradient trap. A first quick read gave 0% silence for the `h` equation — a bug: for `h`
+networks the stored history is the pre-activation state and the rate is `activation(state)`; with
+the raw state used as the rate, strongly negative (silent) units read as the most active. Corrected
+(and the simulation verified against the task, R² 0.90–0.93), softplus and leaky-ReLU are
+indistinguishable from ReLU on every axis: live fraction 0.45 / 0.45 / 0.44, effective participating
+units 86 / 83 / 80, participation Hoyer 0.73 / 0.74 / 0.74. So the dead-gradient trap was already
+excluded. The symmetry was not: softplus is asymptotically homogeneous and leaky-ReLU exactly so.
+
+**What had never been run.** An *unpenalized* network with a bounded, non-homogeneous positive
+activation. Every sigmoid and tanh network on disk (`CDDM_SparsityAndFRMagnitude-sigmoid_shifted*`,
+26 `CDDM_tanh_slope=*` roots, GELU) had been trained with `frm+rws` on, under Dale — usable for
+nothing here.
+
+**Design.** 3-bit flip-flop, standard RNN (no Dale, no I/O positivity, self-connections on,
+trainable bias — `rnn_relu_standard` in every respect except the activation), `h` equation, no
+penalties, activation `sigmoid(7.5·(x − 0.3))` (`configs/model/rnn_sigmoid_shifted_standard.yaml`;
+slope and shift from the earlier sigmoid_shifted sweep so a unit at rest outputs ≈ 0.10, nearly off,
+as with ReLU). N ∈ {500, 1000} × 3 seeds, 150k iterations, batch 1024 fresh trials. Spock array
+`6147881` (launcher `slurm/SilentReLU_flipflop_sigmoid_spock.slurm`, code `a831629`), smoke-tested
+locally first; a dependent CPU job `6147887` ran the read-out automatically. Comparison set: the
+unpenalized ReLU ksweep networks at the same k and N (500k iterations), read both at their end and,
+from their participation traces, at 150k.
+
+**Read-out, fixed before the data.** Three silence criteria: the project's scale-free rule
+`p < 0.05·q95(p)` on participation `p = std + q90`; a *modulation* criterion `std_t(r) < 0.05·q95` —
+necessary for a bounded activation, because a unit saturated at a constant output has q90 > 0 and
+passes the standard rule while doing nothing; and the flip-flop absolute threshold 4e-2 for
+reference only. Two threshold-free measures: participation Hoyer sparsity and 1/HHI. The four Hoyer
+axes with live = modulated units. Trajectories of the scale-free silent fraction and participation
+Hoyer along training from `ParticipationTrace.pkl`. Decision rule: participation Hoyer < 0.3 and
+unmodulated < 10% at both N → the concentration is a ReLU-family property; Hoyer ≥ 0.5 or
+unmodulated ≥ 30% → general to positive activations; between → graded, no headline.
+Script: `flipflop_sigmoid_silence.py` (reads the activation from each run's config, because older
+npz files store only the dict's keys).
+
+**Result.**
+
+| act | N | iters | R² | scale-free silent | unmodulated | participation Hoyer | 1/HHI |
+|---|---|---|---|---|---|---|---|
+| relu | 500 | 500k | 0.97 | 0.73 | 0.69 | 0.66 | 67 |
+| sigmoid | 500 | 150k | 0.93* | 0.64 ± 0.04 | 0.62 ± 0.06 | 0.45 ± 0.04 | 163 |
+| relu | 1000 | 500k | 0.96 | 0.81 | 0.79 | 0.73 | 86 |
+| sigmoid | 1000 | 150k | 0.97 | 0.76 ± 0.01 | 0.76 ± 0.01 | 0.54 ± 0.02 | 227 |
+
+\* one N=500 seed stalled at R² 0.84; the other five runs reached 0.96–0.97.
+
+At matched iteration (150k) the silent fractions coincide: ReLU 0.72–0.75 vs sigmoid 0.75–0.77 at
+N = 1000, 0.60–0.65 vs 0.62–0.69 at N = 500. The trajectories overlap from ~10³ iterations on, and
+the sigmoid networks are still silencing at 150k (N = 1000: 0.63–0.73 at 37k → 0.75–0.77 at 150k),
+as ReLU networks do. The silent sigmoid units sit at the lower asymptote — mean rate 0.0015–0.0026,
+max over all samples < 0.1, none saturated high — while modulated units span 0.02–0.99. The
+threshold-free concentration is milder (Hoyer 0.54 vs 0.73 at N = 1000) only because the floor is
+soft: a silent unit contributes 0.002 rather than 0 to the participation mass.
+
+**Conclusion.** Unmodulated 62–76% ≫ 30% → by the pre-registered rule the phenomenon is **general
+to positive activations**: four activations — hard floor (ReLU), soft floor (softplus), leaky floor,
+and a bounded sigmoid with no homogeneity at all — silence the same fraction of units at the same
+size and iteration. Neither activation-specific explanation survives. The dead-gradient trap was
+excluded by softplus/leaky; the scale symmetry by the sigmoid, and it has been removed from the
+paper (retraction of 09:05). What stands is a statement about the objective: **the task loss has
+no term that keeps any particular unit active; a unit the solution does not need is walked down
+to the activation's floor and left there.** `frm` works because it adds that term.
+
+**What this experiment does not say.** tanh was not run (a signed activation, where "silent" would
+mean unmodulated around zero rather than parked at a floor; not needed for the claim about positive
+activations). Sigmoid was trained for 150k against ReLU's 500k, so end-of-training numbers are not
+matched — the matched-iteration comparison from the traces is the one to quote. Whether weight decay
+is what walks the units down is still asserted, not measured (T2: the sweep with weight decay 0).
+
+**What changed in the paper.** §2 title and mechanism rewritten around the objective's missing
+term; the five-sentence summary, §2.3, §3's lead and the retracted-claims list updated; the scope
+is "trained RNNs with positive activations", not "ReLU RNNs".
+
+**A process note, recorded because it cost two days.** The symmetry explanation was introduced as
+an interpretation (2026-09-10 14:31), was then built on as if established — the seven-ideas summary,
+§3.3's "frm breaks a symmetry", the composition story, T2's gain-normalization control — and was
+dislodged only by Pavel asking whether a sigmoid network had ever been trained. Nothing in the
+intervening work tested it; every step inherited it. The rule that should have applied: a mechanism
+claim gets a falsifying test named and run before anything is built on it, and until then it is
+labelled as interpretation in every place it is used, not only where it was introduced.
