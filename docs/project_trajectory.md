@@ -9462,3 +9462,112 @@ the 24-run sweep's end-of-training silent fractions will be a mixture of "never 
 "spiked" networks unless the traces are read for the jump. **The read-out must therefore report
 silence along training, not only at the end, and count the jumps.** Interpretation is deferred to
 the full sweep.
+
+## ▶ WORKING ABSTRACT AGREED; CLAIM-BY-CLAIM ELABORATION WRITTEN — 2026-09-11 11:41
+
+The story was built with Pavel in five rounds. Framing: RNNs as model organisms for systems
+neuroscience (digital circuits with known ground truth on which analysis methods are honed), not
+as fits to data. Three takeaways, fixed: (1) two penalties solve the silent-unit problem;
+(2) the sparsity penalty makes the networks compute with highly selective units; (3) the penalties
+shape the solution along axes that really matter. Corrections made on the way: §1.3 of `paper.md`
+rewritten — task complexity recruits marginally more units, criterion-dependent (c = +0.18 at
+fixed compute, ≈ 0 at matched state, +0.08 under rws; PR rises with k under every criterion), and
+"cube root to square root" replaces any single exponent. The two 2026-09-10 entries that argue from
+the ReLU scale symmetry now carry a superseded note pointing at the 2026-09-11 result.
+
+The abstract lives at the top of `paper.md`; copied here as the record of what was agreed:
+
+*Motivation and problem.* Recurrent neural networks trained on cognitive tasks serve as model
+organisms for systems neuroscience: digital circuits with known ground truth, on which analysis
+methods are developed, tested and honed. Larger networks are trained to bring this testbed closer
+to the scale of real circuits. However, a trained RNN with a non-negative activation leaves most of
+its units silent: the number of active units scales between the cube root and the square root of
+the total number of units, and task complexity changes it only marginally. As a result, a thousand
+active units costs training a network of ten thousand. Most of the digital organism is dead weight,
+and the population that remains is the small subset that training happened to keep.
+
+*Characterization of the problem.* We show that silencing afflicts RNNs trained with any
+non-negative activation function, and that it worsens with longer training and larger networks. We
+tried many interventions to eliminate it, from architecture and noise to training length and the
+standard regularizers. Most failed, and the majority of units persistently remained silent. The
+reason they stay silent is that the task loss has no term that rewards keeping a unit active: early
+in training the whole population is suppressed, only the units the solution needs recover, and
+nothing in the objective ever pulls the rest back up.
+
+*Solution.* The intervention that works is a convex penalty designed to keep each unit's
+participation (a measure of how much the unit contributes to the network's activity) at a specific
+level, so that every unit takes part in the computation. On both tasks (context-dependent decision
+making and the k-bit flip-flop) it keeps every unit active at no cost in performance. We later found
+that this penalty is easily taken advantage of: the cheapest way for a unit to stay active is to
+receive weak input from the whole population, which satisfies the participation demand
+superficially. Such units mix task variables and become less selective as the network grows, and on
+the flip-flop task they respond only transiently, flickering in and out of silence.
+
+*Characterization of the solution.* We characterize the trained networks along a continuum from
+pure to mixed selectivity, together with their dimensionality and temporal structure. The
+unpenalized network organizes the few units it keeps into highly selective ones, each following a
+single task variable and wired to other units performing a similar computational role; the
+participation penalty alone produces a population of mixed, diffusely connected units. A second
+intervention, a penalty that encourages sparse connectivity, does nothing on its own to prevent
+silence. On top of the participation penalty, however, it closes the loophole and moves the network
+to the pure end of the continuum: every unit becomes selective for a single task variable, wired to
+units performing the same computational role, and stays persistently active. Turning the sparsity
+penalty on or off in a trained network makes the population more or less sharply selective,
+reversibly. Networks with identical performance therefore differ several-fold in dimensionality,
+selectivity, and whether units fire persistently or transiently.
+
+*Takeaways.* First, two penalties solve the silent-unit problem afflicting large RNNs: the
+participation penalty keeps every unit active at no cost in performance, on two tasks, and the
+sparsity penalty keeps the rescued units stably active. Second, adding the sparsity penalty on the
+connectivity makes the networks compute with highly selective units, each following one task
+variable and connected to units that follow the same one. Third, the penalties shape the network's
+solution in ways that really matter: dimensionality, selectivity and temporal structure are decided
+by the training objective, and it should be chosen with that in mind.
+
+**Elaboration (layer two of `paper.md`, "Elaboration of the abstract").** Every abstract claim
+tied to script, figure and trajectory entry. What the audit found loose: the wiring statistics
+(in-degree S, assembly share, wiring/activity modularity, ARI, W_out targeting — 2026-09-10
+14:31 onward) and the prevention-vs-resurrection statistic (96 per 1,000 recover unpenalized,
+0.6 under frm) have **no script in the repo**; the code was in a session scratchpad and the
+surviving scratchpad (`84f6b90b`) does not contain it. Softplus/leaky-ReLU were run only on the
+Dale-constrained CDDM network and the sigmoid only on the flip-flop; no non-ReLU activation on the
+standard CDDM net. The switch experiment never measured selectivity, so "more or less sharply
+selective" in the abstract is inferred from cross-sectional data. "Every unit active" is exact on
+CDDM and 86–100% on the flip-flop under frm alone. "Persistently vs transiently" is flip-flop only.
+Action list (scripts S1–S4, experiments E1–E3, A3/A5/A6, T5 pending) is at the end of the
+elaboration section.
+
+### Figure for abstract claim P1 — 2026-09-11 11:52
+
+`fig_P1_silence.py` → `img/internal_figures/fig_P1_silence.png`. Three panels from cached
+outputs only (characterize cache; the three CDDM `silent_units_per_condition.csv`; flip-flop
+`ParticipationTrace.pkl`), no simulation. (a) Unpenalised ReLU silent fraction vs N at end of
+training: CDDM 0.26 / 0.61 / 0.73 / 0.85 / 0.88 / 0.91 at N = 100 / 500 / 1000 / 2000 / 5000 /
+10,000; flip-flop 0.68 / 0.79 / 0.86 / 0.86 at 500 / 1000 / 2000 / 4000 (n = 3 each). (b) CDDM
+N = 1000, Dale h, no penalty: scale-free 49.0 ± 0.5 (ReLU, n=5) / 40.6 ± 1.1 (softplus, n=4) /
+45.2 ± 1.2% (leaky, n=5); hard 45.8 / 0.0 / 32.5%. (c) Flip-flop ReLU vs sigmoid scale-free
+silent fraction along training; at 150k: ReLU N=500 0.60–0.65, N=1000 0.72–0.75; sigmoid N=500
+0.62–0.69, N=1000 0.75–0.77 — reproduces the 2026-09-11 08:50 table from the traces alone.
+⚠️ Panel (a) is END-OF-TRAINING; these fractions are higher than the matched-performance numbers
+in §1.1 (41–46% at N=1000 CDDM) because the drift-sweep networks trained far longer. The panel
+caption says so. Linked from the elaboration's P1 entry in `paper.md`.
+
+### Three logged twins at 30k iterations (default at 15k) — 2026-09-11 12:11
+
+Scale-free / absolute silent of 1000 (hard zeros in brackets), seed 3637570379, N=1000, k=3:
+
+| iteration | default (row norm 0.055) | s=1 | s=5 |
+|---|---|---|---|
+| 5k | 505 / 503 [59] | 155 / 106 [0] | 125 / 18 [0] |
+| 10k | 623 / 606 [56] | 150 / 84 [0] | 142 / 37 [0] |
+| 15k | 596 / 565 [41] | 520 / 426 [52] ← after the 12.6k spike | 133 / 65 [0] |
+| 20k | — | 478 / 383 [44] | 132 / 72 [2] |
+| 25k | — | 466 / 356 [18] | 147 / 79 [4] |
+| 30k | — | 521 / 423 [34] | 176 / 104 [3] |
+
+Loss > 0.2 episodes after 2k: default 2205–2216, 4056–4086, 8669–8714 (three); s=1 12647–12666
+(one, the avalanche); s=5 none. Task R² 0.953 in both scaled runs at 30k.
+
+s=5 without any spike: a slow walk, scale-free 125 → 176 over 25k iterations (~2 units per 1000),
+with q95(p) still falling (2.8 → 1.6) as the oversupplied input is shed. s=1 after its spike sits at
+the default's level and flickers (hard zeros 18–52). Default: early collapse + spikes → 60%.
