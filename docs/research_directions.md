@@ -90,7 +90,9 @@ These are the experiments a referee will ask for. Ordered by how much of the pap
   function-preserving for homogeneous activations and is withdrawn with that explanation.)*
 
 ### T5. Is the silence partly an initialisation artefact? — W_inp initial scale
-> **Status 2026-09-11 09:44 — RUNNING.** Spock array `6154727` (24 tasks: s ∈ {0.5, 2, 5, 20} per-row
+> **Status 2026-09-12 — ANSWERED: excluded as the cause.** Scaled inits (0.5–20) end 5–9 pp below
+> the default at matched iteration, flat in s; every run silences by avalanche, later when scaled.
+> Trajectory entry of 2026-09-12. Was: Spock array `6154727` (24 tasks: s ∈ {0.5, 2, 5, 20} per-row
 > norm × N ∈ {500, 1000} × 3 seeds, 150k it.), read-out job `6154728`. Design, read-out and decision
 > rule in the trajectory entry of this timestamp. Knob: `model.input_row_norm` (commit `06082b1`).
 - **Question.** W_inp is initialised at std 1/√N per entry (row norm 0.039 at N = 2000) and grows
