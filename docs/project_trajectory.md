@@ -10030,3 +10030,20 @@ W_out frozen (α ≈ 0) in every unpenalised network; only W_inp keeps moving, a
 mostly in the small rows (Best→Last decomposition, 2026-09-11). Interpretation deferred; the
 measured statement is that unpenalised W_inp motion decays toward diffusive on a ~10⁵-iteration
 scale regardless of the initial scale.
+
+### Della: the depth control for the hyper recruitment read-out — 15 unpenalised cells at 500k — 2026-09-12 14:07
+
+All 46 remaining Spock hyper jobs are running (nothing pending since ~14:40), so Della adds no
+speed there. It is used instead for the one control the recruitment result lacks: the 150k read-out
+is matched in ITERATION while the hyper cells are short of their floor, so the excess could be
+convergence depth. `slurm/SilentReLU_flipflop_hyper_long_della.slurm`: unpenalised hyper task,
+500k iterations (the plain ksweep's budget), output `NBitFlipFlopHyper_std_hyper_long/`.
+Della's H100s are closed to this account (`all` has a 10-min limit; `pli`/`pli-lc` reject the
+QOS; h100 gres in `gpu` is "node configuration not available"), so it runs on A100-80GB
+(`--constraint=gpu80`, gpu-long, 144 h cap). At A100 speed only the fast cells fit 500k with
+margin: **job 13791591, tasks 1-6, 10-15, 19-21 = k=2,4 at N=500/1000 and k=6 at N=500**, three
+seeds each, estimated start 2026-09-13 ~15:00. Those include the two most informative cells:
+k=4 N=1000 (+75% units at 150k, not ceiling-limited) and k=6 N=500 (+106%, 464/500). Read-out fixed
+now: at 500k, does r² reach the plain task's ~0.95, and does the live count fall back toward the
+plain task's (depth artefact) or hold (demand)? k=6 at N≥1000, k=4 at N=2000 and all k=8 cells are
+NOT submitted; they need a warm start from the Spock 150k checkpoints or a faster GPU.
