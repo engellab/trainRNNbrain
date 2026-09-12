@@ -608,7 +608,8 @@ loss excursion**, at 2–3k iterations for the default draw and anywhere from 5k
 scaled ones. Silence is not only a slow walk; it is also an avalanche, and the unpenalized network
 takes both routes from any initialization.
 
-Fifteen interventions, condensed. Architecture (`h`/`s` equation, cubic term, boundary handling,
+Sixteen interventions, condensed. Input initialization scale (above): removes the early collapse,
+not the silence. Architecture (`h`/`s` equation, cubic term, boundary handling,
 sign constraints, I/O positivity, trainable bias, self-connections): no change. Activation
 (softplus, leaky-ReLU, sigmoid): persists at the ReLU level (§2.1). Recurrent noise: never
 helps, σ = 0 is worst. Longer training and larger networks: worse, monotonically. The field-standard
@@ -872,7 +873,8 @@ c = −0.118 ± 0.033, p = 0.001), the saturating fit beats the power law under 
 
 ## S3. Supplementary: the full "what we tried" table ✅
 
-Fifteen rows (§2.2), with the self-inhibition result (self-weights trained negative, active units at
+Sixteen rows (§2.2; row 16 = W_inp initialization scale, 9–360× the default, flip-flop: 53–70%
+silent at 150k vs 62–74% default, flat in the scale), with the self-inhibition result (self-weights trained negative, active units at
 −0.060 vs silent at −0.007) and the divergence mechanism (§7).
 
 ## S4. Supplementary: two silence criteria, and the `rws` artifact ✅

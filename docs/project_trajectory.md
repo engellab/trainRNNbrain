@@ -9994,3 +9994,39 @@ of the silence.
 **Paper.** One paragraph in §2.2 (init scale tested and excluded; the avalanche characterisation)
 and the "what does not work" list gains a row; §2.1's "walked down" becomes "walked or dropped": the
 walk exists, but most of the silencing in every run happens in one to three discrete events.
+
+### Logged as intervention #16 in the "what we tried" table: input initialisation scale — FAILS — 2026-09-12 13:19
+
+W_inp rows equalised at norm 0.5 / 2 / 5 / 20 at init (9–360× the default), unpenalised, N=500 and
+1000, k=3, 3 seeds each: 53–70% of units silent at 150k against 62–74% for the default draw at the
+same iteration; flat in the scale; task R² unchanged. Removes the collapse of the first iterations,
+delays the avalanche, does not eliminate silence. Added to paper §2.2 / §S3.
+
+### α (lag-scaling drift exponent) of W_inp: do the networks reach the diffusive regime? — 13:19
+
+α = log10(drift_lag10000 / drift_lag100) / 2 averaged over a 50k-iteration window (0.5 = diffusive,
+1 = ballistic); cos = mean cosine of consecutive lag-1000 displacements. 3 seeds per cell.
+
+| s | N | window | α_W_inp | α_inp (100→1k) | α_inp (1k→10k) | cos_inp | α_W_rec | α_W_out |
+|---|---|---|---|---|---|---|---|---|
+| default | 500 | 100k–150k | 0.56 | 0.28 | 0.83 | 0.64 | 0.34 | 0.02 |
+| default | 500 | 450k–500k | **0.49** | 0.30 | 0.68 | 0.62 | 0.27 | 0.01 |
+| default | 1000 | 100k–150k | 0.61 | 0.39 | 0.84 | 0.72 | 0.33 | 0.02 |
+| default | 1000 | 450k–500k | **0.43** | 0.18 | 0.67 | 0.64 | 0.16 | 0.00 |
+| 0.5 | 500 / 1000 | 100k–150k | 0.66 / 0.68 | 0.40 / 0.50 | 0.91 / 0.87 | 0.59 / 0.63 | 0.33 / 0.31 | 0.02 |
+| 2 | 500 / 1000 | 100k–150k | 0.77 / 0.78 | 0.61 / 0.64 | 0.93 / 0.92 | 0.58 / 0.60 | 0.43 / 0.35 | 0.09 / 0.04 |
+| 5 | 500 / 1000 | 100k–150k | 0.76 / 0.78 | 0.62 / 0.61 | 0.89 / 0.95 | 0.57 / 0.64 | 0.39 / 0.37 | 0.05 / 0.04 |
+| 20 | 500 / 1000 | 100k–150k | 0.72 / 0.72 | 0.51 / 0.51 | 0.94 / 0.93 | 0.63 / 0.68 | 0.41 / 0.37 | 0.02 |
+
+**Reading.** (i) The default networks DO reach the diffusive regime for W_inp, but only late: α =
+0.56–0.61 over 100k–150k, 0.43–0.49 over 450k–500k (at N=2000 the 2026-09-11 09:02 check gave
+0.51–0.58 at 300k–400k). Pavel's recollection that they do not was right for the budgets he was
+looking at; by 500k they do. (ii) At 150k the scaled-init networks are MORE persistent than the
+default at the same iteration (α 0.66–0.78 vs 0.56–0.61): they collapsed later, so they are younger
+in their post-collapse reorganisation. The residue is a slow directed drift at long lags (α over
+1k→10k ≈ 0.9 in every condition, including the default) under short-lag jitter (0.2–0.6 over
+100→1k); the displacement cosine stays +0.6–0.7 everywhere. (iii) W_rec is caged (α 0.16–0.43) and
+W_out frozen (α ≈ 0) in every unpenalised network; only W_inp keeps moving, and its motion is
+mostly in the small rows (Best→Last decomposition, 2026-09-11). Interpretation deferred; the
+measured statement is that unpenalised W_inp motion decays toward diffusive on a ~10⁵-iteration
+scale regardless of the initial scale.
