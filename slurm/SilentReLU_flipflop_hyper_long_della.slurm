@@ -16,13 +16,17 @@
 # Index decode (TID = SLURM_ARRAY_TASK_ID-1): REP=TID%3; N_IDX=(TID/3)%3; K_IDX=TID/9
 #   k=8 cells are tasks 28-36.
 #
-# WALL CLOCK. Spock rates (L40S / A100-40G) were 0.35-0.82 s/iter for k<=6 and 0.7-1.7 s/iter at
-# k=8, i.e. up to 114 h at k<=6 and up to 236 h at k=8 N=2000 for 500k. 140 h covers every k<=6
-# cell even at Spock speed; k=8 N=2000 is NOT safe without a measured H100 rate, so:
-#   sbatch --array=1-27 <this>                                        # k<=6 now
-#   ITERS_OVERRIDE=600 sbatch --array=36 --time=00:40:00 <this>        # calibrate k=8 N=2000
-#   then size --time for --array=28-36 from the measured rate (gpu-long caps at 144 h).
-# Always name the gres TYPE (h100): --gpus-per-node=1 can land on a 3g.40gb MIG slice, 2.2x slower.
+# GPU AND WALL CLOCK (2026-09-12). Della's H100s are NOT available to this account: they sit in
+# `all` (10 min limit) and `pli`/`pli-lc` ("Invalid qos specification"); `--gres=gpu:h100:1` in
+# `gpu` is "Requested node configuration is not available". So this runs on A100-80GB
+# (--constraint=gpu80, which also avoids MIG slices), gpu-long, 144 h cap. A100 was 1.85x slower
+# than L40S on the plain flip-flop at N=4000, and Spock's rates on the hyper grid were
+# 0.32-0.40 s/iter for k<=4 at N<=1000 and k=6 at N=500, 0.37-0.82 for k=6 at N>=1000 and k=4 at
+# N=2000, 0.7-1.7 at k=8. At 500k only the first group fits with margin (<=0.75 s/iter -> <=105 h):
+#   sbatch --array=1-6,10-15,19-21 <this>     # k=2,4 at N=500,1000 and k=6 at N=500 (15 jobs)
+# k=6 at N>=1000, k=4 at N=2000 and every k=8 cell are NOT submitted here; they need either a
+# faster GPU or a warm start from the Spock 150k checkpoints (paths.init_from), to be decided once
+# the Spock grid has landed.
 #
 # Results land in DELLA's data/trained_RNNs and must be synced to the local mirror before analysis.
 # Output: $SAVE_TO/NBitFlipFlopHyper_std_hyper_long/EqType=h_k=<k>_N=<N>_pen=none_iters=<IT>/
@@ -31,7 +35,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --gres=gpu:h100:1
+#SBATCH --gres=gpu:1
+#SBATCH --constraint=gpu80
 #SBATCH --mem-per-gpu=64G
 #SBATCH --qos=gpu-long
 #SBATCH --time=140:00:00
