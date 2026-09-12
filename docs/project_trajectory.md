@@ -9889,3 +9889,51 @@ label-based instruments read above none and the label-free ones below (sparsity-
 "extends role-organized wiring to all units" is the defensible sentence, "more modular" is not.
 NEW on CDDM: penalized nets wire strongly by activity correlation (like-to-like 0.6 vs 0.09
 unpenalized) with almost no task-role structure. Cache recomputed (`data/wiring_cache.pkl`).
+
+## ▶ Hyper flip-flop at ~22 h: 25/72 cells done; six k=8 N=2000 cells rescued from the 48 h limit; FIRST READ-OUT — recruitment tracks combinatorial demand — 2026-09-12 12:59
+
+**Status.** Finished: k=2 at N=500/1000 (both arms), k=4 at N=500 (both arms) and N=1000 (none ×3,
+both ×1), k=6 N=500 (none). 41 running. The k=8 cells run at 0.7–0.8 s/iter at N≤1000 but
+**1.2–1.3 s/iter at N=2000** (the 0.71 estimate in the launcher was wrong: the 255-channel read-out
+and its gradient are not free at N=2000), projecting 49–54 h against a 48 h request, plus one k=8
+N=500 job on a slow node at 1.38 s/iter (57 h). Nothing is written before completion, so those six
+would have burned 48 h each for nothing. `scontrol update TimeLimit` is denied; 120 h is rejected
+even with `--qos=long`; **96 h is the largest accepted**. Cancelled tasks 30, 34, 36, 70, 71, 72
+(2–9 h lost each) and resubmitted them at 96 h: jobs 6173767 (30, 34, 36) and 6173768 (70–72),
+pending. Two more k=8 cells (29, 35) project at 42–43 h and were left running — under the limit
+but with little margin; if killed, resubmit the same way.
+
+**Preliminary read-out** (`flipflop_hyper_readout.py`, run on Spock): live units at the 150k
+snapshot, scale-free criterion (absolute 4e-2 criterion in the script output agrees to within ~30
+units everywhere), mean ± sd over seeds, against the plain flip-flop at the SAME k, N and iteration
+(ksweep read backward at 150k; plain `both` from the 400k penlong grid).
+
+| k | N | plain none | **hyper none** | plain both | hyper both | r² plain / hyper (none) |
+|---|---|---|---|---|---|---|
+| 2 | 500 | 178 ± 7 | **216 ± 14** (+21%) | 500 | 500 | 0.956 / 0.941 |
+| 2 | 1000 | 237 ± 11 | **287 ± 11** (+21%) | — | 1000 | 0.956 / 0.941 |
+| 4 | 500 | 198 ± 3 | **342 ± 5** (+73%) | 500 | 500 | 0.952 / 0.887 |
+| 4 | 1000 | 281 ± 10 | **491 ± 21** (+75%) | — | 1000 (n=1) | 0.952 / 0.886 |
+| 6 | 500 | 225 ± 8 | **464 ± 2** (+106%) | 500 | pending | 0.950 / 0.798 |
+
+Plain task, N=500, k=2→6: 178 → 225 (×1.26, the k^0.16 law). Hyper task: 216 → 464 (×2.15), and
+at k=6 the network is at 93% of its 500 units — the count is hitting N, not a task-set ceiling.
+The gap opens with k exactly as the read-out demand does (3 → 15 → 63 channels). **This is
+pre-registered outcome 1: recruitment DOES track task demand once the demand is combinatorial.** The
+plain flip-flop's flat M(k) was cheap demand. Not yet a finding on the paper's claim — see caveats.
+
+Performance: the hyper task is NOT solved to the plain task's level. r² 0.94 / 0.89 / 0.80 at
+k=2/4/6 (aggregate over channels of unequal variance, so per-subset-size R² is still to be done),
+falling with k; the k=8 running cells sit at r² ≈ 0.45–0.57 at 20–45k iterations (none) and
+0.25–0.32 (both). So outcome 3 (capacity ceiling at high k) is live for k=8 and the `both` arm
+is NOT rescuing it — at every finished cell `both` has every unit live (500/500, 1000/1000) yet a
+LOWER r² than `none` (0.926 vs 0.941 at k=2; 0.841 vs 0.887 at k=4). More live units, worse task.
+
+⚠️ Caveats fixed before more cells land: (i) matched ITERATION, not matched performance — the hyper
+cells are further from their floor at 150k, and silence in this project keeps growing with
+training depth, so part of the excess may be convergence depth. The k=2 cells are the control: r²
+within 0.015 of the plain task, still +21% units. The k-trend (+21 → +73 → +106%) is much larger
+than any depth effect seen (the plain ksweep moved +27–33% over its whole 150k→500k range).
+(ii) N=500 at k=6 is ceiling-limited (464/500); the N=1000/2000 cells decide whether it is 2× or
+more. (iii) k=8 is the case Pavel expected to fail; not in yet. (iv) Per-channel R² by subset size
+and a proper M(k) fit wait for the full grid.
