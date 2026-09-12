@@ -71,16 +71,17 @@ def main():
         m = analyse(f); m.update(row_norm_stats(f)); m["s"] = s; m["N"] = N; rows.append(m)
         print(f"  s={s:<6} N={N:<5} r2={m['r2']:.3f} scalefree={m['scalefree']:.3f} unmod={m['unmodulated']:.3f} "
               f"partHoyer={m['part_hoyer']:.3f} 1/HHI={m['inv_hhi']:.0f} | live row {m['live_row']:.2f} silent row "
-              f"{m['silent_row']:.3f} ||W||_F {m['fro']:.1f} | sel={m['sel']:.2f} temp={m['temp']:.2f} D_PR={m['d_pr']:.1f}", flush=True)
+              f"{m['silent_row']:.3f} ||W||_F {m['fro']:.1f} | sel={m['sel']:.2f} temp={m['temp']:.2f} D_PR={m['d_pr']:.1f} "
+              f"| sf@150k={m.get('sf_at_150k', np.nan):.3f} max 1k-jump={m.get('max_jump_1k', np.nan):.3f} at {m.get('jump_iter', -1)}", flush=True)
 
-    print(f"\n{'s':>7}{'N':>6}{'n':>3}{'r2':>6}{'scalefree':>11}{'unmodulated':>13}{'part Hoyer':>12}{'1/HHI':>7}{'live row':>9}{'silent row':>11}{'||W||_F':>9}{'sel':>6}{'temp':>6}{'D_PR':>6}")
+    print(f"\n{'s':>7}{'N':>6}{'n':>3}{'r2':>6}{'scalefree':>11}{'sf@150k':>9}{'unmodulated':>13}{'part Hoyer':>12}{'1/HHI':>7}{'live row':>9}{'silent row':>11}{'||W||_F':>9}{'sel':>6}{'temp':>6}{'D_PR':>6}{'max jump/1k':>13}")
     for s in sorted({r["s"] for r in rows}):
         for N in sorted({r["N"] for r in rows if r["s"] == s}):
             rr = [r for r in rows if r["s"] == s and r["N"] == N]
             f = lambda k, fmt: fmt.format(np.nanmean([r[k] for r in rr]), np.nanstd([r[k] for r in rr]))
-            print(f"{s:>7}{N:>6}{len(rr):>3}{f('r2', '{:.2f}'):>6}{f('scalefree', '{:.2f}±{:.2f}'):>11}{f('unmodulated', '{:.2f}±{:.2f}'):>13}"
+            print(f"{s:>7}{N:>6}{len(rr):>3}{f('r2', '{:.2f}'):>6}{f('scalefree', '{:.2f}±{:.2f}'):>11}{f('sf_at_150k', '{:.2f}'):>9}{f('unmodulated', '{:.2f}±{:.2f}'):>13}"
                   f"{f('part_hoyer', '{:.2f}±{:.2f}'):>12}{f('inv_hhi', '{:.0f}'):>7}{f('live_row', '{:.2f}'):>9}{f('silent_row', '{:.3f}'):>11}"
-                  f"{f('fro', '{:.0f}'):>9}{f('sel', '{:.2f}'):>6}{f('temp', '{:.2f}'):>6}{f('d_pr', '{:.1f}'):>6}")
+                  f"{f('fro', '{:.0f}'):>9}{f('sel', '{:.2f}'):>6}{f('temp', '{:.2f}'):>6}{f('d_pr', '{:.1f}'):>6}{f('max_jump_1k', '{:.2f}±{:.2f}'):>13}")
 
     ss = sorted({r["s"] for r in rows}); col = {s: CMAP(i / max(len(ss) - 1, 1)) for i, s in enumerate(ss)}
     fig, ax = plt.subplots(1, 3, figsize=(16, 4.6))

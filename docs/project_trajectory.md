@@ -9937,3 +9937,60 @@ than any depth effect seen (the plain ksweep moved +27–33% over its whole 150k
 (ii) N=500 at k=6 is ceiling-limited (464/500); the N=1000/2000 cells decide whether it is 2× or
 more. (iii) k=8 is the case Pavel expected to fail; not in yet. (iv) Per-channel R² by subset size
 and a proper M(k) fit wait for the full grid.
+
+## ▶ T5 RESULT: THE INPUT INITIALISATION SCALE DELAYS THE COLLAPSE AND LOWERS THE ENDPOINT BY 5–9 pp; IT IS NOT THE CAUSE — 2026-09-12 13:09
+
+Spock `6154727` (24/24 finished), read-out `6154728`; runs synced to
+`data/trained_RNNs/NBitFlipFlop_std_winp` (+ the three logged twins in `_winp_logged`), linked into
+`dead_ReLU_data/flipflop/`. Figure `img/internal_figures/winp_silence.png`; script
+`flipflop_winp_silence.py` (now also reports the silent fraction at 150k for the 500k-iteration
+baseline and the largest 1000-iteration jump per run).
+
+**End of training (150k), unpenalised, 3 seeds per cell; baseline = default draw (row norm 0.039–0.055) read at 150k from its trace:**
+
+| s (row norm) | N | scale-free silent | unmodulated | participation Hoyer | 1/HHI | live row norm | silent row norm | ‖W_inp‖_F | R² | max 1k-jump |
+|---|---|---|---|---|---|---|---|---|---|---|
+| default | 500 | **0.62** (0.73 at 500k) | 0.69 | 0.66 | 67 | 6.4 | 0.004 | 93 | 0.96 | 0.38 ± 0.04 |
+| 0.5 | 500 | 0.56 ± 0.04 | 0.48 | 0.54 | 119 | 5.3 | 0.005 | 93 | 0.96 | 0.25 ± 0.10 |
+| 2 | 500 | 0.53 ± 0.01 | 0.45 | 0.53 | 123 | 5.0 | 0.005 | 94 | 0.97 | 0.23 ± 0.05 |
+| 5 | 500 | 0.55 ± 0.01 | 0.47 | 0.54 | 119 | 5.8 | 0.005 | 94 | 0.96 | 0.21 ± 0.06 |
+| 20 | 500 | 0.57 ± 0.02 | 0.51 | 0.57 | 104 | 4.2 | 0.005 | 94 | 0.96 | 0.32 ± 0.05 |
+| default | 1000 | **0.74** (0.81 at 500k) | 0.79 | 0.73 | 87 | 6.3 | 0.004 | 93 | 0.96 | 0.32 ± 0.08 |
+| 0.5 | 1000 | 0.70 ± 0.01 | 0.64 | 0.64 | 146 | 4.7 | 0.004 | 94 | 0.97 | 0.34 ± 0.03 |
+| 2 | 1000 | 0.66 ± 0.00 | 0.61 | 0.62 | 157 | 4.5 | 0.003 | 94 | 0.97 | 0.34 ± 0.06 |
+| 5 | 1000 | 0.68 ± 0.01 | 0.63 | 0.63 | 152 | 4.7 | 0.004 | 94 | 0.96 | 0.39 ± 0.04 |
+| 20 | 1000 | 0.70 ± 0.01 | 0.66 | 0.66 | 130 | 3.9 | 0.004 | 95 | 0.96 | 0.39 ± 0.13 |
+
+(The default's unmodulated / Hoyer / 1/HHI columns are end-of-500k values; only its silent
+fraction was re-read at 150k.)
+
+**Iteration of each run's largest 1000-iteration jump in silent fraction** (3 seeds): default
+1.8k–3.3k (N=500), 2.2k–2.6k (N=1000); s=0.5 1k–7.6k, 2.2k–8.3k; s=2 11k–45k, 11k–13k; s=5
+12.5k–75k, 17k–21k; s=20 35k–41k, 5k–69k. Jump sizes 0.11–0.53 of the population, median ≈ 0.3;
+**every one of the 30 runs (24 sweep + 6 baseline) has one.** The three same-seed twins ended at
+(scale-free / absolute): default 0.73 / 0.70, s=1 0.70 / 0.66, s=5 0.64 / 0.60.
+
+**Against the decision rule.** Not "< 20% at any s" — the lowest cell is 53%. Not "within the
+baseline's seed spread at matched iteration" either: the scaled inits end 5–9 pp below the default
+(0.53–0.57 vs 0.62 at N=500; 0.66–0.70 vs 0.74 at N=1000; seed sd 0.00–0.04). So the intermediate
+outcome: **a real but small dependence, and it is flat in s from 0.5 to 20** — once the input is
+above the noise floor its scale does not matter. The initialisation scale is excluded as the cause
+of the silence.
+
+**What the sweep adds beyond the decision rule (measurements):**
+1. **Silencing is avalanche-dominated.** In every run the silent fraction rises by 0.1–0.5 within
+   a 1000-iteration window, coincident with a transient loss excursion (43× the floor for the s=1
+   twin, 6× for the s=5 twin, the guard never fires). The input scale sets WHEN: at 2–3k for the
+   default (on top of its collapse in the first ~20 iterations), later and more variably for the
+   scaled inits (up to 75k). It does not set whether.
+2. **The network converges to the same input weights from any start.** ‖W_inp‖_F ends at 93–95 for
+   every s — from 632 at s=20, N=1000, it sheds 85% — live rows at 3.9–5.8, silent rows at 0.004
+   (decayed from 20 to 0.004 in the s=20 case). The silent units' input is removed by training
+   regardless of what they were given.
+3. The scaled inits keep the threshold-free concentration modestly lower (participation Hoyer
+   0.53–0.66 vs 0.66–0.73 at 500k; 1/HHI 104–157 vs 67–87) and the selectivity slightly higher
+   (0.81–0.88 vs 0.76–0.80 at N=1000), with identical task performance.
+
+**Paper.** One paragraph in §2.2 (init scale tested and excluded; the avalanche characterisation)
+and the "what does not work" list gains a row; §2.1's "walked down" becomes "walked or dropped": the
+walk exists, but most of the silencing in every run happens in one to three discrete events.

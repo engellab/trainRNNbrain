@@ -121,6 +121,19 @@ def analyse(folder):
         m["traj_iters"] = np.asarray(d["participation_iters"])
         m["traj_silent"] = (P < SILENT_REL * q).mean(1)
         m["traj_hoyer"] = hoyer(P)
+        # Silence can arrive as an avalanche during a loss spike (2026-09-11: 141 -> 559 units in
+        # 500 iterations). Record the largest rise of the silent fraction over any ~1000-iteration
+        # window and where it happened, and the silent fraction at 150k for matched-iteration
+        # comparison with runs of a different budget.
+        step = float(np.median(np.diff(m["traj_iters"]))) if len(m["traj_iters"]) > 1 else 1.0
+        lag = max(1, int(round(1000 / step)))
+        ts = m["traj_silent"]
+        if len(ts) > lag:
+            dd = ts[lag:] - ts[:-lag]; j = int(np.argmax(dd))
+            m["max_jump_1k"] = float(dd[j]); m["jump_iter"] = int(m["traj_iters"][j + lag])
+        else:
+            m["max_jump_1k"] = np.nan; m["jump_iter"] = -1
+        m["sf_at_150k"] = float(np.interp(150000, m["traj_iters"], ts)) if m["traj_iters"][-1] >= 149000 else np.nan
     return m
 
 

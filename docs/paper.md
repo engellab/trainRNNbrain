@@ -560,8 +560,9 @@ recruits is set mainly by its size and only weakly by what it is asked to do.
 
 The task loss has no term that keeps any particular unit active. A unit the solution does not need
 receives no gradient that holds it up; weight decay and noise walk it down to the activation's
-floor, and it stays there because the loss does not care and the gradient at the floor is small
-(zero for ReLU, ~0.01 for leaky-ReLU, ~0.02 for softplus and the sigmoid at its lower asymptote).
+floor — or a transient instability drops a few hundred units there at once (§2.2) — and it stays
+there because the loss does not care and the gradient at the floor is small (zero for ReLU, ~0.01
+for leaky-ReLU, ~0.02 for softplus and the sigmoid at its lower asymptote).
 This is a statement about the objective, not about the activation, and the data say so.
 
 > **Retracted explanation.** An earlier version of this section attributed silence to the ReLU
@@ -592,6 +593,20 @@ works (§3) is the one that adds to the objective exactly the term it lacks: a f
 > measured.
 
 ### 2.2 What does not work ✅ (CDDM; activation rows in constrained nets, §S1)
+
+**Nor is it the input initialization** ✅ (flip-flop). W_inp is drawn at std 1/√N, far below the
+scale the task needs (trained live units end with input rows at norm ~5.4 from 0.04–0.06). Giving
+every unit an input row of norm 0.5, 2, 5 or 20 at initialization (N = 500 and 1000, 3 seeds each)
+removes the collapse in the first iterations but not the silence: at 150k iterations 53–57% of
+units are silent at N = 500 and 66–70% at N = 1000, against 62% and 74% for the default draw at the
+same iteration, with no dependence on the scale from 0.5 to 20 and the same task performance. The
+network converges to the same input weights from any start (‖W_inp‖_F = 93–95 in every condition;
+silent units' rows decay to 0.004 whether they started at 0.05 or 20). What the scale changes is
+*when* the units go: **in every run, most of the silencing happens in one to three discrete
+events, a rise of 10–50% of the population within a thousand iterations coincident with a transient
+loss excursion**, at 2–3k iterations for the default draw and anywhere from 5k to 75k for the
+scaled ones. Silence is not only a slow walk; it is also an avalanche, and the unpenalized network
+takes both routes from any initialization.
 
 Fifteen interventions, condensed. Architecture (`h`/`s` equation, cubic term, boundary handling,
 sign constraints, I/O positivity, trainable bias, self-connections): no change. Activation
