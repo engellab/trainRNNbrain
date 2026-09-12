@@ -10047,3 +10047,30 @@ k=4 N=1000 (+75% units at 150k, not ceiling-limited) and k=6 N=500 (+106%, 464/5
 now: at 500k, does r² reach the plain task's ~0.95, and does the live count fall back toward the
 plain task's (depth artefact) or hold (demand)? k=6 at N≥1000, k=4 at N=2000 and all k=8 cells are
 NOT submitted; they need a warm start from the Spock 150k checkpoints or a faster GPU.
+
+### Hyper flip-flop at ~25 h: k=6 lands — the penalty's cost is a higher FLOOR, not slower convergence — 2026-09-12 16:08
+
+New cells (150k, scale-free live count, mean over seeds): hyper `none` k=2 N=2000 374 ± 20 vs plain
+309 (+21%, 2 seeds); **hyper `none` k=6 N=1000 722 ± 10 vs plain 301 (+140%, r² 0.807, 2 seeds)** —
+72% of the network, so NOT ceiling-limited, the strongest demand-tracking number yet; hyper `both`
+k=6 N=500 500/500 at r² 0.665 vs `none` 0.798 (2 seeds). Running `both` cells at k=6 N=1000/2000
+sit at r² 0.70–0.72 against `none`'s 0.80–0.81 at the same iteration, so extra capacity does not
+close the penalty's gap.
+
+Noise-free task loss along training (mean over seeds), `none` / `both`:
+
+| k, N | @10k | @50k | @150k | both/none at 150k | change 120k→150k |
+|---|---|---|---|---|---|
+| 2, 500 | 0.048 / 0.052 | 0.032 / 0.039 | 0.032 / 0.037 | +16% | +0.4% / −1.0% |
+| 2, 1000 | 0.047 / 0.060 | 0.032 / 0.039 | 0.032 / 0.037 | +14% | +1.4% / −0.9% |
+| 4, 500 | 0.092 / 0.102 | 0.059 / 0.069 | 0.056 / 0.065 | +17% | −0.1% / −0.5% |
+| 4, 1000 | 0.083 / 0.106 | 0.058 / 0.068 | 0.056 / 0.064 | +15% | −0.8% / −1.7% |
+| 6, 500 | 0.166 / 0.201 | 0.101 / 0.126 | 0.093 / 0.116 | +25% | +1.8% / +0.1% |
+
+Both arms have plateaued by 100–150k (last-30k change within ±2%), and `both` is behind at EVERY
+checkpoint from 10k on. So the penalty's cost on this task is a higher loss floor, 14–25% and
+growing mildly with k, not slower convergence — the same sign and size as the 7–19% frm floor
+cost on the plain flip-flop (2026-09-11), now visible in r² because the losses are larger.
+**Nothing so far suggests the penalty helps on the complex task**: on every finished cell it
+recruits every unit and solves the task worse. Unmeasured: what the penalty-recruited units DO
+(subset selectivity, bursts — the S4/S5 analysis needs simulation), and a weaker λ.
