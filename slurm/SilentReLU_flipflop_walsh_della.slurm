@@ -1,5 +1,5 @@
 #!/bin/bash
-# WALSH FLIP-FLOP: combinatorial demand with a ONE-CHANNEL read-out, none vs both (SPOCK)
+# WALSH FLIP-FLOP: combinatorial demand with a ONE-CHANNEL read-out, none vs both (DELLA, A100-80)
 #
 # The hyper grid (2^k-1 product channels) showed recruitment tracking demand, but its demand and its
 # read-out width grew together, so "the network fills output weights" could not be excluded, and its
@@ -30,31 +30,34 @@
 # penalty alone. The coefficient draw (coef_seed=0) is the same for every job; the coefficient
 # vector and generator settings are saved per net as *_TaskSpec_*.json (run_experiment.py).
 #
-# Cost: one output channel, so per-iteration cost is the plain task's (0.24 / 0.26 / 0.55 s/iter at
-# N = 500 / 1000 / 2000 on L40S; slow nodes up to 1.4x). 150k iterations -> <= 32 h; 48 h requested.
-#   sbatch --array=1-45 slurm/SilentReLU_flipflop_walsh_spock.slurm    # none
-#   sbatch --array=46-90 slurm/SilentReLU_flipflop_walsh_spock.slurm   # both
+# Cost: one output channel, so per-iteration cost is the plain task's; on A100-80 the hyper k=2 cells
+# ran 0.16 / 0.23 s/iter at N = 500 / 1000. 150k iterations -> ~10-25 h; 48 h (gpu-medium) requested.
+# Della's H100s are not available to this account (see the hyper_long_della header); gpu80 = A100-80.
+#   sbatch --array=1-45 slurm/SilentReLU_flipflop_walsh_della.slurm    # none
+#   sbatch --array=46-90 slurm/SilentReLU_flipflop_walsh_della.slurm   # both
 # A test with ITERS_OVERRIDE lands in a separate folder (suffix _iters=<IT>), never in a real cell.
 # Task index of a cell: 1 + REP + 3*N_IDX + 9*KD_IDX + 45*P_IDX  (k=6 N=1000 rep0: 4 none / 49 both).
 #
 # Output: $SAVE_TO/NBitFlipFlopWalsh_std_walsh/EqType=h_k=<k>_deg=<d>_N=<N>_pen=<name>/<per-net subfolder>
 
-#SBATCH --job-name=FFwal
-#SBATCH --partition=all
+#SBATCH --job-name=FFwalD
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 #SBATCH --gres=gpu:1
-#SBATCH --mem=32G
+#SBATCH --constraint=gpu80
+#SBATCH --mem-per-gpu=32G
+#SBATCH --qos=gpu-medium
 #SBATCH --time=48:00:00
 #SBATCH --array=1-90
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
-#SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
-#SBATCH --error=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.err
+#SBATCH --output=/home/pt1290/trainRNNbrain_logs/%x.%A_%a.out
+#SBATCH --error=/home/pt1290/trainRNNbrain_logs/%x.%A_%a.err
 
 module purge
-module load anacondapy/2024.02
+module load cudatoolkit/12.8
+module load anaconda3/2024.10
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate torch-env
 
