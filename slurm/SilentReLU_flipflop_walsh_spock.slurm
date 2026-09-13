@@ -88,10 +88,16 @@ TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); N_IDX=$(((TID / 3) % 3)); KD_IDX=$(((TID / 9) % 5)); P_IDX=$((TID / 45))
 K=${KK[$KD_IDX]}; D=${DD[$KD_IDX]}; N=${NS[$N_IDX]}
 PNAME=${PEN_NAME[$P_IDX]}; LRWS=${PEN_RWS[$P_IDX]}; LFRM=${PEN_FRM[$P_IDX]}
-SEED=$((101 + REP))
+SEED=${SEED_OVERRIDE:-$((101 + REP))}   # SEED_OVERRIDE for warm-start continuations (fresh trials)
 IT=${ITERS_OVERRIDE:-$IT}
 
-TAG="std_walsh/EqType=h_k=${K}_deg=${D}_N=${N}_pen=${PNAME}${ITERS_OVERRIDE:+_iters=${IT}}"  # overridden budgets get their own folder
+# WARM START: INIT_FROM=<finished net folder> continues that network (weights, initial state AND Adam
+# moments - same penalty, so the moments remove a restart transient rather than adding a bias) for
+# $IT more iterations under THIS task's penalty arm. Pass a fresh seed so the continuation sees new
+# trials (the trial RNG is seeded from the run seed); both arms of a pair should get the same one.
+# The trace of the continuation starts at 0; add the source run's budget when reading it.
+TAG="std_walsh/EqType=h_k=${K}_deg=${D}_N=${N}_pen=${PNAME}${ITERS_OVERRIDE:+_iters=${IT}}${INIT_FROM:+_warm}"  # overridden budgets / warm starts get their own folder
+WARM=(); [ -n "${INIT_FROM:-}" ] && WARM=(paths.init_from="\"${INIT_FROM}\"" paths.init_adam=true)
 mkdir -p "${SAVE_TO}/NBitFlipFlopWalsh_std_walsh"
 echo "Task ${SLURM_ARRAY_TASK_ID}: k=${K} degree=${D} N=${N} pen=${PNAME} (rws=${LRWS} frm=${LFRM}) rep=${REP} seed=${SEED} iters=${IT}"
 echo "  -> ${SAVE_TO}/NBitFlipFlopWalsh_${TAG}"
@@ -108,4 +114,5 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   trainer.track_valid=false \
   trainer.lambda_rws="$LRWS" trainer.lambda_frm="$LFRM" \
   paths.save_to="$SAVE_TO" \
+  "${WARM[@]}" \
   experiment_tag="\"${TAG}\""
