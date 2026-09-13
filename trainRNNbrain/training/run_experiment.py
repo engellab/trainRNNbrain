@@ -255,6 +255,10 @@ def run_training(cfg: DictConfig) -> None:
 
         print(f"r2 validation: {score}")
         if not (datasaver is None): datasaver.save_data(cfg, f"{stem}_config.yaml")
+        # Tasks with a fixed random component (NBitFlipFlopWalsh's coefficient vector) expose spec();
+        # save it so the target is reproducible from the folder alone, not only from a seed.
+        if hasattr(task, "spec") and not (datasaver is None):
+            datasaver.save_data(jsonify(task.spec()), f"{stem}_TaskSpec_{taskname}.json")
         if light:
             # binary, not json: 100 M float32 is 400 MB as npz but ~2 GB as indented json, and
             # jsonify would first materialise it as Python floats (~24 bytes each).

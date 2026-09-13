@@ -10092,3 +10092,51 @@ the 150k values (0.941 / 0.887 / 0.886). **The hyper cells were AT their floor a
 matched-iteration read-out was a matched-performance read-out after all, and the depth confound
 is confined to whatever the live COUNT does between 150k and 500k (lands 2026-09-13 evening for
 k=2, 2026-09-14 for k=4/6). k=6 N=500 and the last k=4 N=1000 seeds are still queued there.
+
+## ▶ NBitFlipFlopWalsh: combinatorial demand with a ONE-channel read-out — task built, launcher ready, not submitted — 2026-09-13 14:47
+
+**Why.** The hyper task's demand (2^k−1 products) and its read-out width grew together, so "the
+network fills output weights" could not be excluded; and its high-order channels switched faster
+than τ (8-way product: hold 18 steps, 39% of transitions within a pulse width, alive only 31% of the
+trial), which is the likely origin of the k-set r² floor. Pavel: fix the read-out, keep the
+combinatorial demand, make the expansion analytically computable, and keep it out of the weeds.
+
+**Task** (`trainRNNbrain/tasks/TaskNBitFlipFlopWalsh.py`, `configs/task/NBitFlipFlopWalsh.yaml`).
+Same k pulse-train inputs and set/reset bits as the plain flip-flop; one output
+y = Σ_{|S|≤degree} c_S Π_{i∈S} b_i / √Σc_S², c_S ~ N(0,1) drawn once from `coef_seed` (shared by
+every network). On ±1 states the products are the Walsh basis, so y is one random combination of
+Σ_{m≤degree} C(k,m) linearly independent functions of the state: at k=8, degree 1/2/4/8 → 8/36/162/255
+latent products, at k=6 full → 63. `degree` is the demand knob at fixed k with EVERYTHING else
+fixed (inputs, one output, trial statistics). No shortcut: a degree-d representation captures
+exactly Σ_{m≤d}C(k,m)/(2^k−1) of the variance (k=8: 0.03/0.14/0.36/0.64 for d=1..4); the random
+coefficient tensor has no low-rank structure; a random function has no small circuit. Generator
+changes vs the plain task: random initial state (every bit pulsed in steps 0–9), TOTAL pulse rate
+`mu_total`=8 (each bit gets 8/k, so the temporal demand is matched across k), and `always_flip`
+(each pulse carries the sign opposite to the bit, so every event moves y; the network still
+implements a set/reset flip-flop). Measured at k=8: 7.4 changes of y per trial, hold 36 steps,
+24% of changes within 10 steps of the previous, 0.1% static trials, y std 1.00, |y|>2 in 4.7%.
+Figure: `img/internal_figures/walsh_trials.png`.
+Self-check (`python …Walsh.py`): target against an independent itertools construction at
+k=3/6/8 and k=8 degree 2; every bit pulsed at start; every pulse flips its bit; pulse timing equals
+the parent's; `spectrum()` recovers the coefficients to 1e-15 when all states are visited.
+
+**Reproducibility (Pavel's requirement).** The coefficient vector, subset list and generator
+settings are saved per net as `*_TaskSpec_NBitFlipFlopWalsh.json` (run_experiment.py saves `spec()`
+for any task that has it). The task RNG is seeded from the run seed (`task.seed: ${seed}`), so the
+trial sequence is reproducible. The RNN's initial hidden state is a fixed zero vector saved with the
+parameters. The launcher uses FIXED seeds 101–103 per rep, so the `none` and `both` arms of one rep
+share initialisation and trials and differ by the penalty alone.
+
+**Read-out** (`flipflop_walsh_eval.py`): r², live count (both criteria), and the recovered Walsh
+spectrum by order — the projection of the network's output onto every product, exact via per-state
+means — i.e. which latent products each network built, with no unit-level criterion; plus the
+spurious coefficient energy (what the output contains that is not in the target).
+
+**Launcher** `slurm/SilentReLU_flipflop_walsh_spock.slurm`: (k,degree) ∈ {(6,6),(8,1),(8,2),(8,4),(8,8)}
+× N ∈ {500,1000,2000} × 3 seeds × {none, both} = 90 jobs, 150k, tasks 1–45 none, 46–90 both.
+Pre-registered: `none` recruits up the degree ladder with one output (the hyper result was not
+read-out width); `both` lights every unit — does it carry any of the missing high-order terms where
+`none` is short of units (k=8 d=8 N=500), or is it noise? Smoke-tested end to end (N=50, 20 iters):
+W_out 1×50, TaskSpec saved with 15 coefficients at k=4, config records seed 1 and n_outputs 1, the
+eval script runs (r² 0.008 after 20 iterations, as expected). A 3000-iteration local run was
+started and cancelled by Pavel as unnecessary. NOT submitted — awaiting the go-ahead.

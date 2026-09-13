@@ -1,0 +1,32 @@
+# @package task
+# N-bit flip-flop with ONE output: a random Walsh polynomial of the bit states,
+#   y = sum_{|S| <= degree} c_S prod_{i in S} b_i, c_S ~ N(0,1) from coef_seed, unit variance.
+# Same k pulse-train inputs and bit dynamics as NBitFlipFlop, plus a random initial state (every
+# bit pulsed in steps 0..9), a TOTAL pulse rate mu_total (each bit gets mu_total/k) so the temporal
+# demand is matched across k, and always_flip (every pulse flips its bit, so no event is wasted). The read-out is one channel at every k; `degree` sets how
+# many of the 2^k-1 Walsh basis functions the target contains (the demand knob at fixed k).
+taskname: "NBitFlipFlopWalsh"
+_target_: trainRNNbrain.tasks.Task${.taskname}.Task${.taskname}
+# T and mu_total set the memory demand, and the defaults they replaced (T=100, mu=6) did not impose one:
+# the mean inter-pulse interval is n_flip_steps + T/mu, so T=100/mu=6 held a bit for only 1.7 tau.
+# At T=300/mu=4 the hold is 7.5 tau with ~2.2 sign changes per channel per trial. T matches CDDM's
+# 300 exactly, so per-iteration cost and every timescale comparison carry over unchanged.
+T: 300
+seed: ${seed}        # trial generator seeded from the run seed: reproducible, and shared by paired arms
+n_inputs: 6
+n_outputs: 1        # fixed: one channel at every k (the class asserts it)
+mu_total: 8          # expected pulses per trial summed over bits (each bit gets mu_total/k)
+always_flip: true    # every pulse carries the sign opposite to the bit state, so every event moves y
+degree: null         # max subset size in the sum; null = n_inputs (full expansion)
+coef_seed: 0         # ONE coefficient draw shared by every network
+n_flip_steps: 10     # pulse width, and the refractory period between pulses on one bit
+batch_size: 1024
+
+# The whole trial is scored: unlike CDDM there is no stimulus period to skip and no discontinuous
+# target, so the loss floor here is not built the way CDDM's is.
+mask_params:
+  - (0, ${..T})
+
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "mu_total", "n_flip_steps", "degree", "coef_seed", "always_flip", "batch_size"]
