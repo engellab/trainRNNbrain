@@ -10074,3 +10074,21 @@ cost on the plain flip-flop (2026-09-11), now visible in r² because the losses 
 **Nothing so far suggests the penalty helps on the complex task**: on every finished cell it
 recruits every unit and solves the task worse. Unmeasured: what the penalty-recruited units DO
 (subset selectivity, bursts — the S4/S5 analysis needs simulation), and a weaker λ.
+
+### Hyper grid at ~43 h: 48/72 cells done; Della depth control already at 300–440k — r² does NOT move with depth — 2026-09-13 09:30
+
+Spock: every k≤6 cell has landed except two seeds of k=4 N=2000 `both` (finishing now); k=8 N≤1000
+and k=8 N=2000 seed 35 finish within the hour; the five resubmitted k=8 N=2000 cells and the slow
+k=8 N=500 seed have 15–49 h left (Monday). The three "error" logs are the cancelled originals.
+New 150k cells: hyper `none` k=4 N=2000 **672 ± 28 vs plain 368 (+83%)**, k=2 N=2000 389 ± 27 vs
+309 (+26%); hyper `both` k=6 N=1000 1000/1000 at r² 0.712 vs `none` 0.807. Running k=6 N=2000:
+`none` r² 0.81, `both` 0.74; k=8 N=1000 at 130k: `none` 0.61–0.68, `both` 0.40; k=8 N=500 at 145k:
+`none` 0.59, `both` 0.31.
+
+Della (job 13791591) started 2026-09-12 14:11, a day earlier than the estimate, at 0.16–0.28 s/iter
+on A100-80 (FASTER than Spock's L40S at these sizes; the 1.85× A100 penalty was an N=4000 number).
+k=2 N=500 at 440k: r² 0.941; k=4 N=500 at 330k: 0.887; k=4 N=1000 at 245k: 0.888 — identical to
+the 150k values (0.941 / 0.887 / 0.886). **The hyper cells were AT their floor at 150k**; the
+matched-iteration read-out was a matched-performance read-out after all, and the depth confound
+is confined to whatever the live COUNT does between 150k and 500k (lands 2026-09-13 evening for
+k=2, 2026-09-14 for k=4/6). k=6 N=500 and the last k=4 N=1000 seeds are still queued there.
