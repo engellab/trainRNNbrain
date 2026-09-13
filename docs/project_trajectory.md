@@ -10140,3 +10140,43 @@ read-out width); `both` lights every unit — does it carry any of the missing h
 W_out 1×50, TaskSpec saved with 15 coefficients at k=4, config records seed 1 and n_outputs 1, the
 eval script runs (r² 0.008 after 20 iterations, as expected). A 3000-iteration local run was
 started and cancelled by Pavel as unnecessary. NOT submitted — awaiting the go-ahead.
+
+## ▶ ★ WALSH TEST (k=6, N=1000, 30k, one seed): recruitment is DEMAND, not read-out width — the one-output task recruits like the 63-output task — 2026-09-13 18:10
+
+Della jobs 13839248_4 (`none`) and 13839249_49 (`both`), paired seed 101, 30k iterations at 0.36 s/iter
+(3 h). Folders `NBitFlipFlopWalsh_std_walsh/EqType=h_k=6_deg=6_N=1000_pen=<arm>_iters=30000/` on Della.
+
+| k=6, N=1000, read at 30k | plain (k outputs) | hyper (63 outputs) | **Walsh `none` (1 output)** | Walsh `both` |
+|---|---|---|---|---|
+| live, scale-free / abs 4e-2 (training trace) | 412 / 440 | 737 / 767 | **778 / 826** | 974 / 841 |
+| live, noise-free evaluation | — | — | 736 / 804 | 983 / 856 |
+| r² (validation, noise on) | 0.95 | 0.81 | **0.831** | 0.796 |
+| r² noise-free, 512 fresh trials | — | — | 0.873 | 0.856 |
+| clean loss change 20k→30k | | | −2.9% (descending) | +1.1% (flat) |
+
+**The one-output network recruits 778 units, the 63-output network 737, the plain task 412.** So the
+hyper recruitment was the combinatorial demand, not the width of the read-out: with a single output
+channel and the same 63 latent products the network lights up the same ~75% of itself. The
+pre-registered read-out closes: recruitment tracks the number of latent functions the target needs.
+Also new: the `none` live count RISES along training here (717 → 726 → 778 at 10k/20k/30k), the
+opposite of every earlier grid, i.e. the network is still recruiting as it builds higher orders.
+
+Recovered Walsh spectrum (fraction of the target's coefficient energy per order, `flipflop_walsh_eval.py`):
+
+| order | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| target energy | 0.03 | 0.21 | 0.43 | 0.13 | 0.15 | 0.06 |
+| `none` recovered | 0.97 | 0.96 | 0.92 | 0.90 | 0.86 | 0.88 |
+| `both` recovered | 0.96 | 0.93 | 0.89 | 0.86 | 0.83 | 0.83 |
+
+Both arms built every order (per-order R² of the recovered coefficients 0.97–1.00; spurious energy
+0.01–0.015), with recovery falling gently with order; `none` is ahead at every order. So the penalty's
+extra ~200 live units carry nothing the unpenalised network lacks — the same 63 products, slightly
+worse. Pavel's default picture, with the penalty behind by 0.035 (noise on) / 0.017 (noise-free),
+and the `both` loss already flat while `none` is still descending, so the gap should widen at 150k.
+No r² flip. Under the absolute criterion `both` lost units over training (904 → 841): frm holds
+units above the scale-free floor but not at working participation.
+
+Caveats: one seed, 30k iterations, neither arm at its floor (r² per batch still rising in both).
+Pavel's read before the data: "the test jobs will be enough to see whether this direction is worth
+the time". The full 90-job grid (`SilentReLU_flipflop_walsh_spock.slurm`) remains unsubmitted.
