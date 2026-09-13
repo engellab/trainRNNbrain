@@ -10180,3 +10180,23 @@ units above the scale-free floor but not at working participation.
 Caveats: one seed, 30k iterations, neither arm at its floor (r² per batch still rising in both).
 Pavel's read before the data: "the test jobs will be enough to see whether this direction is worth
 the time". The full 90-job grid (`SilentReLU_flipflop_walsh_spock.slurm`) remains unsubmitted.
+
+### Depth control, first cells (Della, hyper k=2 N=500 at 500k): the excess survives matched depth — 2026-09-13 18:23
+
+Live count (scale-free) along the SAME trace, mean of 3 seeds, hyper `none` (Della 500k) vs plain
+`none` (ksweep 500k), k=2 N=500:
+
+| iteration | 30k | 150k | 300k | 500k |
+|---|---|---|---|---|
+| hyper | 309 | 207 | 180 | 164 |
+| plain | 268 | 178 | 148 | 129 |
+| ratio | 1.15 | 1.16 | 1.22 | 1.27 |
+
+Both counts keep falling with depth (the documented slow silencing), r² unchanged at 0.940 from 150k
+to 500k on the hyper task. The hyper/plain excess does NOT shrink with depth — it grows slightly.
+So the matched-iteration read-out at 150k was not inflated by convergence depth, at least at k=2.
+k=4 N=500 and N=1000 cells finish overnight (plain references at 500k: 150 and 196), k=6 N=500 on
+2026-09-15 (plain 164).
+
+Spock status 18:21: 10 hyper jobs left, all k=8 (and one k=6 N=2000 `both`), every one within
+1.2 h of finishing; the full 150k grid lands tonight.
