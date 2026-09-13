@@ -10200,3 +10200,15 @@ k=4 N=500 and N=1000 cells finish overnight (plain references at 500k: 150 and 1
 
 Spock status 18:21: 10 hyper jobs left, all k=8 (and one k=6 N=2000 `both`), every one within
 1.2 h of finishing; the full 150k grid lands tonight.
+
+### Hyper grid: k=8 at N≤1000 lands — the unpenalised network saturates its units at k=8 — 2026-09-13 19:59
+
+62/72 cells. New: hyper `none` k=8 N=500 **494/500** (1 seed) at r² 0.651; k=8 N=1000 **977/1000**
+(3 seeds) at r² 0.681; k=6 N=2000 1016 ± 57 (51%) at r² 0.811; `both` k=8: 500/500 at 0.308 and
+1000/1000 at 0.407 (Δr² −0.34 / −0.27, twice the k=6 gap); `both` k=4/6 N=2000 landed (Δr² −0.028 /
+−0.073). At k=8 the unpenalised network lights essentially every unit it has, so the recruitment
+ladder reaches N itself at 255 latent products; whether N=2000 also saturates (or lands near the
+1016 of k=6) is the last open cell. r² still depends on k alone, not N (0.65 / 0.68 at N=500/1000).
+⚠️ Timeline correction: my "hours left" for jobs older than 24 h mis-parsed the day field; the
+five k=8 N=2000 cells run at 1.1–1.6 s/iter and finish 2026-09-14 12:30 → 2026-09-15 06:30, not
+tonight. k=8 N≤1000 completes by 2026-09-14 ~06:00.
