@@ -10212,3 +10212,29 @@ ladder reaches N itself at 255 latent products; whether N=2000 also saturates (o
 ⚠️ Timeline correction: my "hours left" for jobs older than 24 h mis-parsed the day field; the
 five k=8 N=2000 cells run at 1.1–1.6 s/iter and finish 2026-09-14 12:30 → 2026-09-15 06:30, not
 tonight. k=8 N≤1000 completes by 2026-09-14 ~06:00.
+
+## ▶ Walsh k=6 N=1000 at 100k (warm-started +70k, Della): the penalty does not catch up; the spectra converge but r² does not — 2026-09-14 10:28
+
+Continuations 13847182_4 / 13847183_49 (seed 201 trials, Adam moments carried), folders
+`…_pen=<arm>_iters=70000_warm/`. Read at 100k total:
+
+| k=6, N=1000 | none 30k | none 100k | both 30k | both 100k |
+|---|---|---|---|---|
+| r² validation (noise on) | 0.831 | **0.880** | 0.796 | **0.846** |
+| r² noise-free, 512 fresh trials | 0.873 | 0.907 | 0.856 | 0.884 |
+| live scale-free / abs 4e-2 (noise-free eval) | 736 / 804 | 774 / 819 | 983 / 856 | 991 / 897 |
+| recovered spectrum, orders 1–6 | .97 .96 .92 .90 .86 .88 | .98 .96 .94 .93 .91 .92 | .96 .93 .89 .86 .83 .83 | .97 .96 .95 .93 .92 .92 |
+
+Both arms improved by ~0.05 and the gap is unchanged (0.034 with noise, 0.023 noise-free). The
+penalised network did NOT catch up. **But its recovered spectrum did**: at 100k the two arms recover
+the same fraction of every order (spurious energy 0.004 in both). The spectrum is the per-state
+MEAN of the output, so the penalised network's average answer in each joint state is as accurate as
+the unpenalised one's; its lower r² is within-state variability — slower settling after a flip, or
+activity fluctuations — the temporal signature of frm networks (bursts, S5). Interpretation, not yet
+measured: the penalty's cost on this task is temporal precision, not missing latent variables. The
+unpenalised live count is stable at ~775 from 30k to 100k (not falling as on the plain task).
+
+Also landed: hyper k=8 N=2000 `none` first seed **1609/2000 at r² 0.697** — 80%, so N=2000 is NOT
+saturated at k=8 (N=500: 494/500, N=1000: 977/1000). k=8 N=500 `none` now 3 seeds: 494 ± 2, r² 0.625.
+Walsh k=8 d=8 N=1000 pair (13851493/4) at 90k of 150k: `none` r² 0.86, `both` 0.81, both still
+rising slowly; 0.56 s/iter on this node, done ~20:00.
