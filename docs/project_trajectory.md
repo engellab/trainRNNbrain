@@ -10310,3 +10310,43 @@ The penalised arms are still creeping down at −0.3 to −0.4 %/10k, i.e. they 
 here, but from far below. Whether the plateau is the true floor or a long plateau before another
 descent is what the Della 500k cells (k=4 N=500/1000 landing tonight, k=6 N=500 on 09-16) will say;
 at k=2 and k=4 r² did not move between 150k and 440k.
+
+## ▶ ★★ DECISION POINT (Pavel, 2026-09-14): the recruited-unit count reflects task complexity; the penalty story is closed; pivot or re-report — 10:57
+
+**Pavel's assessment, recorded verbatim in substance.** The number of recruited units almost
+certainly reflects task complexity. The one remaining confusion is the read-out: the active-unit
+count could in principle be a property of the number of read-out channels rather than of complexity
+per se. The Walsh task (one output, combinatorial demand) is disproving that, but its results are
+still preliminary (one seed, k=6; k=8 pending). Either the project pivots, or it reports this
+finding instead — well characterised — without the frm + rws penalty line.
+
+**The evidence this rests on, all in this document above:**
+1. *Recruitment tracks demand.* Hyper flip-flop, 150k, unpenalised: live units rise with k at every
+   N (N=500: 216 → 342 → 464 → 494 for k = 2/4/6/8; N=1000: 287 → 491 → 715 → 977; N=2000: 389 →
+   672 → 1016 → 1609) while the plain flip-flop is nearly flat in k (178 → 238 at N=500). At k=8 the
+   network uses all of N=500 and N=1000 and 80% of N=2000. Seed spread ≤ 30 units per cell.
+2. *Not a depth artefact.* Della 500k: hyper k=2 N=500 excess over plain is 1.16× at 150k and 1.27×
+   at 500k; r² unchanged 150k → 440k at k=2 and k=4.
+3. *Not read-out width (preliminary).* Walsh k=6 N=1000, one output: 778 live at 30k, 781 at 100k,
+   vs hyper (63 outputs) 715 and plain (6 outputs) 412 at the same iteration. One seed.
+4. *The penalty (frm 0.1 + rws 0.05) recruits every unit and costs performance at every cell*, with
+   the cost growing with demand (Δr² −0.01 at k=2 → −0.27/−0.34 at k=8), not closed by N, not a
+   convergence-speed effect (unpenalised plateaus by 120k; penalised creeps at −0.4 %/10k from a
+   1.7× higher loss). On the Walsh task the deficit is in the 15 steps after a flip, not in the
+   levels or the latent variables built. Both arms converge to the same spectrum.
+5. *The unpenalised r² plateau is set by k, not N* (hyper: 0.94 / 0.89 / 0.80 / 0.65 at
+   k = 2/4/6/8 at every N; flat from 120k). On the Walsh task, which has no fast-switching channels,
+   k=6 reaches 0.88 at 100k, so the hyper plateau is at least partly the temporal demand of the
+   high-order product channels.
+
+**What is still open before the report can be written:** the Walsh k=8 N=1000 pair (tonight;
+r² 0.86 vs 0.81 at 90k), Walsh seeds 2–3 and the degree ladder (the 90-job launcher is ready, not
+submitted), the last hyper k=8 N=2000 cells (2026-09-15 morning), and the Della 500k depth
+control at k=4 and k=6. The mechanism of the penalty's transition cost is unmeasured and, under
+this decision, not needed.
+
+**Consequence for the paper, Pavel's call:** the storyline "silence is a pathology, the penalty
+fixes it" is retired. The candidate replacement is the capacity law — silence measures how much
+of the network the task requires, ~10 units per latent function on the flip-flop family, with the
+mechanism results (spikes, init, input-row norm) as how a network arrives at that size — or a
+pivot away from silence altogether. The penalty sections become at most a characterisation.
