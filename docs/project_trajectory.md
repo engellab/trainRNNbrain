@@ -10238,3 +10238,18 @@ Also landed: hyper k=8 N=2000 `none` first seed **1609/2000 at r² 0.697** — 8
 saturated at k=8 (N=500: 494/500, N=1000: 977/1000). k=8 N=500 `none` now 3 seeds: 494 ± 2, r² 0.625.
 Walsh k=8 d=8 N=1000 pair (13851493/4) at 90k of 150k: `none` r² 0.86, `both` 0.81, both still
 rising slowly; 0.56 s/iter on this node, done ~20:00.
+
+### Where the penalty's r² deficit lives on the Walsh task (k=6 N=1000, 100k nets): the transitions — 2026-09-14 10:41
+
+Pavel's hypothesis: some units' trigger conditions are absent from a batch by chance, so frm pushes
+them up "when it is not their turn". Checked on the two 100k networks (noise-free, 1024 fresh trials):
+- Literal version false here: every one of the 64 states appears ≥ 3492 times in a 1024-trial batch
+  (k=8: 256 states, ≥ ~800). No unit lacks its condition within a batch.
+- The penalty did not densify the code: median fraction of states a live unit is on 0.39 (`both`)
+  vs 0.42 (`none`); units on in ≤ 25% of states 267 vs 258; on in ≥ 75% 103 vs 159.
+- Error decomposition (1 − r², share of target variance): per-state bias 0.004 / 0.005 (negligible,
+  = the identical spectra); within-state 0.115 (`both`) vs 0.090 (`none`). Within-state splits into
+  steady 0.017 vs 0.011 and transient (≤ 15 steps after a flip, 31% of steps) 0.334 vs 0.267 per
+  step. **85% of the penalty's deficit is in the 15 steps after a flip**: slower or rougher
+  transitions, not wrong levels and not mis-timed units. With noise on the gap is larger (0.034 vs
+  0.023), so noise-driven jitter adds the rest. Mechanism (why frm slows transitions) not measured.
