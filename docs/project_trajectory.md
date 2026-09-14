@@ -10253,3 +10253,34 @@ them up "when it is not their turn". Checked on the two 100k networks (noise-fre
   step. **85% of the penalty's deficit is in the 15 steps after a flip**: slower or rougher
   transitions, not wrong levels and not mis-timed units. With noise on the gap is larger (0.034 vs
   0.023), so noise-driven jitter adds the rest. Mechanism (why frm slows transitions) not measured.
+
+## ▶ FIGURE: hyper flip-flop grid at 150k — live units and r² vs k, none vs both (67/72 cells) — 2026-09-14 10:45
+
+`fig_hyper_readout.py` (reads `data/hyper_readout_150k.txt`, the table printed by
+`flipflop_hyper_readout.py` on Spock) → `img/internal_figures/hyper_readout_150k.png`.
+
+![Hyper grid at 150k: live units and r² vs k](../img/internal_figures/hyper_readout_150k.png)
+
+| k | N | plain none | hyper none | hyper both | r² plain / none / both |
+|---|---|---|---|---|---|
+| 2 | 500 | 178 ± 7 | 216 ± 14 | 500 | 0.956 / 0.941 / 0.926 |
+| 2 | 1000 | 237 ± 11 | 287 ± 11 | 1000 | 0.956 / 0.941 / 0.929 |
+| 2 | 2000 | 309 ± 33 | 389 ± 27 | 1997 ± 3 | 0.956 / 0.940 / 0.929 |
+| 4 | 500 | 198 ± 3 | 342 ± 5 | 500 | 0.952 / 0.887 / 0.841 |
+| 4 | 1000 | 281 ± 10 | 491 ± 21 | 1000 | 0.952 / 0.886 / 0.855 |
+| 4 | 2000 | 368 ± 9 | 672 ± 28 | 1998 ± 2 | 0.952 / 0.887 / 0.859 |
+| 6 | 500 | 225 ± 8 | 464 ± 2 | 500 | 0.950 / 0.798 / 0.657 |
+| 6 | 1000 | 301 ± 2 | 715 ± 13 | 1000 | 0.950 / 0.807 / 0.712 |
+| 6 | 2000 | 367 ± 28 | 1016 ± 57 | 2000 | 0.950 / 0.811 / 0.738 |
+| 8 | 500 | 238 ± 11 | 494 ± 2 | 500 | 0.948 / 0.625 / 0.308 |
+| 8 | 1000 | 313 ± 8 | 977 ± 2 | 1000 | 0.948 / 0.681 / 0.408 |
+| 8 | 2000 | 618 ± 318 | 1609 (n=1) | pending | 0.948 / 0.697 / — |
+
+What the figure shows, top row: the unpenalised hyper network recruits along the demand ladder at
+every N — from the plain task's level at k=2 (+21%) to the whole network at k=8 for N ≤ 1000 and 80%
+at N=2000 — while the plain task's count is nearly flat in k (k^0.16) and the penalised network is
+at N everywhere. Bottom row: hyper r² depends on k only (the three columns are the same curve),
+the penalty is below `none` at every cell and the gap grows with k (0.01 → 0.03–0.05 → 0.07–0.14
+→ 0.27–0.34), and N does not close it. The plain k=8 N=2000 reference carries one aberrant seed
+(618 ± 318); the other two seeds sit near 400.
+Pending: k=8 N=2000 seeds 2–3 (`none`) and all three `both` (Spock, 2026-09-14 evening → 09-15 morning).
