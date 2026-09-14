@@ -20,6 +20,7 @@ COL = {"hyper none": "#2a78d6", "hyper both": "#eb6834", "plain none": "#7a7a72"
 LS = {"hyper none": "-", "hyper both": "-", "plain none": "--"}   # the grey reference is also dashed, so identity is never colour alone
 LABEL = {"hyper none": "hyper, no penalty", "hyper both": "hyper, frm + rws", "plain none": "plain flip-flop, no penalty"}
 NS = (500, 1000, 2000)
+WALSH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "walsh_points.txt")
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "img", "internal_figures", "hyper_readout_150k.png")
 
 
@@ -60,6 +61,18 @@ def main(path):
         axes[1, j].set_xlabel("k (bits); hyper read-out has 2^k − 1 channels")
         for ax in axes[:, j]:
             ax.set_xticks((2, 4, 6, 8)); ax.grid(alpha=0.25, lw=0.5); ax.spines[["top", "right"]].set_visible(False)
+    # Walsh one-output networks (k N pen iters live r2), same colours, star marker, annotated with their budget
+    if os.path.exists(WALSH):
+        for line in open(WALSH):
+            if line.startswith("#") or not line.strip():
+                continue
+            k, N, pen, it, live, r2 = line.split()
+            j = NS.index(int(N)); c = COL[f"hyper {pen}"]
+            for row, val in ((0, float(live)), (1, float(r2))):
+                axes[row, j].scatter([int(k) + 0.3], [val], marker="*", s=140, color=c, edgecolor="black", lw=0.6, zorder=4)
+                axes[row, j].annotate(f"Walsh {int(it)//1000}k", (int(k) + 0.3, val), textcoords="offset points",
+                                      xytext=(7, -4 if row == 0 else 4), fontsize=7.5, color="#333")
+        axes[1, 0].scatter([], [], marker="*", s=100, color="#555", edgecolor="black", lw=0.6, label="Walsh task (1 output), same arm colours")
     axes[0, 0].set_ylabel("live units at 150k (scale-free)")
     axes[1, 0].set_ylabel("validation r²")
     axes[1, 0].legend(loc="lower left", fontsize=9, frameon=False)
