@@ -10284,3 +10284,5 @@ the penalty is below `none` at every cell and the gap grows with k (0.01 → 0.0
 → 0.27–0.34), and N does not close it. The plain k=8 N=2000 reference carries one aberrant seed
 (618 ± 318); the other two seeds sit near 400.
 Pending: k=8 N=2000 seeds 2–3 (`none`) and all three `both` (Spock, 2026-09-14 evening → 09-15 morning).
+
+10:48 — `fig_hyper_readout.py` now plots every seed (jittered in k) with the mean as the line, from `flipflop_hyper_readout.py --seeds` (`data/hyper_readout_150k_seeds.txt`); the sd error bars were invisible at this scale (2–30 units). Seed spread: ≤ 30 units in every hyper cell; the plain k=8 N=2000 reference has one seed at 1070 against two near 390.

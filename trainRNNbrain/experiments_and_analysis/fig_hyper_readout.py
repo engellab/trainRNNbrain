@@ -1,12 +1,12 @@
 """Hyper flip-flop grid at 150k: live units and r^2 vs k, none vs both, one panel per N.
 
-Reads the table printed by flipflop_hyper_readout.py (saved as data/hyper_readout_150k.txt; the
-traces live on Spock) and draws two rows x three columns: live units (scale-free criterion) and
-validation r^2 against k, for N = 500 / 1000 / 2000, with the plain flip-flop (unpenalised, same
-k, N and iteration) as the grey reference. Error bars are the sd over seeds; a point with fewer
-than 3 seeds carries its n.
+Reads the per-net table printed by `flipflop_hyper_readout.py --seeds` (saved as
+data/hyper_readout_150k_seeds.txt; the traces live on Spock) and draws two rows x three columns:
+live units (scale-free criterion) and validation r^2 against k, for N = 500 / 1000 / 2000, with the
+plain flip-flop (unpenalised, same k, N and iteration) as the grey reference. Every seed is a small
+marker (jittered in k); the line joins the per-cell means.
 
-Usage: python fig_hyper_readout.py [data/hyper_readout_150k.txt]
+Usage: python fig_hyper_readout.py [data/hyper_readout_150k_seeds.txt]
 """
 import os
 import sys
@@ -24,13 +24,13 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "img"
 
 
 def load(path):
-    """Parse the read-out table into {(task, pen, k, N): (n, live_mean, live_sd, r2)}."""
+    """Parse the per-net table into {(task, pen, k, N): list of (live_sf, r2)}."""
     rows = {}
     for line in open(path):
-        m = re.match(r"(hyper|plain)\s+(none|both)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+) ± (\d+)\s+\d+ ± \d+\s+([\d.na-]+)", line)
+        m = re.match(r"(hyper|plain)\s+(none|both)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([\d.-]+)", line)
         if m:
-            task, pen, k, N, n, mu, sd, r2 = m.groups()
-            rows[(task, pen, int(k), int(N))] = (int(n), float(mu), float(sd), float(r2))
+            task, pen, k, N, sf, ab, r2 = m.groups()
+            rows.setdefault((task, pen, int(k), int(N)), []).append((int(sf), float(r2)))
     return rows
 
 
@@ -44,18 +44,14 @@ def main(path):
             ks = sorted(k for (t, p, k, n) in rows if t == task and p == pen and n == N and k in (2, 4, 6, 8))
             if not ks:
                 continue
-            vals = np.array([rows[(task, pen, k, N)] for k in ks])
-            for row, col in ((0, 1), (1, 3)):
+            for row, col in ((0, 0), (1, 1)):
                 ax = axes[row, j]
-                if row == 0:
-                    ax.errorbar(ks, vals[:, 1], yerr=vals[:, 2], color=COL[series], marker="o", ms=5, lw=2,
-                                ls=LS[series], capsize=3, label=LABEL[series])
-                else:
-                    ax.plot(ks, vals[:, 3], color=COL[series], marker="o", ms=5, lw=2, ls=LS[series], label=LABEL[series])
-                for k, v in zip(ks, vals):
-                    if v[0] < 3:
-                        ax.annotate(f"n={int(v[0])}", (k, v[1] if row == 0 else v[3]), textcoords="offset points",
-                                    xytext=(6, -10), fontsize=8, color="#555")
+                means = [np.mean([v[col] for v in rows[(task, pen, k, N)]]) for k in ks]
+                ax.plot(ks, means, color=COL[series], lw=2, ls=LS[series], label=LABEL[series], zorder=2)
+                for k in ks:
+                    seeds = [v[col] for v in rows[(task, pen, k, N)]]
+                    jit = np.linspace(-0.12, 0.12, len(seeds)) if len(seeds) > 1 else np.zeros(1)
+                    ax.scatter(k + jit, seeds, s=22, color=COL[series], edgecolor="white", lw=0.6, zorder=3)
         axes[0, j].axhline(N, color="#7a7a72", lw=0.8, ls=":")
         axes[0, j].text(8.1, N, f"N = {N}", va="bottom", ha="right", fontsize=8, color="#555")
         axes[0, j].set_title(f"N = {N}", fontsize=11)
@@ -67,7 +63,7 @@ def main(path):
     axes[0, 0].set_ylabel("live units at 150k (scale-free)")
     axes[1, 0].set_ylabel("validation r²")
     axes[1, 0].legend(loc="lower left", fontsize=9, frameon=False)
-    fig.suptitle("Hyper flip-flop grid, 150k iterations, mean ± sd over seeds: recruitment and performance vs task demand", fontsize=11)
+    fig.suptitle("Hyper flip-flop grid, 150k iterations, every seed a point, line = mean: recruitment and performance vs task demand", fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     fig.savefig(OUT, dpi=120)
@@ -75,4 +71,4 @@ def main(path):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "data/hyper_readout_150k.txt")
+    main(sys.argv[1] if len(sys.argv) > 1 else "data/hyper_readout_150k_seeds.txt")
