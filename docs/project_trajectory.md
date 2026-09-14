@@ -10288,3 +10288,25 @@ Pending: k=8 N=2000 seeds 2–3 (`none`) and all three `both` (Spock, 2026-09-14
 10:48 — `fig_hyper_readout.py` now plots every seed (jittered in k) with the mean as the line, from `flipflop_hyper_readout.py --seeds` (`data/hyper_readout_150k_seeds.txt`); the sd error bars were invisible at this scale (2–30 units). Seed spread: ≤ 30 units in every hyper cell; the plain k=8 N=2000 reference has one seed at 1070 against two near 390.
 
 10:50 — Walsh k=6 N=1000 networks (100k) added to `hyper_readout_150k.png` as stars on the N=1000 panels (`data/walsh_points.txt`: none 781 live / r² 0.880; both 992 / 0.846; trace live count at the last snapshot, same criterion as the hyper table). Read against the hyper k=6 N=1000 cells (none 715 ± 13 / 0.807; both 1000 / 0.712): with ONE output instead of 63 the unpenalised network recruits the same ~75% of itself, and both arms score higher because the one-channel target has no fast-switching high-order channels — the k-set r² floor of the hyper task was the temporal demand, as suspected. The k=8 pair slots in when it finishes.
+
+### Is hyper k=8 N=500 `none` still improving at 150k? No — plateaued — 2026-09-14 10:52
+
+Noise-free clean loss (mean over seeds) at 30k / 60k / 90k / 120k / 149k, and the relative slope per
+10k over 90–120k then 120–150k:
+
+| cell | @30k | @60k | @90k | @120k | @149k | slope 90–120k | slope 120–150k |
+|---|---|---|---|---|---|---|---|
+| k=8 N=500 none | 0.211 | 0.187 | 0.166 | 0.161 | 0.163 | −0.96 %/10k | **+0.40 %/10k** |
+| k=8 N=1000 none | 0.205 | 0.163 | 0.145 | 0.138 | 0.140 | −1.71 | **+0.53** |
+| k=8 N=2000 none (1 seed) | 0.177 | 0.145 | 0.136 | 0.133 | 0.127 | −0.80 | −1.70 |
+| k=8 N=500 both | 0.315 | 0.291 | 0.283 | 0.280 | 0.277 | −0.39 | −0.38 |
+| k=8 N=1000 both | 0.267 | 0.234 | 0.225 | 0.220 | 0.218 | −0.74 | −0.27 |
+| k=6 N=500 none | 0.111 | 0.100 | 0.093 | 0.091 | 0.093 | −0.61 | +0.61 |
+
+At N=500 and N=1000 the unpenalised k=8 loss stopped falling between 120k and 150k (slightly UP),
+after −1 to −1.7 %/10k in the previous window: r² ≈ 0.62–0.68 is a plateau at this budget, not a
+slow descent. Same at k=6 N=500. Only N=2000 (one seed, and the slowest cell) is still descending.
+The penalised arms are still creeping down at −0.3 to −0.4 %/10k, i.e. they converge more slowly
+here, but from far below. Whether the plateau is the true floor or a long plateau before another
+descent is what the Della 500k cells (k=4 N=500/1000 landing tonight, k=6 N=500 on 09-16) will say;
+at k=2 and k=4 r² did not move between 150k and 440k.
