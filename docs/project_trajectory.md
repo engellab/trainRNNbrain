@@ -10389,3 +10389,71 @@ r² already 0.56 at 600 iterations, so the task is learnable at this horizon. Fu
 commit 800ee30: array **6201205** (tasks 1–24, N=500/1000, 24 h) and **6201206** (tasks 25–36,
 N=2000, 48 h); all 36 started at once (17 idle A100 nodes). Expected done: N≤1000 by ~07:00 on
 2026-09-15, N=2000 by ~16:00.
+
+## ▶ FIGURE + READ-OUT: DMTS 16-tau delay, N=500/1000 cells at 150k (24 nets; N=2000 lands tonight) — 2026-09-15 09:03
+
+`dmts_readout.py data/trained_RNNs [--seeds] [--dump]` (run on Spock) and `fig_dmts_pen_curves.py`
+(from the dumped `data/dmts_curves_150k.npz`) → `img/internal_figures/dmts_pen_curves.png`.
+
+![DMTS penalty arms: clean loss and live units vs iteration](../img/internal_figures/dmts_pen_curves.png)
+
+Clean r² = 1 − L/0.0788 (target variance over the scored steps); r² = 0.9 ↔ L = 0.0079. Live
+units at the last snapshot ≤ 150k under three criteria (scale-free / absolute 1e-6 / Otsu on the
+pooled log participation of all 24 nets, threshold 0.011). Times are iterations, three seeds each,
+sorted. `unstable` = fraction of probes after 75k at which the clean loss is above the r² = 0.9 level.
+
+| N | pen | live sf / 1e-6 / Otsu | L at 150k | r² (noisy) | t(r² ≥ 0.9) | t90 (own floor) | t(match none's floor) | unstable |
+|---|---|---|---|---|---|---|---|---|
+| 500 | none | 249 ± 22 / 388 ± 5 / 350 ± 7 | 3.1e-4 | 0.999 | 2300 / 3180 / 3750 | 3580 / 3810 / 6590 | 2720 / 3600 / 4070 | 0.8% |
+| 500 | rws | 184 ± 27 / 337 ± 42 / 263 ± 32 | 3.9e-4 | 0.999 | 6120 / 6430 / 8050 | 6300 / 6740 / 11540 | 6950 / 7490 / 8900 | 2.0% |
+| 500 | frm | 500 / 500 / 500 | 2.3e-4 | 0.992 | **420 / 970 / 1210** | 2260 / 3360 / 10590 | 2690 / 3120 / 3660 | 3.3% |
+| 500 | both | 500 / 500 / 500 | 3.7e-3 (one seed mid-episode) | 0.948 | **460 / 550 / 630** | 520 / 11550 / 23770 | 6780 / 7170 / 7210 | 4.4% |
+| 1000 | none | 424 ± 39 / 655 ± 86 / 502 ± 43 | 1.5e-4 | 0.999 | 1810 / 2300 / 4730 | 2570 / 3880 / 9660 | 2950 / 4210 / 4980 | 1.6% |
+| 1000 | rws | 329 ± 22 / 636 ± 43 / 493 ± 18 | 5.2e-4 | 0.999 | 6870 / 7980 / 8000 | 7650 / 8150 / 8270 | 13130 / 13530 / 13890 | 2.0% |
+| 1000 | frm | 1000 / 1000 / 1000 | 3.4e-4 | 0.994 | **760 / 1520 / 2640** | 3340 / 4060 / 8440 | 8380 / 9610 / 10430 | 2.2% |
+| 1000 | both | 1000 / 1000 / 1000 | 5.2e-5 | 0.995 | **1110 / 1550 / 2360** | 26680 / 26740 / 29300 | 13970 / 14410 / 14480 | 0.2% |
+
+**1. The rate penalty gets the network off the no-memory plateau earlier; the sparsity penalty
+delays it.** Every network starts on a plateau at L ≈ 0.033 (r² ≈ 0.58: it reads the decision cue
+but carries nothing across the delay). Time to leave it (clean r² ≥ 0.9): frm 0.4–1.2k and both
+0.5–0.6k against none 2.3–3.8k at N=500 — a 3× lead, every frm/both seed ahead of every `none`
+seed. At N=1000 the lead is 2× in the mean (frm 0.8–2.6k, both 1.1–2.4k vs none 1.8–4.7k) but the
+seeds overlap (frm's slowest 2640 > none's fastest 1810). rws alone is last everywhere (6–8k). From
+the raw logs, the same holds at N=2000 at 60k: frm 2.1–2.9k, both 4.7–6.2k, none 2.0k / 11k / 30k,
+rws 9.7–13.9k — two `none` seeds sat on the plateau for 11k and 30k iterations before escaping.
+So: the effect is on the ESCAPE, it is the rate term, and it grows with N.
+
+**2. By the pre-registered criterion the claim "the penalty speeds training" is NOT supported.**
+t90 (first probe within 10% of the arm's own 150k loss) is not consistently smaller for frm or
+both: at N=500 frm 2.3k / 3.4k / 10.6k vs none 3.6k / 3.8k / 6.6k; at N=1000 both takes 27–29k
+against none's 2.6–9.7k. The penalised arms leave the plateau early and then descend to their
+floor SLOWLY (the s-shaped orange/yellow curves in the figure), while `none` drops from the plateau
+to near its floor within ~1k iterations once it escapes. Which one is "faster" depends on where the
+bar is set: at r² = 0.9 the penalty wins by 2–3×; at the floor it does not. The matched-loss time
+(reaching `none`'s 150k loss) is 2.7–3.7k for frm at N=500 (same as none itself) but 8–10k at
+N=1000, and 7k / 14k for both. Recorded as the honest answer to Pavel's question: the penalty
+makes the memory APPEAR earlier, it does not make the network CONVERGE earlier.
+
+**3. Unlike CDDM and the flip-flop, the penalty costs no clean loss here.** Floors at 150k are
+1–5e-4 for every arm, and `both` at N=1000 has the lowest of all (5e-5). The noisy r² (0.992–0.995
+vs 0.999) is the only place the penalised nets lag: they are less robust to the sigma 0.05 noise,
+not worse noise-free. Interpretation, not measured: with every unit driven to cap_fr the noise
+enters through more units.
+
+**4. Every arm keeps losing the memory in brief episodes.** After 75k, 0.2–4.4% of probes find
+the clean loss back at the plateau level (the vertical streaks in the figure). No consistent
+ordering: both is worst at N=500 (4.4%, and one seed finished INSIDE an episode, r² 0.858 as the
+last net) and best at N=1000 (0.2%). One `none` seed at N=1000 blew up to L = 1e7 at ~3.5k and was
+rolled back by the trainer. The 150k "last network" is therefore a lottery ticket on this task;
+the best-checkpoint network or an averaged late loss is the right thing to report.
+
+**5. Recruitment: DMTS keeps far more units live than CDDM at the same N, and the count is still
+falling at 150k.** Unpenalised: 388 / 655 live at N=500 / 1000 under the 1e-6 criterion (CDDM:
+215 / 290, i.e. 57% / 71% silent) — 1.8–2.3× more. rws alone silences MORE (337 / 636 by 1e-6;
+184 / 329 scale-free vs none's 249 / 424). The bottom panels show the live count declining from
+~10k on with no plateau, the "silencing never stops" pattern of the other tasks; the numbers above
+are a 150k snapshot, not a converged count. The three criteria disagree by up to 1.6× (249 vs 388
+at N=500 none) — the participation distribution is not cleanly bimodal on this task.
+
+Open until tonight: the N=2000 cells (12 jobs, ~68k/150k at 09:00, done ~00:00), which carry the
+strongest version of point 1.
