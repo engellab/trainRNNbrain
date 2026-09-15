@@ -10720,7 +10720,7 @@ job **6206472** (launcher tasks 7 and 25, `SAVE_TO=…/pilot10k` so the nets sta
 cells), ~1 h each once running. Read-out on completion: `multitask_readout.py` (live units on
 CDDM trials under three criteria, per-rule accuracy, shared/private split) and `yang_checks.py`.
 
-## ▶ PILOT: CDDM alone vs 20 tasks, N=1000, 10k iterations, unpenalised (job 6206472) — 2026-09-15 17:52
+## ▶ PILOT: CDDM alone vs 20 tasks, N=1000, 10k iterations, unpenalised (job 6206472) — 2026-09-15 17:48
 
 Both networks solve everything: accuracy 1.00 on both context rules in the CDDM-pair net; 0.97–1.00
 on all 20 rules in the multi-task net (dnmc 0.97, dmc 0.98); `yang_checks.py` passes on both
