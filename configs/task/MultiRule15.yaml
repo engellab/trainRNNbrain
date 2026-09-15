@@ -1,0 +1,46 @@
+# @package task
+# Fifteen of the repo's tasks in one network (tasks/TaskMultiRule.py), Yang-style: the first 15
+# input rows are a one-hot rule held on for the whole trial, the remaining rows carry the subtask's
+# own inputs (zero-padded to the widest subtask, CDDM's and Walsh's 6), outputs are zero-padded to
+# the widest (NBitFlipFlopHyper's 7). Every subtask keeps the timing, channels and scoring window of its
+# own config; trials shorter than T are padded with zeros and the padding is scored against 0.
+#
+# Purpose (2026-09-15): read the recruitment of ONE task (CDDM, the task the data were recorded on)
+# inside a network that also serves fourteen others - the honest model of why a cortical circuit is
+# busy - against the single-task CDDM references at the same N.
+#
+# n_inputs = 15 rules + 6 = 21, n_outputs = 7 (the class asserts both). AngleAddition (the
+# ReferenceFrame task) is NOT in the set: as configured its target lies inside its unscored
+# stimulus window, so its scored target is identically zero (checked 2026-09-15). Batch = 15 x 68 = 1020
+# trials, the same size as the flip-flop and DMTS grids. dt must equal model.dt (1).
+taskname: "MultiRule"
+_target_: trainRNNbrain.tasks.TaskMultiRule.TaskMultiRule
+T: 300
+seed: null
+dt: 1
+n_inputs: 21
+n_outputs: 7
+n_per_task: 68
+subtask_names:
+  - CDDM
+  - NBitFlipFlop
+  - NBitFlipFlopHyper
+  - NBitFlipFlopWalsh
+  - DMTS
+  - DMTS_long
+  - MemoryNumber
+  - MemoryAntiAngle
+  - MemoryDM
+  - DelayDM
+  - GoNoGo
+  - XOR
+  - HalfAdder
+  - SquareNumber
+  - AngleIntegration
+# Global mask: the whole trial. The Trainer replaces it with the per-trial mask the task returns
+# with every batch (Trainer.run_training / TaskMultiRule.batch_mask).
+mask_params:
+  - (0, ${..T})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "subtask_names", "n_per_task", "dt"]

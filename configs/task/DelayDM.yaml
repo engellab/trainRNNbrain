@@ -1,0 +1,22 @@
+# @package task
+# Delayed decision: a stimulus on one of two channels (or none, the catch trial), a silent delay,
+# then a go cue on channel 2 and the matching output channel goes to 1. Config written 2026-09-15
+# for the MultiRule15 set from the class defaults' spirit (TaskDelayDM had no config).
+taskname: "DelayDM"
+_target_: trainRNNbrain.tasks.TaskDelayDM.TaskDelayDM
+T: 150
+seed: null
+T_stim_on: 10
+T_stim_off: 40
+T_dec_on: 100
+T_dec_off: ${.T}
+directions: [0, 1, -1]
+n_inputs: 3
+n_outputs: 2
+mask_params:
+  - (0, ${..T_dec_on})
+  - (110, ${..T_dec_off})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "stim_on", "stim_off", "dec_on", "dec_off",
+              "directions"]

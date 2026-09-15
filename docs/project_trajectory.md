@@ -10530,3 +10530,56 @@ positive result gets 3 seeds before it is quoted. Smoke-tested locally (N=100, 1
 saved config carries dropout: true / dead / participation / 0.05).
 
 10:01 — submitted as array **6201944** at commit 1674662; all 8 running at once. ~0.4 s/iter → done ~03:00 on 09-16.
+
+## ▶ PREPARED (not submitted): fifteen tasks in one network — does CDDM recruit more units when the network also serves 14 others? — 2026-09-15 11:30
+
+**Pavel's question**, from the framing discussion (the subsampling goal needs a large REDUNDANT
+population on the task the data were recorded on, and a cortical circuit is never doing only one
+task): train the same network on 15 tasks and read the recruitment on CDDM alone. Prediction: it
+rises, for two reasons that must be kept apart — units other tasks need still respond during CDDM
+trials whenever they share inputs (realistic nuisance activity), and CDDM's own computation may or
+may not become more redundant. The read-out splits the two.
+
+**Built and tested (this commit):**
+- `tasks/TaskMultiRule.py`: Yang-style composite. Input = [one-hot rule, on for the whole trial |
+  the subtask's inputs zero-padded to the widest]; output zero-padded to the widest; shorter
+  trials zero-padded to T and the padding scored against 0. Every subtask is built from its own
+  `configs/task/<name>.yaml` through prepare_task_arguments / get_training_mask, so CDDM inside the
+  composite has exactly the single-task timing, channels and scoring window. Subtask batch sizes are
+  capped at the 68 trials drawn (the Walsh expansion alone was 115 ms per batch); composite batch
+  1020 trials in ~70 ms. `task_batch(i)` gives one subtask's full batch for per-task read-outs.
+- `configs/task/MultiRule15.yaml`: CDDM, NBitFlipFlop, NBitFlipFlopHyper (k=3), NBitFlipFlopWalsh,
+  DMTS, DMTS_long, MemoryNumber, MemoryAntiAngle, MemoryDM, DelayDM, GoNoGo, XOR, HalfAdder,
+  SquareNumber, AngleIntegration; n_inputs 21, n_outputs 7. New configs: DelayDM, MemoryDM,
+  SquareNumber; AngleIntegration.yaml fixed (task_params, list amp_range).
+  **AngleAddition is excluded**: it is the ReferenceFrame task and, as configured, its target lies
+  inside its unscored stimulus window — the scored target is identically zero (r² = −6·10⁸ in the
+  read-out). Pre-existing; anything trained on that config learned nothing.
+- **Trainer: per-trial scoring masks.** A batch mixing tasks of different length needs a (T, B)
+  mask, not one time index. `scored_(x, mask)` selects the scored entries for either form;
+  task_penalty, r2_score, the clean-loss probe and eval_step use it; `run_training` takes the mask
+  from `Task.batch_mask(conditions)` when the task provides one. **Regression: the single-task path
+  is unchanged bit for bit** (seeded 15-iteration flip-flop run, losses identical to the pre-patch
+  run: 1.028713, 1.019451, 1.0109345, 1.0005492 … 0.9136622), and the (T, B) form gives the same
+  loss and r² as the index form on random data.
+- Two pre-existing task bugs fixed on the way: `TaskSquareNumber.get_batch` never appended its
+  conditions (returned an empty list); `TaskDMTS` put the decision cue on channel 2 regardless of
+  n_inputs, so DMTS_long (4 stimuli + cue) had the cue sharing a line with stimulus 2. The running
+  DMTS grids are still valid DMTS (the cue is time-locked at 24 tau, unambiguous, and r² reached
+  0.999), but they carry that wart; the cue is now on the last channel. Not re-run.
+- `experiments_and_analysis/multirule_readout.py` (pre-registered read-out, tested on a 15-iteration
+  N=100 smoke net): per subtask, noise-free full single-task batch with the rule on → participation
+  → live units under scale-free / 1e-6 / 4e-2, and r² on the task's own window; the mixed batch
+  (live_all); and the CDDM-active set split into shared-with-another-task vs CDDM-private.
+- `slurm/SilentReLU_multirule_spock.slurm`: 18 jobs = N ∈ {500, 1000, 2000} × {none, both} × 3
+  seeds, 150k iterations, fresh batches; output `MultiRule_std_multi/EqType=h_N=<N>_pen=<name>/`.
+
+**Pre-registered read-out at 150k**, against the single-task CDDM references at the same N and
+iteration (CDDM_std_g0_drift for none, CDDM_std_g0_penalties for both, local traces):
+"multi-task raises recruitment on CDDM" := live_CDDM(multi) > single-task mean + 3 sd in every
+seed under BOTH the scale-free and an absolute criterion. Then the split: if the extra units are
+shared with other tasks, it is nuisance activity from shared inputs; if CDDM-private units rise,
+CDDM's own code became more redundant. Per-task r² flags any subtask the network failed to learn
+(a failed subtask means the demand was not delivered and its units do not count).
+Caveat fixed now: 150k may be short for 15 tasks; the clean-loss trace decides, and a still-falling
+loss at 150k means a warm-started continuation before the read-out, not a read-out at 150k.

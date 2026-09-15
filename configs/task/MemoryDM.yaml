@@ -1,0 +1,22 @@
+# @package task
+# Memory decision: a jittered stimulus on one of two channels (or none), a delay, then the matching
+# output goes to 1 after dec_on. Values are the class defaults (TaskMemoryDM had no config; written
+# 2026-09-15 for the MultiRule15 set).
+taskname: "MemoryDM"
+_target_: trainRNNbrain.tasks.TaskMemoryDM.TaskMemoryDM
+T: 157
+seed: null
+T_stim_on: 7
+T_stim_off: 37
+T_dec_on: 110
+T_dec_off: ${.T}
+T_random_window: 7
+n_inputs: 3
+n_outputs: 2
+mask_params:
+  - (0, ${..T_dec_on})
+  - (120, ${..T_dec_off})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "stim_on", "stim_off", "dec_on", "dec_off",
+              "random_window"]

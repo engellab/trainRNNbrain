@@ -29,7 +29,11 @@ class TaskDMTS(Task):
         input_stream = np.zeros([self.n_inputs, self.n_steps])
         input_stream[num_sample_channel, self.stim_on_sample + random_offset_1:self.stim_off_sample + random_offset_1] = 1.0
         input_stream[num_match_channel, self.stim_on_match + random_offset_2:self.stim_off_match + random_offset_2] = 1.0
-        input_stream[2, self.dec_on:self.dec_off] = 1.0 # to signify the decision period
+        # decision cue on the LAST channel. It was hard-wired to channel 2, which with n_inputs=3
+        # (the default) IS the last channel, but with more stimuli (DMTS_long: 4 + cue) it collided
+        # with stimulus 2 - the cue was still time-locked and unambiguous, so those runs stand,
+        # but the cue now has its own line (fixed 2026-09-15).
+        input_stream[self.n_inputs - 1, self.dec_on:self.dec_off] = 1.0
 
         condition = {"num_sample_channel" : num_sample_channel,
                      "num_match_channel" : num_match_channel,

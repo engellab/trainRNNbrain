@@ -1,0 +1,23 @@
+# @package task
+# Square a number: a value in (0, 1) on channel 0 (with a constant cue on channel 1) during the
+# stimulus window; after a delay the output must report its square from dec_on on. Config written
+# 2026-09-15 for the MultiRule15 set (TaskSquareNumber had none): 3 tau stimulus, 4 tau delay,
+# 7 tau report, scored before the report (output at 0) and after a 1 tau transition.
+taskname: "SquareNumber"
+_target_: trainRNNbrain.tasks.TaskSquareNumber.TaskSquareNumber
+T: 150
+seed: null
+T_stim_on: 10
+T_stim_off: 40
+T_dec_on: 80
+T_dec_off: ${.T}
+n_inputs: 2
+n_outputs: 1
+batch_size: 256
+mask_params:
+  - (0, ${..T_dec_on})
+  - (90, ${..T_dec_off})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "stim_on", "stim_off", "dec_on", "dec_off",
+              "batch_size"]

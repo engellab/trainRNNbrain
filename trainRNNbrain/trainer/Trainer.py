@@ -10,6 +10,19 @@ from trainRNNbrain.training.training_utils import multi_iqr_scale
 from dataclasses import dataclass
 from collections import defaultdict, deque
 
+def scored_(x, mask):
+    """The scored entries of a (channels, T, B) tensor, as (channels, n_scored).
+
+    `mask` is either the usual time index (1-d LongTensor / slice / ndarray: every trial scored at
+    the same steps) or a per-trial boolean (T, B) tensor (a batch mixing tasks of different length
+    and scoring window, see tasks/TaskMultiRule.py). Both reduce to the same mean over scored
+    entries, so every loss and r2 below is unchanged for the time-index case.
+    """
+    if torch.is_tensor(mask) and mask.dtype == torch.bool and mask.dim() == 2:
+        return x[:, mask]
+    return x[:, mask, :].reshape(x.shape[0], -1)
+
+
 @dataclass
 class Penalties:
     '''Collection of penalty methods for RNN training.'''
@@ -18,7 +31,7 @@ class Penalties:
         self.UpV = 100 # N units per unit of volume, hard constant!
 
     def task_penalty(self, states, input, output, target, mask):
-        return ((output[:, mask, :] - target[:, mask, :]) ** 2).mean()
+        return ((scored_(output, mask) - scored_(target, mask)) ** 2).mean()
     
     def inp_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap100=0.5, gamma=5.0, eps=1e-12):
         dev, dt = states.device, states.dtype
@@ -640,8 +653,8 @@ class Trainer():
     
     @staticmethod
     def r2_score(output, target, mask):
-        y = output[:, mask, :]
-        t = target[:, mask, :]
+        y = scored_(output, mask)
+        t = scored_(target, mask)
         r2 = 1.0 - (y - t).pow(2).mean() / (t - t.mean()).pow(2).mean().clamp_min(1e-12)
         r2_val = float(r2.item())
         return r2_val
@@ -749,7 +762,7 @@ class Trainer():
         if target_batch is not None and mask is not None:
             with torch.no_grad():
                 met["loss_clean_train"].append(
-                    float(((out_clean[:, mask, :] - target_batch[:, mask, :]) ** 2).mean()))
+                    float(((scored_(out_clean, mask) - scored_(target_batch, mask)) ** 2).mean()))
                 if self.valid_batch is not None and iter % self.track_valid_every == 0:
                     vi, vt = self.valid_batch
                     _, vout = self.RNN(vi, w_noise=False, dropout=False, dropout_args=None)
@@ -993,10 +1006,16 @@ class Trainer():
         self.RNN.train()  # puts the RNN into training mode (sets update_grad = True)
         min_train_loss = np.inf
         best_net_params = deepcopy(self.RNN.get_params())
+        # A task that scores its trials differently (TaskMultiRule) supplies a per-trial (T, B) mask
+        # with every batch; otherwise the global time mask applies to every trial.
+        per_trial = hasattr(self.Task, "batch_mask")
+        mask_of = lambda conds: (torch.from_numpy(self.Task.batch_mask(conds)).to(self.RNN.device)
+                                 if per_trial else train_mask)
         if same_batch:
             input_batch, target_batch, conditions_batch = self.Task.get_batch(shuffle=shuffle)
             input_batch = torch.from_numpy(input_batch.astype("float32")).to(self.RNN.device)
             target_batch = torch.from_numpy(target_batch.astype("float32")).to(self.RNN.device)
+            batch_mask = mask_of(conditions_batch)
 
         tic = time.perf_counter()
         # torch.autograd.set_detect_anomaly(True)
@@ -1006,14 +1025,15 @@ class Trainer():
                 input_batch, target_batch, conditions_batch = self.Task.get_batch(shuffle=shuffle)
                 input_batch = torch.from_numpy(input_batch.astype("float32")).to(self.RNN.device)
                 target_batch = torch.from_numpy(target_batch.astype("float32")).to(self.RNN.device)
+                batch_mask = mask_of(conditions_batch)
 
             if self.track_participation and (iter % self.track_every == 0):
                 self.track_participation_(input_batch, iter,
-                                          target_batch=target_batch, mask=train_mask)
+                                          target_batch=target_batch, mask=batch_mask)
 
             train_loss, r2 = self.train_step(input=input_batch,
                                          target_output=target_batch,
-                                         mask=train_mask)
+                                         mask=batch_mask)
 
             toc = time.perf_counter()
             elapsed_t, eta = self.get_eta_(tic, toc, iter, self.max_iter)

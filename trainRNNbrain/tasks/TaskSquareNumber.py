@@ -43,6 +43,7 @@ class TaskSquareNumber(Task):
             input_stream, target_stream, condition = self.generate_input_target_stream(inp_val)
             inputs.append(deepcopy(input_stream))
             targets.append(deepcopy(target_stream))
+            conditions.append(condition)   # was never appended: get_batch returned an empty list (fixed 2026-09-15)
 
         # batch_size should be a last dimension
         inputs = np.stack(inputs, axis=2)

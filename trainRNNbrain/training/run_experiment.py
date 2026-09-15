@@ -220,9 +220,12 @@ def run_training(cfg: DictConfig) -> None:
         analyzer = PerformanceAnalyzer(RNN_valid)
 
         input_batch_valid, target_batch_valid, conditions_valid = task.get_batch()
+        # a task with per-trial scoring (TaskMultiRule) is evaluated with its own (T, B) mask
+        mask_eval = (torch.from_numpy(task.batch_mask(conditions_valid)) if hasattr(task, "batch_mask")
+                     else mask)
         torch_r2 = trainer.eval_step(torch.from_numpy(input_batch_valid),
                                      torch.from_numpy(target_batch_valid),
-                                     mask=mask, noise=True)
+                                     mask=mask_eval, noise=True)
         print(f"torch r2 score: {torch_r2}")
 
         # light_outputs: skip every numpy/CPU analysis step. At N=10000 those cost ~3 h of
