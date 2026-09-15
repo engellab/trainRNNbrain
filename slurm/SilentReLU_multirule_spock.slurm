@@ -30,8 +30,9 @@
 # Cost: batch 1020 x T=300 x 27 inputs is the flip-flop's per-iteration cost (0.24-0.26 s/iter at
 # N<=1000, 0.55 at N=2000) plus batch generation, ~0.075 s (subtask batches capped at the 68
 # trials drawn; AngleIntegration's per-trial Python loop is the remaining cost):
+#   Measured (calibration job 6202041, N=2000 none, 600 iterations): 0.81 s/iter -> 34 h at 150k.
 #   sbatch --array=1-12  slurm/SilentReLU_multirule_spock.slurm                    # 24 h
-#   sbatch --array=13-18 --time=48:00:00 slurm/SilentReLU_multirule_spock.slurm    # N=2000
+#   sbatch --array=13-18 --time=48:00:00 slurm/SilentReLU_multirule_spock.slurm    # N=2000, 48 h
 # Timing calibration: ITERS_OVERRIDE=600 sbatch --array=13 ...
 #
 # Output: $SAVE_TO/MultiRule_std_multi/EqType=h_N=<N>_pen=<name>/<per-net subfolder>

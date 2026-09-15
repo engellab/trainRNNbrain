@@ -10583,3 +10583,7 @@ CDDM's own code became more redundant. Per-task r² flags any subtask the networ
 (a failed subtask means the demand was not delivered and its units do not count).
 Caveat fixed now: 150k may be short for 15 tasks; the clean-loss trace decides, and a still-falling
 loss at 150k means a warm-started continuation before the read-out, not a read-out at 150k.
+
+11:52 — Calibration on Spock (job 6202041, N=2000 `none`, 600 iterations, commit 51237d6): 0.81 s/iter
+→ 34 h for 150k (fits the 48 h request); r² 0.49 on the mixed batch after 600 iterations, pipeline
+clean on the GPU. Calibration net removed from the cell. **Grid not submitted — awaiting Pavel.**
