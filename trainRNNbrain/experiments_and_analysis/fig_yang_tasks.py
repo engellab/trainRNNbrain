@@ -1,9 +1,15 @@
-"""One figure per Yang rule: three example trials, every input and output channel, with a description.
+"""Two figures per Yang rule: three example trials as channel-by-time images, and the same trials as
+polar ring snapshots, each with a description of the task.
 
-For each of the 20 rules: three trials side by side; top row the 85 input channels as an image
-(fixation, modality-1 ring, modality-2 ring, rule vector), bottom row the 33 output targets
-(fixation, response ring). The go signal is marked in red, the unscored grace period shaded.
-Output: img/internal_figures/yang_tasks/<rule>.png (20 files) and an index of the descriptions.
+<rule>.png       three trials side by side; top row the 85 input channels as an image (fixation,
+                 modality-1 ring, modality-2 ring, rule vector), bottom row the 33 output targets
+                 (fixation, response ring). Go signal in red, unscored grace shaded.
+<rule>_rings.png the same three trials as rings: for each trial, ring 1 input, ring 2 input and
+                 the response-ring target drawn as a circle with a bar at every unit's preferred
+                 direction (length = activation), at three moments - mid-stimulus, just before
+                 the go signal, and mid-response. Reads the two-bump DM stimuli and the response
+                 bump directly.
+Output: img/internal_figures/yang_tasks/ (40 files) and an index of the descriptions.
 
 Usage: python fig_yang_tasks.py
 """
@@ -50,8 +56,38 @@ DESC = {
 }
 
 
+def rings(task, rule, X, Y, C, path):
+    """Polar snapshots of three trials: rings 1, 2 and the response target at three moments.
+
+    Args:
+        task: the TaskYang instance (ring geometry); rule: rule name; X, Y, C: a 3-trial batch;
+        path: output file.
+    """
+    R = task.n_ring
+    fig, axes = plt.subplots(3, 9, figsize=(20, 7.5), subplot_kw={"projection": "polar"})
+    for b in range(3):
+        c = C[b]["sub"]
+        t_stim = (c["t_fix"] + c["t_go"]) // 2 if c["t_go"] > c["t_fix"] else c["t_go"] + 5
+        moments = [("mid-stimulus", t_stim), ("just before go", max(c["t_go"] - 2, 0)),
+                   ("mid-response", (c["t_go"] + c["t_end"]) // 2)]
+        for m, (label, tt) in enumerate(moments):
+            for k, (name, vec, vmax) in enumerate([("ring 1 input", X[task.i_mod1, tt, b], 1.6),
+                                                   ("ring 2 input", X[task.i_mod2, tt, b], 1.6),
+                                                   ("response target", Y[1:, tt, b], 0.9)]):
+                ax = axes[b, 3 * m + k]
+                ax.bar(task.pref, vec, width=2 * np.pi / R * 0.8, bottom=0, color=["C0", "C1", "C3"][k], alpha=0.8)
+                ax.set_ylim(0, vmax)
+                ax.set_yticks([]); ax.set_xticks(np.linspace(0, 2 * np.pi, 8, endpoint=False))
+                ax.set_xticklabels([f"{int(np.degrees(a))}" for a in np.linspace(0, 2 * np.pi, 8, endpoint=False)], fontsize=6)
+                ax.set_title(f"trial {b + 1}, {label} (t={tt})\n{name}" if k == 0 else name, fontsize=7)
+    fig.suptitle(f"{rule} - ring view. " + textwrap.fill(DESC[rule], 160), fontsize=9)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.savefig(path, dpi=100)
+    plt.close(fig)
+
+
 def main():
-    """Draw and save the 20 figures."""
+    """Draw and save the 40 figures."""
     out = os.path.join(IMG_DIR, "yang_tasks")
     os.makedirs(out, exist_ok=True)
     task = TaskYang(n_steps=300, n_inputs=85, n_outputs=33, rules=RULES, batch_size=1024, seed=1)
@@ -85,9 +121,10 @@ def main():
         fig.tight_layout(rect=(0, 0.02, 1, 0.94))
         fig.savefig(os.path.join(out, f"{rule}.png"), dpi=110)
         plt.close(fig)
+        rings(task, rule, X, Y, C, os.path.join(out, f"{rule}_rings.png"))
     with open(os.path.join(out, "README.md"), "w") as fh:
         fh.write("# Yang task family: example trials\n\n" + "\n".join(f"- **{r}** ([figure]({r}.png)): {DESC[r]}" for r in RULES) + "\n")
-    print("saved 20 figures to", os.path.abspath(out))
+    print("saved 40 figures to", os.path.abspath(out))
 
 
 if __name__ == "__main__":

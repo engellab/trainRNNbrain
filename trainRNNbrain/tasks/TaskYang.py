@@ -11,8 +11,10 @@ rule channels are always present, so a network trained on ONE rule has the same 
 one trained on all 20 (the single-task reference of the multi-task experiment).
 
 Timing: T = 300 steps with tau = 10 steps, as every other task here (Yang's 100 ms tau is 10 steps,
-so T is a 3 s trial). Epoch lengths are drawn PER TRIAL (the Trainer supports per-trial scoring masks), from
-ranges that keep every trial inside T; unused steps after a trial are zero input and unscored.
+so T is a 3 s trial). Fixation, stimulus and delay lengths are drawn PER TRIAL (the Trainer supports
+per-trial scoring masks); the response epoch then runs to the END of the trial, so every trial uses
+and scores all T steps (Pavel, 2026-09-15: no unused tail). The response therefore lasts 5-27 tau
+depending on the trial, and must be sustained.
 Targets: fixation output 0.85 while fixating, 0.05 in the response epoch of a trial that responds;
 response ring 0.05 baseline + 0.8 bump at the response direction, 0.05 elsewhere / before. The
 first `grace` steps of the response epoch are unscored, as in the paper. One deviation: the paper
@@ -83,7 +85,7 @@ class TaskYang(Task):
     def batch_of(self, rule, n, task_idx):
         """`n` trials of one rule, generated in one vectorised pass.
 
-        Every trial is fix -> (stim -> delay -> [test]) -> response, epoch lengths drawn per trial.
+        Every trial is fix -> (stim -> delay -> [test]) -> response-until-T, epoch lengths drawn per trial.
         Directions are uniform on the circle; DM stimuli are two directions >= pi/2 apart with
         strengths 1 +- c.
 
@@ -108,16 +110,16 @@ class TaskYang(Task):
             resp_dir = th1 if "go" in rule else th1 + np.pi
             if rule.startswith("react"):                       # go signal = stimulus onset
                 t_go = t_fix
-                t_end = t_go + 40
+                t_end = np.full(n, T)
                 on = win(t_go, t_end)
             elif rule.startswith("fd"):                        # stimulus on until the end
                 t_go = t_fix + rng.integers(30, 101, n)
-                t_end = t_go + 40
+                t_end = np.full(n, T)
                 on = win(t_fix, t_end)
             else:                                              # brief stimulus, delay, go
                 t_s = t_fix + rng.integers(30, 51, n)
                 t_go = t_s + rng.integers(30, 101, n)
-                t_end = t_go + 40
+                t_end = np.full(n, T)
                 on = win(t_fix, t_s)
             X[self.i_mod1] += self.bumps(th1)[:, None, :] * on[None]
             sub = dict(stim_dir=th1)
@@ -132,7 +134,7 @@ class TaskYang(Task):
             delayed = "delay" in rule
             t_s = t_fix + rng.integers(30, 101, n)
             t_go = t_s + (rng.integers(30, 101, n) if delayed else 0)
-            t_end = t_go + 40
+            t_end = np.full(n, T)
             on = win(t_fix, t_s if delayed else t_end)        # off at delay start, or never
             use1 = rule in ("dm1", "delaydm1", "contextdm1", "contextdelaydm1", "multidm", "multidelaydm")
             use2 = rule in ("dm2", "delaydm2", "contextdm2", "contextdelaydm2", "multidm", "multidelaydm")
@@ -147,7 +149,7 @@ class TaskYang(Task):
         else:                                                  # dms dnms dmc dnmc
             t_s = t_fix + rng.integers(30, 51, n)              # sample off
             t_go = t_s + rng.integers(30, 101, n)              # test on = go signal
-            t_end = t_go + 40
+            t_end = np.full(n, T)
             match = rng.random(n) < 0.5
             if rule in ("dms", "dnms"):
                 th2 = np.where(match, th1, th1 + rng.uniform(np.pi / 4, 7 * np.pi / 4, n))

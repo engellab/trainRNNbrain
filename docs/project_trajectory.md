@@ -10636,3 +10636,14 @@ and 33 output channels of 3 trials, go signal and grace marked, description in t
 `README.md` index of the descriptions there. Every rule re-checked after vectorisation: scored
 target variance 0.022–0.036, fixation input and response ring consistent with the trial's go time
 and respond flag in 200/200 trials per rule, match tasks respond on 47–54%.
+
+12:50 — Pavel's questions on the Yang port, and two changes. (1) Trials now use ALL 300 steps: the
+response epoch runs from the go signal to T (5–27 tau depending on the trial, must be sustained);
+everything is scored except the 1-tau grace, so the scored fraction is 0.967 instead of 0.52.
+(2) Ring view added: `<rule>_rings.png` draws ring 1, ring 2 and the response target as circles
+with a bar per unit (32 per ring, preferred directions evenly spaced) at three moments — mid-
+stimulus, just before go, mid-response — so the two-bump DM stimuli (strengths 1 ± c at two
+directions) and the response bump read directly. For the record: 85 inputs = 1 fixation + 32 +
+32 + 20 rules; 33 outputs = 1 fixation + 32; the smear is Yang's Gaussian population code (σ = π/8);
+two bumps in one ring are the two choice options of a DM trial. Re-checked all 20 rules after the
+change (fixation off and response bump consistent with each trial's go time and respond flag).
