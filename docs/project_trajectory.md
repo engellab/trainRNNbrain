@@ -10383,3 +10383,9 @@ pipeline runs end to end, trace / params / Adam state / config written, mask = 2
    loss). **Falsifier for "the penalty speeds training"**: supported only if t90(frm) < t90(none) AND
    t90(both) < t90(none) in every seed at every N. One seed or one N the other way → "no, or not
    reliably". A fast descent to a worse floor does not count as speed (hence the matched-loss time).
+
+20:35 — Calibration (600 iterations, N=2000 `none`, job 6201204): 0.456 s/iter → 19 h for 150k;
+r² already 0.56 at 600 iterations, so the task is learnable at this horizon. Full grid submitted at
+commit 800ee30: array **6201205** (tasks 1–24, N=500/1000, 24 h) and **6201206** (tasks 25–36,
+N=2000, 48 h); all 36 started at once (17 idle A100 nodes). Expected done: N≤1000 by ~07:00 on
+2026-09-15, N=2000 by ~16:00.
