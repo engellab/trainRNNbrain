@@ -3,12 +3,12 @@
 Reads the npz written by `dmts_readout.py --dump` (per network: probe iterations, clean training
 loss, silent_1em6 count) and draws, per N: top - clean loss (log-log) with the r2 = 0.9 level
 marked; bottom - live units (N minus the 1e-6 silent count) on a log iteration axis. Four arms
-in a fixed colour order (none, rws, frm, both), every seed as its own thin line: the rolling
-median over 21 probes (210 iterations, the read-out's smoothing) drawn solid, the raw probe faint
-behind it, so the brief memory-loss episodes (loss back at the plateau level) stay visible without
-hiding the trend. The loss axis is clipped at 0.3 - one seed's gradient blow-up to 1e7 (recovered
-by the trainer's rollback) would otherwise flatten everything. Output:
-img/internal_figures/dmts_pen_curves.png.
+in a fixed colour order (none, rws, frm, both), every seed as its own thin line, each the MEDIAN
+of the probes in 60 log-spaced iteration bins (common.logbin) - the same de-noising the loss fits
+use. The raw probes are not drawn: the brief memory-loss episodes (loss back at the plateau level)
+they contain are counted in the read-out's `unstable` column instead. The loss axis is clipped at
+0.3 - one seed's gradient blow-up to 1e7 (recovered by the trainer's rollback) would otherwise
+flatten everything. Output: img/internal_figures/dmts_pen_curves.png.
 
 Usage: python fig_dmts_pen_curves.py [data/dmts_curves_150k.npz]
 """
@@ -20,8 +20,7 @@ matplotlib.use("Agg")
 import numpy as np
 from matplotlib import pyplot as plt
 
-from trainRNNbrain.experiments_and_analysis.common import IMG_DIR
-from trainRNNbrain.experiments_and_analysis.dmts_readout import smooth
+from trainRNNbrain.experiments_and_analysis.common import IMG_DIR, logbin
 
 PENS = ["none", "rws", "frm", "both"]
 COLOR = {"none": "#2a78d6", "rws": "#eb6834", "frm": "#1baf7a", "both": "#eda100"}
@@ -45,11 +44,9 @@ def main(path):
                     continue
                 it, L, s = d[k + "_iters"], d[k + "_loss"], d[k + "_silent"]
                 it, L, s = it[it > 0], L[it > 0], s[it > 0]
-                ax_l.plot(it, L, color=COLOR[pen], lw=0.4, alpha=0.18)
-                ax_l.plot(it, smooth(L), color=COLOR[pen], lw=1.0, alpha=0.9,
+                ax_l.plot(*logbin(it, L, nbins=60), color=COLOR[pen], lw=1.1, alpha=0.9,
                           label=LABEL[pen] if first else None)
-                ax_u.plot(it, N - s, color=COLOR[pen], lw=0.4, alpha=0.18)
-                ax_u.plot(it, smooth(N - s), color=COLOR[pen], lw=1.0, alpha=0.9,
+                ax_u.plot(*logbin(it, N - s, nbins=60), color=COLOR[pen], lw=1.1, alpha=0.9,
                           label=LABEL[pen] if first else None)
                 first = False
         ax_l.axhline(0.1 * var, color="0.6", lw=0.8, ls="--")

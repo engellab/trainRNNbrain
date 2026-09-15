@@ -1,0 +1,31 @@
+# @package task
+# DMTS_long with the silent delay lengthened from 16 to 36 tau (T 300 -> 500, everything after the
+# sample shifted by 200 steps). Pavel's check (2026-09-15): the frm penalty got networks off the
+# no-memory plateau 2-3x earlier at 16 tau; at 36 tau the unpenalised network may not get off it
+# at all. Same 4 stimuli, 2 outputs, +-1 tau jitter and scoring as DMTS_long.yaml.
+#
+# Timing in steps at dt=1, tau=10:
+#   sample 20-40 (2 tau)  |  delay 40-400 (36 tau, no input)  |  match 400-420 (2 tau)  |
+#   decision cue + target 440-500 (6 tau)
+taskname: "DMTS"
+_target_: trainRNNbrain.tasks.TaskDMTS.TaskDMTS
+T: 500
+seed: null
+T_stim_on_sample: 20
+T_stim_off_sample: 40
+T_stim_on_match: 400
+T_stim_off_match: 420
+T_dec_on: 440
+T_dec_off: ${.T}
+T_random_window: 10
+n_inputs: 5
+n_outputs: 2
+mask_params:
+  - (0, ${..T_dec_on})
+  - (450, ${..T_dec_off})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "stim_on_sample", "stim_off_sample",
+              "stim_on_match", "stim_off_match",
+              "dec_on", "dec_off",
+              "random_window"]
