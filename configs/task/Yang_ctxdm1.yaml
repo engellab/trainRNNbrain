@@ -3,7 +3,7 @@
 # dependent decision in ring coding: both modalities show the same two directions with independent
 # evidence, respond on modality 1), in exactly the Yang20 input/output layout (all 20 rule channels
 # present, one of them ever on), so single- and multi-task networks differ in nothing but the tasks.
-# Batch 1000 trials, as Yang20.
+# Batch 1024 trials, as Yang20.
 taskname: "Yang"
 _target_: trainRNNbrain.tasks.TaskYang.TaskYang
 T: 300
@@ -11,7 +11,7 @@ seed: null
 n_inputs: 85
 n_outputs: 33
 n_eachring: 32
-n_per_task: 1000
+batch_size: 1024
 sigma_tuning: 0.39269908169872414    # pi/8
 coherences: [0.04, 0.08, 0.16, 0.32]
 grace: 10
@@ -20,4 +20,4 @@ mask_params:
   - (0, ${..T})
 task_params: ["n_steps",
               "n_inputs", "n_outputs",
-              "rules", "n_per_task", "n_eachring", "sigma_tuning", "coherences", "grace"]
+              "rules", "batch_size", "n_eachring", "sigma_tuning", "coherences", "grace"]

@@ -1,7 +1,7 @@
 # @package task
 # All 20 cognitive tasks of Yang et al. (2019) in one network (tasks/TaskYang.py). Shared space:
 # 1 fixation + two 32-unit stimulus rings + 20 rule channels = 85 inputs; 1 fixation + 32-unit
-# response ring = 33 outputs. Batch = 20 rules x 50 = 1000 trials, mixed, fresh every iteration.
+# response ring = 33 outputs. Batch = 1024 trials over the 20 rules (51-52 each), mixed, fresh every iteration.
 # T=300 = 3 s at tau = 100 ms (this repo's step is tau/10); epoch lengths are drawn per trial inside T.
 # Yang_ctxdm1.yaml is the single-task reference (one rule, same layout).
 taskname: "Yang"
@@ -11,7 +11,7 @@ seed: null
 n_inputs: 85
 n_outputs: 33
 n_eachring: 32
-n_per_task: 50
+batch_size: 1024                     # split near-evenly over the rules, random assignment per batch
 sigma_tuning: 0.39269908169872414    # pi/8
 coherences: [0.04, 0.08, 0.16, 0.32]
 grace: 10                            # unscored steps after the go signal (1 tau)
@@ -25,4 +25,4 @@ mask_params:
   - (0, ${..T})
 task_params: ["n_steps",
               "n_inputs", "n_outputs",
-              "rules", "n_per_task", "n_eachring", "sigma_tuning", "coherences", "grace"]
+              "rules", "batch_size", "n_eachring", "sigma_tuning", "coherences", "grace"]

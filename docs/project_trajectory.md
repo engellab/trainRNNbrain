@@ -10626,3 +10626,13 @@ split into shared-with-another-rule vs private (nuisance from common inputs vs t
 becoming redundant); per-rule r² so an unlearned rule does not count as delivered demand; and the
 clean-loss trace read first — still falling at 150k means a warm-started continuation before the
 read-out.
+
+13:05 — Pavel: vectorise, batch 1024, T=300 confirmed, and one figure per task with 3 example
+trials and a description. Done: `TaskYang.batch_of` generates a rule's trials in one vectorised
+pass (float32; 1024-trial batch in ~90 ms, was 170 ms per 1000 in the loop version); `batch_size:
+1024` replaces n_per_task in both configs (rules assigned near-evenly at random per batch, 51–52
+each); `fig_yang_tasks.py` → `img/internal_figures/yang_tasks/<rule>.png` (20 figures: all 85 input
+and 33 output channels of 3 trials, go signal and grace marked, description in the title) plus a
+`README.md` index of the descriptions there. Every rule re-checked after vectorisation: scored
+target variance 0.022–0.036, fixation input and response ring consistent with the trial's go time
+and respond flag in 200/200 trials per rule, match tasks respond on 47–54%.

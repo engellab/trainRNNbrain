@@ -10,8 +10,8 @@ ring (d = circular distance). The rule channel of the trial's task is 1 for the 
 rule channels are always present, so a network trained on ONE rule has the same architecture as
 one trained on all 20 (the single-task reference of the multi-task experiment).
 
-Timing: this repo's step is tau/10 (dt=1, tau=10), so Yang's 100 ms tau is 10 steps and a 3 s trial
-is T=300. Epoch lengths are drawn PER TRIAL (the Trainer supports per-trial scoring masks), from
+Timing: T = 300 steps with tau = 10 steps, as every other task here (Yang's 100 ms tau is 10 steps,
+so T is a 3 s trial). Epoch lengths are drawn PER TRIAL (the Trainer supports per-trial scoring masks), from
 ranges that keep every trial inside T; unused steps after a trial are zero input and unscored.
 Targets: fixation output 0.85 while fixating, 0.05 in the response epoch of a trial that responds;
 response ring 0.05 baseline + 0.8 bump at the response direction, 0.05 elsewhere / before. The
@@ -37,7 +37,7 @@ RULES = ["fdgo", "reactgo", "delaygo", "fdanti", "reactanti", "delayanti",
 
 
 class TaskYang(Task):
-    def __init__(self, n_steps, n_inputs, n_outputs, rules, n_per_task, n_eachring=32,
+    def __init__(self, n_steps, n_inputs, n_outputs, rules, batch_size=1024, n_eachring=32,
                  sigma_tuning=np.pi / 8, coherences=(0.04, 0.08, 0.16, 0.32), grace=10, seed=None):
         """Set up the ring geometry and the rule subset.
 
@@ -45,7 +45,7 @@ class TaskYang(Task):
             n_steps: trial length T (must hold the longest epoch sequence: 300 at the defaults);
             n_inputs: must be 1 + 2*n_eachring + 20; n_outputs: must be 1 + n_eachring;
             rules: list of rule names (subset of RULES) the network is trained on;
-            n_per_task: trials per rule in a batch (batch = n_per_task * len(rules));
+            batch_size: trials per batch, split near-evenly over the rules (random assignment);
             n_eachring: units per ring; sigma_tuning: bump width (rad); coherences: |c| set for
             the DM families (strengths 1 +- c); grace: unscored steps after the go signal;
             seed: seeds the trial generator.
@@ -56,7 +56,7 @@ class TaskYang(Task):
             if r not in RULES:
                 raise ValueError(f"unknown rule {r}; choose from {RULES}")
         self.subtask_names = self.rules                       # the composite-task API
-        self.n_per_task = int(n_per_task)
+        self.batch_size = int(batch_size)
         self.n_ring = int(n_eachring)
         self.sigma = float(sigma_tuning)
         self.cohs = np.asarray(coherences, dtype=float)
@@ -70,139 +70,122 @@ class TaskYang(Task):
         self.i_rule = 1 + 2 * self.n_ring
 
     # ----------------------------------------------------------------- ring code
-    def bump(self, theta, strength=1.0):
-        """Ring activation for a direction: strength * 0.8 * exp(-d^2 / 2 sigma^2), (n_ring,)."""
-        d = np.angle(np.exp(1j * (self.pref - theta)))
-        return strength * 0.8 * np.exp(-0.5 * (d / self.sigma) ** 2)
+    def bumps(self, theta, strength=1.0):
+        """Ring activations for directions theta (n,): strength * 0.8 * exp(-d^2 / 2 sigma^2), (n_ring, n)."""
+        d = np.angle(np.exp(1j * (self.pref[:, None] - np.asarray(theta)[None, :])))
+        return np.asarray(strength) * 0.8 * np.exp(-0.5 * (d / self.sigma) ** 2)
 
-    def dur(self, lo, hi):
-        """One epoch length in steps, uniform on [lo, hi]."""
-        return int(self.rng.integers(lo, hi + 1))
+    def cohs_(self, n):
+        """n signed coherences from the configured set."""
+        return self.rng.choice(self.cohs, n) * self.rng.choice([-1.0, 1.0], n)
 
-    def coh(self):
-        """A signed coherence from the configured set."""
-        return float(self.rng.choice(self.cohs) * self.rng.choice([-1.0, 1.0]))
+    # ----------------------------------------------------------------- one rule, n trials
+    def batch_of(self, rule, n, task_idx):
+        """`n` trials of one rule, generated in one vectorised pass.
 
-    # ----------------------------------------------------------------- one trial
-    def trial(self, rule):
-        """Inputs, targets and the scoring mask of one trial of `rule`.
-
-        Every trial is fix -> (stim -> delay -> [test]) -> response. Directions are uniform on the
-        circle; DM stimuli are two directions >= pi/2 apart with strengths 1 +- c.
+        Every trial is fix -> (stim -> delay -> [test]) -> response, epoch lengths drawn per trial.
+        Directions are uniform on the circle; DM stimuli are two directions >= pi/2 apart with
+        strengths 1 +- c.
 
         Returns:
-            (X (n_inputs, T), Y (n_outputs, T), scored (T,) bool, condition dict).
+            (X (n_inputs, T, n), Y (n_outputs, T, n), conditions) with composite-style conditions
+            {"task", "task_idx", "scored" (T,) bool, "sub": the trial's epochs and directions}.
         """
-        T = self.n_steps
-        X = np.zeros((self.n_inputs, T))
-        Y = np.zeros((self.n_outputs, T))
-        Y[1:, :] = 0.05
-        X[self.i_rule + RULES.index(rule), :] = 1.0
-        cond = {"rule": rule}
-        t_fix = self.dur(30, 50)
-        resp_dir, respond = None, True
-        th1 = float(self.rng.uniform(0, 2 * np.pi))
+        T, rng = self.n_steps, self.rng
+        X = np.zeros((self.n_inputs, T, n), dtype=np.float32)   # float32: the trainer casts anyway,
+        Y = np.zeros((self.n_outputs, T, n), dtype=np.float32)  # and a 1024-trial batch is 100 MB
+        Y[1:] = 0.05
+        X[self.i_rule + RULES.index(rule)] = 1.0
+        t = np.arange(T)[:, None]
+        bc = lambda a: np.broadcast_to(np.asarray(a), (n,))[None, :]
+        win = lambda a, b: (t >= bc(a)) & (t < bc(b))     # (T, n) bool from per-trial bounds
+        t_fix = rng.integers(30, 51, n)
+        th1 = rng.uniform(0, 2 * np.pi, n)
+        respond = np.ones(n, dtype=bool)
+        sub = {}
 
         if rule in ("fdgo", "reactgo", "delaygo", "fdanti", "reactanti", "delayanti"):
             resp_dir = th1 if "go" in rule else th1 + np.pi
-            cond.update(stim_dir=th1)
             if rule.startswith("react"):                       # go signal = stimulus onset
                 t_go = t_fix
                 t_end = t_go + 40
-                X[self.i_mod1, t_go:t_end] += self.bump(th1)[:, None]
+                on = win(t_go, t_end)
             elif rule.startswith("fd"):                        # stimulus on until the end
-                t_go = t_fix + self.dur(30, 100)
+                t_go = t_fix + rng.integers(30, 101, n)
                 t_end = t_go + 40
-                X[self.i_mod1, t_fix:t_end] += self.bump(th1)[:, None]
+                on = win(t_fix, t_end)
             else:                                              # brief stimulus, delay, go
-                t_s = t_fix + self.dur(30, 50)
-                t_go = t_s + self.dur(30, 100)
+                t_s = t_fix + rng.integers(30, 51, n)
+                t_go = t_s + rng.integers(30, 101, n)
                 t_end = t_go + 40
-                X[self.i_mod1, t_fix:t_s] += self.bump(th1)[:, None]
+                on = win(t_fix, t_s)
+            X[self.i_mod1] += self.bumps(th1)[:, None, :] * on[None]
+            sub = dict(stim_dir=th1)
 
         elif rule in ("dm1", "dm2", "contextdm1", "contextdm2", "multidm",
                       "delaydm1", "delaydm2", "contextdelaydm1", "contextdelaydm2", "multidelaydm"):
-            th2 = th1 + float(self.rng.uniform(np.pi / 2, 3 * np.pi / 2))
-            c1 = self.coh()                                    # modality-1 evidence for th1 over th2
-            c2 = self.coh()                                    # modality-2 evidence
-            if rule.startswith("multi") and c1 + c2 == 0:
-                c2 = -c2 if self.rng.random() < 0.5 else c2 * 0.5  # never exactly balanced
+            th2 = th1 + rng.uniform(np.pi / 2, 3 * np.pi / 2, n)
+            c1, c2 = self.cohs_(n), self.cohs_(n)              # evidence for th1 over th2, per modality
+            if rule.startswith("multi"):
+                tie = c1 + c2 == 0
+                c2[tie] = -c2[tie]                             # never exactly balanced
             delayed = "delay" in rule
-            t_s = t_fix + self.dur(30, 100)
-            t_go = t_s + (self.dur(30, 100) if delayed else 0)
+            t_s = t_fix + rng.integers(30, 101, n)
+            t_go = t_s + (rng.integers(30, 101, n) if delayed else 0)
             t_end = t_go + 40
-            t_off = t_s if delayed else t_end                  # stimulus off at delay start, or never
+            on = win(t_fix, t_s if delayed else t_end)        # off at delay start, or never
             use1 = rule in ("dm1", "delaydm1", "contextdm1", "contextdelaydm1", "multidm", "multidelaydm")
             use2 = rule in ("dm2", "delaydm2", "contextdm2", "contextdelaydm2", "multidm", "multidelaydm")
-            show1 = use1 or rule.startswith("context")         # context tasks show BOTH modalities
-            show2 = use2 or rule.startswith("context")
-            if show1:
-                X[self.i_mod1, t_fix:t_off] += (self.bump(th1, 1 + c1) + self.bump(th2, 1 - c1))[:, None]
-            if show2:
-                X[self.i_mod2, t_fix:t_off] += (self.bump(th1, 1 + c2) + self.bump(th2, 1 - c2))[:, None]
-            if rule.startswith("multi"):
-                ev = c1 + c2
-            elif rule in ("dm1", "delaydm1", "contextdm1", "contextdelaydm1"):
-                ev = c1
-            else:
-                ev = c2
-            resp_dir = th1 if ev > 0 else th2
-            cond.update(dir1=th1, dir2=th2, coh1=c1, coh2=c2)
+            if use1 or rule.startswith("context"):             # context tasks show BOTH modalities
+                X[self.i_mod1] += (self.bumps(th1, 1 + c1) + self.bumps(th2, 1 - c1))[:, None, :] * on[None]
+            if use2 or rule.startswith("context"):
+                X[self.i_mod2] += (self.bumps(th1, 1 + c2) + self.bumps(th2, 1 - c2))[:, None, :] * on[None]
+            ev = c1 + c2 if rule.startswith("multi") else (c1 if use1 else c2)
+            resp_dir = np.where(ev > 0, th1, th2)
+            sub = dict(dir1=th1, dir2=th2, coh1=c1, coh2=c2)
 
         else:                                                  # dms dnms dmc dnmc
-            t_s = t_fix + self.dur(30, 50)                     # sample off
-            t_go = t_s + self.dur(30, 100)                     # test on = go signal
+            t_s = t_fix + rng.integers(30, 51, n)              # sample off
+            t_go = t_s + rng.integers(30, 101, n)              # test on = go signal
             t_end = t_go + 40
-            cat = lambda th: int((th % (2 * np.pi)) < np.pi)   # category = which half-circle
+            match = rng.random(n) < 0.5
             if rule in ("dms", "dnms"):
-                match = self.rng.random() < 0.5
-                th2 = th1 if match else th1 + float(self.rng.uniform(np.pi / 4, 7 * np.pi / 4))
-                same = match
-            else:
-                match = self.rng.random() < 0.5
-                th2 = float(self.rng.uniform(0, 2 * np.pi))
-                while cat(th2) != (cat(th1) if match else 1 - cat(th1)):
-                    th2 = float(self.rng.uniform(0, 2 * np.pi))
-                same = match
-            X[self.i_mod1, t_fix:t_s] += self.bump(th1)[:, None]
-            X[self.i_mod1, t_go:t_end] += self.bump(th2)[:, None]
-            respond = same if rule in ("dms", "dmc") else not same
+                th2 = np.where(match, th1, th1 + rng.uniform(np.pi / 4, 7 * np.pi / 4, n))
+            else:                                              # category = half-circle
+                cat1 = (th1 % (2 * np.pi)) < np.pi
+                target_cat = np.where(match, cat1, ~cat1)
+                th2 = rng.uniform(0, np.pi, n) + np.pi * (~target_cat)
+            respond = match if rule in ("dms", "dmc") else ~match
             resp_dir = th2
-            cond.update(sample_dir=th1, test_dir=th2, match=bool(same))
+            X[self.i_mod1] += (self.bumps(th1)[:, None, :] * win(t_fix, t_s)[None]
+                               + self.bumps(th2)[:, None, :] * win(t_go, t_end)[None])
+            sub = dict(sample_dir=th1, test_dir=th2, match=match)
 
-        # fixation input on until the go signal; targets; scoring
-        X[0, :t_go] = 1.0
-        Y[0, :t_go] = 0.85
-        if respond:
-            Y[0, t_go:t_end] = 0.05
-            Y[1:, t_go:t_end] = 0.05 + self.bump(resp_dir)[:, None]
-        else:
-            Y[0, t_go:t_end] = 0.85
-        scored = np.zeros(T, dtype=bool)
-        scored[:t_end] = True
-        scored[t_go:t_go + self.grace] = False
-        cond.update(t_fix=t_fix, t_go=t_go, t_end=t_end, respond=bool(respond),
-                    resp_dir=(None if not respond else float(resp_dir % (2 * np.pi))))
-        return X, Y, scored, cond
+        fixwin = win(0, t_go)
+        respwin = win(t_go, t_end)
+        X[0] = fixwin
+        Y[0] = 0.85 * fixwin + np.where(respond[None, :], 0.05, 0.85) * respwin
+        Y[1:] += self.bumps(resp_dir)[:, None, :] * (respwin & respond[None, :])[None]
+        scored = win(0, t_end) & ~win(t_go, t_go + self.grace)
+        conds = [{"task": rule, "task_idx": task_idx, "scored": scored[:, b],
+                  "sub": {**{k: (bool(v[b]) if v.dtype == bool else float(v[b])) for k, v in sub.items()},
+                          "t_fix": int(t_fix[b]), "t_go": int(t_go[b]), "t_end": int(t_end[b]),
+                          "respond": bool(respond[b]),
+                          "resp_dir": float(resp_dir[b] % (2 * np.pi)) if respond[b] else None}}
+                 for b in range(n)]
+        return X, Y, conds
 
     # ----------------------------------------------------------------- batches
-    def batch_of(self, rule, n, task_idx):
-        """`n` trials of one rule, stacked on the last axis, with composite-style conditions."""
-        Xs, Ys, conds = [], [], []
-        for _ in range(n):
-            X, Y, scored, c = self.trial(rule)
-            Xs.append(X); Ys.append(Y)
-            conds.append({"task": rule, "task_idx": task_idx, "scored": scored, "sub": c})
-        return np.stack(Xs, axis=2), np.stack(Ys, axis=2), conds
-
     def get_batch(self, shuffle=False):
-        """A mixed batch: n_per_task trials of every rule in `rules`, grouped by rule.
+        """A mixed batch of `batch_size` trials, rules assigned near-evenly at random, grouped by rule.
 
         Returns:
-            (inputs (n_inputs, T, B), targets (n_outputs, T, B), conditions), B = n_per_task * n_rules;
-            each condition holds "task", "task_idx", "scored" (T,) bool and "sub" (the trial dict).
+            (inputs (n_inputs, T, B), targets (n_outputs, T, B), conditions); each condition holds
+            "task", "task_idx", "scored" (T,) bool and "sub" (the trial dict).
         """
-        parts = [self.batch_of(r, self.n_per_task, i) for i, r in enumerate(self.rules)]
+        counts = np.bincount(self.rng.permutation(np.arange(self.batch_size) % len(self.rules)),
+                             minlength=len(self.rules))
+        parts = [self.batch_of(r, int(c), i) for i, (r, c) in enumerate(zip(self.rules, counts)) if c]
         inputs = np.concatenate([p[0] for p in parts], axis=2)
         targets = np.concatenate([p[1] for p in parts], axis=2)
         conds = sum([p[2] for p in parts], [])
