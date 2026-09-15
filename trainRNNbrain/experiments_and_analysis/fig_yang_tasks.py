@@ -4,14 +4,17 @@ polar ring snapshots, each with a description of the task.
 <rule>.png       three trials side by side; top row the 85 input channels as an image (fixation,
                  modality-1 ring, modality-2 ring, rule vector), bottom row the 33 output targets
                  (fixation, response ring). Go signal in red, unscored grace shaded; the response is sustained to step 300.
-<rule>_rings.png the same three trials as rings: for each trial, ring 1 input, ring 2 input and
-                 the response-ring target drawn as a circle with a bar at every unit's preferred
-                 direction (length = activation), at three moments - mid-stimulus, just before
-                 the go signal, and mid-response. Reads the two-bump DM stimuli and the response
-                 bump directly.
-Output: img/internal_figures/yang_tasks/ (40 files) and an index of the descriptions.
+<rule>_structure.png  (contextdm1 for now; `--structure <rule>`) three trials, one row each: the
+                 trial structure as step functions over time (fixation input, stimulus on each
+                 ring, rule, go signal, fixation output, response present) with three snapshot
+                 times marked by arrows, and at exactly those times ring 1, ring 2 and the
+                 response target as polar bar plots (one bar per unit at its preferred direction,
+                 length = activation). Snapshot times are chosen per task to be the informative
+                 ones: for contextdm1 (A) fixation before the stimulus, (B) stimulus on, before the
+                 go, (C) mid-response.
+Output: img/internal_figures/yang_tasks/ and an index of the descriptions.
 
-Usage: python fig_yang_tasks.py
+Usage: python fig_yang_tasks.py [--structure contextdm1]
 """
 import os
 import textwrap
@@ -56,38 +59,83 @@ DESC = {
 }
 
 
-def rings(task, rule, X, Y, C, path):
-    """Polar snapshots of three trials: rings 1, 2 and the response target at three moments.
+SNAPSHOTS = {   # per rule: (label, function of the trial dict -> step) x 3; the informative moments
+    "contextdm1": [("A: fixation, no stimulus", lambda c: c["t_fix"] // 2),
+                   ("B: both rings on, before go", lambda c: (c["t_fix"] + c["t_go"]) // 2),
+                   ("C: response (stimuli still on)", lambda c: (c["t_go"] + c["t_end"]) // 2)],
+}
+
+
+def structure(task, rule, path, n_trials=3):
+    """Trial structure over time with arrows at the snapshot times, and the rings at those times.
 
     Args:
-        task: the TaskYang instance (ring geometry); rule: rule name; X, Y, C: a 3-trial batch;
-        path: output file.
+        task: TaskYang; rule: rule name (needs an entry in SNAPSHOTS); path: output file.
     """
-    R = task.n_ring
-    fig, axes = plt.subplots(3, 9, figsize=(20, 7.5), subplot_kw={"projection": "polar"})
-    for b in range(3):
+    X, Y, C = task.task_batch(rule, n=n_trials)
+    R, T = task.n_ring, task.n_steps
+    snaps = SNAPSHOTS[rule]
+    fig = plt.figure(figsize=(26, 5.6 * n_trials))
+    gs = fig.add_gridspec(n_trials, 10, width_ratios=[3.6] + [1] * 9, wspace=0.3, hspace=0.5)
+    for b in range(n_trials):
         c = C[b]["sub"]
-        t_stim = (c["t_fix"] + c["t_go"]) // 2 if c["t_go"] > c["t_fix"] else c["t_go"] + 5
-        moments = [("mid-stimulus", t_stim), ("just before go", max(c["t_go"] - 2, 0)),
-                   ("mid-response", (c["t_go"] + c["t_end"]) // 2)]
-        for m, (label, tt) in enumerate(moments):
-            for k, (name, vec, vmax) in enumerate([("ring 1 input", X[task.i_mod1, tt, b], 1.6),
-                                                   ("ring 2 input", X[task.i_mod2, tt, b], 1.6),
-                                                   ("response target", Y[1:, tt, b], 0.9)]):
-                ax = axes[b, 3 * m + k]
-                ax.bar(task.pref, vec, width=2 * np.pi / R * 0.8, bottom=0, color=["C0", "C1", "C3"][k], alpha=0.8)
-                ax.set_ylim(0, vmax)
-                ax.set_yticks([]); ax.set_xticks(np.linspace(0, 2 * np.pi, 8, endpoint=False))
-                ax.set_xticklabels([f"{int(np.degrees(a))}" for a in np.linspace(0, 2 * np.pi, 8, endpoint=False)], fontsize=6)
-                ax.set_title(f"trial {b + 1}, {label} (t={tt})\n{name}" if k == 0 else name, fontsize=7)
-    fig.suptitle(f"{rule} - ring view. " + textwrap.fill(DESC[rule], 160), fontsize=9)
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
-    fig.savefig(path, dpi=100)
+        ax = fig.add_subplot(gs[b, 0])
+        rows = [("fixation input", X[0, :, b] > 0.5),
+                ("stimulus on ring 1", X[task.i_mod1, :, b].max(axis=0) > 0.05),
+                ("stimulus on ring 2", X[task.i_mod2, :, b].max(axis=0) > 0.05),
+                ("rule input (contextdm1)", X[task.i_rule + RULES.index(rule), :, b] > 0.5),
+                ("go signal (fixation off)", np.arange(T) >= c["t_go"]),
+                ("target: fixation output", Y[0, :, b] > 0.5),
+                ("target: response bump", Y[1:, :, b].max(axis=0) > 0.5)]
+        for k, (name, tr) in enumerate(rows):
+            y0 = (len(rows) - 1 - k) * 1.4
+            ax.step(np.arange(T), y0 + tr.astype(float), where="post", color="k", lw=1.2)
+            ax.text(-4, y0 + 0.5, name, ha="right", va="center", fontsize=8)
+        ax.axvspan(c["t_go"], c["t_go"] + task.grace, color="C3", alpha=0.12, lw=0)
+        ax.axvline(c["t_go"], color="C3", lw=1.0)
+        ymax = len(rows) * 1.4
+        for (label, f), col in zip(snaps, ["C0", "C2", "C4"]):
+            tt = f(c)
+            ax.axvline(tt, color=col, lw=1.0, ls=":")
+            ax.annotate(label.split(":")[0], xy=(tt, ymax), xytext=(tt, ymax + 0.9), ha="center", fontsize=9,
+                        color=col, arrowprops=dict(arrowstyle="->", color=col))
+        ax.set_xlim(0, T); ax.set_ylim(-0.3, ymax + 1.6); ax.set_yticks([])
+        ax.set_xlabel("step (tau = 10 steps)", fontsize=8)
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.set_title(f"trial {b + 1}: go at {c['t_go']}; dir1 {np.degrees(c['dir1'] % (2*np.pi)):.0f} deg, "
+                     f"dir2 {np.degrees(c['dir2'] % (2*np.pi)):.0f} deg; evidence ring 1 c1 = {c['coh1']:+.2f}, "
+                     f"ring 2 c2 = {c['coh2']:+.2f}  ->  respond to "
+                     f"{'dir1' if c['coh1'] > 0 else 'dir2'} ({np.degrees(c['resp_dir']):.0f} deg)", fontsize=9, loc="left")
+        for m, ((label, f), col) in enumerate(zip(snaps, ["C0", "C2", "C4"])):
+            tt = f(c)
+            for k, (name, vec, vmax, colr) in enumerate([("ring 1 input", X[task.i_mod1, tt, b], 1.6, "C0"),
+                                                         ("ring 2 input", X[task.i_mod2, tt, b], 1.6, "C1"),
+                                                         ("response target", Y[1:, tt, b], 0.9, "C3")]):
+                pax = fig.add_subplot(gs[b, 1 + 3 * m + k], projection="polar")
+                pax.bar(task.pref, vec, width=2 * np.pi / R * 0.8, color=colr, alpha=0.85)
+                pax.set_ylim(0, vmax); pax.set_yticks([])
+                pax.set_xticks(np.linspace(0, 2 * np.pi, 4, endpoint=False))
+                pax.set_xticklabels(["0", "90", "180", "270"], fontsize=6)
+                pax.plot([c["dir1"], c["dir1"]], [0, vmax], color="0.3", lw=0.6, ls="--")
+                pax.plot([c["dir2"], c["dir2"]], [0, vmax], color="0.3", lw=0.6, ls="--")
+                if k == 2:
+                    pax.plot([c["resp_dir"]], [vmax * 0.95], marker="*", color="k", ms=9)
+                # the two bar heights at the stimulus directions, so 1+c vs 1-c is legible at small c
+                cc = c["coh1"] if k == 0 else c["coh2"] if k == 1 else None
+                note = (f"dir1 {1 + cc:.2f}  dir2 {1 - cc:.2f}" if (cc is not None and vec.max() > 0.05)
+                        else ("bump at " + f"{np.degrees(c['resp_dir']):.0f} deg" if (k == 2 and vec.max() > 0.5) else "empty"))
+                pax.set_title((f"{label} (t={tt})\n" if k == 0 else "\n") + f"{name}\n{note}", fontsize=8,
+                              color=col if k == 0 else "k")
+    fig.suptitle(f"{rule}: trial structure and ring snapshots.  " + textwrap.fill(DESC[rule], 170)
+                 + "\nDashed radii = the two stimulus directions; star = correct response direction. "
+                   "Snapshot B shows both rings with two bumps of strengths 1+c and 1-c; C shows the response bump at ring 1's stronger direction.",
+                 fontsize=10)
+    fig.savefig(path, dpi=100, bbox_inches="tight")
     plt.close(fig)
 
 
 def main():
-    """Draw and save the 40 figures."""
+    """Draw and save the per-rule figures, and the structure figure for the requested rule."""
     out = os.path.join(IMG_DIR, "yang_tasks")
     os.makedirs(out, exist_ok=True)
     task = TaskYang(n_steps=300, n_inputs=85, n_outputs=33, rules=RULES, batch_size=1024, seed=1)
@@ -120,10 +168,12 @@ def main():
         fig.tight_layout(rect=(0, 0.02, 1, 0.94))
         fig.savefig(os.path.join(out, f"{rule}.png"), dpi=110)
         plt.close(fig)
-        rings(task, rule, X, Y, C, os.path.join(out, f"{rule}_rings.png"))
     with open(os.path.join(out, "README.md"), "w") as fh:
         fh.write("# Yang task family: example trials\n\n" + "\n".join(f"- **{r}** ([figure]({r}.png)): {DESC[r]}" for r in RULES) + "\n")
-    print("saved 40 figures to", os.path.abspath(out))
+    import sys
+    rule = sys.argv[sys.argv.index("--structure") + 1] if "--structure" in sys.argv else "contextdm1"
+    structure(task, rule, os.path.join(out, f"{rule}_structure.png"))
+    print("saved figures to", os.path.abspath(out))
 
 
 if __name__ == "__main__":
