@@ -1,0 +1,43 @@
+# @package task
+# Delayed match-to-sample with a LONG delay: the third task of the silent-unit line, next to CDDM
+# (evidence integration) and the flip-flop (pulse-driven memory bits). What it adds is a memory
+# demand that transients cannot meet: the sample is shown for 2 tau, then the inputs are silent for
+# 16 tau before the match, so the sample identity must be carried by sustained activity (an
+# attractor or slow mode), not by the decay tail of the stimulus response. The default DMTS.yaml
+# (T=140, delay 6 tau) is left untouched for the older training runs that use it.
+#
+# Timing in steps at dt=1, tau=10 (alpha=0.1), T=300 to match CDDM and the flip-flop exactly, so
+# per-iteration cost and every timescale comparison carry over:
+#   sample 20-40 (2 tau)  |  delay 40-200 (16 tau, no input)  |  match 200-220 (2 tau)  |
+#   decision cue + target 240-300 (6 tau)
+# Onsets of sample and match are jittered independently by +-1 tau (T_random_window), so the
+# network cannot solve the task by counting steps from trial start.
+#
+# 4 stimuli (n_inputs = 4 + 1 decision cue) -> 16 sample/match pairs, 4 of them matches; the
+# sample identity is 2 bits to hold. The class draws 64 repeats of the 16 pairs, so a batch is
+# 1024 trials, the same as the flip-flop sweeps. n_outputs=2 -> one channel for match, one for
+# non-match (the class's two-output mode), like CDDM's two-choice read-out.
+taskname: "DMTS"
+_target_: trainRNNbrain.tasks.TaskDMTS.TaskDMTS
+T: 300
+seed: null
+T_stim_on_sample: 20
+T_stim_off_sample: 40
+T_stim_on_match: 200
+T_stim_off_match: 220
+T_dec_on: 240
+T_dec_off: ${.T}
+T_random_window: 10
+n_inputs: 5
+n_outputs: 2
+# Scored: everything before the decision cue (outputs must stay at 0 through sample, delay and
+# match) and the decision period after a 1 tau transition, as in DMTS.yaml.
+mask_params:
+  - (0, ${..T_dec_on})
+  - (250, ${..T_dec_off})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "stim_on_sample", "stim_off_sample",
+              "stim_on_match", "stim_off_match",
+              "dec_on", "dec_off",
+              "random_window"]

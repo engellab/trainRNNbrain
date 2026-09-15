@@ -10350,3 +10350,36 @@ fixes it" is retired. The candidate replacement is the capacity law — silence 
 of the network the task requires, ~10 units per latent function on the flip-flop family, with the
 mechanism results (spikes, init, input-row norm) as how a network arrives at that size — or a
 pivot away from silence altogether. The penalty sections become at most a characterisation.
+
+## ▶ THIRD TASK: DMTS with a 16-tau delay, four penalty arms x three sizes x three seeds (Spock) — 2026-09-14 20:29
+
+**Why a third task.** CDDM and the flip-flop family can both be carried partly by transients: CDDM's
+stimulus stays on until the decision, and a flip-flop bit is re-pulsed every ~7 tau. Pavel asked for
+a task with a long silent gap between sample and match, so the memory must be SUSTAINED activity,
+and for the same four penalty arms as the other two tasks to complete the picture. Second question
+(Pavel): does the penalty make such a task train FASTER, since the task itself needs sustained
+activity and frm pushes every unit's mean rate up?
+
+**Task: `configs/task/DMTS_long.yaml`** (the class is the existing `TaskDMTS`; the default
+`DMTS.yaml` with its 6-tau delay is untouched). T=300 like CDDM and the flip-flop. Sample 2–4 tau,
+silent delay 4–20 tau (16 tau, no input), match 20–22 tau, decision cue + target 24–30 tau; sample
+and match onsets jittered independently by ±1 tau. 4 stimuli (n_inputs = 4 + cue) → 16 sample/match
+pairs (4 matches), 2 bits to hold; 64 repeats per batch → 1024 trials, as on the flip-flop.
+n_outputs=2 (match / non-match channels, like CDDM's two-choice read-out). Scored: 0–24 tau (outputs
+must stay at 0) and 25–30 tau. Batch generation 0.026 s per 1024 trials (fresh batches every
+iteration, `trainer_ptrack_freshbatch`).
+
+**Launcher: `slurm/SilentReLU_dmts_penalties_spock.slurm`**, 36 jobs = N ∈ {500, 1000, 2000} ×
+pen ∈ {none, rws 0.05, frm 0.1, both} × 3 seeds, h equation, standard ReLU, 150k iterations, the
+same lambdas and iteration budget as `NBitFlipFlop_std_pen` and the hyper grid. Output
+`DMTS_std_pen/EqType=h_N=<N>_pen=<name>/`. Smoke-tested locally (N=100, 30 iterations, CPU:
+pipeline runs end to end, trace / params / Adam state / config written, mask = 290 steps).
+
+**Pre-registered read-outs at 150k** (nothing new logged; all from the participation trace + r²):
+1. Live units vs N per arm.
+2. r² per arm; solved := r² ≥ 0.9 in all 3 seeds.
+3. Convergence speed: t90 := first probe (clean loss, every 10 iterations) within 10% of the arm's
+   own 150k value, plus the matched-loss time (first probe at which each arm reaches `none`'s 150k
+   loss). **Falsifier for "the penalty speeds training"**: supported only if t90(frm) < t90(none) AND
+   t90(both) < t90(none) in every seed at every N. One seed or one N the other way → "no, or not
+   reliably". A fast descent to a worse floor does not count as speed (hence the matched-loss time).
