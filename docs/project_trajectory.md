@@ -10761,7 +10761,7 @@ batch): scale-free CDDM-alone 766 → 707 → 508 at 1k / 5k / 10k, 20-task 830 
    longer one) is needed before any of these numbers is quoted. The criteria disagree by 2× (508
    vs 982): the participation distribution is not bimodal on this family either.
 
-## ▶ CONFIRMATION RUN: CDDM alone vs 20 tasks, N=1000, 30k iterations, 3 seeds (job 6209433) — 2026-09-15 18:16
+## ▶ CONFIRMATION RUN: CDDM alone vs 20 tasks, N=1000, 30k iterations, 3 seeds (job 6209433) — 2026-09-15 19:05
 
 Pavel's call after the pilot: the result ("training on multiple tasks does not recruit more units
 for CDDM") is worth one confirmation at this single cell with error bars, then stop. **The 36-job
