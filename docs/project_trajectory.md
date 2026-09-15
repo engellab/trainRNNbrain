@@ -10627,7 +10627,7 @@ becoming redundant); per-rule r² so an unlearned rule does not count as deliver
 clean-loss trace read first — still falling at 150k means a warm-started continuation before the
 read-out.
 
-13:05 — Pavel: vectorise, batch 1024, T=300 confirmed, and one figure per task with 3 example
+12:33 — Pavel: vectorise, batch 1024, T=300 confirmed, and one figure per task with 3 example
 trials and a description. Done: `TaskYang.batch_of` generates a rule's trials in one vectorised
 pass (float32; 1024-trial batch in ~90 ms, was 170 ms per 1000 in the loop version); `batch_size:
 1024` replaces n_per_task in both configs (rules assigned near-evenly at random per batch, 51–52
