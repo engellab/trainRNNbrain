@@ -10711,3 +10711,11 @@ the order of the paper's training) — in ring coding with this optimizer these 
 150k iterations is far beyond what performance needs; it is kept so the read-out is at the same
 budget as every other grid (silencing evolves over training regardless of the loss). "Solved" in
 the pre-registration now means accuracy ≥ 0.95 per rule (dnms may sit lower). Test net removed.
+
+16:25 — Pavel: before the grid, one pilot pair at N=1000, 10k iterations, unpenalised — the 20-task
+network and the CDDM-pair network — to see how many units each uses on CDDM and what performance
+each reaches. Batch 1024 for both (same optimizer noise as every grid; the single-task net sees
+~10× more CDDM trials per iteration, irrelevant at 10k when 600 already suffices). Submitted as
+job **6206472** (launcher tasks 7 and 25, `SAVE_TO=…/pilot10k` so the nets stay out of the grid
+cells), ~1 h each once running. Read-out on completion: `multitask_readout.py` (live units on
+CDDM trials under three criteria, per-rule accuracy, shared/private split) and `yang_checks.py`.
