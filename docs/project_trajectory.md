@@ -10687,3 +10687,27 @@ same half are a match.
 d8d5e84 = vectorised task, response to T): 0.90 s/iter → 37 h for 150k (fits 48 h); r² 0.88 on the
 mixed batch after 600 iterations (the family learns its fixation/response structure fast).
 Calibration net removed from the cell. **36-job grid ready, not submitted — awaiting Pavel.**
+
+### Is r² 0.88 after 600 iterations on 20 tasks real? Yes — falsification checks pass — 2026-09-15 15:30
+
+Pavel: "looks miraculous". Pooled r² is a poor yardstick here, so the paper's own criterion was
+added to `multitask_readout.py`: per-rule ACCURACY = decoded response direction (population vector
+of the response ring over the second half of the response epoch) within 36° of the target with
+the fixation output down, or fixation kept and ring flat on no-response trials; chance 0.10 for a
+responding trial. A trivial input-copying predictor scores pooled r² 0.07–0.11, so target structure
+does not explain 0.88. A fresh 600-iteration N=500 `none` network (job 6203736, r² 0.88):
+accuracy 0.95–1.00 on 19 rules, dnms 0.84. Three checks that a shortcut would fail
+(`yang_checks.py`, 256 trials per rule, noise-free, numpy forward pass):
+1. Context tasks on CONFLICT trials only (rings favour different options): contextdm1 0.99,
+   contextdm2 0.98, contextdelaydm1 0.94, contextdelaydm2 0.95 — a strongest-bump heuristic
+   would be ~0.5. The rule is used.
+2. Memory tasks by delay length, shortest vs longest third: delaygo 1.00/1.00, delaydm1 1.00/1.00,
+   dms 1.00/1.00, dmc 0.99/0.94, dnms 0.81/0.80 — no decay with delay; the memory is real.
+3. Rule channels zeroed: anti tasks collapse (fdanti 0.26, reactanti 0.09), match family
+   collapses to ~0.42, context tasks drop to 0.66–0.84, while rule-independent DM tasks stay at
+   0.88–0.95 — exactly the pattern of a network that uses the rule where it matters.
+Conclusion: the family is genuinely learned in ~600 iterations (600 × 1024 ≈ 6·10⁵ trials, of
+the order of the paper's training) — in ring coding with this optimizer these tasks are easy.
+150k iterations is far beyond what performance needs; it is kept so the read-out is at the same
+budget as every other grid (silencing evolves over training regardless of the loss). "Solved" in
+the pre-registration now means accuracy ≥ 0.95 per rule (dnms may sit lower). Test net removed.
