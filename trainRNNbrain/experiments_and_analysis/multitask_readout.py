@@ -1,9 +1,10 @@
 """Per-task recruitment of a multi-task network (TaskYang, or any task exposing the composite API
-`subtask_names` / `task_batch(i)` / `batch_mask`): how many units does the FOCUS task (contextdm1,
-Mante's CDDM in ring coding) use when the same network also serves the other tasks?
+`subtask_names` / `task_batch(i)` / `batch_mask`): how many units does the FOCUS task (CDDM =
+contextdm1 + contextdm2, Mante's task in ring coding) use when the same network also serves the
+other tasks? `--focus` takes one rule or a comma-separated set; the focus-active set is the union.
 
 Pre-registered read-out of the Yang_std_multi grid (slurm/SilentReLU_yang_spock.slurm). The
-single-task reference (Yang_ctxdm1 networks, same layout, one rule) is read with the SAME script,
+single-task reference (Yang_ctxdm networks, same layout, the two context rules) is read with the SAME script,
 so the two sides use one code path.
 For every trained network (LastParams .npz + saved config):
   1. Rebuild the network in numpy and the composite task from the saved config.
@@ -18,7 +19,7 @@ For every trained network (LastParams .npz + saved config):
      "the focus task's own computation became more redundant" from "other tasks' units respond to
      its inputs". (Trivially all-shared in a single-task net.)
   5. Per-task r2 on the task's own scoring window, noise-free, so an unlearned subtask is visible.
-Usage: python multitask_readout.py <trained_RNNs root> [--sub Yang_std_multi] [--focus contextdm1]
+Usage: python multitask_readout.py <trained_RNNs root> [--sub Yang_std_multi] [--focus contextdm1,contextdm2]
                                    [--n-trials 256] [--dump out.npz]
   --dump  save every net's per-task participation vectors and r2 for figures.
 """
@@ -110,9 +111,10 @@ def readout(net_dir, focus, n_trials):
     fr, out = run_noise_free(rnn, X)
     p_all = participation(fr)
     act = {n: p[n] >= 0.05 * np.quantile(p[n], 0.95) for n in p}
-    cddm = act[focus]
-    others = (np.any([act[n] for n in p if n != focus], axis=0) if len(p) > 1
-              else np.zeros_like(cddm))
+    foc = focus.split(",")                                  # one rule, or a set (contextdm1,contextdm2)
+    cddm = np.any([act[n] for n in foc], axis=0)
+    rest = [act[n] for n in p if n not in foc]
+    others = np.any(rest, axis=0) if rest else np.zeros_like(cddm)
     return dict(N=int(cfg.model.N), pen=re.search(r"_pen=([a-z]+)", net_dir).group(1),
                 seed=int(cfg.seed), p=p, r2=r2s, p_all=p_all, r2_all=r2_scored(out, Y, task.batch_mask(C)),
                 cddm_active=int(cddm.sum()), cddm_shared=int((cddm & others).sum()),
@@ -124,7 +126,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root")
     ap.add_argument("--sub", default="Yang_std_multi")
-    ap.add_argument("--focus", default="contextdm1")
+    ap.add_argument("--focus", default="contextdm1,contextdm2")
     ap.add_argument("--n-trials", type=int, default=256)
     ap.add_argument("--dump", default=None)
     a = ap.parse_args()

@@ -10647,3 +10647,21 @@ directions) and the response bump read directly. For the record: 85 inputs = 1 f
 32 + 20 rules; 33 outputs = 1 fixation + 32; the smear is Yang's Gaussian population code (σ = π/8);
 two bumps in one ring are the two choice options of a DM trial. Re-checked all 20 rules after the
 change (fixation off and response bump consistent with each trial's go time and respond flag).
+
+13:10 — Pavel on the ring view: uninformative snapshots (empty rings), replaced by a TRIAL-STRUCTURE
+figure (`fig_yang_tasks.py --structure <rule>` → `<rule>_structure.png`): per trial the epochs as
+step functions (fixation input, stimulus on each ring, rule, go, target fixation, target response)
+with three arrowed snapshot times chosen per task, and the rings at exactly those times as polar
+bars with the two strengths printed; horizontal bar under each snapshot's rings. Done for
+contextdm1 (A fixation, B stimulus before go, C response), other rules once the format is agreed.
+Pavel's second point, "in CDDM the second modality is independent": it is here too — the two
+directions are the two CHOICE OPTIONS shared by both rings (motion and colour both speak about
+left vs right), and each ring's evidence (sign and size) is independent, so half the trials are
+conflicts; the first figure had drawn three congruent trials by chance. The figure now picks a
+congruent trial, a conflict with a strong distractor, and a conflict with weak attended evidence.
+**Reference changed to the pair:** Mante's task has both contexts in one task with a context cue;
+in Yang's family the context is the rule, so the single-task CDDM reference is `Yang_ctxdm.yaml`
+= contextdm1 + contextdm2 trained together (rule channel = context cue), not contextdm1 alone.
+Launcher set `ctxdm`; `multitask_readout.py --focus contextdm1,contextdm2` takes the union as the
+focus-active set. Smoke-tested (10 iterations, N=100; read-out reports both rules, all active
+units private as they must be in the single-task net).

@@ -72,7 +72,20 @@ def structure(task, rule, path, n_trials=3):
     Args:
         task: TaskYang; rule: rule name (needs an entry in SNAPSHOTS); path: output file.
     """
-    X, Y, C = task.task_batch(rule, n=n_trials)
+    X, Y, C = task.task_batch(rule, n=400)
+    if rule in ("contextdm1", "contextdm2"):
+        # pick trials that show the independence of the two rings' evidence: a congruent one, a
+        # conflict trial with a strong distractor, and a conflict trial with weak attended evidence
+        c1 = np.array([c["sub"]["coh1"] for c in C]); c2 = np.array([c["sub"]["coh2"] for c in C])
+        att, dis = (c1, c2) if rule == "contextdm1" else (c2, c1)
+        pick = [int(np.flatnonzero((np.sign(att) == np.sign(dis)) & (np.abs(att) >= 0.16))[0]),
+                int(np.flatnonzero((np.sign(att) != np.sign(dis)) & (np.abs(dis) >= 0.16))[0]),
+                int(np.flatnonzero((np.sign(att) != np.sign(dis)) & (np.abs(att) <= 0.08) & (np.abs(dis) >= 0.16))[0])]
+        kinds = ["congruent: both rings favour the same option", "CONFLICT: distractor ring strongly favours the other option",
+                 "CONFLICT: weak attended evidence, strong distractor"]
+    else:
+        pick, kinds = list(range(n_trials)), [""] * n_trials
+    X, Y, C = X[..., pick], Y[..., pick], [C[i] for i in pick]
     R, T = task.n_ring, task.n_steps
     snaps = SNAPSHOTS[rule]
     fig = plt.figure(figsize=(26, 5.6 * n_trials))
@@ -102,7 +115,7 @@ def structure(task, rule, path, n_trials=3):
         ax.set_xlim(0, T); ax.set_ylim(-0.3, ymax + 1.6); ax.set_yticks([])
         ax.set_xlabel("step (tau = 10 steps)", fontsize=8)
         ax.spines[["top", "right", "left"]].set_visible(False)
-        ax.set_title(f"trial {b + 1}: go at {c['t_go']}; dir1 {np.degrees(c['dir1'] % (2*np.pi)):.0f} deg, "
+        ax.set_title(f"trial {b + 1} ({kinds[b]}): go at {c['t_go']}; dir1 {np.degrees(c['dir1'] % (2*np.pi)):.0f} deg, "
                      f"dir2 {np.degrees(c['dir2'] % (2*np.pi)):.0f} deg; evidence ring 1 c1 = {c['coh1']:+.2f}, "
                      f"ring 2 c2 = {c['coh2']:+.2f}  ->  respond to "
                      f"{'dir1' if c['coh1'] > 0 else 'dir2'} ({np.degrees(c['resp_dir']):.0f} deg)", fontsize=9, loc="left")
@@ -126,9 +139,16 @@ def structure(task, rule, path, n_trials=3):
                         else ("bump at " + f"{np.degrees(c['resp_dir']):.0f} deg" if (k == 2 and vec.max() > 0.5) else "empty"))
                 pax.set_title((f"{label} (t={tt})\n" if k == 0 else "\n") + f"{name}\n{note}", fontsize=8,
                               color=col if k == 0 else "k")
+                if k == 0:
+                    first = pax.get_position()
+                if k == 2:
+                    last = pax.get_position()
+                    fig.add_artist(plt.Line2D([first.x0, last.x1], [first.y0 - 0.012] * 2, color=col, lw=2.5,
+                                              transform=fig.transFigure))
     fig.suptitle(f"{rule}: trial structure and ring snapshots.  " + textwrap.fill(DESC[rule], 170)
-                 + "\nDashed radii = the two stimulus directions; star = correct response direction. "
-                   "Snapshot B shows both rings with two bumps of strengths 1+c and 1-c; C shows the response bump at ring 1's stronger direction.",
+                 + "\nThe two directions are the two CHOICE OPTIONS, shared by both rings (as in Mante: motion and colour both speak about left vs right); "
+                   "each ring's evidence c (sign and size) is drawn independently, so half the trials are conflict trials. "
+                   "Dashed radii = the two options; star = correct response. B: both rings on, strengths 1+c and 1-c printed; C: response bump at the option ring 1 favours.",
                  fontsize=10)
     fig.savefig(path, dpi=100, bbox_inches="tight")
     plt.close(fig)

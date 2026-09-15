@@ -1,0 +1,24 @@
+# @package task
+# SINGLE-TASK REFERENCE for the Yang20 multi-task experiment: Mante's context-dependent decision
+# as the PAIR contextdm1 + contextdm2 (both rings show the same two choice options with independent
+# evidence; the rule channel plays the context cue and says which ring to answer by), in exactly
+# the Yang20 input/output layout (all 20 rule channels present, two of them ever on), so single-
+# and multi-task networks differ in nothing but the tasks. Batch 1024 trials, as Yang20.
+# Pavel, 2026-09-15: the reference must be the pair, since CDDM contains both contexts.
+taskname: "Yang"
+_target_: trainRNNbrain.tasks.TaskYang.TaskYang
+T: 300
+seed: null
+n_inputs: 85
+n_outputs: 33
+n_eachring: 32
+batch_size: 1024
+sigma_tuning: 0.39269908169872414    # pi/8
+coherences: [0.04, 0.08, 0.16, 0.32]
+grace: 10
+rules: [contextdm1, contextdm2]
+mask_params:
+  - (0, ${..T})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "rules", "batch_size", "n_eachring", "sigma_tuning", "coherences", "grace"]
