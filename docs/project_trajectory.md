@@ -10719,3 +10719,44 @@ each reaches. Batch 1024 for both (same optimizer noise as every grid; the singl
 job **6206472** (launcher tasks 7 and 25, `SAVE_TO=…/pilot10k` so the nets stay out of the grid
 cells), ~1 h each once running. Read-out on completion: `multitask_readout.py` (live units on
 CDDM trials under three criteria, per-rule accuracy, shared/private split) and `yang_checks.py`.
+
+## ▶ PILOT: CDDM alone vs 20 tasks, N=1000, 10k iterations, unpenalised (job 6206472) — 2026-09-15 17:52
+
+Both networks solve everything: accuracy 1.00 on both context rules in the CDDM-pair net; 0.97–1.00
+on all 20 rules in the multi-task net (dnmc 0.97, dmc 0.98); `yang_checks.py` passes on both
+(conflict trials 1.00; no dependence on delay length; rule ablation collapses anti to 0.00–0.04,
+match family to 0.29–0.71, context to 0.73–0.80 while rule-independent DM stays ≥ 0.95).
+Both at 0.44 s/iter (76 min). Live units, noise-free, 256 trials per rule, three criteria
+(scale-free / absolute 1e-6 / absolute 4e-2), `multitask_readout.py`:
+
+| network | on CDDM trials (union of both contexts) | on the mixed training batch | CDDM-active shared / private |
+|---|---|---|---|
+| CDDM pair alone | 574 / ~945 / ~560 | 517 / 978 / 616 | — (all private by construction) |
+| 20 tasks | 512 / ~980 / ~630 | 652 / 1000 / 826 | 509 / 3 |
+
+Per rule in the 20-task net (scale-free): Go family 406–618, DM 419–487 (contextdm1 419,
+contextdm2 455), delayed DM 598–625, match family 657–703.
+
+Live units over training (`img/internal_figures/pilot10k_live_vs_iter.png`, from the traces, mixed
+batch): scale-free CDDM-alone 766 → 707 → 508 at 1k / 5k / 10k, 20-task 830 → 745 → 649; absolute
+4e-2 769 → 780 → 639 vs 855 → 850 → 818; absolute 1e-6 ~985 vs 1000 throughout.
+
+![Pilot: live units vs iteration](../img/internal_figures/pilot10k_live_vs_iter.png)
+
+**Reading (one seed, 10k iterations, counts still falling — a snapshot, not a result):**
+1. On CDDM trials the 20-task network does NOT use more units than the CDDM-only network under the
+   scale-free criterion (512 vs 574) and only somewhat more under the absolute ones (~630 vs ~560 at
+   4e-2). The extra recruitment is on the OTHER tasks: the multi-task net's whole-batch count is
+   652 vs 517 (+26%), and the tasks with the highest counts are the delay and match families
+   (600–700), not CDDM. CDDM's own demand is what it is, wherever it lives.
+2. The CDDM-active units of the multi-task net are almost all shared (509 of 512): nothing is
+   CDDM-private. So multi-task training gives CDDM a population that is busy with other things —
+   the nuisance-activity picture — but not a more redundant CDDM code.
+3. This ring-coded CDDM already recruits far more than the old 6-input CDDM: ~50–57% scale-free,
+   ~95% by 1e-6 at N=1000 and 10k iterations, against ~30% / ~30% for the old task at the same N
+   (the 85-input ring drive alone keeps most units above 1e-6). The old CDDM references are not
+   comparable to this family; the CDDM-pair net is the reference.
+4. Silencing is still in progress at 10k under the scale-free criterion in both nets (−25% from 5k
+   to 10k in the CDDM-only net), as in every other grid; the 150k budget (or at least a matched
+   longer one) is needed before any of these numbers is quoted. The criteria disagree by 2× (508
+   vs 982): the participation distribution is not bimodal on this family either.
