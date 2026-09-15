@@ -842,8 +842,15 @@ class Trainer():
                 new_part = self.get_participation_(states, q=self.dropout_args["activity_q"], eps=1e-12).detach()
                 self.participation = (1 - eta) * self.participation + eta * new_part
 
+        # The TASK loss is scored on the dropout pass (output_do), the penalties on the full pass
+        # (states / output_full), so a penalty keeps its usual meaning while the task gradient sees
+        # the ablated or muted network. Until 2026-09-15 the two were the other way round: the task
+        # loss read output_full and output_do reached only the penalties, none of which use the
+        # output - so dropout changed NOTHING in the gradient (verified: 'dead' and 'mute' runs with
+        # the same seeds were bit-identical, and both differed from dropout=False only through the
+        # extra forward pass consuming the noise generator). Every earlier dropout run is void.
         penalty_dict_raw = {
-            k: (fn(states, input, (output_full if (self.dropout and k=='task') else output_do), target_output, mask, **kwargs) if L != 0 else None)
+            k: (fn(states, input, (output_do if k == 'task' else output_full), target_output, mask, **kwargs) if L != 0 else None)
             for k, (fn, L, kwargs) in self.penalty_map.items()
         }
         

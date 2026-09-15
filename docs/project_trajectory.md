@@ -10483,3 +10483,48 @@ Read-out (fixed now): t(clean r² ≥ 0.9) per arm from `dmts_readout.py` pointe
     penalty and is re-run at N=2000 or with a longer budget.
 N=1000 rather than 2000 was chosen for cost (18 h vs ~31 h at 100k) and because both arms escaped
 within 5k there at 16 tau, so a `none` failure at 36 tau would be a clean reversal.
+
+## ▶ DROPOUT: inventory, a no-op bug since 2025-12, the fix, and the first real dropout grid (3-bit flip-flop, N=1000) — 2026-09-15 09:59
+
+**Pavel's question:** could dropout keep units alive (force redundancy) on its own or on top of the
+penalties? First, how many dropout variants exist?
+
+**Inventory (RNN_torch.forward / rhs / get_dropout_mask, Trainer.train_step).** TWO kinds and
+THREE sampling methods, 6 combinations, all switched by `trainer.dropout_args`:
+- kind `mute`: the unit runs in the recurrent dynamics; only its read-out weight is masked to 0.
+- kind `dead`: the unit is ablated for the batch — its rate is zeroed for every other unit, its
+  drive and noise are zeroed (x decays to 0), and its read-out weight is masked.
+- There is NO third "silenced but not killed" kind; `mute` is the output-only one.
+- sampling `uniform` (every unit with probability drop_rate), `participation` (probability
+  drop_rate·N·softmax(beta·participation_EMA): the most active units dropped more; the EMA has
+  rate eta on the per-unit std + 0.9-quantile of |x|), `output_weights` (same with Σ|W_out|).
+  One Bernoulli mask per unit per training batch, shared across its trials.
+- Config defaults (all trainer yamls, `dropout: False`): mute / participation / drop_rate 0.05 /
+  beta 1.0 / eta 0.5 / activity_q 0.9. `docs/hyperparameter_walkthrough.md` lists it as UNUSED.
+
+**Bug: dropout has never affected training.** `Trainer.train_step` scored the task loss on the
+NON-dropout forward pass (`output_full`) and handed the dropped output (`output_do`) only to the
+penalties, none of which use the output (frm/rws read states and weights). Since commit 76e74b9
+(2025-12-03). Verified, not inferred: 15-iteration runs with `seed=1 task.seed=1`, dropout off vs
+`dead` vs `mute` at drop_rate 0.5 (uniform) — `dead` and `mute` were BIT-IDENTICAL over all 15
+iterations (1.028713, 1.019228, 1.0066699, …), and both differed from `off` only from iteration 2,
+i.e. only through the extra forward pass consuming the noise generator. Two different ablations
+giving the same training is only possible if neither reaches the gradient. **Every earlier dropout
+run (slurm/Dropout.slurm, 2025, 14 jobs) is void.**
+
+**Fix (this commit):** task loss on `output_do`, penalties on the full pass (their meaning is
+unchanged; the full pass is still needed for `states`). Same test after the fix: off / dead / mute
+differ from iteration 1 (1.028713 / 1.0219723 / 1.024176) and dead ≠ mute throughout. Cost: two
+forward passes per iteration whenever dropout is on.
+
+**Grid submitted: `slurm/SilentReLU_flipflop_dropout_spock.slurm`**, 8 jobs = {none, rws, frm,
+both} × {mute, dead}, 3-bit flip-flop, N=1000, one seed each, 150k iterations, sampling and rate
+from the config (participation, 0.05); output `NBitFlipFlop_std_dropout/EqType=h_k=3_N=1000_
+pen=<pen>_do=<kind>/`. References at the same cell and iteration: `NBitFlipFlop_std_ksweep` k=3
+(none) and `NBitFlipFlop_std_pen` k=3 (rws / frm / both), 3 seeds each.
+Pre-registered read-out at 150k: live units under BOTH flip-flop criteria (scale-free and absolute
+4e-2) and the clean loss. "Dropout keeps units alive" := live(none+dropout) > reference `none`
+mean + 3 sd under both criteria; "adds to rws" := the same for rws. frm and both are already at N,
+so for them the read-out is the loss (does dropout cost or buy performance). One seed each — a
+positive result gets 3 seeds before it is quoted. Smoke-tested locally (N=100, 15 iterations, the
+saved config carries dropout: true / dead / participation / 0.05).
