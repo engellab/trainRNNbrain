@@ -10682,3 +10682,8 @@ whether the test equals the sample or differs by how many degrees, and for DMC/D
 of sample and test (A = 0–180 deg, B = 180–360 deg; the A half is shaded on every ring). The
 categories are about the half-circle, not the direction: in DMC two different directions in the
 same half are a match.
+
+13:45 — Yang calibration on Spock (job 6202165, multi20 N=2000 `none`, 600 iterations, commit
+d8d5e84 = vectorised task, response to T): 0.90 s/iter → 37 h for 150k (fits 48 h); r² 0.88 on the
+mixed batch after 600 iterations (the family learns its fixation/response structure fast).
+Calibration net removed from the cell. **36-job grid ready, not submitted — awaiting Pavel.**

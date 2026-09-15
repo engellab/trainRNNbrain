@@ -37,6 +37,8 @@
 # epoch x5); Adam with this repo's lr scaling; no L2 on activity.
 # Cost: batch 1000 x T=300 x 85 inputs ~ the flip-flop's per-iteration cost (0.24-0.26 s/iter at
 # N<=1000, 0.55 at N=2000) plus trial generation (vectorised, ~0.09 s per 1024-trial batch):
+#   Measured (calibration job 6202165, multi20 N=2000 none, 600 iterations, commit d8d5e84): 0.90 s/iter
+#   -> 37 h at 150k; r2 0.88 on the mixed batch after 600 iterations.
 #   sbatch --array=1-12,19-30  slurm/SilentReLU_yang_spock.slurm                      # N<=1000, 24 h
 #   sbatch --array=13-18,31-36 --time=48:00:00 slurm/SilentReLU_yang_spock.slurm      # N=2000
 # Timing calibration: ITERS_OVERRIDE=600 sbatch --array=13 --time=00:40:00 ...
