@@ -10665,3 +10665,12 @@ in Yang's family the context is the rule, so the single-task CDDM reference is `
 Launcher set `ctxdm`; `multitask_readout.py --focus contextdm1,contextdm2` takes the union as the
 focus-active set. Smoke-tested (10 iterations, N=100; read-out reports both rules, all active
 units private as they must be in the single-task net).
+
+13:06 — Structure figures for all 20 rules (`fig_yang_tasks.py`, `<rule>_structure.png`), with
+per-family snapshot times (fixed-delay Go / DM: fixation, stimulus before go, response; reaction-
+time: fixation, stimulus onset = go, response; delayed Go / DM: stimulus on, delay with stimulus
+off, response; match family: sample on, delay, test on = go with response) and per-family trial
+selection (context DM: congruent / conflict / weak-attended conflict; other DM: strong, weakest,
+strong for the other option; multisensory: agree-strong, disagree, weak sum; match family: match,
+non-match, match). Checked reactanti, delaydm1, dnmc, multidm, contextdm1 by eye: epochs, go,
+targets and the ring snapshots agree with each trial's parameters and response.

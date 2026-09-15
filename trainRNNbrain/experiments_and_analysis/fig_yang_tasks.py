@@ -4,7 +4,7 @@ polar ring snapshots, each with a description of the task.
 <rule>.png       three trials side by side; top row the 85 input channels as an image (fixation,
                  modality-1 ring, modality-2 ring, rule vector), bottom row the 33 output targets
                  (fixation, response ring). Go signal in red, unscored grace shaded; the response is sustained to step 300.
-<rule>_structure.png  (contextdm1 for now; `--structure <rule>`) three trials, one row each: the
+<rule>_structure.png  (every rule; `--structure <rule>` for one) three trials, one row each: the
                  trial structure as step functions over time (fixation input, stimulus on each
                  ring, rule, go signal, fixation output, response present) with three snapshot
                  times marked by arrows, and at exactly those times ring 1, ring 2 and the
@@ -14,7 +14,7 @@ polar ring snapshots, each with a description of the task.
                  go, (C) mid-response.
 Output: img/internal_figures/yang_tasks/ and an index of the descriptions.
 
-Usage: python fig_yang_tasks.py [--structure contextdm1]
+Usage: python fig_yang_tasks.py [--structure all|<rule>]
 """
 import os
 import textwrap
@@ -59,44 +59,100 @@ DESC = {
 }
 
 
-SNAPSHOTS = {   # per rule: (label, function of the trial dict -> step) x 3; the informative moments
-    "contextdm1": [("A: fixation, no stimulus", lambda c: c["t_fix"] // 2),
-                   ("B: both rings on, before go", lambda c: (c["t_fix"] + c["t_go"]) // 2),
-                   ("C: response (stimuli still on)", lambda c: (c["t_go"] + c["t_end"]) // 2)],
-}
+GO = ("fdgo", "reactgo", "delaygo", "fdanti", "reactanti", "delayanti")
+DM = ("dm1", "dm2", "contextdm1", "contextdm2", "multidm")
+DDM = ("delaydm1", "delaydm2", "contextdelaydm1", "contextdelaydm2", "multidelaydm")
+MATCH = ("dms", "dnms", "dmc", "dnmc")
 
 
-def structure(task, rule, path, n_trials=3):
+def snapshots(rule):
+    """The three informative moments of a rule: (label, trial dict -> step) x 3.
+
+    Args:
+        rule: rule name.
+    Returns:
+        list of three (label, function) pairs.
+    """
+    mid_resp = ("C: response", lambda c: (c["t_go"] + c["t_end"]) // 2)
+    if rule.startswith("react"):
+        return [("A: fixation, no stimulus", lambda c: c["t_fix"] // 2),
+                ("B: stimulus onset = go", lambda c: c["t_go"] + 3), mid_resp]
+    if rule.startswith("fd") or rule in DM:
+        return [("A: fixation, no stimulus", lambda c: c["t_fix"] // 2),
+                ("B: stimulus on, before go", lambda c: (c["t_fix"] + c["t_go"]) // 2), mid_resp]
+    if rule.startswith("delay") and rule in GO or rule in DDM:
+        return [("A: stimulus on", lambda c: (c["t_fix"] + c["t_s"]) // 2),
+                ("B: delay, stimulus off", lambda c: (c["t_s"] + c["t_go"]) // 2), mid_resp]
+    return [("A: sample on", lambda c: (c["t_fix"] + c["t_s"]) // 2),           # match family
+            ("B: delay, sample off", lambda c: (c["t_s"] + c["t_go"]) // 2),
+            ("C: test on = go, response", lambda c: (c["t_go"] + c["t_end"]) // 2)]
+
+
+def pick_trials(rule, C):
+    """Indices of three informative trials of a 400-trial batch, and a label for each.
+
+    Context DM: a congruent trial, a conflict with a strong distractor, a conflict with weak attended
+    evidence. Other DM: a strong, a weak and a reversed-sign coherence. Match family: match,
+    non-match, match. Go family: three trials as drawn.
+    """
+    sub = [c["sub"] for c in C]
+    first = lambda m: int(np.flatnonzero(m)[0])
+    if rule in ("contextdm1", "contextdm2", "contextdelaydm1", "contextdelaydm2"):
+        c1 = np.array([c["coh1"] for c in sub]); c2 = np.array([c["coh2"] for c in sub])
+        att, dis = (c1, c2) if rule.endswith("1") else (c2, c1)
+        return ([first((np.sign(att) == np.sign(dis)) & (np.abs(att) >= 0.16)),
+                 first((np.sign(att) != np.sign(dis)) & (np.abs(dis) >= 0.16)),
+                 first((np.sign(att) != np.sign(dis)) & (np.abs(att) <= 0.08) & (np.abs(dis) >= 0.16))],
+                ["congruent: both rings favour the same option", "CONFLICT: distractor ring strongly favours the other option",
+                 "CONFLICT: weak attended evidence, strong distractor"])
+    if rule.startswith("multi"):
+        c1 = np.array([x["coh1"] for x in sub]); c2 = np.array([x["coh2"] for x in sub]); tot = c1 + c2
+        return [first((np.sign(c1) == np.sign(c2)) & (np.abs(tot) >= 0.48)),
+                first((np.sign(c1) != np.sign(c2)) & (np.abs(tot) >= 0.16)),
+                first(np.abs(tot) <= 0.08)], \
+               ["both rings agree, strong summed evidence", "rings DISAGREE: the larger evidence wins", "weak summed evidence"]
+    if rule in DM or rule in DDM:
+        key = "coh1" if "dm1" in rule else "coh2"
+        c = np.array([x[key] for x in sub])
+        i_strong = first(np.abs(c) >= 0.32)
+        return [i_strong, first(np.abs(c) <= 0.04), first((np.abs(c) >= 0.32) & (np.sign(c) != np.sign(c[i_strong])))], \
+               ["strong evidence", "weakest evidence", "strong evidence for the other option"]
+    if rule in MATCH:
+        m = np.array([x["match"] for x in sub])
+        return [first(m), first(~m), int(np.flatnonzero(m)[1])], \
+               ["match -> " + ("respond" if rule in ("dms", "dmc") else "withhold"),
+                "non-match -> " + ("withhold" if rule in ("dms", "dmc") else "respond"),
+                "match -> " + ("respond" if rule in ("dms", "dmc") else "withhold")]
+    return [0, 1, 2], ["", "", ""]
+
+
+def structure(task, rule, path):
     """Trial structure over time with arrows at the snapshot times, and the rings at those times.
 
     Args:
-        task: TaskYang; rule: rule name (needs an entry in SNAPSHOTS); path: output file.
+        task: TaskYang; rule: rule name; path: output file.
     """
     X, Y, C = task.task_batch(rule, n=400)
-    if rule in ("contextdm1", "contextdm2"):
-        # pick trials that show the independence of the two rings' evidence: a congruent one, a
-        # conflict trial with a strong distractor, and a conflict trial with weak attended evidence
-        c1 = np.array([c["sub"]["coh1"] for c in C]); c2 = np.array([c["sub"]["coh2"] for c in C])
-        att, dis = (c1, c2) if rule == "contextdm1" else (c2, c1)
-        pick = [int(np.flatnonzero((np.sign(att) == np.sign(dis)) & (np.abs(att) >= 0.16))[0]),
-                int(np.flatnonzero((np.sign(att) != np.sign(dis)) & (np.abs(dis) >= 0.16))[0]),
-                int(np.flatnonzero((np.sign(att) != np.sign(dis)) & (np.abs(att) <= 0.08) & (np.abs(dis) >= 0.16))[0])]
-        kinds = ["congruent: both rings favour the same option", "CONFLICT: distractor ring strongly favours the other option",
-                 "CONFLICT: weak attended evidence, strong distractor"]
-    else:
-        pick, kinds = list(range(n_trials)), [""] * n_trials
+    pick, kinds = pick_trials(rule, C)
     X, Y, C = X[..., pick], Y[..., pick], [C[i] for i in pick]
     R, T = task.n_ring, task.n_steps
-    snaps = SNAPSHOTS[rule]
+    snaps = snapshots(rule)
+    n_trials = len(pick)
     fig = plt.figure(figsize=(26, 5.6 * n_trials))
     gs = fig.add_gridspec(n_trials, 10, width_ratios=[3.6] + [1] * 9, wspace=0.3, hspace=0.5)
     for b in range(n_trials):
-        c = C[b]["sub"]
+        c = dict(C[b]["sub"])
+        # the stimulus-off time for the delayed families, from the inputs (not stored in the dict)
+        on1 = X[task.i_mod1, :, b].max(axis=0) > 0.05
+        c["t_s"] = int(np.flatnonzero(on1)[-1] + 1) if on1.any() else c["t_go"]
+        if rule in MATCH:                                       # sample epoch ends at the first off step
+            off = np.flatnonzero(~on1[c["t_fix"]:]) + c["t_fix"]
+            c["t_s"] = int(off[0]) if off.size else c["t_go"]
         ax = fig.add_subplot(gs[b, 0])
         rows = [("fixation input", X[0, :, b] > 0.5),
-                ("stimulus on ring 1", X[task.i_mod1, :, b].max(axis=0) > 0.05),
+                ("stimulus on ring 1", on1),
                 ("stimulus on ring 2", X[task.i_mod2, :, b].max(axis=0) > 0.05),
-                ("rule input (contextdm1)", X[task.i_rule + RULES.index(rule), :, b] > 0.5),
+                (f"rule input ({rule})", X[task.i_rule + RULES.index(rule), :, b] > 0.5),
                 ("go signal (fixation off)", np.arange(T) >= c["t_go"]),
                 ("target: fixation output", Y[0, :, b] > 0.5),
                 ("target: response bump", Y[1:, :, b].max(axis=0) > 0.5)]
@@ -107,7 +163,8 @@ def structure(task, rule, path, n_trials=3):
         ax.axvspan(c["t_go"], c["t_go"] + task.grace, color="C3", alpha=0.12, lw=0)
         ax.axvline(c["t_go"], color="C3", lw=1.0)
         ymax = len(rows) * 1.4
-        for (label, f), col in zip(snaps, ["C0", "C2", "C4"]):
+        cols = ["C0", "C2", "C4"]
+        for (label, f), col in zip(snaps, cols):
             tt = f(c)
             ax.axvline(tt, color=col, lw=1.0, ls=":")
             ax.annotate(label.split(":")[0], xy=(tt, ymax), xytext=(tt, ymax + 0.9), ha="center", fontsize=9,
@@ -115,11 +172,14 @@ def structure(task, rule, path, n_trials=3):
         ax.set_xlim(0, T); ax.set_ylim(-0.3, ymax + 1.6); ax.set_yticks([])
         ax.set_xlabel("step (tau = 10 steps)", fontsize=8)
         ax.spines[["top", "right", "left"]].set_visible(False)
-        ax.set_title(f"trial {b + 1} ({kinds[b]}): go at {c['t_go']}; dir1 {np.degrees(c['dir1'] % (2*np.pi)):.0f} deg, "
-                     f"dir2 {np.degrees(c['dir2'] % (2*np.pi)):.0f} deg; evidence ring 1 c1 = {c['coh1']:+.2f}, "
-                     f"ring 2 c2 = {c['coh2']:+.2f}  ->  respond to "
-                     f"{'dir1' if c['coh1'] > 0 else 'dir2'} ({np.degrees(c['resp_dir']):.0f} deg)", fontsize=9, loc="left")
-        for m, ((label, f), col) in enumerate(zip(snaps, ["C0", "C2", "C4"])):
+        deg = lambda v: f"{np.degrees(v % (2 * np.pi)):.0f} deg"
+        info = ", ".join(f"{k} {deg(v)}" if "dir" in k else f"{k} = {v:+.2f}" if isinstance(v, float) else f"{k} = {v}"
+                         for k, v in C[b]["sub"].items() if k not in ("t_fix", "t_go", "t_end", "resp_dir", "respond"))
+        resp = f"respond toward {deg(c['resp_dir'])}" if c["respond"] else "NO response (keep fixating)"
+        ax.set_title(f"trial {b + 1}" + (f" ({kinds[b]})" if kinds[b] else "") + f": go at {c['t_go']}; {info}  ->  {resp}",
+                     fontsize=9, loc="left")
+        dirs = [v for k, v in C[b]["sub"].items() if "dir" in k]
+        for m, ((label, f), col) in enumerate(zip(snaps, cols)):
             tt = f(c)
             for k, (name, vec, vmax, colr) in enumerate([("ring 1 input", X[task.i_mod1, tt, b], 1.6, "C0"),
                                                          ("ring 2 input", X[task.i_mod2, tt, b], 1.6, "C1"),
@@ -129,14 +189,17 @@ def structure(task, rule, path, n_trials=3):
                 pax.set_ylim(0, vmax); pax.set_yticks([])
                 pax.set_xticks(np.linspace(0, 2 * np.pi, 4, endpoint=False))
                 pax.set_xticklabels(["0", "90", "180", "270"], fontsize=6)
-                pax.plot([c["dir1"], c["dir1"]], [0, vmax], color="0.3", lw=0.6, ls="--")
-                pax.plot([c["dir2"], c["dir2"]], [0, vmax], color="0.3", lw=0.6, ls="--")
-                if k == 2:
+                for d in dirs:
+                    pax.plot([d, d], [0, vmax], color="0.3", lw=0.6, ls="--")
+                if k == 2 and c["respond"]:
                     pax.plot([c["resp_dir"]], [vmax * 0.95], marker="*", color="k", ms=9)
-                # the two bar heights at the stimulus directions, so 1+c vs 1-c is legible at small c
-                cc = c["coh1"] if k == 0 else c["coh2"] if k == 1 else None
-                note = (f"dir1 {1 + cc:.2f}  dir2 {1 - cc:.2f}" if (cc is not None and vec.max() > 0.05)
-                        else ("bump at " + f"{np.degrees(c['resp_dir']):.0f} deg" if (k == 2 and vec.max() > 0.5) else "empty"))
+                if vec.max() <= 0.06:
+                    note = "empty"
+                elif k < 2 and "coh1" in c:
+                    cc = c["coh1"] if k == 0 else c["coh2"]
+                    note = f"dir1 {1 + cc:.2f}  dir2 {1 - cc:.2f}"
+                else:
+                    note = f"bump at {deg(task.pref[int(np.argmax(vec))])}"
                 pax.set_title((f"{label} (t={tt})\n" if k == 0 else "\n") + f"{name}\n{note}", fontsize=8,
                               color=col if k == 0 else "k")
                 if k == 0:
@@ -146,10 +209,8 @@ def structure(task, rule, path, n_trials=3):
                     fig.add_artist(plt.Line2D([first.x0, last.x1], [first.y0 - 0.012] * 2, color=col, lw=2.5,
                                               transform=fig.transFigure))
     fig.suptitle(f"{rule}: trial structure and ring snapshots.  " + textwrap.fill(DESC[rule], 170)
-                 + "\nThe two directions are the two CHOICE OPTIONS, shared by both rings (as in Mante: motion and colour both speak about left vs right); "
-                   "each ring's evidence c (sign and size) is drawn independently, so half the trials are conflict trials. "
-                   "Dashed radii = the two options; star = correct response. B: both rings on, strengths 1+c and 1-c printed; C: response bump at the option ring 1 favours.",
-                 fontsize=10)
+                 + "\nDashed radii = the stimulus directions; star = correct response direction (absent on no-response trials). "
+                   "Bars under the rings group one snapshot; strengths printed for DM stimuli.", fontsize=10)
     fig.savefig(path, dpi=100, bbox_inches="tight")
     plt.close(fig)
 
@@ -191,8 +252,9 @@ def main():
     with open(os.path.join(out, "README.md"), "w") as fh:
         fh.write("# Yang task family: example trials\n\n" + "\n".join(f"- **{r}** ([figure]({r}.png)): {DESC[r]}" for r in RULES) + "\n")
     import sys
-    rule = sys.argv[sys.argv.index("--structure") + 1] if "--structure" in sys.argv else "contextdm1"
-    structure(task, rule, os.path.join(out, f"{rule}_structure.png"))
+    which = sys.argv[sys.argv.index("--structure") + 1] if "--structure" in sys.argv else "all"
+    for rule in (RULES if which == "all" else [which]):
+        structure(task, rule, os.path.join(out, f"{rule}_structure.png"))
     print("saved figures to", os.path.abspath(out))
 
 
