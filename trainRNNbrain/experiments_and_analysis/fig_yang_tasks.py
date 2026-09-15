@@ -3,7 +3,7 @@ polar ring snapshots, each with a description of the task.
 
 <rule>.png       three trials side by side; top row the 85 input channels as an image (fixation,
                  modality-1 ring, modality-2 ring, rule vector), bottom row the 33 output targets
-                 (fixation, response ring). Go signal in red, unscored grace shaded.
+                 (fixation, response ring). Go signal in red, unscored grace shaded; the response is sustained to step 300.
 <rule>_rings.png the same three trials as rings: for each trial, ring 1 input, ring 2 input and
                  the response-ring target drawn as a circle with a bar at every unit's preferred
                  direction (length = activation), at three moments - mid-stimulus, just before
@@ -109,7 +109,6 @@ def main():
             for a in (ax, ay):
                 a.axvline(c["t_go"], color="C3", lw=1.0)
                 a.axvspan(c["t_go"], c["t_go"] + task.grace, color="C3", alpha=0.12, lw=0)
-                a.axvline(c["t_end"], color="0.4", lw=0.8, ls="--")
                 a.set_xlim(0, task.n_steps)
             info = {k: v for k, v in c.items() if k not in ("t_fix", "t_go", "t_end", "resp_dir")}
             info = ", ".join(f"{k}={v:.2f}" if isinstance(v, float) else f"{k}={v}" for k, v in info.items())
@@ -117,7 +116,7 @@ def main():
             ay.set_xlabel("step (tau = 10 steps)", fontsize=8)
         fig.suptitle(f"{rule}\n" + textwrap.fill(DESC[rule], 150), fontsize=10)
         fig.text(0.5, 0.005, "inputs: fixation on until the go signal (red); outputs: fixation 0.85 until go, then 0.05 + response bump "
-                 "if the trial responds; red band = unscored grace; dashed = trial end (unscored after)", ha="center", fontsize=8, color="0.3")
+                 "if the trial responds, sustained to the end of the trial (step 300); red band = unscored grace", ha="center", fontsize=8, color="0.3")
         fig.tight_layout(rect=(0, 0.02, 1, 0.94))
         fig.savefig(os.path.join(out, f"{rule}.png"), dpi=110)
         plt.close(fig)

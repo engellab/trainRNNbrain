@@ -10637,7 +10637,7 @@ and 33 output channels of 3 trials, go signal and grace marked, description in t
 target variance 0.022–0.036, fixation input and response ring consistent with the trial's go time
 and respond flag in 200/200 trials per rule, match tasks respond on 47–54%.
 
-12:50 — Pavel's questions on the Yang port, and two changes. (1) Trials now use ALL 300 steps: the
+12:40 — Pavel's questions on the Yang port, and two changes. (1) Trials now use ALL 300 steps: the
 response epoch runs from the go signal to T (5–27 tau depending on the trial, must be sustained);
 everything is scored except the 1-tau grace, so the scored fraction is 0.967 instead of 0.52.
 (2) Ring view added: `<rule>_rings.png` draws ring 1, ring 2 and the response target as circles
