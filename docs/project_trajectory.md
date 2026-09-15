@@ -10674,3 +10674,11 @@ selection (context DM: congruent / conflict / weak-attended conflict; other DM: 
 strong for the other option; multisensory: agree-strong, disagree, weak sum; match family: match,
 non-match, match). Checked reactanti, delaydm1, dnmc, multidm, contextdm1 by eye: epochs, go,
 targets and the ring snapshots agree with each trial's parameters and response.
+
+13:29 — Pavel could not read the match/category tasks from the figures (the category rule was never
+stated). Every task description rewritten in full on the figure (inputs, what to do, correct
+output, what each snapshot shows), plus the common trial rules; trial titles now say for DMS/DNMS
+whether the test equals the sample or differs by how many degrees, and for DMC/DNMC the category
+of sample and test (A = 0–180 deg, B = 180–360 deg; the A half is shaded on every ring). The
+categories are about the half-circle, not the direction: in DMC two different directions in the
+same half are a match.

@@ -27,35 +27,62 @@ from matplotlib import pyplot as plt
 from trainRNNbrain.experiments_and_analysis.common import IMG_DIR
 from trainRNNbrain.tasks.TaskYang import RULES, TaskYang
 
+COMMON = ("Every trial: the fixation input (channel 0) is ON from the start and switches OFF at the go signal; "
+          "the rule channel of this task is ON throughout; the network must keep its fixation output HIGH (0.85) and its "
+          "response ring flat until the go, then (if the trial calls for a response) drop the fixation output to 0.05 and "
+          "raise a bump on the response ring at the correct direction, and hold it to the end of the trial.")
+
 DESC = {
-    "fdgo": "Go. Fixate; a stimulus appears on ring 1 and stays on. When the fixation input goes off, "
-            "respond toward the stimulus direction (bump on the response ring, fixation output down).",
-    "reactgo": "Reaction-time Go. No separate go cue: the stimulus onset IS the go signal; respond toward "
-               "it immediately (1-tau grace unscored).",
-    "delaygo": "Delay Go. A brief stimulus on ring 1, then a delay with no stimulus; when fixation goes "
-               "off, respond toward the REMEMBERED direction.",
-    "fdanti": "Anti. As Go, but respond toward the OPPOSITE direction (stimulus + 180 deg).",
-    "reactanti": "Reaction-time Anti. As RT Go, but respond opposite to the stimulus.",
-    "delayanti": "Delay Anti. As Delay Go, but respond opposite to the remembered direction.",
-    "dm1": "Decision-making, modality 1. Two stimuli at different directions on ring 1 with strengths 1+c "
-           "and 1-c (|c| in 0.04..0.32); stimuli stay on. Respond toward the STRONGER one after fixation off.",
-    "dm2": "Decision-making, modality 2. As DM1 on ring 2.",
-    "contextdm1": "Context-dependent DM, attend modality 1 (Mante's task). BOTH rings show the same two "
-                  "directions, each ring with its own evidence c1, c2. Respond by ring 1's evidence; ring 2 is a distractor.",
-    "contextdm2": "Context-dependent DM, attend modality 2. As above, respond by ring 2's evidence; ring 1 is the distractor.",
-    "multidm": "Multisensory DM. Both rings, same two directions, evidence c1 and c2. Respond toward the "
-               "direction favoured by the SUM c1 + c2.",
-    "delaydm1": "Delayed DM1. Stimuli on ring 1 turn OFF before a delay; respond from memory when fixation goes off.",
-    "delaydm2": "Delayed DM2. As Delayed DM1 on ring 2.",
-    "contextdelaydm1": "Delayed context DM, attend 1. Both rings shown, then off, delay; respond by ring 1's evidence.",
-    "contextdelaydm2": "Delayed context DM, attend 2. Both rings shown, then off, delay; respond by ring 2's evidence.",
-    "multidelaydm": "Delayed multisensory DM. Both rings, then off, delay; respond by the summed evidence.",
-    "dms": "Delayed match-to-sample. Sample on ring 1, delay, test on ring 1 (test onset = go). If the test "
-           "MATCHES the sample direction, respond toward it; otherwise keep fixating (no response).",
-    "dnms": "Delayed NON-match-to-sample. As DMS, but respond only when the test does NOT match.",
-    "dmc": "Delayed match-to-category. Directions in the upper half-circle are category A, lower half B. "
-           "Respond toward the test if sample and test are in the SAME category; else keep fixating.",
-    "dnmc": "Delayed NON-match-to-category. Respond only when the categories DIFFER.",
+    "fdgo": "GO (fixed delay). A single stimulus appears on ring 1 at a random direction and stays ON to the end. "
+            "Task: when the fixation input goes off, respond toward the stimulus direction. Snapshots: A nothing but "
+            "fixation; B the stimulus bump on ring 1, response still flat; C the stimulus still on and the response bump at the same direction.",
+    "reactgo": "REACTION-TIME GO. There is no separate go cue: the stimulus onset on ring 1 IS the go signal (the fixation "
+               "input drops at that moment). Task: respond toward the stimulus as soon as it appears (1 tau grace). "
+               "Snapshots: A fixation only; B just after onset, stimulus and response bump both at the stimulus direction; C the same, sustained.",
+    "delaygo": "DELAY GO. A stimulus on ring 1 for 3-5 tau, then it disappears; a delay of 3-10 tau with NO stimulus; then the go. "
+               "Task: respond toward the REMEMBERED direction. Snapshots: A stimulus on; B delay, all rings empty (the direction "
+               "must be held internally); C response bump at the remembered direction.",
+    "fdanti": "ANTI (fixed delay). As GO, but the correct response is the OPPOSITE direction (stimulus + 180 deg). "
+              "Snapshots: B stimulus bump on ring 1; C response bump diametrically opposite to it.",
+    "reactanti": "REACTION-TIME ANTI. As REACTION-TIME GO (stimulus onset = go), but respond to the OPPOSITE direction.",
+    "delayanti": "DELAY ANTI. As DELAY GO (stimulus, empty delay, go), but respond OPPOSITE to the remembered direction.",
+    "dm1": "DECISION-MAKING, modality 1. TWO stimuli appear at once on ring 1, at two different directions (>= 90 deg apart), "
+           "with strengths 1+c and 1-c (|c| = 0.04, 0.08, 0.16 or 0.32, random sign); they stay on to the end; ring 2 is empty. "
+           "Task: after the go, respond toward the STRONGER of the two. The printed 'dir1 x dir2 y' are the two bar heights. "
+           "Snapshots: B two bumps on ring 1 of unequal height; C the response bump at the taller one.",
+    "dm2": "DECISION-MAKING, modality 2. Exactly as DM1 but the two stimuli are on ring 2 and ring 1 is empty.",
+    "contextdm1": "CONTEXT-DEPENDENT DM, attend modality 1 (Mante's task). BOTH rings show the SAME two directions (the two choice "
+                  "options), but each ring has its OWN evidence: ring 1 strengths 1+c1 / 1-c1, ring 2 strengths 1+c2 / 1-c2, c1 and c2 "
+                  "independent in sign and size. Task: respond toward the option ring 1 favours; IGNORE ring 2 (it is a distractor and "
+                  "may favour the other option). Snapshots: B both rings on with their bumps of unequal height; C the response bump at "
+                  "ring 1's taller option.",
+    "contextdm2": "CONTEXT-DEPENDENT DM, attend modality 2. Same stimuli as CONTEXTDM1; the rule says respond by RING 2's evidence "
+                  "and ignore ring 1. Together, contextdm1 + contextdm2 are Mante's CDDM with the rule channel as the context cue.",
+    "multidm": "MULTISENSORY DM. Both rings show the same two directions with independent evidence c1, c2. Task: respond toward the "
+               "option favoured by the SUM c1 + c2 (both rings count; if they disagree the larger evidence wins). Snapshots: B both rings on; "
+               "C response at the option with the larger summed strength.",
+    "delaydm1": "DELAYED DM, modality 1. As DM1 (two stimuli on ring 1 with strengths 1+c / 1-c) but the stimuli turn OFF after "
+                "3-10 tau, then a 3-10 tau delay with empty rings, then the go. Task: respond toward the stronger one FROM MEMORY. "
+                "Snapshots: A the two bumps on; B delay, rings empty; C response bump at the remembered stronger direction.",
+    "delaydm2": "DELAYED DM, modality 2. As DELAYED DM1 with the stimuli on ring 2.",
+    "contextdelaydm1": "DELAYED CONTEXT DM, attend 1. As CONTEXTDM1 (both rings, independent evidence) but stimuli turn off before a "
+                       "delay; respond from memory by RING 1's evidence.",
+    "contextdelaydm2": "DELAYED CONTEXT DM, attend 2. As CONTEXTDM2 with a delay; respond from memory by RING 2's evidence.",
+    "multidelaydm": "DELAYED MULTISENSORY DM. As MULTIDM with a delay; respond from memory by the SUMMED evidence.",
+    "dms": "DELAYED MATCH-TO-SAMPLE. A SAMPLE stimulus on ring 1 for 3-5 tau, then off; an empty delay of 3-10 tau; then a TEST "
+           "stimulus on ring 1 (its onset is the go signal; it stays on). MATCH means the test has the SAME direction as the sample; "
+           "NON-MATCH means a different direction (at least 45 deg away). Task: if MATCH, respond toward the test direction; if NON-MATCH, "
+           "make NO response (fixation output stays high, response ring stays flat). Snapshots: A sample on; B delay, empty; C test on - "
+           "response bump at the test direction on match trials, nothing on non-match trials.",
+    "dnms": "DELAYED NON-MATCH-TO-SAMPLE. Same stimuli as DMS; the rule is reversed: respond toward the test only when it does NOT "
+            "match the sample; keep fixating when it matches.",
+    "dmc": "DELAYED MATCH-TO-CATEGORY. The circle is cut into two CATEGORIES: A = directions 0-180 deg (upper half, shaded on the rings), "
+           "B = 180-360 deg (lower half). Sample and test are generally DIFFERENT directions; what matters is only whether they fall in "
+           "the SAME half. Task: respond toward the test if sample and test are in the same category; make NO response if they are in "
+           "different categories. Snapshots: A sample on; B delay, empty; C test on - response bump at the test direction only when the "
+           "categories agree.",
+    "dnmc": "DELAYED NON-MATCH-TO-CATEGORY. Same categories as DMC (A = 0-180 deg upper half, B = 180-360 deg lower half); the rule is "
+            "reversed: respond toward the test only when sample and test are in DIFFERENT categories; keep fixating when they are in the same one.",
 }
 
 
@@ -138,8 +165,8 @@ def structure(task, rule, path):
     R, T = task.n_ring, task.n_steps
     snaps = snapshots(rule)
     n_trials = len(pick)
-    fig = plt.figure(figsize=(26, 5.6 * n_trials))
-    gs = fig.add_gridspec(n_trials, 10, width_ratios=[3.6] + [1] * 9, wspace=0.3, hspace=0.5)
+    fig = plt.figure(figsize=(26, 5.6 * n_trials + 1.2))
+    gs = fig.add_gridspec(n_trials, 10, width_ratios=[3.6] + [1] * 9, wspace=0.3, hspace=0.5, top=0.86)
     for b in range(n_trials):
         c = dict(C[b]["sub"])
         # the stimulus-off time for the delayed families, from the inputs (not stored in the dict)
@@ -176,6 +203,13 @@ def structure(task, rule, path):
         info = ", ".join(f"{k} {deg(v)}" if "dir" in k else f"{k} = {v:+.2f}" if isinstance(v, float) else f"{k} = {v}"
                          for k, v in C[b]["sub"].items() if k not in ("t_fix", "t_go", "t_end", "resp_dir", "respond"))
         resp = f"respond toward {deg(c['resp_dir'])}" if c["respond"] else "NO response (keep fixating)"
+        if rule in ("dmc", "dnmc"):
+            cat = lambda v: "A (0-180)" if (v % (2 * np.pi)) < np.pi else "B (180-360)"
+            info += f"; sample in category {cat(c['sample_dir'])}, test in category {cat(c['test_dir'])} -> " \
+                    f"{'SAME category' if c['match'] else 'DIFFERENT categories'}"
+        elif rule in ("dms", "dnms"):
+            info += "; test direction " + ("EQUALS the sample -> MATCH" if c["match"] else
+                     f"differs from the sample by {np.degrees(np.abs(np.angle(np.exp(1j * (c['test_dir'] - c['sample_dir']))))):.0f} deg -> NON-MATCH")
         ax.set_title(f"trial {b + 1}" + (f" ({kinds[b]})" if kinds[b] else "") + f": go at {c['t_go']}; {info}  ->  {resp}",
                      fontsize=9, loc="left")
         dirs = [v for k, v in C[b]["sub"].items() if "dir" in k]
@@ -191,6 +225,8 @@ def structure(task, rule, path):
                 pax.set_xticklabels(["0", "90", "180", "270"], fontsize=6)
                 for d in dirs:
                     pax.plot([d, d], [0, vmax], color="0.3", lw=0.6, ls="--")
+                if rule in ("dmc", "dnmc"):                     # category A = upper half-circle, shaded
+                    pax.fill_between(np.linspace(0, np.pi, 50), 0, vmax, color="0.85", alpha=0.5, lw=0)
                 if k == 2 and c["respond"]:
                     pax.plot([c["resp_dir"]], [vmax * 0.95], marker="*", color="k", ms=9)
                 if vec.max() <= 0.06:
@@ -208,9 +244,9 @@ def structure(task, rule, path):
                     last = pax.get_position()
                     fig.add_artist(plt.Line2D([first.x0, last.x1], [first.y0 - 0.012] * 2, color=col, lw=2.5,
                                               transform=fig.transFigure))
-    fig.suptitle(f"{rule}: trial structure and ring snapshots.  " + textwrap.fill(DESC[rule], 170)
-                 + "\nDashed radii = the stimulus directions; star = correct response direction (absent on no-response trials). "
-                   "Bars under the rings group one snapshot; strengths printed for DM stimuli.", fontsize=10)
+    fig.suptitle(f"{rule.upper()}\n" + textwrap.fill(DESC[rule], 190) + "\n" + textwrap.fill(COMMON, 190)
+                 + "\nFigure: dashed radii = the stimulus directions; star = correct response direction (absent on no-response trials); "
+                   "bars under the rings group one snapshot; 'dir1 x dir2 y' = the two bar heights of a DM stimulus.", fontsize=10)
     fig.savefig(path, dpi=100, bbox_inches="tight")
     plt.close(fig)
 
