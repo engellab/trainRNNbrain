@@ -10648,7 +10648,7 @@ directions) and the response bump read directly. For the record: 85 inputs = 1 f
 two bumps in one ring are the two choice options of a DM trial. Re-checked all 20 rules after the
 change (fixation off and response bump consistent with each trial's go time and respond flag).
 
-13:10 — Pavel on the ring view: uninformative snapshots (empty rings), replaced by a TRIAL-STRUCTURE
+12:59 — Pavel on the ring view: uninformative snapshots (empty rings), replaced by a TRIAL-STRUCTURE
 figure (`fig_yang_tasks.py --structure <rule>` → `<rule>_structure.png`): per trial the epochs as
 step functions (fixation input, stimulus on each ring, rule, go, target fixation, target response)
 with three arrowed snapshot times chosen per task, and the rings at exactly those times as polar
