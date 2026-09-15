@@ -10760,3 +10760,30 @@ batch): scale-free CDDM-alone 766 → 707 → 508 at 1k / 5k / 10k, 20-task 830 
    to 10k in the CDDM-only net), as in every other grid; the 150k budget (or at least a matched
    longer one) is needed before any of these numbers is quoted. The criteria disagree by 2× (508
    vs 982): the participation distribution is not bimodal on this family either.
+
+## ▶ CONFIRMATION RUN: CDDM alone vs 20 tasks, N=1000, 30k iterations, 3 seeds (job 6209433) — 2026-09-15 18:16
+
+Pavel's call after the pilot: the result ("training on multiple tasks does not recruit more units
+for CDDM") is worth one confirmation at this single cell with error bars, then stop. **The 36-job
+grid is dropped** (penalty arms and N=500/2000 add nothing to this question).
+
+`slurm/SilentReLU_yang_30k_spock.slurm`, 6 jobs = {multi20, ctxdm} × 3 seeds, N=1000, unpenalised,
+batch 1024, output `Yang_std_30k/EqType=h_set=<set>_N=1000_pen=none/`:
+- tasks 1–4: FRESH, 30k iterations (seeds 2 and 3 of each set);
+- tasks 5–6: **WARM START** from the 10k pilot nets, 20k more iterations → 30k total (seed 1), at
+  Pavel's suggestion — it reuses the pilot instead of retraining it (saves ~2.5 h of GPU).
+
+Warm start restores weights AND Adam moments (`paths.init_adam=true`), which is sanctioned here
+because the penalty is unchanged (none → none); the config's warning is about carrying momentum
+across a penalty SWITCH. **Verified before submitting** (the load path had never been exercised):
+a warm-started run resumes at the source's final loss (first iteration 0.0497 vs the source's
+final 0.0505) while a fresh control at the same seed starts at 0.2584. Two gotchas found and
+recorded in the launcher: the checkpoint path must be QUOTED in the Hydra override (folder names
+contain ';' and '=', which the override parser rejects), and a warm-started run's iteration
+counter restarts at 0, so its folder says MI=20000 and its trace covers TRUE iterations 10k–30k —
+every net is read at the END of training (30k true iterations for all six) so the comparison is
+matched, but any live-units-vs-iteration figure must offset those traces by +10000.
+
+Read-out on completion: live units on CDDM trials (scale-free / 1e-6 / 4e-2) per set as mean ± sd
+over 3 seeds, the shared-vs-CDDM-private split in the 20-task nets, and per-rule accuracy
+(solved := ≥ 0.95). ~3.7 h fresh, ~2.4 h warm at the measured 0.44 s/iter.
