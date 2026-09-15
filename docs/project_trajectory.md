@@ -10457,3 +10457,29 @@ at N=500 none) — the participation distribution is not cleanly bimodal on this
 
 Open until tonight: the N=2000 cells (12 jobs, ~68k/150k at 09:00, done ~00:00), which carry the
 strongest version of point 1.
+
+09:46 — `dmts_pen_curves.png` re-drawn de-noised (Pavel: too much jumping): every seed is now the
+median of its probes in 60 log-spaced iteration bins (`common.logbin`), raw probes not drawn; the
+memory-loss episodes they contained are counted in the read-out's `unstable` column instead.
+
+### CHECK (Pavel, 2026-09-15): 36-tau delay — does the unpenalised network find the memory at all? — 09:48
+
+Pavel's hypothesis: the frm advantage at 16 tau (leaving the no-memory plateau 2–3× earlier, more
+at N=2000) should grow with the delay, to the point where the unpenalised network never leaves the
+plateau. Check: `configs/task/DMTS_delay36.yaml` = DMTS_long with T 300 → 500 and everything after
+the sample shifted by 200 steps (sample 2–4 tau, silent delay 4–40 tau = **36 tau**, match 40–42,
+decision 44–50; same 4 stimuli, 2 outputs, ±1 tau jitter, scoring 0–44 and 45–50 tau).
+`slurm/SilentReLU_dmts_delay36_spock.slurm`: **2 jobs, N=1000, one seed each, `none` vs `frm 0.1`**,
+150k iterations, same trainer as the grid; output `DMTS_std_delay36/EqType=h_N=1000_pen=<name>/`.
+Smoke-tested locally (N=100, 20 iterations; mask 490 steps, delay 360 steps). Submitted as array
+**6201936** at commit 98b57c1, both running at 09:48; ~0.43 s/iter → ~18 h, done ~04:00 on 09-16.
+
+Read-out (fixed now): t(clean r² ≥ 0.9) per arm from `dmts_readout.py` pointed at the new folder.
+  - `none` never leaves the plateau within 150k while `frm` does → Pavel's prediction, but ONE
+    seed: the 16-tau `none` seeds at N=2000 spanned 2k–30k, so "never in one seed" needs the
+    other two seeds (and ideally N=2000) before it is quoted as a result.
+  - both escape → the effect at 36 tau is again a speed ratio; report it next to the 16-tau one.
+  - neither escapes → the task is too hard at N=1000 in 150k; the check says nothing about the
+    penalty and is re-run at N=2000 or with a longer budget.
+N=1000 rather than 2000 was chosen for cost (18 h vs ~31 h at 100k) and because both arms escaped
+within 5k there at 16 tau, so a `none` failure at 36 tau would be a clean reversal.

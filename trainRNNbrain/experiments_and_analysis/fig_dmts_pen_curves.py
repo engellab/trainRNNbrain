@@ -50,7 +50,7 @@ def main(path):
                           label=LABEL[pen] if first else None)
                 first = False
         ax_l.axhline(0.1 * var, color="0.6", lw=0.8, ls="--")
-        ax_l.text(15, 0.1 * var * 1.15, r"clean $r^2 = 0.9$", color="0.4", fontsize=8)
+        ax_l.text(150, 0.1 * var * 1.2, r"clean $r^2 = 0.9$", color="0.4", fontsize=8)
         ax_l.set_xscale("log"); ax_l.set_yscale("log")
         ax_l.set_ylim(5e-7, 0.3)
         if j == 0:
