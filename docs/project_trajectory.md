@@ -10587,3 +10587,42 @@ loss at 150k means a warm-started continuation before the read-out, not a read-o
 11:52 — Calibration on Spock (job 6202041, N=2000 `none`, 600 iterations, commit 51237d6): 0.81 s/iter
 → 34 h for 150k (fits the 48 h request); r² 0.49 on the mixed batch after 600 iterations, pipeline
 clean on the GPU. Calibration net removed from the cell. **Grid not submitted — awaiting Pavel.**
+
+## ▶ PREPARED (not submitted): Yang et al. (2019) 20-task family ported; CDDM alone vs 20 tasks, read on CDDM — 2026-09-15 12:45
+
+Pavel rejected the 15-task set of 11:30 (the repo's tasks do not map onto one another: the
+flip-flop family shares nothing with the rest, the hyper task is not a cognitive task) and asked
+for Yang's family instead, as inspiration rather than exact replication, with the goal fixed:
+**compare a CDDM-trained network with a 20-task-trained network and read how units are recruited
+on CDDM in both.** MultiRule15.yaml and its launcher are deleted; TaskMultiRule stays (generic).
+
+**`tasks/TaskYang.py`** — the 20 rules of the paper in its shared space: fixation input, two
+32-unit direction rings, 20 rule channels (85 inputs); fixation output + 32-unit response ring
+(33 outputs). Go / RT Go / Delay Go and Anti versions; DM1, DM2, Ctx DM1, Ctx DM2, MultSen DM and
+the five delayed versions; DMS, DNMS, DMC, DNMC. Stimulus = 0.8·exp(−d²/2σ²) bump, σ = π/8, DM
+strengths 1 ± c with |c| ∈ {0.04, 0.08, 0.16, 0.32}; fixation output 0.85 → 0.05 at the go signal;
+response ring 0.05 + 0.8 bump; 1-tau grace after the go unscored. **T = 300 steps, tau = 10 steps,
+the units of every other grid**; epoch lengths drawn per trial (fix 3–5 tau, stimulus 3–10, delay
+3–10, response 4), all trials end by step 285. Unused steps are zero input and unscored.
+Deviations from the paper, deliberate: uniform loss weight (the paper ×5 on the response epoch),
+per-trial rather than per-batch epoch lengths, this repo's Adam / lr scaling / noise, mixed batches.
+`configs/task/Yang20.yaml` (all 20 rules, batch 20 × 50) and **`Yang_ctxdm1.yaml` (contextdm1
+alone, batch 1000, the SAME 85/33 layout — the single-task CDDM reference)**. contextdm1 = Mante's
+context-dependent decision in ring coding (both modalities show the same two directions with
+independent evidence; respond on modality 1).
+Checks: every rule's scored target has variance (0.022–0.036), match tasks respond on 46–55% of
+trials, the example-trial figure `img/internal_figures/yang_tasks_examples.png` reads correctly,
+15-iteration smoke trainings of both configs run and `multitask_readout.py` (the generalised
+read-out: `--focus contextdm1`) produces the per-rule table on both, with the single-rule net's
+active units all "private" as they must be. Trial generation is a Python loop, 0.17 s per
+1000-trial batch — an overhead of ~0.17 s/iter to be vectorised if it matters.
+
+**Launcher `slurm/SilentReLU_yang_spock.slurm`, 36 jobs** = {multi20, ctxdm1} × N ∈ {500, 1000,
+2000} × {none, both} × 3 seeds, 150k iterations; output `Yang_std_multi/EqType=h_set=<set>_N=<N>_
+pen=<name>/`. **Pre-registered read-out** (same script on both sets): live units on contextdm1
+trials under the scale-free AND an absolute criterion; "multi-task raises recruitment on CDDM" :=
+live(multi20) > live(ctxdm1) mean + 3 sd in every seed at that N under both; the focus-active set
+split into shared-with-another-rule vs private (nuisance from common inputs vs the task's own code
+becoming redundant); per-rule r² so an unlearned rule does not count as delivered demand; and the
+clean-loss trace read first — still falling at 150k means a warm-started continuation before the
+read-out.

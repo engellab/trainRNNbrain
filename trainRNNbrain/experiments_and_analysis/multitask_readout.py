@@ -1,7 +1,10 @@
-"""Per-task recruitment of a multi-task (TaskMultiRule) network: how many units does CDDM use
-when the same network also serves fourteen other tasks?
+"""Per-task recruitment of a multi-task network (TaskYang, or any task exposing the composite API
+`subtask_names` / `task_batch(i)` / `batch_mask`): how many units does the FOCUS task (contextdm1,
+Mante's CDDM in ring coding) use when the same network also serves the other tasks?
 
-Pre-registered read-out of the MultiRule_std_multi grid (slurm/SilentReLU_multirule_spock.slurm).
+Pre-registered read-out of the Yang_std_multi grid (slurm/SilentReLU_yang_spock.slurm). The
+single-task reference (Yang_ctxdm1 networks, same layout, one rule) is read with the SAME script,
+so the two sides use one code path.
 For every trained network (LastParams .npz + saved config):
   1. Rebuild the network in numpy and the composite task from the saved config.
   2. For every subtask, run its FULL single-task batch (rule on, noise-free) and compute the
@@ -10,15 +13,13 @@ For every trained network (LastParams .npz + saved config):
      scale-free (p >= 5% of q95), absolute 1e-6 (CDDM-calibrated) and absolute 4e-2
      (flip-flop-calibrated) - the two absolute ones bracket the task-dependence of that threshold.
   3. The same on a mixed batch (live_all: what the whole network uses).
-  4. The CDDM-active set split into units ALSO active on at least one other task (shared) and
-     units active on CDDM only (private), scale-free criterion. The split separates "CDDM's own
-     computation became more redundant" from "other tasks' units respond to CDDM's inputs".
+  4. The focus-task-active set split into units ALSO active on at least one other task (shared)
+     and units active on the focus task only (private), scale-free criterion. The split separates
+     "the focus task's own computation became more redundant" from "other tasks' units respond to
+     its inputs". (Trivially all-shared in a single-task net.)
   5. Per-task r2 on the task's own scoring window, noise-free, so an unlearned subtask is visible.
-The single-task CDDM references (CDDM_std_g0_drift / CDDM_std_g0_penalties at the same N and
-iteration) are read separately from their participation traces (count_silent_units.py); this
-script prints only the multi-task side.
-
-Usage: python multirule_readout.py <trained_RNNs root> [--sub MultiRule_std_multi] [--dump out.npz]
+Usage: python multitask_readout.py <trained_RNNs root> [--sub Yang_std_multi] [--focus contextdm1]
+                                   [--n-trials 256] [--dump out.npz]
   --dump  save every net's per-task participation vectors and r2 for figures.
 """
 import argparse
@@ -88,19 +89,20 @@ def r2_scored(out, Y, mask):
     return float(r2(sel[0], sel[1]))
 
 
-def readout(net_dir):
+def readout(net_dir, focus, n_trials):
     """All read-out quantities of one network.
 
     Args:
-        net_dir: per-network folder.
+        net_dir: per-network folder; focus: the rule whose shared/private split is reported;
+        n_trials: trials per rule for the per-task batches.
     Returns:
         dict with per-task participation vectors (`p`, name -> (N,)), per-task r2 (`r2`),
-        the mixed-batch participation (`p_all`), and the CDDM shared/private split.
+        the mixed-batch participation (`p_all`), and the focus task's shared/private split.
     """
     rnn, task, cfg = build(net_dir)
     p, r2s = {}, {}
     for i, name in enumerate(task.subtask_names):
-        X, Y, C = task.task_batch(i)
+        X, Y, C = task.task_batch(i, n_trials)
         fr, out = run_noise_free(rnn, X)
         p[name] = participation(fr)
         r2s[name] = r2_scored(out, Y, task.batch_mask(C))
@@ -108,8 +110,9 @@ def readout(net_dir):
     fr, out = run_noise_free(rnn, X)
     p_all = participation(fr)
     act = {n: p[n] >= 0.05 * np.quantile(p[n], 0.95) for n in p}
-    cddm = act["CDDM"]
-    others = np.any([act[n] for n in p if n != "CDDM"], axis=0)
+    cddm = act[focus]
+    others = (np.any([act[n] for n in p if n != focus], axis=0) if len(p) > 1
+              else np.zeros_like(cddm))
     return dict(N=int(cfg.model.N), pen=re.search(r"_pen=([a-z]+)", net_dir).group(1),
                 seed=int(cfg.seed), p=p, r2=r2s, p_all=p_all, r2_all=r2_scored(out, Y, task.batch_mask(C)),
                 cddm_active=int(cddm.sum()), cddm_shared=int((cddm & others).sum()),
@@ -120,7 +123,9 @@ def main():
     """Print one block per network: per-task live counts (three criteria) and r2, then the totals."""
     ap = argparse.ArgumentParser()
     ap.add_argument("root")
-    ap.add_argument("--sub", default="MultiRule_std_multi")
+    ap.add_argument("--sub", default="Yang_std_multi")
+    ap.add_argument("--focus", default="contextdm1")
+    ap.add_argument("--n-trials", type=int, default=256)
     ap.add_argument("--dump", default=None)
     a = ap.parse_args()
     dirs = sorted(d for d in glob.glob(os.path.join(a.root, a.sub, "*", "*")) if os.path.isdir(d))
@@ -128,7 +133,7 @@ def main():
         raise SystemExit(f"no networks under {os.path.join(a.root, a.sub)}")
     dump = {}
     for d in dirs:
-        r = readout(d)
+        r = readout(d, a.focus, a.n_trials)
         print(f"\n=== N={r['N']} pen={r['pen']} seed={r['seed']}   {os.path.basename(d)[:40]}")
         print(f"{'task':18} {'live_sf':>7} {'live_1e-6':>9} {'live_4e-2':>9} {'r2':>7}")
         for name, pv in r["p"].items():
@@ -137,8 +142,8 @@ def main():
         pa = r["p_all"]
         print(f"{'ALL (mixed batch)':18} {active_count(pa, 'scalefree'):>7d} {active_count(pa, 'hard'):>9d} "
               f"{active_count(pa, SILENT_FLIPFLOP):>9d} {r['r2_all']:7.3f}")
-        print(f"CDDM-active (scale-free) {r['cddm_active']}: shared with >=1 other task {r['cddm_shared']}, "
-              f"CDDM-private {r['cddm_private']}")
+        print(f"{a.focus}-active (scale-free) {r['cddm_active']}: shared with >=1 other task "
+              f"{r['cddm_shared']}, {a.focus}-private {r['cddm_private']}")
         if a.dump:
             key = f"{r['N']}_{r['pen']}_{r['seed']}"
             for name, pv in r["p"].items():

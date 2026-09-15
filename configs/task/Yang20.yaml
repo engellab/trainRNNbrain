@@ -1,0 +1,28 @@
+# @package task
+# All 20 cognitive tasks of Yang et al. (2019) in one network (tasks/TaskYang.py). Shared space:
+# 1 fixation + two 32-unit stimulus rings + 20 rule channels = 85 inputs; 1 fixation + 32-unit
+# response ring = 33 outputs. Batch = 20 rules x 50 = 1000 trials, mixed, fresh every iteration.
+# T=300 = 3 s at tau = 100 ms (this repo's step is tau/10); epoch lengths are drawn per trial inside T.
+# Yang_ctxdm1.yaml is the single-task reference (one rule, same layout).
+taskname: "Yang"
+_target_: trainRNNbrain.tasks.TaskYang.TaskYang
+T: 300
+seed: null
+n_inputs: 85
+n_outputs: 33
+n_eachring: 32
+n_per_task: 50
+sigma_tuning: 0.39269908169872414    # pi/8
+coherences: [0.04, 0.08, 0.16, 0.32]
+grace: 10                            # unscored steps after the go signal (1 tau)
+rules: [fdgo, reactgo, delaygo, fdanti, reactanti, delayanti,
+        dm1, dm2, contextdm1, contextdm2, multidm,
+        delaydm1, delaydm2, contextdelaydm1, contextdelaydm2, multidelaydm,
+        dms, dnms, dmc, dnmc]
+# Global mask: the whole trial. The Trainer replaces it with the per-trial mask the task returns
+# with every batch (Trainer.run_training / TaskYang.batch_mask).
+mask_params:
+  - (0, ${..T})
+task_params: ["n_steps",
+              "n_inputs", "n_outputs",
+              "rules", "n_per_task", "n_eachring", "sigma_tuning", "coherences", "grace"]
