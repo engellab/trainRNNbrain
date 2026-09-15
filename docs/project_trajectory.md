@@ -10528,3 +10528,5 @@ mean + 3 sd under both criteria; "adds to rws" := the same for rws. frm and both
 so for them the read-out is the loss (does dropout cost or buy performance). One seed each — a
 positive result gets 3 seeds before it is quoted. Smoke-tested locally (N=100, 15 iterations, the
 saved config carries dropout: true / dead / participation / 0.05).
+
+10:01 — submitted as array **6201944** at commit 1674662; all 8 running at once. ~0.4 s/iter → done ~03:00 on 09-16.
