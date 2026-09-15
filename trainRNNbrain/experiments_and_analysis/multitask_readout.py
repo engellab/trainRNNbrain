@@ -19,6 +19,12 @@ For every trained network (LastParams .npz + saved config):
      "the focus task's own computation became more redundant" from "other tasks' units respond to
      its inputs". (Trivially all-shared in a single-task net.)
   5. Per-task r2 on the task's own scoring window, noise-free, so an unlearned subtask is visible.
+  6. Per-task ACCURACY (TaskYang only), Yang et al.'s performance criterion: on a responding trial
+     the population vector of the response ring, averaged over the second half of the response
+     epoch, must point within 36 deg (0.2 pi) of the correct direction AND the fixation output
+     must be < 0.5; on a no-response trial the fixation output must stay > 0.5 and the ring max
+     < 0.5. Chance for a responding trial is 10%. Pooled r2 is dominated by trials the network
+     gets roughly right and cannot tell "solved" from "half the trials wrong"; accuracy can.
 Usage: python multitask_readout.py <trained_RNNs root> [--sub Yang_std_multi] [--focus contextdm1,contextdm2]
                                    [--n-trials 256] [--dump out.npz]
   --dump  save every net's per-task participation vectors and r2 for figures.
@@ -78,6 +84,33 @@ def run_noise_free(rnn, X):
     return fr, out
 
 
+def accuracy(task, out, Y, C):
+    """Fraction of trials answered correctly, Yang-style (see module docstring, item 6).
+
+    Args:
+        task: TaskYang (uses task.pref); out: network outputs (n_outputs, T, B); Y: targets;
+        C: conditions with "sub" holding t_go, t_end, respond, resp_dir.
+    Returns:
+        float accuracy in [0, 1], or nan if the task is not a TaskYang.
+    """
+    if not hasattr(task, "pref"):
+        return float("nan")
+    ok = []
+    z = np.exp(1j * task.pref)
+    for b, c in enumerate(C):
+        s = c["sub"]
+        t0 = (s["t_go"] + s["t_end"]) // 2
+        ring = out[1:, t0:s["t_end"], b].mean(axis=1)
+        fix = out[0, t0:s["t_end"], b].mean()
+        if s["respond"]:
+            ang = np.angle((np.clip(ring, 0, None) * z).sum())
+            err = np.abs(np.angle(np.exp(1j * (ang - s["resp_dir"]))))
+            ok.append(err < 0.2 * np.pi and fix < 0.5)
+        else:
+            ok.append(fix > 0.5 and ring.max() < 0.5)
+    return float(np.mean(ok))
+
+
 def r2_scored(out, Y, mask):
     """r2 over the scored entries of a batch, pooled over outputs and trials.
 
@@ -101,12 +134,13 @@ def readout(net_dir, focus, n_trials):
         the mixed-batch participation (`p_all`), and the focus task's shared/private split.
     """
     rnn, task, cfg = build(net_dir)
-    p, r2s = {}, {}
+    p, r2s, acc = {}, {}, {}
     for i, name in enumerate(task.subtask_names):
         X, Y, C = task.task_batch(i, n_trials)
         fr, out = run_noise_free(rnn, X)
         p[name] = participation(fr)
         r2s[name] = r2_scored(out, Y, task.batch_mask(C))
+        acc[name] = accuracy(task, out, Y, C)
     X, Y, C = task.get_batch()
     fr, out = run_noise_free(rnn, X)
     p_all = participation(fr)
@@ -116,7 +150,8 @@ def readout(net_dir, focus, n_trials):
     rest = [act[n] for n in p if n not in foc]
     others = np.any(rest, axis=0) if rest else np.zeros_like(cddm)
     return dict(N=int(cfg.model.N), pen=re.search(r"_pen=([a-z]+)", net_dir).group(1),
-                seed=int(cfg.seed), p=p, r2=r2s, p_all=p_all, r2_all=r2_scored(out, Y, task.batch_mask(C)),
+                seed=int(cfg.seed), p=p, r2=r2s, acc=acc, p_all=p_all, r2_all=r2_scored(out, Y, task.batch_mask(C)),
+                acc_all=accuracy(task, out, Y, C),
                 cddm_active=int(cddm.sum()), cddm_shared=int((cddm & others).sum()),
                 cddm_private=int((cddm & ~others).sum()))
 
@@ -137,13 +172,13 @@ def main():
     for d in dirs:
         r = readout(d, a.focus, a.n_trials)
         print(f"\n=== N={r['N']} pen={r['pen']} seed={r['seed']}   {os.path.basename(d)[:40]}")
-        print(f"{'task':18} {'live_sf':>7} {'live_1e-6':>9} {'live_4e-2':>9} {'r2':>7}")
+        print(f"{'task':18} {'live_sf':>7} {'live_1e-6':>9} {'live_4e-2':>9} {'r2':>7} {'accuracy':>8}")
         for name, pv in r["p"].items():
             print(f"{name:18} {active_count(pv, 'scalefree'):>7d} {active_count(pv, 'hard'):>9d} "
-                  f"{active_count(pv, SILENT_FLIPFLOP):>9d} {r['r2'][name]:7.3f}")
+                  f"{active_count(pv, SILENT_FLIPFLOP):>9d} {r['r2'][name]:7.3f} {r['acc'][name]:8.2f}")
         pa = r["p_all"]
         print(f"{'ALL (mixed batch)':18} {active_count(pa, 'scalefree'):>7d} {active_count(pa, 'hard'):>9d} "
-              f"{active_count(pa, SILENT_FLIPFLOP):>9d} {r['r2_all']:7.3f}")
+              f"{active_count(pa, SILENT_FLIPFLOP):>9d} {r['r2_all']:7.3f} {r['acc_all']:8.2f}")
         print(f"{a.focus}-active (scale-free) {r['cddm_active']}: shared with >=1 other task "
               f"{r['cddm_shared']}, {a.focus}-private {r['cddm_private']}")
         if a.dump:
@@ -151,6 +186,7 @@ def main():
             for name, pv in r["p"].items():
                 dump[f"{key}_p_{name}"] = pv
                 dump[f"{key}_r2_{name}"] = r["r2"][name]
+                dump[f"{key}_acc_{name}"] = r["acc"][name]
             dump[f"{key}_p_all"] = pa
     if a.dump:
         np.savez_compressed(a.dump, **dump)
