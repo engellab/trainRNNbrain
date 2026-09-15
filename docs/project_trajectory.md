@@ -10688,7 +10688,7 @@ d8d5e84 = vectorised task, response to T): 0.90 s/iter → 37 h for 150k (fits 4
 mixed batch after 600 iterations (the family learns its fixation/response structure fast).
 Calibration net removed from the cell. **36-job grid ready, not submitted — awaiting Pavel.**
 
-### Is r² 0.88 after 600 iterations on 20 tasks real? Yes — falsification checks pass — 2026-09-15 15:30
+### Is r² 0.88 after 600 iterations on 20 tasks real? Yes — falsification checks pass — 2026-09-15 15:16
 
 Pavel: "looks miraculous". Pooled r² is a poor yardstick here, so the paper's own criterion was
 added to `multitask_readout.py`: per-rule ACCURACY = decoded response direction (population vector
