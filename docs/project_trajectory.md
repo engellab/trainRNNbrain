@@ -10787,3 +10787,157 @@ matched, but any live-units-vs-iteration figure must offset those traces by +100
 Read-out on completion: live units on CDDM trials (scale-free / 1e-6 / 4e-2) per set as mean ± sd
 over 3 seeds, the shared-vs-CDDM-private split in the 20-task nets, and per-rule accuracy
 (solved := ≥ 0.95). ~3.7 h fresh, ~2.4 h warm at the measured 0.44 s/iter.
+
+## ▶ READ-OUT DAY: four finished experiments synced from Spock and Della — 2026-09-16 16:14
+
+Both queues empty, every job COMPLETED. Synced to the local mirror and read out below. The Della
+500k hyper depth control (15 of the 36 submitted cells) and the Walsh sweep are mirrored too but
+not re-read here; nothing about them changed.
+
+### 1. DROPOUT keeps units alive, and it is nearly free (job 6201944, 8 nets) — POSITIVE
+
+`flipflop_dropout_readout.py` (new), read at 150k, 3-bit flip-flop, N=1000, one dropout seed per
+cell against the no-dropout reference cells at the same k, N and iteration (3 seeds each:
+`NBitFlipFlop_std_ksweep` for none, `NBitFlipFlop_std_pen` for rws, `NBitFlipFlop_std_penlong` for
+frm and both). Configs verified identical to the references except `dropout` (same trainer, fresh
+batch, lr, sigma_rec, N, k); `loss_clean_train` is probed with dropout OFF, so the loss column is
+each net's no-dropout performance and is directly comparable.
+
+| pen | dropout | live scale-free | live abs 4e-2 | clean loss | r² | verdict |
+|---|---|---|---|---|---|---|
+| none | — | 263 ± 14 | 288 ± 16 | 0.02592 | 0.954 | reference |
+| none | mute | 371 | 407 | 0.02658 | 0.953 | **KEEPS ALIVE** |
+| none | dead | 372 | 400 | 0.02597 | 0.952 | **KEEPS ALIVE** |
+| rws | — | 218 ± 12 | 236 ± 11 | 0.02596 | 0.954 | reference |
+| rws | mute | 387 | 403 | 0.02827 | 0.949 | **KEEPS ALIVE** |
+| rws | dead | 324 | 373 | 0.06764 | 0.914 | **KEEPS ALIVE** |
+| frm | — | 979 ± 7 | 979 ± 7 | 0.02771 | 0.946 | reference (at ceiling) |
+| frm | mute / dead | 996 / 1000 | 996 / 998 | 0.02826 / 0.03166 | 0.946 / 0.940 | ceiling, read the loss |
+| both | — | 1000 ± 0 | 1000 ± 0 | 0.02906 | 0.942 | reference (at ceiling) |
+| both | mute / dead | 1000 / 998 | 1000 / 994 | 0.03045 / 0.03052 | 0.944 / 0.939 | ceiling, read the loss |
+
+The pre-registered bar was reference mean + 3 reference sd under BOTH criteria. `none` clears it by
+~8 sd (263 ± 14 → 372) and `rws` clears it too (218 ± 12 → 387 mute). So dropout keeps units alive
+on its own AND adds to the sparsity penalty — both halves of Pavel's question, positive.
+
+**The cost is essentially zero in the `none` arm.** `none`+`dead` holds 372 units instead of 263,
+a 41% increase, at clean loss 0.02597 against the reference 0.02592. Same performance, 109 more
+live units: redundancy, which is exactly what the subsampling goal needs. The counterexample is
+`rws`+`dead`, which buys units but pays (loss 0.0676, r² 0.914). frm and both are already at N and
+can only be read for cost, which is small.
+
+![Dropout vs no dropout](../img/internal_figures/dropout_live_vs_iter.png)
+
+**Caveat, from the figure, not the table:** dropout shifts the whole live-unit curve UP; it does not
+flatten it. Both arms are still silencing at 150k at the same rate as their references. This is a
+matched-iteration offset, not a converged difference — the same caveat as every other recruitment
+number in this project. All 8 folder r² values reproduce from the saved weights (checked).
+
+**One seed each.** Per the launcher's own pre-registration a positive result gets 3 seeds before it
+is quoted. NOT submitted — awaiting Pavel.
+
+### 2. TWENTY TASKS AT ONCE does not raise CDDM recruitment (job 6209433, 6 nets, 3 seeds) — CONFIRMED
+
+`yang_30k_summary.py` (new, wraps `multitask_readout.readout` so both sides use one code path).
+N=1000, 30k true iterations for all six nets (three were warm-started from the 10k pilots; they are
+read at LastParams, so the comparison is matched).
+
+| set | CDDM live (scale-free) | CDDM live (1e-6) | CDDM live (4e-2) | whole batch (scale-free) |
+|---|---|---|---|---|
+| ctxdm (CDDM alone) | 411.7 ± 3.9 | 959.7 ± 14.7 | 474.0 ± 11.0 | 379.7 ± 1.7 |
+| multi20 (20 tasks) | 356.7 ± 3.3 | 950.7 ± 9.0 | 522.7 ± 11.4 | 418.7 ± 13.0 |
+
+Shared / CDDM-private in the 20-task nets (scale-free): **355.3 ± 2.4 shared, 1.3 ± 0.9 private.**
+Accuracy: ctxdm 1.000 on both rules; multi20 ≥ 0.979 on all 20 rules (lowest dnmc 0.979), so every
+rule is solved by the pre-registered ≥ 0.95 bar.
+
+**The pilot result holds with error bars, and the seed spread is tiny (± 4 units).** Training on 20
+tasks does NOT give CDDM more units. Under the scale-free criterion the 20-task net uses FEWER
+(357 vs 412, a 55-unit gap against ~4-unit seed spread).
+
+**The criteria disagree in DIRECTION here, and that has to be reported.** Scale-free says multi20
+uses fewer; absolute 4e-2 says multi20 uses MORE (523 vs 474); absolute 1e-6 says they are equal
+(951 vs 960, both ~95% of N). The scale-free threshold is 5% of the net's own q95, so the 20-task
+net's longer right tail (it has more very-active units on CDDM trials) raises its own bar. Honest
+statement: on CDDM trials the 20-task network has more units above a FIXED activity level but fewer
+relative to its own top percentile. No reading of the three supports "multi-task training makes
+CDDM recruit substantially more".
+
+Almost nothing is CDDM-private (1.3 of 357). The extra whole-batch recruitment (419 vs 380) is
+spent on the other tasks. This is the nuisance-activity picture, not a more redundant CDDM code.
+
+### 3. HYPER FLIP-FLOP grid complete at 72/72 — figure re-plotted
+
+The last k=8 N=2000 cells landed (Spock 6173767/6173768). `flipflop_hyper_readout.py` re-run
+locally; `data/hyper_readout_150k.txt` and `_seeds.txt` regenerated (the previous copies were diffed cell
+by cell against the new ones, then discarded).
+**Every previously present value is byte-identical**; the table only gained the missing cells
+(hyper none k=8 N=2000 went 1 seed → 3; hyper both k=8 N=2000 0 → 3; plus plain `both` N=1000 cells
+that were absent when the old table was made on Spock). `fig_hyper_readout.py` re-run.
+
+![Hyper grid at 150k, complete](../img/internal_figures/hyper_readout_150k.png)
+
+New cells: hyper `none` k=8 N=2000 **1616 ± 20 of 2000** (81%) at r² 0.695, against plain `none`
+618 ± 318 at the same k, N and iteration — a 2.6× excess, and the largest absolute recruitment in
+the project. hyper `both` k=8 N=2000 is 2000/2000 at r² 0.495. The demand ladder now runs
+unbroken at N=2000: 389 / 672 / 1016 / 1616 live at k = 2 / 4 / 6 / 8. The plain k=8 N=2000
+reference keeps its one outlier seed (1068 against 389 and 397), so its sd is large; that was
+already in the old table and is unchanged.
+
+### 4. DMTS 16-tau grid: the N=2000 cells land, and they are the strongest version of the escape effect
+
+`dmts_readout.py` run on Spock over the full grid (jobs 6201205/6201206, 36 nets, 3 seeds/cell).
+
+| N | pen | live sf / 1e-6 / Otsu | L at 150k | t(clean r² ≥ 0.9), 3 seeds | unstable |
+|---|---|---|---|---|---|
+| 2000 | none | 580 ± 68 / 848 ± 2 / 705 ± 58 | 1.90e-04 | 6350 / 12720 / 29880 | 1.4% |
+| 2000 | rws | 461 ± 29 / 1178 ± 38 / 786 ± 26 | 1.08e-03 | 9740 / 12380 / 13850 | 2.4% |
+| 2000 | frm | 1998 ± 2 / 1998 ± 1 / 1998 ± 2 | 5.05e-04 | **2140 / 2140 / 2900** | 12.3% |
+| 2000 | both | 1987 ± 18 / 1995 ± 7 / 1990 ± 14 | 3.12e-02 | 4700 / 5060 / 6160 | 13.7% |
+
+Every frm seed leaves the no-memory plateau before every `none` seed, by 3–10×, and the margin is
+larger than at N=500 (3×) or N=1000 (2×, overlapping seeds). **The rate penalty's escape advantage
+grows with N**, as the 60k-iteration raw logs already suggested. The cost appears at N=2000 and is
+new: frm and both lose the memory in 12–14% of late probes against 1–2% for none, and `both` ends
+at clean r² 0.60 (L = 3.1e-2). Recruitment: unpenalised DMTS keeps 580 ± 68 live at N=2000
+(scale-free), still falling at 150k.
+
+### 5. DMTS 36-tau check (job 6201936, 2 nets): Pavel's prediction holds, in one seed each
+
+`dmts_readout.py --sub DMTS_std_delay36` (a `--sub` flag was added; the read-out is otherwise the
+same code, and each net's target variance and scoring window come from its own saved config).
+
+- **`none` NEVER leaves the plateau.** Clean r² pinned at 0.6045 for all 150k iterations; best value
+  ever reached 0.682; 100% of late probes above the r² = 0.9 level. It never finds the memory.
+- **`frm` does.** Clean r² ≥ 0.9 first reached at 11 700; median clean r² 0.999 over the middle of
+  training; 69% of the second half above 0.9.
+
+This is the clean reversal Pavel predicted: at 16 tau both arms escape and the penalty only wins on
+speed; at 36 tau the unpenalised network does not escape at all within 150k while frm does.
+**One seed per arm** — the 16-tau `none` seeds at N=2000 spanned 6k–30k, so "never in one seed"
+needs the other two seeds before it is quoted as a result.
+
+Caveat on the frm net specifically: it collapses over its last ~2850 iterations (the final 285
+probes sit at clean r² ≈ 0), so the SAVED 150k network is not the trained network. That is the
+grid's own documented "the 150k last network is a lottery ticket on this task" (unstable = 30.9%
+here). Report the trace, not the final net.
+
+### ⚠ TaskDMTS CHANGED AFTER THE DMTS GRIDS WERE TRAINED — offline re-analysis of those nets is invalid
+
+Found while trying to verify the 36-tau folder scores, and worth recording because it will bite any
+future DMTS analysis. Rebuilding the task from the CURRENT code and re-running a saved DMTS net
+gives a silent network: reconstruction MSE 8.0e-2 against the trainer's own final
+`loss_clean_train` of 2.7e-5 for the same net, a factor of **2984**, with output magnitude 0.006
+against a target magnitude of 0.086. The same reconstruction is exact for a flip-flop net (ratio
+1.0×), and all 8 dropout nets' folder r² reproduce, so the reconstruction code is sound.
+
+Cause: commit **51237d6** (2026-09-15 11:25) fixed the DMTS cue channel. The 16-tau grid
+(commit 800ee30) and the 36-tau check (commit 98b57c1, 09:48) were both submitted BEFORE it, so
+those networks were trained against a different input layout than today's `TaskDMTS` produces.
+
+**Nothing here is corrupted and no DMTS result above is affected**, because `dmts_readout.py` reads
+only the ParticipationTrace — live counts and `loss_clean_train`, both computed inside the trainer
+during training against the then-current task. The target variance it rebuilds is also unaffected
+(the fix moved an INPUT channel; targets depend only on the sample/match channels). But any future
+analysis that loads a DMTS net and instantiates the task must pin the task version, or it will
+silently score a well-trained network at r² ≈ 0.

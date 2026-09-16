@@ -24,8 +24,11 @@ Method, per network, from its ParticipationTrace.pkl (noise-free probe of the tr
 r2 in the table is the folder-prefix score of the LAST network (with noise), as everywhere else.
 
 Usage: python dmts_readout.py <trained_RNNs root> [--read-at 150000] [--seeds] [--dump curves.npz]
+                             [--sub DMTS_std_pen]
   --seeds  one row per network instead of per cell
   --dump   also write every network's clean-loss and silent-count curves to an npz (for plotting)
+  --sub    which sweep folder to read; DMTS_std_delay36 is the 36-tau delay check, whose target
+           variance and scored window are taken from each net's own saved config as usual
 """
 import argparse
 import glob
@@ -41,7 +44,8 @@ from trainRNNbrain.experiments_and_analysis.common import active_count, otsu_thr
 from trainRNNbrain.tasks.TaskDMTS import TaskDMTS
 from trainRNNbrain.training.training_utils import get_training_mask, prepare_task_arguments
 
-SUB = "DMTS_std_pen"
+SUB = "DMTS_std_pen"      # default sweep; --sub points the same read-out at another one
+                          # (e.g. DMTS_std_delay36, the 36-tau delay check)
 PENS = ["none", "rws", "frm", "both"]
 SMOOTH = 21          # probes in the rolling median (210 iterations)
 FLOOR_FRAC = 0.05    # last 5% of probes define L_final
@@ -95,17 +99,18 @@ def first_at_or_below(iters, y, thr):
     return int(iters[j[0]]) if j.size else None
 
 
-def load_nets(root, read_at):
+def load_nets(root, read_at, sub=SUB):
     """Every network of the sweep with its trace cut at READ_AT.
 
     Args:
-        root: trained_RNNs folder; read_at: iteration at which every cell is read.
+        root: trained_RNNs folder; read_at: iteration at which every cell is read;
+        sub: sweep folder under `root` to read.
     Returns:
         list of dicts with keys N, pen, seed, r2, iters, loss, silent, p (last participation
         vector at or before read_at), config (path).
     """
     nets = []
-    for f in sorted(glob.glob(os.path.join(root, SUB, "*", "*", "*ParticipationTrace.pkl"))):
+    for f in sorted(glob.glob(os.path.join(root, sub, "*", "*", "*ParticipationTrace.pkl"))):
         m = re.search(r"_N=(\d+)_pen=([a-z]+)", f)
         with open(f, "rb") as fh:
             tr = pickle.load(fh)
@@ -134,11 +139,12 @@ def main():
     ap.add_argument("--read-at", type=int, default=150000)
     ap.add_argument("--seeds", action="store_true")
     ap.add_argument("--dump", default=None)
+    ap.add_argument("--sub", default=SUB, help="sweep folder under root (e.g. DMTS_std_delay36)")
     a = ap.parse_args()
 
-    nets = load_nets(a.root, a.read_at)
+    nets = load_nets(a.root, a.read_at, a.sub)
     if not nets:
-        raise SystemExit(f"no traces reaching {a.read_at} under {os.path.join(a.root, SUB)}")
+        raise SystemExit(f"no traces reaching {a.read_at} under {os.path.join(a.root, a.sub)}")
     var = target_variance(nets[0]["config"])
     thr_otsu = otsu_threshold(np.concatenate([n["p"] for n in nets]))
     print(f"target variance over scored steps: {var:.4f}  (clean r2 = 1 - L/{var:.4f}; "
