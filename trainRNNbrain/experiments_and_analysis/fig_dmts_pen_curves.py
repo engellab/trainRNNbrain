@@ -10,8 +10,11 @@ they contain are counted in the read-out's `unstable` column instead. The loss a
 0.3 - one seed's gradient blow-up to 1e7 (recovered by the trainer's rollback) would otherwise
 flatten everything. Output: img/internal_figures/dmts_pen_curves.png.
 
-Usage: python fig_dmts_pen_curves.py [data/dmts_curves_150k.npz]
+Usage: python fig_dmts_pen_curves.py [curves.npz] [--out NAME.png] [--title TEXT]
+  --out / --title  so the same code draws the 36-tau delay check (DMTS_std_delay36), whose npz
+                   has its own target variance and therefore its own r2 = 0.9 level.
 """
+import argparse
 import os
 import sys
 
@@ -27,8 +30,16 @@ COLOR = {"none": "#2a78d6", "rws": "#eb6834", "frm": "#1baf7a", "both": "#eda100
 LABEL = {"none": "none", "rws": "rws 0.05", "frm": "frm 0.1", "both": "frm + rws"}
 
 
-def main(path):
-    """Draw the figure from the curves npz at `path` and save it to IMG_DIR."""
+def main(path, out_name="dmts_pen_curves.png",
+         title="DMTS, 16-tau delay: penalty arms, 3 seeds each, 150k iterations"):
+    """Draw the figure from the curves npz at `path` and save it to IMG_DIR.
+
+    Args:
+        path: npz written by `dmts_readout.py --dump`;
+        out_name: file name inside IMG_DIR; title: figure suptitle.
+    Returns:
+        None; writes the png.
+    """
     d = np.load(path)
     var = float(d["target_variance"])
     keys = sorted({k.rsplit("_", 1)[0] for k in d.files if k.endswith("_iters")})
@@ -63,13 +74,18 @@ def main(path):
         for ax in (ax_l, ax_u):
             ax.grid(True, which="major", color="0.9", lw=0.6)
             ax.spines[["top", "right"]].set_visible(False)
-    fig.suptitle("DMTS, 16-tau delay: penalty arms, 3 seeds each, 150k iterations", fontsize=10)
+    fig.suptitle(title, fontsize=10)
     fig.tight_layout()
     os.makedirs(IMG_DIR, exist_ok=True)
-    out = os.path.join(IMG_DIR, "dmts_pen_curves.png")
+    out = os.path.join(IMG_DIR, out_name)
     fig.savefig(out, dpi=150)
     print("saved", os.path.abspath(out))
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "data/dmts_curves_150k.npz")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("path", nargs="?", default="data/dmts_curves_150k.npz")
+    ap.add_argument("--out", default="dmts_pen_curves.png")
+    ap.add_argument("--title", default="DMTS, 16-tau delay: penalty arms, 3 seeds each, 150k iterations")
+    a = ap.parse_args()
+    main(a.path, a.out, a.title)

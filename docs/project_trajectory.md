@@ -10886,7 +10886,11 @@ already in the old table and is unchanged.
 
 ### 4. DMTS 16-tau grid: the N=2000 cells land, and they are the strongest version of the escape effect
 
-`dmts_readout.py` run on Spock over the full grid (jobs 6201205/6201206, 36 nets, 3 seeds/cell).
+`dmts_readout.py` over the full grid (jobs 6201205/6201206, 36 nets, 3 seeds/cell). Re-run locally
+after the sync and byte-identical to the Spock run. `fig_dmts_pen_curves.py` re-drawn from the
+re-dumped `data/dmts_curves_150k.npz`, now three columns instead of two (N=2000 added).
+
+![DMTS penalty arms: clean loss and live units vs iteration, all three sizes](../img/internal_figures/dmts_pen_curves.png)
 
 | N | pen | live sf / 1e-6 / Otsu | L at 150k | t(clean r² ≥ 0.9), 3 seeds | unstable |
 |---|---|---|---|---|---|
@@ -10909,8 +10913,20 @@ same code, and each net's target variance and scoring window come from its own s
 
 - **`none` NEVER leaves the plateau.** Clean r² pinned at 0.6045 for all 150k iterations; best value
   ever reached 0.682; 100% of late probes above the r² = 0.9 level. It never finds the memory.
-- **`frm` does.** Clean r² ≥ 0.9 first reached at 11 700; median clean r² 0.999 over the middle of
-  training; 69% of the second half above 0.9.
+- **`frm` does.** Clean r² ≥ 0.9 first reached at 11 670; median clean r² 0.999 over the middle of
+  training; 69% of the second half above 0.9; best 0.9998.
+
+`fig_dmts_delay36.py` (new) draws it as clean r² rather than loss, because the prediction is about
+r², with the raw probes behind the rolling median so the memory-loss episodes are visible and the
+plateau level read off the `none` arm itself (r² = 0.605) rather than carried over from the 16-tau
+grid, whose plateau loss is a different number.
+
+![DMTS 36-tau delay: none never escapes, frm does](../img/internal_figures/dmts_delay36.png)
+
+The right panel adds something the table does not show: the two arms differ in recruitment from the
+very start. `frm` holds ~1000 of 1000 units live throughout, while `none` drops to ~550 by 3k and
+then oscillates violently between ~250 and ~800 for the rest of training — it is thrashing on the
+plateau, not settling.
 
 This is the clean reversal Pavel predicted: at 16 tau both arms escape and the penalty only wins on
 speed; at 36 tau the unpenalised network does not escape at all within 150k while frm does.
