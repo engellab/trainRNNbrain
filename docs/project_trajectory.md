@@ -10957,3 +10957,63 @@ during training against the then-current task. The target variance it rebuilds i
 (the fix moved an INPUT channel; targets depend only on the sample/match channels). But any future
 analysis that loads a DMTS net and instantiates the task must pin the task version, or it will
 silently score a well-trained network at r² ≈ 0.
+
+## ▶ SUBMITTED: DMTS 36-tau `both` x3, and the dropout sweep to 7 seeds per condition — 2026-09-16 22:50
+
+Pavel's two calls after the read-out. Both arrays on Spock at commit 882b980 (Spock's repo is at
+6e43d53; the training path is identical between the two — the only later changes are in
+`experiments_and_analysis/` and `docs/`).
+
+**Job 6218720, `slurm/SilentReLU_dmts_delay36_both_spock.slurm`, array 1-3.** frm 0.1 + rws 0.05 at
+a 36-tau delay, N=1000, 150k, three seeds, into the SAME `DMTS_std_delay36/` folder as the existing
+`none` and `frm` seeds so `dmts_readout.py --sub DMTS_std_delay36` reads all three arms together.
+Pre-registered: t(clean r² ≥ 0.9) per seed and the `unstable` fraction. All three escape → the rate
+term is what finds the 36-tau memory. None escape → adding rws BREAKS the escape frm alone achieves,
+a stronger statement than anything at 16 tau. Mixed → report as seed-dependent, claim no direction.
+Read the TRACE, never the final net: the 36-tau frm seed finished inside a collapse.
+
+**Job 6218721, `slurm/SilentReLU_flipflop_dropout_seeds_spock.slurm`, array 1-64%16.** Takes every
+condition to SEVEN seeds: tasks 1-48 are 6 more seeds of each of the 8 dropout cells, tasks 49-64
+are 4 more no-dropout controls per penalty arm, written to new `..._do=none` cells inside the
+dropout sweep so they are same-launcher, same-commit controls. Throttled to 16 concurrent.
+~1100 GPU-hours total; 16 running immediately, the rest pending on the array task limit.
+
+### What was checked before submitting
+
+1. **Index decode replayed for all 64 tasks in Python**: every one of the 12 conditions reaches
+   exactly 7 seeds (1 existing + 6 for the dropout cells, 3 existing + 4 for the controls).
+2. **Both launchers smoke-tested locally** at N=64 with `srun` shimmed and the module/conda lines
+   stripped (tasks 1/5/49/64 and 1/3). Saved configs carry the right `dropout` flag, kind,
+   sampling method, rate and lambdas; the `do=none` cells carry `dropout: false`.
+3. **The flip-flop training path is BIT-IDENTICAL between the first dropout run's commit (1674662)
+   and HEAD** — no dropout, `mute` and `dead` all reproduce to every printed digit over 15
+   iterations. So the 7-seed pools mix commits legitimately. The `scored_` refactor (51237d6) does
+   reduce to the old indexing when the task has no per-trial `batch_mask`, as its commit message
+   claimed, and this now confirms it empirically rather than by reading the diff.
+4. **Sanity: `mute` and `dead` still differ at HEAD**, i.e. dropout still reaches the gradient — the
+   exact check that caught the original no-op bug.
+5. Launchers copied to Spock and **md5-verified** against the local copies before `sbatch`.
+
+**⚠ A test with no power, caught and fixed.** The first version of check 3 used `seed=1` alone.
+Two runs at the SAME commit differed as much as the cross-commit pair, so it could not have detected
+a real difference — it would have "passed" whatever the answer was. `task.seed=1` is required as
+well to make a run deterministic (the task draws a fresh batch every iteration and its own seed
+defaults to None). The project's own verification of the dropout bug used `seed=1 task.seed=1` for
+this reason; re-deriving it the hard way is why it is recorded here. With `task.seed=1` two runs at
+HEAD are bit-identical, so the test has power, and it then passed on all three paths.
+
+### Read-out when they land
+
+`flipflop_dropout_readout.py` now pools the new `do=none` control cells with the historical
+reference seeds (`--controls-only` drops the historical side if the two ever disagree), compares
+cell MEANS under the unchanged 3-sd rule, and prints a descriptive Welch test. The secondary
+question, which one seed could not answer, is whether dropout changes the RATE of silencing or only
+its offset: with 7 seeds, fit the late slope of the live-unit curve per condition.
+
+### Access note
+
+Spock and Della both became unreachable mid-session (empty `~/.ssh/sockets/`, then
+`Permission denied (publickey)` on Spock and `(keyboard-interactive)` on Della) and came back when
+Pavel restored the connection. Spock access still depends on his open ControlMaster session; Della
+answered non-interactively earlier the same day and then did not, so that route is a cached-2FA
+session, not a standing capability.
