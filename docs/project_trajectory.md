@@ -10960,9 +10960,23 @@ silently score a well-trained network at r² ≈ 0.
 
 ## ▶ SUBMITTED: DMTS 36-tau `both` x3, and the dropout sweep to 7 seeds per condition — 2026-09-16 22:50
 
-Pavel's two calls after the read-out. Both arrays on Spock at commit 882b980 (Spock's repo is at
-6e43d53; the training path is identical between the two — the only later changes are in
-`experiments_and_analysis/` and `docs/`).
+Pavel's two calls after the read-out. Both arrays on Spock.
+
+**CODE ACTUALLY RUN: `6e43d53`**, which is what every job log prints (`code: ... @ 6e43d53`) and
+what Spock's repo is checked out at. The launchers themselves were copied to Spock by `scp` and
+md5-verified, not committed there (`slurm/` is gitignored on both sides); on the Mac they are
+commit `882b980`. The training path is identical between `6e43d53` and the Mac's HEAD — the only
+later changes are in `experiments_and_analysis/` and `docs/` — so the Mac commit describes the
+launchers and `6e43d53` describes the networks.
+
+Submitted with:
+
+    sbatch --array=1-3     slurm/SilentReLU_dmts_delay36_both_spock.slurm
+    sbatch --array=1-64%16 slurm/SilentReLU_flipflop_dropout_seeds_spock.slurm
+
+Confirmed running at 22:52: all 3 DMTS tasks, 16 of 64 dropout tasks (the rest held by the %16
+array task limit), no errors in any `.err`, and the `Task N:` line of every running job checked
+against the intended (penalty, dropout kind, seed) decode.
 
 **Job 6218720, `slurm/SilentReLU_dmts_delay36_both_spock.slurm`, array 1-3.** frm 0.1 + rws 0.05 at
 a 36-tau delay, N=1000, 150k, three seeds, into the SAME `DMTS_std_delay36/` folder as the existing
