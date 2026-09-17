@@ -11031,3 +11031,41 @@ Spock and Della both became unreachable mid-session (empty `~/.ssh/sockets/`, th
 Pavel restored the connection. Spock access still depends on his open ControlMaster session; Della
 answered non-interactively earlier the same day and then did not, so that route is a cached-2FA
 session, not a standing capability.
+
+### PRELIMINARY (jobs still running, 10.5 h in) — 2026-09-17 09:19
+
+Status: 19 running, 0 failed, 0 finished. DMTS 3/3 at ~85k/150k; dropout 16/64 at 65k–98k/150k with
+48 held by the `%16` limit. Nothing below is final — the participation traces, and therefore every
+live-unit number, are written only when a job ENDS, so the only mid-run observable is the noisy
+training-batch r² the log prints each iteration.
+
+**DMTS 36-tau `both` (6218720): all three seeds are still on the no-memory plateau at 85k.**
+
+| seed | r² at 5k | 20k | 40k | 60k | 80k | max ever | first r² ≥ 0.9 |
+|---|---|---|---|---|---|---|---|
+| 1 | 0.596 | 0.600 | 0.601 | 0.602 | 0.602 | 0.6036 @ 74316 | none yet |
+| 2 | 0.595 | 0.601 | 0.602 | 0.603 | 0.602 | 0.6037 @ 84450 | none yet |
+| 3 | 0.595 | 0.600 | 0.601 | 0.560 | 0.601 | 0.6037 @ 83128 | none yet |
+
+Train loss is pinned at 0.0193, the plateau value. For comparison the `frm`-alone seed crossed
+r² = 0.9 at **11 670** iterations, so `both` is already more than 7x past that and flat. If this
+holds to 150k it is the "adding rws BREAKS the escape that frm alone achieves" branch of the
+pre-registration, which would be a stronger statement than anything at 16 tau: at 16 tau `both`
+escaped as fast as frm (t(r²≥0.9) 460–630 at N=500, 1110–2360 at N=1000). **Not yet quotable** —
+65k iterations remain, and the 16-tau `none` seeds at N=2000 escaped as late as 29 880.
+
+**Flip-flop dropout (6218721): all 16 running cells are training normally**, noisy train r² 0.920
+to 0.952 at 65k–98k, ordered as expected (none ≈ 0.951 > rws ≈ 0.947 > frm ≈ 0.94 > both ≈ 0.93).
+No live-unit numbers until the traces land.
+
+One thing to watch: the ORIGINAL single `rws`+`dead` seed was the performance outlier of the first
+grid (clean loss 0.0676, r² 0.914, against ~0.026 and ~0.95 everywhere else). Its two new siblings
+are at noisy r² 0.949 and 0.949, i.e. normal. If that holds, the "rws + dead buys units but pays for
+them" reading from the 1-seed table was a one-seed artefact, and the 7-seed table will say so.
+
+**ETA.** Measured cost per 150k job: none+mute 16.4 h, rws+mute 16.4 h, none+dead 17.6 h, rws+dead
+17.9 h, frm+mute 21.8 h, both+mute 22.0 h, frm+dead 23.4 h, both+dead 24.2 h; DMTS 36-tau 18.6 h.
+- DMTS 6218720: all three finish **today, ~17:30**.
+- Dropout 6218721: ~965 GPU-hours left over 64 jobs at 16 concurrent → **~2.5 days, i.e. late
+  2026-09-19, realistically 2026-09-20** with imperfect packing. The 16 currently running finish
+  between 5.6 h and 13.8 h from now.
