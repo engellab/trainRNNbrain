@@ -11069,3 +11069,28 @@ them" reading from the 1-seed table was a one-seed artefact, and the 7-seed tabl
 - Dropout 6218721: ~965 GPU-hours left over 64 jobs at 16 concurrent → **~2.5 days, i.e. late
   2026-09-19, realistically 2026-09-20** with imperfect packing. The 16 currently running finish
   between 5.6 h and 13.8 h from now.
+
+**Decision (Pavel, 2026-09-17 09:40): keep all 64 dropout jobs.** The frm/both arms cannot move on
+the primary outcome (they sit at 979–1000 of 1000 live units with and without dropout) and are 57%
+of the remaining compute, but 7 seeds there sharpens the secondary question — whether dropout COSTS
+performance under a rate penalty — and the first grid's frm+dead cell showed the largest loss rise.
+Not cancelled.
+
+**ETA** (list-scheduling simulation on 16 slots, per-job costs measured from the 16 running cells;
+total array 1133 GPU-h):
+
+| milestone | ETA |
+|---|---|
+| DMTS 36-tau `both`, all 3 seeds | Thu 17 Sep ~17:30 |
+| first 16 dropout jobs | Thu 17 Sep ~23:10 |
+| **none/rws complete — the primary outcome** | **Sat 19 Sep ~23:00** |
+| whole array (frm/both included) | Sun 20 Sep ~04:00, ~17:00 with 20% slack |
+
+Per-job cost (150k iterations, measured): both+dead 24.2 h, frm+dead 23.4, both+mute 22.0,
+frm+mute 21.8, rws+dead 17.9, none+dead 17.6, none+mute 16.4, rws+mute 16.4; controls 9.4 h
+(none/rws) and 12.4–12.7 h (frm/both). Dropout costs ~40% per iteration (two forward passes), and
+the frm/both arms are a further ~35% slower than none/rws.
+
+**The primary read-out does not need the whole array.** none/rws reach 7 seeds on Sat 19 Sep, ~5 h
+before the ceiling arms; `flipflop_dropout_readout.py` can be run then, and the frm/both rows filled
+in afterwards.
