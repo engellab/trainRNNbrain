@@ -11139,3 +11139,61 @@ iterations. Read the trace; the final net is not the trained net on this task.
 **Still one seed each for `none` and `frm`.** The `both` conclusion has 3 seeds; the frm comparison
 it is measured against does not. Before this is quoted, frm and none need their other two seeds at
 36 tau — 2 jobs, ~18 h each.
+
+## ▶ INTERIM (dropout array 32/64 done): the result holds at 3 seeds, and one earlier claim is RETRACTED — 2026-09-18 14:40
+
+All 16 controls finished; every dropout cell has 3 seeds (1 original + 2 new), which is exactly the
+power the first launcher pre-registered. No job failed. Read at 150k, 3 dropout seeds against 7
+no-dropout (4 new same-commit controls + 3 historical), `flipflop_dropout_readout.py`.
+
+| pen | dropout | n | live scale-free | live abs 4e-2 | clean loss | verdict |
+|---|---|---|---|---|---|---|
+| none | — | 7 | 263 ± 13 | 291 ± 18 | 0.02589 ± 0.00005 | reference |
+| none | mute | 3 | **377 ± 22** | 413 ± 20 | 0.02665 ± 0.00008 | KEEPS ALIVE |
+| none | dead | 3 | **357 ± 11** | 390 ± 8 | 0.02589 ± 0.00021 | KEEPS ALIVE |
+| rws | — | 7 | 220 ± 9 | 242 ± 10 | 0.02597 ± 0.00007 | reference |
+| rws | mute | 3 | **393 ± 13** | 413 ± 18 | 0.02850 ± 0.00016 | KEEPS ALIVE |
+| rws | dead | 3 | **327 ± 2** | 379 ± 5 | 0.0404 ± 0.0193 | KEEPS ALIVE |
+| frm | — | 7 | 971 ± 17 | 971 ± 17 | 0.02770 ± 0.00013 | ceiling |
+| frm | mute / dead | 3 | 984 ± 19 / 994 ± 7 | same | 0.02825 / 0.02997 | ceiling |
+| both | — | 7 | 1000 ± 0 | 1000 ± 0 | 0.02905 ± 0.00006 | ceiling |
+| both | mute / dead | 3 | 1000 ± 0 / 998 ± 0 | 1000 / 995 | 0.03041 / 0.03295 | ceiling |
+
+Welch p on live_sf: none+mute 0.012, none+dead 3.9e-4, rws+mute 6.2e-4, rws+dead 1.2e-8.
+
+![Dropout vs no dropout, 3 seeds per dropout cell](../img/internal_figures/dropout_live_vs_iter.png)
+
+**1. `none` + `dead` is the clean result: 36% more live units at IDENTICAL clean loss.**
+357 ± 11 against 263 ± 13, and clean loss 0.02589 ± 0.00021 against the reference's
+0.02589 ± 0.00005 — Welch p = 0.97, i.e. no detectable cost at all. That is redundancy for free,
+which is what the subsampling goal needs.
+
+**2. RETRACTION: "rws + dead buys units but pays for them" was a ONE-SEED ARTEFACT.** The original
+seed had clean loss 0.06764 (r² 0.914). Its two siblings are 0.02648 and 0.02711, i.e. at the
+no-dropout level (0.02597). Per seed: 0.06764 / 0.02648 / 0.02711. The cell mean of 0.0404 ± 0.0193
+is carried entirely by that one net and the Welch p is 0.4. The recruitment effect in the same cell
+is meanwhile the tightest in the table (324 / 328 / 329 live, sd = 2). So rws + dead buys 107 units
+and, in 2 of 3 seeds, pays nothing. The 2026-09-16 read-out said the opposite and was wrong — that
+is what one seed buys you.
+
+**3. Pooling the historical controls is VALID, checked rather than assumed.** The 4 new
+same-commit controls against the 3 historical seeds, live scale-free: none 262 ± 12 vs 263 ± 14
+(0.1 pooled sd), rws 221 ± 7 vs 218 ± 12 (0.3), frm 966 ± 21 vs 979 ± 7 (0.7), both 1000 vs 1000.
+All within 2 pooled sd, so the bit-identity argument in the launcher is confirmed empirically and
+`--controls-only` is not needed.
+
+**4. mute > dead for recruitment, dead > mute for cost.** `mute` reaches higher live counts
+(377/393 vs 357/327) but costs a small, statistically clear amount of clean loss (p = 0.012 and
+0.0013); `dead` reaches fewer units and costs nothing measurable. Reasonable reading, not yet
+tested: `mute` leaves the dropped unit driving the recurrent dynamics while removing it from the
+output, so the network must keep more units usable; `dead` removes it entirely, which is a milder
+constraint on the surviving population. A falsifying test would be `mute` at a lower drop rate
+matching `dead`'s live count and asking whether its loss cost disappears.
+
+**5. Unchanged: the ceiling arms cannot answer the primary question** (971–1000 live with and
+without dropout) and their only movement is a small loss increase, largest for both + dead (0.03295
+vs 0.02905).
+
+**Still to come: seeds 4–7 of each dropout cell** (17 pending + 15 running at 14:35). Nothing above
+is expected to move much — the 3-seed spreads are 2–22 units — but the rws + dead loss needs the
+extra seeds to confirm that the 0.068 net is the outlier and not the other two.
