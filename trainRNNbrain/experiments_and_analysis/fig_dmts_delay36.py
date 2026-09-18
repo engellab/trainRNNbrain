@@ -25,8 +25,8 @@ from matplotlib import pyplot as plt
 from trainRNNbrain.experiments_and_analysis.common import IMG_DIR
 from trainRNNbrain.experiments_and_analysis.dmts_readout import smooth
 
-COLOR = {"none": "#2a78d6", "frm": "#1baf7a"}
-LABEL = {"none": "no penalty", "frm": "frm 0.1"}
+COLOR = {"none": "#2a78d6", "frm": "#1baf7a", "both": "#eda100"}
+LABEL = {"none": "no penalty", "frm": "frm 0.1", "both": "frm 0.1 + rws 0.05"}
 ESCAPE = 0.9
 OUT = os.path.join(IMG_DIR, "dmts_delay36.png")
 
@@ -37,20 +37,22 @@ def main(path):
     var = float(d["target_variance"])
     keys = sorted({k.rsplit("_", 1)[0] for k in d.files if k.endswith("_iters")})
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(13, 4.8))
-    summary = []
+    summary, drawn = [], set()
     for k in keys:
         N, pen, _ = k.split("_")
         N = int(N)
         it, L, s = d[k + "_iters"], d[k + "_loss"], d[k + "_silent"]
         r2 = 1.0 - L / var
         ax.plot(it, r2, color=COLOR[pen], lw=0.5, alpha=0.12)            # raw probes: the episodes
-        ax.plot(it, smooth(r2, 201), color=COLOR[pen], lw=1.8, label=LABEL[pen])
-        ax2.plot(it, N - s, color=COLOR[pen], lw=1.4, label=LABEL[pen])
+        seen = pen in drawn
+        ax.plot(it, smooth(r2, 201), color=COLOR[pen], lw=1.8, label=None if seen else LABEL[pen])
+        ax2.plot(it, N - s, color=COLOR[pen], lw=1.4, label=None if seen else LABEL[pen])
+        drawn.add(pen)
         above = r2 >= ESCAPE
         first = int(it[np.flatnonzero(above)[0]]) if above.any() else None
         half = it > it[-1] / 2
         summary.append((pen, first, float(np.mean(above[half])), float(r2[half].max())))
-        if pen == "none":
+        if pen == "none" and "plateau" not in dir():
             # The plateau level is READ OFF the unpenalised arm, which never leaves it, rather
             # than carried over from the 16-tau grid (whose plateau loss is a different number).
             plateau = float(np.median(r2[half]))
@@ -74,8 +76,9 @@ def main(path):
         a.grid(True, which="major", color="0.9", lw=0.6)
         a.spines[["top", "right"]].set_visible(False)
 
-    fig.suptitle("DMTS, 36-tau delay (T=500), N=1000, 150k iterations, one seed per arm: "
-                 "the unpenalised network never finds the memory", fontsize=11)
+    fig.suptitle("DMTS, 36-tau delay (T=500), N=1000, 150k iterations: frm alone finds the memory,\n"
+                 "frm + rws does not — and neither does the unpenalised net "
+                 "(none/frm 1 seed, frm+rws 3 seeds)", fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     os.makedirs(IMG_DIR, exist_ok=True)
     fig.savefig(OUT, dpi=150)

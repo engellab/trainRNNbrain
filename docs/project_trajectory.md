@@ -11094,3 +11094,48 @@ the frm/both arms are a further ~35% slower than none/rws.
 **The primary read-out does not need the whole array.** none/rws reach 7 seeds on Sat 19 Sep, ~5 h
 before the ceiling arms; `flipflop_dropout_readout.py` can be run then, and the frm/both rows filled
 in afterwards.
+
+## ▶ RESULT: DMTS 36-tau, frm + rws — adding rws DESTROYS the escape that frm alone achieves (job 6218720) — 2026-09-18 14:35
+
+All 3 seeds COMPLETED. This is the pre-registered branch "none escape → adding rws BREAKS the escape
+frm alone achieves", and it is unanimous.
+
+| arm | n | live sf / 1e-6 / Otsu | L at 150k | clean r² | t(clean r² ≥ 0.9) | t_match | unstable |
+|---|---|---|---|---|---|---|---|
+| none | 1 | 176 / 760 / 226 | 1.91e-02 | 0.603 | **never** | 11 890 | 100% |
+| frm 0.1 | 1 | 1000 / 1000 / 1000 | 4.70e-02 | (see note) | **11 700** | 10 490 | 30.9% |
+| frm + rws | 3 | 1000 / 1000 / 1000 | 1.92e-02 | 0.602 | **never / never / never** | 47 450 / 48 220 / 48 660 | 100% |
+
+![DMTS 36-tau: frm alone finds the memory, frm + rws does not](../img/internal_figures/dmts_delay36.png)
+
+**1. `both` is indistinguishable from `none`.** Final clean loss 1.92e-2 against none's 1.91e-2,
+clean r² 0.602 against 0.603, and 100% of late probes on the plateau in both. Three seeds, spread
+of 0.0014 in r². The rws term does not slow the escape down, it removes it.
+
+**2. This reverses the 16-tau ordering.** At 16 tau `both` escaped as fast as frm — t(r² ≥ 0.9) of
+460/550/630 at N=500 and 1110/1550/2360 at N=1000, both comfortably ahead of `none`. At 36 tau frm
+alone still escapes (11 670) and `both` never does. So the two penalties are not additive on this
+task, and whatever rws does to the solution is fatal once the delay is long enough. The 16-tau grid
+could not have shown this: there the task is easy enough that every arm gets there.
+
+**3. Recruitment and capability come apart, sharply.** The `both` nets hold **1000 of 1000 units
+live under every criterion, for the whole of training**, and still never learn the task. The `none`
+net, which does learn nothing either, ends with 176 live by the scale-free criterion. So on this
+cell a network with 5.7x more live units performs identically. Keeping units alive is not
+sufficient for capability — the frm term pins every unit above threshold whether or not those units
+are doing anything. This is the cleanest counterexample in the project so far to reading a live-unit
+count as a capacity measure, and it matters for how the dropout result (which raises live counts) is
+phrased: "dropout keeps more units alive" must not be slid into "dropout gives the network more
+usable capacity" without separate evidence.
+
+**4. `both` is SLOWER even to reach the plateau-level loss.** t_match (first probe at or below
+`none`'s final loss) is 47 450–48 660 for `both` against 11 890 for `none` itself — four times
+longer to arrive at the same non-solution.
+
+Note on the frm row: its folder r² of 0.954 is the end-of-training eval, but that net finished
+inside one of its collapse episodes and its own trace has it at clean r² ≈ 0.07 over the last 2850
+iterations. Read the trace; the final net is not the trained net on this task.
+
+**Still one seed each for `none` and `frm`.** The `both` conclusion has 3 seeds; the frm comparison
+it is measured against does not. Before this is quoted, frm and none need their other two seeds at
+36 tau — 2 jobs, ~18 h each.
