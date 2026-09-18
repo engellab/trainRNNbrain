@@ -11197,3 +11197,61 @@ vs 0.02905).
 **Still to come: seeds 4–7 of each dropout cell** (17 pending + 15 running at 14:35). Nothing above
 is expected to move much — the 3-seed spreads are 2–22 units — but the rws + dead loss needs the
 extra seeds to confirm that the 0.068 net is the outlier and not the other two.
+
+### Equal seed count at 36 tau: 2 more `none` and 2 more `frm` (jobs 6257032, 6257033) — 2026-09-18 15:00
+
+The 36-tau inventory was lopsided: 3 seeds on the arm that does NOTHING (frm + rws) and 1 seed each
+on the two arms the conclusion rests on. Pavel: even it up. Submitted by running the ORIGINAL
+2-arm launcher twice (`sbatch --array=1-2 slurm/SilentReLU_dmts_delay36_spock.slurm`, tasks 1 and 2
+are `none` and `frm 0.1`), so the new seeds come from literally the same script as the first two —
+no new launcher, nothing to re-verify. md5 checked identical on Mac and Spock first. Both arrays
+PENDING at 15:00; Spock's nodes are all `mixed` and the dropout array holds its own 16 slots.
+
+**`rws` alone at 36 tau deliberately NOT run.** Pavel: it will be worse than `none`. That is the
+right call and the 16-tau grid already says so — rws alone was last to escape at every size
+(6120–8050 at N=500, 6870–8000 at N=1000, 9740–13850 at N=2000, against `none`'s 2300–3750 /
+1810–4730 / 6350–29880). A 36-tau rws-only arm would cost 18 h to confirm a prediction nothing
+turns on. Recorded so nobody adds it later thinking it was an oversight.
+
+### DISCUSSION (Pavel): the developmental reading — exuberant activity, then pruning
+
+Pavel's framing of the 36-tau result: it looks like the developmental sequence — dense networks of
+neurons, each cell's activity encouraged, pruned afterwards.
+
+**⚠️ THIS IS INTERPRETATION, NOT A MECHANISM THE DATA ESTABLISHES.** Logged so it does not get
+propagated as a finding (cf. [[no-propagating-untested-mechanisms]]). What is and is not supported:
+
+*Supported, at 1 seed per arm until 6257032/33 land.* At a 36-tau delay the arm that holds every
+unit above threshold (frm) finds a memory solution that the freely-pruning arm (`none`) never finds
+in 150k. That is the core developmental claim in miniature: a regime of enforced widespread activity
+reaches a solution that a network pruning from the start does not.
+
+*NOT supported — three specific gaps.*
+1. **We have never run the two-phase structure.** Development is dense THEN pruned. Our arms are
+   dense THROUGHOUT (frm, live count pinned at 1000 for all 150k) versus pruning throughout (`none`,
+   falling to 176). Nothing here tests whether a dense phase FOLLOWED BY release is better than
+   either. The result is consistent with the story and does not test it.
+2. **"Keep every cell active" is NOT sufficient, by our own data.** frm + rws also holds 1000/1000
+   live under every criterion for the whole of training, in 3 seeds, and never learns the task at
+   all. So a high live count does not deliver the benefit; whatever frm does that helps is not
+   captured by "all units alive". Any developmental account has to say which property of the frm
+   regime matters, and live-unit count is demonstrably not it.
+3. **The dense solution is not a stable good solution.** The frm net spends 30.9% of its late
+   probes back on the plateau and finished inside a collapse. If anything that is an argument for
+   why a dense phase would need to be followed by consolidation — but that is a story, not a result.
+
+**The experiment that would test it, and its falsifier.** Warm-start a frm net at iteration T into
+an UNPENALISED continuation (frm → none), with the paired controls frm → frm and none → none, the
+design already used by `slurm/SilentReLU_flipflop_switch_spock.slurm` (arms A1–A4: warm-start from
+a parent, continue under a different penalty, same-penalty arms mandatory because warm-starting
+resets Adam and adds iterations). The machinery exists — `paths.init_from`, quoted inside the Hydra
+override because folder names contain ';' and '='.
+- Developmental story holds → frm → none KEEPS the memory, its live count falls toward the `none`
+  level (i.e. it prunes), and it ends better than pure `none` ever does.
+- **Falsified if** frm → none loses the memory as soon as the penalty is released — then the dense
+  phase is a crutch the solution cannot survive without, not a scaffold it is built on.
+- Also informative: sweep T. If the benefit survives release only for large T, the "critical
+  period" framing gains content; if it survives for any T, it is just initialisation.
+
+Not submitted — this is a proposal, and the 36-tau seeds should land first so the comparison it
+builds on has more than one seed per arm.
