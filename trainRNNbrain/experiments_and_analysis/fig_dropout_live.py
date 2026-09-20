@@ -86,12 +86,17 @@ def main(root):
     """Draw the 3 x 4 figure (live scale-free / live 4e-2 / clean loss, one column per arm)."""
     fig, axes = plt.subplots(3, 4, figsize=(15, 8.4), sharex=True)
     for j, pen in enumerate(ARMS):
-        conds = [("-- none", cell(os.path.join(root, REFS[pen])))]
+        # the no-dropout side pools the historical reference cell with the same-launcher
+        # `do=none` controls, exactly as flipflop_dropout_readout.py does
+        conds = [("-- none", cell(os.path.join(root, REFS[pen]))
+                             + cell(os.path.join(root, DROP_SUB,
+                                    f"EqType=h_k=3_N=1000_pen={pen}_do=none")))]
         for kind in ("mute", "dead"):
             conds.append((kind, cell(os.path.join(
                 root, DROP_SUB, f"EqType=h_k=3_N=1000_pen={pen}_do={kind}"))))
         for name, ts in conds:
-            lab = "no dropout (3 seeds)" if name == "-- none" else f"dropout: {name}"
+            lab = (f"no dropout ({len(ts)} seeds)" if name == "-- none"
+                   else f"dropout: {name} ({len(ts)} seeds)")
             draw(axes[0, j], ts, COL[name], lab, "pit", "sf")
             draw(axes[1, j], ts, COL[name], lab, "pit", "ab")
             draw(axes[2, j], ts, COL[name], lab, "it", "loss", logy=True)
@@ -102,13 +107,17 @@ def main(root):
             axes[i, j].spines[["top", "right"]].set_visible(False)
             if i < 2:
                 axes[i, j].set_ylim(0, 1050)
+        # One no-dropout `none` seed blows up to L ~ 1e7 at ~3.5k and is rolled back by the
+        # trainer's spike guard; unclipped it flattens every other curve. Same clip as
+        # fig_dmts_pen_curves.py.
+        axes[2, j].set_ylim(1e-2, 1.0)
         axes[2, j].set_xlabel("iteration")
     axes[0, 0].set_ylabel("live units (scale-free)")
     axes[1, 0].set_ylabel("live units (absolute 4e-2)")
     axes[2, 0].set_ylabel("clean training loss")
     axes[0, 0].legend(fontsize=8.5, frameon=False, loc="lower left")
     fig.suptitle("Dropout vs no dropout, 3-bit flip-flop, N=1000, 150k iterations: does dropout hold units open, "
-                 "or only slow the silencing? (dropout arms: 1 seed)", fontsize=11)
+                 "or only slow the silencing? (7 seeds per condition)", fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     os.makedirs(IMG_DIR, exist_ok=True)
     fig.savefig(OUT, dpi=120)

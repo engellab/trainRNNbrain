@@ -11304,3 +11304,87 @@ but gap 2 is now sharper, not weaker. "Encourage every cell's activity" is demon
 operative variable, since frm + rws does exactly that in 3/3 seeds and never learns. The
 frm → none switch experiment proposed on 2026-09-18 is what would test the two-phase claim, and it
 now has a 3-seed parent population to branch from.
+
+## ▶ RESULT (FINAL, 7 seeds per condition): dropout keeps units alive, and it is free in the unpenalised arm — 2026-09-20 19:37
+
+Array 6218721 complete: 64/64 COMPLETED, none failed, last job ended 2026-09-20 05:29 (the
+2026-09-17 ETA said ~07:00). Every one of the 12 conditions is at 7 seeds — 8 dropout cells at 7,
+4 control cells at 4 new plus the 3 historical reference seeds whose poolability was verified on
+2026-09-18. 72 networks read at 150k.
+
+| pen | dropout | n | live scale-free | live abs 4e-2 | clean loss | Welch p (live_sf / loss) | verdict |
+|---|---|---|---|---|---|---|---|
+| none | — | 7 | 263 ± 13 | 291 ± 18 | 0.02589 ± 0.00005 | — | reference |
+| none | mute | 7 | **373 ± 18** | 406 ± 16 | 0.02670 ± 0.00010 | 1.4e-07 / 3.5e-08 | KEEPS ALIVE |
+| none | dead | 7 | **362 ± 8** | 394 ± 7 | 0.02590 ± 0.00029 | 2.2e-08 / **0.95** | KEEPS ALIVE |
+| rws | — | 7 | 220 ± 9 | 242 ± 10 | 0.02597 ± 0.00007 | — | reference |
+| rws | mute | 7 | **391 ± 12** | 412 ± 14 | 0.02942 ± 0.00149 | 5.4e-12 / 0.0013 | KEEPS ALIVE |
+| rws | dead | 7 | **324 ± 14** | 380 ± 6 | 0.03336 ± 0.01413 | 1.4e-08 / 0.25 | KEEPS ALIVE |
+| frm | — | 7 | 971 ± 17 | 971 ± 17 | 0.02770 ± 0.00013 | — | ceiling |
+| frm | mute | 7 | 991 ± 14 | 991 ± 14 | 0.02828 ± 0.00017 | 0.055 / 2.7e-05 | ceiling |
+| frm | dead | 7 | 996 ± 5 | 996 ± 5 | 0.02983 ± 0.00102 | 0.012 / 0.0021 | ceiling |
+| both | — | 7 | 1000 ± 0 | 1000 ± 0 | 0.02905 ± 0.00006 | — | ceiling |
+| both | mute | 7 | 1000 ± 0 | 1000 ± 0 | 0.03043 ± 0.00009 | — / — | ceiling |
+| both | dead | 7 | 998 ± 2 | 996 ± 3 | 0.03184 ± 0.00228 | 0.019 / 0.024 | ceiling |
+
+![Dropout vs no dropout, 7 seeds per condition](../img/internal_figures/dropout_live_vs_iter.png)
+
+**1. The headline survives 7 seeds and gets stronger.** All four `none`/`rws` dropout cells clear
+the pre-registered bar (cell mean above the no-dropout mean by more than 3 no-dropout sd under BOTH
+criteria), with Welch p from 5.4e-12 to 1.4e-7. `none` + `dead` is the clean one: **362 ± 8 live
+against 263 ± 13, at clean loss 0.02590 ± 0.00029 against 0.02589 ± 0.00005, p = 0.95.** Ninety-nine
+extra live units, no detectable cost, 7 seeds a side. That is redundancy for free.
+
+**2. THE SECONDARY QUESTION IS ANSWERED, AND THE ANSWER IS ARM-DEPENDENT** (`dropout_silencing_slope.py`,
+new). Live units lost per decade of iteration, fitted over [30k, 150k]:
+
+| pen | no dropout | mute | dead |
+|---|---|---|---|
+| none | −210 ± 37 | −229 ± 47 (p 0.44) | −223 ± 23 (p 0.48) |
+| rws | −268 ± 14 | **−97 ± 30** (p 9.4e-07) | **−150 ± 10** (p 2.6e-09) |
+
+In the unpenalised arm dropout does **not** change the rate of silencing at all — it is a pure
+OFFSET, exactly what the 1-seed figure suggested and could not establish. Under rws it **does**
+slow silencing, by 2.7x for mute and 1.8x for dead. So dropout and the sparsity penalty interact:
+against rws's pressure to shed units, dropout's pressure to keep them usable actually bends the
+trajectory, while on its own it just starts the curve higher. The figure shows this directly — the
+`none` column's curves are parallel, the `rws` column's visibly diverge.
+
+**3. mute and dead dissociate: mute recruits more, dead costs less.** mute reaches the higher live
+count in both arms (373/391 vs 362/324) and costs a small but utterly consistent amount of clean
+loss (none: every one of 7 seeds between 0.02658 and 0.02691, against a reference of 0.02589,
+p = 3.5e-08). dead reaches fewer units and, in the `none` arm, costs nothing (median 0.02575,
+below the reference median). Plausible reading, NOT tested: `mute` leaves the dropped unit driving
+the recurrent dynamics while removing it from the read-out, so the surviving population must stay
+usable; `dead` removes it entirely, a milder constraint. Falsifying test: run `mute` at a lower
+drop rate matched to `dead`'s live count and ask whether its loss cost disappears.
+
+**4. The 2026-09-18 retraction is confirmed at 7 seeds.** rws + dead clean loss per seed:
+0.02645 / 0.02648 / 0.02666 / 0.02682 / 0.02711 / 0.03237 / **0.06764**. Five of seven sit at the
+no-dropout level, median 0.02682, Welch p = 0.25. The original single seed (0.06764) was the worst
+of seven. The 2026-09-16 one-seed claim that "rws + dead buys units but pays for them" remains
+wrong; the cell mean of 0.0334 ± 0.0141 is an artefact of that one net and should never be quoted
+without the per-seed list.
+
+**5. The ceiling arms behave as predicted and add only a loss cost.** frm and both move 971 → 991/996
+and 1000 → 1000/998, i.e. nothing the primary question can use, while their clean loss rises
+significantly (frm + mute p = 2.7e-05, frm + dead p = 0.0021, both + dead p = 0.024). Spending 57%
+of the array's ~1130 GPU-hours here bought a clean "dropout costs a little performance when the
+network is already fully recruited" and nothing else — as forecast on 2026-09-17 before the run.
+
+**6. Still unresolved, and it is the same caveat as everywhere in this project:** every arm is STILL
+silencing at 150k. The `none` + dropout curves are 110 units higher but falling at the same rate,
+so these are matched-iteration counts, not converged ones. What the 36-tau DMTS result adds
+(same day) is a reason not to over-read them: live-unit count is not capacity, since there a network
+holding 1000/1000 live failed 3/3 while one holding 997 succeeded 3/3. **"Dropout keeps more units
+alive" is established. "Dropout gives the network more usable capacity" is not, and needs a task
+where the extra units can be shown to do something.**
+
+### Process note: a sync-completion check that was wrong
+
+The waiter used to decide "all data is local" was given a target of 68 traces when the correct total
+is 72 (8 dropout cells x 7 + 4 control cells x 4). It fired early, and the first full read-out was
+run with `rws`+`mute` at 3 of 7 seeds while every other cell had 7 — a silent, plausible-looking
+under-count. It was caught by listing the per-cell counts against the cluster's own before
+interpreting anything, and the table above is from all 72. **Check counts against the source, not
+against a number typed from memory.**
