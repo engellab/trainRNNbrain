@@ -60,9 +60,9 @@ def main(path):
     ax.axhline(ESCAPE, color="0.4", lw=0.9, ls="--")
     ax.text(150, ESCAPE + 0.02, r"escape criterion, clean $r^2 = 0.9$", fontsize=8, color="0.35")
     ax.axhline(plateau, color="0.6", lw=0.9, ls=":")
-    ax.text(1.45e5, plateau - 0.03, f"no-memory plateau, clean $r^2$ = {plateau:.3f}\n"
+    ax.text(155, plateau - 0.04, f"no-memory plateau, clean $r^2$ = {plateau:.3f}\n"
             "reads the decision cue, carries\nnothing across the delay",
-            fontsize=8, color="0.45", va="top", ha="right")
+            fontsize=8, color="0.45", va="top", ha="left")
     ax.set_xscale("log"); ax.set_xlim(120, 1.6e5); ax.set_ylim(-0.15, 1.05)
     ax.set_xlabel("iteration"); ax.set_ylabel("clean $r^2$ (noise-free probe)")
     ax.set_title("Does the memory appear?", fontsize=10)
@@ -76,9 +76,9 @@ def main(path):
         a.grid(True, which="major", color="0.9", lw=0.6)
         a.spines[["top", "right"]].set_visible(False)
 
-    fig.suptitle("DMTS, 36-tau delay (T=500), N=1000, 150k iterations: frm alone finds the memory,\n"
-                 "frm + rws does not — and neither does the unpenalised net "
-                 "(none/frm 1 seed, frm+rws 3 seeds)", fontsize=11)
+    fig.suptitle("DMTS, 36-tau delay (T=500), N=1000, 150k iterations, 3 seeds per arm:\n"
+                 "frm alone finds the memory in 3/3 seeds; adding rws makes it 0/3, "
+                 "like no penalty at all", fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     os.makedirs(IMG_DIR, exist_ok=True)
     fig.savefig(OUT, dpi=150)

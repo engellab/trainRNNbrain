@@ -11255,3 +11255,52 @@ override because folder names contain ';' and '='.
 
 Not submitted — this is a proposal, and the 36-tau seeds should land first so the comparison it
 builds on has more than one seed per arm.
+
+## ▶ RESULT (BALANCED, 3 seeds per arm): DMTS 36-tau — frm alone finds the memory 3/3, frm + rws 0/3 — 2026-09-20 19:20
+
+Jobs 6257032 and 6257033 landed (2 more `none`, 2 more `frm`), so all three arms now have 3 seeds.
+This supersedes the 2026-09-18 entry, whose `none` and `frm` arms were one seed each. All 7 jobs
+across the three arms COMPLETED; none failed.
+
+| arm | n | escaped (clean r² ≥ 0.9)? | t(escape), per seed | live sf | L at 150k | unstable |
+|---|---|---|---|---|---|---|
+| none | 3 | **0 / 3** | never / never / never | 128 ± 42 | 1.91e-02 | 100% |
+| frm 0.1 | 3 | **3 / 3** | 11 700 / 12 720 / 18 800 | 997 ± 4 | 3.41e-02 | 46% |
+| frm + rws | 3 | **0 / 3** | never / never / never | 1000 ± 0 | 1.92e-02 | 100% |
+
+![DMTS 36-tau, 3 seeds per arm](../img/internal_figures/dmts_delay36.png)
+
+**1. The result is unanimous in all three arms, and the single-seed version held.** frm escapes in
+every seed (11.7k–18.8k), `none` in none of them, frm + rws in none of them. The worry recorded on
+2026-09-18 — that the whole story rested on one frm net and one `none` net — is resolved: three for
+three, and the spread of escape times (7k) is small against the 150k budget.
+
+**2. Adding rws to frm converts a 3/3 success into a 0/3 failure.** The frm + rws nets are
+indistinguishable from unpenalised ones: L 1.92e-2 vs 1.91e-2, clean r² 0.602 vs 0.603, 100% of
+late probes on the plateau in both. This is not a slowdown, it is abolition. At 16 tau the same arm
+escaped as fast as frm (460–630 at N=500, 1110–2360 at N=1000), so the ordering reverses entirely
+once the delay is long enough — the penalties are not additive, and the 16-tau grid could not have
+revealed it because there every arm succeeds.
+
+**3. Live-unit count does not predict success — it anti-predicts it here.** frm + rws holds
+1000/1000 units live and fails 3/3. `none` holds 128 ± 42 and fails 3/3. frm holds 997 ± 4 and
+succeeds 3/3. So among the two arms that keep essentially every unit alive, one always solves the
+task and the other never does. Whatever frm supplies is not "units above threshold", and a live
+count cannot be read as capacity. This is now a 9-network result, not an anecdote.
+
+**4. frm's solution is real but unstable.** 46% of late probes sit back on the plateau (per seed
+0.309 / 0.466 / 0.605), and 2 of 3 seeds finished inside a collapse (L 4.70e-2 and 4.72e-2) while
+the third ended in a good state (L 7.97e-3, clean r² 0.835). The best clean r² reached is 0.9998 in
+all three. So the memory is found reliably and held unreliably. **The final network is a lottery
+ticket on this task: read the trace, and if a net is needed, take the best checkpoint.**
+
+**5. `none` is not merely slow, it is churning.** Its live count falls to ~550 by 3k and then
+oscillates between ~130 and ~900 for the rest of training (right panel), with 100% of late probes
+on the plateau. It is not converging on a poor solution; it is failing to settle at all.
+
+**Relevance to the developmental framing** (logged 2026-09-18 as interpretation): gap 1 is
+unchanged — these are still "dense throughout" vs "pruned throughout", never dense-then-pruned —
+but gap 2 is now sharper, not weaker. "Encourage every cell's activity" is demonstrably NOT the
+operative variable, since frm + rws does exactly that in 3/3 seeds and never learns. The
+frm → none switch experiment proposed on 2026-09-18 is what would test the two-phase claim, and it
+now has a 3-seed parent population to branch from.
