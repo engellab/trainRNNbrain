@@ -27,7 +27,12 @@ below) and, when present, the same-launcher `..._pen=<pen>_do=none` control cell
 dropout fix only changes the graph when dropout is ON. `--controls-only` drops the historical
 seeds, which is the fallback if the two sources ever disagree.
 
-Usage: python flipflop_dropout_readout.py [<trained_RNNs root>]
+The sweep also holds N=500 and N=2000 unpenalised cells (array from
+`slurm/SilentReLU_flipflop_dropout_sizes_spock.slurm`), which are SELF-CONTAINED: their
+`do=none` controls come from the same launcher, so no historical reference is used at those
+sizes and REFS is consulted only at N=1000.
+
+Usage: python flipflop_dropout_readout.py [<trained_RNNs root>] [--N 1000]
 """
 import glob
 import os
@@ -119,29 +124,33 @@ def welch(a, b):
         return float(t), float(erfc(abs(t) / sqrt(2)))     # normal approximation, df is >= 5 here
 
 
-def main(root, controls_only=False):
+def main(root, controls_only=False, N=1000):
     """Print the dropout table with each arm's no-dropout reference and the 3-sd verdict.
 
     Args:
         root: trained_RNNs folder;
-        controls_only: if True the no-dropout side uses ONLY the same-launcher `do=none` cells.
+        controls_only: if True the no-dropout side uses ONLY the same-launcher `do=none` cells;
+        N: network size whose cells to read. Only N=1000 has historical reference cells; at any
+           other size the `do=none` controls are the whole no-dropout side by construction.
     Returns:
         None; prints the table.
     """
+    pens = ("none", "rws", "frm", "both") if N == 1000 else ("none",)
     refs = {}
-    for pen, sub in REFS.items():
-        ctrl = os.path.join(root, DROP_SUB, f"EqType=h_k=3_N=1000_pen={pen}_do=none")
-        refs[pen] = collect(ctrl) if controls_only else collect(os.path.join(root, sub), ctrl)
-    print(f"read at {READ_AT} iterations; live counts out of N=1000\n")
+    for pen in pens:
+        ctrl = os.path.join(root, DROP_SUB, f"EqType=h_k=3_N={N}_pen={pen}_do=none")
+        use_hist = (N == 1000) and not controls_only
+        refs[pen] = collect(os.path.join(root, REFS[pen]), ctrl) if use_hist else collect(ctrl)
+    print(f"read at {READ_AT} iterations; live counts out of N={N}\n")
     print(f"{'pen':5} {'dropout':8} {'n':>2}  {'live_scalefree':>18}  {'live_abs4e-2':>18}  "
           f"{'clean_loss':>18}  {'r2':>6}")
-    for pen in ("none", "rws", "frm", "both"):
+    for pen in pens:
         a = refs[pen]
         print(f"{pen:5} {'-- none':8} {len(a):>2}  "
               f"{a[:, 0].mean():8.0f} ± {a[:, 0].std():<7.0f} {a[:, 1].mean():8.0f} ± {a[:, 1].std():<7.0f} "
               f"{a[:, 2].mean():8.5f} ± {a[:, 2].std():<7.5f} {a[:, 3].mean():6.3f}")
         for kind in ("mute", "dead"):
-            cell = os.path.join(root, DROP_SUB, f"EqType=h_k=3_N=1000_pen={pen}_do={kind}")
+            cell = os.path.join(root, DROP_SUB, f"EqType=h_k=3_N={N}_pen={pen}_do={kind}")
             b = collect(cell)
             if not len(b):
                 print(f"{pen:5} {kind:8}  -  (no net read at {READ_AT})")
@@ -167,5 +176,7 @@ def main(root, controls_only=False):
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    main(args[0] if args else DATA_DIR, controls_only="--controls-only" in sys.argv)
+    argv = sys.argv[1:]
+    n = int(argv[argv.index("--N") + 1]) if "--N" in argv else 1000
+    args = [a for a in argv if not a.startswith("--") and a != str(n)]
+    main(args[0] if args else DATA_DIR, controls_only="--controls-only" in argv, N=n)

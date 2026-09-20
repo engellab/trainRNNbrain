@@ -15,7 +15,7 @@ same penalty.
 Only the `none` and `rws` arms are interpretable: frm and both sit at the N ceiling with and
 without dropout, so their slope is ~0 by construction and is printed for completeness only.
 
-Usage: python dropout_silencing_slope.py [<trained_RNNs root>] [--fit-from 30000]
+Usage: python dropout_silencing_slope.py [<trained_RNNs root>] [--fit-from 30000] [--N 1000]
 """
 import argparse
 import glob
@@ -70,19 +70,22 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", nargs="?", default=DATA_DIR)
     ap.add_argument("--fit-from", type=int, default=FIT_FROM)
+    ap.add_argument("--N", type=int, default=1000,
+                    help="network size; only N=1000 has historical reference cells")
     a = ap.parse_args()
     cell.fit_from = a.fit_from
 
     print(f"live units lost per DECADE of iteration, fitted over [{a.fit_from}, {READ_AT}]")
     print("negative = still silencing; less negative under dropout = dropout SLOWS silencing\n")
     print(f"{'pen':5} {'dropout':8} {'n':>2} {'slope scale-free':>22} {'slope abs 4e-2':>22}   vs no-dropout")
-    for pen in ("none", "rws", "frm", "both"):
-        ref = cell(os.path.join(a.root, REFS[pen]),
-                   os.path.join(a.root, DROP_SUB, f"EqType=h_k=3_N=1000_pen={pen}_do=none"))
+    pens = ("none", "rws", "frm", "both") if a.N == 1000 else ("none",)
+    for pen in pens:
+        ctrl = os.path.join(a.root, DROP_SUB, f"EqType=h_k=3_N={a.N}_pen={pen}_do=none")
+        ref = cell(os.path.join(a.root, REFS[pen]), ctrl) if a.N == 1000 else cell(ctrl)
         print(f"{pen:5} {'-- none':8} {len(ref):>2} "
               f"{ref[:,0].mean():10.1f} ± {ref[:,0].std():<9.1f} {ref[:,1].mean():10.1f} ± {ref[:,1].std():<9.1f}")
         for kind in ("mute", "dead"):
-            b = cell(os.path.join(a.root, DROP_SUB, f"EqType=h_k=3_N=1000_pen={pen}_do={kind}"))
+            b = cell(os.path.join(a.root, DROP_SUB, f"EqType=h_k=3_N={a.N}_pen={pen}_do={kind}"))
             if not len(b):
                 continue
             _, p_sf = welch(b[:, 0], ref[:, 0])

@@ -660,12 +660,33 @@ class Trainer():
         return r2_val
     
     @staticmethod
-    def get_participation_(states, q=0.9, eps=1e-8):
-        x = states.abs().view(states.size(0), -1)  # (N, T*B)
-        activity = torch.quantile(x + eps, q, dim=1)  # per-neuron summary
-        activity_std = x.std(dim=1, unbiased=False)
-        participation = activity + activity_std
-        return participation
+    def get_participation_(states, q=0.9, eps=1e-8, chunk=512):
+        """Per-unit activity summary driving `participation` dropout sampling: q-quantile of |x|
+        plus std(|x|), pooled over (time, trials).
+
+        NOT the same quantity as `participation_from_states_`, which applies the activation for
+        equation_type "h" and is what the trace logs. This one reads the raw states, as the dropout
+        EMA has always done; the two are deliberately kept distinct.
+
+        ⚠️ CHUNKED OVER UNITS. The unchunked form OOMs at N=2000: x is (N, T*B) = (2000, 307200)
+        float32 = 2.5 GB, `x + eps` copies it, and `torch.quantile` sorts, which asked for a further
+        6.9 GB and failed on a 44 GB L40S (calibration job 6306867_4, 2026-09-20). Every reduction
+        here is per-unit, so chunking is exact - the same argument, and the same 512 default, as
+        `participation_from_states_` below.
+
+        Args:
+            states: (N, T, B) states; q: quantile in [0, 1]; eps: added before the quantile, as
+            before; chunk: units processed at a time, bounding peak memory independently of N.
+        Returns:
+            (N,) tensor of per-unit participation.
+        """
+        N = states.size(0)
+        out = torch.empty(N, device=states.device, dtype=states.dtype)
+        for i in range(0, N, chunk):
+            x = states[i:i + chunk].reshape(min(chunk, N - i), -1).abs()   # (chunk, T*B)
+            out[i:i + chunk] = (torch.quantile(x + eps, q, dim=1)
+                                + x.std(dim=1, unbiased=False))
+        return out
     
     def participation_from_states_(self, states, chunk=512):
         '''
