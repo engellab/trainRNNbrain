@@ -39,6 +39,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
 from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -47,41 +49,55 @@ from common import DATA_DIR
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 
 TASK_SEED = 0             # DMTS jitters its stimulus times, so the trial shown is seeded
+BRACE_X = (-0.080, -0.205)   # right edge of each brace level, in axes fractions
+BRACE_W = 0.017              # brace depth, likewise
 
 # The two features of CDDM's stimulus. Motion is drawn as arrow DIRECTION and colour as arrow
 # COLOUR, which is what the task is: one stimulus carrying two features that can point different
 # ways. The two hues are categorical slots 2 and 3 of the validated palette, not red/green - the
 # literal colours of Mante's task are the one pair a colour-blind reader cannot separate.
-COL_A, COL_B = ps.SLOTS[1], ps.SLOTS[2]
-COL_S = ps.SLOTS[3]       # DMTS: the one stimulus this trial happens to use
+COL_A, COL_B = ps.SLOTS[1], ps.SLOTS[2]   # red and green, in the CDDM pictogram only
+
+# Channel colour is SEMANTIC, not decorative: a channel is either a cue telling the network what to
+# do (violet) or a sensory stimulus it must read (black). Colouring CDDM's two colour channels red
+# and green to match the pictogram implied that a channel carries a hue, which it does not - the
+# colour feature is a pair of evidence channels like any other.
+CUE_COL, SENS_COL = ps.SLOTS[3], ps.INK
 
 # `run` is a glob matching the run folders of the very cells the manuscript reports, so the task
 # shown is the task trained. Channel labels are asserted against the config's channel counts, so a
 # config change breaks the script instead of silently mislabelling a panel.
+#
+# `braces` group the channels: (first_row, last_row, label, level), rows counted over inputs then
+# outputs, level 0 nearest the labels. A brace is drawn only where grouping adds something - the
+# flip-flop's channels are one per bit and need none.
 TASKS = {
     "CDDM": dict(
         run=f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*",
         title="CDDM  -  context-dependent decision making",
-        inputs=["cue: attend motion", "cue: attend colour", "motion, right", "motion, left",
-                "colour, right", "colour, left"],
-        in_cols=[ps.INK, ps.INK, ps.INK, ps.INK, COL_A, COL_B],
-        outputs=["choose right", "choose left"],
+        inputs=["motion", "colour", "right", "left", "right", "left"],
+        in_cols=[CUE_COL, CUE_COL, SENS_COL, SENS_COL, SENS_COL, SENS_COL],
+        outputs=["right", "left"],
+        braces=[(2, 3, "motion", 0), (4, 5, "colour", 0),
+                (0, 1, "cue", 1), (2, 5, "sensory", 1)],
         note="an attend-colour trial has the same stimulus and the opposite correct choice",
     ),
     "NBitFlipFlop": dict(
         run=f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*",
         title="$k$-bit flip-flop  -  $k$ independent memory bits",
-        inputs=["bit 1 pulses", "bit 2 pulses", "bit 3 pulses"],
-        in_cols=[ps.INK] * 3,
-        outputs=["bit 1 state", "bit 2 state", "bit 3 state"],
+        inputs=["bit 1", "bit 2", "bit 3"],
+        in_cols=[SENS_COL] * 3,
+        outputs=["bit 1", "bit 2", "bit 3"],
+        braces=[(0, 2, "pulses", 0), (3, 5, "state held", 0)],
         note="pulse times are Poisson, so a trial has no epochs and every trial differs",
     ),
     "DMTS": dict(
         run=f"{DATA_DIR}/DMTS_std_pen/EqType=h_N=1000_pen=none",
         title="DMTS  -  delayed match-to-sample",
-        inputs=["stimulus 1", "stimulus 2", "stimulus 3", "stimulus 4", "go cue"],
-        in_cols=[COL_S, ps.INK, ps.INK, ps.INK, ps.MUTED],
+        inputs=["1", "2", "3", "4", "go"],
+        in_cols=[SENS_COL] * 4 + [CUE_COL],
         outputs=["match", "non-match"],
+        braces=[(0, 3, "stimuli", 0)],
         note="a match trial (stimulus 1 twice); onsets jitter by $\\pm 1\\tau$, so the task "
              "cannot be solved by counting steps",
     ),
@@ -140,6 +156,47 @@ def build(name):
     return inp, tgt, epochs, dt / tau
 
 
+def brace(ax, x, y0, y1, label, col=ps.MUTED, w=BRACE_W, lw=0.6, fs=6.0, rot=0):
+    """A curly brace left of the channel labels, opening right, with its label beyond the tip.
+
+    Drawn in `ax.get_yaxis_transform()`, i.e. x in axes fractions (negative is left of the axes)
+    and y in data units, so a brace spans exactly the channel rows it groups however the figure is
+    resized.
+
+    Args:
+        ax: the channel-stack axes; x: the brace's right edge in axes fractions; y0, y1: the data
+            y values of the outermost rows it spans, in either order; label: text beyond the tip;
+            col: colour; w: brace depth in axes fractions; lw: line width; fs: label font size;
+            rot: label rotation in degrees - the outer level is set upright so that its label
+            costs almost no horizontal room, which is what keeps the braces out of the pictogram
+            in the next column.
+    Returns:
+        None.
+    """
+    y0, y1 = (y0, y1) if y0 < y1 else (y1, y0)
+    ym, q = 0.5 * (y0 + y1), 0.22 * (y1 - y0)
+    verts = [(x, y0), (x - w, y0), (x - w, y0 + q),         # bottom hook
+             (x - w, ym - q),                                # up the spine
+             (x - w, ym), (x - 2 * w, ym),                   # out to the tip
+             (x - w, ym), (x - w, ym + q),                   # back in
+             (x - w, y1 - q),                                # up the spine
+             (x - w, y1), (x, y1)]                           # top hook
+    codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3,
+             Path.LINETO,
+             Path.CURVE3, Path.CURVE3,
+             Path.CURVE3, Path.CURVE3,
+             Path.LINETO,
+             Path.CURVE3, Path.CURVE3]
+    ax.add_patch(PathPatch(Path(verts, codes), facecolor="none", edgecolor=col, lw=lw,
+                           transform=ax.get_yaxis_transform(), clip_on=False, zorder=5))
+    if rot:
+        ax.text(x - 2 * w - 0.020, ym, label, transform=ax.get_yaxis_transform(), rotation=rot,
+                ha="center", va="center", fontsize=fs, color=col, clip_on=False)
+    else:
+        ax.text(x - 2 * w - 0.012, ym, label, transform=ax.get_yaxis_transform(), ha="right",
+                va="center", fontsize=fs, color=col, clip_on=False)
+
+
 def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec):
     """Draw one task's input and target channels as a labelled stack over time.
 
@@ -147,7 +204,7 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec):
         ax: axes; inp: (n_inputs, n_steps); tgt: (n_outputs, n_steps); epochs: list of
             (start_step, end_step, label) from the run config, possibly empty; dt_over_tau: step
             length in membrane time constants; spec: the TASKS entry, supplying `inputs`,
-            `in_cols`, `outputs` and `note`.
+            `in_cols`, `outputs`, `braces` and `note`.
     Returns:
         None.
     """
@@ -202,6 +259,11 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec):
                 color=ps.MUTED)
     head = 0.28 + 0.85 * max(len(levels) - 1, 0) + 0.52 if epochs else 0.2
 
+    # grouping braces. Level 0 sits next to the labels; level 1 encloses it, which is the only
+    # order in which "sensory" can contain "motion" and "colour".
+    for r0, r1, lab, level in spec.get("braces", []):
+        brace(ax, BRACE_X[level], bases[r0], bases[r1], lab, rot=90 * (level > 0))
+
     if spec.get("note"):
         ax.text(0.0, -0.25, spec["note"], transform=ax.transAxes, ha="left", va="top",
                 fontsize=5.6, color=ps.MUTED)
@@ -225,9 +287,10 @@ def pic_cddm(ax):
     ps.blank(ax)
     ax.set(xlim=(0, 1), ylim=(0, 1))
 
-    ps.box(ax, 0.06, 0.800, 0.50, 0.120, "attend MOTION", col=ps.INK, face="#f2f1ec", lw=0.7,
+    ax.text(0.03, 0.860, "attend", ha="left", va="center", fontsize=6.0, color=ps.INK)
+    ps.box(ax, 0.29, 0.800, 0.31, 0.120, "MOTION", col=ps.INK, face="#f2f1ec", lw=0.7,
            fs=6.0, text_col=ps.INK)
-    ps.box(ax, 0.60, 0.800, 0.34, 0.120, "attend\nCOLOUR", col=ps.FAINT, lw=0.5, fs=5.4,
+    ps.box(ax, 0.64, 0.800, 0.31, 0.120, "COLOUR", col=ps.FAINT, lw=0.5, ls=(0, (2, 2)), fs=6.0,
            text_col=ps.FAINT)
     ax.text(0.50, 0.995, "the cue names one of the two features", ha="center", va="top",
             fontsize=5.6, color=ps.MUTED)
@@ -244,15 +307,19 @@ def pic_cddm(ax):
         d = 0.045 if r else -0.045
         ps.arrow(ax, (x - d / 2, y), (x + d / 2, y), col=COL_A if a else COL_B, lw=0.8,
                  mutation_scale=4.5, shrink=0, zorder=4)
-    ax.text(0.50, 0.295, "most arrows point RIGHT;  most are colour B",
+    ax.text(0.50, 0.295, "most arrows point RIGHT;  most are green",
             ha="center", va="top", fontsize=5.6, color=ps.MUTED)
 
     ps.arrow(ax, (0.50, 0.245), (0.50, 0.195), col=ps.MUTED, lw=0.8)
-    ps.box(ax, 0.16, 0.070, 0.31, 0.120, "choose RIGHT", col=ps.SLOTS[0], lw=0.9, fs=5.8,
+    # LEFT on the left and RIGHT on the right: the choice is a direction, so putting the winning
+    # option on the wrong side of the panel fights the reader for no reason. Laid out like the cue
+    # row above it - the verb outside, one word in each box.
+    ax.text(0.03, 0.130, "choose", ha="left", va="center", fontsize=6.0, color=ps.INK)
+    ps.box(ax, 0.29, 0.070, 0.31, 0.120, "LEFT", col=ps.FAINT, lw=0.5, ls=(0, (2, 2)),
+           fs=6.0, text_col=ps.FAINT)
+    ps.box(ax, 0.64, 0.070, 0.31, 0.120, "RIGHT", col=ps.SLOTS[0], lw=0.9, fs=6.0,
            text_col=ps.SLOTS[0])
-    ps.box(ax, 0.53, 0.070, 0.31, 0.120, "choose LEFT", col=ps.FAINT, lw=0.5, ls=(0, (2, 2)),
-           fs=5.8, text_col=ps.FAINT)
-    ax.text(0.50, 0.045, "the colour alone would have said LEFT,\nand the cue says to ignore it",
+    ax.text(0.50, 0.045, "green alone would have said LEFT,\nand the cue says to ignore it",
             ha="center", va="top", fontsize=5.2, color=COL_B, linespacing=1.3)
 
 
@@ -324,7 +391,7 @@ def pic_dmts(ax):
     for x, lab, filled in [(0.07, "sample", True), (0.37, "delay", False), (0.67, "test", True)]:
         ps.box(ax, x, y, 0.25, 0.215, col=ps.MUTED, face=ps.PAPER, lw=0.7)
         if filled:
-            ax.plot([x + 0.125], [y + 0.108], "s", ms=6.5, color=COL_S, zorder=4)
+            ax.plot([x + 0.125], [y + 0.108], "s", ms=6.5, color=SENS_COL, zorder=4)
         else:
             ax.text(x + 0.125, y + 0.108, "?", ha="center", va="center", fontsize=9.0,
                     color=ps.FAINT)
@@ -337,12 +404,12 @@ def pic_dmts(ax):
             color=ps.MUTED)
     for k in range(4):
         ax.plot([0.60 + 0.085 * k], [0.490], "s", ms=5.0, zorder=4,
-                color=COL_S if k == 0 else ps.FAINT)
+                color=SENS_COL if k == 0 else ps.FAINT)
     ax.text(0.50, 0.405, "16 sample-test pairs: 4 match, 12 non-match", ha="center", va="center",
             fontsize=5.2, color=ps.MUTED)
 
     ps.arrow(ax, (0.50, 0.355), (0.50, 0.310), col=ps.MUTED, lw=0.8)
-    ps.box(ax, 0.275, 0.185, 0.45, 0.115, "same as the sample?", col=ps.INK, lw=0.6, fs=5.8,
+    ps.box(ax, 0.14, 0.185, 0.72, 0.115, "same as the sample?", col=ps.INK, lw=0.6, fs=5.8,
            face="#f2f1ec", text_col=ps.INK)
     ax.text(0.485, 0.095, "match  $\\rightarrow$  channel 1", ha="right", va="center",
             fontsize=5.8, color=ps.SLOTS[0])
@@ -356,7 +423,9 @@ def main():
     """Assemble Supplementary Figure S0 and write it. Returns the output path."""
     ps.setup()
     fig = plt.figure(figsize=(ps.W2, 172 * ps.MM))
-    gs = GridSpec(3, 2, figure=fig, width_ratios=[0.80, 1.30], hspace=0.62, wspace=0.34)
+    # the gutter has to hold both brace levels and their labels, which hang left of the axes by
+    # about 0.27 of its width - hence the wspace, and hence the outer brace label being upright
+    gs = GridSpec(3, 2, figure=fig, width_ratios=[0.76, 1.30], hspace=0.62, wspace=0.44)
 
     for row, (name, pic, letter) in enumerate([("CDDM", pic_cddm, "a"),
                                                ("NBitFlipFlop", pic_flipflop, "b"),

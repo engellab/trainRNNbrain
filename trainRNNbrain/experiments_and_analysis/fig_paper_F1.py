@@ -6,14 +6,19 @@ network the worse it gets; it happens on every task; and no standard knob fixes 
 This is the motivation figure, so it has to do four things in one display item, and the first row
 has to explain the measurement before the second and third rows quantify it:
 
-  (a) THE PROBLEM, AND ONLY THAT       a trained network drawn as its recurrent pool, three
-                                       quarters of it dead, beside eight units drawn at RANDOM out
-                                       of that same network on one trial, on a shared rate scale.
-                                       Real simulated traces, not cartoons. Nothing about the task
-                                       is in this panel: the trial structure of all three tasks is
-                                       Supplementary Figure S0 (`fig_supp_tasks.py`), because a
-                                       panel that explains a task and a pathology at once explains
-                                       neither.
+  (a) THE PROBLEM, AND ONLY THAT       the trained network as a circuit - inputs, a bounded
+                                       recurrent pool with three quarters of it dead, outputs -
+                                       beside eight units drawn at RANDOM out of that same network
+                                       on one trial, on a shared rate scale. Real simulated traces,
+                                       not cartoons. The task is NAMED and not explained: its trial
+                                       structure is the supplementary task figure
+                                       (`fig_supp_tasks.py`), because a panel that explains a task
+                                       and a pathology at once explains neither.
+                                       The arrows inside the pool are a nearest-neighbour SAMPLE of
+                                       the connectivity, not the connectivity: these networks are
+                                       dense. Nearest neighbours because a random pair is a long
+                                       chord that crosses the units in between, and thirty of those
+                                       is a scribble.
   (b) WHY "SILENT" IS NOT A JUDGEMENT  the participation distribution of that same network on a log
                                        axis. It is bimodal with four orders of magnitude of empty
                                        valley between the modes, so the threshold is read off the
@@ -57,6 +62,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
+from matplotlib.patches import Circle
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
@@ -77,6 +83,8 @@ N_UNITS = 1000            # every intervention family is measured at this size
 # proportion of them that turns out to be silent is itself the result rather than a choice. Both
 # seeds are fixed so the panel is reproducible; neither was searched over.
 N_GLYPH, N_SHOWN = 100, 8
+N_EDGES = 30              # nearest-neighbour connections drawn; the real network is dense
+R_POOL = 0.80             # pool radius inside the unit-radius boundary circle
 GLYPH_SEED, TRACE_SEED = 3, 11
 SILENT_GREY = "#c9c8c0"   # one grey for "silent", in the drawing and in the traces alike
 
@@ -256,50 +264,67 @@ def panel_a(ax_net, ax_tr, rates, p):
     live = p >= thr
     n_live = int(live.sum())
 
-    # --- left: the recurrent pool, as N_GLYPH units with the measured fraction alive -----------
+    # --- left: the recurrent pool as a circuit -------------------------------------------------
     ps.blank(ax_net)
-    ax_net.set(xlim=(-1.34, 1.34), ylim=(-1.95, 1.30))
+    ax_net.set(xlim=(-1.78, 1.78), ylim=(-2.02, 1.56))
     ax_net.set_aspect("equal", adjustable="box")
 
     rng = np.random.default_rng(GLYPH_SEED)
     n_on = int(round(N_GLYPH * n_live / N))
-    # Vogel's sunflower: an equal-area packing of the disc, so a quarter of the dots covers a
-    # quarter of the blob's area and reads as a quarter of the POOL. A square lattice reads as a
+    # Vogel's sunflower inside the boundary: an equal-area packing of the disc, so a quarter of the
+    # dots covers a quarter of it and reads as a quarter of the POOL. A square lattice reads as a
     # layer, which a recurrent pool is not.
     i = np.arange(N_GLYPH)
-    rad, ang = np.sqrt((i + 0.5) / N_GLYPH), i * np.pi * (3.0 - np.sqrt(5.0))
+    rad = R_POOL * np.sqrt((i + 0.5) / N_GLYPH)
+    ang = i * np.pi * (3.0 - np.sqrt(5.0))
     gx, gy = rad * np.cos(ang), rad * np.sin(ang)
     on = np.zeros(N_GLYPH, bool)
     on[rng.choice(N_GLYPH, n_on, replace=False)] = True   # silence is not spatially organised
 
-    # a sample of the recurrent connectivity. The trained networks are dense (every unit to every
-    # unit), so these arcs are a sample, not the graph - drawn faint enough to say "recurrent"
-    # and no more.
-    for a, b in rng.choice(N_GLYPH, (26, 2)):
-        if a != b:
-            ps.arrow(ax_net, (gx[a], gy[a]), (gx[b], gy[b]), col=ps.GRID, lw=0.35, rad=0.3,
-                     zorder=1, mutation_scale=3.5, shrink=2.2)
+    ax_net.add_patch(Circle((0, 0), 1.0, facecolor="none", edgecolor=ps.MUTED, lw=0.8, zorder=1))
+
+    # A sample of the recurrent connectivity, drawn ONLY between nearest neighbours. The trained
+    # networks are dense, so any subset is a sample either way - but a random pair is a long chord
+    # that passes over the units in between, and thirty of those is a scribble. Between nearest
+    # neighbours no third unit can lie on the segment, so no arrow crosses a glyph.
+    d = np.hypot(gx[:, None] - gx[None, :], gy[:, None] - gy[None, :])
+    np.fill_diagonal(d, np.inf)
+    pairs = {tuple(sorted((a, int(b)))) for a, b in enumerate(np.argmin(d, axis=1))}
+    pairs = sorted(pairs)
+    for a, b in [pairs[k] for k in rng.choice(len(pairs), min(N_EDGES, len(pairs)), replace=False)]:
+        src, dst = (a, b) if rng.random() < 0.5 else (b, a)      # recurrence is directed
+        ps.arrow(ax_net, (gx[src], gy[src]), (gx[dst], gy[dst]), col="#b3b2aa", lw=0.4,
+                 zorder=2, mutation_scale=3.2, shrink=2.6)
+
     ax_net.scatter(gx[~on], gy[~on], s=11, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
-                   zorder=2)
-    ax_net.scatter(gx[on], gy[on], s=11, color=ps.SLOTS[0], edgecolor="none", zorder=3)
+                   zorder=3)
+    ax_net.scatter(gx[on], gy[on], s=11, color=ps.SLOTS[0], edgecolor="none", zorder=4)
 
-    ps.arrow(ax_net, (1.06, -0.60), (1.06, 0.60), col=ps.MUTED, lw=0.7, rad=-0.55,
-             mutation_scale=6, shrink=0)
-    ax_net.text(1.30, 0.0, "recurrent", rotation=-90, ha="center", va="center", fontsize=5.8,
-                color=ps.MUTED)
+    # inputs and outputs: what makes it a circuit rather than a bag of units. The task is named,
+    # not explained - its trial structure is the supplementary task figure.
+    for y in (0.30, 0.0, -0.30):
+        xc = np.sqrt(max(1.0 - y * y, 0.0))
+        ps.arrow(ax_net, (-1.60, y), (-xc - 0.03, y), col=ps.INK, lw=0.7, mutation_scale=5)
+        ps.arrow(ax_net, (xc + 0.03, y), (1.60, y), col=ps.INK, lw=0.7, mutation_scale=5)
+    ax_net.text(-1.30, 0.44, "inputs", ha="center", va="bottom", fontsize=6.0, color=ps.INK)
+    ax_net.text(1.30, 0.44, "outputs", ha="center", va="bottom", fontsize=6.0, color=ps.INK)
 
-    ax_net.scatter([-0.92], [-1.42], s=11, color=ps.SLOTS[0], edgecolor="none", zorder=3,
-                   clip_on=False)
-    ax_net.text(-0.80, -1.42, f"{n_live} active", ha="left", va="center", fontsize=6.4,
-                color=ps.SLOTS[0])
-    ax_net.scatter([-0.92], [-1.68], s=11, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
-                   zorder=3, clip_on=False)
-    ax_net.text(-0.80, -1.68, f"{N - n_live} silent", ha="left", va="center", fontsize=6.4,
-                color=ps.MUTED)
-    ax_net.text(0.12, 1.22, "trained ReLU RNN", ha="center", va="bottom", fontsize=6.4,
+    # the recurrence loop: out of the boundary and back into it, bowing away from the disc
+    a0 = np.radians(118)
+    ps.arrow(ax_net, (np.cos(a0), np.sin(a0)), (np.cos(np.pi - a0), np.sin(np.pi - a0)),
+             col=ps.MUTED, lw=0.8, rad=-0.62, mutation_scale=6, shrink=0)
+    ax_net.text(0.56, 1.24, "recurrent", ha="left", va="center", fontsize=6.0, color=ps.MUTED)
+
+    ax_net.text(0.0, -1.18, "3-bit flip-flop task", ha="center", va="center", fontsize=6.2,
                 color=ps.INK)
-    ax_net.text(0.0, -1.94, f"one dot = {N // N_GLYPH} of the $N$ = {N} units", ha="center",
-                va="bottom", fontsize=5.4, color=ps.FAINT)
+    ax_net.scatter([-0.80], [-1.56], s=11, color=ps.SLOTS[0], edgecolor="none", zorder=4,
+                   clip_on=False)
+    ax_net.text(-0.68, -1.56, f"{n_live} active", ha="left", va="center", fontsize=6.4,
+                color=ps.SLOTS[0])
+    ax_net.scatter([-0.80], [-1.88], s=11, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
+                   zorder=4, clip_on=False)
+    ax_net.text(-0.68, -1.88, f"{N - n_live} silent", ha="left", va="center", fontsize=6.4,
+                color=ps.MUTED)
 
     # --- right: units drawn at random out of that same network ---------------------------------
     ps.blank(ax_tr)
@@ -579,12 +604,13 @@ def main():
     gs = GridSpec(2, 2, figure=fig, height_ratios=[0.74, 1.55],
                   width_ratios=[1.30, 1.0], hspace=0.36, wspace=0.44)
 
-    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=[0.80, 1.0],
-                                   wspace=0.04)
+    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=[1.05, 1.0],
+                                   wspace=0.02)
     ax_net = fig.add_subplot(gs_a[0, 0])
     ax_tr = fig.add_subplot(gs_a[0, 1])
     n_live, n_shown_live = panel_a(ax_net, ax_tr, rates, p)
-    ps.panel_letter(ax_net, "a", dx=-0.10, dy=0.97)
+    ax_net.set_title("trained ReLU RNN", fontsize=6.6, color=ps.INK, pad=2)
+    ps.panel_letter(ax_net, "a", dx=-0.13, dy=1.02)
 
     ax_b = fig.add_subplot(gs[0, 1])
     panel_b(ax_b, p)
