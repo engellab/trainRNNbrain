@@ -18,13 +18,20 @@ T_stim_off_match: 420
 T_dec_on: 440
 T_dec_off: ${.T}
 T_random_window: 10
-n_inputs: 5
+# Channels follow DMTS_long exactly (redesigned 2026-09-21): ch0/ch1 the two stimulus identities
+# as +1 pulses, ch2 a tonic drive held at 1.0 all trial, ch3 the decision cue. Four stimuli made the
+# batch 25% match / 75% non-match; two make it 50/50. See DMTS_long.yaml for the full rationale and
+# for the warning that the tonic channel is mathematically a bias.
+n_inputs: 4
+n_stim: 2
+tonic: true
+num_rep: 256                   # 256 * n_stim^2 = 1024 trials, as in DMTS_long
 n_outputs: 2
 mask_params:
   - (0, ${..T_dec_on})
   - (450, ${..T_dec_off})
 task_params: ["n_steps",
-              "n_inputs", "n_outputs",
+              "n_inputs", "n_outputs", "n_stim", "tonic", "num_rep",
               "stim_on_sample", "stim_off_sample",
               "stim_on_match", "stim_off_match",
               "dec_on", "dec_off",
