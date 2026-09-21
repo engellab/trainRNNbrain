@@ -11578,7 +11578,7 @@ The seven stale pandoc sections were moved to `docs/superseded_sections/`.
 
 ---
 
-## 2026-09-21 03:44 — The drop-rate ladder answers, and an ablation control settles the capacity question
+## 2026-09-21 03:24 — The drop-rate ladder answers, and an ablation control settles the capacity question
 
 Both overnight jobs landed. Two results, one negative and one positive, and the negative is the more
 useful of the two.
