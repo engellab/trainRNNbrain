@@ -8,30 +8,34 @@ free, and its failure to do more is what motivates the penalty of Figure 3. The 
 has to be honest about a small effect rather than dress it up, and it has to say precisely what
 "dropout" means here, because the variant used is not standard dropout:
 
-  (a) THE TWO KINDS, AS CIRCUITS       `mute` masks the unit's read-out weight only - the unit goes
-                                       on driving its neighbours but the task loss cannot see it.
-                                       `dead` removes it from the recurrent dynamics as well. Drawn
-                                       as the same three-unit circuit three times so the difference
-                                       is a cut edge, not a paragraph.
+  (a) WHAT DROPOUT MEANS HERE          `mute` masks the unit's read-out weight only: the unit goes
+                                       on driving its neighbours, but the task loss cannot see it.
+                                       Drawn as the same three-unit circuit twice so the difference
+                                       from no dropout is a cut edge, not a paragraph.
+                                       A second variant, `dead`, which also removes the unit from
+                                       the recurrent dynamics, was dropped from the paper on
+                                       2026-09-21: it is unstable once the sampler targets
+                                       accurately, because the task loss is evaluated on the
+                                       ablated network, so a unit selected on a fraction p of
+                                       iterations is regularised on only (1-p) of them and runs away
+                                       as p -> 1. It also bought nothing (mute 373.1 +- 18.4 vs dead
+                                       362.1 +- 8.4 live units at 150k, n = 7 each, Welch p = 0.22).
   (b) THE SAMPLING RULE, MEASURED      units are not dropped uniformly: p_drop is proportional to a
                                        softmax of participation, so the busiest units are preferred.
-                                       Read off a real trained network rather than asserted. Two
-                                       numbers matter and both are on the panel: exactly 50 of 1000
-                                       units go per iteration (drop_rate x N, because the softmax
-                                       weights sum to one), and the targeting is MILD - the 50
-                                       busiest units take 14.5% of the drops against 5% under
-                                       uniform sampling. A weak intervention, and a weak effect.
+                                       Read off a real trained network rather than asserted.
+                                       ⚠️ This panel documents the sampler AS THE RUNS ON DISK USED
+                                       IT. The sampler was corrected on 2026-09-21 (it scored |h|,
+                                       not the rate) and this panel will be redesigned when the
+                                       corrected sweep lands.
   (c) WHAT IT DOES ALONG TRAINING      live units vs iteration, 7 seeds per arm. Dropout lifts the
-                                       whole curve and does not flatten it: both arms are still
-                                       silencing at the same rate at 150k, so this is an offset,
-                                       not a cure.
+                                       whole curve and does not flatten it: still silencing at the
+                                       same rate at 150k, so this is an offset, not a cure.
   (d) WHAT IT COSTS                    live units against noise-free task loss, one point per seed,
-                                       with the equivalence test. `dead` is positively equivalent
-                                       to no dropout (TOST p = 1.2e-05); `mute` costs 3.1%.
-  (e) IS 5% JUST TOO LITTLE?           the drop-rate ladder (0.05 -> 0.40) and a sharper-targeting
-                                       arm, submitted 2026-09-20 precisely so this figure can answer
-                                       the obvious referee question. Panel renders a placeholder
-                                       until those runs land.
+                                       with the equivalence test.
+
+  uncorrected sampler, and whose beta = 4 arm is void (the 0.999 clamp redistributed nothing, so
+  the dose collapsed to 7.9 of a nominal 50). It is superseded by the rho x beta sweep on `mute`
+  with the corrected sampler, and the panel returns when those runs land.
 
 CRITERION AND READ-OUT as Figure 1: scale-free participation, matched compute, every seed drawn.
 
@@ -70,10 +74,8 @@ SAMPLER_CACHE = "data/fig_paper_F2_sampler.npz"
 DROP_RATE, BETA = 0.05, 1.0
 
 ARMS = [("none", "no dropout", ps.BASE),
-        ("mute", "dropout: mute", ps.COND_COL["mute"]),
-        ("dead", "dropout: dead", ps.COND_COL["dead"])]
+        ("mute", "dropout: mute", ps.COND_COL["mute"])]
 
-# The rate ladder submitted as job 6307716 (see slurm/SilentReLU_flipflop_droprate_spock.slurm).
 # Read at 40k, where the standard setting already shows its full effect.
 LADDER_READ_AT = 40_000
 LADDER = [("0.05", "1", "5%\n(standard)"), ("0.10", "1", "10%"),
@@ -181,11 +183,10 @@ def tost(a, b, margin_frac=0.05):
 
 
 def panel_a(ax):
-    """Panel (a): `mute` and `dead` drawn as the same circuit with different edges cut."""
+    """Panel (a): `mute` drawn as a three-unit circuit with the sampled unit's read-out cut."""
     ps.blank(ax)
     ax.set(xlim=(0, 1), ylim=(0, 1))
-    cases = [("mute", "mute", ps.COND_COL["mute"]),
-             ("dead", "dead", ps.COND_COL["dead"])]
+    cases = [("mute", "mute", ps.COND_COL["mute"])]
     w = 0.40
     for ci, (title, kind, col) in enumerate(cases):
         x0 = 0.05 + ci * (w + 0.10)
@@ -196,7 +197,7 @@ def panel_a(ax):
         uy = 0.60
         dropped = 1                                   # the middle unit is the one sampled out
         for i, x in enumerate(ux):
-            gone = (kind == "dead" and i == dropped)
+            gone = False
             ax.scatter(x, uy, s=95, zorder=5,
                        color="none" if gone else (ps.FAINT if i != dropped else col),
                        edgecolor=ps.FAINT if gone else (ps.MUTED if i != dropped else col),
@@ -208,7 +209,7 @@ def panel_a(ax):
         # the glyph; rad then puts the forward arc above and the return arc below. Offsetting the
         # endpoints vertically instead pinches the pair into a bowtie over the units.
         for i in range(2):
-            cut = (kind == "dead" and dropped in (i, i + 1))
+            cut = False
             col = ps.FAINT if cut else ps.MUTED
             ls = ":" if cut else "-"
             ps.arrow(ax, (ux[i], uy), (ux[i + 1], uy), col=col, rad=-0.62, style="-|>",
@@ -221,7 +222,7 @@ def panel_a(ax):
         ps.box(ax, x0 + w / 2 - 0.058, ry - 0.045, 0.116, 0.09, "read-out", col=ps.MUTED,
                face="#f2f1ec", lw=0.6, fs=5.4)
         for i, x in enumerate(ux):
-            cut = (kind in ("mute", "dead") and i == dropped)
+            cut = (i == dropped)
             ps.arrow(ax, (x, uy - 0.075), (x0 + w / 2 + (i - 1) * 0.036, ry + 0.05),
                      col=ps.FAINT if cut else ps.MUTED, lw=0.7, ls=":" if cut else "-")
             if cut:
@@ -260,7 +261,7 @@ def sampler_cache(refresh=False, n_nets=4, n_trials=256):
     if os.path.exists(SAMPLER_CACHE) and not refresh:
         z = np.load(SAMPLER_CACHE)
         return {k: z[k] for k in z.files}
-    folders = sorted(glob.glob(os.path.join(DROP, CELL.format(kind="dead"), "*", "")))[:n_nets]
+    folders = sorted(glob.glob(os.path.join(DROP, CELL.format(kind="mute"), "*", "")))[:n_nets]
     vd, vr, lv, pd_ = [], [], [], []
     for folder in folders:
         cfg = OmegaConf.load(glob.glob(os.path.join(folder, "*_config.yaml"))[0])
@@ -301,19 +302,24 @@ def panel_b(ax, refresh=False):
 
     ax.scatter(vd[~live], np.maximum(vr[~live], 1e-6), s=2.4, color=ps.FAINT, alpha=0.55,
                edgecolor="none", zorder=3, label=f"silent ({(~live).sum()})")
-    ax.scatter(vd[live], np.maximum(vr[live], 1e-6), s=2.4, color=ps.COND_COL["dead"], alpha=0.6,
+    ax.scatter(vd[live], np.maximum(vr[live], 1e-6), s=2.4, color=ps.COND_COL["mute"], alpha=0.6,
                edgecolor="none", zorder=4, label=f"active ({live.sum()})")
 
-    rho = spearman(vd, vr)
+    # rho OVER EVERY NETWORK, not just the one the scatter shows. The scatter is net 0 because a
+    # scatter has to be one network, but quoting net 0's rho made an n=1 number read as n=4 -- and
+    # the folders sort by r2, so net 0 is the WORST network and has the lowest rho of the four
+    # (0.237, 0.392, 0.496, 0.313). The panel and the caption now both carry the mean +- SD.
+    rhos = np.array([spearman(a, b) for a, b in zip(c["v_drop"], c["v_rate"])])
+    rho, rho_sd = float(rhos.mean()), float(rhos.std(ddof=1))
     wasted = np.array([p[~l].sum() / p.sum() for p, l in zip(c["p_drop"], c["live"])])
     dropped = np.array([p.sum() for p in c["p_drop"]])
 
     ax.set(xscale="log", yscale="log", xlabel="sampler score", ylabel="participation  $p_i$")
-    ax.text(0.03, 0.96, f"ρ = {rho:.2f}", transform=ax.transAxes, fontsize=6.2, color=ps.INK,
-            va="top")
+    ax.text(0.03, 0.96, f"ρ = {rho:.2f} ± {rho_sd:.2f}", transform=ax.transAxes, fontsize=6.2,
+            color=ps.INK, va="top")
     ax.legend(loc="lower right", fontsize=5.8)
     ps.ygrid(ax)
-    return {"spearman_rho": float(rho), "wasted_share": float(wasted.mean()),
+    return {"spearman_rho": rho, "spearman_rho_sd": rho_sd, "wasted_share": float(wasted.mean()),
             "wasted_sd": float(wasted.std(ddof=1)), "dropped": float(dropped.mean()),
             "n_nets": int(len(c["p_drop"]))}
 
@@ -338,7 +344,7 @@ def panel_c(ax):
         ax.plot(grid, mu, lw=1.5, color=col, zorder=5,
                 label=f"{label}  (n={len(rows)})")
         finals[kind] = live_at(os.path.join(DROP, CELL.format(kind=kind)), READ_AT)
-        nudge = {"none": -12, "mute": 14, "dead": -6}.get(kind, 0)
+        nudge = {"none": -12, "mute": 14}.get(kind, 0)
         ax.text(READ_AT * 1.06, mu[-1] + nudge, f"{mu[-1]:.0f}", fontsize=5.8, color=col,
                 va="center")
     ax.set(xscale="log", xlabel="training iteration", ylabel="active units",
@@ -378,63 +384,17 @@ def panel_d(ax):
     return verdicts
 
 
-def panel_e(ax):
-    """Panel (e): the drop-rate ladder. Renders a placeholder while the runs are still training."""
-    xs, groups, cols, labels = [], [], [], []
-    ref = live_at(os.path.join(DROP, CELL.format(kind="dead")), LADDER_READ_AT)
-    base = live_at(os.path.join(DROP, CELL.format(kind="none")), LADDER_READ_AT)
-    for i, (rate, beta, label) in enumerate(LADDER):
-        if rate == "0.05" and beta == "1":
-            g = ref
-        else:
-            g = live_at(os.path.join(RATE, f"EqType=h_k=3_N=1000_pen=none_do=dead_rate={rate}_beta={beta}"),
-                        LADDER_READ_AT)
-        xs.append(i)
-        groups.append(g)
-        cols.append(ps.COND_COL["dead"])
-        labels.append(label)
-    rate, beta, label = SHARP
-    xs.append(len(LADDER) + 0.45)
-    groups.append(live_at(os.path.join(RATE, f"EqType=h_k=3_N=1000_pen=none_do=dead_rate={rate}_beta={beta}"),
-                          LADDER_READ_AT))
-    cols.append(ps.SLOTS[4])
-    labels.append(label)
-
-    res = ps.strip(ax, xs, groups, cols, rng=np.random.default_rng(3))
-    if len(base):
-        ax.axhline(base.mean(), color=ps.BASE, lw=0.8, ls="--", zorder=2)
-        ax.text(-0.45, base.mean() + 4, "no dropout", fontsize=5.6, color=ps.BASE,
-                va="bottom", ha="left")
-    if len(ref) > 1:
-        bar = ref.mean() + 3 * ref.std(ddof=1)
-        ax.axhline(bar, color=ps.BAD, lw=0.8, ls="-.", zorder=2)
-        ax.text(-0.45, bar + 4, "pre-registered bar", fontsize=5.6, color=ps.BAD,
-                va="bottom", ha="left")
-    for x, (m, sd, n) in zip(xs, res):
-        if n:
-            ax.text(x, m + 34, f"{m:.0f}", ha="center", fontsize=5.8, color=ps.INK)
-        else:
-            ax.text(x, (base.mean() if len(base) else 400) + 60, "training", ha="center",
-                    fontsize=5.4, color=ps.FAINT, rotation=90)
-    ax.set(xticks=xs, xticklabels=labels, ylabel="active units",
-           xlabel="fraction dropped per iteration",
-           xlim=(-0.6, xs[-1] + 0.7))
-    ax.tick_params(axis="x", labelsize=5.6)
-    ps.ygrid(ax)
-    return list(zip(labels, res))
-
-
 def main():
     """Assemble Figure 2 and write it. Returns the output path."""
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 158 * ps.MM))
-    gs = GridSpec(2, 3, figure=fig, height_ratios=[0.92, 1.0], hspace=0.46, wspace=0.34)
+    fig = plt.figure(figsize=(ps.W2, 150 * ps.MM))
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.92, 1.0], hspace=0.46, wspace=0.30)
 
-    ax_a = fig.add_subplot(gs[0, :2])
+    ax_a = fig.add_subplot(gs[0, 0])
     panel_a(ax_a)
     ps.panel_letter(ax_a, "a", dx=-0.015, dy=1.0)
 
-    ax_b = fig.add_subplot(gs[0, 2])
+    ax_b = fig.add_subplot(gs[0, 1])
     info_b = panel_b(ax_b)
     ps.panel_letter(ax_b, "b")
 
@@ -446,9 +406,6 @@ def main():
     verdicts = panel_d(ax_d)
     ps.panel_letter(ax_d, "d")
 
-    ax_e = fig.add_subplot(gs[1, 2])
-    ladder = panel_e(ax_e)
-    ps.panel_letter(ax_e, "e")
 
     out = ps.save(fig, "fig_paper_F2")
 
@@ -460,10 +417,6 @@ def main():
             print(f"  live at 150k, {kind:5}: {c.mean():.1f} ± {c.std(ddof=1):.1f} (n={len(c)})")
     for kind, (p, d, lo, hi) in verdicts.items():
         print(f"  loss {kind:5}: {d:+.2%} [{lo:+.2%}, {hi:+.2%}]  TOST p={p:.3g}")
-    for label, (m, sd, n) in ladder:
-        lab = label.replace("\n", " ")
-        print(f"  ladder {lab:26} {m:7.1f} ± {sd:5.1f} (n={n})" if n else
-              f"  ladder {lab:26} still training")
     return out
 
 
