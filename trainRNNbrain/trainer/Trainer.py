@@ -659,45 +659,29 @@ class Trainer():
         r2_val = float(r2.item())
         return r2_val
     
-    @staticmethod
-    def get_participation_(states, q=0.9, eps=1e-8, chunk=512):
-        """Per-unit activity summary driving `participation` dropout sampling: q-quantile of |x|
-        plus std(|x|), pooled over (time, trials).
-
-        NOT the same quantity as `participation_from_states_`, which applies the activation for
-        equation_type "h" and is what the trace logs. This one reads the raw states, as the dropout
-        EMA has always done; the two are deliberately kept distinct.
-
-        ⚠️ CHUNKED OVER UNITS. The unchunked form OOMs at N=2000: x is (N, T*B) = (2000, 307200)
-        float32 = 2.5 GB, `x + eps` copies it, and `torch.quantile` sorts, which asked for a further
-        6.9 GB and failed on a 44 GB L40S (calibration job 6306867_4, 2026-09-20). Every reduction
-        here is per-unit, so chunking is exact - the same argument, and the same 512 default, as
-        `participation_from_states_` below.
-
-        Args:
-            states: (N, T, B) states; q: quantile in [0, 1]; eps: added before the quantile, as
-            before; chunk: units processed at a time, bounding peak memory independently of N.
-        Returns:
-            (N,) tensor of per-unit participation.
-        """
-        N = states.size(0)
-        out = torch.empty(N, device=states.device, dtype=states.dtype)
-        for i in range(0, N, chunk):
-            x = states[i:i + chunk].reshape(min(chunk, N - i), -1).abs()   # (chunk, T*B)
-            out[i:i + chunk] = (torch.quantile(x + eps, q, dim=1)
-                                + x.std(dim=1, unbiased=False))
-        return out
-    
-    def participation_from_states_(self, states, chunk=512):
+    def participation_from_states_(self, states, q=0.9, chunk=512):
         '''
-        Per-unit participation of a firing-rate tensor, matching the offline readout
-        PerformanceAnalyzer.plot_participation: std(fr) + 0.9-quantile(|fr|), pooled over (time, trials).
+        Per-unit participation of a firing-rate tensor: std(fr) + q-quantile(fr), pooled over
+        (time, trials), matching the offline readout PerformanceAnalyzer.plot_participation.
+
+        THE SINGLE DEFINITION OF PARTICIPATION. It feeds both the logged trace and the dropout
+        sampler. Until 2026-09-21 the sampler had its OWN scorer, `get_participation_`, which read
+        the RAW states - for equation_type "h" the pre-activations - and scored q(|h|) + std(|h|).
+        A unit held far below threshold on every trial has a large |h| and so scored highly, so the
+        sampler could not distinguish a permanently silent unit from a busy one (Spearman rho = 0.24
+        between the two scores; 51 +- 4% of the drop mass landed on units that were already silent
+        and dropping them is a no-op). That scorer is deleted and this one is used instead: dropout
+        now samples on the firing rate, which is the only quantity that can be dropped. Runs before
+        that commit used the old scorer and are pinned by their commit hash.
 
         Args:
             states: (N, T, B) tensor of network states as returned by RNN_torch.forward.
                     For equation_type "h" these are pre-activations and the activation is applied here;
                     for "s" they are already firing rates.
         Args (cont.):
+            q: quantile of the FIRING RATE entering the score. The participation trace logs q=0.9
+               (the project-wide definition of participation, unchanged); the dropout sampler passes
+               dropout_args["activity_q"].
             chunk: number of UNITS processed at a time. Bounds peak memory independently of N.
 
         Returns:
@@ -725,7 +709,7 @@ class Trainer():
             if self.RNN.equation_type == "h":
                 blk = self.RNN.activation(blk)
             out[i:i + chunk] = (blk.std(dim=1, unbiased=False)
-                                + torch.quantile(blk.abs(), 0.9, dim=1))
+                                + torch.quantile(blk.abs(), q, dim=1))
         return out
 
     def track_participation_(self, input_batch, iter, target_batch=None, mask=None):
@@ -873,7 +857,8 @@ class Trainer():
             _, output_do = self.RNN(input, w_noise=True, dropout=True, dropout_args=self.dropout_args, participation=part)
 
             if self.dropout_args["sampling_method"] == "participation":
-                new_part = self.get_participation_(states, q=self.dropout_args["activity_q"], eps=1e-12).detach()
+                new_part = self.participation_from_states_(
+                    states, q=self.dropout_args["activity_q"]).detach()
                 self.participation = (1 - eta) * self.participation + eta * new_part
 
         # The TASK loss is scored on the dropout pass (output_do), the penalties on the full pass
