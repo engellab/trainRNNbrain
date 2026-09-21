@@ -66,59 +66,81 @@ CACHE = "data/fig_paper_F1_cache.npz"
 # below them for no reason other than the budget they happened to be trained for.
 EXAMPLE_NET = "data/trained_RNNs/NBitFlipFlop_std_dropout/EqType=h_k=3_N=1000_pen=none_do=none"
 N_TRIALS = 24
+N_UNITS = 1000            # every intervention family is measured at this size
 
 # (label, glob, read-out cap). The cap is the iteration the manuscript reads that family at; the
 # actual read-out is min(cap, the last iteration every seed reaches), reported on the panel.
 FF = f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N={{N}}_iters=*"
 SCALING = {
     "3-bit flip-flop": ([500, 1000, 2000, 4000], {
-        500:  f"{FF.format(N=500)}",
-        1000: f"{FF.format(N=1000)}",
-        2000: f"{FF.format(N=2000)}",
+        500:  FF.format(N=500),
+        1000: FF.format(N=1000),
+        2000: FF.format(N=2000),
         4000: f"{DATA_DIR}/NBitFlipFlop_std_bigN/EqType=h_k=3_N=4000_pen=none_iters=*",
     }, 100_000, ps.SLOTS[0]),
     "CDDM": ([500, 1000, 2000, 5000], {
         N: f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N={N}_iters=*" for N in (500, 1000, 2000, 5000)
     }, 100_000, ps.SLOTS[1]),
+    "DMTS": ([500, 1000, 2000], {
+        N: f"{DATA_DIR}/DMTS_std_pen/EqType=h_N={N}_pen=none" for N in (500, 1000, 2000)
+    }, 100_000, ps.SLOTS[2]),
 }
 
-TASKS = [
-    ("3-bit flip-flop", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", 150_000),
-    ("CDDM",            f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*", 150_000),
-    ("DMTS",            f"{DATA_DIR}/DMTS_std_pen/EqType=h_N=1000_pen=none", 150_000),
+# Every intervention we ran, grouped into families that share a task, an architecture, a read-out
+# iteration AND a silence criterion. The panel plots a CHANGE from each family's OWN reference,
+# which is what makes it legitimate to show families side by side: no number is ever compared
+# across a criterion boundary, only against a reference measured the same way.
+#
+# Families 3 and 4 come from summary CSVs rather than participation traces. Their raw sweeps were
+# deleted (Supplementary S6) and family 4 uses a peak-rate rather than a participation criterion,
+# which is exactly why they are their own blocks with their own references.
+TRACE_FAMILIES = [
+    ("CDDM, 200k", f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*", None, [
+        ("leaky ReLU",        f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=leakyrelu_iters=*",  "activation"),
+        ("softplus",          f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=softplus25_iters=*", "activation"),
+        ("bounded sigmoid",   f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=sigmoid_iters=*",    "activation"),
+        ("weight decay 0",    f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=0_iters=*",           "weight decay"),
+        ("weight decay 10⁻⁵", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-5_iters=*",        "weight decay"),
+        ("weight decay 10⁻⁴", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-4_iters=*",        "weight decay"),
+    ]),
+    ("3-bit flip-flop, 150k", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", 150_000, [
+        ("bounded sigmoid",   f"{DATA_DIR}/NBitFlipFlop_std_sigmoid/EqType=h_k=3_N=1000_iters=*",   "activation"),
+        ("input weights ×0.5", f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=0.5_iters=*", "input scale"),
+        ("input weights ×2",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=2_iters=*",   "input scale"),
+        ("input weights ×5",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=5_iters=*",   "input scale"),
+        ("input weights ×20",  f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=20_iters=*",  "input scale"),
+    ]),
 ]
 
-# Interventions, grouped by task family. Each family carries its OWN reference, and the panel plots
-# a CHANGE from that reference, because the two families differ in task and read-out iteration and
-# an absolute bar chart across them would invite a comparison the data does not support.
-INTERVENTIONS = [
-    ("CDDM, N = 1000", f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*", None, [
-        ("leaky ReLU",             f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=leakyrelu_iters=*",  "activation"),
-        ("softplus (β=25)",        f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=softplus25_iters=*", "activation"),
-        ("bounded sigmoid",        f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=sigmoid_iters=*",    "activation"),
-        ("weight decay 0",         f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=0_iters=*",           "weight decay"),
-        ("weight decay 10⁻⁵",      f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-5_iters=*",        "weight decay"),
-        ("weight decay 10⁻⁴",      f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-4_iters=*",        "weight decay"),
-    ]),
-    ("3-bit flip-flop, N = 1000", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", 150_000, [
-        ("bounded sigmoid",        f"{DATA_DIR}/NBitFlipFlop_std_sigmoid/EqType=h_k=3_N=1000_iters=*",   "activation"),
-        ("input weights ×0.5",     f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=0.5_iters=*", "input scale"),
-        ("input weights ×2",       f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=2_iters=*",   "input scale"),
-        ("input weights ×5",       f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=5_iters=*",   "input scale"),
-        ("input weights ×20",      f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=20_iters=*",  "input scale"),
-    ]),
-]
+# (label, csv, row filter, group). All at CDDM N=1000, eq=h, 30k.
+ARCHIVE_FAMILY = ("CDDM, 30k (archived)",
+                  ("silent_stats_all.csv", dict(sweep="std", penalty="none")), [
+    ("Dale's law imposed",       ("silent_stats_all.csv", dict(sweep="dale", penalty="none")), "architecture"),
+    ("self-connections off",     ("silent_stats_all.csv", dict(sweep="nodale_bias", penalty="none")), "architecture"),
+    ("  + bias fixed at 0",      ("silent_stats_all.csv", dict(sweep="nodale", penalty="none")), "architecture"),
+    ("metabolic λ = 0.01",       ("silent_stats_v2.csv", dict(sweep="metabolic", met="0.01")), "metabolic"),
+    ("metabolic λ = 0.1",        ("silent_stats_v2.csv", dict(sweep="metabolic", met="0.1")), "metabolic"),
+    ("metabolic λ = 1",          ("silent_stats_v2.csv", dict(sweep="metabolic", met="1.0")), "metabolic"),
+    ("metabolic λ = 10",         ("silent_stats_v2.csv", dict(sweep="metabolic", met="10.0")), "metabolic"),
+])
 
-# Interventions measured on the 2026-07 architecture, where no participation trace was written, so
-# they cannot join the panel above. They are read from the per-condition CSVs under a peak-rate
-# scale-free rule and are reported in the Supplementary, not here. Kept so the list is not lost.
-CSV_ONLY = [("recurrent noise σ_rec ∈ {0, .01, .05, .1}", "CDDM_fb2792_g0_noise"),
-            ("self-connections off", "silent_stats_all.csv: sweep nodale_bias"),
-            ("bias fixed at 0", "silent_stats_all.csv: sweep nodale"),
-            ("metabolic penalty λ ∈ {.01, .1, 1, 10}", "silent_stats_v2.csv: sweep metabolic")]
+# The noise sweep is the one family under a peak-rate rather than a participation criterion.
+NOISE_FAMILY = ("CDDM, 30k (peak-rate criterion)", "0.05", [
+    ("recurrent noise σ = 0",    "0.0",  "noise"),
+    ("recurrent noise σ = 0.01", "0.01", "noise"),
+    ("recurrent noise σ = 0.1",  "0.1",  "noise"),
+])
+
+# Knobs we did NOT vary. Panel (d) shows everything we tried; these are the obvious candidates it
+# does not cover, so the text says "we did not vary" rather than implying a measured null.
+NEVER_SWEPT = ["spectral radius of the initial recurrent weights",
+               "connectivity density (every network here is dense)",
+               "learning rate (fixed by the rule lr = 1e-3 (100/N)^(1/3))",
+               "batch size"]
 
 GROUP_COL = {"activation": ps.SLOTS[3], "weight decay": ps.SLOTS[4],
-             "input scale": ps.SLOTS[2], "metabolic": ps.SLOTS[1]}
+             "input scale": ps.SLOTS[2], "metabolic": ps.SLOTS[1],
+             "architecture": ps.SLOTS[0], "noise": ps.COND_COL["both"]}
 
 
 def traces_of(pattern):
@@ -300,7 +322,10 @@ def panel_c(ax):
         ax.errorbar(xs, ys, yerr=sds, fmt="o-", color=col, ms=3.4, lw=1.1, zorder=5, capsize=1.6)
         b, loga = np.polyfit(np.log(xs), np.log(ys), 1)
         fits[task] = (b, np.exp(loga), np.exp((np.log(1000) - loga) / b))
-        xf = np.logspace(np.log10(xs.min() * 0.85), np.log10(2.4e4), 50)
+        # extrapolate only the two tasks with four sizes; DMTS has three and a wide seed spread,
+        # so its fitted exponent is not something to project a decade beyond the data
+        hi = 2.4e4 if len(xs) >= 4 else xs.max() * 1.25
+        xf = np.logspace(np.log10(xs.min() * 0.85), np.log10(hi), 50)
         ax.plot(xf, np.exp(loga) * xf ** b, ls=":", lw=0.8, color=col, zorder=3)
         # built by hand: an errorbar's legend handle is a container, and letting matplotlib collect
         # handles here silently produced two entries for the same task
@@ -315,7 +340,7 @@ def panel_c(ax):
         ax.plot(nn, frac * nn, ls=(0, (4, 3)), lw=0.55, color=ps.FAINT, zorder=1)
         ax.text(2.45e4, frac * 2.45e4, lab, fontsize=5.2, color=ps.FAINT, ha="right", va="bottom")
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
-    need = np.mean([v[2] for v in fits.values()])
+    need = np.mean([v[2] for task, v in fits.items() if task != "DMTS"])
     ax.text(3.4e2, 1120, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N", ylabel="active units",
            xlim=(3.2e2, 2.7e4), ylim=(140, 3.4e4))
@@ -324,86 +349,147 @@ def panel_c(ax):
     return fits
 
 
-def panel_d(ax):
-    """Panel (d): active fraction at N = 1000 across tasks. Returns the measured rows."""
-    rows = []
-    for label, pat, cap in TASKS:
-        got = live_matched(pat, cap)
-        if got is None:
-            continue
-        c, it = got
-        rows.append((label, c / 1000.0, it))
-    rows.sort(key=lambda r: r[1].mean())
-    y = np.arange(len(rows))
-    ax.axvspan(0.5, 1.0, color="#f2f1ec", zorder=0)
-    for i, (label, f, it) in enumerate(rows):
-        ax.plot(f, [i] * len(f), "o", ms=2.6, color=ps.SLOTS[0], alpha=0.5, mec="none", zorder=4)
-        ax.plot([f.mean()] * 2, [i - 0.26, i + 0.26], lw=1.7, color=ps.SLOTS[0], zorder=5)
-        ax.text(f.mean() + 0.040, i, f"{f.mean():.0%}", va="center", fontsize=6.0,
-                color=ps.SLOTS[0])
-    ax.axvline(1.0, color=ps.MUTED, lw=0.7)
-    ax.set(yticks=y, yticklabels=[r[0] for r in rows], xlim=(0, 1.04),
-           ylim=(-1.1, len(rows) - 0.35), xlabel="fraction of units active")
-    ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
-    ax.set_xticklabels(["0", "25%", "50%", "75%", "100%"])
-    ps.despine(ax, keep=("bottom",))
-    ax.tick_params(axis="y", length=0)
-    return rows
+def csv_active(fname, **match):
+    """Active-unit counts from an archived summary CSV, at CDDM N = 1000, eq = h.
 
+    The CSVs record the SILENT fraction under the scale-free participation rule (`rel_5p95`), so
+    the active count is N(1 - rel_5p95). These sweeps' raw networks were deleted; the rows are all
+    that survives, which is why they are shown as their own block against their own reference.
 
-def panel_e(ax):
-    """Panel (e): every intervention as a change from its own matched reference.
-
-    A change rather than an absolute count because the two task families are read at different
-    iterations on different tasks; only the within-family contrast is meaningful. Returns the rows.
+    Args:
+        fname: CSV under DATA_DIR; match: column -> value, compared as floats where possible.
+    Returns:
+        (n_nets,) array of active counts.
     """
-    rows, ticks, labels, y = [], [], [], 0
-    for fam, ref_pat, cap, items in INTERVENTIONS:
-        got = live_matched(ref_pat, cap)
-        if got is None:
+    out = []
+    for r in csv.DictReader(open(os.path.join(DATA_DIR, fname))):
+        if r.get("eq") != "h" or int(r["N"]) != N_UNITS:
             continue
-        ref, it_ref = got
-        ax.axhspan(y - 0.62, y + len(items) - 0.42, color="#f6f5f0", zorder=0)
-        ax.text(0.012, y - 0.46, fam, transform=ax.get_yaxis_transform(), ha="left",
-                va="bottom", fontsize=6.0, color=ps.INK, zorder=6)
-        for label, pat, group in items:
-            g = live_matched(pat, cap)
-            if g is None:
-                labels.append(label + "  (no data)")
-                ticks.append(y)
+        ok = True
+        for k, v in match.items():
+            try:
+                ok &= float(r[k]) == float(v)
+            except ValueError:
+                ok &= r[k] == v
+        if ok:
+            out.append(N_UNITS * (1.0 - float(r["rel_5p95"])))
+    return np.array(out)
+
+
+def noise_active(sigma):
+    """Active units at one recurrent-noise level, from the per-condition CSV of the noise sweep.
+
+    This sweep has no participation traces, so its silence rule is peak-rate based: a unit is
+    silent below 5% of the 95th-percentile peak rate. It is therefore never compared with the
+    other families except as a change from its own reference.
+
+    Args:
+        sigma: sigma_rec as it appears in the CSV.
+    Returns:
+        (mean active, sd, n_nets).
+    """
+    path = os.path.join(DATA_DIR, "CDDM_fb2792_g0_noise", "silent_units_per_condition.csv")
+    for r in csv.DictReader(open(path)):
+        if r["eq"] == "h" and float(r["sigma_rec"]) == float(sigma):
+            return (N_UNITS - float(r["silent_rel_mean"]), float(r["silent_rel_std"]),
+                    int(r["n_nets"]))
+    return (float("nan"), float("nan"), 0)
+
+
+def panel_d(ax):
+    """Panel (d): every intervention we ran, as a change from its own family's reference.
+
+    Four families, each internally consistent in task, architecture, read-out iteration and
+    silence criterion. Plotting changes rather than counts is what lets them share an axis.
+
+    Returns:
+        list of (family, label, delta, se, n) rows.
+    """
+    rows, ticks, labels, y = [], [], [], 0.0
+    bands = []
+
+    def block(title, ref, items):
+        """Draw one family: a shaded band, a title, and one interval per intervention."""
+        nonlocal y
+        start = y
+        for label, vals, group in items:
+            if len(vals) < 2 or len(ref) < 2:
                 y += 1
                 continue
-            c, _ = g
-            d = c.mean() - ref.mean()
-            se = np.sqrt(c.var(ddof=1) / len(c) + ref.var(ddof=1) / len(ref))
+            d = vals.mean() - ref.mean()
+            se = np.sqrt(vals.var(ddof=1) / len(vals) + ref.var(ddof=1) / len(ref))
             col = GROUP_COL.get(group, ps.MUTED)
             ax.plot([d - 1.96 * se, d + 1.96 * se], [y, y], lw=1.0, color=col, zorder=4,
                     solid_capstyle="round")
-            ax.plot(d, y, "o", ms=3.6, color=col, zorder=5, mec="none")
+            ax.plot(d, y, "o", ms=3.4, color=col, zorder=5, mec="none")
             tip = d + 1.96 * se if d >= 0 else d - 1.96 * se
-            ax.text(tip + (12 if d >= 0 else -12), y, f"{d:+.0f}", va="center",
-                    ha="left" if d >= 0 else "right", fontsize=5.6, color=col)
-            rows.append((fam, label, d, se, len(c), int(it_ref)))
+            ax.text(tip + (14 if d >= 0 else -14), y, f"{d:+.0f}", va="center",
+                    ha="left" if d >= 0 else "right", fontsize=5.5, color=col)
+            rows.append((title, label, float(d), float(se), len(vals)))
             ticks.append(y)
             labels.append(label)
             y += 1
-        y += 1.15
+        bands.append((start - 0.6, y - 0.4, title, ref.mean(), len(ref)))
+        y += 1.3
+
+    for title, ref_pat, cap, items in TRACE_FAMILIES:
+        got = live_matched(ref_pat, cap)
+        if got is None:
+            continue
+        ref, _ = got
+        block(title, ref, [(lab, (live_matched(pat, cap) or (np.array([]),))[0], grp)
+                           for lab, pat, grp in items])
+
+    title, (rf, rm), items = ARCHIVE_FAMILY
+    block(title, csv_active(rf, **rm),
+          [(lab, csv_active(f, **m), grp) for lab, (f, m), grp in items])
+
+    title, ref_sigma, items = NOISE_FAMILY
+    rmean, rsd, rn = noise_active(ref_sigma)
+    start = y
+    for label, sigma, group in items:
+        m, sd, n = noise_active(sigma)
+        d = m - rmean
+        se = np.sqrt(sd ** 2 / max(n, 1) + rsd ** 2 / max(rn, 1))
+        col = GROUP_COL.get(group, ps.MUTED)
+        ax.plot([d - 1.96 * se, d + 1.96 * se], [y, y], lw=1.0, color=col, zorder=4,
+                solid_capstyle="round")
+        ax.plot(d, y, "o", ms=3.4, color=col, zorder=5, mec="none")
+        # a very negative value would put its label under the row label, so flip it inside
+        if d < -250:
+            ax.text(d + 1.96 * se + 16, y, f"{d:+.0f}", va="center", ha="left",
+                    fontsize=5.5, color=col)
+        else:
+            tip = d + 1.96 * se if d >= 0 else d - 1.96 * se
+            ax.text(tip + (14 if d >= 0 else -14), y, f"{d:+.0f}", va="center",
+                    ha="left" if d >= 0 else "right", fontsize=5.5, color=col)
+        rows.append((title, label, float(d), float(se), n))
+        ticks.append(y)
+        labels.append(label)
+        y += 1
+    bands.append((start - 0.6, y - 0.4, title, rmean, rn))
+
+    for i, (lo, hi, title, refm, refn) in enumerate(bands):
+        if i % 2 == 0:
+            ax.axhspan(lo, hi, color="#f6f5f0", zorder=0)
+        ax.text(0.012, lo + 0.04, f"{title}   ({refm:.0f} active)",
+                transform=ax.get_yaxis_transform(), ha="left", va="bottom", fontsize=5.7,
+                color=ps.INK, zorder=6)
 
     ax.axvline(0, color=ps.INK, lw=0.8, zorder=3)
-
-    # the scale that matters: what the remedy of Figure 3 does on the same axis
-    ax.annotate("", xy=(708, y - 0.75), xytext=(0, y - 0.75),
+    top = y + 0.2
+    ax.annotate("", xy=(708, top), xytext=(0, top),
                 arrowprops=dict(arrowstyle="-|>", lw=1.0, color=ps.SLOTS[1], mutation_scale=7))
-    ax.text(354, y - 0.95, "rate penalty (Fig. 3)", ha="center", fontsize=6.0,
+    ax.text(354, top + 0.45, "rate penalty (Fig. 3)", ha="center", fontsize=6.0,
             color=ps.SLOTS[1])
-
-    ax.set(yticks=ticks, yticklabels=labels, ylim=(y - 0.4, -1.5), xlim=(-270, 790),
+    ax.set(yticks=ticks, yticklabels=labels, ylim=(top + 1.0, -1.0), xlim=(-430, 800),
            xlabel="change in active units")
     ps.despine(ax, keep=("bottom",))
-    ax.tick_params(axis="y", length=0)
+    ax.tick_params(axis="y", length=0, labelsize=5.8)
     ax.xaxis.grid(True, alpha=0.2, lw=0.5, color=ps.GRID)
     ax.set_axisbelow(True)
     return rows
+
 
 
 def main():
@@ -415,9 +501,9 @@ def main():
     ps.setup()
     rates, targets, p = example_network(refresh=args.refresh)
 
-    fig = plt.figure(figsize=(ps.W2, 168 * ps.MM))
-    gs = GridSpec(3, 2, figure=fig, height_ratios=[0.86, 1.00, 1.16],
-                  width_ratios=[1.62, 1.0], hspace=0.52, wspace=0.26)
+    fig = plt.figure(figsize=(ps.W2, 176 * ps.MM))
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.62, 1.55],
+                  width_ratios=[1.30, 1.0], hspace=0.36, wspace=0.44)
 
     ax_a = fig.add_subplot(gs[0, 0])
     panel_a(ax_a, rates, targets, p)
@@ -433,24 +519,18 @@ def main():
 
     ax_d = fig.add_subplot(gs[1, 1])
     rows_d = panel_d(ax_d)
-    ps.panel_letter(ax_d, "d")
-
-    ax_e = fig.add_subplot(gs[2, :])
-    rows_e = panel_e(ax_e)
-    ps.panel_letter(ax_e, "e", dx=-0.075)
+    ps.panel_letter(ax_d, "d", dx=-0.32)
 
     out = ps.save(fig, "fig_paper_F1")
 
     print("\n--- numbers quoted in the caption ---")
     for task, (b, A, need) in fits.items():
         print(f"  {task:18} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at N = {need:,.0f}")
-    for label, f, it in rows_d:
-        print(f"  {label:18} {f.mean():.1%} active (n={len(f)}, read at {it:,})")
-    for fam, label, d, se, n, it in rows_e:
-        print(f"  {fam:26} {label:22} {d:+7.1f} +- {1.96 * se:.1f} (n={n})")
-    print("\n  not in the panel (no participation trace on that architecture):")
-    for what, where in CSV_ONLY:
-        print(f"    {what:44} {where}")
+    for fam, label, d, se, n in rows_d:
+        print(f"  {fam:30} {label:24} {d:+7.1f} +- {1.96 * se:5.1f} (n={n})")
+    print("\n  NEVER SWEPT, so the panel must not be read as covering them:")
+    for what in NEVER_SWEPT:
+        print(f"    {what}")
     return out
 
 
