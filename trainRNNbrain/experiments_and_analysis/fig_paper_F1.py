@@ -105,9 +105,18 @@ SILENT_GREY = "#c9c8c0"   # one grey for "silent", in the drawing and in the tra
 ACTIVE_COL = ps.SLOTS[1]  # red: active units, their traces, and their count
 EXC_COL, INH_COL = ps.SLOTS[1], ps.SLOTS[0]   # excitatory / inhibitory connections
 
+# A series listed here is drawn, with every seed, but NOT fitted. The exponent would be quoted, and
+# an exponent one seed can move by 0.3 is not a measurement. 8-bit at N = 2000: two seeds sit at
+# 403/440 active at the 100k read-out and the third at 1051, because it silences on a much slower
+# schedule - by the end of training the three agree (297/306/387) and the series gives N^0.45, in
+# the same band as every other task. At 100k it gives N^0.65. The read-out rule is not changed for
+# one series, so the points are shown and the line is not.
+NO_FIT = {"8-bit flip-flop": "one seed at N = 2000 is still on its plateau at the 100k read-out"}
+
 # (label, glob, read-out cap). The cap is the iteration the manuscript reads that family at; the
 # actual read-out is min(cap, the last iteration every seed reaches), reported on the panel.
 FF = f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N={{N}}_iters=*"
+FF8 = f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=8_N={{N}}_iters=*"
 SCALING = {
     "3-bit flip-flop": ([500, 1000, 2000, 4000], {
         500:  FF.format(N=500),
@@ -115,6 +124,10 @@ SCALING = {
         2000: FF.format(N=2000),
         4000: f"{DATA_DIR}/NBitFlipFlop_std_bigN/EqType=h_k=3_N=4000_pen=none_iters=*",
     }, 100_000, ps.SLOTS[0]),
+    # 8 bits is the top of the k-sweep: 256 stable states instead of 8, and the same three sizes as
+    # DMTS, so like DMTS it is fitted but not extrapolated
+    "8-bit flip-flop": ([500, 1000, 2000], {N: FF8.format(N=N) for N in (500, 1000, 2000)},
+                        100_000, ps.SLOTS[3]),
     "CDDM": ([500, 1000, 2000, 5000], {
         N: f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N={N}_iters=*" for N in (500, 1000, 2000, 5000)
     }, 100_000, ps.SLOTS[1]),
@@ -155,6 +168,7 @@ TRACE_FAMILIES = [
 # (label, csv, row filter, group). All at CDDM N=1000, eq=h, 30k.
 ARCHIVE_FAMILY = ("CDDM, 30k (archived)",
                   ("silent_stats_all.csv", dict(sweep="std", penalty="none")), [
+    ("s equation instead of h",  ("silent_stats_all.csv", dict(sweep="std", penalty="none", eq="s")), "architecture"),
     ("Dale's law imposed",       ("silent_stats_all.csv", dict(sweep="dale", penalty="none")), "architecture"),
     ("self-connections off",     ("silent_stats_all.csv", dict(sweep="nodale_bias", penalty="none")), "architecture"),
     ("  + bias fixed at 0",      ("silent_stats_all.csv", dict(sweep="nodale", penalty="none")), "architecture"),
@@ -171,6 +185,18 @@ NOISE_FAMILY = ("CDDM, 30k (peak-rate criterion)", "0.05", [
     ("recurrent noise σ = 0.1",  "0.1",  "noise"),
 ])
 
+# Tried, but with no read-out that can sit on this axis. These sweeps saved no participation traces
+# and have no row under the scale-free rule, so there is no honest way to put a number on them - but
+# leaving them off entirely would let the panel read as "this is everything", which it is not. Their
+# trained weights are still on disk, so each could be re-read with a re-simulation pass.
+TRIED_NOT_PLOTTED = [
+    ("cubic term $\\gamma$", "CDDM_4a031e (on) vs CDDM_4a031e_g0 (off)"),
+    ("weight boundary, sticky vs reflective", "CDDM_2bc3c1_g0_reflective"),
+]
+# I/O positivity is a special case: it is never varied ALONE in any sweep on disk - every `nodale`
+# arm switches `dale` and `io_nonnegativity` off together - so the Dale row below is a joint
+# contrast and there is no I/O-positivity-only number to report.
+
 # Knobs we did NOT vary. Panel (d) shows everything we tried; these are the obvious candidates it
 # does not cover, so the text says "we did not vary" rather than implying a measured null.
 NEVER_SWEPT = ["spectral radius of the initial recurrent weights",
@@ -186,6 +212,12 @@ GROUP_COL = {"activation": ps.SLOTS[3], "weight decay": ps.SLOTS[4],
 def traces_of(pattern):
     """Every (participation matrix, iteration vector) pair under a run-folder glob.
 
+    DIVERGED RUNS ARE DROPPED. A run folder is named `<score>_<task>;...`, and a run whose loss went
+    to NaN is saved as `nan_...`. Its participation trace is all zeros from the divergence onward, so
+    it reports ZERO active units and drags the cell mean down as if the network had silenced
+    completely - which is the opposite of what happened. There are 59 such folders on disk; one of
+    them sits in the 8-bit flip-flop cell at N = 2000 and was pulling its mean down by ~160 units.
+
     Args:
         pattern: glob matching run folders (not the pickles themselves).
     Returns:
@@ -193,6 +225,8 @@ def traces_of(pattern):
     """
     out = []
     for f in sorted(glob.glob(os.path.join(pattern, "*", "*ParticipationTrace.pkl"))):
+        if os.path.basename(os.path.dirname(f)).split("_")[0] == "nan":
+            continue
         try:
             d = pickle.load(open(f, "rb"))
         except Exception:
@@ -569,11 +603,20 @@ def panel_c(ax):
             sds.append(c.std(ddof=1) if len(c) > 1 else 0.0)
             ax.plot([N] * len(c), c, "o", ms=2.4, color=col, alpha=0.55, mec="none", zorder=4)
         xs, ys, sds = np.array(xs, float), np.array(ys, float), np.array(sds, float)
+        # a series whose runs are still training (DMTS after the 2026-09-21 task fix) is skipped
+        # rather than crashing the build, and says so on stdout
+        if len(xs) < 2:
+            print(f"  !! {task}: {len(xs)} size(s) on disk - series omitted from panel c")
+            continue
         ax.errorbar(xs, ys, yerr=sds, fmt="o-", color=col, ms=3.4, lw=1.1, zorder=5, capsize=1.6)
+        if task in NO_FIT:
+            print(f"  !! {task}: not fitted - {NO_FIT[task]}")
+            handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=1.1, label=task))
+            continue
         b, loga = np.polyfit(np.log(xs), np.log(ys), 1)
         fits[task] = (b, np.exp(loga), np.exp((np.log(1000) - loga) / b))
-        # extrapolate only the two tasks with four sizes; DMTS has three and a wide seed spread,
-        # so its fitted exponent is not something to project a decade beyond the data
+        # extrapolate only the tasks with four sizes; a three-size fit with a wide seed spread is
+        # not something to project a decade beyond the data
         hi = 2.4e4 if len(xs) >= 4 else xs.max() * 1.25
         xf = np.logspace(np.log10(xs.min() * 0.85), np.log10(hi), 50)
         ax.plot(xf, np.exp(loga) * xf ** b, ls=":", lw=0.8, color=col, zorder=3)
@@ -582,18 +625,21 @@ def panel_c(ax):
         handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=1.1,
                               label=f"{task}  $\\propto N^{{{b:.2f}}}$"))
 
+    # The y axis stops just above the 1,000-unit line rather than at the top of the "every unit
+    # active" diagonal. Every measured point is between 200 and 700, so three of the four decades
+    # the old limit spanned held nothing at all and squashed the data into the bottom fifth.
     nn = np.array([3e2, 2.6e4])
     ax.plot(nn, nn, "-", lw=0.7, color=ps.MUTED, zorder=2)
-    ax.text(5.0e3, 6.4e3, "every unit active", fontsize=5.5, color=ps.MUTED, rotation=38,
-            ha="center", va="bottom")
-    for frac, lab in [(0.5, "50% active"), (0.1, "10% active")]:
+    ax.text(1.55e3, 1.72e3, "every unit active", fontsize=5.5, color=ps.MUTED, ha="left",
+            va="center")
+    for frac, lab, xl in [(0.5, "50% active", 3.6e3), (0.1, "10% active", 1.75e4)]:
         ax.plot(nn, frac * nn, ls=(0, (4, 3)), lw=0.55, color=ps.FAINT, zorder=1)
-        ax.text(2.45e4, frac * 2.45e4, lab, fontsize=5.2, color=ps.FAINT, ha="right", va="bottom")
+        ax.text(xl, frac * xl * 1.12, lab, fontsize=5.2, color=ps.FAINT, ha="center", va="bottom")
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
-    need = np.mean([v[2] for task, v in fits.items() if task != "DMTS"])
-    ax.text(3.4e2, 1120, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
+    ax.text(3.4e2, 1045, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N", ylabel="active units",
-           xlim=(3.2e2, 2.7e4), ylim=(140, 3.4e4))
+           xlim=(3.2e2, 2.7e4), ylim=(150, 2.3e3))
+    # lower right: the only corner the guides, the data and the extrapolations all leave empty
     ax.legend(handles=handles, loc="lower right", fontsize=5.9)
     ps.ygrid(ax)
     return fits
@@ -611,9 +657,10 @@ def csv_active(fname, **match):
     Returns:
         (n_nets,) array of active counts.
     """
+    eq = match.pop("eq", "h")
     out = []
     for r in csv.DictReader(open(os.path.join(DATA_DIR, fname))):
-        if r.get("eq") != "h" or int(r["N"]) != N_UNITS:
+        if r.get("eq") != eq or int(r["N"]) != N_UNITS:
             continue
         ok = True
         for k, v in match.items():
@@ -726,13 +773,21 @@ def panel_d(ax):
                 transform=ax.get_yaxis_transform(), ha="left", va="bottom", fontsize=5.7,
                 color=ps.INK, zorder=6)
 
+    note_y = y + 1.75                                  # below the rate-penalty arrow and its label
+    ax.text(-425, note_y, "also tried, no read-out under this criterion:  "
+            + ";  ".join(lab for lab, _ in TRIED_NOT_PLOTTED),
+            ha="left", va="center", fontsize=5.3, color=ps.MUTED)
+    ax.text(-425, note_y + 0.60, "I/O positivity switches with Dale's law in every sweep on disk, "
+            "so that row is a joint contrast", ha="left", va="center", fontsize=5.3,
+            color=ps.MUTED)
+
     ax.axvline(0, color=ps.INK, lw=0.8, zorder=3)
     top = y + 0.2
     ax.annotate("", xy=(708, top), xytext=(0, top),
                 arrowprops=dict(arrowstyle="-|>", lw=1.0, color=ps.SLOTS[1], mutation_scale=7))
     ax.text(354, top + 0.45, "rate penalty (Fig. 3)", ha="center", fontsize=6.0,
             color=ps.SLOTS[1])
-    ax.set(yticks=ticks, yticklabels=labels, ylim=(top + 1.0, -1.0), xlim=(-430, 800),
+    ax.set(yticks=ticks, yticklabels=labels, ylim=(top + 2.9, -1.0), xlim=(-430, 800),
            xlabel="change in active units")
     ps.despine(ax, keep=("bottom",))
     ax.tick_params(axis="y", length=0, labelsize=5.8)
@@ -784,6 +839,9 @@ def main():
         print(f"  {task:18} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at N = {need:,.0f}")
     for fam, label, d, se, n in rows_d:
         print(f"  {fam:30} {label:24} {d:+7.1f} +- {1.96 * se:5.1f} (n={n})")
+    print("\n  TRIED but with no read-out that fits this axis (weights survive, traces do not):")
+    for what, where in TRIED_NOT_PLOTTED:
+        print(f"    {what:42s} {where}")
     print("\n  NEVER SWEPT, so the panel must not be read as covering them:")
     for what in NEVER_SWEPT:
         print(f"    {what}")
