@@ -66,6 +66,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle
+from matplotlib.path import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
@@ -92,9 +93,13 @@ N_UNITS = 1000            # every intervention family is measured at this size
 # arrow keeps 4-7 pt of shaft after clearing both glyphs. The count is arbitrary either way - the
 # FRACTION filled is the measurement, and it survives any count.
 N_GLYPH, N_SHOWN = 48, 8
-N_EDGES = 15              # connections drawn; the trained network is dense, this is a sample
+N_EDGES = 65              # connections wanted; the layout keeps as many as fit without crossing
+ARC_SAMPLES = 26          # points per drawn arc, for the clearance and crossing tests
+BEND = -0.20              # arc3 curvature. Negative bows LEFT of travel, so an arrow running left
+                          # to right bows up and one running right to left bows down; flip the sign
+                          # to swap that.
 R_POOL = 0.90             # pool radius inside the unit-radius boundary circle
-DOT_S = 8.0               # unit glyph area in pt^2 (3.2 pt across)
+DOT_S = 10.0              # unit glyph area in pt^2 (3.6 pt across), on a 7.5 pt lattice
 GLYPH_SEED, TRACE_SEED = 3, 11
 SILENT_GREY = "#c9c8c0"   # one grey for "silent", in the drawing and in the traces alike
 ACTIVE_COL = ps.SLOTS[1]  # red: active units, their traces, and their count
@@ -260,35 +265,117 @@ def excitatory_fraction():
     return float((W[~np.eye(W.shape[0], dtype=bool)] > 0).mean())
 
 
-def drawable_pairs(gx, gy, lo, hi, clear):
-    """Unit pairs that an arrow can join without passing over a third unit.
+def arc_points(p0, p1, rad, n=ARC_SAMPLES):
+    """Sample matplotlib's `arc3` connector as a polyline.
 
-    "Only between neighbours" is not enough on its own - nearest neighbours are so close that the
-    arrow is all head - so the rule is a distance BAND plus an explicit check: no other unit may lie
-    within `clear` of the segment with its projection falling inside it.
+    The collision tests below have to run on the curve that is actually DRAWN, not on the chord, so
+    this reproduces `matplotlib.patches.ConnectionStyle.Arc3` exactly: a quadratic Bezier whose
+    control point is the midpoint displaced by `rad` times the chord rotated -90 degrees. That
+    rotation is why a positive `rad` bows to the RIGHT of travel.
 
     Args:
-        gx, gy: (n,) unit positions; lo, hi: the allowed separation band; clear: the corridor
-            half-width that must be empty.
+        p0, p1: (x, y) endpoints; rad: arc3 curvature; n: samples along the curve.
     Returns:
-        list of (i, j) index pairs, i < j.
+        (n, 2) array of points from p0 to p1.
+    """
+    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
+    d = p1 - p0
+    c = 0.5 * (p0 + p1) + rad * np.array([d[1], -d[0]])
+    t = np.linspace(0.0, 1.0, n)[:, None]
+    return (1 - t) ** 2 * p0 + 2 * (1 - t) * t * c + t ** 2 * p1
+
+
+def inked_span(pts, trim):
+    """The part of an arc that is actually drawn: the samples clear of BOTH of its own glyphs.
+
+    Two arrows leaving the same unit share that endpoint exactly, so a crossing test run on the
+    full curves calls every such pair a crossing, and the panel ends up with at most one connection
+    per unit - which is what capped the first version at twenty arrows for forty-eight units. The
+    drawn arrow is shrunk clear of its glyphs anyway, so the test belongs on the shrunk curve.
+
+    Args:
+        pts: (n, 2) sampled arc; trim: distance from each endpoint to drop.
+    Returns:
+        (m, 2) array, or None if nothing survives.
+    """
+    keep = ((np.linalg.norm(pts - pts[0], axis=1) > trim)
+            & (np.linalg.norm(pts - pts[-1], axis=1) > trim))
+    return pts[keep] if keep.sum() >= 2 else None
+
+
+def plan_connections(gx, gy, rng, n_want, lo, hi, clear, bend, trim, r_max=0.99):
+    """Choose as many drawable connections as fit, greedily, and return them with their geometry.
+
+    Three things have to hold at once, and they interact, which is why this is a search rather than
+    a formula: an arrow may not pass within `clear` of a unit that is not one of its endpoints, no
+    two arrows may cross, and every arrow must stay inside the boundary circle. All three are tested
+    on the sampled CURVE, so bending is not cosmetic - a bowed arrow can go around a unit that
+    blocks the straight chord, which is what lets the panel carry several times more connections
+    than the straight-line version could.
+
+    The bend follows the direction of travel: every arrow bows to the same side of its own
+    direction, so left-to-right arrows bow one way and right-to-left arrows the other. `bend` sets
+    the magnitude and which way.
+
+    Args:
+        gx, gy: (n,) unit positions; rng: seeded Generator, for which candidates are tried first;
+        n_want: stop once this many are accepted; lo, hi: allowed endpoint separation; clear: the
+            corridor half-width that must be free of other units; bend: signed arc3 curvature;
+        trim: the un-inked length at each end, used for the crossing test; r_max: arrows must stay
+            within this radius of the origin.
+    Returns:
+        list of (src, dst, rad, points) - points being the (n, 2) sampled curve.
     """
     P = np.column_stack([gx, gy])
-    out = []
-    for a in range(len(P)):
-        for b in range(a + 1, len(P)):
-            v = P[b] - P[a]
-            L = float(np.hypot(*v))
-            if not lo <= L <= hi:
-                continue
-            w = P - P[a]
-            t = (w @ v) / (L * L)
-            d = np.abs(v[0] * w[:, 1] - v[1] * w[:, 0]) / L
-            blocked = (t > 0.0) & (t < 1.0) & (d < clear)
-            blocked[a] = blocked[b] = False
-            if not blocked.any():
-                out.append((a, b))
+    cand = [(a, b) for a in range(len(P)) for b in range(len(P)) if a != b
+            and lo <= np.hypot(*(P[b] - P[a])) <= hi]
+    rng.shuffle(cand)
+
+    out, taken, used = [], [], set()
+    for a, b in cand:
+        if len(out) >= n_want:
+            break
+        if (a, b) in used or (b, a) in used:
+            continue                                   # one arrow per pair of units
+        pts = arc_points(P[a], P[b], bend)
+        if np.hypot(pts[:, 0], pts[:, 1]).max() > r_max:
+            continue                                   # would leave the boundary
+        d = np.linalg.norm(pts[:, None, :] - P[None, :, :], axis=2)   # (samples, units)
+        d[:, [a, b]] = np.inf
+        if d.min() < clear:
+            continue                                   # passes over a unit
+        seg = inked_span(pts, trim)
+        if seg is None:
+            continue
+        path = Path(seg)
+        if any(path.intersects_path(q, filled=False) for q in taken):
+            continue                                   # crosses an arrow already placed
+        out.append((a, b, bend, pts))
+        taken.append(path)
+        used.add((a, b))
     return out
+
+
+def check_connections(conns, gx, gy, clear, trim):
+    """Assert the invariants `plan_connections` promises. Raises AssertionError on failure.
+
+    A drawing whose whole point is "no arrow crosses anything" should fail loudly rather than ship
+    a scribble, so this runs on every build.
+
+    Args:
+        conns: the output of `plan_connections`; gx, gy: unit positions; clear: corridor
+            half-width; trim: the un-inked length at each end, as passed to the planner.
+    Returns:
+        None.
+    """
+    P = np.column_stack([gx, gy])
+    paths = [Path(inked_span(pts, trim)) for _, _, _, pts in conns]
+    for k, (a, b, _, pts) in enumerate(conns):
+        d = np.linalg.norm(pts[:, None, :] - P[None, :, :], axis=2)
+        d[:, [a, b]] = np.inf
+        assert d.min() >= clear, f"connection {a}->{b} passes within {d.min():.4f} of a unit"
+        for q in paths[k + 1:]:
+            assert not paths[k].intersects_path(q, filled=False), f"connection {a}->{b} crosses"
 
 
 def panel_a(ax_net, ax_tr, rates, p):
@@ -316,8 +403,8 @@ def panel_a(ax_net, ax_tr, rates, p):
         ax_net: blank axes for the network drawing; ax_tr: blank axes for the traces;
         rates: (N, T, B) firing rates; p: (N,) participation.
     Returns:
-        (n_live, n_shown_live): active units in the network, and how many of the drawn units were
-        active.
+        (n_live, n_shown_live, n_conn): active units in the network, how many of the drawn units
+        were active, and how many connections the layout managed to place.
     """
     N = len(p)
     thr = SILENT_REL * np.quantile(p, 0.95)
@@ -347,14 +434,14 @@ def panel_a(ax_net, ax_tr, rates, p):
     # sample. The pairs are chosen to be near each other AND to have an empty corridor between
     # them, so no arrow crosses a unit; the excitatory fraction is read off the trained weights.
     nn = 2.0 * R_POOL / np.sqrt(N_GLYPH)                  # typical nearest-neighbour separation
-    pairs = drawable_pairs(gx, gy, 1.10 * nn, 1.45 * nn, 0.50 * nn)
+    clear, trim = 0.40 * nn, 0.30 * nn        # clearance 3.0 pt against a 1.8 pt glyph radius
+    conns = plan_connections(gx, gy, rng, N_EDGES, 1.02 * nn, 2.4 * nn, clear, BEND, trim)
+    check_connections(conns, gx, gy, clear, trim)
     p_exc = excitatory_fraction()
-    for k in rng.choice(len(pairs), min(N_EDGES, len(pairs)), replace=False):
-        a, b = pairs[k]
-        src, dst = (a, b) if rng.random() < 0.5 else (b, a)     # recurrence is directed
+    for src, dst, rad, _ in conns:
         exc = rng.random() < p_exc
-        ps.arrow(ax_net, (gx[src], gy[src]), (gx[dst], gy[dst]),
-                 col=EXC_COL if exc else INH_COL, lw=0.55, zorder=2, mutation_scale=4.2,
+        ps.arrow(ax_net, (gx[src], gy[src]), (gx[dst], gy[dst]), rad=rad,
+                 col=EXC_COL if exc else INH_COL, lw=0.5, zorder=2, mutation_scale=4.0,
                  shrink=1.9, style="-|>" if exc else "-[,widthB=0.32,lengthB=0.0")
 
     ax_net.scatter(gx[~on], gy[~on], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
@@ -434,7 +521,7 @@ def panel_a(ax_net, ax_tr, rates, p):
     ax_tr.text(T / 2, N_SHOWN + 0.02, f"{N_SHOWN} units drawn at random, one trial",
                ha="center", va="bottom", fontsize=6.4, color=ps.INK)
     ax_tr.set(xlim=(-105, T + 80), ylim=(-1.35, N_SHOWN + 0.55))
-    return n_live, n_shown_live
+    return n_live, n_shown_live, len(conns)
 
 
 def panel_b(ax, p):
@@ -675,7 +762,7 @@ def main():
                                    wspace=0.02)
     ax_net = fig.add_subplot(gs_a[0, 0])
     ax_tr = fig.add_subplot(gs_a[0, 1])
-    n_live, n_shown_live = panel_a(ax_net, ax_tr, rates, p)
+    n_live, n_shown_live, n_conn = panel_a(ax_net, ax_tr, rates, p)
     ax_net.set_title("trained ReLU RNN", fontsize=6.6, color=ps.INK, pad=2)
     ps.panel_letter(ax_net, "a", dx=-0.13, dy=1.02)
 
@@ -695,7 +782,7 @@ def main():
 
     print("\n--- numbers quoted in the caption ---")
     print(f"  panel a: {n_live} of {N_UNITS} units active; {n_shown_live} of {N_SHOWN} randomly "
-          f"drawn units active")
+          f"drawn units active; {n_conn} connections drawn over {N_GLYPH} glyphs")
     for task, (b, A, need) in fits.items():
         print(f"  {task:18} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at N = {need:,.0f}")
     for fam, label, d, se, n in rows_d:
