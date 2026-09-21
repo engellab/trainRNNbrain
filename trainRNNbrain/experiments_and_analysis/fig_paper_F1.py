@@ -157,6 +157,10 @@ TRACE_FAMILIES = [
         ("softplus",          f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=softplus25_iters=*", "activation"),
         ("bounded sigmoid",   f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=sigmoid_iters=*",    "activation"),
         ("weight decay 0",    f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=0_iters=*",           "weight decay"),
+        # 1e-6 is the default in configs/trainer/trainer.yaml, so every run in this family's
+        # reference carries WD=1e-06 - the reference IS this rung, and saying so turns three
+        # scattered points into a monotone dose-response
+        ("weight decay 10⁻⁶  (reference)", None,                                                             "reference"),
         ("weight decay 10⁻⁵", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-5_iters=*",        "weight decay"),
         ("weight decay 10⁻⁴", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-4_iters=*",        "weight decay"),
     ]),
@@ -726,7 +730,18 @@ def panel_d(ax):
         nonlocal y
         start = y
         for label, vals, group in items:
-            if len(vals) < 2 or len(ref) < 2:
+            # The reference condition is a rung of the weight-decay ladder, not just its baseline:
+            # without it the panel shows 0 and 10^-5 and 10^-4 with nothing between them and no
+            # marker for where "no change" sits inside the ladder itself. Drawn as a point at zero
+            # with no interval - a condition compared with itself has no uncertainty to show - in
+            # the neutral reference ink rather than a categorical slot.
+            if group == "reference":
+                ax.plot(0, y, "o", ms=3.4, color=ps.BASE, zorder=5, mec="none")
+                ticks.append(y)
+                labels.append(label)
+                y += 1
+                continue
+            if vals is None or len(vals) < 2 or len(ref) < 2:
                 y += 1
                 continue
             d = vals.mean() - ref.mean()
@@ -750,7 +765,7 @@ def panel_d(ax):
         if got is None:
             continue
         ref, _ = got
-        block(title, ref, [(lab, (live_matched(pat, cap) or (np.array([]),))[0], grp)
+        block(title, ref, [(lab, None if pat is None else (live_matched(pat, cap) or (np.array([]),))[0], grp)
                            for lab, pat, grp in items])
 
     title, (rf, rm), items = ARCHIVE_FAMILY
