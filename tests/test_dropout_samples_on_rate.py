@@ -58,24 +58,56 @@ def test_activity_q_is_honoured():
     assert (v99 >= v50 - 1e-6).all(), "a higher quantile cannot lower the score"
 
 
-def test_drop_mass_avoids_silent_units():
-    """End to end: p_drop built from rate scores must not spend itself on silent units."""
+def test_exactly_k_units_are_dropped_at_every_beta():
+    """The dose must not depend on beta. It used to: the clamped Bernoulli lost most of the
+    budget as the softmax concentrated (50 -> 7.9 dropped at beta=4, N=1000, drop_rate=0.05),
+    which made the ladder's beta=4 arm a dose experiment masquerading as a targeting one."""
     v = Trainer.participation_from_states_(_fake_trainer(), _states(), q=0.9)
     rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
-                                random_generator=torch.Generator().manual_seed(4))
+                                random_generator=torch.Generator().manual_seed(5))
+    for beta in (0.0, 1.0, 4.0, 16.0):
+        args = {"dropout_kind": "dead", "sampling_method": "participation",
+                "drop_rate": 0.25, "dropout_beta": beta}
+        for _ in range(20):
+            keep = RNN_torch.get_dropout_mask(rnn, args, v)
+            assert keep.shape == (N, 1), f"mask must be (N, 1), got {tuple(keep.shape)}"
+            n_dropped = int((keep == 0).sum())
+            assert n_dropped == round(0.25 * N), \
+                f"beta={beta}: dropped {n_dropped}, expected exactly {round(0.25 * N)}"
+
+
+def test_drops_land_on_units_that_fire():
+    """With rate scores and a sharp beta, the drawn units must be ones that actually fire."""
+    v = Trainer.participation_from_states_(_fake_trainer(), _states(), q=0.9)
+    rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
+                                random_generator=torch.Generator().manual_seed(6))
     args = {"dropout_kind": "dead", "sampling_method": "participation",
             "drop_rate": 0.2, "dropout_beta": 4.0}
-    keep = RNN_torch.get_dropout_mask(rnn, args, v)
-    assert keep.shape == (N, 1), f"mask must be (N, 1) i.e. shared across the batch, got {tuple(keep.shape)}"
+    silent_hits = total = 0
+    for _ in range(200):
+        dropped = (RNN_torch.get_dropout_mask(rnn, args, v).squeeze(1) == 0).numpy()
+        silent_hits += dropped[SILENT].sum()
+        total += dropped.sum()
+    wasted = silent_hits / total
+    assert wasted < 0.05, f"{wasted:.1%} of drawn units were already silent"
 
-    p_drop = torch.clamp(args["drop_rate"] * N * torch.softmax(args["dropout_beta"] * v, dim=0),
-                         0.0, 0.999).numpy()
-    wasted = p_drop[SILENT].sum() / p_drop.sum()
-    assert wasted < 0.05, f"{wasted:.1%} of the drop mass still lands on already-silent units"
+
+def test_unknown_sampling_method_is_named():
+    """A typo in the config must say so, not fall through to an UnboundLocalError."""
+    rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
+                                random_generator=torch.Generator().manual_seed(7))
+    try:
+        RNN_torch.get_dropout_mask(rnn, {"sampling_method": "participaton", "drop_rate": 0.1}, None)
+    except ValueError as e:
+        assert "participaton" in str(e), f"error should name the bad value, got: {e}"
+    else:
+        raise AssertionError("an unknown sampling_method must raise")
 
 
 if __name__ == "__main__":
     test_silent_units_score_zero()
     test_activity_q_is_honoured()
-    test_drop_mass_avoids_silent_units()
-    print("all three checks passed")
+    test_exactly_k_units_are_dropped_at_every_beta()
+    test_drops_land_on_units_that_fire()
+    test_unknown_sampling_method_is_named()
+    print("all five checks passed")

@@ -405,12 +405,26 @@ class RNN_torch(torch.nn.Module):
             v = participation.reshape(self.N).to(self.device).float()
         elif sm == "output_weights":
             v = torch.sum(torch.abs(self.W_out), dim=0)
+        else:
+            raise ValueError(f"unknown sampling_method {sm!r}")
 
-        w = torch.softmax(beta * v, dim=0)
-        p_drop = torch.clamp(drop_rate * self.N * w, 0.0, 0.999)
-        keep_p = 1.0 - p_drop
-
-        return torch.bernoulli(keep_p.reshape(self.N, 1), generator=self.random_generator)
+        # EXACTLY k units, drawn without replacement with probability proportional to softmax(beta*v).
+        # It used to be an independent Bernoulli per unit, p_i = clamp(drop_rate*N*softmax_i, 0, 0.999).
+        # That coupled the two knobs: whatever a saturated unit could not absorb above 0.999 was
+        # discarded rather than passed to anyone else, so raising beta silently cut the DOSE as well
+        # as sharpening the targeting. Measured on trained N=1000 flip-flop nets at drop_rate=0.05
+        # (nominal 50 drops/iteration): beta=1 -> 49.1, beta=2 -> 33.3, beta=4 -> 7.9, beta=8 -> 2.1.
+        # The beta=4 arm of the drop-rate ladder was therefore not "sharper targeting" but "dropout
+        # almost switched off", which is why it landed on top of the no-dropout count. Drawing a
+        # fixed k makes beta a pure targeting knob and removes the Bernoulli count variance too.
+        k = int(round(drop_rate * self.N))
+        keep = torch.ones(self.N, 1, device=self.device)
+        if k > 0:
+            w = torch.softmax(beta * v, dim=0)
+            idx = torch.multinomial(w, min(k, self.N), replacement=False,
+                                    generator=self.random_generator)
+            keep[idx] = 0.0
+        return keep
 
     def _constrained_weights(self):
         """Return (W_rec, W_inp, W_out) as used in the dynamics, honoring weight_boundary.

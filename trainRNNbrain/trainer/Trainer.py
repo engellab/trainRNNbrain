@@ -853,7 +853,10 @@ class Trainer():
             if self.dropout_args["sampling_method"] == "participation" and self.participation is None:
                 self.participation = 1e-6 * torch.ones(self.RNN.N, device=states.device)
             part = self.participation if self.dropout_args["sampling_method"] == "participation" else None
-            eta = self.dropout_args.get("eta", 0.0)
+            # 0.5 (the value every shipped config sets), NOT 0.0: at eta=0 the EMA would freeze
+            # at its 1e-6 initialisation, the softmax would be uniform, and participation dropout
+            # would silently degrade to UNIFORM dropout with the config still reading "participation".
+            eta = self.dropout_args.get("eta", 0.5)
             _, output_do = self.RNN(input, w_noise=True, dropout=True, dropout_args=self.dropout_args, participation=part)
 
             if self.dropout_args["sampling_method"] == "participation":
