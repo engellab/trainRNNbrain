@@ -50,6 +50,7 @@ from common import DATA_DIR, SILENT_REL
 
 N_UNITS = 1000
 READ_AT = 150_000
+DMTS36_NPZ = "data/dmts_curves_delay36.npz"
 
 # Penalty constants, read off trainRNNbrain/trainer/Trainer.py and configs/trainer/*.yaml so the
 # curves in panel (b) are the functions actually optimised, not sketches of them.
@@ -114,6 +115,32 @@ def live_at(cell, cap=READ_AT):
         p = P[int(np.argmin(np.abs(it - r)))]
         out.append(int((p >= SILENT_REL * np.quantile(p, 0.95)).sum()))
     return np.array(out)
+
+
+def dmts36_readouts():
+    """Clean r^2 per seed on the 36-tau task, at matched compute AND at the best checkpoint.
+
+    These differ, and only on this task. Everywhere else a run's best checkpoint is its last one, so
+    the score in the folder name is the matched-compute read-out. At 36 tau the `frm` runs find the
+    memory solution and then collapse, so the folder name records a peak the network no longer
+    holds. Reporting only that would break this paper's own read-out rule, in the treatment arm
+    only -- exactly the comparison a referee should refuse.
+
+    Returns:
+        dict arm -> (final array, peak array), clean r^2 per seed.
+    """
+    z = np.load(DMTS36_NPZ, allow_pickle=True)
+    tv = float(z["target_variance"])
+    out = {}
+    for pen in ("none", "frm", "both"):
+        seeds = sorted({k.split("_")[2] for k in z.files if k.startswith(f"1000_{pen}_")})
+        fin, pk = [], []
+        for sd in seeds:
+            r2 = 1.0 - z[f"1000_{pen}_{sd}_loss"] / tv
+            fin.append(float(np.median(r2[-500:])))
+            pk.append(float(np.nanmax(r2)))
+        out[pen] = (np.array(fin), np.array(pk))
+    return out
 
 
 def r2_at(cell):
@@ -277,15 +304,17 @@ def panel_d(ax):
     """Panel (d): task r^2 relative to that task's unpenalised arm. Returns the measured rows."""
     rows, centres = [], []
     width = 0.20
+    dm = dmts36_readouts() if os.path.exists(DMTS36_NPZ) else {}
     for ti, (task, cells) in enumerate(TASKS):
         centres.append(ti)
-        base = r2_at(cells["none"])
+        is_dmts36 = task.startswith("DMTS") and "36" in task
+        base = dm["none"][0] if (is_dmts36 and dm) else r2_at(cells["none"])
         if not len(base):
             continue
         for pi, (pen, _, col) in enumerate(PENS):
             if pen not in cells:
                 continue
-            v = r2_at(cells[pen])
+            v = dm[pen][0] if (is_dmts36 and dm and pen in dm) else r2_at(cells[pen])
             if not len(v):
                 continue
             x = ti + (pi - 1.5) * width
@@ -293,19 +322,32 @@ def panel_d(ax):
                      rng=np.random.default_rng(50 + ti * 4 + pi), ms=2.6)
             rows.append((task.replace("\n", " "), pen, float(v.mean() - base.mean()),
                          float(v.std(ddof=1)), len(v)))
+            # the best checkpoint, drawn hollow, only where it differs from the matched-compute read
+            if is_dmts36 and dm and pen in dm:
+                pk = dm[pen][1].mean() - dm["none"][1].mean()
+                if abs(pk - (v.mean() - base.mean())) > 0.10:
+                    ax.plot(x, pk, "o", ms=4.0, mfc="none", mec=col, mew=0.9, zorder=6)
     ax.axhline(0, color=ps.INK, lw=0.8, zorder=3)
     ax.text(-0.48, 0.012, "no cost", fontsize=5.8, color=ps.INK, va="bottom")
-    ax.annotate("the rate penalty is the only arm\nthat ever solves the 36τ delay",
-                xy=(len(TASKS) - 1 + 0.5 * width, 0.30), xytext=(2.05, 0.33),
-                fontsize=5.8, color=ps.COND_COL["frm"], ha="center", linespacing=1.3,
-                arrowprops=dict(arrowstyle="-|>", lw=0.6, color=ps.COND_COL["frm"],
+    ax.annotate("best checkpoint: the only arm that\never solves the 36τ delay (Fig. 4d)",
+                xy=(len(TASKS) - 1 + 0.5 * width, 0.37), xytext=(2.25, 0.30),
+                fontsize=5.6, color=ps.COND_COL["frm"], ha="center", linespacing=1.3,
+                arrowprops=dict(arrowstyle="-|>", lw=0.55, color=ps.COND_COL["frm"],
                                 mutation_scale=6))
+    ax.annotate("…but does not hold it: at matched\ncompute it ends below baseline",
+                xy=(len(TASKS) - 1 + 0.42 * width, -0.41), xytext=(2.55, -0.155),
+                fontsize=5.6, color=ps.COND_COL["frm"], ha="center", linespacing=1.3,
+                arrowprops=dict(arrowstyle="-|>", lw=0.55, color=ps.COND_COL["frm"],
+                                mutation_scale=6))
+    ax.plot([], [], "o", ms=4.0, mfc="none", mec=ps.MUTED, mew=0.9, label="best checkpoint")
+    ax.plot([], [], "o", ms=3.4, color=ps.MUTED, label="matched compute (end of training)")
+    ax.legend(loc="lower left", fontsize=5.6, bbox_to_anchor=(-0.01, -0.02))
     ax.set_yscale("symlog", linthresh=0.02, linscale=1.6)
     ax.set(xticks=centres, xticklabels=[t for t, _ in TASKS],
            ylabel="task $r^2$ − unpenalised $r^2$", xlim=(-0.55, len(TASKS) - 0.45),
-           ylim=(-0.06, 0.6))
-    ax.set_yticks([-0.04, -0.02, 0, 0.02, 0.1, 0.4])
-    ax.set_yticklabels(["−0.04", "−0.02", "0", "0.02", "0.1", "0.4"])
+           ylim=(-0.72, 0.62))
+    ax.set_yticks([-0.4, -0.1, -0.02, 0, 0.02, 0.1, 0.4])
+    ax.set_yticklabels(["−0.4", "−0.1", "−0.02", "0", "0.02", "0.1", "0.4"])
     ax.axhspan(-0.02, 0.02, color="#f6f5f0", zorder=0)
     ax.text(len(TASKS) - 0.52, 0.021, "linear below ±0.02, log outside", ha="right",
             fontsize=5.2, color=ps.FAINT, va="bottom")
