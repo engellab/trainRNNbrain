@@ -19,10 +19,10 @@ bill is in panel (d).
                                        train on. Adding rws removes burst units, removing rws brings
                                        them back, matched controls barely move - and it replicates
                                        on a second task.
-  (d) THE PRICE                        the 36-tau memory task, per seed, along training. The
-                                       unpenalised network never finds the memory solution; the rate
-                                       penalty finds it every time and then loses it; adding weight
-                                       sparsity prevents the escape altogether.
+The 36-tau memory task, which used to be panel (d), is now Supplementary S7 (fig_supp_dmts36.py):
+it is a different kind of comparison from the rest of the paper - the unpenalised network never
+solves that task at all - and it does not belong in the middle of an argument about what weight
+sparsity does.
 
 Usage:  python fig_paper_F4.py [--refresh]
 Output: img/internal_figures/fig_paper_F4.png
@@ -196,7 +196,7 @@ def panel_b(ax, c):
     ax.hist(S_both.ravel(), bins=bins, color=ps.COND_COL["both"], alpha=0.8, edgecolor="none",
             label=f"frm + rws  (median {np.median(S_both):.0f})")
     ax.axvline(TG_DEG, color=ps.INK, lw=0.9, ls="--", zorder=5)
-    ax.text(TG_DEG * 1.16, ax.get_ylim()[1] * 0.93, f"target = {TG_DEG}", fontsize=5.8,
+    ax.text(TG_DEG * 1.35, ax.get_ylim()[1] * 0.86, f"target = {TG_DEG}", fontsize=5.8,
             color=ps.INK, va="top")
     ax.set(xscale="log", xlabel="effective in-degree  $S_i=(\\sum_j|W_{ij}|)^2/\\sum_j W_{ij}^2$",
            ylabel="units")
@@ -231,14 +231,16 @@ def panel_c(ax):
         d1 = ((res["A1"][1] - res["A1"][0]).mean() - (res["A2"][1] - res["A2"][0]).mean()) * 100
         d3 = ((res["A3"][1] - res["A3"][0]).mean() - (res["A4"][1] - res["A4"][0]).mean()) * 100
         out[task] = (d1, d3)
-        ax.text(centres[-1], 44.0, task, ha="center", fontsize=6.4, color=ps.INK)
-        ax.text(centres[-1], 37.5,
-                f"add rws {d1:+.1f}   remove rws {d3:+.1f}\n(treatment − control)",
-                ha="center", fontsize=5.6, color=ps.MUTED, linespacing=1.3)
+        ax.text(centres[-1], 52.0, task, ha="center", fontsize=6.6, color=ps.INK)
+        ax.text(centres[-1], 44.5,
+                f"adding rws {d1:+.1f}   ·   removing rws {d3:+.1f}",
+                ha="center", fontsize=5.8, color=ps.MUTED)
         x += 0.9
     ax.axhline(0, color=ps.INK, lw=0.8, zorder=3)
-    ax.set(xticks=xs, xticklabels=labels, ylim=(-40, 50),
+    ax.set(xticks=xs, xticklabels=labels, ylim=(-40, 58),
            ylabel="change in burst units\n(percentage points of active units)")
+    ax.text(0.5, -0.185, "summary values are treatment minus matched control",
+            transform=ax.transAxes, ha="center", fontsize=5.5, color=ps.FAINT)
     ax.tick_params(axis="x", labelsize=5.8)
     ax.set_yticks([-40, -30, -20, -10, 0, 10, 20, 30])
     ps.ygrid(ax)
@@ -268,21 +270,21 @@ def panel_d(ax):
             fin.append(float(np.median(r2[-500:])))
         verdict[pen] = (np.array(best), np.array(fin), len(seeds))
     ax.axhline(ESCAPE, color=ps.MUTED, lw=0.7, ls="--", zorder=2)
-    ax.text(1.5e3, ESCAPE + 0.02, "memory solved", fontsize=5.6, color=ps.MUTED)
+    ax.text(1.45e3, ESCAPE + 0.025, "memory solved", fontsize=5.6, color=ps.MUTED)
     ax.axhline(0.605, color=ps.MUTED, lw=0.7, ls=":", zorder=2)
-    ax.text(1.5e3, 0.565, "no-memory plateau", fontsize=5.6, color=ps.MUTED)
-    ax.annotate("frm finds the memory\nin every seed…", xy=(2.2e4, 0.97), xytext=(3.0e3, 0.80),
-                fontsize=5.8, color=ps.COND_COL["frm"], linespacing=1.25,
+    ax.text(1.45e3, 0.512, "no-memory plateau", fontsize=5.6, color=ps.MUTED)
+    ax.annotate("frm finds the memory\nin every seed…", xy=(1.35e4, 0.985), xytext=(1.5e3, 0.77),
+                fontsize=5.8, color=ps.COND_COL["frm"], linespacing=1.25, ha="left",
                 arrowprops=dict(arrowstyle="-|>", lw=0.55, color=ps.COND_COL["frm"],
                                 mutation_scale=6))
-    ax.annotate("…and then loses it", xy=(1.1e5, 0.25), xytext=(2.6e4, 0.10),
-                fontsize=5.8, color=ps.COND_COL["frm"],
+    ax.annotate("…and then loses it", xy=(3.6e4, 0.03), xytext=(1.5e3, 0.20),
+                fontsize=5.8, color=ps.COND_COL["frm"], ha="left",
                 arrowprops=dict(arrowstyle="-|>", lw=0.55, color=ps.COND_COL["frm"],
                                 mutation_scale=6))
     ax.set(xscale="log", xlabel="training iteration", ylabel="clean $r^2$ on the 36τ delay task",
            xlim=(1.2e3, 1.7e5), ylim=(-0.12, 1.06))
     ax.legend(handles=[Line2D([], [], color=c, lw=1.2, label=l) for _, l, c in DMTS_ARMS],
-              loc="lower left", fontsize=5.8)
+              loc="lower left", fontsize=5.8, bbox_to_anchor=(0.0, -0.02))
     ps.ygrid(ax)
     return verdict
 
@@ -296,9 +298,9 @@ def main():
     ps.setup()
     c = example_units(refresh=args.refresh)
 
-    fig = plt.figure(figsize=(ps.W2, 152 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.80, 1.0], width_ratios=[1.0, 1.06],
-                  hspace=0.50, wspace=0.26)
+    fig = plt.figure(figsize=(ps.W2, 136 * ps.MM))
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.86, 1.0], width_ratios=[1.0, 1.06],
+                  hspace=0.52, wspace=0.26)
 
     ax_a = fig.add_subplot(gs[0, 0])
     panel_a(ax_a, c)
@@ -312,13 +314,9 @@ def main():
     ax_b.text(-0.13, 1.13, "What weight sparsity does", transform=ax_b.transAxes,
               fontsize=7.4, color=ps.INK, fontweight="bold")
 
-    ax_c = fig.add_subplot(gs[1, 0])
+    ax_c = fig.add_subplot(gs[1, :])
     contrasts = panel_c(ax_c)
-    ps.panel_letter(ax_c, "c")
-
-    ax_d = fig.add_subplot(gs[1, 1])
-    verdict = panel_d(ax_d)
-    ps.panel_letter(ax_d, "d")
+    ps.panel_letter(ax_c, "c", dx=-0.055)
 
     out = ps.save(fig, "fig_paper_F4")
 
@@ -328,8 +326,6 @@ def main():
         print(f"  {k}: {v}")
     for task, (d1, d3) in contrasts.items():
         print(f"  {task:20} adding rws {d1:+.1f} pts, removing rws {d3:+.1f} pts (treatment − control)")
-    for pen, (best, fin, n) in verdict.items():
-        print(f"  DMTS36 {pen:5} n={n}  best r2 {np.round(best, 3)}  final {np.round(fin, 3)}")
     return out
 
 

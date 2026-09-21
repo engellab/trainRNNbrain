@@ -205,16 +205,17 @@ def panel_a(ax):
             ax.text(x, uy, f"$r_{i + 1}$", ha="center", va="center", fontsize=5.4, zorder=6,
                     color=ps.FAINT if gone else ("white" if i == dropped else ps.MUTED))
 
-        # recurrent edges between neighbours
+        # Recurrent edges between neighbours. Endpoints are the unit CENTRES and the shrink clears
+        # the glyph; rad then puts the forward arc above and the return arc below. Offsetting the
+        # endpoints vertically instead pinches the pair into a bowtie over the units.
         for i in range(2):
-            touches = dropped in (i, i + 1)
-            cut = (kind == "dead" and touches)
-            ps.arrow(ax, (ux[i], uy + 0.048), (ux[i + 1], uy + 0.048),
-                     col=ps.FAINT if cut else ps.MUTED, rad=0.55, style="-|>", lw=0.7,
-                     ls=":" if cut else "-")
-            ps.arrow(ax, (ux[i + 1], uy - 0.048), (ux[i], uy - 0.048),
-                     col=ps.FAINT if cut else ps.MUTED, rad=0.55, style="-|>", lw=0.7,
-                     ls=":" if cut else "-")
+            cut = (kind == "dead" and dropped in (i, i + 1))
+            col = ps.FAINT if cut else ps.MUTED
+            ls = ":" if cut else "-"
+            ps.arrow(ax, (ux[i], uy), (ux[i + 1], uy), col=col, rad=-0.62, style="-|>",
+                     lw=0.7, ls=ls, shrink=6.5, mutation_scale=6)
+            ps.arrow(ax, (ux[i + 1], uy), (ux[i], uy), col=col, rad=-0.62, style="-|>",
+                     lw=0.7, ls=ls, shrink=6.5, mutation_scale=6)
 
         # the read-out
         ry = 0.215

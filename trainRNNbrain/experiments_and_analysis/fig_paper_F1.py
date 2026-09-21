@@ -209,10 +209,10 @@ def panel_a(ax, rates, targets, p):
     order = np.argsort(-p)
 
     # --- left: the task, the network, the read-out -------------------------------------------
-    ps.box(ax, 0.005, 0.46, 0.095, 0.22, col=ps.MUTED, face="#f2f1ec", lw=0.6)
-    ax.text(0.052, 0.605, "3 bits", ha="center", va="center", fontsize=6.0, color=ps.INK)
-    ax.text(0.052, 0.515, "set / reset", ha="center", va="center", fontsize=5.3, color=ps.MUTED)
-    ax.text(0.052, 0.705, "input", ha="center", fontsize=5.8, color=ps.MUTED)
+    ps.box(ax, 0.002, 0.46, 0.112, 0.22, col=ps.MUTED, face="#f2f1ec", lw=0.6)
+    ax.text(0.058, 0.605, "3 bits", ha="center", va="center", fontsize=6.0, color=ps.INK)
+    ax.text(0.058, 0.515, "set / reset", ha="center", va="center", fontsize=5.0, color=ps.MUTED)
+    ax.text(0.058, 0.705, "input", ha="center", fontsize=5.8, color=ps.MUTED)
 
     # the recurrent pool, drawn as 100 glyphs filled to the measured live fraction
     dx = 0.0235
@@ -222,10 +222,10 @@ def panel_a(ax, rates, targets, p):
                                   off_col="#d5d4cc", pitch=(dx, dy), s=4.6, lw=0.4)
     ax.text(gx + w_grid / 2, gy + 0.055, "recurrent pool, N = 1000",
             ha="center", fontsize=6.2, color=ps.INK)
-    ax.text(gx + w_grid / 2, gy - h_grid - 0.055,
+    ax.text(gx + w_grid / 2, gy - h_grid - 0.105,
             f"{n_live} of 1000 active ({n_live / 1000:.0%})",
             ha="center", fontsize=6.2, color=ps.SLOTS[0])
-    ax.text(gx + w_grid / 2, gy - h_grid - 0.125, "one glyph = 10 units",
+    ax.text(gx + w_grid / 2, gy - h_grid - 0.175, "one glyph = 10 units",
             ha="center", fontsize=5.2, color=ps.FAINT)
 
     bx = gx + w_grid + 0.055
@@ -234,7 +234,7 @@ def panel_a(ax, rates, targets, p):
     ax.text(bx + 0.0575, 0.515, "read-outs", ha="center", va="center", fontsize=5.3, color=ps.MUTED)
     ax.text(bx + 0.0575, 0.705, "output", ha="center", fontsize=5.8, color=ps.MUTED)
 
-    ps.arrow(ax, (0.103, 0.57), (gx - 0.014, 0.57), col=ps.MUTED)
+    ps.arrow(ax, (0.118, 0.57), (gx - 0.014, 0.57), col=ps.MUTED)
     ps.arrow(ax, (gx + w_grid + 0.016, 0.57), (bx - 0.008, 0.57), col=ps.MUTED)
 
     # --- right: three real units ---------------------------------------------------------------
@@ -286,7 +286,7 @@ def panel_b(ax, p):
     top = ax.get_ylim()[1]
     ax.set_ylim(0, top * 1.28)
     ax.annotate("criterion\n$p_i < 0.05\\,q_{95}(p)$", xy=(thr, top * 1.02),
-                xytext=(thr * 0.055, top * 1.19), fontsize=5.8, color=ps.INK,
+                xytext=(thr * 26, top * 1.16), fontsize=5.8, color=ps.INK,
                 ha="center", va="center", linespacing=1.25,
                 arrowprops=dict(arrowstyle="-|>", lw=0.6, color=ps.INK, shrinkA=1, shrinkB=2))
     ax.set_xscale("log")
@@ -361,7 +361,7 @@ def panel_d(ax):
     for i, (label, f, it) in enumerate(rows):
         ax.plot(f, [i] * len(f), "o", ms=2.6, color=ps.SLOTS[0], alpha=0.5, mec="none", zorder=4)
         ax.plot([f.mean()] * 2, [i - 0.26, i + 0.26], lw=1.7, color=ps.SLOTS[0], zorder=5)
-        ax.text(f.mean() + 0.028, i, f"{f.mean():.0%}", va="center", fontsize=6.0,
+        ax.text(f.mean() + 0.040, i, f"{f.mean():.0%}", va="center", fontsize=6.0,
                 color=ps.SLOTS[0])
     ax.axvline(1.0, color=ps.MUTED, lw=0.7)
     ax.text(0.99, len(rows) - 0.42, "whole\nnetwork", ha="right", va="top", fontsize=5.4,
@@ -389,9 +389,11 @@ def panel_e(ax):
             continue
         ref, it_ref = got
         ax.axhspan(y - 0.62, y + len(items) - 0.42, color="#f6f5f0", zorder=0)
-        ax.text(0.012, y - 0.44, f"{fam}    (reference {ref.mean():.0f} active units, n = {len(ref)})",
-                transform=ax.get_yaxis_transform(), ha="left", va="bottom", fontsize=6.0,
-                color=ps.INK, zorder=6)
+        ax.text(0.012, y - 0.46, fam, transform=ax.get_yaxis_transform(), ha="left",
+                va="bottom", fontsize=6.0, color=ps.INK, zorder=6)
+        ax.text(0.988, y - 0.46, f"reference {ref.mean():.0f} active units, n = {len(ref)}",
+                transform=ax.get_yaxis_transform(), ha="right", va="bottom", fontsize=5.6,
+                color=ps.MUTED, zorder=6)
         for label, pat, group in items:
             g = live_matched(pat, cap)
             if g is None:

@@ -83,10 +83,6 @@ TASKS = [
         "rws":  f"{D}/DMTS_std_pen/EqType=h_N=1000_pen=rws",
         "frm":  f"{D}/DMTS_std_pen/EqType=h_N=1000_pen=frm",
         "both": f"{D}/DMTS_std_pen/EqType=h_N=1000_pen=both"}),
-    ("DMTS\n36τ", {
-        "none": f"{D}/DMTS_std_delay36/EqType=h_N=1000_pen=none",
-        "frm":  f"{D}/DMTS_std_delay36/EqType=h_N=1000_pen=frm",
-        "both": f"{D}/DMTS_std_delay36/EqType=h_N=1000_pen=both"}),
 ]
 
 
@@ -248,24 +244,18 @@ def panel_b(ax):
             label="rate penalty  $\\mathtt{frm}$")
 
     ax.axvline(cap, color=ps.MUTED, lw=0.6, ls=":", zorder=2)
-    ax.text(cap * 0.97, 0.90, "target\ncap", fontsize=5.8, color=ps.MUTED, va="top",
+    ax.text(cap * 0.96, 0.86, "target\ncap", fontsize=5.8, color=ps.MUTED, va="top",
             ha="right", linespacing=1.2)
 
-    ax.plot(0, 0, "o", ms=5, color=ps.SLOTS[4], zorder=7, clip_on=False)
-    ax.annotate("minimum at $r=0$:\nsilence is REWARDED", xy=(0.004, 0.005),
-                xytext=(0.30 * cap, 0.46), fontsize=5.8, color=ps.SLOTS[4], ha="left",
-                linespacing=1.3,
-                arrowprops=dict(arrowstyle="-|>", lw=0.6, color=ps.SLOTS[4], mutation_scale=6))
-    ax.plot(cap, 0, "o", ms=5, color=ps.COND_COL["frm"], zorder=7)
-    ax.annotate("minimum at the cap:\nsilence is the most\nexpensive state a unit can be in",
-                xy=(cap, 0.012), xytext=(1.03 * cap, 0.60), fontsize=5.8,
-                color=ps.COND_COL["frm"], ha="left", linespacing=1.3,
-                arrowprops=dict(arrowstyle="-|>", lw=0.6, color=ps.COND_COL["frm"],
-                                mutation_scale=6))
+    ax.plot(0, 0, "o", ms=6.5, color=ps.SLOTS[4], zorder=7, clip_on=False,
+            mec="white", mew=0.8)
+    ax.plot(cap, 0, "o", ms=6.5, color=ps.COND_COL["frm"], zorder=7, mec="white", mew=0.8)
     ax.set(xlabel="unit's activity  (soft-max over time)",
            ylabel="penalty paid by that unit\n(each curve scaled to its own maximum)",
            xlim=(-0.005, 2.1 * cap), ylim=(-0.03, 1.10), yticks=[])
     ax.legend(loc="upper center", fontsize=6.0, ncol=1, bbox_to_anchor=(0.52, 1.0))
+    ax.set_title("filled circles mark each penalty's minimum", fontsize=6.2, color=ps.MUTED,
+                 pad=3)
     ps.ygrid(ax)
     return cap
 
@@ -322,35 +312,14 @@ def panel_d(ax):
                      rng=np.random.default_rng(50 + ti * 4 + pi), ms=2.6)
             rows.append((task.replace("\n", " "), pen, float(v.mean() - base.mean()),
                          float(v.std(ddof=1)), len(v)))
-            # the best checkpoint, drawn hollow, only where it differs from the matched-compute read
-            if is_dmts36 and dm and pen in dm:
-                pk = dm[pen][1].mean() - dm["none"][1].mean()
-                if abs(pk - (v.mean() - base.mean())) > 0.10:
-                    ax.plot(x, pk, "o", ms=4.0, mfc="none", mec=col, mew=0.9, zorder=6)
     ax.axhline(0, color=ps.INK, lw=0.8, zorder=3)
-    ax.text(-0.48, 0.012, "no cost", fontsize=5.8, color=ps.INK, va="bottom")
-    ax.annotate("best checkpoint: the only arm that\never solves the 36τ delay (Fig. 4d)",
-                xy=(len(TASKS) - 1 + 0.5 * width, 0.37), xytext=(2.25, 0.30),
-                fontsize=5.6, color=ps.COND_COL["frm"], ha="center", linespacing=1.3,
-                arrowprops=dict(arrowstyle="-|>", lw=0.55, color=ps.COND_COL["frm"],
-                                mutation_scale=6))
-    ax.annotate("…but does not hold it: at matched\ncompute it ends below baseline",
-                xy=(len(TASKS) - 1 + 0.42 * width, -0.41), xytext=(2.55, -0.155),
-                fontsize=5.6, color=ps.COND_COL["frm"], ha="center", linespacing=1.3,
-                arrowprops=dict(arrowstyle="-|>", lw=0.55, color=ps.COND_COL["frm"],
-                                mutation_scale=6))
-    ax.plot([], [], "o", ms=4.0, mfc="none", mec=ps.MUTED, mew=0.9, label="best checkpoint")
-    ax.plot([], [], "o", ms=3.4, color=ps.MUTED, label="matched compute (end of training)")
-    ax.legend(loc="lower left", fontsize=5.6, bbox_to_anchor=(-0.01, -0.02))
-    ax.set_yscale("symlog", linthresh=0.02, linscale=1.6)
+    ax.text(-0.48, 0.0035, "no cost", fontsize=5.8, color=ps.INK, va="bottom")
     ax.set(xticks=centres, xticklabels=[t for t, _ in TASKS],
            ylabel="task $r^2$ − unpenalised $r^2$", xlim=(-0.55, len(TASKS) - 0.45),
-           ylim=(-0.72, 0.62))
-    ax.set_yticks([-0.4, -0.1, -0.02, 0, 0.02, 0.1, 0.4])
-    ax.set_yticklabels(["−0.4", "−0.1", "−0.02", "0", "0.02", "0.1", "0.4"])
-    ax.axhspan(-0.02, 0.02, color="#f6f5f0", zorder=0)
-    ax.text(len(TASKS) - 0.52, 0.021, "linear below ±0.02, log outside", ha="right",
-            fontsize=5.2, color=ps.FAINT, va="bottom")
+           ylim=(-0.045, 0.030))
+    ax.text(len(TASKS) - 0.52, 0.0275,
+            "the 36τ delay task is a different kind of comparison\nand is reported in Supplementary S7",
+            ha="right", va="top", fontsize=5.0, color=ps.FAINT, linespacing=1.35)
     ax.tick_params(axis="x", labelsize=6.0)
     ps.ygrid(ax)
     return rows

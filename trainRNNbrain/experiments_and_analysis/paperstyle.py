@@ -209,19 +209,26 @@ def square_pitch(ax, dx):
 
 
 def arrow(ax, xy_from, xy_to, col=MUTED, lw=0.9, style="-|>", rad=0.0, ls="-", zorder=2,
-          mutation_scale=7):
+          mutation_scale=7, shrink=1.5):
     """Draw an annotated connector between two points in data coordinates.
+
+    CURVATURE. `rad` bows the arc to the LEFT of the direction of travel, so for a pair of opposite
+    connectors between the same two nodes one sign gives two arcs on opposite sides (what you want)
+    and the endpoints must be the node CENTRES. Offsetting the endpoints perpendicular to the line
+    and then bowing produces a pinched bowtie whose heads land on the nodes - which is what the
+    first version of Figure 2a did. Give `shrink` in points, large enough to clear the node glyph.
 
     Args:
         ax: axes; xy_from, xy_to: (x, y) endpoints; col: colour; lw: line width;
-        style: arrow style; rad: curvature (0 straight, >0 bows left); ls: line style;
-        zorder: draw order; mutation_scale: arrow-head size.
+        style: arrow style; rad: curvature (0 straight; bows left of travel); ls: line style;
+        zorder: draw order; mutation_scale: arrow-head size; shrink: points trimmed from BOTH ends,
+            so a connector between node centres stops clear of the glyphs.
     Returns:
         the FancyArrowPatch.
     """
     p = FancyArrowPatch(xy_from, xy_to, arrowstyle=style, lw=lw, color=col, zorder=zorder,
                         linestyle=ls, mutation_scale=mutation_scale,
-                        connectionstyle=f"arc3,rad={rad}", shrinkA=1.5, shrinkB=1.5)
+                        connectionstyle=f"arc3,rad={rad}", shrinkA=shrink, shrinkB=shrink)
     ax.add_patch(p)
     return p
 
