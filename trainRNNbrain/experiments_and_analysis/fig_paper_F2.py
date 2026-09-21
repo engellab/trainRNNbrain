@@ -184,12 +184,11 @@ def panel_a(ax):
     """Panel (a): `mute` and `dead` drawn as the same circuit with different edges cut."""
     ps.blank(ax)
     ax.set(xlim=(0, 1), ylim=(0, 1))
-    cases = [("no dropout", None, ps.BASE),
-             ("mute", "mute", ps.COND_COL["mute"]),
+    cases = [("mute", "mute", ps.COND_COL["mute"]),
              ("dead", "dead", ps.COND_COL["dead"])]
-    w = 0.295
+    w = 0.40
     for ci, (title, kind, col) in enumerate(cases):
-        x0 = ci * (w + 0.055)
+        x0 = 0.05 + ci * (w + 0.10)
         ax.text(x0 + w / 2, 0.955, title, ha="center", fontsize=6.8, color=col, fontweight="bold")
 
         # three units in a row, recurrently connected, feeding one read-out
@@ -233,13 +232,7 @@ def panel_a(ax):
                 ax.plot([mx - 0.016, mx + 0.016], [my + 0.022, my - 0.022], lw=1.0, color=ps.BAD,
                         zorder=7)
 
-        note = {"no dropout": "every unit drives the network\nand reaches the read-out",
-                "mute": "read-out weight masked;\nthe unit still drives its neighbours",
-                "dead": "removed from the dynamics\nas well as the read-out"}[title]
-        ax.text(x0 + w / 2, 0.075, note, ha="center", va="center", fontsize=5.5,
-                color=ps.MUTED, linespacing=1.35)
-    ax.text(0.5, -0.05, "resampled every iteration, shared across the batch",
-            ha="center", fontsize=5.6, color=ps.FAINT, transform=ax.transAxes)
+
 
 
 def sampler_cache(refresh=False, n_nets=4, n_trials=256):
@@ -315,17 +308,10 @@ def panel_b(ax, refresh=False):
     wasted = np.array([p[~l].sum() / p.sum() for p, l in zip(c["p_drop"], c["live"])])
     dropped = np.array([p.sum() for p in c["p_drop"]])
 
-    ax.set(xscale="log", yscale="log",
-           xlabel="what the sampler scores:  $q_{0.9}(|x_i|)+\\mathrm{std}(|x_i|)$",
-           ylabel="what 'active' means:\nthe same formula on the RATE")
-    ax.set_title(f"the two barely agree  (Spearman ρ = {rho:.2f})", fontsize=6.2,
-                 color=ps.INK, pad=3)
-    ax.legend(loc="upper left", fontsize=5.8)
-    ax.text(0.03, 0.30,
-            f"so {wasted.mean():.0%} of every batch's drops\n"
-            f"land on units that were already silent\n"
-            f"({wasted.mean() * dropped.mean():.0f} of the {dropped.mean():.0f} dropped per iteration)",
-            transform=ax.transAxes, fontsize=5.8, color=ps.BAD, va="top", linespacing=1.45)
+    ax.set(xscale="log", yscale="log", xlabel="sampler score", ylabel="participation  $p_i$")
+    ax.text(0.03, 0.96, f"ρ = {rho:.2f}", transform=ax.transAxes, fontsize=6.2, color=ps.INK,
+            va="top")
+    ax.legend(loc="lower right", fontsize=5.8)
     ps.ygrid(ax)
     return {"spearman_rho": float(rho), "wasted_share": float(wasted.mean()),
             "wasted_sd": float(wasted.std(ddof=1)), "dropped": float(dropped.mean()),
@@ -358,8 +344,7 @@ def panel_c(ax):
     ax.set(xscale="log", xlabel="training iteration", ylabel="active units",
            xlim=(2e3, 2.3e5), ylim=(150, 1000))
     ax.legend(loc="lower left", fontsize=5.9)
-    ax.set_title("dropout lifts the curve; it does not flatten it", fontsize=6.2,
-                 color=ps.MUTED, pad=3)
+
     ps.ygrid(ax)
     return finals
 
@@ -384,19 +369,11 @@ def panel_d(ax):
                 verdicts[kind] = tost(data[kind][:, 2], ref[:, 2])
         ax.axvline(ref[:, 2].mean(), color=ps.BASE, lw=0.7, ls=":", zorder=2)
         ax.axvspan(ref[:, 2].mean() * 0.95, ref[:, 2].mean() * 1.05, color="#f2f1ec", zorder=0)
-        ax.text(ref[:, 2].mean(), 1.0, "  ±5% equivalence margin", transform=ax.get_xaxis_transform(),
+        ax.text(ref[:, 2].mean(), 1.0, "  ±5%", transform=ax.get_xaxis_transform(),
                 fontsize=5.4, color=ps.MUTED, va="top", ha="left")
-    ax.set(xlabel="noise-free task loss at 150k  (lower is better)", ylabel="active units")
+    ax.set(xlabel="noise-free task loss", ylabel="active units")
     ax.legend(loc="upper left", fontsize=5.9)
-    lines = []
-    for kind, label, col in ARMS[1:]:
-        if kind in verdicts:
-            p, d, lo, hi = verdicts[kind]
-            word = "equivalent" if p < 0.05 else "not shown equivalent"
-            lines.append(f"{label.split(': ')[-1]}: {d:+.1%} [{lo:+.1%}, {hi:+.1%}], TOST p={p:.1g}, {word}")
-    if lines:
-        ax.text(0.5, -0.30, "\n".join(lines), transform=ax.transAxes, ha="center", fontsize=5.6,
-                color=ps.INK, linespacing=1.5, va="top")
+
     ps.ygrid(ax)
     return verdicts
 
@@ -426,13 +403,13 @@ def panel_e(ax):
     res = ps.strip(ax, xs, groups, cols, rng=np.random.default_rng(3))
     if len(base):
         ax.axhline(base.mean(), color=ps.BASE, lw=0.8, ls="--", zorder=2)
-        ax.text(xs[-1] + 0.35, base.mean(), "  no dropout", fontsize=5.6, color=ps.BASE,
-                va="center", ha="left")
+        ax.text(-0.45, base.mean() + 4, "no dropout", fontsize=5.6, color=ps.BASE,
+                va="bottom", ha="left")
     if len(ref) > 1:
         bar = ref.mean() + 3 * ref.std(ddof=1)
         ax.axhline(bar, color=ps.BAD, lw=0.8, ls="-.", zorder=2)
-        ax.text(xs[-1] + 0.35, bar, "  pre-registered bar\n  (+3 sd)", fontsize=5.6, color=ps.BAD,
-                va="center", ha="left", linespacing=1.2)
+        ax.text(-0.45, bar + 4, "pre-registered bar", fontsize=5.6, color=ps.BAD,
+                va="bottom", ha="left")
     for x, (m, sd, n) in zip(xs, res):
         if n:
             ax.text(x, m + 34, f"{m:.0f}", ha="center", fontsize=5.8, color=ps.INK)
@@ -440,8 +417,8 @@ def panel_e(ax):
             ax.text(x, (base.mean() if len(base) else 400) + 60, "training", ha="center",
                     fontsize=5.4, color=ps.FAINT, rotation=90)
     ax.set(xticks=xs, xticklabels=labels, ylabel="active units",
-           xlabel=f"fraction of units dropped per iteration   (read at {LADDER_READ_AT // 1000}k)",
-           xlim=(-0.6, xs[-1] + 1.5))
+           xlabel="fraction dropped per iteration",
+           xlim=(-0.6, xs[-1] + 0.7))
     ax.tick_params(axis="x", labelsize=5.6)
     ps.ygrid(ax)
     return list(zip(labels, res))
@@ -456,14 +433,10 @@ def main():
     ax_a = fig.add_subplot(gs[0, :2])
     panel_a(ax_a)
     ps.panel_letter(ax_a, "a", dx=-0.015, dy=1.0)
-    ax_a.text(-0.015, 1.12, "Two ways to drop a unit", transform=ax_a.transAxes, fontsize=7.4,
-              color=ps.INK, fontweight="bold")
 
     ax_b = fig.add_subplot(gs[0, 2])
     info_b = panel_b(ax_b)
     ps.panel_letter(ax_b, "b")
-    ax_b.text(-0.28, 1.19, "Which units get dropped", transform=ax_b.transAxes, fontsize=7.4,
-              color=ps.INK, fontweight="bold")
 
     ax_c = fig.add_subplot(gs[1, 0])
     finals = panel_c(ax_c)

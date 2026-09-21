@@ -177,11 +177,9 @@ def panel_a(ax, c):
         ax.plot([0.10, 0.94], [base, base], lw=0.45, color=ps.FAINT, zorder=2)
         ax.text(0.10, base + 0.30, lab, fontsize=6.4, color=col)
         ax.text(0.94, base + 0.30, f"tPR = {tpr:.2f}", fontsize=6.0, color=col, ha="right")
-    ax.text(0.52, 0.035, "time (one trial)", ha="center", fontsize=5.6, color=ps.FAINT)
-    ax.text(0.52, 0.965, "both units are ACTIVE by every threshold in this paper",
-            ha="center", fontsize=6.2, color=ps.INK)
-    ax.text(0.52, 0.125, "the rate penalty is satisfied by either one",
-            ha="center", fontsize=5.8, color=ps.MUTED)
+    ax.text(0.52, 0.075, "time", ha="center", fontsize=5.6, color=ps.FAINT)
+
+
 
 
 def panel_b(ax, c):
@@ -201,7 +199,7 @@ def panel_b(ax, c):
     ax.set(xscale="log", xlabel="effective in-degree  $S_i=(\\sum_j|W_{ij}|)^2/\\sum_j W_{ij}^2$",
            ylabel="units")
     ax.legend(loc="upper right", fontsize=5.9)
-    ax.set_title("every unit is driven to the cap", fontsize=6.2, color=ps.MUTED, pad=3)
+
     ps.ygrid(ax)
     return {"median_frm": float(np.median(S_frm)), "median_both": float(np.median(S_both)),
             "n_frm": int(S_frm.shape[0]), "n_both": int(S_both.shape[0])}
@@ -231,16 +229,13 @@ def panel_c(ax):
         d1 = ((res["A1"][1] - res["A1"][0]).mean() - (res["A2"][1] - res["A2"][0]).mean()) * 100
         d3 = ((res["A3"][1] - res["A3"][0]).mean() - (res["A4"][1] - res["A4"][0]).mean()) * 100
         out[task] = (d1, d3)
-        ax.text(centres[-1], 52.0, task, ha="center", fontsize=6.6, color=ps.INK)
-        ax.text(centres[-1], 44.5,
-                f"adding rws {d1:+.1f}   ·   removing rws {d3:+.1f}",
-                ha="center", fontsize=5.8, color=ps.MUTED)
+        ax.text(centres[-1], 40.0, task, ha="center", fontsize=6.6, color=ps.INK)
+
         x += 0.9
     ax.axhline(0, color=ps.INK, lw=0.8, zorder=3)
-    ax.set(xticks=xs, xticklabels=labels, ylim=(-40, 58),
-           ylabel="change in burst units\n(percentage points of active units)")
-    ax.text(0.5, -0.185, "summary values are treatment minus matched control",
-            transform=ax.transAxes, ha="center", fontsize=5.5, color=ps.FAINT)
+    ax.set(xticks=xs, xticklabels=labels, ylim=(-40, 46),
+           ylabel="change in burst units (pts)")
+
     ax.tick_params(axis="x", labelsize=5.8)
     ax.set_yticks([-40, -30, -20, -10, 0, 10, 20, 30])
     ps.ygrid(ax)
@@ -305,14 +300,10 @@ def main():
     ax_a = fig.add_subplot(gs[0, 0])
     panel_a(ax_a, c)
     ps.panel_letter(ax_a, "a", dx=-0.02, dy=1.0)
-    ax_a.text(-0.02, 1.13, "How the rate penalty is gamed", transform=ax_a.transAxes,
-              fontsize=7.4, color=ps.INK, fontweight="bold")
 
     ax_b = fig.add_subplot(gs[0, 1])
     info_b = panel_b(ax_b, c)
     ps.panel_letter(ax_b, "b")
-    ax_b.text(-0.13, 1.13, "What weight sparsity does", transform=ax_b.transAxes,
-              fontsize=7.4, color=ps.INK, fontweight="bold")
 
     ax_c = fig.add_subplot(gs[1, :])
     contrasts = panel_c(ax_c)

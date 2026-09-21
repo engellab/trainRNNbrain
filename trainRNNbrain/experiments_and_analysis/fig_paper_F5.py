@@ -165,8 +165,8 @@ def panel_a(ax):
     dx = 0.0125
     dy = ps.square_pitch(ax, dx)
     for col_i, (title, note) in enumerate([
-            ("what the network has", "1,000 units;\n290 ever fire"),
-            ("what a recording sees", "only those 290;\nthe rest are invisible")]):
+            ("the network", "1000 units, 290 active"),
+            ("a recording", "the 290")]):
         x0 = 0.145 + col_i * 0.455
         ps.unit_grid(ax, x0, 0.66, 29, 100, col=ps.SLOTS[0],
                      off_col=("#d5d4cc" if col_i == 0 else ps.PAPER),
@@ -176,11 +176,8 @@ def panel_a(ax):
                 color=ps.MUTED, linespacing=1.3)
     ps.arrow(ax, (0.455, 0.46), (0.565, 0.46), col=ps.MUTED)
     ax.text(0.51, 0.505, "record", ha="center", fontsize=5.6, color=ps.MUTED)
-    ax.text(0.5, 0.955, "An experimenter never records a never-firing neuron",
-            ha="center", fontsize=6.8, color=ps.INK)
-    ax.text(0.5, 0.015,
-            "every statistic below is computed over ACTIVE UNITS ONLY",
-            ha="center", fontsize=5.9, color=ps.BAD)
+
+
 
 
 def bars(ax, data, key_all, key_act, ylabel, title):
@@ -242,16 +239,13 @@ def panel_ablation(ax):
         frac_silent = 1 - np.mean([r["n_active"] / r["N"] for r in rows])
         if pen == "none":
             ax.axvline(frac_silent, color=ps.BASE, lw=0.7, ls=":", zorder=2)
-            ax.annotate(f"deleting the {frac_silent:.0%} that\nwere silent anyway is free",
-                        xy=(frac_silent, 0.93), xytext=(0.44, 0.60), fontsize=5.4,
-                        color=ps.BASE, ha="center", linespacing=1.25,
-                        arrowprops=dict(arrowstyle="-|>", lw=0.5, color=ps.BASE, mutation_scale=5))
-    ax.set(xlabel="fraction of units deleted\n(least active first, no retraining)",
-           ylabel="task $r^2$", xlim=(-0.02, 0.92), ylim=(-0.05, 1.0))
+
+    ax.set(xlabel="fraction of units deleted", ylabel="task $r^2$",
+           xlim=(-0.02, 0.92), ylim=(-0.05, 1.0))
     ax.set_xticks([0, 0.25, 0.5, 0.75])
     ax.set_xticklabels(["0", "25%", "50%", "75%"])
     ax.legend(loc="lower left", fontsize=5.8)
-    ax.set_title("do the units do anything?", fontsize=6.4, color=ps.MUTED, pad=3)
+
     ps.ygrid(ax)
     return out
 
@@ -271,8 +265,6 @@ def main():
     ax_a = fig.add_subplot(gs[0, 0:3])
     panel_a(ax_a)
     ps.panel_letter(ax_a, "a", dx=-0.02, dy=1.0)
-    ax_a.text(-0.02, 1.09, "The rule that changes the answer", transform=ax_a.transAxes,
-              fontsize=7.4, color=ps.INK, fontweight="bold")
 
     ax_b = fig.add_subplot(gs[1, 0:2])
     rows_b = []
@@ -285,13 +277,10 @@ def main():
                  rng=np.random.default_rng(200 + i), ms=3.0)
         rows_b.append((pen, float(np.nanmean(a)), float(np.nanmean(a)), len(v)))
     ax_b.set(xticks=range(len(ARMS)), xticklabels=[l for _, l, _ in ARMS],
-             ylabel="participation ratio of the\nactivity covariance", ylim=(0, 8))
+             ylabel="participation ratio", ylim=(0, 8))
     ax_b.tick_params(axis="x", labelsize=5.8)
     ax_b.set_title("effective dimensionality", fontsize=6.4, color=ps.MUTED, pad=3)
-    ax_b.text(0.5, 0.055,
-              "identical over all units and over active\nunits only: a silent unit adds no variance",
-              transform=ax_b.transAxes, ha="center", fontsize=5.4, color=ps.FAINT,
-              linespacing=1.3)
+
     ps.ygrid(ax_b)
     ps.panel_letter(ax_b, "b")
 
@@ -299,8 +288,8 @@ def main():
     rows_c = bars(ax_c, data, "sigma_all", "sigma_act", "$\\sigma$ of $\\log_{10}$ mean rate",
                   "rate heterogeneity")
     ax_c.axhline(CORTEX_SIGMA_LOG, color=ps.BAD, lw=0.9, ls="--", zorder=5)
-    ax_c.text(len(ARMS) - 0.55, CORTEX_SIGMA_LOG * 1.02, "cortex ≈ 1 decade", ha="right",
-              va="bottom", fontsize=5.6, color=ps.BAD)
+    ax_c.text(len(ARMS) - 0.55, CORTEX_SIGMA_LOG * 1.02, "cortex", ha="right",
+              va="bottom", fontsize=5.8, color=ps.BAD)
     ps.panel_letter(ax_c, "c")
 
     ax_d = fig.add_subplot(gs[1, 4:6])
@@ -316,18 +305,16 @@ def main():
         ax_d.plot([i - 0.22, i + 0.22], [med] * 2, lw=1.8, color=col, zorder=5)
         rows_d.append((pen, float(med), float(q1), float(q3), len(v), int(pooled.size)))
     ax_d.set(xticks=range(len(ARMS)), xticklabels=[l for _, l, _ in ARMS],
-             ylabel="per-unit $R^2$ on the task variables\n(active units, median and IQR)",
+             ylabel="per-unit $R^2$ on task variables",
              ylim=(0, 1.02))
     ax_d.tick_params(axis="x", labelsize=5.8)
-    ax_d.set_title("task tuning of the active units", fontsize=6.4, color=ps.MUTED, pad=3)
+    ax_d.set_title("task tuning", fontsize=6.4, color=ps.MUTED, pad=3)
     ps.ygrid(ax_d)
     ps.panel_letter(ax_d, "d")
 
     ax_e = fig.add_subplot(gs[0, 3:6])
     abl = panel_ablation(ax_e)
     ps.panel_letter(ax_e, "e")
-    ax_e.text(-0.16, 1.22, "The decisive control", transform=ax_e.transAxes, fontsize=7.4,
-              color=ps.INK, fontweight="bold")
 
     out = ps.save(fig, "fig_paper_F5")
     for pen, (f, m, sd) in abl.items():

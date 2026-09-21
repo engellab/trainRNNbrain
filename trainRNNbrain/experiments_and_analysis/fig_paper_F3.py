@@ -70,15 +70,12 @@ TASKS = [
         "rws":  f"{D}/NBitFlipFlop_std_pen/EqType=h_k=3_N=1000_pen=rws",
         "frm":  f"{D}/NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=frm_iters=400000",
         "both": f"{D}/NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=both_iters=400000"}),
-    ("hyper\nflip-flop", {
-        "none": f"{D}/NBitFlipFlopHyper_std_hyper/EqType=h_k=4_N=1000_pen=none",
-        "both": f"{D}/NBitFlipFlopHyper_std_hyper/EqType=h_k=4_N=1000_pen=both"}),
     ("CDDM", {
         "none": f"{D}/CDDM_std_g0_drift/EqType=h_N=1000_iters=200000",
         "rws":  f"{D}/CDDM_std_g0_penalties/EqType=h_N=1000_pen=rws",
         "frm":  f"{D}/CDDM_std_g0_penalties/EqType=h_N=1000_pen=frm",
         "both": f"{D}/CDDM_std_g0_penalties/EqType=h_N=1000_pen=both"}),
-    ("DMTS\n16τ", {
+    ("DMTS", {
         "none": f"{D}/DMTS_std_pen/EqType=h_N=1000_pen=none",
         "rws":  f"{D}/DMTS_std_pen/EqType=h_N=1000_pen=rws",
         "frm":  f"{D}/DMTS_std_pen/EqType=h_N=1000_pen=frm",
@@ -175,60 +172,25 @@ def frm_penalty(a, N=N_UNITS):
 
 
 def panel_a(ax):
-    """Panel (a): the objective never asks for units, and the ReLU-specific story is not the cause.
+    """Panel (a): two networks with the same output and very different numbers of active units.
 
-    THIS PANEL WAS REBUILT AFTER A CORRECTION (Pavel, 2026-09-20). It previously argued the whole
-    mechanism from the ReLU scale symmetry and the exactly-zero gradient of a dead ReLU. That
-    cannot be right: Figure 1e shows silence on softplus, leaky ReLU and a bounded sigmoid too, and
-    a ReLU-specific argument cannot explain an observation that is not specific to ReLU. Worse, our
-    own activation sweep points the other way -- see the table drawn at the bottom of the panel.
-
-    What survives is weaker and general: the task loss is a function of the OUTPUT, so once the task
-    is solved, a solution carried by M units scores exactly as well as one carried by N. Nothing in
-    the objective rewards recruiting the rest.
+    The panel carries short labels only; the argument -- that the task loss reads the output alone,
+    so nothing in the objective asks for the units that are not being used, and that the
+    ReLU-specific sharpenings are ruled out by the activation sweep in Fig. 1e -- is in the caption.
+    An earlier version put all of that inside the panel and it was unreadable (Pavel, 2026-09-21).
     """
     ps.blank(ax)
     ax.set(xlim=(0, 1), ylim=(0, 1))
-
-    ax.text(0.5, 0.975, "The objective never asks for the units", ha="center", fontsize=6.8,
-            color=ps.INK)
-
-    # two networks, same output, very different numbers of active units
     ax.figure.canvas.draw()
-    dx = 0.0135
+    dx = 0.016
     dy = ps.square_pitch(ax, dx)
-    for col_i, (n_on, lab) in enumerate([(26, "260 of 1000 units active"),
-                                         (100, "1000 of 1000 units active")]):
-        x0 = 0.085 + col_i * 0.50
-        ps.unit_grid(ax, x0, 0.845, n_on, 100, col=ps.SLOTS[0], off_col="#d9d8d1",
-                     pitch=(dx, dy), s=3.6, lw=0.34)
-        ax.text(x0 + 4.5 * dx, 0.885, lab, ha="center", fontsize=5.9, color=ps.INK)
-        ps.box(ax, x0 + 4.5 * dx - 0.088, 0.548, 0.176, 0.056, "same output", col=ps.MUTED,
-               face="#f2f1ec", lw=0.6, fs=5.2)
-        ps.arrow(ax, (x0 + 4.5 * dx, 0.660), (x0 + 4.5 * dx, 0.610), col=ps.MUTED)
-    ax.text(0.5, 0.735, "=", ha="center", va="center", fontsize=11, color=ps.INK)
-    ax.text(0.5, 0.492, "identical task loss --- the loss is indifferent between them",
-            ha="center", fontsize=6.0, color=ps.INK)
-    ax.text(0.5, 0.432,
-            "gradient descent recruits what it recruits early; nothing enlarges that set",
-            ha="center", fontsize=5.6, color=ps.MUTED)
-
-    # the ReLU-specific sharpenings, and the measurements that rule them out as the cause
-    ps.box(ax, 0.01, 0.045, 0.98, 0.345, col=ps.MUTED, face="#f6f5f0", lw=0.6, pad=0.012)
-    ax.text(0.5, 0.352, "ReLU sharpens this in two ways --- neither of which is what drives it",
-            ha="center", fontsize=6.0, color=ps.INK)
-    rows = [("exact scale symmetry",
-             "$\\mathrm{relu}(ax)=a\\,\\mathrm{relu}(x)$, so a unit's activity level is unidentifiable",
-             "but remove it (softplus, sigmoid) and silence gets WORSE, not better"),
-            ("death is absorbing",
-             "below threshold on every trial $\\mathrm{relu}'=0$, so the unit cannot return",
-             "but remove it (leaky ReLU) and nothing changes: $+6\\pm14$ units")]
-    for i, (head, what, test) in enumerate(rows):
-        y = 0.292 - i * 0.128
-        ax.text(0.045, y, head, fontsize=5.9, color=ps.INK, va="center", ha="left")
-        ax.text(0.045, y - 0.037, what, fontsize=5.1, color=ps.MUTED, va="center", ha="left")
-        ax.text(0.045, y - 0.072, test, fontsize=5.3, color=ps.BAD, va="center", ha="left")
-    ax.plot([0.045, 0.955], [0.176, 0.176], lw=0.4, color="#dedcd4", zorder=1)
+    for col_i, (n_on, lab) in enumerate([(26, "260 active"), (100, "1000 active")]):
+        x0 = 0.115 + col_i * 0.50
+        ps.unit_grid(ax, x0, 0.80, n_on, 100, col=ps.SLOTS[0], off_col="#d9d8d1",
+                     pitch=(dx, dy), s=4.4, lw=0.36)
+        ax.text(x0 + 4.5 * dx, 0.865, lab, ha="center", fontsize=6.4, color=ps.INK)
+    ax.text(0.5, 0.62, "=", ha="center", va="center", fontsize=12, color=ps.INK)
+    ax.text(0.5, 0.20, "same output, same loss", ha="center", fontsize=6.6, color=ps.INK)
 
 
 def panel_b(ax):
@@ -254,8 +216,7 @@ def panel_b(ax):
            ylabel="penalty paid by that unit\n(each curve scaled to its own maximum)",
            xlim=(-0.005, 2.1 * cap), ylim=(-0.03, 1.10), yticks=[])
     ax.legend(loc="upper center", fontsize=6.0, ncol=1, bbox_to_anchor=(0.52, 1.0))
-    ax.set_title("filled circles mark each penalty's minimum", fontsize=6.2, color=ps.MUTED,
-                 pad=3)
+
     ps.ygrid(ax)
     return cap
 
@@ -317,9 +278,7 @@ def panel_d(ax):
     ax.set(xticks=centres, xticklabels=[t for t, _ in TASKS],
            ylabel="task $r^2$ − unpenalised $r^2$", xlim=(-0.55, len(TASKS) - 0.45),
            ylim=(-0.045, 0.030))
-    ax.text(len(TASKS) - 0.52, 0.0275,
-            "the 36τ delay task is a different kind of comparison\nand is reported in Supplementary S7",
-            ha="right", va="top", fontsize=5.0, color=ps.FAINT, linespacing=1.35)
+
     ax.tick_params(axis="x", labelsize=6.0)
     ps.ygrid(ax)
     return rows
@@ -328,21 +287,17 @@ def panel_d(ax):
 def main():
     """Assemble Figure 3 and write it. Returns the output path."""
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 158 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[1.12, 0.94], width_ratios=[1.10, 1.0],
+    fig = plt.figure(figsize=(ps.W2, 132 * ps.MM))
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.82, 1.0], width_ratios=[1.10, 1.0],
                   hspace=0.40, wspace=0.24)
 
     ax_a = fig.add_subplot(gs[0, 0])
     panel_a(ax_a)
     ps.panel_letter(ax_a, "a", dx=-0.02, dy=1.0)
-    ax_a.text(-0.02, 1.10, "Why units die for free", transform=ax_a.transAxes, fontsize=7.4,
-              color=ps.INK, fontweight="bold")
 
     ax_b = fig.add_subplot(gs[0, 1])
     cap = panel_b(ax_b)
     ps.panel_letter(ax_b, "b")
-    ax_b.text(-0.13, 1.10, "Why the standard remedy makes it worse",
-              transform=ax_b.transAxes, fontsize=7.4, color=ps.INK, fontweight="bold")
 
     ax_c = fig.add_subplot(gs[1, 0])
     rows_c = panel_c(ax_c)

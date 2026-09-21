@@ -83,13 +83,9 @@ SCALING = {
 }
 
 TASKS = [
-    ("3-bit flip-flop",   f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", 150_000),
-    ("CDDM",              f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*", 150_000),
-    ("DMTS (36τ delay)",  f"{DATA_DIR}/DMTS_std_delay36/EqType=h_N=1000_pen=none", 150_000),
-    ("DMTS (16τ delay)",  f"{DATA_DIR}/DMTS_std_pen/EqType=h_N=1000_pen=none", 150_000),
-    ("Yang, context DM",  f"{DATA_DIR}/Yang_std_30k/EqType=h_set=ctxdm_N=1000_pen=none", 150_000),
-    ("Yang, 20 tasks",    f"{DATA_DIR}/Yang_std_30k/EqType=h_set=multi20_N=1000_pen=none", 150_000),
-    ("hyper flip-flop",   f"{DATA_DIR}/NBitFlipFlopHyper_std_hyper/EqType=h_k=4_N=1000_pen=none", 150_000),
+    ("3-bit flip-flop", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", 150_000),
+    ("CDDM",            f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*", 150_000),
+    ("DMTS",            f"{DATA_DIR}/DMTS_std_pen/EqType=h_N=1000_pen=none", 150_000),
 ]
 
 # Interventions, grouped by task family. Each family carries its OWN reference, and the panel plots
@@ -210,37 +206,29 @@ def panel_a(ax, rates, targets, p):
 
     # --- left: the task, the network, the read-out -------------------------------------------
     ps.box(ax, 0.002, 0.46, 0.112, 0.22, col=ps.MUTED, face="#f2f1ec", lw=0.6)
-    ax.text(0.058, 0.605, "3 bits", ha="center", va="center", fontsize=6.0, color=ps.INK)
-    ax.text(0.058, 0.515, "set / reset", ha="center", va="center", fontsize=5.0, color=ps.MUTED)
-    ax.text(0.058, 0.705, "input", ha="center", fontsize=5.8, color=ps.MUTED)
-
+    ax.text(0.058, 0.570, "3 bits", ha="center", va="center", fontsize=6.0, color=ps.INK)
+        
     # the recurrent pool, drawn as 100 glyphs filled to the measured live fraction
     dx = 0.0235
     dy = ps.square_pitch(ax, dx)
     gx, gy = 0.155, 0.84
     w_grid, h_grid = ps.unit_grid(ax, gx, gy, round(n_live / 10), 100, col=ps.SLOTS[0],
                                   off_col="#d5d4cc", pitch=(dx, dy), s=4.6, lw=0.4)
-    ax.text(gx + w_grid / 2, gy + 0.055, "recurrent pool, N = 1000",
-            ha="center", fontsize=6.2, color=ps.INK)
-    ax.text(gx + w_grid / 2, gy - h_grid - 0.105,
-            f"{n_live} of 1000 active ({n_live / 1000:.0%})",
+    ax.text(gx + w_grid / 2, gy + 0.055, "$N=1000$", ha="center", fontsize=6.2, color=ps.INK)
+    ax.text(gx + w_grid / 2, gy - h_grid - 0.105, f"{n_live} active",
             ha="center", fontsize=6.2, color=ps.SLOTS[0])
-    ax.text(gx + w_grid / 2, gy - h_grid - 0.175, "one glyph = 10 units",
-            ha="center", fontsize=5.2, color=ps.FAINT)
 
     bx = gx + w_grid + 0.055
     ps.box(ax, bx, 0.46, 0.115, 0.22, col=ps.MUTED, face="#f2f1ec", lw=0.6)
-    ax.text(bx + 0.0575, 0.605, "3", ha="center", va="center", fontsize=6.0, color=ps.INK)
-    ax.text(bx + 0.0575, 0.515, "read-outs", ha="center", va="center", fontsize=5.3, color=ps.MUTED)
-    ax.text(bx + 0.0575, 0.705, "output", ha="center", fontsize=5.8, color=ps.MUTED)
-
+    ax.text(bx + 0.0575, 0.570, "3 outputs", ha="center", va="center", fontsize=6.0, color=ps.INK)
+    
     ps.arrow(ax, (0.118, 0.57), (gx - 0.014, 0.57), col=ps.MUTED)
     ps.arrow(ax, (gx + w_grid + 0.016, 0.57), (bx - 0.008, 0.57), col=ps.MUTED)
 
     # --- right: three real units ---------------------------------------------------------------
-    picks = [(order[0], "strongly driven", ps.SLOTS[0]),
-             (order[n_live - 12], "just above threshold", ps.SLOTS[2]),
-             (order[600], "never leaves zero", ps.BAD)]
+    picks = [(order[0], "driven", ps.SLOTS[0]),
+             (order[n_live - 12], "near threshold", ps.SLOTS[2]),
+             (order[600], "silent", ps.BAD)]
     x0, xw = 0.695, 0.215
     tt = np.linspace(0, 1, rates.shape[1])
     trial = int(np.argmax(rates[order[0]].max(axis=0)))
@@ -250,7 +238,7 @@ def panel_a(ax, rates, targets, p):
     for b in range(targets.shape[0]):
         sig = np.asarray(targets[b, :, trial], float)
         ax.plot(x0 + xw * tt, yb + 0.030 * b + 0.021 * sig, lw=0.6, color=ps.FAINT, zorder=2)
-    ax.text(x0 - 0.010, yb + 0.045, "target bits", ha="right", va="center", fontsize=5.5,
+    ax.text(x0 - 0.010, yb + 0.045, "target", ha="right", va="center", fontsize=5.5,
             color=ps.MUTED)
 
     for j, (u, lab, col) in enumerate(picks):
@@ -259,13 +247,10 @@ def panel_a(ax, rates, targets, p):
         ax.plot(x0 + xw * tt, base + 0.175 * r / max(r.max(), 1e-9), lw=0.8, color=col, zorder=3)
         ax.plot([x0, x0 + xw], [base, base], lw=0.4, color=ps.FAINT, zorder=1)
         ax.text(x0 - 0.010, base + 0.075, lab, ha="right", va="center", fontsize=5.7, color=col)
-        ax.text(x0 + xw + 0.010, base + 0.100, f"peak {r.max():.2g}", ha="left", va="center",
-                fontsize=5.3, color=ps.FAINT)
-        ax.text(x0 + xw + 0.010, base + 0.035, f"$p$ = {p[u]:.2g}", ha="left", va="center",
+        ax.text(x0 + xw + 0.012, base + 0.070, f"$p$ = {p[u]:.2g}", ha="left", va="center",
                 fontsize=5.3, color=ps.MUTED)
-    ax.text(x0 + xw / 2, -0.055, "time (one trial)", ha="center", fontsize=5.6, color=ps.MUTED)
-    ax.text(x0 + xw / 2, 0.985, "three real units of that network", ha="center", fontsize=6.2,
-            color=ps.INK)
+    ax.text(x0 + xw / 2, -0.055, "time", ha="center", fontsize=5.6, color=ps.MUTED)
+
 
 
 def panel_b(ax, p):
@@ -285,16 +270,10 @@ def panel_b(ax, p):
     ax.axvline(thr, color=ps.INK, lw=0.9, ls="--", zorder=5)
     top = ax.get_ylim()[1]
     ax.set_ylim(0, top * 1.28)
-    ax.annotate("criterion\n$p_i < 0.05\\,q_{95}(p)$", xy=(thr, top * 1.02),
-                xytext=(thr * 26, top * 1.16), fontsize=5.8, color=ps.INK,
-                ha="center", va="center", linespacing=1.25,
-                arrowprops=dict(arrowstyle="-|>", lw=0.6, color=ps.INK, shrinkA=1, shrinkB=2))
+    ax.text(thr * 1.35, top * 1.14, "criterion", fontsize=5.8, color=ps.INK, ha="left",
+            va="center")
     ax.set_xscale("log")
     ax.set(xlabel="participation  $p_i=\\mathrm{std}(r_i)+q_{0.9}(|r_i|)$", ylabel="units")
-    ax.annotate("", xy=(6e-4, top * 0.26), xytext=(0.9, top * 0.26),
-                arrowprops=dict(arrowstyle="<|-|>", lw=0.55, color=ps.MUTED, mutation_scale=6))
-    ax.text(0.023, top * 0.305, "3.5 decades\nof empty valley", ha="center",
-            fontsize=5.6, color=ps.MUTED, linespacing=1.2)
     ax.legend(loc="upper left", fontsize=5.8, bbox_to_anchor=(0.0, 1.0))
     ps.ygrid(ax)
 
@@ -337,8 +316,7 @@ def panel_c(ax):
         ax.text(2.45e4, frac * 2.45e4, lab, fontsize=5.2, color=ps.FAINT, ha="right", va="bottom")
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
     need = np.mean([v[2] for v in fits.values()])
-    ax.text(3.4e2, 1120, f"1,000 active units\nwould need N ≈ {round(need, -3):,.0f}",
-            fontsize=5.9, color=ps.BAD, va="bottom", linespacing=1.25)
+    ax.text(3.4e2, 1120, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N", ylabel="active units",
            xlim=(3.2e2, 2.7e4), ylim=(140, 3.4e4))
     ax.legend(handles=handles, loc="lower right", fontsize=5.9)
@@ -364,11 +342,8 @@ def panel_d(ax):
         ax.text(f.mean() + 0.040, i, f"{f.mean():.0%}", va="center", fontsize=6.0,
                 color=ps.SLOTS[0])
     ax.axvline(1.0, color=ps.MUTED, lw=0.7)
-    ax.text(0.99, len(rows) - 0.42, "whole\nnetwork", ha="right", va="top", fontsize=5.4,
-            color=ps.MUTED, linespacing=1.2)
-    ax.text(0.75, -0.80, "no task reaches half", ha="center", fontsize=5.8, color=ps.MUTED)
     ax.set(yticks=y, yticklabels=[r[0] for r in rows], xlim=(0, 1.04),
-           ylim=(-1.1, len(rows) - 0.35), xlabel="fraction of units active   (N = 1000, n = 3)")
+           ylim=(-1.1, len(rows) - 0.35), xlabel="fraction of units active")
     ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
     ax.set_xticklabels(["0", "25%", "50%", "75%", "100%"])
     ps.despine(ax, keep=("bottom",))
@@ -391,9 +366,6 @@ def panel_e(ax):
         ax.axhspan(y - 0.62, y + len(items) - 0.42, color="#f6f5f0", zorder=0)
         ax.text(0.012, y - 0.46, fam, transform=ax.get_yaxis_transform(), ha="left",
                 va="bottom", fontsize=6.0, color=ps.INK, zorder=6)
-        ax.text(0.988, y - 0.46, f"reference {ref.mean():.0f} active units, n = {len(ref)}",
-                transform=ax.get_yaxis_transform(), ha="right", va="bottom", fontsize=5.6,
-                color=ps.MUTED, zorder=6)
         for label, pat, group in items:
             g = live_matched(pat, cap)
             if g is None:
@@ -418,16 +390,15 @@ def panel_e(ax):
         y += 1.15
 
     ax.axvline(0, color=ps.INK, lw=0.8, zorder=3)
-    ax.text(0, y - 0.05, "no change", ha="center", va="top", fontsize=5.8, color=ps.INK)
 
     # the scale that matters: what the remedy of Figure 3 does on the same axis
     ax.annotate("", xy=(708, y - 0.75), xytext=(0, y - 0.75),
                 arrowprops=dict(arrowstyle="-|>", lw=1.0, color=ps.SLOTS[1], mutation_scale=7))
-    ax.text(354, y - 0.95, "for scale — the rate penalty of Fig. 3: +708 units",
-            ha="center", fontsize=6.2, color=ps.SLOTS[1])
+    ax.text(354, y - 0.95, "rate penalty (Fig. 3)", ha="center", fontsize=6.0,
+            color=ps.SLOTS[1])
 
     ax.set(yticks=ticks, yticklabels=labels, ylim=(y - 0.4, -1.5), xlim=(-270, 790),
-           xlabel="change in active units vs. that family's own reference   (mean, 95% CI, n = 3)")
+           xlabel="change in active units")
     ps.despine(ax, keep=("bottom",))
     ax.tick_params(axis="y", length=0)
     ax.xaxis.grid(True, alpha=0.2, lw=0.5, color=ps.GRID)
@@ -451,14 +422,10 @@ def main():
     ax_a = fig.add_subplot(gs[0, 0])
     panel_a(ax_a, rates, targets, p)
     ps.panel_letter(ax_a, "a", dx=-0.02, dy=0.99)
-    ax_a.text(-0.02, 1.13, "What is being measured", transform=ax_a.transAxes, fontsize=7.4,
-              color=ps.INK, fontweight="bold")
 
     ax_b = fig.add_subplot(gs[0, 1])
     panel_b(ax_b, p)
     ps.panel_letter(ax_b, "b")
-    ax_b.text(-0.15, 1.20, "Why the threshold is not a judgement call",
-              transform=ax_b.transAxes, fontsize=7.4, color=ps.INK, fontweight="bold")
 
     ax_c = fig.add_subplot(gs[1, 0])
     fits = panel_c(ax_c)
