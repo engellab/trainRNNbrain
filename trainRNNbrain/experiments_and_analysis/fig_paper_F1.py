@@ -129,9 +129,17 @@ SCALING = {
         2000: FF.format(N=2000),
         4000: f"{DATA_DIR}/NBitFlipFlop_std_bigN/EqType=h_k=3_N=4000_pen=none_iters=*",
     }, 100_000, ps.SLOTS[0]),
-    # three sizes, so it is fitted but not extrapolated a decade beyond its data
-    "6-bit flip-flop": ([500, 1000, 2000], {N: FF6.format(N=N) for N in (500, 1000, 2000)},
-                        100_000, ps.SLOTS[3]),
+    # N=4000 comes from the big-N sweep rather than the k-sweep, exactly as the k=3 series does.
+    # Verified from the two cells' own saved configs that they are the same experiment: task
+    # (T, mu, n_flip_steps, batch_size, k), model (equation type, gamma, spectral radius, all three
+    # noise levels, bias range) and trainer (lr rule, weight decay, anneal_noise, every lambda,
+    # dropout) are identical; only N differs.
+    "6-bit flip-flop": ([500, 1000, 2000, 4000], {
+        500:  FF6.format(N=500),
+        1000: FF6.format(N=1000),
+        2000: FF6.format(N=2000),
+        4000: f"{DATA_DIR}/NBitFlipFlop_std_bigN/EqType=h_k=6_N=4000_pen=none_iters=*",
+    }, 100_000, ps.SLOTS[3]),
     "CDDM": ([500, 1000, 2000, 5000], {
         N: f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N={N}_iters=*" for N in (500, 1000, 2000, 5000)
     }, 100_000, ps.SLOTS[1]),
