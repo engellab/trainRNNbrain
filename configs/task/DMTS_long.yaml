@@ -13,10 +13,18 @@
 # Onsets of sample and match are jittered independently by +-1 tau (T_random_window), so the
 # network cannot solve the task by counting steps from trial start.
 #
-# 4 stimuli (n_inputs = 4 + 1 decision cue) -> 16 sample/match pairs, 4 of them matches; the
-# sample identity is 2 bits to hold. The class draws 64 repeats of the 16 pairs, so a batch is
-# 1024 trials, the same as the flip-flop sweeps. n_outputs=2 -> one channel for match, one for
-# non-match (the class's two-output mode), like CDDM's two-choice read-out.
+# CHANNELS (redesigned 2026-09-21). ch0/ch1 carry the two stimulus identities as +1 pulses, ch2 is
+# a tonic drive held at 1.0 all trial, ch3 is the decision cue. The old layout spent one channel per
+# identity on FOUR stimuli because inputs used to be constrained non-negative; io_nonnegativity is
+# false now, and more importantly 4 stimuli made the batch 4x4 = 16 pairs with only the 4 diagonal
+# ones a match -- 25/75, so always answering "non-match" scored 75%. Two stimuli give 2x2 = 4 pairs,
+# 50/50 balanced. The memory load drops from 2 bits to 1, which is acceptable: one bit held across
+# 16 tau of silence still cannot be carried by a transient, which is what this task is here to test.
+# ⚠️ The tonic channel is mathematically a bias (a constant reaching unit i as W_inp[i,2] every
+# step). It sets an operating point and cannot carry memory. Since every measure in this project
+# counts non-silent units, it is a confound on the main measure; `tonic: false` tests it directly.
+# num_rep=256 x 4 pairs = 1024 trials, matching the flip-flop and CDDM batches and the old DMTS runs.
+# n_outputs=2 -> one channel for match, one for non-match, like CDDM's two-choice read-out.
 taskname: "DMTS"
 _target_: trainRNNbrain.tasks.TaskDMTS.TaskDMTS
 T: 300
@@ -28,7 +36,10 @@ T_stim_off_match: 220
 T_dec_on: 240
 T_dec_off: ${.T}
 T_random_window: 10
-n_inputs: 5
+n_inputs: 4
+n_stim: 2                      # stimulus identities, on channels 0..n_stim-1
+tonic: true                    # channel n_stim held at 1.0 all trial
+num_rep: 256                   # 256 * n_stim^2 = 1024 trials, matching flip-flop and CDDM
 n_outputs: 2
 # Scored: everything before the decision cue (outputs must stay at 0 through sample, delay and
 # match) and the decision period after a 1 tau transition, as in DMTS.yaml.
@@ -36,7 +47,7 @@ mask_params:
   - (0, ${..T_dec_on})
   - (250, ${..T_dec_off})
 task_params: ["n_steps",
-              "n_inputs", "n_outputs",
+              "n_inputs", "n_outputs", "n_stim", "tonic", "num_rep",
               "stim_on_sample", "stim_off_sample",
               "stim_on_match", "stim_off_match",
               "dec_on", "dec_off",
