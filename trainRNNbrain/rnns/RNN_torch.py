@@ -395,6 +395,7 @@ class RNN_torch(torch.nn.Module):
     def get_dropout_mask(self, dropout_args, participation=None):
         drop_rate = dropout_args.get("drop_rate", 0.0)
         beta = dropout_args.get("dropout_beta", 1.0)
+        active_rel = dropout_args.get("active_rel", 0.05)
 
         sm = dropout_args["sampling_method"]
         if sm == "uniform":
@@ -417,13 +418,28 @@ class RNN_torch(torch.nn.Module):
         # The beta=4 arm of the drop-rate ladder was therefore not "sharper targeting" but "dropout
         # almost switched off", which is why it landed on top of the no-dropout count. Drawing a
         # fixed k makes beta a pure targeting knob and removes the Bernoulli count variance too.
-        k = int(round(drop_rate * self.N))
+        # THE POOL IS THE LIVING UNITS ONLY, and drop_rate is a fraction OF THEM. Dropping a silent
+        # unit is provably inert: its rate is 0, so masking its column changes no other unit's state
+        # by any amount (measured: max|dh| = 0.000e+00 over all other units, both dropout kinds).
+        # Sampling over all N therefore just dilutes the intervention - 51% of the drops were landing
+        # on units that were already silent. Restricting the pool makes that exactly 0 at every beta,
+        # so beta is left to do one job: how sharply to prefer the BUSIEST of the living.
+        # drop_rate multiplies the size of the live pool, not N, for two reasons: it is the
+        # interpretable quantity (the fraction of the working population silenced each step), and
+        # drop_rate * N is unsafe here - late in training a 1000-unit net has ~260 live units, so
+        # drop_rate = 0.2 would ablate 77% of the working network every iteration.
+        pool = torch.arange(self.N, device=self.device)
+        if sm == "participation":
+            live = v >= active_rel * torch.quantile(v, 0.95)
+            if int(live.sum()) > 0:
+                pool = pool[live]
+        k = int(round(drop_rate * pool.numel()))
         keep = torch.ones(self.N, 1, device=self.device)
         if k > 0:
-            w = torch.softmax(beta * v, dim=0)
-            idx = torch.multinomial(w, min(k, self.N), replacement=False,
+            w = torch.softmax(beta * v[pool], dim=0)
+            idx = torch.multinomial(w, min(k, pool.numel()), replacement=False,
                                     generator=self.random_generator)
-            keep[idx] = 0.0
+            keep[pool[idx]] = 0.0
         return keep
 
     def _constrained_weights(self):
