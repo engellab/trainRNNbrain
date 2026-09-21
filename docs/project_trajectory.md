@@ -11388,3 +11388,67 @@ run with `rws`+`mute` at 3 of 7 seeds while every other cell had 7 — a silent,
 under-count. It was caught by listing the per-cell counts against the cluster's own before
 interpreting anything, and the table above is from all 72. **Check counts against the source, not
 against a number typed from memory.**
+
+## ▶ SUBMITTED: does the dropout recruitment effect hold at N=500 and N=2000? (job 6306913) — 2026-09-20 20:35
+
+Pavel: repeat the unpenalised dropout cell at two more sizes. **42 jobs = 2 sizes x 3 dropout
+conditions (none / mute / dead) x 7 seeds**, `slurm/SilentReLU_flipflop_dropout_sizes_spock.slurm`,
+array 1-42%14. Self-contained: each size gets its own 7 no-dropout controls from the same launcher,
+so unlike the N=1000 cell there is no historical reference and no cross-commit pooling argument.
+Decode replayed for all 42 tasks (6 cells, 7 seeds each) and smoke-tested locally at N=48/64.
+
+**What this adds over N=1000.** At N=1000 the effect is +99 to +110 live units (~+10% of N) and the
+silencing SLOPE is unchanged (pure offset). Two things are only answerable with other sizes:
+whether the gap is a constant COUNT (~+100 at both sizes) or a constant FRACTION of N (~+50 at 500,
+~+200 at 2000); and whether "offset, not rate" is size-invariant or an N=1000 special case.
+
+### ⚠️ CALIBRATION CAUGHT A BUG THAT WOULD HAVE KILLED 14 OF THE 42 JOBS
+
+Before submitting, a 4-job 300-iteration calibration (6306867) measured the per-iteration cost at
+both sizes. **The N=2000 dropout job FAILED in 28 s with CUDA OOM.** Root cause, from the traceback:
+`Trainer.get_participation_`, the per-unit statistic driving `participation` dropout sampling, was
+UNCHUNKED. At N=2000 its input is (2000, 307200) float32 = 2.5 GB, `x + eps` copies it, and
+`torch.quantile` sorts — a further 6.9 GB request that failed on a 44 GB L40S with 41.8 GB already
+in use. Every N=2000 mute/dead job would have died immediately.
+
+The sibling `participation_from_states_` (the TRACKING path) was chunked over units years ago for
+exactly this reason, with a docstring explaining it; the dropout path never was. Fixed in local
+commit **74ec3dd**: same chunking, same 512 default, semantics untouched (this one reads raw
+states, the tracking one applies the activation for equation_type h — they are deliberately
+different quantities and the docstring now says so).
+
+**Exactness verified two ways, not assumed.** `get_participation_` is bit-identical to the
+unchunked form at chunk 512 / 128 / 37 on random states (max abs diff 0.0), and 15-iteration
+same-seed runs (`seed=1 task.seed=1`, N=1000, k=3) are bit-identical before and after for BOTH
+dropout kinds. So the existing 7-seed N=1000 dropout results remain directly comparable.
+
+### Measured cost, and why the array is pinned to L40S
+
+| cell | s/iter | 150k |
+|---|---|---|
+| N=500 no dropout | 0.165 | 6.9 h |
+| N=500 dropout | 0.304 | 12.7 h |
+| N=2000 no dropout | 0.471 | 19.6 h |
+| N=2000 dropout | 0.886 | 36.9 h |
+
+Whole array ~880 GPU-h, of which the N=2000 cells are 654. Wall time 60 h against a 36.9 h worst
+case. **`--gres=gpu:L40S-46G:1`**: every rate above was measured on an L40S; A100 has run ~1.85x
+slower on this task family (which would put N=2000+dropout near 68 h) and its 40 GB is below the
+44 GB card the pre-fix job died on, so its post-fix headroom is unverified. The %14 throttle sits
+under the 16 available L40S GPUs, so pinning costs no throughput — it only queues behind other
+users' L40S jobs. Tasks 1 and 2 started immediately; the rest are held by the throttle.
+
+### ⚠️ PROVENANCE: SPOCK IS RUNNING 6e43d53 PLUS ONE UNCOMMITTED FILE
+
+The fix is in tracked code (`trainRNNbrain/trainer/Trainer.py`). It was copied to Spock by `scp` and
+md5-verified; it was NOT pushed to the shared GitHub repo, which is Pavel's call, not something to
+do unasked. So Spock's working copy is `6e43d53` with `trainRNNbrain/trainer/Trainer.py` modified
+(27 insertions, 6 deletions), the logs print `code: ... @ 6e43d53`, and the launcher's own
+dirty-repo check fires: "WARNING: ... has uncommitted changes; the commit above does not fully
+describe this run." **That warning is accurate and should not be ignored when these runs are read.**
+The Mac-side commit carrying the same file is 74ec3dd. Reconciling the two (push + fetch) would
+make the recorded hash self-describing again.
+
+Read-out when they land: `flipflop_dropout_readout.py --N 500` / `--N 2000` and
+`dropout_silencing_slope.py --N ...` (both now take `--N`; they reproduce the N=1000 table
+unchanged after that edit).
