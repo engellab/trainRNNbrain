@@ -63,3 +63,4 @@ jupyter/Analyzing single RNN.ipynb
 # curated paper dataset — hard links into data/, never committed
 /dead_ReLU_data/
 cluster_logs/
+data/fig_paper_F1_coverage.pkl

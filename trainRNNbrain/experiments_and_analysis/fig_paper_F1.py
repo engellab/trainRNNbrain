@@ -60,6 +60,7 @@ import pickle
 import sys
 
 import numpy as np
+from omegaconf import OmegaConf
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -238,6 +239,115 @@ NEVER_SWEPT = ["spectral radius of the initial recurrent weights",
 GROUP_COL = {"activation": ps.SLOTS[3], "weight decay": ps.SLOTS[4],
              "input scale": ps.SLOTS[2], "metabolic": ps.SLOTS[1],
              "architecture": ps.SLOTS[0], "noise": ps.COND_COL["both"]}
+
+
+# Sizes that exist on disk for a scaling series but are deliberately NOT plotted. Every entry needs
+# a reason, because the audit below will otherwise shout about it on every run. An empty reason is
+# not allowed: if a size is excluded, that is a decision and it gets written down.
+SCALING_EXCLUSIONS = {
+    ("CDDM", 100):   "near the ceiling (76% of units active) and only one condition has it; "
+                     "excluded from the fit in Methods",
+    ("CDDM", 10000): "only reaches 80,000 iterations, so it cannot join a 100,000-iteration "
+                     "matched-compute read-out; quoted separately in Methods",
+}
+COVERAGE_CACHE = "data/fig_paper_F1_coverage.pkl"
+
+
+def _signature(cfg):
+    """The experiment identity of a run, everything except network size.
+
+    Two cells with the same signature are the same experiment at different N and belong on the same
+    scaling curve, whichever sweep folder they happen to live in.
+
+    Args:
+        cfg: an OmegaConf config loaded from a run's saved *_config.yaml.
+    Returns:
+        a hashable tuple, or None if the config is missing a field we need.
+    """
+    try:
+        t, m, tr = cfg.task, cfg.model, cfg.trainer
+        return (str(t.taskname), int(t.n_inputs), int(t.n_outputs), str(m.equation_type),
+                str(m.activation_args.name), bool(m.dale), float(m.gamma), float(m.spectral_rad),
+                float(tr.lambda_frm), float(tr.lambda_rws), float(tr.lambda_met),
+                bool(tr.dropout))
+    except Exception:
+        return None
+
+
+def _cell_index(refresh=False):
+    """Index every trained cell on disk by (signature -> {N: cell path}).
+
+    Reads ONE saved config per cell, not per run, and caches the result. ~2 s cold over ~550 cells.
+
+    Args:
+        refresh: rebuild the cache even if it exists.
+    Returns:
+        dict mapping signature tuple -> {int N: cell directory path}.
+    """
+    if os.path.exists(COVERAGE_CACHE) and not refresh:
+        with open(COVERAGE_CACHE, "rb") as fh:
+            return pickle.load(fh)
+    index = {}
+    for cell in sorted(glob.glob(os.path.join(DATA_DIR, "*", "*", ""))):
+        cfgs = glob.glob(os.path.join(cell, "*", "*_config.yaml"))
+        if not cfgs:
+            continue
+        try:
+            cfg = OmegaConf.load(cfgs[0])
+        except Exception:
+            continue
+        sig = _signature(cfg)
+        if sig is None:
+            continue
+        index.setdefault(sig, {})[int(cfg.model.N)] = cell
+    with open(COVERAGE_CACHE, "wb") as fh:
+        pickle.dump(index, fh)
+    return index
+
+
+def audit_scaling_coverage(refresh=False):
+    """Shout if a scaling series has usable data on disk that SCALING does not plot.
+
+    THE BUG THIS EXISTS TO CATCH. SCALING hard-codes each series' sizes, so a cell living in a
+    different sweep folder is silently ignored. The 6-bit flip-flop was fitted on three points for
+    weeks while NBitFlipFlop_std_bigN/EqType=h_k=6_N=4000_pen=none sat on disk with three seeds --
+    the k-sweep glob could never have matched it, because the folder name is different. Matching on
+    the configured path would therefore not have found it either. This audit instead reads every
+    cell's OWN saved config and groups by experiment signature, so where a run was filed is
+    irrelevant.
+
+    Args:
+        refresh: rebuild the on-disk cell index.
+    Returns:
+        dict series -> sorted list of unplotted sizes (empty when a series is fully covered).
+    """
+    index = _cell_index(refresh=refresh)
+    missed = {}
+    print("\n--- scaling coverage audit ---")
+    for task, (sizes, cells, _it, _col) in SCALING.items():
+        ref = None
+        for N in sizes:
+            cfgs = glob.glob(os.path.join(cells[N], "*", "*_config.yaml")) or \
+                   glob.glob(os.path.join(cells[N], "*", "*", "*_config.yaml"))
+            if cfgs:
+                ref = _signature(OmegaConf.load(cfgs[0]))
+                break
+        if ref is None:
+            print(f"  {task:18} no data on disk - cannot audit")
+            continue
+        on_disk = set(index.get(ref, {}))
+        extra = sorted(n for n in on_disk - set(sizes)
+                       if (task, n) not in SCALING_EXCLUSIONS)
+        known = sorted(n for n in on_disk - set(sizes) if (task, n) in SCALING_EXCLUSIONS)
+        note = f"  (excluded on purpose: {known})" if known else ""
+        if extra:
+            missed[task] = extra
+            print(f"  {task:18} !! UNPLOTTED DATA AT N = {extra} -- {index[ref][extra[0]]}{note}")
+        else:
+            print(f"  {task:18} {len(sizes)} sizes plotted, none missed{note}")
+    if missed:
+        print("  ^^ add these to SCALING, or give each a reason in SCALING_EXCLUSIONS.")
+    return missed
 
 
 def traces_of(pattern):
@@ -845,6 +955,7 @@ def main():
     ap.add_argument("--refresh", action="store_true", help="re-simulate the example network")
     args = ap.parse_args()
 
+    audit_scaling_coverage()
     ps.setup()
     rates, _, p = example_network(refresh=args.refresh)
 
