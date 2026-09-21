@@ -16,15 +16,20 @@ so the task definitions belong here, once, and the main text keeps its panels fo
   row 3  DMTS      delayed match-to-sample. A sample stimulus, an empty delay, a test stimulus, and
                    a judgement of whether the two were the same, reported after a go cue.
 
-NOTHING HERE IS DRAWN BY HAND. The right-hand channel stacks are the real input and target streams
-produced by the task objects in `trainRNNbrain/tasks/`, instantiated from the same
-`configs/task/*.yaml` the training runs used, so a reader can check the epoch times against the
-config rather than against an illustrator. Only the left-hand pictograms are drawn.
+NOTHING HERE IS DRAWN BY HAND, AND NOTHING IS READ FROM `configs/task/`. The right-hand channel
+stacks are the real input and target streams produced by the task objects in `trainRNNbrain/tasks/`,
+instantiated from the config SAVED INSIDE A TRAINED RUN FOLDER - the one the manuscript's own
+networks were trained with. The first version of this figure built DMTS from
+`configs/task/DMTS.yaml` and drew 2 stimuli, 1 output and a 14-tau trial; the runs the paper
+actually reports used 4 stimuli, 2 outputs and a 30-tau trial, because that config is
+`DMTS_long.yaml`. A figure of the tasks is worth nothing if it is a figure of a different task, so
+the config comes from the runs and the epoch bars are derived from it rather than typed in.
 
 Usage:  python fig_supp_tasks.py
 Output: img/internal_figures/fig_supp_tasks.pdf (+ .svg; vector only - see paperstyle.save)
 """
 
+import glob
 import os
 import sys
 
@@ -38,12 +43,9 @@ from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
+from common import DATA_DIR
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-CFG_DIR = os.path.join(HERE, "../../configs/task")
-
-DT, TAU = 1.0, 10.0       # every run in the paper: dt = 1, tau = 10, so 300 steps = 30 tau
 TASK_SEED = 0             # DMTS jitters its stimulus times, so the trial shown is seeded
 
 # The two features of CDDM's stimulus. Motion is drawn as arrow DIRECTION and colour as arrow
@@ -51,78 +53,107 @@ TASK_SEED = 0             # DMTS jitters its stimulus times, so the trial shown 
 # ways. The two hues are categorical slots 2 and 3 of the validated palette, not red/green - the
 # literal colours of Mante's task are the one pair a colour-blind reader cannot separate.
 COL_A, COL_B = ps.SLOTS[1], ps.SLOTS[2]
+COL_S = ps.SLOTS[3]       # DMTS: the one stimulus this trial happens to use
 
-# (stem, config, channel labels, target labels, epochs). Epochs are (start_step, end_step, label)
-# and are only drawn where the task HAS epochs; the flip-flop's pulses are Poisson, so it has none.
+# `run` is a glob matching the run folders of the very cells the manuscript reports, so the task
+# shown is the task trained. Channel labels are asserted against the config's channel counts, so a
+# config change breaks the script instead of silently mislabelling a panel.
 TASKS = {
     "CDDM": dict(
-        cfg="CDDM.yaml",
+        run=f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*",
         title="CDDM  -  context-dependent decision making",
         inputs=["cue: attend motion", "cue: attend colour", "motion, right", "motion, left",
                 "colour, right", "colour, left"],
         in_cols=[ps.INK, ps.INK, ps.INK, ps.INK, COL_A, COL_B],
         outputs=["choose right", "choose left"],
-        epochs=[(0, 300, "context cue"), (100, 300, "stimulus"), (200, 300, "decision")],
         note="an attend-colour trial has the same stimulus and the opposite correct choice",
     ),
     "NBitFlipFlop": dict(
-        cfg="NBitFlipFlop.yaml",
+        run=f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*",
         title="$k$-bit flip-flop  -  $k$ independent memory bits",
         inputs=["bit 1 pulses", "bit 2 pulses", "bit 3 pulses"],
         in_cols=[ps.INK] * 3,
         outputs=["bit 1 state", "bit 2 state", "bit 3 state"],
-        epochs=[],
         note="pulse times are Poisson, so a trial has no epochs and every trial differs",
     ),
     "DMTS": dict(
-        cfg="DMTS.yaml",
+        run=f"{DATA_DIR}/DMTS_std_pen/EqType=h_N=1000_pen=none",
         title="DMTS  -  delayed match-to-sample",
-        inputs=["stimulus A", "stimulus B", "go cue"],
-        in_cols=[COL_A, COL_B, ps.MUTED],
-        outputs=["match"],
-        epochs=[(10, 20, "sample"), (20, 80, "delay"), (80, 90, "test"), (100, 140, "decision")],
-        note="a match trial; on a non-match trial the test lands on stimulus B and the target stays at 0",
+        inputs=["stimulus 1", "stimulus 2", "stimulus 3", "stimulus 4", "go cue"],
+        in_cols=[COL_S, ps.INK, ps.INK, ps.INK, ps.MUTED],
+        outputs=["match", "non-match"],
+        note="a match trial (stimulus 1 twice); onsets jitter by $\\pm 1\\tau$, so the task "
+             "cannot be solved by counting steps",
     ),
 }
 
 
 def build(name):
-    """Instantiate one task from its shipped config and return one representative trial.
+    """Instantiate one task from a TRAINED RUN's own config and return one representative trial.
+
+    The config comes from the run folder rather than from `configs/task/`, because those two can
+    disagree - DMTS does - and a figure built from the wrong one is a figure of a different task.
 
     The trial is chosen, not drawn at random, so that each row shows the case that defines the
     task: CDDM with the two features DISAGREEING (the only trials that separate this task from a
-    plain decision), and DMTS on a MATCH trial (the only trials whose target is non-zero).
+    plain decision), and DMTS on a MATCH trial (the only trials whose match channel is non-zero).
 
     Args:
-        name: key of TASKS, which is also the config stem.
+        name: key of TASKS, which is also the task name in the config.
     Returns:
-        (inputs, targets): (n_inputs, n_steps) and (n_outputs, n_steps) float arrays.
+        (inputs, targets, epochs, dt_over_tau): (n_inputs, n_steps) and (n_outputs, n_steps) float
+        arrays; epochs as a list of (start_step, end_step, label), empty for the flip-flop; and the
+        step length in units of tau, for the time axis.
     """
-    cfg = OmegaConf.load(os.path.join(CFG_DIR, TASKS[name]["cfg"]))
-    cfg.seed = TASK_SEED
-    task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg, dt=DT))
+    spec = TASKS[name]
+    folders = sorted(glob.glob(os.path.join(spec["run"], "*", "")))
+    if not folders:
+        raise FileNotFoundError(f"no run folder under {spec['run']} - this figure reads the task "
+                                f"config from the trained runs, not from configs/task/")
+    cfg = OmegaConf.load(sorted(glob.glob(os.path.join(folders[0], "*_config.yaml")))[0])
+    cfg.task.seed = TASK_SEED
+    dt, tau = float(cfg.model.dt), float(cfg.model.tau)
+    task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=dt))
+
     if name == "CDDM":
         # attend motion, motion favours right (+0.5), colour favours left (-0.5): a conflict trial
         inp, tgt = task.generate_input_target_stream("motion", 0.5, -0.5)
+        epochs = [(task.cue_on, task.cue_off, "context cue"),
+                  (task.stim_on, task.stim_off, "stimulus"),
+                  (task.dec_on, task.dec_off, "decision")]
     elif name == "DMTS":
-        inp, tgt, _ = task.generate_input_target_stream(0, 0)      # sample A, test A -> match
+        inp, tgt, c = task.generate_input_target_stream(0, 0)      # sample 1, test 1 -> match
+        # from the trial's OWN condition dict, so the bars sit on the jittered onsets actually drawn
+        epochs = [(c["sample_on"], c["sample_off"], "sample"),
+                  (c["sample_off"], c["match_on"], "delay"),
+                  (c["match_on"], c["match_off"], "test"),
+                  (c["dec_on"], c["dec_off"], "decision")]
     else:
         inp, tgt, _ = task.generate_input_target_stream()
-    return np.asarray(inp, float), np.asarray(tgt, float)
+        epochs = []
+
+    inp, tgt = np.asarray(inp, float), np.asarray(tgt, float)
+    assert len(spec["inputs"]) == inp.shape[0], \
+        f"{name}: {inp.shape[0]} input channels in the run config, {len(spec['inputs'])} labels"
+    assert len(spec["outputs"]) == tgt.shape[0], \
+        f"{name}: {tgt.shape[0]} output channels in the run config, {len(spec['outputs'])} labels"
+    return inp, tgt, epochs, dt / tau
 
 
-def channel_stack(ax, inp, tgt, spec):
+def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec):
     """Draw one task's input and target channels as a labelled stack over time.
 
     Args:
-        ax: axes; inp: (n_inputs, n_steps); tgt: (n_outputs, n_steps); spec: the TASKS entry,
-            supplying `inputs`, `in_cols`, `outputs`, `epochs` and `title`.
+        ax: axes; inp: (n_inputs, n_steps); tgt: (n_outputs, n_steps); epochs: list of
+            (start_step, end_step, label) from the run config, possibly empty; dt_over_tau: step
+            length in membrane time constants; spec: the TASKS entry, supplying `inputs`,
+            `in_cols`, `outputs` and `note`.
     Returns:
         None.
     """
     n_in, n_steps = inp.shape
     n_out = tgt.shape[0]
-    t = np.arange(n_steps) * DT / TAU                       # time in membrane time constants
+    t = np.arange(n_steps) * dt_over_tau                    # time in membrane time constants
     rows = n_in + n_out
     amp = 0.40                                              # trace height, in row units
     # one shared vertical scale for the whole stack, so a tall step really is a larger input
@@ -157,8 +188,8 @@ def channel_stack(ax, inp, tgt, spec):
     # epoch goes on the lowest level where it does not overlap one already there.
     top = bases[0] + 0.62
     levels = []
-    for s0, s1, lab in spec["epochs"]:
-        x0, x1 = s0 * DT / TAU, s1 * DT / TAU
+    for s0, s1, lab in epochs:
+        x0, x1 = s0 * dt_over_tau, s1 * dt_over_tau
         lv = next((k for k, occ in enumerate(levels) if x0 >= occ - 1e-9), len(levels))
         if lv == len(levels):
             levels.append(x1)
@@ -169,7 +200,7 @@ def channel_stack(ax, inp, tgt, spec):
         ax.plot([x0, x0], [yb - 0.16, yb + 0.16], lw=0.5, color=ps.FAINT, zorder=3)
         ax.text((x0 + x1) / 2, yb + 0.06, lab, ha="center", va="bottom", fontsize=5.6,
                 color=ps.MUTED)
-    head = 0.28 + 0.85 * max(len(levels) - 1, 0) + 0.52 if spec["epochs"] else 0.2
+    head = 0.28 + 0.85 * max(len(levels) - 1, 0) + 0.52 if epochs else 0.2
 
     if spec.get("note"):
         ax.text(0.0, -0.25, spec["note"], transform=ax.transAxes, ha="left", va="top",
@@ -272,7 +303,10 @@ def pic_flipflop(ax):
 
 
 def pic_dmts(ax):
-    """Pictogram: sample, empty delay, test, and the same/different judgement.
+    """Pictogram: sample, empty delay, test, and the same/different judgement on two channels.
+
+    Four stimuli exist, so the 16 sample-test pairs are 4 matches and 12 non-matches; the panel
+    shows one of the matches and names the alternative.
 
     Args:
         ax: blank axes.
@@ -283,32 +317,39 @@ def pic_dmts(ax):
     ax.set(xlim=(0, 1), ylim=(0, 1))
     ax.text(0.50, 0.995, "hold the sample across an empty delay", ha="center", va="top",
             fontsize=5.6, color=ps.MUTED)
-
-    y = 0.60
-    frames = [(0.07, "sample", COL_A), (0.37, "delay", None), (0.67, "test", COL_A)]
-    for x, lab, col in frames:
-        ps.box(ax, x, y, 0.25, 0.25, col=ps.MUTED, face=ps.PAPER, lw=0.7)
-        if col is not None:
-            ax.plot([x + 0.125], [y + 0.125], "s", ms=7.0, color=col, zorder=4)
-        else:
-            ax.text(x + 0.125, y + 0.125, "?", ha="center", va="center", fontsize=9.0,
-                    color=ps.FAINT)
-        ax.text(x + 0.125, y - 0.035, lab, ha="center", va="top", fontsize=5.8, color=ps.MUTED)
-    for x in (0.325, 0.625):
-        ps.arrow(ax, (x, y + 0.125), (x + 0.04, y + 0.125), col=ps.MUTED, lw=0.7,
-                 mutation_scale=5)
     ps.arrow(ax, (0.07, 0.905), (0.78, 0.905), col=ps.FAINT, lw=0.6, mutation_scale=5)
     ax.text(0.80, 0.905, "time", ha="left", va="center", fontsize=5.6, color=ps.MUTED)
 
-    ps.arrow(ax, (0.795, y - 0.10), (0.795, y - 0.175), col=ps.MUTED, lw=0.8)
-    ps.box(ax, 0.58, 0.245, 0.42, 0.115, "same as the sample?", col=ps.INK, lw=0.6, fs=5.8,
+    y = 0.660
+    for x, lab, filled in [(0.07, "sample", True), (0.37, "delay", False), (0.67, "test", True)]:
+        ps.box(ax, x, y, 0.25, 0.215, col=ps.MUTED, face=ps.PAPER, lw=0.7)
+        if filled:
+            ax.plot([x + 0.125], [y + 0.108], "s", ms=6.5, color=COL_S, zorder=4)
+        else:
+            ax.text(x + 0.125, y + 0.108, "?", ha="center", va="center", fontsize=9.0,
+                    color=ps.FAINT)
+        ax.text(x + 0.125, y - 0.025, lab, ha="center", va="top", fontsize=5.8, color=ps.MUTED)
+    for x in (0.325, 0.625):
+        ps.arrow(ax, (x, y + 0.108), (x + 0.04, y + 0.108), col=ps.MUTED, lw=0.7, mutation_scale=5)
+
+    # the stimulus set: four of them, so most of the pairs are non-matches
+    ax.text(0.10, 0.490, "one of four stimuli:", ha="left", va="center", fontsize=5.4,
+            color=ps.MUTED)
+    for k in range(4):
+        ax.plot([0.60 + 0.085 * k], [0.490], "s", ms=5.0, zorder=4,
+                color=COL_S if k == 0 else ps.FAINT)
+    ax.text(0.50, 0.405, "16 sample-test pairs: 4 match, 12 non-match", ha="center", va="center",
+            fontsize=5.2, color=ps.MUTED)
+
+    ps.arrow(ax, (0.50, 0.355), (0.50, 0.310), col=ps.MUTED, lw=0.8)
+    ps.box(ax, 0.275, 0.185, 0.45, 0.115, "same as the sample?", col=ps.INK, lw=0.6, fs=5.8,
            face="#f2f1ec", text_col=ps.INK)
-    ax.text(0.545, 0.175, "match  $\\rightarrow$  output 1", ha="right", va="center", fontsize=5.8,
-            color=ps.SLOTS[0])
-    ax.text(0.545, 0.085, "non-match  $\\rightarrow$  output 0", ha="right", va="center",
-            fontsize=5.8, color=ps.MUTED)
-    ax.text(0.58, 0.130, "reported only\nafter the go cue", ha="left", va="center", fontsize=5.2,
-            color=ps.MUTED, linespacing=1.25)
+    ax.text(0.485, 0.095, "match  $\\rightarrow$  channel 1", ha="right", va="center",
+            fontsize=5.8, color=ps.SLOTS[0])
+    ax.text(0.515, 0.095, "non-match  $\\rightarrow$  channel 2", ha="left", va="center",
+            fontsize=5.8, color=ps.SLOTS[0])
+    ax.text(0.50, 0.020, "both channels held at 0 until the go cue", ha="center", va="center",
+            fontsize=5.2, color=ps.MUTED)
 
 
 def main():
@@ -320,14 +361,15 @@ def main():
     for row, (name, pic, letter) in enumerate([("CDDM", pic_cddm, "a"),
                                                ("NBitFlipFlop", pic_flipflop, "b"),
                                                ("DMTS", pic_dmts, "c")]):
-        inp, tgt = build(name)
+        inp, tgt, epochs, dt_over_tau = build(name)
         ax_p = fig.add_subplot(gs[row, 0])
         pic(ax_p)
         ax_p.set_title(TASKS[name]["title"], fontsize=7.2, color=ps.INK, loc="left", pad=15)
         ps.panel_letter(ax_p, letter, dx=-0.09, dy=1.10)
-        channel_stack(fig.add_subplot(gs[row, 1]), inp, tgt, TASKS[name])
-        print(f"  {name:13} {inp.shape[0]} inputs x {inp.shape[1]} steps -> "
-              f"{tgt.shape[0]} outputs")
+        channel_stack(fig.add_subplot(gs[row, 1]), inp, tgt, epochs, dt_over_tau, TASKS[name])
+        print(f"  {name:13} {inp.shape[0]} inputs x {inp.shape[1]} steps "
+              f"({inp.shape[1] * dt_over_tau:.0f} tau) -> {tgt.shape[0]} outputs; "
+              f"epochs {[(a, b) for a, b, _ in epochs]}")
 
     return ps.save(fig, "fig_supp_tasks")
 
