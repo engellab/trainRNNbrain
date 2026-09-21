@@ -111,12 +111,17 @@ EXC_COL, INH_COL = ps.SLOTS[1], ps.SLOTS[0]   # excitatory / inhibitory connecti
 # schedule - by the end of training the three agree (297/306/387) and the series gives N^0.45, in
 # the same band as every other task. At 100k it gives N^0.65. The read-out rule is not changed for
 # one series, so the points are shown and the line is not.
-NO_FIT = {"8-bit flip-flop": "one seed at N = 2000 is still on its plateau at the 100k read-out"}
+NO_FIT = {}
 
 # (label, glob, read-out cap). The cap is the iteration the manuscript reads that family at; the
 # actual read-out is min(cap, the last iteration every seed reaches), reported on the panel.
 FF = f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N={{N}}_iters=*"
-FF8 = f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=8_N={{N}}_iters=*"
+# k = 6, not 8. The k-sweep runs to k = 8, but the 8-bit N = 2000 cell reads 403 / 440 / 1051 at the
+# matched read-out - one seed silences on a much slower schedule and moves the exponent from 0.45 to
+# 0.65 on its own. k = 6 is the same demand in kind (64 stable states against 8) with the tightest
+# cells in the sweep: the worst coefficient of variation over its three sizes is 0.076, against
+# 0.576 at k = 8, so it can be fitted like the others.
+FF6 = f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=6_N={{N}}_iters=*"
 SCALING = {
     "3-bit flip-flop": ([500, 1000, 2000, 4000], {
         500:  FF.format(N=500),
@@ -124,9 +129,8 @@ SCALING = {
         2000: FF.format(N=2000),
         4000: f"{DATA_DIR}/NBitFlipFlop_std_bigN/EqType=h_k=3_N=4000_pen=none_iters=*",
     }, 100_000, ps.SLOTS[0]),
-    # 8 bits is the top of the k-sweep: 256 stable states instead of 8, and the same three sizes as
-    # DMTS, so like DMTS it is fitted but not extrapolated
-    "8-bit flip-flop": ([500, 1000, 2000], {N: FF8.format(N=N) for N in (500, 1000, 2000)},
+    # three sizes, so it is fitted but not extrapolated a decade beyond its data
+    "6-bit flip-flop": ([500, 1000, 2000], {N: FF6.format(N=N) for N in (500, 1000, 2000)},
                         100_000, ps.SLOTS[3]),
     "CDDM": ([500, 1000, 2000, 5000], {
         N: f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N={N}_iters=*" for N in (500, 1000, 2000, 5000)
@@ -169,9 +173,21 @@ TRACE_FAMILIES = [
 ARCHIVE_FAMILY = ("CDDM, 30k (archived)",
                   ("silent_stats_all.csv", dict(sweep="std", penalty="none")), [
     ("s equation instead of h",  ("silent_stats_all.csv", dict(sweep="std", penalty="none", eq="s")), "architecture"),
-    ("Dale's law imposed",       ("silent_stats_all.csv", dict(sweep="dale", penalty="none")), "architecture"),
-    ("self-connections off",     ("silent_stats_all.csv", dict(sweep="nodale_bias", penalty="none")), "architecture"),
-    ("  + bias fixed at 0",      ("silent_stats_all.csv", dict(sweep="nodale", penalty="none")), "architecture"),
+    # ⚠️ THESE TWO ROWS WERE MISLABELLED until 2026-09-21. The CSV's sweep names were read as
+    # "self-connections off" (nodale_bias) and "bias fixed at 0" (nodale). Neither is what they are.
+    # Matching each sweep's per-net counts against the participation traces still on disk identifies
+    # them exactly: `dale` is CDDM_ptrack_g0 (Dale + non-negative I/O), `nodale` is
+    # CDDM_ptrack_g0_nodale (both constraints off, bias fixed at 0) and `nodale_bias` is
+    # CDDM_ptrack_g0_nodale_trainablebias (both off, bias TRAINABLE) - the five counts agree
+    # element for element in all three cases.
+    #   - self-connections were never varied: `self_connections=False` is the model default on
+    #     every path, including the reference, so no row can be about them;
+    #   - "bias fixed at 0" is the reference's own setting, so it cannot be an intervention. The
+    #     intervention is making the bias trainable, which is what `nodale_bias` does;
+    #   - `nodale` differs from the `std` reference only in being a different sweep of the same
+    #     unconstrained architecture, so it is a sweep-to-sweep replicate, not a knob. Dropped.
+    ("Dale's law + non-negative I/O", ("silent_stats_all.csv", dict(sweep="dale", penalty="none")), "architecture"),
+    ("trainable bias",           ("silent_stats_all.csv", dict(sweep="nodale_bias", penalty="none")), "architecture"),
     ("metabolic λ = 0.01",       ("silent_stats_v2.csv", dict(sweep="metabolic", met="0.01")), "metabolic"),
     ("metabolic λ = 0.1",        ("silent_stats_v2.csv", dict(sweep="metabolic", met="0.1")), "metabolic"),
     ("metabolic λ = 1",          ("silent_stats_v2.csv", dict(sweep="metabolic", met="1.0")), "metabolic"),
@@ -773,21 +789,13 @@ def panel_d(ax):
                 transform=ax.get_yaxis_transform(), ha="left", va="bottom", fontsize=5.7,
                 color=ps.INK, zorder=6)
 
-    note_y = y + 1.75                                  # below the rate-penalty arrow and its label
-    ax.text(-425, note_y, "also tried, no read-out under this criterion:  "
-            + ";  ".join(lab for lab, _ in TRIED_NOT_PLOTTED),
-            ha="left", va="center", fontsize=5.3, color=ps.MUTED)
-    ax.text(-425, note_y + 0.60, "I/O positivity switches with Dale's law in every sweep on disk, "
-            "so that row is a joint contrast", ha="left", va="center", fontsize=5.3,
-            color=ps.MUTED)
-
     ax.axvline(0, color=ps.INK, lw=0.8, zorder=3)
     top = y + 0.2
     ax.annotate("", xy=(708, top), xytext=(0, top),
                 arrowprops=dict(arrowstyle="-|>", lw=1.0, color=ps.SLOTS[1], mutation_scale=7))
     ax.text(354, top + 0.45, "rate penalty (Fig. 3)", ha="center", fontsize=6.0,
             color=ps.SLOTS[1])
-    ax.set(yticks=ticks, yticklabels=labels, ylim=(top + 2.9, -1.0), xlim=(-430, 800),
+    ax.set(yticks=ticks, yticklabels=labels, ylim=(top + 1.0, -1.0), xlim=(-430, 800),
            xlabel="change in active units")
     ps.despine(ax, keep=("bottom",))
     ax.tick_params(axis="y", length=0, labelsize=5.8)
