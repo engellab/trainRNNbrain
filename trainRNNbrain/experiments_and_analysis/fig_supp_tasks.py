@@ -49,6 +49,8 @@ from common import DATA_DIR
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 
 TASK_SEED = 0             # DMTS jitters its stimulus times, so the trial shown is seeded
+CFG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../configs/task")
+DT_TAU = 1.0 / 10.0       # dt / tau, for the fallback path where no run config is available
 BRACE_X = (-0.080, -0.205)   # right edge of each brace level, in axes fractions
 BRACE_W = 0.017              # brace depth, likewise
 
@@ -91,15 +93,19 @@ TASKS = {
         braces=[(0, 2, "pulses", 0), (3, 5, "state held", 0)],
         note="pulse times are Poisson, so a trial has no epochs and every trial differs",
     ),
+    # Redesigned 2026-09-21: two stimulus identities instead of four, plus a tonic channel. The
+    # DMTS_v2 runs are still training, so this row falls back to the config those runs will use and
+    # says so on the panel, rather than drawing the superseded four-stimulus task.
     "DMTS": dict(
-        run=f"{DATA_DIR}/DMTS_std_pen/EqType=h_N=1000_pen=none",
+        run=f"{DATA_DIR}/DMTS_v2_pen/EqType=h_N=1000_pen=none",
+        cfg="DMTS_long.yaml",
         title="DMTS  -  delayed match-to-sample",
-        inputs=["1", "2", "3", "4", "go"],
-        in_cols=[SENS_COL] * 4 + [CUE_COL],
+        inputs=["1", "2", "tonic", "go"],
+        in_cols=[SENS_COL, SENS_COL, ps.MUTED, CUE_COL],
         outputs=["match", "non-match"],
-        braces=[(0, 3, "stimuli", 0)],
-        note="a match trial (stimulus 1 twice); onsets jitter by $\\pm 1\\tau$, so the task "
-             "cannot be solved by counting steps",
+        braces=[(0, 1, "stimuli", 0)],
+        note="a match trial (stimulus 1 twice); the four sample-test pairs are 50/50 match and "
+             "non-match, and onsets jitter by $\\pm 1\\tau$",
     ),
 }
 
@@ -117,19 +123,25 @@ def build(name):
     Args:
         name: key of TASKS, which is also the task name in the config.
     Returns:
-        (inputs, targets, epochs, dt_over_tau): (n_inputs, n_steps) and (n_outputs, n_steps) float
-        arrays; epochs as a list of (start_step, end_step, label), empty for the flip-flop; and the
-        step length in units of tau, for the time axis.
+        (inputs, targets, epochs, dt_over_tau, pending): the two streams, the epoch list (empty
+        for the flip-flop), the step length in units of tau, and whether the config came from
+        configs/task/ because no run of this task exists yet.
     """
     spec = TASKS[name]
     folders = sorted(glob.glob(os.path.join(spec["run"], "*", "")))
-    if not folders:
-        raise FileNotFoundError(f"no run folder under {spec['run']} - this figure reads the task "
-                                f"config from the trained runs, not from configs/task/")
-    cfg = OmegaConf.load(sorted(glob.glob(os.path.join(folders[0], "*_config.yaml")))[0])
-    cfg.task.seed = TASK_SEED
-    dt, tau = float(cfg.model.dt), float(cfg.model.tau)
-    task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=dt))
+    if folders:
+        cfg = OmegaConf.load(sorted(glob.glob(os.path.join(folders[0], "*_config.yaml")))[0])
+        cfg_task = cfg.task
+        dt_over_tau, pending = float(cfg.model.dt) / float(cfg.model.tau), False
+    elif spec.get("cfg"):
+        # a task whose runs have not landed yet: read the config they WILL use and mark the row, so
+        # the panel is never quietly a picture of a superseded design
+        cfg_task = OmegaConf.load(os.path.join(CFG_DIR, spec["cfg"]))
+        dt_over_tau, pending = DT_TAU, True
+    else:
+        raise FileNotFoundError(f"no run folder under {spec['run']} and no fallback config named")
+    cfg_task.seed = TASK_SEED
+    task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg_task, dt=1.0))
 
     if name == "CDDM":
         # attend motion, motion favours right (+0.5), colour favours left (-0.5): a conflict trial
@@ -150,10 +162,10 @@ def build(name):
 
     inp, tgt = np.asarray(inp, float), np.asarray(tgt, float)
     assert len(spec["inputs"]) == inp.shape[0], \
-        f"{name}: {inp.shape[0]} input channels in the run config, {len(spec['inputs'])} labels"
+        f"{name}: {inp.shape[0]} input channels in the config, {len(spec['inputs'])} labels"
     assert len(spec["outputs"]) == tgt.shape[0], \
-        f"{name}: {tgt.shape[0]} output channels in the run config, {len(spec['outputs'])} labels"
-    return inp, tgt, epochs, dt / tau
+        f"{name}: {tgt.shape[0]} output channels in the config, {len(spec['outputs'])} labels"
+    return inp, tgt, epochs, dt_over_tau, pending
 
 
 def brace(ax, x, y0, y1, label, col=ps.MUTED, w=BRACE_W, lw=0.6, fs=6.0, rot=0):
@@ -197,14 +209,15 @@ def brace(ax, x, y0, y1, label, col=ps.MUTED, w=BRACE_W, lw=0.6, fs=6.0, rot=0):
                 va="center", fontsize=fs, color=col, clip_on=False)
 
 
-def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec):
+def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec, pending=False):
     """Draw one task's input and target channels as a labelled stack over time.
 
     Args:
         ax: axes; inp: (n_inputs, n_steps); tgt: (n_outputs, n_steps); epochs: list of
             (start_step, end_step, label) from the run config, possibly empty; dt_over_tau: step
             length in membrane time constants; spec: the TASKS entry, supplying `inputs`,
-            `in_cols`, `outputs`, `braces` and `note`.
+            `in_cols`, `outputs`, `braces` and `note`; pending: the config has not been trained
+            yet, which the panel says out loud.
     Returns:
         None.
     """
@@ -264,6 +277,9 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec):
     for r0, r1, lab, level in spec.get("braces", []):
         brace(ax, BRACE_X[level], bases[r0], bases[r1], lab, rot=90 * (level > 0))
 
+    if pending:
+        ax.text(0.0, 1.0, "config not yet trained", transform=ax.transAxes, ha="left",
+                va="bottom", fontsize=5.6, color=ps.BAD)
     if spec.get("note"):
         ax.text(0.0, -0.25, spec["note"], transform=ax.transAxes, ha="left", va="top",
                 fontsize=5.6, color=ps.MUTED)
@@ -372,8 +388,9 @@ def pic_flipflop(ax):
 def pic_dmts(ax):
     """Pictogram: sample, empty delay, test, and the same/different judgement on two channels.
 
-    Four stimuli exist, so the 16 sample-test pairs are 4 matches and 12 non-matches; the panel
-    shows one of the matches and names the alternative.
+    Two stimulus identities exist, so the four sample-test pairs are two matches and two
+    non-matches - a balanced batch. With the four identities of the superseded design the split was
+    4 of 16, and always answering "non-match" scored 75%.
 
     Args:
         ax: blank axes.
@@ -399,13 +416,13 @@ def pic_dmts(ax):
     for x in (0.325, 0.625):
         ps.arrow(ax, (x, y + 0.108), (x + 0.04, y + 0.108), col=ps.MUTED, lw=0.7, mutation_scale=5)
 
-    # the stimulus set: four of them, so most of the pairs are non-matches
-    ax.text(0.10, 0.490, "one of four stimuli:", ha="left", va="center", fontsize=5.4,
+    # two identities, so the four sample-test pairs split evenly
+    ax.text(0.14, 0.490, "one of two stimuli:", ha="left", va="center", fontsize=5.4,
             color=ps.MUTED)
-    for k in range(4):
-        ax.plot([0.60 + 0.085 * k], [0.490], "s", ms=5.0, zorder=4,
+    for k in range(2):
+        ax.plot([0.66 + 0.095 * k], [0.490], "s", ms=5.0, zorder=4,
                 color=SENS_COL if k == 0 else ps.FAINT)
-    ax.text(0.50, 0.405, "16 sample-test pairs: 4 match, 12 non-match", ha="center", va="center",
+    ax.text(0.50, 0.405, "4 sample-test pairs: 2 match, 2 non-match", ha="center", va="center",
             fontsize=5.2, color=ps.MUTED)
 
     ps.arrow(ax, (0.50, 0.355), (0.50, 0.310), col=ps.MUTED, lw=0.8)
@@ -430,12 +447,13 @@ def main():
     for row, (name, pic, letter) in enumerate([("CDDM", pic_cddm, "a"),
                                                ("NBitFlipFlop", pic_flipflop, "b"),
                                                ("DMTS", pic_dmts, "c")]):
-        inp, tgt, epochs, dt_over_tau = build(name)
+        inp, tgt, epochs, dt_over_tau, pending = build(name)
         ax_p = fig.add_subplot(gs[row, 0])
         pic(ax_p)
         ax_p.set_title(TASKS[name]["title"], fontsize=7.2, color=ps.INK, loc="left", pad=15)
         ps.panel_letter(ax_p, letter, dx=-0.09, dy=1.10)
-        channel_stack(fig.add_subplot(gs[row, 1]), inp, tgt, epochs, dt_over_tau, TASKS[name])
+        channel_stack(fig.add_subplot(gs[row, 1]), inp, tgt, epochs, dt_over_tau, TASKS[name],
+                      pending)
         print(f"  {name:13} {inp.shape[0]} inputs x {inp.shape[1]} steps "
               f"({inp.shape[1] * dt_over_tau:.0f} tau) -> {tgt.shape[0]} outputs; "
               f"epochs {[(a, b) for a, b, _ in epochs]}")

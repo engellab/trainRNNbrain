@@ -65,7 +65,6 @@ from flipflop_dropout_readout import collect, welch
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 
 DROP = f"{DATA_DIR}/NBitFlipFlop_std_dropout"
-RATE = f"{DATA_DIR}/NBitFlipFlop_std_droprate"
 CELL = "EqType=h_k=3_N=1000_pen=none_do={kind}"
 N_UNITS = 1000
 READ_AT = 150_000
