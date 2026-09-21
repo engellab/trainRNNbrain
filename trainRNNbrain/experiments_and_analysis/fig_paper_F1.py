@@ -118,8 +118,11 @@ SCALING = {
     "CDDM": ([500, 1000, 2000, 5000], {
         N: f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N={N}_iters=*" for N in (500, 1000, 2000, 5000)
     }, 100_000, ps.SLOTS[1]),
-    "DMTS": ([500, 1000, 2000], {
-        N: f"{DATA_DIR}/DMTS_std_pen/EqType=h_N={N}_pen=none" for N in (500, 1000, 2000)
+    # DMTS_v2, not DMTS_std_pen: the task was redesigned on 2026-09-21 (2 stimuli instead of 4, so
+    # the batch is 50/50 match rather than 25/75) and every run of the old layout was deleted. The
+    # folder name differs so the two series can never be pooled by accident.
+    "DMTS": ([500, 1000, 2000, 4000], {
+        N: f"{DATA_DIR}/DMTS_v2_pen/EqType=h_N={N}_pen=none" for N in (500, 1000, 2000, 4000)
     }, 100_000, ps.SLOTS[2]),
 }
 
