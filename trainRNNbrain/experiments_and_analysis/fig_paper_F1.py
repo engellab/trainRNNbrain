@@ -14,11 +14,14 @@ has to explain the measurement before the second and third rows quantify it:
                                        structure is the supplementary task figure
                                        (`fig_supp_tasks.py`), because a panel that explains a task
                                        and a pathology at once explains neither.
-                                       The arrows inside the pool are a nearest-neighbour SAMPLE of
-                                       the connectivity, not the connectivity: these networks are
-                                       dense. Nearest neighbours because a random pair is a long
-                                       chord that crosses the units in between, and thirty of those
-                                       is a scribble.
+                                       The arrows inside the pool are a SAMPLE of the connectivity,
+                                       not the connectivity: these networks are dense. Only pairs
+                                       with an empty corridor between them are joined, so no arrow
+                                       crosses a unit. Red arrowheads are excitatory connections and
+                                       blue bars inhibitory ones, in the proportion MEASURED in this
+                                       network's recurrent weights - these networks are not
+                                       sign-constrained, so that is a property of connections, not
+                                       of units.
   (b) WHY "SILENT" IS NOT A JUDGEMENT  the participation distribution of that same network on a log
                                        axis. It is bimodal with four orders of magnitude of empty
                                        valley between the modes, so the threshold is read off the
@@ -68,6 +71,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 from common import DATA_DIR, SILENT_REL, participation
 from flipflop_diversity import rates_and_targets
+from flipflop_fixedpoints import load_net
 
 CACHE = "data/fig_paper_F1_cache.npz"
 # The example network is one of the 150,000-iteration unpenalised runs, NOT one of the 500,000-
@@ -82,11 +86,19 @@ N_UNITS = 1000            # every intervention family is measured at this size
 # live fraction, and N_SHOWN units are drawn at random from the network - at random, so that the
 # proportion of them that turns out to be silent is itself the result rather than a choice. Both
 # seeds are fixed so the panel is reproducible; neither was searched over.
-N_GLYPH, N_SHOWN = 100, 8
-N_EDGES = 30              # nearest-neighbour connections drawn; the real network is dense
-R_POOL = 0.80             # pool radius inside the unit-radius boundary circle
+# The pool is drawn at N_GLYPH units, not 100. The panel is ~36 mm wide, so 100 glyphs inside the
+# boundary sit 4.2 pt apart with a 3.7 pt dot in each: the dots touch, and an arrow between two of
+# them has no visible length at all. At 48 the gap is 4.3 pt, a third wider than a dot, and an
+# arrow keeps 4-7 pt of shaft after clearing both glyphs. The count is arbitrary either way - the
+# FRACTION filled is the measurement, and it survives any count.
+N_GLYPH, N_SHOWN = 48, 8
+N_EDGES = 15              # connections drawn; the trained network is dense, this is a sample
+R_POOL = 0.90             # pool radius inside the unit-radius boundary circle
+DOT_S = 8.0               # unit glyph area in pt^2 (3.2 pt across)
 GLYPH_SEED, TRACE_SEED = 3, 11
 SILENT_GREY = "#c9c8c0"   # one grey for "silent", in the drawing and in the traces alike
+ACTIVE_COL = ps.SLOTS[1]  # red: active units, their traces, and their count
+EXC_COL, INH_COL = ps.SLOTS[1], ps.SLOTS[0]   # excitatory / inhibitory connections
 
 # (label, glob, read-out cap). The cap is the iteration the manuscript reads that family at; the
 # actual read-out is min(cap, the last iteration every seed reaches), reported on the panel.
@@ -231,6 +243,54 @@ def example_network(refresh=False):
     return rates.astype(np.float32), np.asarray(targets, np.float32), p
 
 
+def excitatory_fraction():
+    """Fraction of the example network's off-diagonal recurrent weights that are positive.
+
+    The drawn connections are a schematic, but the MIX of excitatory and inhibitory ones does not
+    have to be invented: it is read from the trained weight matrix, so a reader counting arrowheads
+    on the panel is counting the right proportion. These networks are not sign-constrained, so this
+    is a property of connections, not of units - a unit both excites and inhibits.
+
+    Returns:
+        float in [0, 1].
+    """
+    folder = sorted(glob.glob(os.path.join(EXAMPLE_NET, "*/")))[0]
+    net, _ = load_net(folder)
+    W = np.asarray(net.W_rec)
+    return float((W[~np.eye(W.shape[0], dtype=bool)] > 0).mean())
+
+
+def drawable_pairs(gx, gy, lo, hi, clear):
+    """Unit pairs that an arrow can join without passing over a third unit.
+
+    "Only between neighbours" is not enough on its own - nearest neighbours are so close that the
+    arrow is all head - so the rule is a distance BAND plus an explicit check: no other unit may lie
+    within `clear` of the segment with its projection falling inside it.
+
+    Args:
+        gx, gy: (n,) unit positions; lo, hi: the allowed separation band; clear: the corridor
+            half-width that must be empty.
+    Returns:
+        list of (i, j) index pairs, i < j.
+    """
+    P = np.column_stack([gx, gy])
+    out = []
+    for a in range(len(P)):
+        for b in range(a + 1, len(P)):
+            v = P[b] - P[a]
+            L = float(np.hypot(*v))
+            if not lo <= L <= hi:
+                continue
+            w = P - P[a]
+            t = (w @ v) / (L * L)
+            d = np.abs(v[0] * w[:, 1] - v[1] * w[:, 0]) / L
+            blocked = (t > 0.0) & (t < 1.0) & (d < clear)
+            blocked[a] = blocked[b] = False
+            if not blocked.any():
+                out.append((a, b))
+    return out
+
+
 def panel_a(ax_net, ax_tr, rates, p):
     """Panel (a): the problem, and nothing else. The recurrent pool with most of it dead, and
     eight units drawn at random out of that same network.
@@ -266,7 +326,7 @@ def panel_a(ax_net, ax_tr, rates, p):
 
     # --- left: the recurrent pool as a circuit -------------------------------------------------
     ps.blank(ax_net)
-    ax_net.set(xlim=(-1.78, 1.78), ylim=(-2.02, 1.56))
+    ax_net.set(xlim=(-1.78, 1.78), ylim=(-2.12, 1.56))
     ax_net.set_aspect("equal", adjustable="box")
 
     rng = np.random.default_rng(GLYPH_SEED)
@@ -283,22 +343,23 @@ def panel_a(ax_net, ax_tr, rates, p):
 
     ax_net.add_patch(Circle((0, 0), 1.0, facecolor="none", edgecolor=ps.MUTED, lw=0.8, zorder=1))
 
-    # A sample of the recurrent connectivity, drawn ONLY between nearest neighbours. The trained
-    # networks are dense, so any subset is a sample either way - but a random pair is a long chord
-    # that passes over the units in between, and thirty of those is a scribble. Between nearest
-    # neighbours no third unit can lie on the segment, so no arrow crosses a glyph.
-    d = np.hypot(gx[:, None] - gx[None, :], gy[:, None] - gy[None, :])
-    np.fill_diagonal(d, np.inf)
-    pairs = {tuple(sorted((a, int(b)))) for a, b in enumerate(np.argmin(d, axis=1))}
-    pairs = sorted(pairs)
-    for a, b in [pairs[k] for k in rng.choice(len(pairs), min(N_EDGES, len(pairs)), replace=False)]:
-        src, dst = (a, b) if rng.random() < 0.5 else (b, a)      # recurrence is directed
-        ps.arrow(ax_net, (gx[src], gy[src]), (gx[dst], gy[dst]), col="#b3b2aa", lw=0.4,
-                 zorder=2, mutation_scale=3.2, shrink=2.6)
+    # A sample of the recurrent connectivity - the trained networks are dense, so any subset is a
+    # sample. The pairs are chosen to be near each other AND to have an empty corridor between
+    # them, so no arrow crosses a unit; the excitatory fraction is read off the trained weights.
+    nn = 2.0 * R_POOL / np.sqrt(N_GLYPH)                  # typical nearest-neighbour separation
+    pairs = drawable_pairs(gx, gy, 1.10 * nn, 1.45 * nn, 0.50 * nn)
+    p_exc = excitatory_fraction()
+    for k in rng.choice(len(pairs), min(N_EDGES, len(pairs)), replace=False):
+        a, b = pairs[k]
+        src, dst = (a, b) if rng.random() < 0.5 else (b, a)     # recurrence is directed
+        exc = rng.random() < p_exc
+        ps.arrow(ax_net, (gx[src], gy[src]), (gx[dst], gy[dst]),
+                 col=EXC_COL if exc else INH_COL, lw=0.55, zorder=2, mutation_scale=4.2,
+                 shrink=1.9, style="-|>" if exc else "-[,widthB=0.32,lengthB=0.0")
 
-    ax_net.scatter(gx[~on], gy[~on], s=11, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
+    ax_net.scatter(gx[~on], gy[~on], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
                    zorder=3)
-    ax_net.scatter(gx[on], gy[on], s=11, color=ps.SLOTS[0], edgecolor="none", zorder=4)
+    ax_net.scatter(gx[on], gy[on], s=DOT_S, color=ACTIVE_COL, edgecolor="none", zorder=4)
 
     # inputs and outputs: what makes it a circuit rather than a bag of units. The task is named,
     # not explained - its trial structure is the supplementary task figure.
@@ -315,16 +376,22 @@ def panel_a(ax_net, ax_tr, rates, p):
              col=ps.MUTED, lw=0.8, rad=-0.62, mutation_scale=6, shrink=0)
     ax_net.text(0.56, 1.24, "recurrent", ha="left", va="center", fontsize=6.0, color=ps.MUTED)
 
-    ax_net.text(0.0, -1.18, "3-bit flip-flop task", ha="center", va="center", fontsize=6.2,
+    ax_net.text(0.0, -1.20, "3-bit flip-flop task", ha="center", va="center", fontsize=6.2,
                 color=ps.INK)
-    ax_net.scatter([-0.80], [-1.56], s=11, color=ps.SLOTS[0], edgecolor="none", zorder=4,
+    ax_net.scatter([-1.62], [-1.58], s=DOT_S, color=ACTIVE_COL, edgecolor="none", zorder=4,
                    clip_on=False)
-    ax_net.text(-0.68, -1.56, f"{n_live} active", ha="left", va="center", fontsize=6.4,
-                color=ps.SLOTS[0])
-    ax_net.scatter([-0.80], [-1.88], s=11, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
+    ax_net.text(-1.50, -1.58, f"{n_live} active", ha="left", va="center", fontsize=6.0,
+                color=ACTIVE_COL)
+    ax_net.scatter([0.16], [-1.58], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
                    zorder=4, clip_on=False)
-    ax_net.text(-0.68, -1.88, f"{N - n_live} silent", ha="left", va="center", fontsize=6.4,
+    ax_net.text(0.28, -1.58, f"{N - n_live} silent", ha="left", va="center", fontsize=6.0,
                 color=ps.MUTED)
+    ps.arrow(ax_net, (-1.70, -1.94), (-1.50, -1.94), col=EXC_COL, lw=0.5, mutation_scale=4.0,
+             shrink=0, style="-|>")
+    ax_net.text(-1.44, -1.94, "excitatory", ha="left", va="center", fontsize=6.0, color=EXC_COL)
+    ps.arrow(ax_net, (0.08, -1.94), (0.28, -1.94), col=INH_COL, lw=0.5, mutation_scale=4.0,
+             shrink=0, style="-[,widthB=0.30,lengthB=0.0")
+    ax_net.text(0.34, -1.94, "inhibitory", ha="left", va="center", fontsize=6.0, color=INH_COL)
 
     # --- right: units drawn at random out of that same network ---------------------------------
     ps.blank(ax_tr)
@@ -341,10 +408,10 @@ def panel_a(ax_net, ax_tr, rates, p):
         base = float(N_SHOWN - 1 - j)
         ax_tr.plot([0, T - 1], [base, base], lw=0.4, color=ps.GRID, zorder=1)
         ax_tr.plot(tt, base + amp * r, lw=0.75, zorder=3,
-                   color=ps.SLOTS[0] if p[u] >= thr else SILENT_GREY)
+                   color=ACTIVE_COL if p[u] >= thr else SILENT_GREY)
 
     n_shown_live = int(live[pick].sum())
-    for lo, hi, lab, col in [(N_SHOWN - n_shown_live, N_SHOWN - 1, "active", ps.SLOTS[0]),
+    for lo, hi, lab, col in [(N_SHOWN - n_shown_live, N_SHOWN - 1, "active", ACTIVE_COL),
                              (0, N_SHOWN - n_shown_live - 1, "silent", ps.MUTED)]:
         if hi < lo:
             continue
@@ -383,7 +450,7 @@ def panel_b(ax, p):
     bins = np.logspace(np.log10(pp.min() * 0.7), np.log10(pp.max() * 1.4), 46)
     live = pp >= thr
     ax.hist(pp[~live], bins=bins, color=ps.FAINT, edgecolor="none", label=f"silent ({(~live).sum()})")
-    ax.hist(pp[live], bins=bins, color=ps.SLOTS[0], edgecolor="none", label=f"active ({live.sum()})")
+    ax.hist(pp[live], bins=bins, color=ACTIVE_COL, edgecolor="none", label=f"active ({live.sum()})")
     ax.axvline(thr, color=ps.INK, lw=0.9, ls="--", zorder=5)
     top = ax.get_ylim()[1]
     ax.set_ylim(0, top * 1.28)
@@ -604,7 +671,7 @@ def main():
     gs = GridSpec(2, 2, figure=fig, height_ratios=[0.74, 1.55],
                   width_ratios=[1.30, 1.0], hspace=0.36, wspace=0.44)
 
-    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=[1.05, 1.0],
+    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=[1.32, 1.0],
                                    wspace=0.02)
     ax_net = fig.add_subplot(gs_a[0, 0])
     ax_tr = fig.add_subplot(gs_a[0, 1])
