@@ -38,7 +38,23 @@
 # GRID (36 jobs) = 4 drop rates x 3 betas x 3 seeds, at N = 1000, k = 3, pen = none, do = dead.
 #   drop_rate in {0.05, 0.10, 0.175, 0.25}   (fraction of the LIVE pool)
 #   beta      in {1, 2, 4}
-# `dead` because the reference arm and the pre-registered bar below are both `dead`. `mute` is a
+# `mute`, NOT `dead`, and this is not a preference - `dead` is unstable under accurate targeting.
+# With `dead` the unit is removed from the recurrent rhs, and since the task loss is scored on the
+# dropout pass, a unit drawn on a fraction p of iterations contributes gradient on only (1-p) of
+# them. As p -> 1 it is unregularised and runs away. Measured p(busiest unit dropped) under rank
+# scoring is ~ beta * drop_rate, so the grid's own corner is dangerous:
+#       rho\beta      1        2        4
+#       0.05       0.078    0.140    0.200
+#       0.10       0.178    0.238    0.376
+#       0.175      0.276    0.390    0.584
+#       0.25       0.386    0.484    0.772
+# At rho=0.25 beta=4 all three seeds blew up within 900 iterations (r2 -42521, -884, -24146 with a
+# healthy train loss), so rank scoring bounds the problem but does NOT remove it.
+# `mute` is immune by construction: RNN_torch.rhs masks nothing unless dropout_kind == "dead"
+# (line ~489), so a muted unit still drives every other unit through W_rec. Its activity therefore
+# reaches the output through its neighbours, the task loss sees it, and it cannot grow unopposed.
+# Only its own read-out column is masked. A `mute` reference at n=7 already exists on disk.
+# The old rationale for `dead`, retained for the record: `mute` is a
 # stage-2 question: with silent units out of the pool the two kinds are no longer equivalent on the
 # dropped units (they were identical whenever a silent unit was drawn, which was half the time).
 # Index decode (TID = SLURM_ARRAY_TASK_ID - 1, 0..35):
@@ -50,7 +66,14 @@
 # them and now are the `scored_` refactor (identical for a time-index mask, which this task uses)
 # and the OOM chunking (exact in float32).
 #   no dropout                      387.0 +- 37.3  (n = 4)
-#   dropout dead, rate 0.05, beta 1 487.0 +- 28.0  (n = 7)   <- the arm the fixes are measured against
+#   dropout mute, rate 0.05, beta 1 -- read from disk at the same 40k point; the `mute` cell has
+#     n = 7 and is the matched reference now that the sweep is `mute`.
+#   dropout dead, rate 0.05, beta 1 487.0 +- 28.0  (n = 7)   <- the old `dead` reference
+# ⚠️ BIAS. Every reference above was trained with a TRAINABLE bias in [-1, 1]; as of commit 4f7d73f+
+# rnn_relu_standard.yaml fixes the bias at 0. Fixing the bias was separately measured to be worth
+# +5.0 units, but under an archived peak-rate criterion, so it is not a clean zero on this axis.
+# Matched bias-free controls (no dropout, and mute at rate 0.05 beta 1) MUST be run alongside this
+# grid; do not compare a bias-free arm against the with-bias references above.
 #   BAR: an arm WINS only if its mean clears 571 = 487.0 + 3 * 28.0. Same bar as the drop-rate
 #   ladder, reused unchanged so the two are directly comparable.
 #   COST GUARD: an arm that clears the bar but whose clean training loss at 40k exceeds the
@@ -67,6 +90,7 @@
 # ~6-7 h. 12 h requested so a slow node cannot time out - a timeout loses the ParticipationTrace
 # entirely, since it is written only when the run completes.
 #   sbatch --array=1-36%12 slurm/SilentReLU_flipflop_dropfix_della.slurm
+#   DROP_KIND=dead sbatch ...        # the unstable kind; see below before using it
 # Timing calibration: ITERS_OVERRIDE=600 sbatch --array=1 --time=01:00:00 ...
 #
 # Output: $SAVE_TO/NBitFlipFlop_std_dropfix/EqType=h_k=3_N=1000_pen=none_do=dead_rate=<r>_beta=<b>/
@@ -114,7 +138,7 @@ fi
 
 K=3
 N=1000
-KIND=dead
+KIND=${DROP_KIND:-mute}
 IT=${ITERS_OVERRIDE:-40000}
 
 ARM_RATE=(0.05 0.10 0.175 0.25)

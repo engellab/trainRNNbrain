@@ -6,7 +6,7 @@
 #   io_nonnegativity: false -> W_inp / W_out not clamped non-negative
 #   self_connections: true  -> the W_rec diagonal is free and trainable (no zeroed diagonal)
 #   gamma: 0                -> no cubic saturation term in the dynamics
-#   bias trainable in [-1, 1], initialised at 0
+#   bias FIXED AT 0          -> not a Parameter at all (a degenerate bias_range)
 # Remaining non-vanilla choice, stated deliberately: training noise (sigma_rec/inp/out), standard in
 # neuroscience RNNs. Pair with trainer=trainer_ptrack_plain (task_safe_gradients: false) so penalties
 # combine with the task loss in the ordinary way.
@@ -29,6 +29,15 @@ spectral_rad: 1.2
 sigma_rec: .05
 sigma_inp: .05
 sigma_out: .03
-bias_range: [-1.0, 1.0]        # trainable, clamped to this range after every step
-bias_init: "zeros"             # start at 0
+# NO TRAINABLE BIAS (changed 2026-09-21). A degenerate range makes the bias a fixed zero tensor
+# rather than an nn.Parameter, matching rnn_relu_noDale.yaml and every Dale config. It was trainable
+# in [-1, 1] for every run up to commit 4f7d73f; those runs are described by their commit hash.
+# The bias was never doing anything: fixing it at 0 moved the active-unit count by +5.0 units
+# (394/387/404/414/420 -> 413/411/405/423/392, n=5), and it cannot rescue a dead unit anyway -
+# a permanently sub-threshold unit has relu'(h) = 0 at every step, so dL/dbias is exactly 0, the
+# same absorbing state that traps its weights (measured, not argued). Trained values bore this out:
+# |bias|max 0.084 against a box of 1.0. The trainable-bias variant remains available as
+# rnn_relu_noDale_trainablebias.yaml.
+bias_range: [0.0, 0.0]         # degenerate -> fixed, non-trainable bias = 0
+bias_init: "zeros"             # ignored for a degenerate range
 input_row_norm: null          # T5 knob: rescale every W_inp row to this norm at init; null = default draw
