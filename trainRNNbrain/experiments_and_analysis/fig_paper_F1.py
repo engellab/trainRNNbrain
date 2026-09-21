@@ -160,7 +160,7 @@ TRACE_FAMILIES = [
         # 1e-6 is the default in configs/trainer/trainer.yaml, so every run in this family's
         # reference carries WD=1e-06 - the reference IS this rung, and saying so turns three
         # scattered points into a monotone dose-response
-        ("weight decay 10⁻⁶  (reference)", None,                                                             "reference"),
+        ("weight decay 10⁻⁶ (reference)", None,                                                             "reference"),
         ("weight decay 10⁻⁵", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-5_iters=*",        "weight decay"),
         ("weight decay 10⁻⁴", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-4_iters=*",        "weight decay"),
     ]),
@@ -199,9 +199,12 @@ ARCHIVE_FAMILY = ("CDDM, 30k (archived)",
 ])
 
 # The noise sweep is the one family under a peak-rate rather than a participation criterion.
+# sigma_rec = 0.05 is the default in every model config, so as with weight decay the reference is a
+# rung of this ladder rather than something outside it. Listed in ascending order with the rest.
 NOISE_FAMILY = ("CDDM, 30k (peak-rate criterion)", "0.05", [
     ("recurrent noise σ = 0",    "0.0",  "noise"),
     ("recurrent noise σ = 0.01", "0.01", "noise"),
+    ("recurrent noise σ = 0.05 (reference)", None, "reference"),
     ("recurrent noise σ = 0.1",  "0.1",  "noise"),
 ])
 
@@ -659,8 +662,10 @@ def panel_c(ax):
     ax.text(3.4e2, 1045, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N", ylabel="active units",
            xlim=(3.2e2, 2.7e4), ylim=(150, 2.3e3))
-    # lower right: the only corner the guides, the data and the extrapolations all leave empty
-    ax.legend(handles=handles, loc="lower right", fontsize=5.9)
+    # Lower right is the only corner the guides, the data and the extrapolations all leave empty,
+    # but flush against the axis it runs into panel d's longest row labels across the gutter, so it
+    # is held inboard of the right edge.
+    ax.legend(handles=handles, loc="lower right", bbox_to_anchor=(0.80, 0.0), fontsize=5.9)
     ps.ygrid(ax)
     return fits
 
@@ -776,6 +781,12 @@ def panel_d(ax):
     rmean, rsd, rn = noise_active(ref_sigma)
     start = y
     for label, sigma, group in items:
+        if group == "reference":
+            ax.plot(0, y, "o", ms=3.4, color=ps.BASE, zorder=5, mec="none")
+            ticks.append(y)
+            labels.append(label)
+            y += 1
+            continue
         m, sd, n = noise_active(sigma)
         d = m - rmean
         se = np.sqrt(sd ** 2 / max(n, 1) + rsd ** 2 / max(rn, 1))
