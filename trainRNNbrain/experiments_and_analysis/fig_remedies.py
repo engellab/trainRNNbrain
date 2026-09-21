@@ -22,7 +22,10 @@ the total training objective, which is not comparable across penalties.
 Usage: python fig_remedies.py [<trained_RNNs root>]
 Writes img/internal_figures/fig_remedies.png
 """
+import glob
 import os
+import pickle
+import re
 import sys
 
 import numpy as np
@@ -151,6 +154,73 @@ def panel_dmts(ax, npz_path):
     return True
 
 
+SWITCH_SUB = "NBitFlipFlop_std_switch"
+N_SAMPLES = 300 * 1024          # T x batch: the trace stores raw (sum r)^2 / sum r^2
+BURST = 0.05                    # a unit active for <5% of the probe's samples is a burst unit
+SWITCH_ARMS = [("A1", "frm\n+rws", "#1baf7a"), ("A2", "frm\n(control)", BASE_COL),
+               ("A3", "frm\n(rws removed)", "#eb6834"), ("A4", "frm+rws\n(control)", BASE_COL)]
+
+
+def panel_transience(ax, root):
+    """Panel (c): does `rws` remove the units that satisfy `frm` only transiently?
+
+    Read CAUSALLY from the penalty-switch sweep rather than by comparing independently trained
+    networks: each run is warm-started from a trained parent and continued for 50k iterations with
+    the penalty switched, so the before/after pair is the SAME network and the two same-penalty
+    arms (A2, A4) absorb the effect of warm-starting and extra training. Both directions are
+    present, which is what makes it causal rather than correlational.
+
+    Temporal participation ratio is read straight out of `*_ParticipationTrace.pkl`
+    (key `temporal_pr`, stored per unit at the participation cadence) — no network is rebuilt and
+    nothing is simulated. A unit counts as a BURST unit when its tPR/n is below 5%, i.e. it carries
+    activity in under a twentieth of the probe, which is how a unit satisfies a firing-rate penalty
+    without doing sustained work.
+
+    Args:
+        ax: axes; root: trained_RNNs folder.
+    Returns:
+        True if drawn, False if the switch sweep is absent.
+    """
+    runs = {}
+    for cell in sorted(glob.glob(os.path.join(root, SWITCH_SUB, "*", ""))):
+        m = re.search(r"arm=(A\d)", cell)
+        if not m:
+            continue
+        for net in sorted(glob.glob(cell + "*/")):
+            f = glob.glob(net + "*ParticipationTrace.pkl")
+            if not f:
+                continue
+            tr = pickle.load(open(f[0], "rb"))
+            if "temporal_pr" not in tr:
+                continue
+            p = np.asarray(tr["participation"])
+            t = np.asarray(tr["temporal_pr"], dtype=float) / N_SAMPLES
+            b0 = (t[0][p[0] >= SILENT_FLIPFLOP] < BURST).mean()
+            b1 = (t[-1][p[-1] >= SILENT_FLIPFLOP] < BURST).mean()
+            runs.setdefault(m.group(1), []).append((100 * b0, 100 * b1))
+    if not runs:
+        return False
+    for x, (arm, label, col) in enumerate(SWITCH_ARMS):
+        for b0, b1 in runs.get(arm, []):
+            ax.plot([x - 0.17, x + 0.17], [b0, b1], color=col, lw=1.4, alpha=0.85, zorder=2)
+            ax.scatter([x - 0.17], [b0], s=20, facecolor="white", edgecolor=col, lw=1.3, zorder=3)
+            ax.scatter([x + 0.17], [b1], s=28, color=col, edgecolor="white", lw=0.6, zorder=3)
+    ax.set_xticks(range(len(SWITCH_ARMS)))
+    ax.set_xticklabels([a[1] for a in SWITCH_ARMS], fontsize=8.5)
+    ax.set_ylabel("burst units (% of live)", fontsize=9)
+    ax.set_ylim(0, 48)
+    ax.grid(axis="y", color=GRID, lw=0.6)
+    ax.set_axisbelow(True)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.annotate("adding rws\nremoves them", (0.17, 5.6), textcoords="offset points",
+                xytext=(4, 18), ha="left", fontsize=8, color="#1baf7a")
+    ax.annotate("removing it\nbrings them back", (2.17, 22.4), textcoords="offset points",
+                xytext=(2, -26), ha="center", fontsize=8, color="#eb6834")
+    ax.text(0.5, 0.99, "open = before the switch, filled = 50k iterations after; N=2000, 3 seeds",
+            transform=ax.transAxes, ha="center", va="top", fontsize=7.2, color=MUTED)
+    return True
+
+
 def main(root):
     """Draw the four-panel remedies figure."""
     data = cells(root)
@@ -166,12 +236,10 @@ def main(root):
     strip(axes[1], data, 2, "task loss (noise-free, dropout off)", baseline=base_loss)
     axes[1].set_title("(b) what it costs", fontsize=10, loc="left")
 
+    if not panel_transience(axes[2], root):
+        axes[2].text(0.5, 0.5, "switch sweep missing", ha="center", va="center",
+                     fontsize=9, color=MUTED, transform=axes[2].transAxes)
     axes[2].set_title("(c) what rws buys on top of frm", fontsize=10, loc="left")
-    axes[2].text(0.5, 0.5, "transience panel\n(pending source)", ha="center", va="center",
-                 fontsize=9, color=MUTED, transform=axes[2].transAxes)
-    axes[2].set_xticks([]); axes[2].set_yticks([])
-    for s in axes[2].spines.values():
-        s.set_color(GRID)
 
     ok = panel_dmts(axes[3], os.path.join(os.path.dirname(DATA_DIR), "dmts_curves_delay36.npz"))
     axes[3].set_title("(d) what rws costs", fontsize=10, loc="left")
