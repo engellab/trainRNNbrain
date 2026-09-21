@@ -107,10 +107,36 @@ def test_unknown_sampling_method_is_named():
         raise AssertionError("an unknown sampling_method must raise")
 
 
+def test_beta_is_scale_free():
+    """beta must act on RANK, not on the raw score. Multiplying every participation by 100 -- which
+    is what a runaway does, and did: a beta=4 run reached participation 579 where healthy runs sit
+    at 0.8-1.3 -- must not change how concentrated the sampling is. Under the raw-score softmax the
+    busiest unit went from 4.5x uniform to 375x, i.e. drawn every iteration, which hides it from the
+    task loss (scored on the dropout pass) and lets it run away."""
+    v = Trainer.participation_from_states_(_fake_trainer(), _states(), q=0.9)
+    rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
+                                random_generator=torch.Generator().manual_seed(11))
+    top = int(torch.argmax(v))
+    args = {"dropout_kind": "dead", "sampling_method": "participation",
+            "drop_rate": 0.2, "dropout_beta": 4.0}
+    hits = {}
+    for scale in (1.0, 100.0):
+        vs = v * scale
+        hits[scale] = sum(int(RNN_torch.get_dropout_mask(rnn, args, vs)[top, 0] == 0)
+                          for _ in range(400)) / 400.0
+    assert abs(hits[1.0] - hits[100.0]) < 0.10, \
+        f"p(drop) for the busiest unit moved {hits[1.0]:.3f} -> {hits[100.0]:.3f} when the score " \
+        "was rescaled; beta is not scale-free"
+    assert hits[1.0] < 0.95, f"busiest unit drawn {hits[1.0]:.0%} of iterations -- it would be " \
+        "hidden from the task loss every step and could run away unopposed"
+
+
+
 if __name__ == "__main__":
     test_silent_units_score_zero()
     test_activity_q_is_honoured()
     test_exactly_k_units_are_dropped_at_every_beta()
     test_drops_land_on_units_that_fire()
     test_unknown_sampling_method_is_named()
-    print("all five checks passed")
+    test_beta_is_scale_free()
+    print("all six checks passed")

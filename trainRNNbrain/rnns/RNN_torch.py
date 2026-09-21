@@ -433,10 +433,28 @@ class RNN_torch(torch.nn.Module):
             live = v >= active_rel * torch.quantile(v, 0.95)
             if int(live.sum()) > 0:
                 pool = pool[live]
+        # BETA ACTS ON THE RANK WITHIN THE POOL, NOT ON THE RAW SCORE. `v` is a firing-rate
+        # statistic with no fixed scale: it grows by more than an order of magnitude over training,
+        # so softmax(beta * v) means something completely different early and late. Measured
+        # enrichment of the busiest live unit over uniform sampling, raw v:
+        #     beta = 1 -> 1.5x at iteration 100, but 113x on the trained network
+        #     beta = 4 -> 4.5x at iteration 100, but 375x (i.e. drawn every single iteration)
+        # That is not a targeting knob, it is a scale artefact, and it is actively dangerous with
+        # dropout_kind "dead": a unit drawn every iteration is removed from the recurrent rhs, the
+        # task loss is scored on the dropout pass and therefore never sees it, nothing opposes its
+        # growth, and it runs away. Observed: a beta=4 calibration reached participation 579 by
+        # iteration 300 (healthy runs and every pre-fix run sit at 0.8-1.3) with r2 = -78257 on the
+        # full network while the dropout-pass loss looked healthy at 0.207.
+        # Ranks make beta dimensionless and BOUNDED: enrichment is ~beta, identical at iteration
+        # 100 and on a trained network, so no beta can freeze the selection.
         k = int(round(drop_rate * pool.numel()))
         keep = torch.ones(self.N, 1, device=self.device)
         if k > 0:
-            w = torch.softmax(beta * v[pool], dim=0)
+            vp = v[pool]
+            order = torch.argsort(vp)
+            rank = torch.empty_like(vp)
+            rank[order] = torch.arange(vp.numel(), device=vp.device, dtype=vp.dtype)
+            w = torch.softmax(beta * rank / max(vp.numel() - 1, 1), dim=0)
             idx = torch.multinomial(w, min(k, pool.numel()), replacement=False,
                                     generator=self.random_generator)
             keep[pool[idx]] = 0.0
