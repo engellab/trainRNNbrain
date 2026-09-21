@@ -90,7 +90,8 @@
 # ~6-7 h. 12 h requested so a slow node cannot time out - a timeout loses the ParticipationTrace
 # entirely, since it is written only when the run completes.
 #   sbatch --array=1-36%12 slurm/SilentReLU_flipflop_dropfix_della.slurm
-#   DROP_KIND=dead sbatch ...        # the unstable kind; see below before using it
+#   DROP_KIND=none sbatch --array=1-3 ...   # the matched bias-free no-dropout control (3 jobs)
+#   DROP_KIND=dead sbatch ...               # the unstable kind; see below before using it
 # Timing calibration: ITERS_OVERRIDE=600 sbatch --array=1 --time=01:00:00 ...
 #
 # Output: $SAVE_TO/NBitFlipFlop_std_dropfix/EqType=h_k=3_N=1000_pen=none_do=dead_rate=<r>_beta=<b>/
@@ -161,6 +162,20 @@ mkdir -p "${SAVE_TO}/NBitFlipFlop_std_dropfix"
 echo "Task ${SLURM_ARRAY_TASK_ID}: k=${K} N=${N} do=${KIND} rate=${RATE} beta=${BETA} rep=${REP} iters=${IT}"
 echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
 
+# DROP_KIND=none is the matched NO-DROPOUT control: same commit, same bias-free config, same seeds
+# per cell. It is required because every reference on disk was trained with a trainable bias and
+# cannot be compared against a bias-free arm. The matched dropout reference (rho=0.05, beta=1) is
+# already cell 1 of the grid, so the control costs 3 jobs, not 6.
+if [ "$KIND" = "none" ]; then
+  DO_ARGS=(trainer.dropout=false)
+  TAG="std_dropfix/EqType=h_k=${K}_N=${N}_pen=none_do=none"
+else
+  DO_ARGS=(trainer.dropout=true
+           "trainer.dropout_args.dropout_kind=${KIND}"
+           "trainer.dropout_args.drop_rate=${RATE}"
+           "trainer.dropout_args.dropout_beta=${BETA}")
+fi
+
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
   +experiment=silent_units_largeN \
@@ -172,9 +187,6 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
   trainer.track_valid=false \
   trainer.lambda_rws=0 trainer.lambda_frm=0 \
-  trainer.dropout=true \
-  "trainer.dropout_args.dropout_kind=${KIND}" \
-  "trainer.dropout_args.drop_rate=${RATE}" \
-  "trainer.dropout_args.dropout_beta=${BETA}" \
+  "${DO_ARGS[@]}" \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""
