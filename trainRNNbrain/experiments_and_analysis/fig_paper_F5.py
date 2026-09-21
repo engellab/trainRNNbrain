@@ -219,8 +219,8 @@ def main():
     ps.setup()
     data = measure_networks(refresh=args.refresh)
 
-    fig = plt.figure(figsize=(ps.W2, 128 * ps.MM))
-    gs = GridSpec(2, 3, figure=fig, height_ratios=[0.78, 1.0], hspace=0.52, wspace=0.34)
+    fig = plt.figure(figsize=(ps.W2, 118 * ps.MM))
+    gs = GridSpec(2, 3, figure=fig, height_ratios=[0.60, 1.0], hspace=0.40, wspace=0.34)
 
     ax_a = fig.add_subplot(gs[0, :])
     panel_a(ax_a)

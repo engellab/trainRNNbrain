@@ -319,8 +319,8 @@ def panel_b(ax, refresh=False):
            ylabel="what 'active' means:\nthe same formula on the RATE")
     ax.set_title(f"the two barely agree  (Spearman ρ = {rho:.2f})", fontsize=6.2,
                  color=ps.INK, pad=3)
-    ax.legend(loc="lower right", fontsize=5.8)
-    ax.text(0.03, 0.955,
+    ax.legend(loc="upper left", fontsize=5.8)
+    ax.text(0.03, 0.30,
             f"so {wasted.mean():.0%} of every batch's drops\n"
             f"land on units that were already silent\n"
             f"({wasted.mean() * dropped.mean():.0f} of the {dropped.mean():.0f} dropped per iteration)",

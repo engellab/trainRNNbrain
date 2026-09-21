@@ -286,7 +286,7 @@ def panel_b(ax, p):
     top = ax.get_ylim()[1]
     ax.set_ylim(0, top * 1.28)
     ax.annotate("criterion\n$p_i < 0.05\\,q_{95}(p)$", xy=(thr, top * 1.02),
-                xytext=(thr * 0.09, top * 1.20), fontsize=5.8, color=ps.INK,
+                xytext=(thr * 0.055, top * 1.19), fontsize=5.8, color=ps.INK,
                 ha="center", va="center", linespacing=1.25,
                 arrowprops=dict(arrowstyle="-|>", lw=0.6, color=ps.INK, shrinkA=1, shrinkB=2))
     ax.set_xscale("log")
@@ -449,13 +449,13 @@ def main():
     ax_a = fig.add_subplot(gs[0, 0])
     panel_a(ax_a, rates, targets, p)
     ps.panel_letter(ax_a, "a", dx=-0.02, dy=0.99)
-    ax_a.text(-0.02, 1.10, "What is being measured", transform=ax_a.transAxes, fontsize=7.4,
+    ax_a.text(-0.02, 1.13, "What is being measured", transform=ax_a.transAxes, fontsize=7.4,
               color=ps.INK, fontweight="bold")
 
     ax_b = fig.add_subplot(gs[0, 1])
     panel_b(ax_b, p)
     ps.panel_letter(ax_b, "b")
-    ax_b.text(-0.15, 1.10, "Why the threshold is not a judgement call",
+    ax_b.text(-0.15, 1.20, "Why the threshold is not a judgement call",
               transform=ax_b.transAxes, fontsize=7.4, color=ps.INK, fontweight="bold")
 
     ax_c = fig.add_subplot(gs[1, 0])

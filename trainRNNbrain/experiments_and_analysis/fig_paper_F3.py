@@ -152,46 +152,60 @@ def frm_penalty(a, N=N_UNITS):
 
 
 def panel_a(ax):
-    """Panel (a): the ReLU scale symmetry, and why a dead unit stays dead."""
+    """Panel (a): the objective never asks for units, and the ReLU-specific story is not the cause.
+
+    THIS PANEL WAS REBUILT AFTER A CORRECTION (Pavel, 2026-09-20). It previously argued the whole
+    mechanism from the ReLU scale symmetry and the exactly-zero gradient of a dead ReLU. That
+    cannot be right: Figure 1e shows silence on softplus, leaky ReLU and a bounded sigmoid too, and
+    a ReLU-specific argument cannot explain an observation that is not specific to ReLU. Worse, our
+    own activation sweep points the other way -- see the table drawn at the bottom of the panel.
+
+    What survives is weaker and general: the task loss is a function of the OUTPUT, so once the task
+    is solved, a solution carried by M units scores exactly as well as one carried by N. Nothing in
+    the objective rewards recruiting the rest.
+    """
     ps.blank(ax)
     ax.set(xlim=(0, 1), ylim=(0, 1))
 
-    ax.text(0.5, 0.965, "A unit's activity level is invisible to the task loss",
-            ha="center", fontsize=6.6, color=ps.INK)
+    ax.text(0.5, 0.975, "The objective never asks for the units", ha="center", fontsize=6.8,
+            color=ps.INK)
 
-    for col_i, (alpha_lab, scale, col) in enumerate([("original", 1.0, ps.MUTED),
-                                                     ("×$a$ in, ÷$a$ out", 0.45, ps.COND_COL["frm"])]):
-        x0 = 0.045 + col_i * 0.50
-        uy = 0.70
-        ax.scatter(x0 + 0.185, uy, s=180 * scale ** 0.5 + 40, color=col, alpha=0.85,
-                   edgecolor="none", zorder=5)
-        ax.text(x0 + 0.185, uy, "$r_i$", ha="center", va="center", fontsize=6.0, color="white",
-                zorder=6)
-        for dy, lab, side in [(0.085, "$a\\,w^{\\mathrm{in}}$" if col_i else "$w^{\\mathrm{in}}$", "in"),
-                              (-0.085, "$w^{\\mathrm{out}}\\!/a$" if col_i else "$w^{\\mathrm{out}}$", "out")]:
-            if side == "in":
-                ps.arrow(ax, (x0 + 0.045, uy + dy), (x0 + 0.155, uy + 0.022), col=ps.MUTED)
-                ax.text(x0 + 0.035, uy + dy, lab, ha="right", va="center", fontsize=5.8, color=col)
-            else:
-                ps.arrow(ax, (x0 + 0.215, uy - 0.022), (x0 + 0.325, uy + dy), col=ps.MUTED)
-                ax.text(x0 + 0.335, uy + dy, lab, ha="left", va="center", fontsize=5.8, color=col)
-        ax.text(x0 + 0.185, uy - 0.155, alpha_lab, ha="center", fontsize=5.9, color=col)
-        ax.text(x0 + 0.185, uy - 0.225, f"activity × {scale:g}" if col_i else "activity × 1",
-                ha="center", fontsize=5.5, color=ps.FAINT)
-
-    ax.text(0.5, 0.685, "=", ha="center", va="center", fontsize=11, color=ps.INK)
-    ax.text(0.5, 0.415, "identical network output, identical loss — for any $a>0$",
+    # two networks, same output, very different numbers of active units
+    ax.figure.canvas.draw()
+    dx = 0.0135
+    dy = ps.square_pitch(ax, dx)
+    for col_i, (n_on, lab) in enumerate([(26, "260 of 1000 units active"),
+                                         (100, "1000 of 1000 units active")]):
+        x0 = 0.085 + col_i * 0.50
+        ps.unit_grid(ax, x0, 0.845, n_on, 100, col=ps.SLOTS[0], off_col="#d9d8d1",
+                     pitch=(dx, dy), s=3.6, lw=0.34)
+        ax.text(x0 + 4.5 * dx, 0.885, lab, ha="center", fontsize=5.9, color=ps.INK)
+        ps.box(ax, x0 + 4.5 * dx - 0.088, 0.548, 0.176, 0.056, "same output", col=ps.MUTED,
+               face="#f2f1ec", lw=0.6, fs=5.2)
+        ps.arrow(ax, (x0 + 4.5 * dx, 0.660), (x0 + 4.5 * dx, 0.610), col=ps.MUTED)
+    ax.text(0.5, 0.735, "=", ha="center", va="center", fontsize=11, color=ps.INK)
+    ax.text(0.5, 0.492, "identical task loss --- the loss is indifferent between them",
             ha="center", fontsize=6.0, color=ps.INK)
-    ax.text(0.5, 0.345, "(ReLU is positively homogeneous:  $\\mathrm{relu}(ax)=a\\,\\mathrm{relu}(x)$)",
+    ax.text(0.5, 0.432,
+            "gradient descent recruits what it recruits early; nothing enlarges that set",
             ha="center", fontsize=5.6, color=ps.MUTED)
 
-    ps.box(ax, 0.055, 0.045, 0.89, 0.235, col=ps.BAD, face="#fdf3f1", lw=0.7, pad=0.015)
-    ax.text(0.5, 0.215, "so nothing stops $a\\to 0$ — and the last step is irreversible",
-            ha="center", fontsize=6.2, color=ps.BAD)
-    ax.text(0.5, 0.115,
-            "once a unit's input is below threshold on every trial, $\\mathrm{relu}'=0$:\n"
-            "its gradient is exactly zero and no amount of further training revives it",
-            ha="center", va="center", fontsize=5.7, color=ps.MUTED, linespacing=1.4)
+    # the ReLU-specific sharpenings, and the measurements that rule them out as the cause
+    ps.box(ax, 0.01, 0.045, 0.98, 0.345, col=ps.MUTED, face="#f6f5f0", lw=0.6, pad=0.012)
+    ax.text(0.5, 0.352, "ReLU sharpens this in two ways --- neither of which is what drives it",
+            ha="center", fontsize=6.0, color=ps.INK)
+    rows = [("exact scale symmetry",
+             "$\\mathrm{relu}(ax)=a\\,\\mathrm{relu}(x)$, so a unit's activity level is unidentifiable",
+             "but remove it (softplus, sigmoid) and silence gets WORSE, not better"),
+            ("death is absorbing",
+             "below threshold on every trial $\\mathrm{relu}'=0$, so the unit cannot return",
+             "but remove it (leaky ReLU) and nothing changes: $+6\\pm14$ units")]
+    for i, (head, what, test) in enumerate(rows):
+        y = 0.292 - i * 0.128
+        ax.text(0.045, y, head, fontsize=5.9, color=ps.INK, va="center", ha="left")
+        ax.text(0.045, y - 0.037, what, fontsize=5.1, color=ps.MUTED, va="center", ha="left")
+        ax.text(0.045, y - 0.072, test, fontsize=5.3, color=ps.BAD, va="center", ha="left")
+    ax.plot([0.045, 0.955], [0.176, 0.176], lw=0.4, color="#dedcd4", zorder=1)
 
 
 def panel_b(ax):
@@ -207,7 +221,8 @@ def panel_b(ax):
             label="rate penalty  $\\mathtt{frm}$")
 
     ax.axvline(cap, color=ps.MUTED, lw=0.6, ls=":", zorder=2)
-    ax.text(cap, 1.045, "target cap", fontsize=5.8, color=ps.MUTED, va="bottom", ha="center")
+    ax.text(cap * 0.97, 0.90, "target\ncap", fontsize=5.8, color=ps.MUTED, va="top",
+            ha="right", linespacing=1.2)
 
     ax.plot(0, 0, "o", ms=5, color=ps.SLOTS[4], zorder=7, clip_on=False)
     ax.annotate("minimum at $r=0$:\nsilence is REWARDED", xy=(0.004, 0.005),
@@ -223,7 +238,7 @@ def panel_b(ax):
     ax.set(xlabel="unit's activity  (soft-max over time)",
            ylabel="penalty paid by that unit\n(each curve scaled to its own maximum)",
            xlim=(-0.005, 2.1 * cap), ylim=(-0.03, 1.10), yticks=[])
-    ax.legend(loc="upper center", fontsize=6.0, ncol=1, bbox_to_anchor=(0.48, 0.99))
+    ax.legend(loc="upper center", fontsize=6.0, ncol=1, bbox_to_anchor=(0.52, 1.0))
     ps.ygrid(ax)
     return cap
 
@@ -302,9 +317,9 @@ def panel_d(ax):
 def main():
     """Assemble Figure 3 and write it. Returns the output path."""
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 150 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[1.0, 0.94], width_ratios=[1.06, 1.0],
-                  hspace=0.44, wspace=0.24)
+    fig = plt.figure(figsize=(ps.W2, 158 * ps.MM))
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[1.12, 0.94], width_ratios=[1.10, 1.0],
+                  hspace=0.40, wspace=0.24)
 
     ax_a = fig.add_subplot(gs[0, 0])
     panel_a(ax_a)

@@ -177,13 +177,11 @@ def panel_a(ax, c):
         ax.plot([0.10, 0.94], [base, base], lw=0.45, color=ps.FAINT, zorder=2)
         ax.text(0.10, base + 0.30, lab, fontsize=6.4, color=col)
         ax.text(0.94, base + 0.30, f"tPR = {tpr:.2f}", fontsize=6.0, color=col, ha="right")
-    ax.text(0.52, 0.035, "time (one trial)", ha="center", fontsize=5.8, color=ps.MUTED)
+    ax.text(0.52, 0.035, "time (one trial)", ha="center", fontsize=5.6, color=ps.FAINT)
     ax.text(0.52, 0.965, "both units are ACTIVE by every threshold in this paper",
             ha="center", fontsize=6.2, color=ps.INK)
-    ax.annotate("", xy=(0.055, 0.60), xytext=(0.055, 0.24),
-                arrowprops=dict(arrowstyle="<|-|>", lw=0.6, color=ps.MUTED, mutation_scale=6))
-    ax.text(0.038, 0.42, "the rate penalty is satisfied\nby either one",
-            rotation=90, ha="center", va="center", fontsize=5.6, color=ps.MUTED, linespacing=1.3)
+    ax.text(0.52, 0.125, "the rate penalty is satisfied by either one",
+            ha="center", fontsize=5.8, color=ps.MUTED)
 
 
 def panel_b(ax, c):
