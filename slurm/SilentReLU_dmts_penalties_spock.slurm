@@ -34,6 +34,33 @@
 #   sbatch --array=25-36 --time=48:00:00 slurm/SilentReLU_dmts_penalties_spock.slurm    # N=2000
 # Timing calibration: ITERS_OVERRIDE=600 sbatch --array=25 ...
 #
+# FOURTH SIZE, N=4000, UNPENALISED ONLY (added 2026-09-21; tasks 37-39, decode N_IDX=3).
+# WHY. The active-unit scaling panel has four sizes for the flip-flop and for CDDM and only three
+# here, and three points do not determine the exponent: the DMTS local slope is 0.342 from 500 to
+# 1000 and 0.757 from 1000 to 2000, so the pooled b = 0.549 (M = 1000 at N ~ 5400) is whichever of
+# those two the fit happens to weight. Both four-point tasks give b = 0.44-0.46 and N ~ 14000 with
+# local slopes that DECLINE with size (0.58, 0.49, 0.29 and 0.51, 0.39, 0.43). Either DMTS really
+# does recruit faster, or its middle point is low; a fourth point at N=4000 is the measurement that
+# separates them. Falsifier, fixed before submission: if the 2000->4000 local slope comes in at
+# 0.44 +- 0.10, DMTS agrees with the other two tasks and the single N ~ 14000 figure stands for all
+# three. If it stays above 0.6, the exponent is genuinely task-dependent and the paper must quote a
+# per-task extrapolation instead of one number. Either outcome is reported.
+# ONLY pen=none: the scaling panel uses the unpenalised arm, and no penalty scaling is claimed.
+# 100k ITERATIONS, not 150k, because the panel reads every cell at a matched 100,000 and
+# anneal_noise is False, so nothing in the trajectory depends on max_iter.
+# CODE PIN. The N=500/1000/2000 cells were trained at 800ee30; 51237d6 later moved the DMTS
+# decision cue off channel 2 onto its own line, which changes the input statistics of DMTS_long
+# (5 channels). A fourth point of the SAME fit must use the same task, so it is run from a worktree
+# pinned at 800ee30 rather than from ~/trainRNNbrain (which is at c718b23 and is being used by
+# other pending arrays - do NOT git checkout it).
+#   git -C ~/trainRNNbrain worktree add ~/trainRNNbrain_dmts800 800ee30
+#   sbatch --array=37-39 --time=96:00:00 \
+#     --export=ALL,REPO=$HOME/trainRNNbrain_dmts800,ITERS_OVERRIDE=100000 \
+#     slurm/SilentReLU_dmts_penalties_spock.slurm
+# Wall time: N=2000 ran 150k in 27-30 h (0.65-0.73 s/iter); cost is ~linear in N, so 100k at
+# N=4000 is ~36-41 h median and ~70 h on the slow-node tail. 96 h is Spock's largest accepted
+# request and nothing is written before completion, so do not request less.
+#
 # Output: $SAVE_TO/DMTS_std_pen/EqType=h_N=<N>_pen=<name>/<per-net subfolder>
 
 #SBATCH --job-name=DMTSpen
@@ -73,7 +100,7 @@ if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
   echo "WARNING: $REPO has uncommitted changes; the commit above does not fully describe this run." >&2
 fi
 
-NS=(500 1000 2000)
+NS=(500 1000 2000 4000)
 PEN_NAME=(none rws frm both)
 PEN_RWS=(0 0.05 0 0.05)
 PEN_FRM=(0 0 0.1 0.1)
