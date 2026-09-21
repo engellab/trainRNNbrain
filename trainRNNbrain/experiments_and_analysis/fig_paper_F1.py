@@ -413,7 +413,7 @@ def panel_a(ax_net, ax_tr, rates, p):
 
     # --- left: the recurrent pool as a circuit -------------------------------------------------
     ps.blank(ax_net)
-    ax_net.set(xlim=(-1.78, 1.78), ylim=(-2.12, 1.56))
+    ax_net.set(xlim=(-1.78, 1.78), ylim=(-2.12, 1.16))
     ax_net.set_aspect("equal", adjustable="box")
 
     rng = np.random.default_rng(GLYPH_SEED)
@@ -456,12 +456,6 @@ def panel_a(ax_net, ax_tr, rates, p):
         ps.arrow(ax_net, (xc + 0.03, y), (1.60, y), col=ps.INK, lw=0.7, mutation_scale=5)
     ax_net.text(-1.30, 0.44, "inputs", ha="center", va="bottom", fontsize=6.0, color=ps.INK)
     ax_net.text(1.30, 0.44, "outputs", ha="center", va="bottom", fontsize=6.0, color=ps.INK)
-
-    # the recurrence loop: out of the boundary and back into it, bowing away from the disc
-    a0 = np.radians(118)
-    ps.arrow(ax_net, (np.cos(a0), np.sin(a0)), (np.cos(np.pi - a0), np.sin(np.pi - a0)),
-             col=ps.MUTED, lw=0.8, rad=-0.62, mutation_scale=6, shrink=0)
-    ax_net.text(0.56, 1.24, "recurrent", ha="left", va="center", fontsize=6.0, color=ps.MUTED)
 
     ax_net.text(0.0, -1.20, "3-bit flip-flop task", ha="center", va="center", fontsize=6.2,
                 color=ps.INK)
