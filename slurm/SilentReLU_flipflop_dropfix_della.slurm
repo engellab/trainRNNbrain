@@ -128,12 +128,19 @@ REPO_REAL=$(readlink -f "$REPO")
 if [ "$PKG" != "$REPO_REAL" ]; then
   echo "FATAL: trainRNNbrain resolves to $PKG, expected $REPO_REAL (from $REPO) — aborting." >&2; exit 1
 fi
-# This tree is populated by rsync from the Mac, so its git HEAD (if any) does not describe the code.
-# CODE_VERSION.txt is written at sync time and is the only trustworthy provenance record.
-if [ -f "$REPO/CODE_VERSION.txt" ]; then
-  echo "code: $PKG @ $(cat "$REPO/CODE_VERSION.txt")"
+# Provenance, and it is FATAL rather than a warning: a run whose code cannot be identified cannot be
+# reproduced or retracted. Prefer the git checkout (the repo is synced by push/fetch, not rsync);
+# fall back to CODE_VERSION.txt only for a tree that was rsynced.
+GITSHA=$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || true)
+if [ -n "$GITSHA" ]; then
+  if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
+    echo "FATAL: $REPO is a git checkout with uncommitted changes; $GITSHA does not describe this run." >&2; exit 1
+  fi
+  echo "code: $PKG @ $GITSHA (git)"
+elif [ -f "$REPO/CODE_VERSION.txt" ]; then
+  echo "code: $PKG @ $(cat "$REPO/CODE_VERSION.txt") (rsync)"
 else
-  echo "FATAL: $REPO/CODE_VERSION.txt is missing — provenance of this run cannot be recorded." >&2; exit 1
+  echo "FATAL: $REPO is neither a clean git checkout nor carries CODE_VERSION.txt — provenance of this run cannot be recorded." >&2; exit 1
 fi
 
 K=3
