@@ -108,6 +108,7 @@ def setup():
         "errorbar.capsize": 1.8,
         "pdf.fonttype": 42,                # embed as TrueType so editors can select the text
         "ps.fonttype": 42,
+        "svg.fonttype": "none",            # SVG text stays text, not outlines
     })
 
 
@@ -297,21 +298,28 @@ def strip(ax, xs, groups, cols, width=0.24, jitter=0.055, rng=None, mean_lw=1.6,
 
 
 def save(fig, name, w_mm=180, h_mm=None):
-    """Save a manuscript figure at a physical width, into img/internal_figures.
+    """Save a manuscript figure at a physical width, into img/internal_figures. VECTOR ONLY.
+
+    Every panel in this paper is line art - dots, strokes and text - so a raster export is pure
+    loss: it fixes the resolution at export time, blurs the 5 pt annotations the moment anyone
+    scales the panel, and cannot be re-typeset by the journal. The PDF is the submission asset.
+    The SVG is written beside it because a Markdown working document (docs/paper.md) renders an
+    inline `<img>` and a PDF is not one - so the working docs link the SVG and lose nothing.
 
     Args:
         fig: the figure; name: file stem; w_mm: printed width in millimetres (88 or 180);
         h_mm: printed height, or None to keep whatever the figure was created with.
     Returns:
-        the written path.
+        the path of the PDF.
     """
     if h_mm is not None:
         fig.set_size_inches(w_mm * MM, h_mm * MM)
     os.makedirs(IMG_DIR, exist_ok=True)
-    out = os.path.join(IMG_DIR, f"{name}.png")
-    fig.savefig(out, bbox_inches="tight", pad_inches=0.02)
+    out = os.path.join(IMG_DIR, f"{name}.pdf")
+    for path in (out, os.path.join(IMG_DIR, f"{name}.svg")):
+        fig.savefig(path, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
-    print(f"wrote {out}")
+    print(f"wrote {out} (+ .svg)")
     return out
 
 

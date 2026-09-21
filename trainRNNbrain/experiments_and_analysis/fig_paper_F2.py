@@ -36,7 +36,7 @@ has to be honest about a small effect rather than dress it up, and it has to say
 CRITERION AND READ-OUT as Figure 1: scale-free participation, matched compute, every seed drawn.
 
 Usage:  python fig_paper_F2.py
-Output: img/internal_figures/fig_paper_F2.png
+Output: img/internal_figures/fig_paper_F2.pdf (+ .svg; vector only - see paperstyle.save)
 """
 
 import glob

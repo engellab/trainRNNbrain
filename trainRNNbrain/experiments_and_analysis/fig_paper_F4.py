@@ -25,7 +25,7 @@ solves that task at all - and it does not belong in the middle of an argument ab
 sparsity does.
 
 Usage:  python fig_paper_F4.py [--refresh]
-Output: img/internal_figures/fig_paper_F4.png
+Output: img/internal_figures/fig_paper_F4.pdf (+ .svg; vector only - see paperstyle.save)
 """
 
 import argparse

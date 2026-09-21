@@ -5,6 +5,11 @@ successor). Working document: the *argument*, what supports each claim, what is 
 experimental record is [`project_trajectory.md`](project_trajectory.md); what is proposed but not
 done, and what is deliberately left out, is [`research_directions.md`](research_directions.md).
 
+**Manuscript figures are vector.** `fig_paper_*.py` and `fig_supp_*.py` write PDF (the submission
+asset) and SVG (so this document can show them inline) through `paperstyle.save`; they no longer
+write PNG. The diagnostic figures made with `plotstyle.py` are still PNG — they are read on screen,
+not printed.
+
 **Every claim carries an evidence status** — ✅ measured, 🟡 preliminary, ⬜ planned — so that
 interpretation never quietly becomes result. **Every main-text claim is shown on both tasks** (CDDM
 and the n-bit flip-flop) or is explicitly marked as task-specific. Sign-constrained architectures
@@ -850,6 +855,28 @@ phenomenon is activation-general. With T2, §2 is a measured mechanism; without 
 measured and its driver is the best-supported reading.
 
 ---
+
+## S0. Supplementary: the three tasks ✅
+
+The task definitions, moved out of Figure 1. Silence is not a property of any one task, so putting a
+trial structure in the motivation figure made it read as though it were; and a reader cannot learn
+CDDM, the flip-flop and DMTS from three grey steps overlaid on a trace. One row per task:
+a pictogram of what the trial asks, and beside it the actual input and target channels, generated
+by the task objects in `trainRNNbrain/tasks/` from the same `configs/task/*.yaml` the training runs
+used, so every epoch time on the panel can be checked against the config.
+[`fig_supp_tasks.py`](../trainRNNbrain/experiments_and_analysis/fig_supp_tasks.py) →
+[`fig_supp_tasks.pdf`](../img/internal_figures/fig_supp_tasks.pdf)
+([svg](../img/internal_figures/fig_supp_tasks.svg)).
+
+![fig_supp_tasks.svg](../img/internal_figures/fig_supp_tasks.svg)
+
+CDDM: 6 inputs (2 context cues, 2 motion, 2 colour) → 2 outputs, 300 steps (30 τ), shown on a
+conflict trial. k-bit flip-flop: k pulse channels → k held-state channels, 300 steps, Poisson pulse
+times so a trial has no epochs. DMTS: 2 stimulus channels + a go cue → 1 match output, 140 steps,
+shown on a match trial, stimulus times jittered by ±10 steps.
+
+⚠️ Numbered S0 so that S1–S7 keep the numbers they are cited by elsewhere in this document; renumber
+the whole block at submission.
 
 ## S1. Supplementary: Dale-constrained and I/O-positive networks ✅
 

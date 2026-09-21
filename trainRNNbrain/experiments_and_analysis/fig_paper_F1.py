@@ -6,10 +6,14 @@ network the worse it gets; it happens on every task; and no standard knob fixes 
 This is the motivation figure, so it has to do four things in one display item, and the first row
 has to explain the measurement before the second and third rows quantify it:
 
-  (a) WHAT IS BEING MEASURED           a trained 3-bit flip-flop network, drawn as its units, with
-                                       three REAL units pulled out of it: one strongly driven, one
-                                       barely above threshold, one that never leaves zero. No
-                                       cartoon traces - these are simulated from a trained network.
+  (a) THE PROBLEM, AND ONLY THAT       a trained network drawn as its recurrent pool, three
+                                       quarters of it dead, beside eight units drawn at RANDOM out
+                                       of that same network on one trial, on a shared rate scale.
+                                       Real simulated traces, not cartoons. Nothing about the task
+                                       is in this panel: the trial structure of all three tasks is
+                                       Supplementary Figure S0 (`fig_supp_tasks.py`), because a
+                                       panel that explains a task and a pathology at once explains
+                                       neither.
   (b) WHY "SILENT" IS NOT A JUDGEMENT  the participation distribution of that same network on a log
                                        axis. It is bimodal with four orders of magnitude of empty
                                        valley between the modes, so the threshold is read off the
@@ -37,7 +41,7 @@ fast small one at its end confounds size with convergence depth, which is how th
 earlier version of this project came out positive.
 
 Usage:  python fig_paper_F1.py [--refresh]      (--refresh re-simulates the example network)
-Output: img/internal_figures/fig_paper_F1.png
+Output: img/internal_figures/fig_paper_F1.pdf (+ .svg; vector only - see paperstyle.save)
 """
 
 import argparse
@@ -51,7 +55,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -67,6 +71,14 @@ CACHE = "data/fig_paper_F1_cache.npz"
 EXAMPLE_NET = "data/trained_RNNs/NBitFlipFlop_std_dropout/EqType=h_k=3_N=1000_pen=none_do=none"
 N_TRIALS = 24
 N_UNITS = 1000            # every intervention family is measured at this size
+
+# Panel (a). The pool is drawn as N_GLYPH units standing for all N of them, filled to the MEASURED
+# live fraction, and N_SHOWN units are drawn at random from the network - at random, so that the
+# proportion of them that turns out to be silent is itself the result rather than a choice. Both
+# seeds are fixed so the panel is reproducible; neither was searched over.
+N_GLYPH, N_SHOWN = 100, 8
+GLYPH_SEED, TRACE_SEED = 3, 11
+SILENT_GREY = "#c9c8c0"   # one grey for "silent", in the drawing and in the traces alike
 
 # (label, glob, read-out cap). The cap is the iteration the manuscript reads that family at; the
 # actual read-out is min(cap, the last iteration every seed reaches), reported on the panel.
@@ -211,68 +223,126 @@ def example_network(refresh=False):
     return rates.astype(np.float32), np.asarray(targets, np.float32), p
 
 
-def panel_a(ax, rates, targets, p):
-    """Panel (a): the network as its units, with three real units pulled out of it.
+def panel_a(ax_net, ax_tr, rates, p):
+    """Panel (a): the problem, and nothing else. The recurrent pool with most of it dead, and
+    eight units drawn at random out of that same network.
+
+    THE TASK IS DELIBERATELY ABSENT. The previous version of this panel drew the input and output
+    ports and laid the target bits over the traces, so it was half a task diagram and half a
+    problem statement and did neither: a reader cannot learn the flip-flop from three grey steps,
+    and the silence is not about the flip-flop anyway - it happens on all three tasks. The trial
+    structure of all three now has its own supplementary figure (`fig_supp_tasks.py`), which leaves
+    this panel one job: most units of a trained ReLU RNN never leave zero.
+
+    TWO COLOURS, AND THEY ARE THE SAME TWO ON BOTH SIDES. Filled = active, hollow grey = silent in
+    the drawing; the traces repeat exactly that, so a grey trace and a grey dot are the same
+    statement. Giving each trace its own hue, as this panel used to, encodes identity - which is
+    not a variable the reader needs.
+
+    RATES SHARE ONE SCALE. Every trace is drawn against the same rate axis and the same scale bar.
+    The earlier version normalised each unit by its own maximum, which blew a silent unit's
+    numerical dust up to the height of a driven unit's response and made the panel argue against
+    itself.
 
     Args:
-        ax: a blank axes spanning the panel; rates: (N, T, B); targets: (k, T, B); p: (N,).
+        ax_net: blank axes for the network drawing; ax_tr: blank axes for the traces;
+        rates: (N, T, B) firing rates; p: (N,) participation.
     Returns:
-        None.
+        (n_live, n_shown_live): active units in the network, and how many of the drawn units were
+        active.
     """
-    ps.blank(ax)
-    ax.set(xlim=(0, 1), ylim=(-0.09, 1.0))
-    ax.figure.canvas.draw()                    # square_pitch needs the axes already laid out
+    N = len(p)
     thr = SILENT_REL * np.quantile(p, 0.95)
-    n_live = int((p >= thr).sum())
-    order = np.argsort(-p)
+    live = p >= thr
+    n_live = int(live.sum())
 
-    # --- left: the task, the network, the read-out -------------------------------------------
-    ps.box(ax, 0.002, 0.46, 0.112, 0.22, col=ps.MUTED, face="#f2f1ec", lw=0.6)
-    ax.text(0.058, 0.570, "3 bits", ha="center", va="center", fontsize=6.0, color=ps.INK)
-        
-    # the recurrent pool, drawn as 100 glyphs filled to the measured live fraction
-    dx = 0.0235
-    dy = ps.square_pitch(ax, dx)
-    gx, gy = 0.155, 0.84
-    w_grid, h_grid = ps.unit_grid(ax, gx, gy, round(n_live / 10), 100, col=ps.SLOTS[0],
-                                  off_col="#d5d4cc", pitch=(dx, dy), s=4.6, lw=0.4)
-    ax.text(gx + w_grid / 2, gy + 0.055, "$N=1000$", ha="center", fontsize=6.2, color=ps.INK)
-    ax.text(gx + w_grid / 2, gy - h_grid - 0.105, f"{n_live} active",
-            ha="center", fontsize=6.2, color=ps.SLOTS[0])
+    # --- left: the recurrent pool, as N_GLYPH units with the measured fraction alive -----------
+    ps.blank(ax_net)
+    ax_net.set(xlim=(-1.34, 1.34), ylim=(-1.95, 1.30))
+    ax_net.set_aspect("equal", adjustable="box")
 
-    bx = gx + w_grid + 0.055
-    ps.box(ax, bx, 0.46, 0.115, 0.22, col=ps.MUTED, face="#f2f1ec", lw=0.6)
-    ax.text(bx + 0.0575, 0.570, "3 outputs", ha="center", va="center", fontsize=6.0, color=ps.INK)
-    
-    ps.arrow(ax, (0.118, 0.57), (gx - 0.014, 0.57), col=ps.MUTED)
-    ps.arrow(ax, (gx + w_grid + 0.016, 0.57), (bx - 0.008, 0.57), col=ps.MUTED)
+    rng = np.random.default_rng(GLYPH_SEED)
+    n_on = int(round(N_GLYPH * n_live / N))
+    # Vogel's sunflower: an equal-area packing of the disc, so a quarter of the dots covers a
+    # quarter of the blob's area and reads as a quarter of the POOL. A square lattice reads as a
+    # layer, which a recurrent pool is not.
+    i = np.arange(N_GLYPH)
+    rad, ang = np.sqrt((i + 0.5) / N_GLYPH), i * np.pi * (3.0 - np.sqrt(5.0))
+    gx, gy = rad * np.cos(ang), rad * np.sin(ang)
+    on = np.zeros(N_GLYPH, bool)
+    on[rng.choice(N_GLYPH, n_on, replace=False)] = True   # silence is not spatially organised
 
-    # --- right: three real units ---------------------------------------------------------------
-    picks = [(order[0], "driven", ps.SLOTS[0]),
-             (order[n_live - 12], "near threshold", ps.SLOTS[2]),
-             (order[600], "silent", ps.BAD)]
-    x0, xw = 0.695, 0.215
-    tt = np.linspace(0, 1, rates.shape[1])
-    trial = int(np.argmax(rates[order[0]].max(axis=0)))
+    # a sample of the recurrent connectivity. The trained networks are dense (every unit to every
+    # unit), so these arcs are a sample, not the graph - drawn faint enough to say "recurrent"
+    # and no more.
+    for a, b in rng.choice(N_GLYPH, (26, 2)):
+        if a != b:
+            ps.arrow(ax_net, (gx[a], gy[a]), (gx[b], gy[b]), col=ps.GRID, lw=0.35, rad=0.3,
+                     zorder=1, mutation_scale=3.5, shrink=2.2)
+    ax_net.scatter(gx[~on], gy[~on], s=11, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
+                   zorder=2)
+    ax_net.scatter(gx[on], gy[on], s=11, color=ps.SLOTS[0], edgecolor="none", zorder=3)
 
-    # the task's target bits, as context for the traces below
-    yb = 0.885
-    for b in range(targets.shape[0]):
-        sig = np.asarray(targets[b, :, trial], float)
-        ax.plot(x0 + xw * tt, yb + 0.030 * b + 0.021 * sig, lw=0.6, color=ps.FAINT, zorder=2)
-    ax.text(x0 - 0.010, yb + 0.045, "target", ha="right", va="center", fontsize=5.5,
-            color=ps.MUTED)
+    ps.arrow(ax_net, (1.06, -0.60), (1.06, 0.60), col=ps.MUTED, lw=0.7, rad=-0.55,
+             mutation_scale=6, shrink=0)
+    ax_net.text(1.30, 0.0, "recurrent", rotation=-90, ha="center", va="center", fontsize=5.8,
+                color=ps.MUTED)
 
-    for j, (u, lab, col) in enumerate(picks):
-        base = 0.545 - 0.255 * j
-        r = np.asarray(rates[u, :, trial], float)
-        ax.plot(x0 + xw * tt, base + 0.175 * r / max(r.max(), 1e-9), lw=0.8, color=col, zorder=3)
-        ax.plot([x0, x0 + xw], [base, base], lw=0.4, color=ps.FAINT, zorder=1)
-        ax.text(x0 - 0.010, base + 0.075, lab, ha="right", va="center", fontsize=5.7, color=col)
-        ax.text(x0 + xw + 0.012, base + 0.070, f"$p$ = {p[u]:.2g}", ha="left", va="center",
-                fontsize=5.3, color=ps.MUTED)
-    ax.text(x0 + xw / 2, -0.055, "time", ha="center", fontsize=5.6, color=ps.MUTED)
+    ax_net.scatter([-0.92], [-1.42], s=11, color=ps.SLOTS[0], edgecolor="none", zorder=3,
+                   clip_on=False)
+    ax_net.text(-0.80, -1.42, f"{n_live} active", ha="left", va="center", fontsize=6.4,
+                color=ps.SLOTS[0])
+    ax_net.scatter([-0.92], [-1.68], s=11, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
+                   zorder=3, clip_on=False)
+    ax_net.text(-0.80, -1.68, f"{N - n_live} silent", ha="left", va="center", fontsize=6.4,
+                color=ps.MUTED)
+    ax_net.text(0.12, 1.22, "trained ReLU RNN", ha="center", va="bottom", fontsize=6.4,
+                color=ps.INK)
+    ax_net.text(0.0, -1.94, f"one dot = {N // N_GLYPH} of the $N$ = {N} units", ha="center",
+                va="bottom", fontsize=5.4, color=ps.FAINT)
 
+    # --- right: units drawn at random out of that same network ---------------------------------
+    ps.blank(ax_tr)
+    pick = np.random.default_rng(TRACE_SEED).choice(N, N_SHOWN, replace=False)
+    pick = pick[np.argsort(-p[pick])]          # active on top, so the block itself shows a ratio
+    trial = int(np.argmax(rates[int(np.argmax(p))].max(axis=0)))
+    R = np.asarray(rates[pick][:, :, trial], float)
+    T = R.shape[1]
+    tt = np.arange(T)
+    scale = float(R.max())
+    amp = 0.80 / max(scale, 1e-9)              # one common rate scale for every trace
+
+    for j, (u, r) in enumerate(zip(pick, R)):
+        base = float(N_SHOWN - 1 - j)
+        ax_tr.plot([0, T - 1], [base, base], lw=0.4, color=ps.GRID, zorder=1)
+        ax_tr.plot(tt, base + amp * r, lw=0.75, zorder=3,
+                   color=ps.SLOTS[0] if p[u] >= thr else SILENT_GREY)
+
+    n_shown_live = int(live[pick].sum())
+    for lo, hi, lab, col in [(N_SHOWN - n_shown_live, N_SHOWN - 1, "active", ps.SLOTS[0]),
+                             (0, N_SHOWN - n_shown_live - 1, "silent", ps.MUTED)]:
+        if hi < lo:
+            continue
+        ax_tr.plot([T + 16] * 2, [lo - 0.18, hi + 0.86], lw=0.8, color=col, zorder=4,
+                   solid_capstyle="round")
+        ax_tr.text(T + 26, (lo + hi + 0.68) / 2, lab, ha="left", va="center", fontsize=6.2,
+                   color=col)
+
+    # scale bars instead of axes: a schematic panel should not spend two spines on a quantity
+    # whose absolute value carries no meaning (ReLU rates are in arbitrary units)
+    v = float(f"{scale / 2:.0g}")
+    y0 = float(N_SHOWN - 1)                    # beside the tallest trace, not in a corner
+    ax_tr.plot([-20, -20], [y0, y0 + amp * v], lw=1.0, color=ps.INK, zorder=4,
+               solid_capstyle="butt")
+    ax_tr.text(-27, y0 + amp * v / 2, f"{v:g} a.u.\nrate", ha="right", va="center", fontsize=5.4,
+               color=ps.MUTED, linespacing=1.3)
+    ax_tr.plot([0, 100], [-0.72] * 2, lw=1.0, color=ps.INK, zorder=4, solid_capstyle="butt")
+    ax_tr.text(50, -0.92, r"10 $\tau$", ha="center", va="top", fontsize=5.4, color=ps.MUTED)
+
+    ax_tr.text(T / 2, N_SHOWN + 0.02, f"{N_SHOWN} units drawn at random, one trial",
+               ha="center", va="bottom", fontsize=6.4, color=ps.INK)
+    ax_tr.set(xlim=(-105, T + 80), ylim=(-1.35, N_SHOWN + 0.55))
+    return n_live, n_shown_live
 
 
 def panel_b(ax, p):
@@ -295,7 +365,11 @@ def panel_b(ax, p):
     ax.text(thr * 1.35, top * 1.14, "criterion", fontsize=5.8, color=ps.INK, ha="left",
             va="center")
     ax.set_xscale("log")
+    # spelled out, because "p" on its own is the one thing a reader of this figure has to be
+    # told: it is not the firing rate, it is how far the rate moves and how high it gets
     ax.set(xlabel="participation  $p_i=\\mathrm{std}(r_i)+q_{0.9}(|r_i|)$", ylabel="units")
+    ax.text(0.5, -0.30, "how much unit $i$'s rate moves over a trial, and how high it gets",
+            transform=ax.transAxes, ha="center", va="top", fontsize=5.8, color=ps.MUTED)
     ax.legend(loc="upper left", fontsize=5.8, bbox_to_anchor=(0.0, 1.0))
     ps.ygrid(ax)
 
@@ -499,15 +573,18 @@ def main():
     args = ap.parse_args()
 
     ps.setup()
-    rates, targets, p = example_network(refresh=args.refresh)
+    rates, _, p = example_network(refresh=args.refresh)
 
     fig = plt.figure(figsize=(ps.W2, 176 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.62, 1.55],
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.74, 1.55],
                   width_ratios=[1.30, 1.0], hspace=0.36, wspace=0.44)
 
-    ax_a = fig.add_subplot(gs[0, 0])
-    panel_a(ax_a, rates, targets, p)
-    ps.panel_letter(ax_a, "a", dx=-0.02, dy=0.99)
+    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=[0.80, 1.0],
+                                   wspace=0.04)
+    ax_net = fig.add_subplot(gs_a[0, 0])
+    ax_tr = fig.add_subplot(gs_a[0, 1])
+    n_live, n_shown_live = panel_a(ax_net, ax_tr, rates, p)
+    ps.panel_letter(ax_net, "a", dx=-0.10, dy=0.97)
 
     ax_b = fig.add_subplot(gs[0, 1])
     panel_b(ax_b, p)
@@ -524,6 +601,8 @@ def main():
     out = ps.save(fig, "fig_paper_F1")
 
     print("\n--- numbers quoted in the caption ---")
+    print(f"  panel a: {n_live} of {N_UNITS} units active; {n_shown_live} of {N_SHOWN} randomly "
+          f"drawn units active")
     for task, (b, A, need) in fits.items():
         print(f"  {task:18} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at N = {need:,.0f}")
     for fam, label, d, se, n in rows_d:

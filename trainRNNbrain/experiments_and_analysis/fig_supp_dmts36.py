@@ -18,7 +18,7 @@ BOTH READ-OUTS, because they differ only here. At matched compute (median clean 
 only the peak would score the treatment at its maximum and the control at its plateau.
 
 Usage:  python fig_supp_dmts36.py
-Output: img/internal_figures/fig_supp_dmts36.png
+Output: img/internal_figures/fig_supp_dmts36.pdf (+ .svg; vector only - see paperstyle.save)
 """
 
 import os

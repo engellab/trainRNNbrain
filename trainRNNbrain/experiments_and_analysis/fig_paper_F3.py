@@ -29,7 +29,7 @@ still because its minimum is at zero. A penalty whose minimum is at a non-zero t
                                        that ever solves it.
 
 Usage:  python fig_paper_F3.py
-Output: img/internal_figures/fig_paper_F3.png
+Output: img/internal_figures/fig_paper_F3.pdf (+ .svg; vector only - see paperstyle.save)
 """
 
 import glob

@@ -30,7 +30,7 @@ no r^2 column, so its "networks matched for performance" premise cannot be check
 are not quotable; these are.
 
 Usage:  python fig_paper_F5.py [--refresh]
-Output: img/internal_figures/fig_paper_F5.png
+Output: img/internal_figures/fig_paper_F5.pdf (+ .svg; vector only - see paperstyle.save)
 """
 
 import argparse
