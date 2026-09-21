@@ -48,6 +48,7 @@ from matplotlib.gridspec import GridSpec
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 from common import DATA_DIR, SILENT_REL
+from ablate_rescued_units import measure as ablation_measure
 from characterize import cddm_rates
 
 CACHE = "data/fig_paper_F5_cache.pkl"
@@ -164,22 +165,22 @@ def panel_a(ax):
     dx = 0.0125
     dy = ps.square_pitch(ax, dx)
     for col_i, (title, note) in enumerate([
-            ("what the network has", "1,000 units; 290 of them ever fire"),
-            ("what a recording sees", "only the 290 — the rest are invisible")]):
-        x0 = 0.215 + col_i * 0.375
+            ("what the network has", "1,000 units;\n290 ever fire"),
+            ("what a recording sees", "only those 290;\nthe rest are invisible")]):
+        x0 = 0.145 + col_i * 0.455
         ps.unit_grid(ax, x0, 0.66, 29, 100, col=ps.SLOTS[0],
                      off_col=("#d5d4cc" if col_i == 0 else ps.PAPER),
                      pitch=(dx, dy), s=4.2, lw=0.38)
         ax.text(x0 + 4.5 * dx, 0.78, title, ha="center", fontsize=6.2, color=ps.INK)
-        ax.text(x0 + 4.5 * dx, 0.14, note, ha="center", va="top", fontsize=5.7,
-                color=ps.MUTED)
-    ps.arrow(ax, (0.435, 0.44), (0.545, 0.44), col=ps.MUTED)
-    ax.text(0.49, 0.485, "record", ha="center", fontsize=5.6, color=ps.MUTED)
+        ax.text(x0 + 4.5 * dx, 0.16, note, ha="center", va="top", fontsize=5.3,
+                color=ps.MUTED, linespacing=1.3)
+    ps.arrow(ax, (0.455, 0.46), (0.565, 0.46), col=ps.MUTED)
+    ax.text(0.51, 0.505, "record", ha="center", fontsize=5.6, color=ps.MUTED)
     ax.text(0.5, 0.955, "An experimenter never records a never-firing neuron",
             ha="center", fontsize=6.8, color=ps.INK)
     ax.text(0.5, 0.015,
-            "so every population statistic below is computed over ACTIVE UNITS ONLY",
-            ha="center", fontsize=6.2, color=ps.BAD)
+            "every statistic below is computed over ACTIVE UNITS ONLY",
+            ha="center", fontsize=5.9, color=ps.BAD)
 
 
 def bars(ax, data, key_all, key_act, ylabel, title):
@@ -210,6 +211,51 @@ def bars(ax, data, key_all, key_act, ylabel, title):
     return rows
 
 
+def panel_ablation(ax):
+    """Panel (e): task r^2 as the least-active units are deleted, without retraining.
+
+    The decisive control for this paper: counting active units cannot show that the units DO
+    anything. Deleting them can. Removing a unit means zeroing its column of W_rec and of W_out, so
+    its influence on the rest of the network and on the read-out is gone while the survivors' own
+    dynamics are untouched. Nothing is retrained, so this measures what the trained network was
+    using.
+
+    Returns:
+        dict arm -> (fractions, mean r2, sd) for the least-active-first ordering.
+    """
+    try:
+        data = ablation_measure(refresh=False)
+    except Exception:
+        ax.text(0.5, 0.5, "run ablate_rescued_units.py", ha="center", transform=ax.transAxes)
+        return {}
+    out = {}
+    for pen, lab, col in [("none", "no penalty", ps.BASE), ("frm", "rate penalty", ps.COND_COL["frm"])]:
+        rows = data.get(pen, [])
+        if not rows:
+            continue
+        f = rows[0]["fracs"]
+        low = np.array([r["r2_low"] for r in rows])
+        m, sd = low.mean(0), low.std(0)
+        ax.plot(f, m, "-o", color=col, ms=2.6, lw=1.3, label=lab, zorder=4)
+        ax.fill_between(f, m - sd, m + sd, color=col, alpha=0.16, lw=0)
+        out[pen] = (f, m, sd)
+        frac_silent = 1 - np.mean([r["n_active"] / r["N"] for r in rows])
+        if pen == "none":
+            ax.axvline(frac_silent, color=ps.BASE, lw=0.7, ls=":", zorder=2)
+            ax.annotate(f"deleting the {frac_silent:.0%} that\nwere silent anyway is free",
+                        xy=(frac_silent, 0.93), xytext=(0.44, 0.60), fontsize=5.4,
+                        color=ps.BASE, ha="center", linespacing=1.25,
+                        arrowprops=dict(arrowstyle="-|>", lw=0.5, color=ps.BASE, mutation_scale=5))
+    ax.set(xlabel="fraction of units deleted\n(least active first, no retraining)",
+           ylabel="task $r^2$", xlim=(-0.02, 0.92), ylim=(-0.05, 1.0))
+    ax.set_xticks([0, 0.25, 0.5, 0.75])
+    ax.set_xticklabels(["0", "25%", "50%", "75%"])
+    ax.legend(loc="lower left", fontsize=5.8)
+    ax.set_title("do the units do anything?", fontsize=6.4, color=ps.MUTED, pad=3)
+    ps.ygrid(ax)
+    return out
+
+
 def main():
     """Assemble Figure 5 and write it. Returns the output path."""
     ap = argparse.ArgumentParser()
@@ -219,16 +265,16 @@ def main():
     ps.setup()
     data = measure_networks(refresh=args.refresh)
 
-    fig = plt.figure(figsize=(ps.W2, 118 * ps.MM))
-    gs = GridSpec(2, 3, figure=fig, height_ratios=[0.60, 1.0], hspace=0.40, wspace=0.34)
+    fig = plt.figure(figsize=(ps.W2, 132 * ps.MM))
+    gs = GridSpec(2, 6, figure=fig, height_ratios=[0.80, 1.0], hspace=0.58, wspace=0.95)
 
-    ax_a = fig.add_subplot(gs[0, :])
+    ax_a = fig.add_subplot(gs[0, 0:3])
     panel_a(ax_a)
     ps.panel_letter(ax_a, "a", dx=-0.02, dy=1.0)
     ax_a.text(-0.02, 1.09, "The rule that changes the answer", transform=ax_a.transAxes,
               fontsize=7.4, color=ps.INK, fontweight="bold")
 
-    ax_b = fig.add_subplot(gs[1, 0])
+    ax_b = fig.add_subplot(gs[1, 0:2])
     rows_b = []
     for i, (pen, lab, col) in enumerate(ARMS):
         v = data.get(pen, [])
@@ -249,7 +295,7 @@ def main():
     ps.ygrid(ax_b)
     ps.panel_letter(ax_b, "b")
 
-    ax_c = fig.add_subplot(gs[1, 1])
+    ax_c = fig.add_subplot(gs[1, 2:4])
     rows_c = bars(ax_c, data, "sigma_all", "sigma_act", "$\\sigma$ of $\\log_{10}$ mean rate",
                   "rate heterogeneity")
     ax_c.axhline(CORTEX_SIGMA_LOG, color=ps.BAD, lw=0.9, ls="--", zorder=5)
@@ -257,7 +303,7 @@ def main():
               va="bottom", fontsize=5.6, color=ps.BAD)
     ps.panel_letter(ax_c, "c")
 
-    ax_d = fig.add_subplot(gs[1, 2])
+    ax_d = fig.add_subplot(gs[1, 4:6])
     rows_d = []
     for i, (pen, lab, col) in enumerate(ARMS):
         v = data.get(pen, [])
@@ -277,7 +323,15 @@ def main():
     ps.ygrid(ax_d)
     ps.panel_letter(ax_d, "d")
 
+    ax_e = fig.add_subplot(gs[0, 3:6])
+    abl = panel_ablation(ax_e)
+    ps.panel_letter(ax_e, "e")
+    ax_e.text(-0.16, 1.22, "The decisive control", transform=ax_e.transAxes, fontsize=7.4,
+              color=ps.INK, fontweight="bold")
+
     out = ps.save(fig, "fig_paper_F5")
+    for pen, (f, m, sd) in abl.items():
+        print(f"  ablation {pen:5}: " + "  ".join(f"{int(x*100)}%:{y:.3f}" for x, y in zip(f, m)))
 
     print("\n--- numbers quoted in the caption (CDDM, N=1000, lambda_frm=0.1) ---")
     for pen, _, _ in ARMS:

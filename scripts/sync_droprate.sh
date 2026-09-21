@@ -15,7 +15,7 @@ CELL="data/trained_RNNs/NBitFlipFlop_std_droprate"
 
 echo "=== pulling $CELL from $HOST ==="
 mkdir -p "$REPO/$CELL"
-rsync -az --info=stats1 "$HOST:trainRNNbrain/$CELL/" "$REPO/$CELL/"
+rsync -az --stats "$HOST:trainRNNbrain/$CELL/" "$REPO/$CELL/"
 
 echo
 echo "=== cells on disk ==="
