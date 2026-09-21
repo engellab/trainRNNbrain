@@ -11389,7 +11389,7 @@ under-count. It was caught by listing the per-cell counts against the cluster's 
 interpreting anything, and the table above is from all 72. **Check counts against the source, not
 against a number typed from memory.**
 
-## ▶ SUBMITTED: does the dropout recruitment effect hold at N=500 and N=2000? (job 6306913) — 2026-09-20 20:35
+## ▶ SUBMITTED: does the dropout recruitment effect hold at N=500 and N=2000? (job 6306913) — 2026-09-20 20:09
 
 Pavel: repeat the unpenalised dropout cell at two more sizes. **42 jobs = 2 sizes x 3 dropout
 conditions (none / mute / dead) x 7 seeds**, `slurm/SilentReLU_flipflop_dropout_sizes_spock.slurm`,
