@@ -67,3 +67,12 @@ dropout_args:
   dropout_beta: 1.0
   activity_q: 0.9
 
+# --- prune-and-reinitialise: recycle units that stay silent ---
+# A silent ReLU unit has exactly zero gradient on every incoming and outgoing weight, so no penalty
+# can revive it. This redraws its INCOMING weights from the initialisation distribution once it has
+# been silent for `patience` consecutive checks. Off by default.
+prune_reinit: False
+prune_args:
+  check_every: 100    # iterations between silence checks
+  patience: 5         # consecutive silent checks before a unit is redrawn (5 x 100 = 500 iters)
+  active_rel: 0.05    # silent if participation < this * q95(participation); the project-wide criterion

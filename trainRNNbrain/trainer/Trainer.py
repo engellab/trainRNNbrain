@@ -393,6 +393,8 @@ class Trainer():
                  cl_args = None,
                  lambda_effdim=0.0,
                  effdim_args=None,
+                 prune_reinit=False,
+                 prune_args=None,
                  dropout=False,
                  dropout_args=None,
                  monitor=True,
@@ -498,6 +500,15 @@ class Trainer():
         self.dropout = dropout
         self.dropout_args = dropout_args if dropout_args is not None else {"dropout_kind": None, "sampling_method": None, "drop_rate": 0.0, "dropout_beta": 1.0}
         self.participation = (1e-6 * torch.ones(self.RNN.N, device=self.RNN.device)) if self.dropout else None
+
+        # --- prune-and-reinitialise ("recycle a dead unit") ---
+        self.prune_reinit = prune_reinit
+        self.prune_args = prune_args if prune_args is not None else {
+            "check_every": 100, "patience": 5, "active_rel": 0.05}
+        # strikes[i] = consecutive checks unit i has been silent for. Reset on any active check.
+        self._reinit_strikes = torch.zeros(self.RNN.N, device=self.RNN.device)
+        self._n_reinit_events = 0                                    # total redraws, counts repeats
+        self._reinit_ever = torch.zeros(self.RNN.N, dtype=torch.bool, device=self.RNN.device)
         self.iter_n = 0
 
         # per-unit participation logged every `track_every` iterations during training
@@ -653,6 +664,75 @@ class Trainer():
             self.RNN.W_out.copy_(corrected_out)
         return None
 
+
+    def prune_and_reinit_(self, states):
+        """Reinitialise units that have been silent for `patience` consecutive checks.
+
+        WHY THIS AND NOT A PENALTY. A silent ReLU unit is not merely quiet, it is FROZEN: with
+        r_i = 0 at every timestep, dL/dW_rec[i,j] ~ relu'(h_i) * r_j = 0 and dL/dW_rec[j,i] ~ r_i = 0,
+        so every weight into and out of the unit has exactly zero gradient. No penalty on the loss
+        can revive it, because a penalty acts through the same vanished gradient. The only escape
+        is to overwrite the weights directly. This is the "recycle a useless neuron" mechanism:
+        the unit is not punished, it is replaced.
+
+        WHAT IS REDRAWN. Incoming weights only - W_rec[i, :] and W_inp[i, :] - from the same
+        N(0, 1/sqrt(N)) the network was initialised from. Incoming weights are what decide whether
+        the unit fires; a zero-mean draw gives positive drive on roughly half of timesteps, which is
+        enough to unfreeze the gradient. Outgoing weights are left alone: they received no gradient
+        while the unit was dead, so they still hold whatever training last left there, and redrawing
+        them would discard learned structure for units that died late.
+        # ponytail: incoming-only. Add outgoing redraw if revived units are found to shock the
+        # readout - the co-primary r2 read-out is what would show that.
+
+        The draw happens BEFORE the Dale / mask / non-negativity projections in train_step, so the
+        fresh row is cleaned up by the existing machinery in the same step rather than needing its
+        own sign handling.
+
+        Adam's moments for the redrawn entries are zeroed. Without that, stale momentum from before
+        the unit died immediately pushes the new weights back toward the dead configuration.
+
+        Args:
+            states: (N, T, B) tensor from the training forward pass. Noisy (w_noise=True) - this
+                    reuses the pass that already happened rather than paying for a clean probe;
+                    the silence threshold is far too coarse for the noise to matter.
+
+        Returns:
+            None; mutates self.RNN.W_rec / W_inp and self._reinit_strikes in place.
+        """
+        args = self.prune_args
+        if self.iter_n % int(args["check_every"]) != 0:
+            return None
+
+        p = self.participation_from_states_(states).detach()
+        silent = p < float(args["active_rel"]) * torch.quantile(p, 0.95)
+
+        self._reinit_strikes = torch.where(silent, self._reinit_strikes + 1,
+                                           torch.zeros_like(self._reinit_strikes))
+        doomed = self._reinit_strikes >= int(args["patience"])
+        n = int(doomed.sum())
+        if n == 0:
+            return None
+
+        std = 1.0 / np.sqrt(self.RNN.N)
+        with torch.no_grad():
+            idx = torch.nonzero(doomed, as_tuple=True)[0]
+            self.RNN.W_rec[idx, :] = torch.randn(n, self.RNN.N, device=self.RNN.device,
+                                                 generator=self.RNN.random_generator) * std
+            self.RNN.W_inp[idx, :] = torch.randn(n, self.RNN.W_inp.shape[1], device=self.RNN.device,
+                                                 generator=self.RNN.random_generator) * std
+            # Adam carries per-entry moments; stale ones would undo the redraw within a few steps.
+            for prm in (self.RNN.W_rec, self.RNN.W_inp):
+                st = self.optimizer.state.get(prm, None)
+                if st:
+                    for key in ("exp_avg", "exp_avg_sq"):
+                        if key in st:
+                            st[key][idx, :] = 0.0
+
+        self._reinit_strikes[doomed] = 0
+        self._n_reinit_events += n
+        self._reinit_ever[doomed] = True
+        return None
+
     def enforce_inp_cap_(self):
         """Clamp |W_inp| to the model's inp_weight_cap after an optimiser step. No-op if unset.
 
@@ -803,6 +883,13 @@ class Trainer():
         mon["iters"].append(int(iter))
         met = mon["metrics"]
         met["silent_1em6"].append(float((p < 1e-6).sum()))
+        # Prune-and-reinit diagnostics. `events` counts every redraw INCLUDING repeats of the same
+        # unit, `ever` counts distinct units touched. Both are needed to detect a treadmill: a
+        # mechanism that redraws units which promptly re-die shows events >> ever with no gain in
+        # the active count, and that is a failure, not a partial success.
+        if self.prune_reinit:
+            met["reinit_events"].append(float(self._n_reinit_events))
+            met["reinit_units_ever"].append(float(self._reinit_ever.sum()))
         if self.log_silent_every and iter % self.log_silent_every == 0:
             q95 = torch.quantile(p, 0.95)
             print(f"[silence] iter {iter}: hard(p<1e-6) {int((p < 1e-6).sum())}/{p.numel()}  "
@@ -1008,6 +1095,11 @@ class Trainer():
         # For weight_boundary="reflective" the constraints are baked into the forward pass
         # (effective weight = |param|*sign*mask), so the post-step projections are skipped;
         # for "sticky" (legacy/default) they are applied as before.
+        # Redraw dead units BEFORE the projections below, so Dale / masks / non-negativity clean
+        # up the fresh rows in this same step instead of needing their own sign handling.
+        if self.prune_reinit:
+            self.prune_and_reinit_(states)
+
         if getattr(self.RNN, "weight_boundary", "sticky") == "sticky":
             self.enforce_masks_()   # structural (zero diagonal / masked entries), independent of Dale
             if getattr(self.RNN, "io_nonnegativity", True):
