@@ -34,11 +34,33 @@ class Penalties:
         return ((scored_(output, mask) - scored_(target, mask)) ** 2).mean()
     
     def inp_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap100=0.5, gamma=5.0, eps=1e-12):
+        """Soft cap on |W_inp|, hinged at gamma. Cap scales with N only, as its siblings do.
+
+        FIXED 2026-09-22. It read `N, U = states.size(0), states.size(1)`, so U was the TRIAL
+        LENGTH, and the cap came out as cap100 * (T/N) * log1p(N)/log1p(T). Two things were wrong:
+        the cap depended on how long a trial is, which is not a property of the network and should
+        never enter a weight scale; and the log ratio was inverted relative to
+        out_weights_magnitude_penalty, so the cap scaled the wrong way with N. As coded, the same
+        1000-unit network got a cap of 0.182 on a T=300 task and 0.278 on a T=500 one, and going
+        from N=1000 to N=4000 shrank it 3.3x where the intended form shrinks it 1.2x.
+
+        `U` was almost certainly meant to be `self.UpV`, the same hard constant 100 that
+        out_weights_magnitude_penalty and fr_magnitude_penalty use. That is what it now is.
+
+        No result is affected: lambda_iwm is 0 in every config and launcher, so this penalty has
+        never been applied to a run on disk.
+
+        Args:
+            states: (N, T, B), used only for device/dtype and N; cap100: cap at the N=UpV
+            reference; gamma: hinge sharpness; eps: division guard.
+        Returns:
+            scalar penalty, mean over W_inp entries of ((relu(|W|/cap - 1) + 1)^gamma - 1).
+        """
         dev, dt = states.device, states.dtype
-        N, U = states.size(0), states.size(1)
-        scale = torch.log1p(torch.as_tensor(N, device=dev, dtype=dt)) / torch.log1p(
-            torch.as_tensor(U, device=dev, dtype=dt))
-        cap = torch.as_tensor(cap100, device=dev, dtype=dt) * (U / N) * scale
+        N = states.size(0)
+        scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / torch.log1p(
+            torch.as_tensor(N, device=dev, dtype=dt))
+        cap = torch.as_tensor(cap100, device=dev, dtype=dt) * scale
         A = self.RNN.W_inp.abs()
         r = (A + eps) / (cap + eps)
         over = torch.pow(torch.relu(r - 1) + 1.0, gamma) - 1.0
