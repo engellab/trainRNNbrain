@@ -12093,7 +12093,7 @@ rescaling removes the loss penalty that made ρ = 0.25 a trade rather than a win
   p = 0.049) is unverified and contradicts the +5.0 from the archived CDDM control. If it holds it
   belongs in Figure 1d, and it makes the DMTS tonic channel a bigger confound than represented.
 
-## 2026-09-22 14:40 — input-weight structure: a hypothesis, a latent bug, and a caution
+## 2026-09-22 13:48 — input-weight structure: a hypothesis, a latent bug, and a caution
 
 ### The hypothesis (Pavel)
 
