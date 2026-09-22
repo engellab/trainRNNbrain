@@ -91,7 +91,13 @@
 # entirely, since it is written only when the run completes.
 #   sbatch --array=1-36%12 slurm/SilentReLU_flipflop_dropfix_della.slurm
 #   DROP_KIND=none sbatch --array=1-3 ...   # the matched bias-free no-dropout control (3 jobs)
-#   RESCALE=true sbatch --array=28-36 ...   # inverted-dropout rescaling, rho=0.25 (tag gets _rs)
+#
+# SWEEP=<name> puts the runs in their own folder. USE IT whenever the sampler or the mask changes,
+# not just when a parameter does: as of dae5269 units are drawn by INDEPENDENT BERNOULLI with
+# water-filled probabilities and kept units are rescaled by 1/(1-p_i), so nothing produced after
+# that commit is comparable with the exact-k cells in std_dropfix, whatever the flags say.
+#   SWEEP=std_bernoulli DROP_KIND=mute sbatch --array=1-36%12 ...
+#   SWEEP=std_bernoulli DROP_KIND=dead sbatch --array=1-36%12 ...
 #   DROP_KIND=dead sbatch ...               # the unstable kind; see below before using it
 # Timing calibration: ITERS_OVERRIDE=600 sbatch --array=1 --time=01:00:00 ...
 #
@@ -158,8 +164,8 @@ REP=$((TID % 3)); ARM=$((TID / 3)); B_IDX=$((ARM % 3)); R_IDX=$((ARM / 3))
 RATE=${ARM_RATE[$R_IDX]}
 BETA=${ARM_BETA[$B_IDX]}
 
-TAG="std_dropfix/EqType=h_k=${K}_N=${N}_pen=none_do=${KIND}_rate=${RATE}_beta=${BETA}"
-mkdir -p "${SAVE_TO}/NBitFlipFlop_std_dropfix"
+TAG="${SWEEP:-std_dropfix}/EqType=h_k=${K}_N=${N}_pen=none_do=${KIND}_rate=${RATE}_beta=${BETA}"
+mkdir -p "${SAVE_TO}/NBitFlipFlop_${SWEEP:-std_dropfix}"
 echo "Task ${SLURM_ARRAY_TASK_ID}: k=${K} N=${N} do=${KIND} rate=${RATE} beta=${BETA} rep=${REP} iters=${IT}"
 
 # DROP_KIND=none is the matched NO-DROPOUT control: same commit, same bias-free config, same seeds
@@ -168,16 +174,15 @@ echo "Task ${SLURM_ARRAY_TASK_ID}: k=${K} N=${N} do=${KIND} rate=${RATE} beta=${
 # already cell 1 of the grid, so the control costs 3 jobs, not 6.
 if [ "$KIND" = "none" ]; then
   DO_ARGS=(trainer.dropout=false)
-  TAG="std_dropfix/EqType=h_k=${K}_N=${N}_pen=none_do=none"
+  TAG="${SWEEP:-std_dropfix}/EqType=h_k=${K}_N=${N}_pen=none_do=none"
 else
   DO_ARGS=(trainer.dropout=true
            "trainer.dropout_args.dropout_kind=${KIND}"
            "trainer.dropout_args.drop_rate=${RATE}"
            "trainer.dropout_args.dropout_beta=${BETA}"
-           "trainer.dropout_args.rescale=${RESCALE:-false}")
+           "trainer.dropout_args.rescale=${RESCALE:-true}")
   # RESCALE runs land in their OWN cell. Mixing a rescaled and an unrescaled run in one folder
   # would silently average two different interventions.
-  [ "${RESCALE:-false}" = "true" ] && TAG="${TAG}_rs"
 fi
 # Printed AFTER the branches, not before: TAG picks up the _rs suffix in the block above, and an
 # echo placed earlier reports a destination the run does not use.
