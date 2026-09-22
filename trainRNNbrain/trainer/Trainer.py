@@ -721,12 +721,78 @@ class Trainer():
             return None
 
         std = 1.0 / np.sqrt(self.RNN.N)
+        mode = args.get("reinit_mode", "random")
         with torch.no_grad():
             idx = torch.nonzero(doomed, as_tuple=True)[0]
-            self.RNN.W_rec[idx, :] = torch.randn(n, self.RNN.N, device=self.RNN.device,
-                                                 generator=self.RNN.random_generator) * std
-            self.RNN.W_inp[idx, :] = torch.randn(n, self.RNN.W_inp.shape[1], device=self.RNN.device,
-                                                 generator=self.RNN.random_generator) * std
+
+            if mode == "copy":
+                # FUNCTION-PRESERVING DUPLICATION (the Net2Net construction). A randomly redrawn
+                # unit has no function, so the task gradient has no reason to keep it, and the
+                # screen of 2026-09-22 measured exactly that: 26,012 redraws over 591 units, 44
+                # deaths each, with the active count unmoved. A copy of a working unit has a
+                # function by construction, which removes "the new unit was useless" as the
+                # explanation for its death.
+                #
+                # Copying the incoming weights alone would DOUBLE the donor's contribution to every
+                # downstream unit and jolt the loss. So the donor's OUTGOING weights are split in
+                # half between donor and copy: for any downstream unit k the pair then contributes
+                # (W[k,donor]/2)*r + (W[k,copy]/2)*r = W[k,donor]_old * r, unchanged.
+                #
+                # THE DIAGONAL NEEDS EXPLICIT HANDLING and its absence is not a detail. With
+                # self_connections=False the W_rec diagonal is masked out of the forward pass, so a
+                # unit's self-weight contributes nothing. Duplicating the donor's row would move
+                # that self-weight into the off-diagonal entry (copy, donor), where it is NOT
+                # masked, inventing a self-excitation loop the donor never had. Both cross terms
+                # are therefore zeroed, which is also what exact preservation requires: the donor
+                # received nothing from itself, so the copy must receive nothing from the donor.
+                #
+                # Noise on the copy's incoming weights breaks the symmetry. Without it the two
+                # units take identical drive, emit identical output and receive identical
+                # gradients, so they stay identical forever and the pair does exactly what the
+                # donor alone did.
+                #
+                # Done one unit at a time. n is a handful per event, and a vectorised version has
+                # to reason about two copies drawn from the same donor and about copies writing
+                # into each other's rows. The loop is obviously correct; the speed is irrelevant.
+                live_idx = torch.nonzero(~silent, as_tuple=True)[0]
+                if live_idx.numel() == 0:
+                    return None
+                # Donors are drawn in proportion to participation: the busiest units are the ones
+                # most clearly carrying a function worth copying.
+                weights = p[live_idx].clamp_min(1e-12)
+                donors = live_idx[torch.multinomial(weights, n, replacement=True,
+                                                    generator=self.RNN.random_generator)]
+                jitter = float(args.get("copy_noise", 0.05))
+
+                for copy_i, donor_j in zip(idx.tolist(), donors.tolist()):
+                    row_rec = self.RNN.W_rec[donor_j, :].clone()
+                    row_inp = self.RNN.W_inp[donor_j, :].clone()
+                    # split the donor's outgoing weights between donor and copy
+                    self.RNN.W_rec[:, donor_j] *= 0.5
+                    self.RNN.W_out[:, donor_j] *= 0.5
+                    self.RNN.W_rec[:, copy_i] = self.RNN.W_rec[:, donor_j]
+                    self.RNN.W_out[:, copy_i] = self.RNN.W_out[:, donor_j]
+                    # give the copy the donor's inputs
+                    if jitter > 0:
+                        row_rec = row_rec * (1.0 + jitter * torch.randn(
+                            row_rec.shape, device=row_rec.device,
+                            generator=self.RNN.random_generator))
+                        row_inp = row_inp * (1.0 + jitter * torch.randn(
+                            row_inp.shape, device=row_inp.device,
+                            generator=self.RNN.random_generator))
+                    self.RNN.W_rec[copy_i, :] = row_rec
+                    self.RNN.W_inp[copy_i, :] = row_inp
+                    # no self-loop through the twin, in either direction
+                    self.RNN.W_rec[copy_i, donor_j] = 0.0
+                    self.RNN.W_rec[donor_j, copy_i] = 0.0
+                    self.RNN.W_rec[copy_i, copy_i] = 0.0
+            else:
+                self.RNN.W_rec[idx, :] = torch.randn(n, self.RNN.N, device=self.RNN.device,
+                                                     generator=self.RNN.random_generator) * std
+                self.RNN.W_inp[idx, :] = torch.randn(n, self.RNN.W_inp.shape[1],
+                                                     device=self.RNN.device,
+                                                     generator=self.RNN.random_generator) * std
+
             # Adam carries per-entry moments; stale ones would undo the redraw within a few steps.
             for prm in (self.RNN.W_rec, self.RNN.W_inp):
                 st = self.optimizer.state.get(prm, None)
@@ -734,6 +800,13 @@ class Trainer():
                     for key in ("exp_avg", "exp_avg_sq"):
                         if key in st:
                             st[key][idx, :] = 0.0
+            if mode == "copy":
+                for prm, cols in ((self.RNN.W_rec, idx), (self.RNN.W_out, idx)):
+                    st = self.optimizer.state.get(prm, None)
+                    if st:
+                        for key in ("exp_avg", "exp_avg_sq"):
+                            if key in st:
+                                st[key][:, cols] = 0.0
 
         self._reinit_strikes[doomed] = 0
         self._n_reinit_events += n

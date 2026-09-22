@@ -77,6 +77,14 @@ prune_args:
   check_every: 100    # iterations between silence checks
   patience: 5         # consecutive silent checks before a unit is redrawn (5 x 100 = 500 iters)
   active_rel: 0.05    # silent if participation < this * q95(participation); the project-wide criterion
+  reinit_mode: random # 'random' redraws incoming weights from the init distribution; 'copy'
+                      # duplicates a live unit (Net2Net) and splits that unit's OUTGOING weights
+                      # between it and the copy, so the network computes the same function at the
+                      # instant of duplication. A random unit has no function, so the task gradient
+                      # has no reason to keep it -- measured on 2026-09-22, 26,012 random redraws
+                      # over 591 units died 44 times each with the active count unmoved.
+  copy_noise: 0.05    # relative jitter on the copy's incoming weights. Without it the twins take
+                      # identical drive and identical gradients and never separate.
 
 # --- homeostatic synaptic scaling: excitation up, inhibition down ---
 # Multiplicative scaling of INCOMING weights toward a participation set-point. Excitatory and

@@ -138,7 +138,7 @@ CAP=${CAP:-0.3}            # measured frm+rws q90 at N=1000; ~10x the init scale
 PATIENCE=${PATIENCE:-5}    # 5 * check_every(100) = 500 iterations of silence before a redraw
 ETA=${ETA:-0.05}           # scaling step size; alpha clipped to [1/(1+eta), 1+eta]
 
-ARM_NAME=(none cap prune scale cap+prune cap+scale prune+scale all3 scale_ln)
+ARM_NAME=(none cap prune scale cap+prune cap+scale prune+scale all3 scale_ln prune_copy)
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); ARM=$((TID / 3))
@@ -157,6 +157,18 @@ case "$NAME" in all3)    ARGS=(trainer.prune_reinit=true trainer.synaptic_scalin
 # Arm 8, the DEMONSTRATION arm for the discussion: scaling with a RANK-MATCHED lognormal target
 # instead of a single set-point. Not part of the screen proper -- it exists to show that the
 # measured departure from cortical statistics is fixable, not to compete with the other arms.
+# Arm 9: revive a dead unit by DUPLICATING a live one instead of redrawing it at random. The
+# random redraw failed in a specific, measured way -- 26,012 redraws over 591 units, 44 deaths
+# each, active count unmoved -- and the obvious explanation is that a random unit has no function,
+# so the task gradient has no reason to keep it. A copy has one by construction. The donor's
+# outgoing weights are split between it and the copy, which perturbs the network output 21x less
+# than a random redraw (tests/test_prune_copy_mode.py). If the copies ALSO die, the explanation is
+# not "the new unit was useless" and the silent state is a property of the task, not the unit.
+case "$NAME" in prune_copy) ARGS=(trainer.synaptic_scaling=false model.inp_weight_cap=null
+                                  trainer.prune_reinit=true
+                                  "trainer.prune_args.patience=${PATIENCE}"
+                                  trainer.prune_args.reinit_mode=copy
+                                  "trainer.prune_args.copy_noise=${COPY_NOISE:-0.05}") ;; esac
 case "$NAME" in scale_ln) ARGS=(trainer.prune_reinit=false model.inp_weight_cap=null
                                 trainer.synaptic_scaling=true
                                 "trainer.scaling_args.eta=${ETA}"
