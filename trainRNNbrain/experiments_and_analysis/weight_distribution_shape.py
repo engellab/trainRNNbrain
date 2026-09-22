@@ -49,15 +49,19 @@ def load_net(net_dir):
     Returns:
         dict with W_inp, W_rec, W_out (np arrays) and participation (np array or None).
     """
+    out = {"W_inp": None, "W_rec": None, "W_out": None, "participation": None}
     pf = glob.glob(os.path.join(net_dir, "*LastParams_*.json"))
-    if not pf:
-        return None
-    d = json.load(open(pf[0]))
-    out = {k: np.asarray(d[k], dtype=np.float64) for k in ("W_inp", "W_rec", "W_out")}
+    if pf:
+        d = json.load(open(pf[0]))
+        out.update({k: np.asarray(d[k], dtype=np.float64) for k in ("W_inp", "W_rec", "W_out")})
     tf = glob.glob(os.path.join(net_dir, "*ParticipationTrace.pkl"))
-    out["participation"] = (np.asarray(pickle.load(open(tf[0], "rb"))["participation"][-1],
-                                       dtype=np.float64) if tf else None)
-    return out
+    if tf:
+        out["participation"] = np.asarray(pickle.load(open(tf[0], "rb"))["participation"][-1],
+                                          dtype=np.float64)
+    # Dropout sweeps do not always save LastParams, but they always save the trace. A net with
+    # neither is genuinely empty; a net with only a trace is still usable for the RATE distribution,
+    # which is the read-out that matters for "does this arm conform to a lognormal".
+    return None if (not pf and not tf) else out
 
 
 def lognormal_report(x, label):
@@ -120,9 +124,14 @@ if __name__ == "__main__":
         if net is None:
             continue
         print(os.path.basename(os.path.dirname(nd))[:70] or nd[:70])
-        lognormal_report(np.abs(net["W_inp"]), "|W_inp|")
-        lognormal_report(np.abs(net["W_rec"]), "|W_rec|")
+        if net["W_inp"] is not None:
+            lognormal_report(np.abs(net["W_inp"]), "|W_inp|")
+            lognormal_report(np.abs(net["W_rec"]), "|W_rec|")
+            pileup_report(net["W_inp"], cap)
         if net["participation"] is not None:
-            lognormal_report(net["participation"], "participation (rates)")
-        pileup_report(net["W_inp"], cap)
+            p = net["participation"]
+            n_active = int((p >= 0.05 * np.quantile(p, 0.95)).sum())
+            r = lognormal_report(p, "participation (rates)")
+            if r:
+                print(f"  {'active units':26s} {n_active} / {p.size}")
         print()
