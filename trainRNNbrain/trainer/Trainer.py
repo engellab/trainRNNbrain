@@ -393,6 +393,8 @@ class Trainer():
                  cl_args = None,
                  lambda_effdim=0.0,
                  effdim_args=None,
+                 synaptic_scaling=False,
+                 scaling_args=None,
                  prune_reinit=False,
                  prune_args=None,
                  dropout=False,
@@ -509,6 +511,11 @@ class Trainer():
         self._reinit_strikes = torch.zeros(self.RNN.N, device=self.RNN.device)
         self._n_reinit_events = 0                                    # total redraws, counts repeats
         self._reinit_ever = torch.zeros(self.RNN.N, dtype=torch.bool, device=self.RNN.device)
+
+        # --- homeostatic multiplicative scaling (excitation up / inhibition down) ---
+        self.synaptic_scaling = synaptic_scaling
+        self.scaling_args = scaling_args if scaling_args is not None else {
+            "every": 100, "eta": 0.05, "scale_q": 0.5}
         self.iter_n = 0
 
         # per-unit participation logged every `track_every` iterations during training
@@ -731,6 +738,65 @@ class Trainer():
         self._reinit_strikes[doomed] = 0
         self._n_reinit_events += n
         self._reinit_ever[doomed] = True
+        return None
+
+    def synaptic_scaling_(self, states):
+        """Homeostatic multiplicative scaling of INCOMING weights, excitation up / inhibition down.
+
+        WHY THE SIGN SPLIT. Naive multiplicative scaling has the wrong sign of effect on the case
+        that matters. If unit i is silent because its net drive is NEGATIVE -- other units inhibit
+        it -- then multiplying its whole incoming row by alpha > 1 makes the drive MORE negative and
+        buries the unit deeper. Biology does not do this: Turrigiano-style synaptic scaling acts on
+        EXCITATORY synapses, while inhibitory synapses scale the opposite way under the same
+        activity deprivation. So the rule here is
+
+            W_ij <- alpha_i * W_ij   where W_ij > 0
+            W_ij <- W_ij / alpha_i   where W_ij < 0
+
+        which raises h_i from both directions when alpha_i > 1. Relative weights are preserved
+        WITHIN the excitatory set and within the inhibitory set separately, which is the property
+        that keeps scaling from destroying learned selectivity -- and the property a magnitude
+        penalty does not have. Signs are preserved, so this is Dale-safe and mask-safe (zeros stay
+        zero) without any special handling.
+
+        WHAT IT CANNOT DO. A unit with no excitatory input left cannot be rescued: shrinking its
+        inhibition drives h_i towards 0 from below but never across. Scaling rescues the weakly
+        driven; `prune_and_reinit_` rescues the structurally disconnected. They are complementary,
+        which is a testable prediction -- the pair should beat either alone.
+
+        The set-point is the `scale_q` quantile of participation over the LIVE pool, so it is
+        scale-free and self-calibrating rather than another absolute constant to guess. Scaling is
+        two-sided: over-active units are scaled DOWN, which is what drives the population towards
+        homogeneity instead of merely lifting a floor.
+
+        Args:
+            states: (N, T, B) tensor from the training forward pass, used to score participation.
+
+        Returns:
+            None; mutates self.RNN.W_rec and self.RNN.W_inp in place.
+        """
+        args = self.scaling_args
+        if self.iter_n % int(args["every"]) != 0:
+            return None
+
+        eta = float(args["eta"])
+        p = self.participation_from_states_(states).detach()
+        live = p >= 0.05 * torch.quantile(p, 0.95)
+        if live.sum() < 2:
+            return None
+        target = torch.quantile(p[live], float(args["scale_q"])).clamp_min(1e-8)
+
+        # alpha_i = 1 + eta * (target - p_i)/target, clipped to [1/(1+eta), 1+eta] so the step size
+        # is bounded by the single parameter eta rather than needing its own ceiling.
+        alpha = 1.0 + eta * (target - p) / target
+        alpha = alpha.clamp(1.0 / (1.0 + eta), 1.0 + eta).unsqueeze(1)
+
+        with torch.no_grad():
+            for W in (self.RNN.W_rec, self.RNN.W_inp):
+                pos = W > 0
+                neg = W < 0
+                W[pos] = (W * alpha)[pos]
+                W[neg] = (W / alpha)[neg]
         return None
 
     def enforce_inp_cap_(self):
@@ -1099,6 +1165,8 @@ class Trainer():
         # up the fresh rows in this same step instead of needing their own sign handling.
         if self.prune_reinit:
             self.prune_and_reinit_(states)
+        if self.synaptic_scaling:
+            self.synaptic_scaling_(states)
 
         if getattr(self.RNN, "weight_boundary", "sticky") == "sticky":
             self.enforce_masks_()   # structural (zero diagonal / masked entries), independent of Dale
