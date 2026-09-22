@@ -784,7 +784,30 @@ class Trainer():
         live = p >= 0.05 * torch.quantile(p, 0.95)
         if live.sum() < 2:
             return None
-        target = torch.quantile(p[live], float(args["scale_q"])).clamp_min(1e-8)
+
+        if args.get("scale_target", "median") == "lognormal":
+            # RANK-MATCHED TARGET. Every unit is pulled toward the place a LOGNORMAL population of
+            # this size would put a unit of its rank, not toward a single set-point. Two properties
+            # follow, and both matter:
+            #   - it cannot homogenise. A busy unit's target sits high in the lognormal, so it is
+            #     not dragged to the middle; a single set-point drags everything to the middle,
+            #     which is how frm ends up with only 0.8 decades of spread where cortex has ~2.
+            #   - the bottom-ranked units get a target that is SMALL BUT NONZERO (for N=1000 and
+            #     sigma_log=1.2 the lowest rank asks for ~2% of the median), so a silent unit is
+            #     asked to rejoin the tail, not to become average.
+            # A lognormal has support on (0, inf), so "match a lognormal" already entails "no unit
+            # at exactly zero" -- the two goals are the same requirement, not competing ones.
+            sigma = float(args.get("sigma_log", 1.2))
+            N = p.numel()
+            # median of the live pool sets the scale, so the target tracks the network's own
+            # operating point instead of imposing an absolute rate.
+            mu = torch.log(torch.quantile(p[live], 0.5).clamp_min(1e-8))
+            ranks = torch.argsort(torch.argsort(p)).to(p.dtype)      # 0 = quietest
+            u = (ranks + 0.5) / N
+            z = torch.erfinv(2.0 * u - 1.0) * float(np.sqrt(2.0))    # standard normal quantiles
+            target = torch.exp(mu + sigma * z).clamp_min(1e-8)
+        else:
+            target = torch.quantile(p[live], float(args["scale_q"])).clamp_min(1e-8)
 
         # alpha_i = 1 + eta * (target - p_i)/target, clipped to [1/(1+eta), 1+eta] so the step size
         # is bounded by the single parameter eta rather than needing its own ceiling.

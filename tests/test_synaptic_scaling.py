@@ -114,10 +114,89 @@ def test_purely_inhibited_unit_cannot_be_rescued_by_scaling_alone():
     print(f"      after 30 scalings h = {h:.4f} — still below zero, as documented")
 
 
+def _target_for(p, mode, sigma_log=1.2, scale_q=0.5):
+    """The per-unit target that synaptic_scaling_ would use, extracted for direct comparison.
+
+    Args:
+        p: (N,) participation tensor.
+        mode: 'median' (single set-point) or 'lognormal' (rank-matched).
+    Returns:
+        (N,) tensor of targets.
+    """
+    live = p >= 0.05 * torch.quantile(p, 0.95)
+    if mode == "median":
+        return torch.full_like(p, float(torch.quantile(p[live], scale_q)))
+    N = p.numel()
+    mu = torch.log(torch.quantile(p[live], 0.5).clamp_min(1e-8))
+    ranks = torch.argsort(torch.argsort(p)).to(p.dtype)
+    z = torch.erfinv(2.0 * ((ranks + 0.5) / N) - 1.0) * float(np.sqrt(2.0))
+    return torch.exp(mu + sigma_log * z)
+
+
+def test_rank_matched_target_preserves_spread_where_a_set_point_destroys_it():
+    """The claim behind the change: a single set-point homogenises, a rank-matched one does not."""
+    g = torch.Generator().manual_seed(21)
+    p = torch.exp(torch.randn(1000, generator=g) * 1.2)        # a lognormal population
+    p[:300] = 0.0                                              # plus a 30% silent atom, as measured
+
+    t_med = _target_for(p, "median")
+    t_rank = _target_for(p, "lognormal")
+
+    def decades(x):
+        """Spread of the positive part, q01 to q99, in log10 units."""
+        nz = x[x > 1e-12]
+        return float(torch.log10(torch.quantile(nz, 0.99)) - torch.log10(torch.quantile(nz, 0.01)))
+
+    assert decades(t_med) == 0.0, "a single set-point should have zero spread by construction"
+    assert decades(t_rank) > 1.5, f"rank-matched target too narrow: {decades(t_rank):.2f} decades"
+    print(f"      target spread: set-point {decades(t_med):.1f} decades, "
+          f"rank-matched {decades(t_rank):.1f} decades (cortex ~2)")
+
+
+def test_rank_matched_asks_silent_units_to_rejoin_the_tail_not_the_middle():
+    """A silent unit's target must be small but NONZERO -- the tail, not the median."""
+    g = torch.Generator().manual_seed(22)
+    p = torch.exp(torch.randn(1000, generator=g) * 1.2)
+    p[:300] = 0.0
+
+    t_rank = _target_for(p, "lognormal")
+    med = float(torch.quantile(p[p > 0], 0.5))
+    silent = p <= 1e-12
+
+    # The 300 tied-at-zero units are spread over ranks 0..299 by argsort, so they COLLECTIVELY fill
+    # the bottom 30% of the target lognormal; which silent unit lands in which slot is arbitrary
+    # and does not matter. The contract is on the set, not on any one unit.
+    assert float(t_rank.min()) > 0, "a lognormal target must never be exactly zero"
+    assert float(t_rank.min()) < 0.1 * med, \
+        f"lowest target is {float(t_rank.min())/med:.2f}x median -- the tail is not being asked for"
+    assert float(t_rank[silent].max()) < med, \
+        "a silent unit is being asked to exceed the median, i.e. to become above-average"
+    print(f"      silent units' targets span {float(t_rank[silent].min())/med:.3f}x to "
+          f"{float(t_rank[silent].max())/med:.2f}x the median -- the lower tail, all nonzero")
+
+
+def test_rank_matched_does_not_drag_the_busiest_unit_down_to_the_middle():
+    """A set-point scales the busiest unit DOWN; the rank-matched target leaves it near the top."""
+    g = torch.Generator().manual_seed(23)
+    p = torch.exp(torch.randn(1000, generator=g) * 1.2)
+
+    hot = int(torch.argmax(p))
+    t_med, t_rank = _target_for(p, "median"), _target_for(p, "lognormal")
+
+    assert t_med[hot] < p[hot], "premise: a set-point should pull the busiest unit down"
+    assert t_rank[hot] > t_med[hot] * 5, \
+        "rank-matched target for the busiest unit is not meaningfully above the set-point"
+    print(f"      busiest unit: p={float(p[hot]):.2f}, set-point target={float(t_med[hot]):.2f}, "
+          f"rank-matched target={float(t_rank[hot]):.2f}")
+
+
 if __name__ == "__main__":
     for fn in [test_sign_split_raises_an_inhibited_unit_while_naive_scaling_buries_it,
                test_signs_and_zeros_are_preserved,
                test_scaling_is_two_sided,
-               test_purely_inhibited_unit_cannot_be_rescued_by_scaling_alone]:
+               test_purely_inhibited_unit_cannot_be_rescued_by_scaling_alone,
+               test_rank_matched_target_preserves_spread_where_a_set_point_destroys_it,
+               test_rank_matched_asks_silent_units_to_rejoin_the_tail_not_the_middle,
+               test_rank_matched_does_not_drag_the_busiest_unit_down_to_the_middle]:
         fn()
         print(f"PASS  {fn.__name__}")

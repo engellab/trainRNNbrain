@@ -111,3 +111,9 @@ scaling_args:
   every: 100        # iterations between scaling events
   eta: 0.05         # step size; alpha is clipped to [1/(1+eta), 1+eta]
   scale_q: 0.5      # set-point = this quantile of participation over the LIVE pool (scale-free)
+  scale_target: median   # 'median' = single set-point (homogenises); 'lognormal' = RANK-MATCHED,
+                         # each unit pulled toward the value a lognormal population would give a
+                         # unit of its rank. Preserves spread; cannot homogenise.
+  sigma_log: 1.2         # sigma of the target lognormal in natural log. Only used by 'lognormal'.
+                         # 1.2 is what the networks' OWN weight distributions show (sigma_log10
+                         # 0.50-0.56 per input channel) and matches cortical EPSP spread (~2 decades).

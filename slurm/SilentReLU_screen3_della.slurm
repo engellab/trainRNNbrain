@@ -31,6 +31,20 @@
 #   0 none   1 cap   2 prune   3 scale   4 cap+prune   5 cap+scale   6 prune+scale   7 all three
 #   Singles + control:  sbatch --array=1-12  slurm/SilentReLU_screen3_della.slurm
 #   Pairs + triple:     sbatch --array=13-24 slurm/SilentReLU_screen3_della.slurm
+#   Rank-matched demo:  sbatch --array=25-27 slurm/SilentReLU_screen3_della.slurm
+#
+# ARM 8 (`scale_ln`) IS A DEMONSTRATION, NOT A SCREEN ARM. Measured on 5 nets per arm, the trained
+# networks do not match cortical statistics in the RATE distribution, and the two existing arms
+# fail in opposite directions: `none` carries a 31% atom at exactly zero with a 5.8-decade spread,
+# `frm+rws` has no zeros but only 0.8 decades, i.e. near-homogeneity. Cortex has no atom at zero
+# and ~2 decades. The WEIGHTS need no fixing -- they are already lognormal at 2.5 decades in both
+# arms, and the penalties only rescale them (~1.8x) without changing sigma_log at all.
+# The single set-point is what homogenises: it asks the busiest unit in a lognormal population to
+# fall from 58.0 to 1.3. A rank-matched target asks it for 68.3 instead, and asks each silent unit
+# to rejoin the lower TAIL (0.025x-0.69x the median, never zero) rather than to become average.
+# Read-out for this arm is the rate distribution itself -- zero atom and spread in decades, via
+# weight_distribution_shape.py -- not the active count alone. Success is "a couple of networks show
+# it is possible", which is all the discussion needs to claim.
 # Stage the submission: run 1-12 first and only submit 13-24 for combinations whose singles did
 # something. That is greedy forward selection, and it is deliberate - the point of the programme is
 # the MINIMAL set of interventions that works, so an arm that adds nothing must be visibly dropped
@@ -124,7 +138,7 @@ CAP=${CAP:-0.3}            # measured frm+rws q90 at N=1000; ~10x the init scale
 PATIENCE=${PATIENCE:-5}    # 5 * check_every(100) = 500 iterations of silence before a redraw
 ETA=${ETA:-0.05}           # scaling step size; alpha clipped to [1/(1+eta), 1+eta]
 
-ARM_NAME=(none cap prune scale cap+prune cap+scale prune+scale all3)
+ARM_NAME=(none cap prune scale cap+prune cap+scale prune+scale all3 scale_ln)
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); ARM=$((TID / 3))
@@ -140,6 +154,14 @@ case "$NAME" in all3)    ARGS=(trainer.prune_reinit=true trainer.synaptic_scalin
                                "model.inp_weight_cap=${CAP}"
                                "trainer.prune_args.patience=${PATIENCE}"
                                "trainer.scaling_args.eta=${ETA}") ;; esac
+# Arm 8, the DEMONSTRATION arm for the discussion: scaling with a RANK-MATCHED lognormal target
+# instead of a single set-point. Not part of the screen proper -- it exists to show that the
+# measured departure from cortical statistics is fixable, not to compete with the other arms.
+case "$NAME" in scale_ln) ARGS=(trainer.prune_reinit=false model.inp_weight_cap=null
+                                trainer.synaptic_scaling=true
+                                "trainer.scaling_args.eta=${ETA}"
+                                trainer.scaling_args.scale_target=lognormal
+                                "trainer.scaling_args.sigma_log=${SIGMA_LOG:-1.2}") ;; esac
 
 TAG="${SWEEP:-screen3}/EqType=h_N=${N}_pen=none_arm=${NAME}"
 mkdir -p "${SAVE_TO}/CDDM_${SWEEP:-screen3}"
