@@ -129,6 +129,73 @@ def get_connectivity_unconstrained(N, n_inputs, n_outputs, radius=1.5, recurrent
 
     return W_rec, W_inp, W_out, recurrent_mask, None, output_mask, input_mask
 
+class DropoutMask:
+    """A dropped unit is removed in TWO different senses, and they need different numbers.
+
+    outgoing : what the unit CONTRIBUTES to the rest of the network and to the read-out. 0 if
+               dropped; if kept, 1, or 1/(1 - p_i) when rescaling is on. Rescaled because this is
+               a quantity the rest of the network averages over: it is present only (1 - p_i) of
+               the iterations, so the kept ones must be scaled up for the average to equal what the
+               unit contributes in the full network. `dead` applies it to the unit's outgoing rate
+               (which feeds W_rec) and to its read-out column; `mute` only to the read-out column.
+
+    silence  : whether the unit's OWN dynamics run. 0 if dropped, 1 if kept. NEVER rescaled.
+               Cutting a unit's own drive and its own noise is what makes it fall silent, and that
+               is the whole content of `dead`. Multiplying a SURVIVING unit's input by 1/(1 - p_i)
+               would not restore anything - it would feed that unit drive it never receives in the
+               full network. Only `dead` uses this field at all.
+
+    With rescale off the two are the same binary vector, so behaviour is unchanged.
+    """
+
+    def __init__(self, outgoing, silence):
+        self.outgoing = outgoing
+        self.silence = silence
+
+
+def drop_probabilities(w, budget, p_max=0.9, iters=40, tol=1e-9):
+    """Per-unit drop probabilities: proportional to `w`, capped at `p_max`, summing to `budget`.
+
+    WHY NOT `clamp(budget * w, 0, p_max)`. Whatever a saturated unit cannot absorb is then simply
+    discarded, so the expected number of drops falls short of the budget - badly, once the softmax
+    concentrates. That was a real bug here: a nominal 50 drops per iteration became 7.9 at beta=4.
+
+    The fix is to stop treating the multiplier as fixed. We want p_i = min(p_max, c * w_i) with c
+    chosen so that sum(p_i) == budget; a capped unit then holds p_max and the mass it could not
+    take is absorbed by the others in proportion to their own weights. c is found by repeatedly
+    rescaling to the budget and re-clipping. The sum only ever sits below the budget, so the
+    multiplier is always > 1, c only ever rises, and units can only move INTO the cap - so this
+    approaches the unique solution from below. Converges in ~10 iterations at our sizes.
+
+    WHY THIS MATTERS BEYOND THE BUDGET. Because units are then dropped INDEPENDENTLY with these
+    probabilities, p_i IS the marginal drop probability - so the inverted-dropout factor
+    1/(1 - p_i) is exact and free. Drawing exactly k units without replacement would instead make
+    the marginal probability intractable: it is not k*w_i (that is the with-replacement answer and
+    exceeds 1 for the heaviest unit), and computing it exactly sums over every size-k subset,
+    which is ~1e96 terms at our pool sizes.
+
+    Args:
+        w: (M,) non-negative weights over the live pool, summing to 1.
+        budget: target expected number of drops, i.e. drop_rate * M.
+        p_max: ceiling on any single unit's drop probability. It also bounds the rescaling factor,
+            since 1/(1 - p_max); p_max = 0.9 caps it at 10.
+        iters: rescale-and-clip rounds; tol: stop when the sum is this close to the budget.
+    Returns:
+        (M,) tensor of drop probabilities summing to `budget`, or all-`p_max` if `budget` exceeds
+        what the ceiling allows.
+    """
+    n = w.numel()
+    if budget >= p_max * n:
+        return torch.full_like(w, p_max)
+    p = torch.clamp(budget * w, max=p_max)
+    for _ in range(iters):
+        total = float(p.sum())
+        if abs(total - budget) < tol or total <= 0:
+            break
+        p = torch.clamp(p * (budget / total), max=p_max)
+    return p
+
+
 '''
 Continuous-time RNN class implemented in pytorch to train with BPTT
 '''
@@ -397,6 +464,7 @@ class RNN_torch(torch.nn.Module):
         beta = dropout_args.get("dropout_beta", 1.0)
         active_rel = dropout_args.get("active_rel", 0.05)
         rescale = bool(dropout_args.get("rescale", False))
+        p_max = float(dropout_args.get("p_max", 0.9))
 
         sm = dropout_args["sampling_method"]
         if sm == "uniform":
@@ -459,23 +527,37 @@ class RNN_torch(torch.nn.Module):
         # carry more than their share of the drive and a uniform factor under-corrects. An exact
         # per-unit 1/(1-pi_j) needs the marginal inclusion probabilities of a without-replacement
         # draw, which is a bigger change; take the textbook correction first and measure.
-        k = int(round(drop_rate * pool.numel()))
-        keep = torch.ones(self.N, 1, device=self.device)
-        if k > 0:
+        M = pool.numel()
+        budget = drop_rate * M
+        silence = torch.ones(self.N, 1, device=self.device)
+        outgoing = torch.ones(self.N, 1, device=self.device)
+        if budget > 0 and M > 0:
+            # beta acts on a unit's normalised RANK within the live pool, not on its participation
+            # value. Participation is a firing-rate statistic with no fixed scale - it grows by
+            # more than an order of magnitude over training - so softmax(beta * participation)
+            # means different things at different times and at different N. On ranks the
+            # enrichment of the busiest unit is ~beta, identical early and late and independent of
+            # the pool size.
             vp = v[pool]
             order = torch.argsort(vp)
             rank = torch.empty_like(vp)
-            rank[order] = torch.arange(vp.numel(), device=vp.device, dtype=vp.dtype)
-            w = torch.softmax(beta * rank / max(vp.numel() - 1, 1), dim=0)
-            idx = torch.multinomial(w, min(k, pool.numel()), replacement=False,
-                                    generator=self.random_generator)
-            keep[pool[idx]] = 0.0
+            rank[order] = torch.arange(M, device=vp.device, dtype=vp.dtype)
+            w = torch.softmax(beta * rank / max(M - 1, 1), dim=0)
+
+            p = drop_probabilities(w, budget, p_max=p_max)
+            dropped = torch.bernoulli(p, generator=self.random_generator) > 0
+            idx = pool[dropped]
+            silence[idx] = 0.0
+            outgoing[idx] = 0.0
             if rescale:
-                M = pool.numel()
-                surv = torch.ones(self.N, 1, device=self.device)
-                surv[pool] = float(M) / float(M - k)
-                keep = keep * surv
-        return keep
+                # p_i IS the marginal drop probability, because the draws are independent. The
+                # kept iterations are scaled by 1/(1 - p_i) so that, averaged over iterations,
+                # every unit contributes exactly what it does in the full network - whatever its
+                # read-out weight or its firing rate.
+                factor = torch.ones(self.N, 1, device=self.device)
+                factor[pool] = (1.0 / (1.0 - p).clamp_max(1.0 / (1.0 - p_max))).reshape(-1, 1)
+                outgoing = outgoing * factor
+        return DropoutMask(outgoing=outgoing, silence=silence)
 
     def _constrained_weights(self):
         """Return (W_rec, W_inp, W_out) as used in the dynamics, honoring weight_boundary.
@@ -502,23 +584,17 @@ class RNN_torch(torch.nn.Module):
         if b.device != x.device or b.dtype != x.dtype:
             b = b.to(device=x.device, dtype=x.dtype, non_blocking=True)
 
-        # --- dropout mask (avoid unconditional >0 + .to(x)) ---
+        # --- dropout masks -------------------------------------------------------------------
+        # TWO fields, deliberately. `outgoing` carries the rescaling and multiplies what the unit
+        # SENDS; `silence` is binary and multiplies the unit's OWN drive and noise. The previous
+        # code had one mask and inferred what to do with it from its dtype and its max value -- a
+        # `dm.max() <= 1` test that silently binarised any rescaled mask, making `rescale` a no-op.
+        # There is nothing left to infer.
         if dropout_mask is None or dropout_kind != "dead":
-            m = None
+            m_out = m_self = None
         else:
-            dm = dropout_mask
-            if dm.device != x.device:
-                dm = dm.to(device=x.device, non_blocking=True)
-            if dm.dtype == torch.bool:
-                m = dm.reshape(shp).to(dtype=x.dtype)
-            else:
-                if dm.dtype != x.dtype:
-                    dm = dm.to(dtype=x.dtype)
-                # Values ABOVE 1 are legitimate: inverted-dropout rescaling hands survivors
-                # M/(M-k) > 1. The old guard was `dm.max() <= 1`, which silently binarised any
-                # rescaled mask and made trainer.dropout_args.rescale a no-op. Only a mask that is
-                # not a non-negative float at all is coerced.
-                m = dm.reshape(shp) if dm.is_floating_point() and (dm.min() >= 0) else (dm > 0).reshape(shp).to(dtype=x.dtype)
+            m_out = dropout_mask.outgoing.reshape(shp).to(dtype=x.dtype, device=x.device)
+            m_self = dropout_mask.silence.reshape(shp).to(dtype=x.dtype, device=x.device)
 
         # weights actually used in the dynamics (constrained per weight_boundary; see forward())
         W_rec = self.W_rec if W_rec is None else W_rec
@@ -527,7 +603,7 @@ class RNN_torch(torch.nn.Module):
         # Cubic term (skip if gamma == 0)
         cubic_term = self.gamma * x * x * x if (self.gamma) > eps else 0.0
         inp = W_inp @ (I + i_noise)
-        if m is None:
+        if m_out is None:
             if self.equation_type == "h":
                 r = self.activation(x)
                 drive = W_rec @ r + inp + b
@@ -537,12 +613,12 @@ class RNN_torch(torch.nn.Module):
                 return -x + self.activation(h) + r_noise - cubic_term
         else:
             if self.equation_type == "h":
-                r = self.activation(x) * m
-                drive = (W_rec @ r + inp + b) * m
-                return -x + drive + r_noise * m - cubic_term
+                r = self.activation(x) * m_out       # what this unit sends to the others
+                drive = (W_rec @ r + inp + b) * m_self   # its OWN drive: binary, never rescaled
+                return -x + drive + r_noise * m_self - cubic_term
             if self.equation_type == "s":
-                h = W_rec @ (x * m) + (inp + b) * m
-                return -x + self.activation(h) * m + r_noise * m - cubic_term
+                h = W_rec @ (x * m_out) + (inp + b) * m_self
+                return -x + self.activation(h) * m_self + r_noise * m_self - cubic_term
 
     def forward(self, u, w_noise=True, dropout=False, dropout_args=None, participation=None):
         if dropout_args is None:
@@ -594,10 +670,10 @@ class RNN_torch(torch.nn.Module):
         if dropout_mask is None:
             W_out = Wout_c
         elif dk == "mute" or dk == "dead":
-            # NOT `(dropout_mask > 0)`: that binarises, which threw away the inverted-dropout
-            # rescaling (survivors carry M/(M-k), not 1) and made `rescale` a silent no-op on the
-            # mute path -- the one path this project actually sweeps.
-            W_out = Wout_c * dropout_mask.reshape(1, -1).to(Wout_c.dtype)
+            # `outgoing` for BOTH kinds: the read-out is something the unit contributes, so it
+            # carries the rescaling. W_out[:,j] * (c_j * r_j) == (c_j * W_out[:,j]) * r_j, so
+            # scaling the column here is the same operation as scaling the unit's outgoing rate.
+            W_out = Wout_c * dropout_mask.outgoing.reshape(1, -1).to(Wout_c.dtype)
         else:
             W_out = Wout_c
         if self.equation_type == "h":

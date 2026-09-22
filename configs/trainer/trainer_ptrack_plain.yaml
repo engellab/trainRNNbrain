@@ -63,7 +63,8 @@ dropout_args:
   eta: 0.5
   active_rel: 0.05     # a unit joins the drop pool if participation >= this * q95(participation)
   drop_rate: 0.05      # fraction OF THE LIVE POOL dropped each iteration
-  rescale: false       # scale survivors by M/(M-k) so the dropout pass matches the full network
+  rescale: true        # scale kept units by 1/(1-p_i) so the dropout pass matches the full network
+  p_max: 0.9           # ceiling on any unit's drop probability; also caps the factor at 1/(1-p_max)
   dropout_beta: 1.0
   activity_q: 0.9
 

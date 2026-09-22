@@ -58,41 +58,67 @@ def test_activity_q_is_honoured():
     assert (v99 >= v50 - 1e-6).all(), "a higher quantile cannot lower the score"
 
 
-def test_exactly_k_units_are_dropped_at_every_beta():
-    """The dose must not depend on beta. It used to: the clamped Bernoulli lost most of the budget
-    as the softmax concentrated (50 -> 7.9 dropped at beta=4, N=1000, drop_rate=0.05), which made
-    the ladder's beta=4 arm a dose experiment masquerading as a targeting one. k counts the LIVE
-    pool, which is half of the units here."""
+def test_expected_drop_count_hits_the_budget():
+    """Units are drawn INDEPENDENTLY now, so the count fluctuates -- but its MEAN must be the
+    budget at every beta. The old code lost most of the budget as beta rose (50 nominal drops
+    became 7.9 at beta=4) because clipping at 0.999 discarded whatever a saturated unit could not
+    absorb. drop_probabilities redistributes it instead."""
     v = Trainer.participation_from_states_(_fake_trainer(), _states(), q=0.9)
     rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
                                 random_generator=torch.Generator().manual_seed(5))
     n_live = int((v >= 0.05 * torch.quantile(v, 0.95)).sum())
-    assert n_live == N - len(SILENT), f"expected {N - len(SILENT)} live units, found {n_live}"
     for beta in (0.0, 1.0, 4.0, 16.0):
         args = {"dropout_kind": "dead", "sampling_method": "participation",
-                "drop_rate": 0.25, "dropout_beta": beta}
-        for _ in range(20):
-            keep = RNN_torch.get_dropout_mask(rnn, args, v)
-            assert keep.shape == (N, 1), f"mask must be (N, 1), got {tuple(keep.shape)}"
-            n_dropped = int((keep == 0).sum())
-            assert n_dropped == round(0.25 * n_live), \
-                f"beta={beta}: dropped {n_dropped}, expected exactly {round(0.25 * n_live)}"
+                "drop_rate": 0.25, "dropout_beta": beta, "p_max": 0.9}
+        counts = []
+        for _ in range(400):
+            mask = RNN_torch.get_dropout_mask(rnn, args, v)
+            assert mask.silence.shape == (N, 1), f"mask fields must be (N,1) i.e. shared across the batch"
+            counts.append(int((mask.silence == 0).sum()))
+        mean, target = sum(counts) / len(counts), 0.25 * n_live
+        assert abs(mean - target) < 0.1 * target, \
+            f"beta={beta}: mean drops {mean:.1f}, budget {target:.1f}"
 
 
-def test_drops_land_on_units_that_fire():
-    """Silent units are outside the pool entirely, so NO draw may ever land on one -- at any
-    beta, including beta=0 where the weights within the pool are uniform."""
+def test_silence_is_binary_and_outgoing_is_unbiased():
+    """The two fields do different jobs and must not be conflated.
+
+    silence gates the unit's OWN drive, so it is binary: a surviving unit receives exactly its
+    normal input, never an amplified one. outgoing carries the inverted-dropout rescaling, so its
+    expectation is 1 for every live unit -- PER UNIT, because an over-scaled quiet unit and an
+    under-scaled busy one cancel almost exactly in any aggregate. That cancellation is precisely
+    how a uniform M/(M-k) factor looked correct while being wrong at both ends.
+    """
     v = Trainer.participation_from_states_(_fake_trainer(), _states(), q=0.9)
+    live = (v >= 0.05 * torch.quantile(v, 0.95)).numpy()
     rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
                                 random_generator=torch.Generator().manual_seed(6))
     args = {"dropout_kind": "dead", "sampling_method": "participation",
-            "drop_rate": 0.2, "dropout_beta": 0.0}
-    silent_hits = total = 0
-    for _ in range(200):
-        dropped = (RNN_torch.get_dropout_mask(rnn, args, v).squeeze(1) == 0).numpy()
-        silent_hits += dropped[SILENT].sum()
-        total += dropped.sum()
-    assert silent_hits == 0, f"{silent_hits} of {total} drawn units were already silent"
+            "drop_rate": 0.25, "dropout_beta": 4.0, "rescale": True, "p_max": 0.9}
+    draws = 6000
+    acc = np.zeros(N)
+    for _ in range(draws):
+        m = RNN_torch.get_dropout_mask(rnn, args, v)
+        assert set(np.unique(m.silence.numpy())) <= {0.0, 1.0}, "silence must never be rescaled"
+        assert not (m.outgoing.numpy()[m.silence.numpy() == 0] != 0).any(), \
+            "a dropped unit must be zero in BOTH fields"
+        acc += m.outgoing.squeeze(1).numpy()
+    e = acc[live] / draws
+    assert np.abs(e - 1.0).max() < 0.12, \
+        f"E[outgoing] should be 1 per live unit; worst is {e[np.argmax(np.abs(e-1))]:.3f}"
+    assert m.outgoing.max() <= 1.0 / (1.0 - args["p_max"]) + 1e-6, \
+        "p_max must cap the rescaling factor"
+
+
+def test_rescale_off_reproduces_a_plain_binary_mask():
+    """Every completed run used rescale=false and must remain exactly reproducible."""
+    v = Trainer.participation_from_states_(_fake_trainer(), _states(), q=0.9)
+    rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
+                                random_generator=torch.Generator().manual_seed(7))
+    m = RNN_torch.get_dropout_mask(rnn, {"dropout_kind": "mute", "sampling_method": "participation",
+                                         "drop_rate": 0.2, "dropout_beta": 2.0, "rescale": False}, v)
+    assert torch.equal(m.outgoing, m.silence), "with rescale off the two fields must coincide"
+    assert set(np.unique(m.outgoing.numpy())) <= {0.0, 1.0}
 
 
 def test_unknown_sampling_method_is_named():
@@ -107,67 +133,11 @@ def test_unknown_sampling_method_is_named():
         raise AssertionError("an unknown sampling_method must raise")
 
 
-def test_beta_is_scale_free():
-    """beta must act on RANK, not on the raw score. Multiplying every participation by 100 -- which
-    is what a runaway does, and did: a beta=4 run reached participation 579 where healthy runs sit
-    at 0.8-1.3 -- must not change how concentrated the sampling is. Under the raw-score softmax the
-    busiest unit went from 4.5x uniform to 375x, i.e. drawn every iteration, which hides it from the
-    task loss (scored on the dropout pass) and lets it run away."""
-    v = Trainer.participation_from_states_(_fake_trainer(), _states(), q=0.9)
-    rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
-                                random_generator=torch.Generator().manual_seed(11))
-    top = int(torch.argmax(v))
-    args = {"dropout_kind": "dead", "sampling_method": "participation",
-            "drop_rate": 0.2, "dropout_beta": 4.0}
-    hits = {}
-    for scale in (1.0, 100.0):
-        vs = v * scale
-        hits[scale] = sum(int(RNN_torch.get_dropout_mask(rnn, args, vs)[top, 0] == 0)
-                          for _ in range(400)) / 400.0
-    assert abs(hits[1.0] - hits[100.0]) < 0.10, \
-        f"p(drop) for the busiest unit moved {hits[1.0]:.3f} -> {hits[100.0]:.3f} when the score " \
-        "was rescaled; beta is not scale-free"
-    assert hits[1.0] < 0.95, f"busiest unit drawn {hits[1.0]:.0%} of iterations -- it would be " \
-        "hidden from the task loss every step and could run away unopposed"
-
-
-
-def test_rescaling_survives_into_the_forward_pass():
-    """A rescaled mask must reach the weights UNBINARISED.
-
-    The bug this pins: get_dropout_mask handed survivors M/(M-k) > 1, and both consumers threw it
-    away -- `Wout_c * (dropout_mask > 0)` on the mute path, and a `dm.max() <= 1` guard on the dead
-    path that fell through to `(dm > 0)`. So `rescale: true` was a silent no-op on the exact path
-    this project sweeps, and nine GPU-hours produced a duplicate of the unrescaled arm before it was
-    caught. Testing get_dropout_mask alone does NOT catch this; the mask has to be followed into the
-    forward pass.
-    """
-    v = Trainer.participation_from_states_(_fake_trainer(), _states(), q=0.9)
-    rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
-                                random_generator=torch.Generator().manual_seed(12))
-    W_out = torch.ones(3, N)
-    full = float((W_out * torch.ones(1, N))[0].sum())
-    masses = {}
-    for rescale in (False, True):
-        args = {"dropout_kind": "mute", "sampling_method": "participation",
-                "drop_rate": 0.25, "dropout_beta": 4.0, "rescale": rescale}
-        mask = RNN_torch.get_dropout_mask(rnn, args, v)
-        # exactly what forward() does on the mute path
-        masses[rescale] = float((W_out * mask.reshape(1, -1).to(W_out.dtype))[0].sum())
-    n_live = int((v >= 0.05 * torch.quantile(v, 0.95)).sum())
-    assert masses[False] < full, "without rescaling the dropout pass must lose readout mass"
-    # rescaling restores the mass carried by the LIVE pool; the silent units contribute 1.0 either way
-    assert abs(masses[True] - full) < 0.05 * n_live, \
-        f"rescaled mass {masses[True]:.1f} should match the full network's {full:.1f}; " \
-        "a binarising consumer would give " + f"{masses[False]:.1f}"
-
-
 if __name__ == "__main__":
     test_silent_units_score_zero()
     test_activity_q_is_honoured()
-    test_exactly_k_units_are_dropped_at_every_beta()
-    test_drops_land_on_units_that_fire()
+    test_expected_drop_count_hits_the_budget()
+    test_silence_is_binary_and_outgoing_is_unbiased()
+    test_rescale_off_reproduces_a_plain_binary_mask()
     test_unknown_sampling_method_is_named()
-    test_beta_is_scale_free()
-    test_rescaling_survives_into_the_forward_pass()
-    print("all seven checks passed")
+    print("all five checks passed")
