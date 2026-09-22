@@ -40,4 +40,11 @@ sigma_out: .03
 # rnn_relu_noDale_trainablebias.yaml.
 bias_range: [0.0, 0.0]         # degenerate -> fixed, non-trainable bias = 0
 bias_init: "zeros"             # ignored for a degenerate range
-input_row_norm: null          # T5 knob: rescale every W_inp row to this norm at init; null = default draw
+input_row_norm: null
+# Hard ceiling on |W_inp|, clamped after every optimiser step. null = off, which is every run before
+# 2026-09-22. It exists to test whether CONCENTRATED input drive is what leaves units silent: the
+# unpenalised network puts its drive into ~6% of its input weights (99th percentile 8.57 against a
+# median of 0.002) and a unit's input row norm predicts its participation at r = +0.65, whereas
+# under frm+rws that correlation inverts to -0.61 and the row-norm CV falls from 2.28 to 0.74.
+# A cap must sit above the initialisation scale 1/sqrt(N) ~ 0.032 or training cannot start.
+inp_weight_cap: null          # T5 knob: rescale every W_inp row to this norm at init; null = default draw

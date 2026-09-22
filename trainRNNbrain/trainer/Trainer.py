@@ -631,6 +631,35 @@ class Trainer():
             self.RNN.W_out.copy_(corrected_out)
         return None
 
+    def enforce_inp_cap_(self):
+        """Clamp |W_inp| to the model's inp_weight_cap after an optimiser step. No-op if unset.
+
+        WHY A CLAMP AND NOT A PENALTY. `inp_weights_magnitude_penalty` exists and is wired in as
+        lambda_iwm, but its gamma=5 hinge is unusable as a soft cap here: at initialisation every
+        |W_inp| is ~0.03, well under any sensible cap, so the penalty is EXACTLY zero and exerts no
+        gradient at all; on a trained unpenalised network the largest weight is ~41x a cap of 0.36,
+        so the term reaches ~1e8. A lambda sized for one end is inert or explosive at the other,
+        and this project already carries spike_factor/restore_after machinery because frm misbehaved
+        far more mildly than that. A clamp has one parameter with an obvious meaning and cannot
+        spike.
+
+        WHAT IT TESTS. The unpenalised network concentrates input drive into ~6% of weights - the
+        99th percentile of |W_inp| is 8.57 against a median of 0.002 - and a unit's input row norm
+        predicts its participation at r = +0.65. Under frm+rws that correlation inverts to -0.61 and
+        the row-norm CV falls from 2.28 to 0.74. The hypothesis this clamp tests is the causal
+        direction: does forcing input drive to spread RECRUIT units, or does recruiting units merely
+        happen to spread the drive?
+
+        Returns:
+            None; clamps self.RNN.W_inp in place.
+        """
+        cap = getattr(self.RNN, "inp_weight_cap", None)
+        if cap is None:
+            return None
+        with torch.no_grad():
+            self.RNN.W_inp.clamp_(min=-cap, max=cap)
+        return None
+
     def enforce_bias_range_(self):
         if not getattr(self.RNN, "bias_trainable", False):
             return None
@@ -964,6 +993,7 @@ class Trainer():
             if getattr(self.RNN, "dale", True):
                 self.enforce_dale_()
         self.enforce_bias_range_()
+        self.enforce_inp_cap_()
 
         # --- 5) compute total loss and r2 for reporting ---
         loss_val = Trainer.zero_(self.RNN.device)

@@ -232,7 +232,8 @@ class RNN_torch(torch.nn.Module):
                  freeze_master=False,
                  n_inputs=6,
                  n_outputs=2,
-                 input_row_norm=None):
+                 input_row_norm=None,
+                 inp_weight_cap=None):
         '''
         :param N: int, number of neural nodes in the RNN
         :param input_row_norm: float or None. None (default) keeps the drawn W_inp (entries at std
@@ -294,6 +295,9 @@ class RNN_torch(torch.nn.Module):
         self.n_outputs = int(n_outputs)
         self.spectral_rad = torch.from_numpy(np.array(spectral_rad)).to(self.device)
         self.bias_range = torch.tensor(bias_range).to(self.device)
+        # Hard ceiling on |W_inp|, enforced by the Trainer after every optimiser step (see
+        # Trainer.enforce_inp_cap_). None = off, which is every run before 2026-09-22.
+        self.inp_weight_cap = None if inp_weight_cap is None else float(inp_weight_cap)
         self.connectivity_density_rec = connectivity_density_rec
         self.exc2inhR = exc2inhR
         self.gamma = gamma
