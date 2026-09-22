@@ -132,6 +132,36 @@ def test_beta_is_scale_free():
 
 
 
+def test_rescaling_survives_into_the_forward_pass():
+    """A rescaled mask must reach the weights UNBINARISED.
+
+    The bug this pins: get_dropout_mask handed survivors M/(M-k) > 1, and both consumers threw it
+    away -- `Wout_c * (dropout_mask > 0)` on the mute path, and a `dm.max() <= 1` guard on the dead
+    path that fell through to `(dm > 0)`. So `rescale: true` was a silent no-op on the exact path
+    this project sweeps, and nine GPU-hours produced a duplicate of the unrescaled arm before it was
+    caught. Testing get_dropout_mask alone does NOT catch this; the mask has to be followed into the
+    forward pass.
+    """
+    v = Trainer.participation_from_states_(_fake_trainer(), _states(), q=0.9)
+    rnn = types.SimpleNamespace(N=N, device=torch.device("cpu"),
+                                random_generator=torch.Generator().manual_seed(12))
+    W_out = torch.ones(3, N)
+    full = float((W_out * torch.ones(1, N))[0].sum())
+    masses = {}
+    for rescale in (False, True):
+        args = {"dropout_kind": "mute", "sampling_method": "participation",
+                "drop_rate": 0.25, "dropout_beta": 4.0, "rescale": rescale}
+        mask = RNN_torch.get_dropout_mask(rnn, args, v)
+        # exactly what forward() does on the mute path
+        masses[rescale] = float((W_out * mask.reshape(1, -1).to(W_out.dtype))[0].sum())
+    n_live = int((v >= 0.05 * torch.quantile(v, 0.95)).sum())
+    assert masses[False] < full, "without rescaling the dropout pass must lose readout mass"
+    # rescaling restores the mass carried by the LIVE pool; the silent units contribute 1.0 either way
+    assert abs(masses[True] - full) < 0.05 * n_live, \
+        f"rescaled mass {masses[True]:.1f} should match the full network's {full:.1f}; " \
+        "a binarising consumer would give " + f"{masses[False]:.1f}"
+
+
 if __name__ == "__main__":
     test_silent_units_score_zero()
     test_activity_q_is_honoured()
@@ -139,4 +169,5 @@ if __name__ == "__main__":
     test_drops_land_on_units_that_fire()
     test_unknown_sampling_method_is_named()
     test_beta_is_scale_free()
-    print("all six checks passed")
+    test_rescaling_survives_into_the_forward_pass()
+    print("all seven checks passed")

@@ -514,7 +514,11 @@ class RNN_torch(torch.nn.Module):
             else:
                 if dm.dtype != x.dtype:
                     dm = dm.to(dtype=x.dtype)
-                m = dm.reshape(shp) if dm.is_floating_point() and (dm.min() >= 0) and (dm.max() <= 1) else (dm > 0).reshape(shp).to(dtype=x.dtype)
+                # Values ABOVE 1 are legitimate: inverted-dropout rescaling hands survivors
+                # M/(M-k) > 1. The old guard was `dm.max() <= 1`, which silently binarised any
+                # rescaled mask and made trainer.dropout_args.rescale a no-op. Only a mask that is
+                # not a non-negative float at all is coerced.
+                m = dm.reshape(shp) if dm.is_floating_point() and (dm.min() >= 0) else (dm > 0).reshape(shp).to(dtype=x.dtype)
 
         # weights actually used in the dynamics (constrained per weight_boundary; see forward())
         W_rec = self.W_rec if W_rec is None else W_rec
@@ -590,7 +594,10 @@ class RNN_torch(torch.nn.Module):
         if dropout_mask is None:
             W_out = Wout_c
         elif dk == "mute" or dk == "dead":
-            W_out = Wout_c * (dropout_mask > 0).view(1, -1)    # binary mask
+            # NOT `(dropout_mask > 0)`: that binarises, which threw away the inverted-dropout
+            # rescaling (survivors carry M/(M-k), not 1) and made `rescale` a silent no-op on the
+            # mute path -- the one path this project actually sweeps.
+            W_out = Wout_c * dropout_mask.reshape(1, -1).to(Wout_c.dtype)
         else:
             W_out = Wout_c
         if self.equation_type == "h":
