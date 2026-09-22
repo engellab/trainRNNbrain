@@ -396,6 +396,7 @@ class RNN_torch(torch.nn.Module):
         drop_rate = dropout_args.get("drop_rate", 0.0)
         beta = dropout_args.get("dropout_beta", 1.0)
         active_rel = dropout_args.get("active_rel", 0.05)
+        rescale = bool(dropout_args.get("rescale", False))
 
         sm = dropout_args["sampling_method"]
         if sm == "uniform":
@@ -447,6 +448,17 @@ class RNN_torch(torch.nn.Module):
         # full network while the dropout-pass loss looked healthy at 0.207.
         # Ranks make beta dimensionless and BOUNDED: enrichment is ~beta, identical at iteration
         # 100 and on a trained network, so no beta can freeze the selection.
+        # INVERTED-DROPOUT RESCALING. Without it the task loss is scored on a network missing k of
+        # its live units while every measurement is taken on the full network, and nothing
+        # reconciles the two operating points. Measured on trained nets, full-network loss against
+        # the loss on the pass the net was actually trained on: 0.96x at drop_rate 0.05, 1.24x at
+        # 0.175, 3.11x at 0.25 -- so the high-rate arms look expensive only because they are being
+        # scored somewhere they never trained. Survivors are scaled by M/(M-k), the standard
+        # correction, so the surviving drive matches the full drive in expectation.
+        # It is APPROXIMATE here and deliberately so: sampling is targeted, so the dropped units
+        # carry more than their share of the drive and a uniform factor under-corrects. An exact
+        # per-unit 1/(1-pi_j) needs the marginal inclusion probabilities of a without-replacement
+        # draw, which is a bigger change; take the textbook correction first and measure.
         k = int(round(drop_rate * pool.numel()))
         keep = torch.ones(self.N, 1, device=self.device)
         if k > 0:
@@ -458,6 +470,11 @@ class RNN_torch(torch.nn.Module):
             idx = torch.multinomial(w, min(k, pool.numel()), replacement=False,
                                     generator=self.random_generator)
             keep[pool[idx]] = 0.0
+            if rescale:
+                M = pool.numel()
+                surv = torch.ones(self.N, 1, device=self.device)
+                surv[pool] = float(M) / float(M - k)
+                keep = keep * surv
         return keep
 
     def _constrained_weights(self):

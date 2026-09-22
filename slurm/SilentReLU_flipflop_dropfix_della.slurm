@@ -91,6 +91,7 @@
 # entirely, since it is written only when the run completes.
 #   sbatch --array=1-36%12 slurm/SilentReLU_flipflop_dropfix_della.slurm
 #   DROP_KIND=none sbatch --array=1-3 ...   # the matched bias-free no-dropout control (3 jobs)
+#   RESCALE=true sbatch --array=28-36 ...   # inverted-dropout rescaling, rho=0.25 (tag gets _rs)
 #   DROP_KIND=dead sbatch ...               # the unstable kind; see below before using it
 # Timing calibration: ITERS_OVERRIDE=600 sbatch --array=1 --time=01:00:00 ...
 #
@@ -173,7 +174,11 @@ else
   DO_ARGS=(trainer.dropout=true
            "trainer.dropout_args.dropout_kind=${KIND}"
            "trainer.dropout_args.drop_rate=${RATE}"
-           "trainer.dropout_args.dropout_beta=${BETA}")
+           "trainer.dropout_args.dropout_beta=${BETA}"
+           "trainer.dropout_args.rescale=${RESCALE:-false}")
+  # RESCALE runs land in their OWN cell. Mixing a rescaled and an unrescaled run in one folder
+  # would silently average two different interventions.
+  [ "${RESCALE:-false}" = "true" ] && TAG="${TAG}_rs"
 fi
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
