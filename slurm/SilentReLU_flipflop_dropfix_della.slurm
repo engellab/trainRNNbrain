@@ -161,7 +161,6 @@ BETA=${ARM_BETA[$B_IDX]}
 TAG="std_dropfix/EqType=h_k=${K}_N=${N}_pen=none_do=${KIND}_rate=${RATE}_beta=${BETA}"
 mkdir -p "${SAVE_TO}/NBitFlipFlop_std_dropfix"
 echo "Task ${SLURM_ARRAY_TASK_ID}: k=${K} N=${N} do=${KIND} rate=${RATE} beta=${BETA} rep=${REP} iters=${IT}"
-echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
 
 # DROP_KIND=none is the matched NO-DROPOUT control: same commit, same bias-free config, same seeds
 # per cell. It is required because every reference on disk was trained with a trainable bias and
@@ -180,6 +179,9 @@ else
   # would silently average two different interventions.
   [ "${RESCALE:-false}" = "true" ] && TAG="${TAG}_rs"
 fi
+# Printed AFTER the branches, not before: TAG picks up the _rs suffix in the block above, and an
+# echo placed earlier reports a destination the run does not use.
+echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
