@@ -36,6 +36,19 @@
 #   arms  none, prune_copy, scale        sizes  N = 500, 1000, 2000
 #   control + duplication:  sbatch --array=1-18 slurm/SilentReLU_ff_revive_della.slurm
 #   redistribution:         sbatch --array=19-27 slurm/SilentReLU_ff_revive_della.slurm
+#   with cubic saturation:  GAMMA=0.1 SWEEP=ff_revive_g01 sbatch --array=1-3,10-12 ...
+#
+# WHY A GAMMA ARM EXISTS. Duplication at N=500 with gamma=0 destabilised on ALL THREE seeds:
+# 29-44% of gradient updates discarded, clean loss 273,489, active count 285.0 +- 193.9 with a
+# standard deviation almost as large as the mean, and 27,299 replacements over 500 units (54.6
+# each, the treadmill signature). At N=1000 on CDDM the same mechanism ran with zero skipped
+# updates. Size does not remove a failure mode, it changes how often it fires, and three seeds
+# cannot tell "rarer" from "gone" -- so the N=1000 and N=2000 cells locate the instability but do
+# not fix it. The cubic term bounds x directly while keeping ReLU's exact zero and its frozen
+# gradient, which are the properties the whole duplication argument rests on. A bounded activation
+# such as the shifted sigmoid would also stop the blow-up, and would remove the phenomenon with it:
+# no unit can be exactly zero there and every unit has gradient everywhere, so duplication would be
+# solving a problem the activation had already dissolved.
 #
 # PRE-REGISTERED, WRITTEN BEFORE ANY OF THESE JOBS EXISTED.
 #   PRIMARY   active units at 40,000 iterations, scale-free criterion (0.05 * q95), from the trace.
@@ -107,6 +120,12 @@ fi
 
 K=3
 IT=${ITERS_OVERRIDE:-40000}
+# Cubic saturation in the dynamics: dx/dt gains a -GAMMA*x^3 term, which bounds x while leaving
+# ReLU's exact-zero floor and its frozen-gradient behaviour intact. 0 = off, which is what
+# rnn_relu_standard sets and what every run in this sweep used before 2026-09-23. Runs at a
+# different gamma MUST go in their own SWEEP folder: gamma changes the dynamics for the control
+# too, so a gamma=0.1 arm and a gamma=0 arm are not the same experiment.
+GAMMA=${GAMMA:-0}
 ARM_NAME=(none prune_copy scale)
 ARM_SIZE=(500 1000 2000)
 
@@ -126,7 +145,7 @@ esac
 
 TAG="${SWEEP:-ff_revive}/EqType=h_k=${K}_N=${N}_pen=none_arm=${NAME}"
 mkdir -p "${SAVE_TO}/NBitFlipFlop_${SWEEP:-ff_revive}"
-echo "Task ${SLURM_ARRAY_TASK_ID}: arm=${NAME} N=${N} rep=${REP} iters=${IT}"
+echo "Task ${SLURM_ARRAY_TASK_ID}: arm=${NAME} N=${N} gamma=${GAMMA} rep=${REP} iters=${IT}"
 echo "  args: ${ARGS[*]}"
 echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
 
@@ -136,7 +155,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   task=NBitFlipFlop \
   task.n_inputs="$K" task.n_outputs="$K" \
   model=rnn_relu_standard trainer=trainer_ptrack_freshbatch \
-  model.equation_type=h model.N="$N" \
+  model.equation_type=h model.N="$N" model.gamma="$GAMMA" \
   trainer.max_iter="$IT" \
   trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
   trainer.track_valid=false \
