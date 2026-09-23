@@ -77,7 +77,9 @@ prune_args:
   check_every: 100    # iterations between silence checks
   patience: 3         # consecutive silent checks before a unit is redrawn (3 x 100 = 300 iters)
   active_rel: 0.05    # silent if participation < this * q95(participation); the project-wide criterion
-  reinit_mode: random # 'random' redraws incoming weights from the init distribution; 'copy'
+  reinit_mode: random # 'random' redraws incoming weights and LEAVES the outgoing ones as
+                      # training left them; 'zero_out' redraws incoming and ZEROES outgoing
+                      # (Dohare et al.'s rule, so a new unit cannot disturb anything); 'copy'
                       # duplicates a live unit (Net2Net) and splits that unit's OUTGOING weights
                       # between it and the copy, so the network computes the same function at the
                       # instant of duplication. A random unit has no function, so the task gradient
@@ -85,6 +87,23 @@ prune_args:
                       # over 591 units died 44 times each with the active count unmoved.
   copy_noise: 0.05    # relative jitter on the copy's incoming weights. Without it the twins take
                       # identical drive and identical gradients and never separate.
+  # --- features from Dohare et al., Nature 632:768-774 (2024), "Loss of plasticity in deep
+  # continual learning". Their algorithm replaces low-utility units during training; these four
+  # knobs bring our rule into line with theirs so the two can be compared directly.
+  utility: participation  # 'participation' = std(r)+q90(r), how loudly a unit fires. 'contribution'
+                          # = running mean of |r| * sum|outgoing weight|, how much its firing
+                          # actually reaches the network. A unit driving weights that go nowhere
+                          # scores healthy on the first and useless on the second.
+  utility_decay: 0.99     # running-average rate for the contribution utility (their value)
+  maturity: 0             # iterations of UNCONDITIONAL protection after a unit is replaced. The
+                          # strike counter only protects a unit that starts firing, so a quiet
+                          # replacement is replaced again: at N=500 that gave 54.6 replacements per
+                          # unit with the active count unmoved. 0 = off (all runs before 2026-09-23).
+  max_replace_frac: 1.0   # ceiling on the fraction of units replaced per check. When more units
+                          # qualify, the LOWEST-utility ones go first. 1.0 = uncapped, which is
+                          # what every run before 2026-09-23 used: 4.7e-4 of units per step on
+                          # CDDM at N=1000 (stable) and 1.4e-3 on the flip-flop at N=500 (29-44%
+                          # of gradient updates discarded). Dohare et al. use ~1e-5 per step.
 
 # --- homeostatic synaptic scaling: excitation up, inhibition down ---
 # Multiplicative scaling of INCOMING weights toward a participation set-point. Excitatory and

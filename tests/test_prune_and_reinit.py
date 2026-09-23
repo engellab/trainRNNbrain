@@ -57,6 +57,7 @@ def test_reinit_fires_only_after_patience_and_redraws_incoming():
         prune_args={"check_every": 1, "patience": 3, "active_rel": 0.05},
         _reinit_strikes=torch.zeros(N), _n_reinit_events=0,
         _reinit_ever=torch.zeros(N, dtype=torch.bool),
+        _unit_utility=torch.zeros(N), _last_replaced=torch.full((N,), -1e9),
         participation_from_states_=lambda s, **k: Trainer.participation_from_states_(tr, s, **k))
 
     states, _ = rnn(torch.abs(torch.randn(2, T, B, generator=torch.Generator().manual_seed(3))),
@@ -95,6 +96,7 @@ def test_redrawn_units_become_unfrozen():
         prune_args={"check_every": 1, "patience": 1, "active_rel": 0.05},
         _reinit_strikes=torch.zeros(N), _n_reinit_events=0,
         _reinit_ever=torch.zeros(N, dtype=torch.bool),
+        _unit_utility=torch.zeros(N), _last_replaced=torch.full((N,), -1e9),
         participation_from_states_=lambda s, **k: Trainer.participation_from_states_(tr, s, **k))
 
     inp = torch.abs(torch.randn(2, T, B, generator=torch.Generator().manual_seed(4)))
@@ -122,6 +124,7 @@ def test_adam_moments_are_cleared():
         prune_args={"check_every": 1, "patience": 1, "active_rel": 0.05},
         _reinit_strikes=torch.zeros(N), _n_reinit_events=0,
         _reinit_ever=torch.zeros(N, dtype=torch.bool),
+        _unit_utility=torch.zeros(N), _last_replaced=torch.full((N,), -1e9),
         participation_from_states_=lambda s, **k: Trainer.participation_from_states_(tr, s, **k))
 
     states, _ = rnn(torch.abs(torch.randn(2, T, B, generator=torch.Generator().manual_seed(5))),

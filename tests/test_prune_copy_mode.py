@@ -37,6 +37,7 @@ def _setup(copy_noise=0.0, patience=1):
                     "reinit_mode": "copy", "copy_noise": copy_noise},
         _reinit_strikes=torch.zeros(N), _n_reinit_events=0,
         _reinit_ever=torch.zeros(N, dtype=torch.bool),
+        _unit_utility=torch.zeros(N), _last_replaced=torch.full((N,), -1e9),
         participation_from_states_=lambda s, **k: Trainer.participation_from_states_(tr, s, **k))
     return rnn, tr
 

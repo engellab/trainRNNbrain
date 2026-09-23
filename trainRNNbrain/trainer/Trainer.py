@@ -511,6 +511,9 @@ class Trainer():
         self._reinit_strikes = torch.zeros(self.RNN.N, device=self.RNN.device)
         self._n_reinit_events = 0                                    # total redraws, counts repeats
         self._reinit_ever = torch.zeros(self.RNN.N, dtype=torch.bool, device=self.RNN.device)
+        # running contribution utility, and the iteration each unit was last replaced (for maturity)
+        self._unit_utility = torch.zeros(self.RNN.N, device=self.RNN.device)
+        self._last_replaced = torch.full((self.RNN.N,), -1e9, device=self.RNN.device)
 
         # --- homeostatic multiplicative scaling (excitation up / inhibition down) ---
         self.synaptic_scaling = synaptic_scaling
@@ -713,12 +716,46 @@ class Trainer():
         p = self.participation_from_states_(states).detach()
         silent = p < float(args["active_rel"]) * torch.quantile(p, 0.95)
 
+        # CONTRIBUTION UTILITY, from Dohare et al., Nature 632:768-774 (2024). Participation alone
+        # scores how loudly a unit fires; it says nothing about whether that firing reaches the
+        # rest of the network. A unit driving weights that go nowhere is healthy by participation
+        # and useless in fact. Multiplying the rate by the total outgoing weight fixes that, and
+        # the running average over checks stops a single quiet batch from condemning a unit.
+        #   u <- decay * u + (1 - decay) * |r| * sum|W_out|
+        with torch.no_grad():
+            out_w = self.RNN.W_rec.abs().sum(dim=0) + self.RNN.W_out.abs().sum(dim=0)
+            d = float(args.get("utility_decay", 0.99))
+            self._unit_utility = d * self._unit_utility + (1.0 - d) * p * out_w
+        score = (self._unit_utility if args.get("utility", "participation") == "contribution"
+                 else p)
+
         self._reinit_strikes = torch.where(silent, self._reinit_strikes + 1,
                                            torch.zeros_like(self._reinit_strikes))
-        doomed = self._reinit_strikes >= int(args["patience"])
+
+        # MATURITY, also from Dohare et al. A unit that was just replaced is protected for
+        # `maturity` iterations NO MATTER WHAT IT DOES. Their reason is mechanical: they zero a new
+        # unit's outgoing weights, so its utility starts at zero and it would be the very next unit
+        # chosen. Ours is measured: the strike counter only protects a unit that starts firing, so
+        # a replacement that stays quiet is replaced again, and at N=500 that produced 54.6
+        # replacements per unit with the active count unmoved.
+        mature = (self.iter_n - self._last_replaced) >= int(args.get("maturity", 0))
+        doomed = (self._reinit_strikes >= int(args["patience"])) & mature
         n = int(doomed.sum())
         if n == 0:
             return None
+
+        # REPLACEMENT RATE CAP. Dohare et al. replace on the order of 1e-5 of units per step; our
+        # unbounded rule ran at 4.7e-4 on CDDM at N=1000 (stable) and 1.4e-3 on the flip-flop at
+        # N=500 (29-44% of gradient updates discarded). When more units qualify than the cap
+        # allows, the LOWEST-utility ones go first, which is their selection rule.
+        cap_frac = float(args.get("max_replace_frac", 1.0))
+        cap = max(1, int(round(cap_frac * self.RNN.N)))
+        if n > cap:
+            cand = torch.nonzero(doomed, as_tuple=True)[0]
+            keep = cand[torch.argsort(score[cand])[:cap]]
+            doomed = torch.zeros_like(doomed)
+            doomed[keep] = True
+            n = cap
 
         std = 1.0 / np.sqrt(self.RNN.N)
         mode = args.get("reinit_mode", "random")
@@ -792,6 +829,17 @@ class Trainer():
                 self.RNN.W_inp[idx, :] = torch.randn(n, self.RNN.W_inp.shape[1],
                                                      device=self.RNN.device,
                                                      generator=self.RNN.random_generator) * std
+                if mode == "zero_out":
+                    # Dohare et al.'s rule: resample the incoming weights, ZERO the outgoing ones.
+                    # The new unit then cannot disturb anything the network has already learned,
+                    # which is function preservation in its simplest form - no donor, no bookkeeping
+                    # and no copy-cascade. It has to grow its output back through the gradient,
+                    # which is why their maturity threshold exists.
+                    # NOTE our own "random" mode is NOT this: it leaves the outgoing weights at
+                    # whatever training last put there. The measured failure of `random` (44 deaths
+                    # per unit, ~1% survival) therefore says nothing about their published method.
+                    self.RNN.W_rec[:, idx] = 0.0
+                    self.RNN.W_out[:, idx] = 0.0
 
             # Adam carries per-entry moments; stale ones would undo the redraw within a few steps.
             for prm in (self.RNN.W_rec, self.RNN.W_inp):
@@ -809,6 +857,7 @@ class Trainer():
                                 st[key][:, cols] = 0.0
 
         self._reinit_strikes[doomed] = 0
+        self._last_replaced[doomed] = float(self.iter_n)
         self._n_reinit_events += n
         self._reinit_ever[doomed] = True
         return None
