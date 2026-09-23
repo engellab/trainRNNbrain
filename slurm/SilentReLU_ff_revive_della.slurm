@@ -80,7 +80,9 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem-per-gpu=48G
-#SBATCH --time=04:00:00
+# TIME LIMIT, set from measurement rather than estimate: N=2000 reached only 21,944 of 40,000 iterations in 4h05m, so 40k needs ~7.4 h.
+# The first submission used the line below this one and lost every N=2000 cell to TIMEOUT.
+#SBATCH --time=12:00:00
 #SBATCH --array=1-27%12
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
