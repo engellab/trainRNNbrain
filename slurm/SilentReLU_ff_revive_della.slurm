@@ -22,8 +22,15 @@
 #     changes a row's magnitude by about (alpha + 1/alpha), which exceeds 2 for every alpha but 1,
 #     so every event pumped magnitude in whichever way it scaled. All three seeds of the first
 #     attempt discarded 19-27% of their gradient updates and the rank-matched variant 31-55%, every
-#     one ending at r2 of NaN or -inf. Renormalising makes an event a pure redistribution, which
-#     saturates (measured: identical drive at eta 0.2, 0.5 and 0.9) and therefore cannot run away.
+#     one ending at r2 of NaN or -inf. Renormalising makes an event a pure redistribution.
+#     ⚠️ A FIXED ROW NORM IS NECESSARY AND NOT SUFFICIENT. Recurrent stability is governed by the
+#     SPECTRAL RADIUS, which row norms do not control: shifting magnitude toward excitation aligns
+#     the rows and lifts the leading eigenvalue with every row norm held exactly. Measured over 5
+#     events at N=300, eta=0.5 took the radius 1.20 -> 1.85 -> 2.81 -> 3.82 -> 4.51, and a real
+#     calibration run at eta=0.5 discarded 399 of its first 400 gradient updates and ended at NaN.
+#     Over 100 events every eta up to 0.1 held the radius between 1.20 and 1.26, so eta is capped
+#     at 0.05 here. An earlier claim that saturation made a large eta safe came from a static test
+#     on 40 units with no recurrent dynamics and was wrong.
 #
 # GRID: 3 arms x 3 sizes x 3 seeds = 27 jobs. ARM = TID/9, SIZE = (TID/3)%3, REP = TID%3.
 #   arms  none, prune_copy, scale        sizes  N = 500, 1000, 2000
@@ -113,7 +120,7 @@ case "$NAME" in
   prune_copy) ARGS=(trainer.synaptic_scaling=false trainer.prune_reinit=true
                     trainer.prune_args.reinit_mode=copy) ;;
   scale)      ARGS=(trainer.prune_reinit=false trainer.synaptic_scaling=true
-                    "trainer.scaling_args.eta=${ETA:-0.5}"
+                    "trainer.scaling_args.eta=${ETA:-0.05}"
                     trainer.scaling_args.preserve_row_norm=true) ;;
 esac
 
