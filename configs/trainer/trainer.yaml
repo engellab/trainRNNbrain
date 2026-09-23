@@ -72,7 +72,7 @@ dropout_args:
 prune_reinit: False
 prune_args:
   check_every: 100    # iterations between silence checks
-  patience: 5         # consecutive silent checks before a unit is redrawn (5 x 100 = 500 iters)
+  patience: 3         # consecutive silent checks before a unit is redrawn (3 x 100 = 300 iters)
   active_rel: 0.05    # silent if participation < this * q95(participation); the project-wide criterion
   reinit_mode: random # 'random' redraws incoming weights from the init distribution; 'copy'
                       # duplicates a live unit (Net2Net) and splits that unit's OUTGOING weights

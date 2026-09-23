@@ -154,11 +154,39 @@ def test_adam_moments_cleared_for_both_rows_and_columns():
     assert opt.state[rnn.W_out]["exp_avg"][:, revived].abs().max() == 0.0, "readout columns not cleared"
 
 
+def test_a_doomed_unit_can_never_be_chosen_as_a_donor():
+    """Donors are drawn from ~silent, and every doomed unit is silent, so the two sets are disjoint.
+
+    Copying a unit that is itself about to be replaced would propagate a dead unit instead of a
+    working one. The guarantee is structural: strikes reset to zero on any check where a unit is
+    active, so a unit can only reach the patience threshold while silent on the current check, and
+    the donor pool excludes every silent unit regardless of its strike count.
+    """
+    rnn, tr = _setup(copy_noise=0.01, patience=2)
+    inp = torch.abs(torch.randn(2, T, B, generator=torch.Generator().manual_seed(31)))
+
+    for _ in range(3):                      # build up strikes, then trigger a replacement round
+        states, _ = rnn(inp, w_noise=False)
+        p = Trainer.participation_from_states_(tr, states).detach()
+        silent = p < 0.05 * torch.quantile(p, 0.95)
+        before = rnn.W_rec.clone()
+        Trainer.prune_and_reinit_(tr, states)
+        revived = torch.nonzero(tr._reinit_ever).flatten()
+        for i in revived.tolist():
+            d = (before - rnn.W_rec[i]).abs().mean(dim=1)
+            d[revived] = float("inf")
+            donor = int(d.argmin())
+            assert not bool(silent[donor]), \
+                f"unit {i} was copied from unit {donor}, which was silent on this check"
+        tr._reinit_ever[:] = False          # only inspect the current round next time
+
+
 if __name__ == "__main__":
     for fn in [test_each_copy_reproduces_its_donor_exactly,
                test_duplication_perturbs_the_network_far_less_than_a_random_redraw,
                test_noise_breaks_the_symmetry_between_donor_and_copy,
                test_donors_come_from_the_live_pool_only,
-               test_adam_moments_cleared_for_both_rows_and_columns]:
+               test_adam_moments_cleared_for_both_rows_and_columns,
+               test_a_doomed_unit_can_never_be_chosen_as_a_donor]:
         fn()
         print(f"PASS  {fn.__name__}")

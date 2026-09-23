@@ -135,7 +135,7 @@ fi
 N=1000
 IT=${ITERS_OVERRIDE:-30000}
 CAP=${CAP:-0.3}            # measured frm+rws q90 at N=1000; ~10x the init scale 1/sqrt(N)=0.032
-PATIENCE=${PATIENCE:-5}    # 5 * check_every(100) = 500 iterations of silence before a redraw
+PATIENCE=${PATIENCE:-3}    # 3 * check_every(100) = 300 iterations of silence before a redraw
 ETA=${ETA:-0.05}           # scaling step size; alpha clipped to [1/(1+eta), 1+eta]
 
 ARM_NAME=(none cap prune scale cap+prune cap+scale prune+scale all3 scale_ln prune_copy)
