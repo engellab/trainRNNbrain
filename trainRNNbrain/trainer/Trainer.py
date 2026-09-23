@@ -885,14 +885,40 @@ class Trainer():
         # alpha_i = 1 + eta * (target - p_i)/target, clipped to [1/(1+eta), 1+eta] so the step size
         # is bounded by the single parameter eta rather than needing its own ceiling.
         alpha = 1.0 + eta * (target - p) / target
-        alpha = alpha.clamp(1.0 / (1.0 + eta), 1.0 + eta).unsqueeze(1)
+        alpha = alpha.clamp(1.0 / (1.0 + eta), 1.0 + eta)
+
+        alpha = alpha.unsqueeze(1)
 
         with torch.no_grad():
             for W in (self.RNN.W_rec, self.RNN.W_inp):
+                before = W.norm(dim=1, keepdim=True)
                 pos = W > 0
                 neg = W < 0
                 W[pos] = (W * alpha)[pos]
                 W[neg] = (W / alpha)[neg]
+                if bool(args.get("preserve_row_norm", True)):
+                    # WHY THIS IS REQUIRED, not optional. The sign split multiplies a unit's
+                    # excitatory weights by alpha and divides its inhibitory ones by alpha, so the
+                    # row's magnitude changes by a factor of order (alpha + 1/alpha), which is
+                    # GREATER THAN 2 for every alpha except exactly 1. Each event therefore pumps
+                    # magnitude into the weights whichever way it scales, and 300 events compound
+                    # it. That is what destroyed the first two attempts: all three seeds of the
+                    # median-set-point arm discarded 19-27% of their gradient updates and the
+                    # rank-matched arm 31-55%, every one ending at r2 of NaN or -inf, with the
+                    # median activity of one run climbing 0.087 -> 0.207 -> 0.990 -> 1.7e10 while
+                    # a control held 0.084 -> 0.099 throughout.
+                    #
+                    # Rescaling each row back to the norm it had makes the event a pure
+                    # REDISTRIBUTION between a unit's excitatory and inhibitory input at fixed
+                    # total synaptic weight. The drive on a silenced unit still rises, because
+                    # moving weight from inhibition to excitation raises W.r at constant ||W||,
+                    # which is the whole mechanism. What can no longer happen is the population
+                    # growing without bound.
+                    #
+                    # Normalising the mean of alpha instead does NOT fix this and was tried first:
+                    # the pump is per-row and survives any constraint on alpha's average.
+                    after = W.norm(dim=1, keepdim=True).clamp_min(1e-12)
+                    W.mul_(before / after)
         return None
 
     def enforce_inp_cap_(self):

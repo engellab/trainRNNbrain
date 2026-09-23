@@ -119,6 +119,14 @@ scaling_args:
   every: 100        # iterations between scaling events
   eta: 0.05         # step size; alpha is clipped to [1/(1+eta), 1+eta]
   scale_q: 0.5      # set-point = this quantile of participation over the LIVE pool (scale-free)
+  preserve_row_norm: true  # after the excitation-up / inhibition-down step, rescale each unit's
+                         # input row back to the norm it had, making the event a pure
+                         # REDISTRIBUTION between excitation and inhibition at fixed total synaptic
+                         # weight. Required, not optional: the sign split changes a row's magnitude
+                         # by about (alpha + 1/alpha), which exceeds 2 for every alpha but 1, so
+                         # every event pumps magnitude in whichever way it scales. Without this,
+                         # all three seeds of both target modes blew up (19-55% of gradient updates
+                         # discarded, final r2 NaN or -inf).
   scale_target: median   # 'median' = single set-point (homogenises); 'lognormal' = RANK-MATCHED,
                          # each unit pulled toward the value a lognormal population would give a
                          # unit of its rank. Preserves spread; cannot homogenise.

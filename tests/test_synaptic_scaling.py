@@ -190,6 +190,85 @@ def test_rank_matched_does_not_drag_the_busiest_unit_down_to_the_middle():
           f"rank-matched target={float(t_rank[hot]):.2f}")
 
 
+def test_row_norms_are_exactly_preserved():
+    """Each unit's total input weight must be unchanged; only its E/I balance may move."""
+    rnn, tr = _setup(eta=0.3)
+    inp = torch.abs(torch.randn(2, T, B, generator=torch.Generator().manual_seed(43)))
+    states, _ = rnn(inp, w_noise=False)
+    before = rnn.W_rec.norm(dim=1).clone()
+    Trainer.synaptic_scaling_(tr, states)
+    after = rnn.W_rec.norm(dim=1)
+    err = (after - before).abs().max().item()
+    assert err < 1e-4 * before.max().item(), f"row norms moved by {err:.3g}"
+    print(f"      max row-norm change {err:.2e} on norms up to {before.max():.2f}")
+
+
+def test_the_sign_split_pumps_row_magnitude_unless_it_is_renormalised():
+    """The defect that destroyed the first two attempts, isolated.
+
+    Multiplying a row's positive weights by alpha and dividing its negative ones by alpha changes
+    the row's magnitude by about (alpha + 1/alpha), which exceeds 2 for every alpha except 1. Over
+    300 events that compounds. The test asserts the pump exists without renormalisation and is
+    exactly cancelled with it.
+    """
+    moved = {}
+    for preserve in (False, True):
+        rnn, tr = _setup(eta=0.3)
+        tr.scaling_args["preserve_row_norm"] = preserve
+        inp = torch.abs(torch.randn(2, T, B, generator=torch.Generator().manual_seed(45)))
+        states, _ = rnn(inp, w_noise=False)
+        before = rnn.W_rec.norm(dim=1).clone()
+        Trainer.synaptic_scaling_(tr, states)
+        moved[preserve] = float(((rnn.W_rec.norm(dim=1) - before) / before).abs().max())
+
+    assert moved[False] > 0.01, \
+        f"premise check failed: unrenormalised scaling moved row norms by only {moved[False]:.4f}"
+    assert moved[True] < 1e-5, f"renormalised scaling still moved a row norm by {moved[True]:.3g}"
+    print(f"      largest row-norm change: unrenormalised {moved[False]:.3f}, "
+          f"renormalised {moved[True]:.1e}")
+
+
+def test_redistribution_saturates_instead_of_running_away():
+    """Repeated events must converge, not compound -- the property that makes a large eta safe.
+
+    A redistribution at fixed row norm has a fixed point (all of a unit's input weight excitatory),
+    so the drive it can deliver is bounded whatever eta is. Falsifier: if the drive after 50 events
+    keeps growing with eta, the operation is still unbounded and eta must be tuned rather than
+    chosen freely.
+    """
+    ends = []
+    for eta in (0.2, 0.5, 0.9):
+        rnn, tr = _setup(eta=eta)
+        r_pop = torch.abs(torch.randn(N, generator=torch.Generator().manual_seed(7)))
+        u = torch.abs(torch.randn(2, generator=torch.Generator().manual_seed(8)))
+        inp = torch.abs(torch.randn(2, T, B, generator=torch.Generator().manual_seed(9)))
+        for _ in range(50):
+            states, _ = rnn(inp, w_noise=False)
+            Trainer.synaptic_scaling_(tr, states)
+        ends.append(_drive(rnn, r_pop, u))
+
+    spread = max(ends) - min(ends)
+    assert spread < 0.01 * max(abs(e) for e in ends) + 1e-6, \
+        f"drive still depends on eta ({ends}) -- redistribution has not saturated"
+    print(f"      drive after 50 events at eta 0.2/0.5/0.9: "
+          f"{ends[0]:.3f} / {ends[1]:.3f} / {ends[2]:.3f} -- saturated")
+
+
+def test_redistribution_still_raises_an_inhibited_unit():
+    """Preserving the norm must not cost the mechanism: drive on a silenced unit must still rise."""
+    rnn, tr = _setup(eta=0.5)
+    r_pop = torch.abs(torch.randn(N, generator=torch.Generator().manual_seed(7)))
+    u = torch.abs(torch.randn(2, generator=torch.Generator().manual_seed(8)))
+    h_before = _drive(rnn, r_pop, u)
+    states, _ = rnn(torch.abs(torch.randn(2, T, B, generator=torch.Generator().manual_seed(9))),
+                    w_noise=False)
+    Trainer.synaptic_scaling_(tr, states)
+    h_after = _drive(rnn, r_pop, u)
+    assert h_after > h_before, \
+        f"redistribution at fixed norm failed to raise the drive: {h_before:.4f} -> {h_after:.4f}"
+    print(f"      h {h_before:.4f} -> {h_after:.4f} at unchanged total synaptic weight")
+
+
 if __name__ == "__main__":
     for fn in [test_sign_split_raises_an_inhibited_unit_while_naive_scaling_buries_it,
                test_signs_and_zeros_are_preserved,
@@ -197,6 +276,10 @@ if __name__ == "__main__":
                test_purely_inhibited_unit_cannot_be_rescued_by_scaling_alone,
                test_rank_matched_target_preserves_spread_where_a_set_point_destroys_it,
                test_rank_matched_asks_silent_units_to_rejoin_the_tail_not_the_middle,
-               test_rank_matched_does_not_drag_the_busiest_unit_down_to_the_middle]:
+               test_rank_matched_does_not_drag_the_busiest_unit_down_to_the_middle,
+               test_row_norms_are_exactly_preserved,
+               test_the_sign_split_pumps_row_magnitude_unless_it_is_renormalised,
+               test_redistribution_saturates_instead_of_running_away,
+               test_redistribution_still_raises_an_inhibited_unit]:
         fn()
         print(f"PASS  {fn.__name__}")
