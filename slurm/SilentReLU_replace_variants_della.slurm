@@ -37,6 +37,28 @@
 #   Index decode (TID = SLURM_ARRAY_TASK_ID - 1, 0..23): REP = TID % 3; CELL = TID / 3
 #   sbatch --array=1-24%12 slurm/SilentReLU_replace_variants_della.slurm
 #
+# CELLS 8-11, THE NON-COPY RULES (--array=25-36), added 2026-09-24 after measuring what duplication
+# actually buys. At N=1000 it raises the active count 2.5x (277 -> 705) while activity
+# dimensionality rises only 1.4x (6.3 -> 9.1), so dimensions per active unit FALL from 0.020 to
+# 0.013: the copies largely ride directions the network already used. `dead` dropout does the
+# reverse -- 32.2 dimensions on 913 units, 0.034 each -- at a cost of 12 points of r2. The bar is
+# therefore no longer "recruit units cheaply", which duplication already does; it is RECRUIT UNITS
+# THAT ADD DIMENSIONS, which an exact copy cannot do by construction.
+#   8  orth       a row orthogonal to every live unit's, so the new unit reads an input combination
+#                 nobody reads. Verified to 1.9e-07. Falls back to a plain draw when the live rows
+#                 already span R^N, since no complement exists then.
+#   9  mix        a uniformly random blend of 4 live units: a twin of nobody (max cosine against
+#                 any single donor 0.87) but placed where the network is active, so it fires.
+#   10 bias_kick  no donor and NO WEIGHT CHANGED: a bias offset of -median(h) unfreezes the unit
+#                 and leaves it to find its own function. PREDICTION recorded before the run
+#                 (Pavel's): this fails, because the recurrent input that silenced the unit is
+#                 still there and still training. If it treadmills where copy does not, the
+#                 donor's FUNCTION is what makes duplication stick, not escaping the frozen state.
+#   11 random     the plain redraw at the same rate and maturity, as the floor. Its earlier failure
+#                 was at an UNCAPPED rate, so it has never been run under these settings.
+# All four at rate 0.025 and maturity 1000, matching cell 5 (copy), so the rule is the only
+# difference. READ-OUT: active units AND activity dimensions per active unit, not the count alone.
+#
 # NO CONTROL IS RUN HERE. The `none` arm of NBitFlipFlop_ff_revive at N=1000 is the matched
 # control -- same task, size, iteration count and model config -- and has already landed at
 # 274.7 +- 24.0 active units, clean loss 0.0775. The control path is untouched by the changes in
@@ -114,9 +136,9 @@ N=${N_OVERRIDE:-1000}
 # not group on.
 IT=${ITERS_OVERRIDE:-40000}
 
-CELL_MODE=(zero_out zero_out zero_out copy copy copy zero_out copy)
-CELL_RATE=(0.001    0.005    0.025    0.001 0.005 0.025 0.005    0.005)
-CELL_MAT=(1000      1000     1000     1000  1000  1000  0        0)
+CELL_MODE=(zero_out zero_out zero_out copy copy copy zero_out copy orth mix bias_kick random)
+CELL_RATE=(0.001    0.005    0.025    0.001 0.005 0.025 0.005    0.005 0.025 0.025 0.025 0.025)
+CELL_MAT=(1000      1000     1000     1000  1000  1000  0        0     1000 1000 1000     1000)
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); CELL=$((TID / 3))
@@ -144,6 +166,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   "trainer.prune_args.reinit_mode=${MODE}" \
   "trainer.prune_args.max_replace_frac=${RATE}" \
   "trainer.prune_args.maturity=${MAT}" \
+  trainer.prune_args.mix_k=4 \
   trainer.prune_args.utility=contribution \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""

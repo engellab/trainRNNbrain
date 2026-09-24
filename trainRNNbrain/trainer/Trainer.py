@@ -823,6 +823,96 @@ class Trainer():
                     self.RNN.W_rec[copy_i, donor_j] = 0.0
                     self.RNN.W_rec[donor_j, copy_i] = 0.0
                     self.RNN.W_rec[copy_i, copy_i] = 0.0
+            elif mode == "orth":
+                # A DIRECTION THE POPULATION IS NOT ALREADY USING. Measured on 2026-09-24,
+                # duplication raises the active count 2.5x at N=1000 (277 -> 705) while activity
+                # dimensionality rises only 1.4x (6.3 -> 9.1), so dimensions per active unit FALL
+                # from 0.020 to 0.013: the copies largely ride directions the network already had.
+                # `dead` dropout does the opposite, 32.2 dimensions on 913 units, 0.034 each.
+                # The bar is therefore adding DIMENSIONS, not units, and a copy cannot add one by
+                # construction. This draws a random incoming row and removes everything the live
+                # units' rows already span, so the new unit reads a combination of inputs no
+                # existing unit reads. The projection is solved ONCE per event for all n dead units
+                # together; per-unit least squares would be ~10,000 solves over a run.
+                live_idx = torch.nonzero(~silent, as_tuple=True)[0]
+                if live_idx.numel() == 0:
+                    return None
+                # ORDER MATTERS AND THE COMPLEMENT MUST EXIST.
+                # Zeroing the revived units' outgoing columns AFTER orthogonalising perturbs the
+                # new row at exactly those entries (it left cosine 0.155 against a live row), so
+                # the columns are zeroed FIRST and the projection then runs over the updated rows.
+                # Restricting the projection to the surviving columns instead does not work: with
+                # n_live live units and only n_keep surviving columns, the live rows span the whole
+                # restricted space whenever n_live >= n_keep, the residual is numerically zero, and
+                # normalising it turns rounding error into a full-size weight row. Measured at
+                # N=40: 23 live rows, 23 surviving columns, cosine 0.244.
+                # A complement exists only while the live population does not already span R^N.
+                if int(live_idx.numel()) >= self.RNN.N - 1:
+                    self.RNN.W_rec[idx, :] = torch.randn(
+                        n, self.RNN.N, device=self.RNN.device,
+                        generator=self.RNN.random_generator) * std
+                else:
+                    self.RNN.W_rec[:, idx] = 0.0                    # outgoing first
+                    self.RNN.W_out[:, idx] = 0.0
+                    L = self.RNN.W_rec[live_idx, :]                 # (n_live, N), already updated
+                    V = torch.randn(self.RNN.N, n, device=self.RNN.device,
+                                    generator=self.RNN.random_generator)
+                    # QR, not lstsq: lstsq defaults to a driver assuming full column rank, and a
+                    # live population's rows are routinely rank-deficient.
+                    Q, _ = torch.linalg.qr(L.T, mode="reduced")
+                    V = V - Q @ (Q.T @ V)
+                    V = V / V.norm(dim=0, keepdim=True).clamp_min(1e-8) * (
+                        std * float(np.sqrt(self.RNN.N)))
+                    self.RNN.W_rec[idx, :] = V.T
+                self.RNN.W_inp[idx, :] = torch.randn(
+                    n, self.RNN.W_inp.shape[1], device=self.RNN.device,
+                    generator=self.RNN.random_generator) * std
+
+            elif mode == "mix":
+                # A BLEND OF SEVERAL WORKING UNITS, which is not a copy of any of them. Keeps the
+                # property that made duplication work -- the new unit sits where the network is
+                # already active, so it fires and the task gradient has something to hold on to --
+                # while removing the exact twin that makes a copy redundant by construction.
+                live_idx = torch.nonzero(~silent, as_tuple=True)[0]
+                if live_idx.numel() < 2:
+                    return None
+                k = min(int(args.get("mix_k", 4)), int(live_idx.numel()))
+                w = p[live_idx].clamp_min(1e-12)
+                for row, copy_i in enumerate(idx.tolist()):
+                    pick = live_idx[torch.multinomial(w, k, replacement=False,
+                                                      generator=self.RNN.random_generator)]
+                    # Dirichlet(1,...,1) over the k donors: a uniformly random blend, so no single
+                    # donor dominates and the result is a twin of nobody.
+                    a = -torch.log(torch.rand(k, device=self.RNN.device,
+                                              generator=self.RNN.random_generator).clamp_min(1e-12))
+                    a = a / a.sum()
+                    self.RNN.W_rec[copy_i, :] = (a.unsqueeze(1) * self.RNN.W_rec[pick, :]).sum(0)
+                    self.RNN.W_inp[copy_i, :] = (a.unsqueeze(1) * self.RNN.W_inp[pick, :]).sum(0)
+                    self.RNN.W_rec[copy_i, copy_i] = 0.0
+                self.RNN.W_rec[:, idx] = 0.0
+                self.RNN.W_out[:, idx] = 0.0
+
+            elif mode == "bias_kick":
+                # NO DONOR AT ALL. A dead ReLU unit is frozen because relu'(h) = 0, so every weight
+                # into and out of it has exactly zero gradient. Writing a bias offset directly --
+                # not through the optimiser, which cannot reach it either -- lifts h above zero on
+                # some timesteps and unfreezes the unit, leaving its weights untouched so it must
+                # find its own function from where it already sits.
+                # The offset is measured, not guessed: -median(h_i) makes the unit cross threshold
+                # on about half of its timesteps.
+                # THE PREDICTION, recorded before the run: Pavel expects this to fail, because the
+                # recurrent input that silenced the unit is still there and still training, so the
+                # network should simply re-suppress it. If it treadmills where duplication does not,
+                # the donor's FUNCTION is what makes duplication stick, not merely escaping the
+                # frozen state.
+                h = states.detach()[idx]                            # (n, T, B) pre-activations
+                offs = -torch.quantile(h.reshape(n, -1), 0.5, dim=1)
+                b = self.RNN.bias
+                if isinstance(b, torch.nn.Parameter):
+                    b.data[idx] = offs
+                else:
+                    b[idx] = offs
+
             else:
                 self.RNN.W_rec[idx, :] = torch.randn(n, self.RNN.N, device=self.RNN.device,
                                                      generator=self.RNN.random_generator) * std

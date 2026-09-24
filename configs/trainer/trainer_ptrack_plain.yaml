@@ -79,12 +79,17 @@ prune_args:
   active_rel: 0.05    # silent if participation < this * q95(participation); the project-wide criterion
   reinit_mode: random # 'random' redraws incoming weights and LEAVES the outgoing ones as
                       # training left them; 'zero_out' redraws incoming and ZEROES outgoing
-                      # (Dohare et al.'s rule, so a new unit cannot disturb anything); 'copy'
+                      # (Dohare et al.'s rule, so a new unit cannot disturb anything);
+                      # 'orth' draws a row orthogonal to every live unit's, so the new unit
+                      # reads an input combination nobody reads; 'mix' blends several live
+                      # units, a twin of nobody; 'bias_kick' writes a bias offset and
+                      # touches no weight at all; 'copy'
                       # duplicates a live unit (Net2Net) and splits that unit's OUTGOING weights
                       # between it and the copy, so the network computes the same function at the
                       # instant of duplication. A random unit has no function, so the task gradient
                       # has no reason to keep it -- measured on 2026-09-22, 26,012 random redraws
                       # over 591 units died 44 times each with the active count unmoved.
+  mix_k: 4            # 'mix' blends this many live units with uniformly random weights
   copy_noise: 0.05    # relative jitter on the copy's incoming weights. Without it the twins take
                       # identical drive and identical gradients and never separate.
   # --- features from Dohare et al., Nature 632:768-774 (2024), "Loss of plasticity in deep
