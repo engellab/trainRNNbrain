@@ -27,7 +27,17 @@
 #   about (alpha + 1/alpha) > 2, which is why it was added, but gamma may already bound the
 #   consequence and the renormalisation weakens the per-event effect.
 #   Index decode (TID = SLURM_ARRAY_TASK_ID - 1, 0..23): REP = TID%3; CELL = TID/3
-#   sbatch --array=1-24%12 slurm/SilentReLU_scaling_gamma_della.slurm
+#   sbatch --array=1-12%12 slurm/SilentReLU_scaling_gamma_della.slurm   <- median cells only
+#
+# ⚠️ ONLY CELLS 0-3 (--array=1-12, the median target) WERE SUBMITTED. The rank-matched cells 4-7
+# are left in the table but are NOT part of this sweep, for a measured reason: a 600-iteration
+# calibration of cell 5 (lognormal, row-norm preserved, eta 0.2) at gamma=0.1 discarded 299 of its
+# 600 gradient updates and ended at r2 NaN, while cell 0 (median, same gamma, eta 0.05) discarded
+# ZERO and reached r2 0.717. So cubic saturation rescues the median set-point and does NOT rescue
+# rank-matching. That is consistent with the earlier measurement of what rank-matching asks for:
+# the busiest unit in a 1000-unit population is told to reach ~51x the median, which pushes the
+# largest units upward, and bounding the dynamics does not make that a stable demand. Run cells
+# 4-7 only if the target itself is rebuilt to stop pushing the top of the distribution up.
 #
 # CONTROL comes from NBitFlipFlop_ff_revive_g01 at N=1000, gamma=0.1, arm=none, already landed at
 # 323.3 +- 30.4 active units with clean loss 0.09208 and 0.0% of updates discarded. Same task,
