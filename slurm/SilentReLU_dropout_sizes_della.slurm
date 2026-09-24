@@ -109,6 +109,10 @@ TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); REST=$((TID / 3)); S_IDX=$((REST % 2)); K_IDX=$((REST / 2))
 KIND=${ARM_KIND[$K_IDX]}
 N=${ARM_SIZE[$S_IDX]}
+# N_OVERRIDE runs this same grid at a size the ARM_SIZE table does not list. Use a distinct
+# SWEEP when doing so, or cells at different sizes land in folders that differ only by a
+# field the analysis does not group on.
+N=${N_OVERRIDE:-$N}
 
 TAG="${SWEEP:-dropout_sizes}/EqType=h_k=${K}_N=${N}_pen=none_do=${KIND}_rate=${RATE}_beta=${BETA}"
 mkdir -p "${SAVE_TO}/NBitFlipFlop_${SWEEP:-dropout_sizes}"

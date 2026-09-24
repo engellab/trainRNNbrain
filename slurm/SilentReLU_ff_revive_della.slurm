@@ -135,6 +135,10 @@ TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); REST=$((TID / 3)); S_IDX=$((REST % 3)); A_IDX=$((REST / 3))
 NAME=${ARM_NAME[$A_IDX]}
 N=${ARM_SIZE[$S_IDX]}
+# N_OVERRIDE runs this same grid at a size the ARM_SIZE table does not list. Use a distinct
+# SWEEP when doing so, or cells at different sizes land in folders that differ only by a
+# field the analysis does not group on.
+N=${N_OVERRIDE:-$N}
 
 ARGS=(trainer.prune_reinit=false trainer.synaptic_scaling=false)
 case "$NAME" in

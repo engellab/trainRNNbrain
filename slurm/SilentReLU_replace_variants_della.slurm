@@ -108,7 +108,10 @@ else
 fi
 
 K=3
-N=1000
+N=${N_OVERRIDE:-1000}
+# N_OVERRIDE runs this same grid at another size. Use a distinct SWEEP when doing so, or
+# cells at different sizes land in folders that differ only by a field the analysis does
+# not group on.
 IT=${ITERS_OVERRIDE:-40000}
 
 CELL_MODE=(zero_out zero_out zero_out copy copy copy zero_out copy)
