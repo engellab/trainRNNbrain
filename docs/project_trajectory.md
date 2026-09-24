@@ -12535,7 +12535,7 @@ porting; it consumes queue position and future fairshare for a measured null.
 
 ---
 
-## 2026-09-24, 15:22 — Reloading a trained network offline silently rebuilds the wrong architecture
+## 2026-09-24, 14:23 — Reloading a trained network offline silently rebuilds the wrong architecture
 
 Measuring activity dimensionality needs the trained weights run forward offline. Three attempts
 produced three different answers for the same networks, and every one of them looked plausible.
