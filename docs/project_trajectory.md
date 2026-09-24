@@ -12579,3 +12579,89 @@ against Last is running.
 `dead` dropout at 30 activity dimensions against a control's 6 was computed from the first, wrong
 rebuild and is withdrawn. It was entirely plausible and entirely fabricated by a broken forward
 pass, which is the argument for keeping the gate rather than widening it when it fails.
+
+---
+
+## 2026-09-24, 15:17 — Activity dimensionality, and three non-copy revival rules built on it
+
+### What duplication actually buys: units, not dimensions
+
+The duplication rule is exactly function-preserving at the instant of replacement, so the obvious
+worry is that it raises the active-unit count without changing the computation. Weight-space
+evidence was mixed — no unit pair exceeds 0.99 cosine similarity, but 2.26% exceed 0.9 against
+**0.00%** in controls. Activity dimensionality settles it.
+
+Participation ratio of the firing-rate covariance over time and trials: 1 if every unit does the
+same thing, N if all independent. All 21 networks passed the r² verification gate.
+
+| N | arm | active units | activity dimensions | dims per unit |
+|---|---|---|---|---|
+| 500 | control | 220 ± 24 | 6.1 | 0.024 |
+| 500 | duplication | 441 ± 30 | 7.3 | **0.013** |
+| 500 | dead-dropout | 498 ± 1 | 29.2 | **0.058** |
+| 1000 | control | 277 ± 26 | 6.3 | 0.020 |
+| 1000 | duplication | 705 ± 28 | 9.1 | **0.013** |
+| 1000 | dead-dropout | 913 ± 12 | 32.2 | **0.034** |
+
+**Duplication is close to the worst case for this measure.** At N=1000 it takes the count from 277
+to 705 (2.5×) while dimensionality goes 6.3 → 9.1 (1.4×), so dimensions per active unit FALL from
+0.020 to 0.013. The recruited units largely ride directions the network already used.
+
+**Dropout does the opposite.** `dead` reaches 32.2 dimensions on 913 units — five times the
+control's dimensionality, and dimensions per unit RISE to 0.034. Its 12-point r² cost is therefore
+not an inflated count; it finds a genuinely higher-dimensional solution that fits the task less
+well.
+
+Noise contributes almost nothing to these numbers (noise-on vs noise-off: 6.2/5.9, 9.2/9.1,
+28.8/28.4), so this is signal rather than injected variance.
+
+**Consequence: the bar changed.** "Recruit units cheaply" is already solved — duplication buys 428
+units for 0.003 of r². The open problem is recruiting units that ADD DIMENSIONS, which an exact
+copy cannot do by construction.
+
+### These networks depend on their training noise
+
+Found while debugging the reload. Evaluated without the noise they were trained with, the flip-flop
+networks lose 0.15–0.19 of r² (0.944 → 0.75–0.80), consistently across every network. With noise on,
+the recomputed values reproduce the stored ones to a few thousandths. They are not tolerating the
+noise, they are using it, and any noise-free evaluation of this task family understates performance
+by about 17%.
+
+### Three non-copy revival rules (`14381695`, cells 8-11, 12 jobs)
+
+All at rate 0.025 and maturity 1000, matching the `copy` cell so the rule is the only difference.
+N=1000, 3-bit flip-flop, 40k iterations, gamma=0.
+
+| cell | rule | property, verified in tests |
+|---|---|---|
+| 8 | `orth` | row orthogonal to every live unit's — cosine **1.9e-07** |
+| 9 | `mix` | blend of 4 live units — max cosine **0.87** to any single donor |
+| 10 | `bias_kick` | bias offset of −median(h); **no weight touched**, no donor |
+| 11 | `random` | plain redraw at the same rate, as the floor |
+
+`random` has never been run under these settings — its earlier failure (44 deaths per unit, ~1%
+survival) was at an UNCAPPED rate, so it is not yet a fair floor.
+
+⚠️ **`bias_kick` carries a prediction recorded before the run (Pavel's): it fails.** The recurrent
+input that silenced the unit is still present and still training, so the network should re-suppress
+it. If it treadmills where `copy` does not, the donor's FUNCTION is what makes duplication stick
+rather than merely escaping the frozen state.
+
+### Three bugs in `orth`, each caught by a test rather than by a wrong-looking number
+
+1. **`torch.linalg.lstsq` assumes full column rank by default** and a live population's rows are
+   rank-deficient, leaving cosine 0.155 against a live row. QR gives an orthonormal basis whatever
+   the rank.
+2. **Zeroing the revived units' outgoing columns after projecting** overwrites entries inside the
+   new row. Columns are now zeroed first, then the projection runs.
+3. **Restricting the projection to surviving columns is worse, not better.** With n_live ≥ n_keep
+   the live rows span the whole restricted space, the residual is numerically zero, and normalising
+   it turns rounding error into a full-size weight row. Measured: 23 live rows, 23 surviving
+   columns, cosine 0.244. The projection runs over all N columns and falls back to a plain draw
+   when the live rows already span R^N.
+
+Two test contracts were also wrong: orthogonality holds against the population AFTER replacement,
+not before (replacement changes every live row, giving a spurious 0.28), and a revived unit must
+have gradient SOMEWHERE — `orth` and `mix` zero their outgoing weights, so nothing flows back into
+them on the first step and they unfreeze via the outgoing route. That is exactly the mechanism
+Dohare et al.'s maturity threshold exists to handle.
