@@ -820,6 +820,26 @@ class Trainer():
                     # is set explicitly below; it has to be read before the outgoing column is
                     # halved, which halves W[j,j] along with the rest of that column.
                     self_w = self.RNN.W_rec[donor_j, donor_j].clone()
+                    if bool(args.get("copy_permute", False)):
+                        # THE SAME WEIGHTS, IN THE WRONG PLACES. A row of W_rec is indexed by
+                        # source unit, so permuting it keeps the donor's exact multiset of weights
+                        # -- every magnitude, every sign, the same sparsity -- while destroying
+                        # which units the new unit listens to. Set against the jitter sweep it
+                        # separates the two things a copy carries: jitter keeps the donor's wiring
+                        # POSITIONS and scrambles the VALUES (at 3.0 it flips 37% of signs and
+                        # still recruits 752 units), a permutation keeps the values and scrambles
+                        # the positions. The two positions spanning the pair are left out, because
+                        # the 2x2 self-weight block below owns them.
+                        keep = torch.ones(self.RNN.N, dtype=torch.bool, device=self.RNN.device)
+                        keep[copy_i] = False
+                        keep[donor_j] = False
+                        slots = torch.nonzero(keep, as_tuple=True)[0]
+                        shuffled = slots[torch.randperm(slots.numel(), device=self.RNN.device,
+                                                        generator=self.RNN.random_generator)]
+                        row_rec[slots] = row_rec[shuffled].clone()
+                        row_inp = row_inp[torch.randperm(
+                            row_inp.numel(), device=self.RNN.device,
+                            generator=self.RNN.random_generator)].clone()
                     len_rec, len_inp = row_rec.norm(), row_inp.norm()
                     # split the donor's outgoing weights between donor and copy
                     self.RNN.W_rec[:, donor_j] *= 0.5

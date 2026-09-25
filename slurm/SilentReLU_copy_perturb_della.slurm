@@ -67,6 +67,15 @@
 # Cost: ~1h25m at N=1000 on this task, so about 21 GPU-hours for the grid. 4 h requested.
 #   sbatch --array=1-15%8 slurm/SilentReLU_copy_perturb_della.slurm
 #
+# THE PERMUTATION CONTROL. PERMUTE=true scrambles the donor's incoming row across source units
+# instead of copying it in place: the same multiset of weights, signs and zeros, different sources.
+# Jitter keeps the donor's wiring POSITIONS and scrambles the VALUES; a permutation does the
+# opposite. The jitter sweep found recruitment RISING as the copy is rotated away from its donor
+# (685 active units at jitter 0, 752 at jitter 3.0, against 262 for a fresh random draw), so what a
+# copy carries is not its exact weights. This control asks whether it is the weights' STATISTICS or
+# their PLACEMENT, and it is the single-variable comparison against the jitter-0 cell.
+#   PERMUTE=true SWEEP=copy_permute sbatch --array=1-3 slurm/SilentReLU_copy_perturb_della.slurm
+#
 # Output: $SAVE_TO/NBitFlipFlop_copy_perturb/EqType=h_k=3_N=1000_cn=<jitter>/
 
 #SBATCH --job-name=CopyPerturb
@@ -139,6 +148,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   trainer.prune_reinit=true trainer.synaptic_scaling=false \
   trainer.prune_args.reinit_mode=copy \
   "trainer.prune_args.copy_noise=${CN}" \
+  "trainer.prune_args.copy_permute=${PERMUTE:-false}" \
   trainer.prune_args.copy_norm_preserve=true \
   trainer.prune_args.max_replace_frac=0.025 \
   trainer.prune_args.maturity=1000 \
