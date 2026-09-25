@@ -89,6 +89,10 @@ prune_args:
   mix_k: 4            # 'mix' blends this many live units with uniformly random weights
   copy_noise: 0.05    # relative jitter on the copy's incoming weights. Without it the twins take
                       # identical drive and identical gradients and never separate.
+  copy_norm_preserve: false   # rescale the jittered row back to the donor row's length, so
+                      # copy_noise sets the copy's DIRECTION (expected cosine to the donor
+                      # 1/sqrt(1+copy_noise^2)) and not its magnitude. false keeps the historical
+                      # behaviour, where the row norm grows by sqrt(1+copy_noise^2).
   # --- features from Dohare et al., Nature 632:768-774 (2024), "Loss of plasticity in deep
   # continual learning". Their algorithm replaces low-utility units during training; these four
   # knobs bring our rule into line with theirs so the two can be compared directly.

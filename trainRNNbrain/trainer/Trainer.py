@@ -800,10 +800,23 @@ class Trainer():
                 donors = live_idx[torch.multinomial(weights, n, replacement=True,
                                                     generator=self.RNN.random_generator)]
                 jitter = float(args.get("copy_noise", 0.05))
+                # RESCALE THE JITTERED ROW BACK TO THE DONOR ROW'S LENGTH. Multiplicative jitter
+                # grows the row norm by sqrt(1 + jitter^2) -- 3.2x at jitter = 3 -- so a sweep over
+                # the noise level would vary the copy's weight MAGNITUDE and its DIRECTION at once,
+                # and magnitude is the axis that has already destabilised this network (the
+                # uncapped duplication runs, and synaptic scaling in every configuration). With the
+                # length pinned, the noise level sets one thing: how far the copy's weight vector is
+                # rotated off the donor's, at expected cosine 1 / sqrt(1 + jitter^2).
+                norm_preserve = bool(args.get("copy_norm_preserve", False))
 
                 for copy_i, donor_j in zip(idx.tolist(), donors.tolist()):
                     row_rec = self.RNN.W_rec[donor_j, :].clone()
                     row_inp = self.RNN.W_inp[donor_j, :].clone()
+                    # The donor's SELF-weight, kept aside because the 2x2 block spanning the pair
+                    # is set explicitly below; it has to be read before the outgoing column is
+                    # halved, which halves W[j,j] along with the rest of that column.
+                    self_w = self.RNN.W_rec[donor_j, donor_j].clone()
+                    len_rec, len_inp = row_rec.norm(), row_inp.norm()
                     # split the donor's outgoing weights between donor and copy
                     self.RNN.W_rec[:, donor_j] *= 0.5
                     self.RNN.W_out[:, donor_j] *= 0.5
@@ -817,12 +830,45 @@ class Trainer():
                         row_inp = row_inp * (1.0 + jitter * torch.randn(
                             row_inp.shape, device=row_inp.device,
                             generator=self.RNN.random_generator))
+                        if norm_preserve:
+                            row_rec = row_rec * (len_rec / row_rec.norm().clamp_min(1e-12))
+                            row_inp = row_inp * (len_inp / row_inp.norm().clamp_min(1e-12))
                     self.RNN.W_rec[copy_i, :] = row_rec
                     self.RNN.W_inp[copy_i, :] = row_inp
-                    # no self-loop through the twin, in either direction
-                    self.RNN.W_rec[copy_i, donor_j] = 0.0
-                    self.RNN.W_rec[donor_j, copy_i] = 0.0
-                    self.RNN.W_rec[copy_i, copy_i] = 0.0
+                    # THE 2x2 BLOCK SPANNING THE PAIR, which the literal row copy gets wrong.
+                    #
+                    # A row of W_rec is indexed by SOURCE unit, so position k means "from unit k"
+                    # in anybody's row and the transplant needs no shifting -- except at the two
+                    # positions where the copy's identity differs from the donor's. The donor's
+                    # self-weight is the awkward one, because it sits in the donor's row AND in the
+                    # donor's outgoing column, so halving that column halves the self-weight too.
+                    #
+                    # With self_connections=true, which every experiment here uses, the donor drew
+                    # self_w * r of its own drive from itself, and the pair has to keep drawing
+                    # exactly that once both twins fire alike. Splitting self_w in half across all
+                    # four entries does it: each twin then receives (self_w/2)*r from itself and
+                    # (self_w/2)*r from the other, summing to self_w * r. The block is also neutral
+                    # on the DIFFERENCE between the twins -- it adds the same amount to both -- so
+                    # it preserves the function without gluing the pair together.
+                    #
+                    # Until 2026-09-24 all three of these entries were zeroed instead, which left
+                    # the copy with no self-loop at all and the donor with half of its own (the
+                    # half the column halving took). Both twins were detuned, not just the copy.
+                    #
+                    # With self_connections=false the donor genuinely had no self-loop -- the
+                    # diagonal is not a free weight -- so the whole block must be zero, and
+                    # zeroing it is also what stops the donor's masked self-weight from reappearing
+                    # as a live connection at the unmasked entry (copy, donor).
+                    if self.RNN.self_connections:
+                        half = 0.5 * self_w
+                        self.RNN.W_rec[copy_i, copy_i] = half
+                        self.RNN.W_rec[copy_i, donor_j] = half
+                        self.RNN.W_rec[donor_j, copy_i] = half
+                        # W[donor_j, donor_j] is already self_w/2, from the column halving
+                    else:
+                        self.RNN.W_rec[copy_i, donor_j] = 0.0
+                        self.RNN.W_rec[donor_j, copy_i] = 0.0
+                        self.RNN.W_rec[copy_i, copy_i] = 0.0
             elif mode == "orth":
                 # A DIRECTION THE POPULATION IS NOT ALREADY USING. Measured on 2026-09-24,
                 # duplication raises the active count 2.5x at N=1000 (277 -> 705) while activity
