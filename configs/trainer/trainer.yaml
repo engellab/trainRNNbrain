@@ -89,7 +89,21 @@ prune_args:
   mix_k: 4            # 'mix' blends this many live units with uniformly random weights
   copy_noise: 0.05    # relative jitter on the copy's incoming weights. Without it the twins take
                       # identical drive and identical gradients and never separate.
-  copy_norm_preserve: false   # rescale the jittered row back to the donor row's length, so
+  copy_norm_preserve: false
+  # --- reinit_mode: "rescale". Keeps the unit's own trained incoming weights and nudges them,
+  # excitation up by rescale_alpha and inhibition down by it, a little every step until the unit
+  # fires; outgoing weights are redrawn at 1/sqrt(N) each step so a revived unit is visible to the
+  # loss immediately. Stops on revival, unlike synaptic_scaling_, which never stopped.
+  rescale_alpha: 1.0005       # per-step boost. Set from the timescale, not from a gradient step:
+                      # the rule pushes the same way every step where gradients partly cancel, so
+                      # a gradient-sized 0.8% would boost a unit 148x inside 1000 steps. At 1.0005
+                      # the median silent unit (needing ~1.25 in total) revives in ~450 steps and
+                      # the 90th-percentile one (~3-5) in ~3200.
+  rescale_cap: 8.0            # cumulative boost ceiling per unit, so "until it revives" is bounded
+                      # for a unit that never does -- reached after ~4200 steps of boosting.
+  rescale_normalize: true     # hold each row's total synaptic weight fixed, making the event a
+                      # pure redistribution. false lets the row grow; the sign split then pumps
+                      # magnitude, since alpha + 1/alpha > 2 for every alpha but 1.   # rescale the jittered row back to the donor row's length, so
                       # copy_noise sets the copy's DIRECTION (expected cosine to the donor
                       # 1/sqrt(1+copy_noise^2)) and not its magnitude. false keeps the historical
                       # behaviour, where the row norm grows by sqrt(1+copy_noise^2).

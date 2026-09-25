@@ -514,6 +514,10 @@ class Trainer():
         # running contribution utility, and the iteration each unit was last replaced (for maturity)
         self._unit_utility = torch.zeros(self.RNN.N, device=self.RNN.device)
         self._last_replaced = torch.full((self.RNN.N,), -1e9, device=self.RNN.device)
+        # cumulative multiplicative boost applied by reinit_mode="rescale", one entry per unit.
+        # Capped, so a unit the rule can never revive cannot be inflated without bound -- the
+        # failure mode that killed synaptic_scaling_.
+        self._rescale_cum = torch.ones(self.RNN.N, device=self.RNN.device)
 
         # --- homeostatic multiplicative scaling (excitation up / inhibition down) ---
         self.synaptic_scaling = synaptic_scaling
@@ -959,6 +963,69 @@ class Trainer():
                 else:
                     b[idx] = offs
 
+            elif mode == "rescale":
+                # GRADUAL UNSUPPRESSION, no donor and no redraw of what the unit knows. The unit's
+                # OWN trained incoming weights are kept and nudged: excitation up by alpha,
+                # inhibition down by alpha, a little every step, until it fires. That is the
+                # property the measured arms say matters -- every rule that threw a unit's trained
+                # incoming weights away landed between 262 and 333 active units at N=1000, while
+                # the two that kept trained weights reached 373 (bias_kick) and 702 (copy).
+                #
+                # WHY THIS IS NOT THE OLD synaptic_scaling_, WHICH BLEW UP. That rule scaled every
+                # unit toward a population set-point at every event and never stopped, so a unit it
+                # could not rescue stayed below the set-point and was scaled at all 400 events. The
+                # inflation it produced sits on exactly those units: in the one configuration that
+                # survived, the rows of units it FAILED to revive ended at twice the control's while
+                # the rows of units it rescued were only 15% above. Three things differ here:
+                #   - it stops the moment the unit passes the activity criterion;
+                #   - it is one-sided, so an active unit is never scaled down;
+                #   - the cumulative boost per unit is capped, so "until it revives" is bounded in
+                #     the case where it never does.
+                #
+                # WHY ALPHA IS THIS SMALL. Applied every step, the rule pushes the same direction
+                # every step, unlike gradient steps which partly cancel, so matching a gradient
+                # step's size (about 0.8% relative) would boost a unit 148-fold inside 1000 steps.
+                # The step is set from the timescale instead: measured on the controls, the median
+                # silent unit needs alpha ~ 1.25 in total and the 90th percentile ~ 3-5, so at
+                # 1.0005 per step the median revives in ~450 steps and the tail in ~3200.
+                #
+                # THE OUTGOING WEIGHTS ARE REDRAWN, NOT ZEROED. Zeroing makes a firing unit
+                # invisible to the loss, so its incoming weights get no gradient until the outgoing
+                # ones have grown back -- which is the likeliest reason `zero_out` did nothing here.
+                # Redrawing costs nothing while the unit is silent (it emits ~0, so its outgoing
+                # column carries ~0 whatever its weights are) and leaves it with a working,
+                # nonzero column the moment it revives. The redraw also overwrites the diagonal,
+                # which is how the self-connection stays out of the multiplicative boost -- boosting
+                # a self-weight is direct positive feedback, and trained self-weights here run about
+                # 33x the median off-diagonal weight.
+                a = float(args.get("rescale_alpha", 1.0005))
+                cum_cap = float(args.get("rescale_cap", 8.0))
+                act = idx[self._rescale_cum[idx] < cum_cap]
+                if act.numel() > 0:
+                    normalize = bool(args.get("rescale_normalize", True))
+                    for W in (self.RNN.W_rec, self.RNN.W_inp):
+                        blk = W[act, :]
+                        before = blk.norm(dim=1, keepdim=True)
+                        blk = torch.where(blk > 0, blk * a, blk / a)
+                        if normalize:
+                            # Holds the row's total synaptic weight fixed, making the event a pure
+                            # redistribution from inhibition to excitation. Without it the row
+                            # changes by exactly sqrt((alpha^2 E + I/alpha^2)/(E + I)) for summed
+                            # squares E of its excitatory and I of its inhibitory weights. That
+                            # exceeds 1 only where the two are COMPARABLE, which is the pump that
+                            # killed the first two attempts; an inhibition-dominated row, which is
+                            # what a silenced unit has, shrinks under the same rule (measured:
+                            # 0.667x at alpha 1.5 for I/E = 8e4, against 1.158x at I/E = 1).
+                            blk = blk * (before / blk.norm(dim=1, keepdim=True).clamp_min(1e-12))
+                        W[act, :] = blk
+                    self.RNN.W_rec[:, act] = torch.randn(
+                        self.RNN.N, act.numel(), device=self.RNN.device,
+                        generator=self.RNN.random_generator) * std
+                    self.RNN.W_out[:, act] = torch.randn(
+                        self.RNN.W_out.shape[0], act.numel(), device=self.RNN.device,
+                        generator=self.RNN.random_generator) * std
+                    self._rescale_cum[act] *= a
+
             else:
                 self.RNN.W_rec[idx, :] = torch.randn(n, self.RNN.N, device=self.RNN.device,
                                                      generator=self.RNN.random_generator) * std
@@ -978,13 +1045,17 @@ class Trainer():
                     self.RNN.W_out[:, idx] = 0.0
 
             # Adam carries per-entry moments; stale ones would undo the redraw within a few steps.
-            for prm in (self.RNN.W_rec, self.RNN.W_inp):
-                st = self.optimizer.state.get(prm, None)
-                if st:
-                    for key in ("exp_avg", "exp_avg_sq"):
-                        if key in st:
-                            st[key][idx, :] = 0.0
-            if mode == "copy":
+            # NOT for `rescale`, whose incoming rows are nudged by 0.05% rather than redrawn: their
+            # gradient statistics are still valid, and zeroing them every step would reset the
+            # optimiser for every silent unit on every step.
+            if mode != "rescale":
+                for prm in (self.RNN.W_rec, self.RNN.W_inp):
+                    st = self.optimizer.state.get(prm, None)
+                    if st:
+                        for key in ("exp_avg", "exp_avg_sq"):
+                            if key in st:
+                                st[key][idx, :] = 0.0
+            if mode in ("copy", "rescale"):
                 for prm, cols in ((self.RNN.W_rec, idx), (self.RNN.W_out, idx)):
                     st = self.optimizer.state.get(prm, None)
                     if st:
@@ -1084,10 +1155,13 @@ class Trainer():
                 if bool(args.get("preserve_row_norm", True)):
                     # WHY THIS IS REQUIRED, not optional. The sign split multiplies a unit's
                     # excitatory weights by alpha and divides its inhibitory ones by alpha, so the
-                    # row's magnitude changes by a factor of order (alpha + 1/alpha), which is
-                    # GREATER THAN 2 for every alpha except exactly 1. Each event therefore pumps
-                    # magnitude into the weights whichever way it scales, and 300 events compound
-                    # it. That is what destroyed the first two attempts: all three seeds of the
+                    # row's magnitude changes by exactly sqrt((alpha^2 E + I/alpha^2)/(E + I)) for
+                    # summed squares E of the excitatory and I of the inhibitory weights. That
+                    # factor exceeds 1 wherever the two are COMPARABLE, which is where this rule
+                    # keeps every unit, so each event pumps magnitude in whichever direction it
+                    # scales and 300 events compound it. (An earlier version of this comment said
+                    # the factor is alpha + 1/alpha > 2 for every alpha, which is too strong: a
+                    # strongly inhibition-dominated row shrinks instead.) That is what destroyed the first two attempts: all three seeds of the
                     # median-set-point arm discarded 19-27% of their gradient updates and the
                     # rank-matched arm 31-55%, every one ending at r2 of NaN or -inf, with the
                     # median activity of one run climbing 0.087 -> 0.207 -> 0.990 -> 1.7e10 while
