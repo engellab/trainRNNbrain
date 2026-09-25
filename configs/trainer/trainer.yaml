@@ -90,7 +90,11 @@ prune_args:
   copy_noise: 0.05    # relative jitter on the copy's incoming weights. Without it the twins take
                       # identical drive and identical gradients and never separate.
   copy_norm_preserve: false
-  copy_permute: false         # randomly permute the donor's incoming row instead of copying it
+  copy_permute: false
+  copy_iid: false             # draw the copy's incoming weights iid at 1/sqrt(N) while keeping
+                      # the donor's halved OUTGOING column. Isolates the outgoing projection: it
+                      # is the one thing every recruiting variant of copy shares and a plain
+                      # random redraw lacks.         # randomly permute the donor's incoming row instead of copying it
                       # in place: same multiset of weights, same signs, same sparsity, different
                       # sources. The control that separates WHICH units the copy listens to from
                       # WHAT its weights look like. The two positions spanning the pair are left

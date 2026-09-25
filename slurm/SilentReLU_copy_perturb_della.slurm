@@ -76,6 +76,15 @@
 # their PLACEMENT, and it is the single-variable comparison against the jitter-0 cell.
 #   PERMUTE=true SWEEP=copy_permute sbatch --array=1-3 slurm/SilentReLU_copy_perturb_della.slurm
 #
+# THE OUTGOING-ONLY CONTROL. IID=true throws the incoming row away entirely -- drawn iid at
+# 1/sqrt(N), owing the donor nothing -- and keeps only the halved donor outgoing column. Set beside
+# the permutation (606 active units, keeping the values and scrambling the places) and jitter 3.0
+# (752, keeping the places and scrambling the values), it asks whether the outgoing projection is
+# the whole story. A plain random redraw, which has neither, recruits 262 against a control's 275.
+# If this cell recruits ~600 the incoming weights carry nothing; if it collapses to ~262 their
+# statistics carry after all.
+#   IID=true SWEEP=copy_iid sbatch --array=1-3 slurm/SilentReLU_copy_perturb_della.slurm
+#
 # Output: $SAVE_TO/NBitFlipFlop_copy_perturb/EqType=h_k=3_N=1000_cn=<jitter>/
 
 #SBATCH --job-name=CopyPerturb
@@ -149,6 +158,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   trainer.prune_args.reinit_mode=copy \
   "trainer.prune_args.copy_noise=${CN}" \
   "trainer.prune_args.copy_permute=${PERMUTE:-false}" \
+  "trainer.prune_args.copy_iid=${IID:-false}" \
   trainer.prune_args.copy_norm_preserve=true \
   trainer.prune_args.max_replace_frac=0.025 \
   trainer.prune_args.maturity=1000 \

@@ -118,11 +118,41 @@ def test_without_the_flag_the_row_is_the_donors():
     print(f"      permutation off: row matches the donor position for position (max diff {d:.1e})")
 
 
+def test_iid_keeps_the_donors_outgoing_column_and_nothing_else():
+    """copy_iid: incoming weights owe the donor nothing, the outgoing column is still the donor's.
+
+    Contract, fixed before running: the copy's incoming row has the initialisation scale and no
+    relation to the donor's, while its outgoing column equals the donor's halved one -- which is
+    what makes this a single-variable test of the outgoing projection.
+    """
+    rnn, tr = _setup(False)
+    tr.prune_args["copy_iid"] = True
+    inp = torch.abs(torch.randn(2, T, B, generator=torch.Generator().manual_seed(3)))
+    states, _ = rnn(inp, w_noise=False)
+    w_before = rnn.W_rec.detach().clone()
+    Trainer.prune_and_reinit_(tr, states)
+    i = torch.nonzero(tr._reinit_ever).flatten().tolist()[0]
+    hits = [j for j in range(N) if j != i
+            and torch.allclose(rnn.W_out[:, i].detach(), rnn.W_out[:, j].detach(), atol=1e-8)]
+    j = hits[0]
+    off = [k for k in range(N) if k not in (i, j)]
+    c, d = rnn.W_rec[i, off].detach(), w_before[j, off]
+    cos = float(torch.dot(c, d) / (c.norm() * d.norm()))
+    assert abs(cos) < 0.2, f"incoming row still resembles the donor's, cosine {cos:+.3f}"
+    got, want = float(c.std()), 1.0 / np.sqrt(N)
+    assert abs(got - want) / want < 0.2, f"incoming draw std {got:.4f}, expected {want:.4f}"
+    assert torch.allclose(rnn.W_rec[:, i].detach(), rnn.W_rec[:, j].detach(), atol=1e-7), \
+        "the outgoing column is not the donor's halved one"
+    print(f"      incoming iid at std {got:.4f} (cosine to donor {cos:+.3f}); "
+          f"outgoing column identical to the donor's halved one")
+
+
 if __name__ == "__main__":
     for t in (test_the_permuted_row_holds_the_donors_weights,
               test_the_permutation_destroys_the_alignment,
               test_the_self_weight_block_survives_the_permutation,
-              test_without_the_flag_the_row_is_the_donors):
+              test_without_the_flag_the_row_is_the_donors,
+              test_iid_keeps_the_donors_outgoing_column_and_nothing_else):
         print(f"\n{t.__name__}")
         t()
     print("\nall checks passed")

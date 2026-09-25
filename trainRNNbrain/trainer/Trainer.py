@@ -820,6 +820,18 @@ class Trainer():
                     # is set explicitly below; it has to be read before the outgoing column is
                     # halved, which halves W[j,j] along with the rest of that column.
                     self_w = self.RNN.W_rec[donor_j, donor_j].clone()
+                    if bool(args.get("copy_iid", False)):
+                        # THE DONOR'S OUTGOING COLUMN, NOBODY'S INCOMING WEIGHTS. The jitter sweep
+                        # destroyed the donor's weight VALUES and recruitment held (752 units at
+                        # jitter 3.0 against 685 at jitter 0); the permutation destroyed their
+                        # PLACEMENT and 81% of the effect held (606). What every recruiting cell
+                        # still shares, and a plain random redraw does not, is the halved donor
+                        # outgoing column. This cell keeps that and throws the incoming row away
+                        # entirely, so it asks whether the outgoing projection is the whole story.
+                        row_rec = torch.randn(self.RNN.N, device=self.RNN.device,
+                                              generator=self.RNN.random_generator) * std
+                        row_inp = torch.randn(self.RNN.W_inp.shape[1], device=self.RNN.device,
+                                              generator=self.RNN.random_generator) * std
                     if bool(args.get("copy_permute", False)):
                         # THE SAME WEIGHTS, IN THE WRONG PLACES. A row of W_rec is indexed by
                         # source unit, so permuting it keeps the donor's exact multiset of weights
