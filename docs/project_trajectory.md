@@ -12808,3 +12808,197 @@ Two corrections to earlier entries:
 * Trained networks here end at spectral radius 8.26 from an initialisation of 1.2, measured on the
   four N=1000 flip-flop controls. Earlier entries that reason about stability from the init value of
   1.2 are reasoning about the wrong number.
+
+## 2026-09-26 10:20 — what a duplicated unit actually inherits, decomposed
+
+Four controls now separate the things a copy carries. All at N=1000, 3-bit flip-flop, 40000
+iterations, replacement rate 0.025, maturity 1000, three seeds each, and identical in every respect
+except the one named. The corrected 2x2 self-weight block is in all of them.
+
+| rule | incoming weights | outgoing column | active units | mean | r2 | recruitment above control |
+|---|---|---|---|---|---|---|
+| control | — | — | 254, 269, 301 | 275 | 0.945 | — |
+| random | iid at 1/sqrt(N) | stale, decayed | 250, 261, 275 | 262 | 0.945 | −13 |
+| zero_out | iid at 1/sqrt(N) | zeroed | 278, 278, 312 | 289 | 0.946 | +14 |
+| **copy_iid** | **iid at 1/sqrt(N)** | **donor's, halved** | 383, 391, 467 | **414** | 0.921 | **+139 (34%)** |
+| **permute** | **donor's multiset, scrambled places** | donor's, halved | 568, 615, 634 | **606** | 0.936 | **+331 (81%)** |
+| copy, jitter 0 | donor's, exact | donor's, halved | 660, 672, 724 | 685 | 0.942 | +410 (100%) |
+| copy, jitter 3.0 | donor's, 37% of signs flipped | donor's, halved | 740, 755, 760 | 752 | 0.944 | +477 (116%) |
+
+**Three ingredients, and the smallest one is the one I predicted would be everything.** Handing a
+new unit the donor's outgoing column and nothing else buys 34% of the recruitment. Adding the
+donor's weight STATISTICS -- the exact multiset of magnitudes, signs and zeros, in randomised
+places -- takes it to 81%. Putting those weights in their original places adds the last 19%. I had
+written that the outgoing projection was "the whole story"; it is a third of it.
+
+⚠️ THE LARGEST SINGLE CONTRIBUTOR IS THE INCOMING WEIGHT DISTRIBUTION, not the wiring and not the
+outgoing column. Going from iid incoming weights to the donor's multiset in scrambled places adds
+192 units, more than the outgoing column's 139 and far more than correct placement's 79. A trained
+row is heavy-tailed -- median off-diagonal weight 0.0015 against a maximum of 2.2 -- while an iid
+draw at 1/sqrt(N) = 0.032 gives every weight the same scale and no tail at all. What a copy mostly
+passes on looks like the SHAPE of a trained row.
+
+**Jitter does not hurt and appears to help.** Rotating the copy off its donor keeps every unit:
+685 at jitter 0, 708 at 0.3, 751 at 1.0, 752 at 3.0, where jitter 3.0 flips 37% of the row's signs
+and leaves a cosine of 0.32. Seed spreads are 40-80 units, so the 0-to-0.3 stretch is flat within
+noise and only the 1.0 and 3.0 cells clearly sit above jitter 0. Multiplicative jitter preserves
+each entry's magnitude scale, so it never destroys the heavy tail -- which is consistent with the
+tail being what matters.
+
+**The jitter-0 cell settles a claim this code made about itself.** Its comment said that without
+injected noise the twins "take identical drive and identical gradients and never separate". They
+separate perfectly well: 685 active units against 676 at the original copy_noise of 0.05. These
+networks inject independent recurrent noise per unit (sigma_rec = 0.05), so identical twins receive
+different inputs from the first step.
+
+**Dimensionality, reported as the total the population spans** (Pavel: dimensions per unit is not
+the right measure; what matters is the overall dimensionality of the trajectories):
+
+| cell | active | total dimensions (noise-free) |
+|---|---|---|
+| control | 278 | 5.6 |
+| random | 262 | 5.0 |
+| jitter 0 | 707 | 7.9 |
+| jitter 0.05 | 701 | 7.2 |
+| jitter 0.3 | 734 | 9.7 |
+| jitter 1.0 | 782 | 7.3 |
+| jitter 3.0 | 781 | 7.8 |
+
+Duplication raises what the population actually spans by 1.3-1.7x at no cost in r2. The win
+condition I pre-registered was written in dimensions PER UNIT and no cell met it; on total
+dimensions every cell clears the control comfortably. The pre-registration was answering the wrong
+question, which is worth recording as a pre-registration failure rather than quietly re-scoring.
+
+## 2026-09-26 10:20 — gradual unsuppression fails, and the reason is not the mechanism
+
+`reinit_mode="rescale"`, all 12 jobs (2 normalisation x 2 alpha x 3 seeds). The rule keeps a silent
+unit's own trained incoming weights and nudges them every step -- excitation up by alpha, inhibition
+down by alpha -- until it fires, redrawing the outgoing column at 1/sqrt(N) each step, stopping on
+revival, capped at a cumulative 8x.
+
+| cell | active per seed | mean | r2 |
+|---|---|---|---|
+| control | 254, 269, 301 | 275 | 0.945 |
+| normalised, alpha 1.0005 | 220, 262, 275 | 252 | 0.939 |
+| normalised, alpha 1.002 | 232, 265, 274 | 257 | 0.944 |
+| unnormalised, alpha 1.0005 | 246, 272, 301 | 273 | 0.940 |
+| unnormalised, alpha 1.002 | 233, 259, 259 | 250 | 0.942 |
+
+Every cell sits inside the control's range, which is the falsifier written before submission.
+Normalisation changes nothing, as the algebra says it cannot: with excitatory drive P and inhibitory
+drive M the post-event drive is lambda*(alpha*P − M/alpha), and lambda is a positive common factor,
+so the revival condition alpha_total^2 > M/P is identical either way.
+
+**WHY IT FAILS, from the weights themselves.** The rule can only RAISE a unit's excitation relative
+to its inhibition. The units that end up silent have the opposite:
+
+| cell | E/I ratio, silent units | E/I ratio, active units | row norm, silent |
+|---|---|---|---|
+| control | 0.79, 0.98, 1.14 | 0.91–1.06 | 0.35–0.39 |
+| rescale, alpha 1.0005 | 0.41, 0.47, 0.78 | 1.33–1.45 | 0.30–0.35 |
+| rescale, alpha 1.002 | 0.17, 0.25, 0.52 | 1.09–1.22 | 0.18–0.41 |
+
+Their E/I ratio ends far BELOW the control's, and further below at the larger alpha, so the rule
+caused it while running opposite to its own arithmetic. The only route: the unit revives, and a
+revived unit has gradient again, and the gradient's preferred direction is to put it back. Each
+cycle overshoots, the unit lands with less excitation than it started with, the rule boosts it
+again, and the cap eventually abandons it there. The units that stuck ended at E/I 1.09–1.45.
+
+Row norms rule out any runaway: 0.18–0.41 against the control's 0.35–0.39, so the cap and the
+normalisation did their jobs. This is a clean negative -- the mechanism ran as designed and the
+network undid it.
+
+**Two independent rules now say the same thing.** `bias_kick` lifts about 475 units per network and
+keeps 70 of them, an 85% re-suppression rate; `rescale` drives the E/I ratio of its failures below
+where it found them. Neither the frozen gradient nor the weight magnitudes are what keeps these
+units off. The network rejects units it has no use for, and the thing duplication supplies that
+these rules do not is a REASON for the gradient to keep the unit -- which the decomposition above
+prices at 34% outgoing column, 47% incoming weight distribution, 19% placement.
+
+## 2026-09-26 10:20 — self-connection audit, after the 2x2 block fix
+
+Pavel asked for a check that the self-connection cannot cause a blow-up. A ReLU unit above
+threshold evolves as h <- h*(1 − alpha + alpha*w) under its own self-weight, with alpha = dt/tau =
+0.1, so it self-excites once w > 1.
+
+| cell | % self-weights negative | most negative | largest positive | units with w > 1 | rho(W_rec) |
+|---|---|---|---|---|---|
+| control N=500 (gamma 0.1) | 43–46 | −2.45 | 1.06–2.06 | 1, 2, 1 | 7.3–7.7 |
+| duplication N=500 | 75–80 | −1.11 | 1.75–2.94 | 3, 1, 1 | 7.5–9.9 |
+| control N=1000 | 33–38 | −1.73 | 0.49–0.76 | 0 | 7.6–8.3 |
+| duplication N=1000 | 62–72 | −0.36 | 0.27–0.39 | 0 | 4.6–5.9 |
+| control N=2000 | 26–28 | −1.41 | 0.22–0.32 | 0 | 7.9–8.2 |
+| duplication N=2000 | 66–74 | −0.22 | 0.10–0.29 | 0 | 9.0–10.6 |
+
+Self-exciting units appear only at N=500 and the CONTROL has them too, so duplication does not
+create them. Duplicated networks come out substantially more self-INHIBITED (65–80% negative
+diagonals against 26–46%) and at N=1000 at a lower spectral radius. 11 of the 15 jitter runs
+discarded zero gradient updates and the other four 0.098–0.887%, far under the 5% gate.
+
+⚠️ CORRECTION. An earlier entry reported "the largest |W[i,i]| is 3.27, exceeding the largest
+off-diagonal weight" without the sign. The large self-weights are predominantly NEGATIVE: 26–62% of
+diagonals are negative, extremes reach −2.45, and the largest positive is 0.2–0.8. The
+self-connection here is mostly a damping term, which reframes the bug fixed on 2026-09-24: zeroing
+it detuned units by removing inhibition they relied on, not by risking runaway excitation.
+
+`rescale` cannot compound a self-weight at all -- the outgoing redraw overwrites the diagonal every
+event. Checked at a 17292x cumulative boost with the cap disabled: largest self-weight 0.18.
+
+## 2026-09-26 10:20 — weight decay sets the active-unit count
+
+The four-point series is complete (CDDM, 100000 iterations, code pinned at f5aa558 so the new points
+match the 2026-07-28 originals). Each count is paired with its OWN network's r2, because the cell
+mean hides what matters here.
+
+| N | weight decay | active units, each with its own r2 |
+|---|---|---|
+| 1000 | 0 | 394 @ 0.847, 428 @ 0.866, 438 @ 0.881 |
+| 1000 | 1e-6 | 301 @ 0.882, 314 @ 0.866, 321 @ 0.861 |
+| 1000 | 1e-3 | **61 @ 0.835, 64 @ 0.848, 65 @ 0.864** |
+| 1000 | 1e-2 | 107 @ 0.750, 113 @ 0.752, *1000 @ 0.750* |
+| 2000 | 0 | 580, 583, 594 @ 0.85–0.88 |
+| 2000 | 1e-6 | 420, 433, 449 @ 0.86–0.88 |
+| 2000 | 1e-3 | **100 @ 0.848, 110 @ 0.836**, *2000 @ 0.843* |
+| 2000 | 1e-2 | 145 @ 0.781, *2000 @ 0.770*, *2000 @ 0.792* |
+
+The prediction written before submission holds: decay is a DOSE, not a threshold. At N=1000 the
+count falls 420 -> 312 -> 63 across 0, 1e-6 and 1e-3, a 6.7-fold collapse, for 0.016 of r2. A
+hyperparameter normally set without thought controls this project's central measurement more
+strongly than any intervention built for the purpose.
+
+⚠️ THE ITALICISED ROWS ARE THE CRITERION FAILING, NOT NETWORKS USING EVERY UNIT. Those seeds have
+the same r2 as their siblings (0.750 against 0.750 and 0.752), so they have not diverged. Heavy
+decay shrinks every weight, activity goes uniform, and `p >= 0.05 * q95` then passes everybody. The
+scale-free criterion assumes a BIMODAL population; under heavy decay the population is unimodal and
+the criterion returns N. This is the third distinct way it has now broken: 996 of 1000 under
+shrink-and-perturb at r2 0.009, 0 of 1000 under diverging synaptic scaling, and N of N here. Any
+cell whose count equals N needs its participation histogram read before the number is used.
+
+## 2026-09-26 10:20 — other sweeps landed
+
+**Dropout, all four sizes complete** (3-bit flip-flop, rate 0.20, beta 4, three seeds):
+
+| N | control | mute | dead |
+|---|---|---|---|
+| 500 | 211 @ 0.946 | 398 @ 0.928 | 498 @ 0.779 |
+| 1000 | 275 @ 0.945 | 524 @ 0.928 | 904 @ 0.828 |
+| 2000 | 451 @ 0.947 | 720 @ 0.931 | 1370 @ 0.818 |
+| 4000 | — | 1087 @ 0.931 | 1897 @ 0.817 |
+
+`dead` dropout saturates at N=500 (496, 499, 499 of 500 units) and that is where its r2 cost is
+worst, 17 points against 12–13 at the larger sizes.
+
+**Duplication with the corrected construction, size series** (gamma 0.1): N=500 control 244 ->
+duplication 495 at no r2 cost; N=1000 323 -> 742 costing 3.8 points; N=2000 462 -> 1190 costing 1.5.
+Separately, in the rate grid at N=2000, 1003 active units at r2 0.936. N=4000 is still running after
+two TIMEOUTs -- 12 h reached only 19448 of 40000 iterations, so it is resubmitted at 36 h.
+
+**DMTS at 7 tau**, solve rate (clean r2 >= 0.9), three seeds per cell:
+
+| N | none | rws | frm | both |
+|---|---|---|---|---|
+| 500 | 2/3 | 3/3 | 3/3 | 3/3 |
+| 1000 | 3/3 | 3/3 | 3/3 | 3/3 |
+| 2000 | 2/3 | 3/3 | 3/3 | 0/1 so far |
+
+N=1000 solves 3/3 unpenalised, which is what the scaling series needs.
