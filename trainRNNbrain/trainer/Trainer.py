@@ -472,6 +472,9 @@ class Trainer():
                     setattr(self.RNN, name, m.to(self.RNN.W_rec.device))
         
         # name of the penalty, it's scale (lambda) and dictionary of arguments to be passed
+        # kept as an attribute because reinit_mode="rescale" uses frm's cap and its activity
+        # statistic as its maturity test, so the two cannot be allowed to disagree
+        self.frm_args = frm_args
         self.penalty_map = {
             "task": (self.Penalties.task_penalty, 1.0, {}),
             "inp_weights_magnitude": (self.Penalties.inp_weights_magnitude_penalty, lambda_iwm, iwm_args),
@@ -518,6 +521,10 @@ class Trainer():
         # Capped, so a unit the rule can never revive cannot be inflated without bound -- the
         # failure mode that killed synaptic_scaling_.
         self._rescale_cum = torch.ones(self.RNN.N, device=self.RNN.device)
+        # reinit_mode="rescale" with a fixed target is a three-state rule per unit:
+        # dormant -> growing (boosted, incoming rows protected from the gradient) -> mature.
+        self._rescale_growing = torch.zeros(self.RNN.N, dtype=torch.bool, device=self.RNN.device)
+        self._rescale_episodes = torch.zeros(self.RNN.N, device=self.RNN.device)
 
         # --- homeostatic multiplicative scaling (excitation up / inhibition down) ---
         self.synaptic_scaling = synaptic_scaling
@@ -745,7 +752,13 @@ class Trainer():
         mature = (self.iter_n - self._last_replaced) >= int(args.get("maturity", 0))
         doomed = (self._reinit_strikes >= int(args["patience"])) & mature
         n = int(doomed.sum())
-        if n == 0:
+        # ⚠️ reinit_mode="rescale" with a fixed target must run even when nothing NEW is doomed:
+        # units already growing are boosted every step until they mature, and returning here would
+        # silently stall them on any step with no fresh candidate.
+        _holding = (args.get("reinit_mode") == "rescale"
+                    and float(args.get("rescale_target_frac", 0.0)) > 0.0
+                    and bool(self._rescale_growing.any()))
+        if n == 0 and not _holding:
             return None
 
         # REPLACEMENT RATE CAP. Dohare et al. replace on the order of 1e-5 of units per step; our
@@ -1030,50 +1043,97 @@ class Trainer():
                 # which is how the self-connection stays out of the multiplicative boost -- boosting
                 # a self-weight is direct positive feedback, and trained self-weights here run about
                 # 33x the median off-diagonal weight.
-                # HOLD THE UNIT UP AFTER IT FIRES, instead of letting go the moment it clears the
-                # silence floor. Stopping at the floor is what the measurements say goes wrong: the
-                # unit revives, the boost stops, and the gradient -- which a revived unit now HAS --
-                # puts it straight back, overshooting, so it lands with a lower excitation/inhibition
-                # ratio than it started with (0.17-0.52 against a control's 0.79-1.14). The floor is
-                # 5% of the 95th percentile of participation, which is barely firing at all.
+                # A THREE-STATE RULE: dormant -> growing -> mature, with a fixed activity target.
                 #
-                # rescale_hold_q sets a second, higher bar as a quantile of the LIVE pool's
-                # participation: the incoming boost continues until the unit reaches it. 0 reproduces
-                # the old behaviour of stopping at the floor.
+                # The first version stopped boosting the moment a unit cleared the silence floor --
+                # 5% of the 95th percentile of participation, barely firing -- and every cell landed
+                # at the control's active count. The weights said why, and it was not the mechanism:
+                # the units it FAILED on ended with an excitation/inhibition ratio far BELOW the
+                # control's (0.17-0.52 against 0.79-1.14), which the rule cannot produce directly.
+                # So they revived, the boost stopped, and the gradient a revived unit now has put
+                # them back, overshooting.
                 #
-                # ⚠️ THE OUTGOING REDRAW MUST NOT FOLLOW THE BOOST. It is redrawn every step a unit
-                # is still under the floor, which is right while the unit emits nothing -- but a unit
-                # being HELD above the floor is firing, and its outgoing weights are the only route
-                # by which the loss can find a use for it (their gradient is proportional to its own
-                # rate). Redrawing them while holding would make the unit fire harder into a
-                # projection that is randomised again on the next step, which is the opposite of the
-                # intent. So the redraw stops at the floor and only the incoming boost continues.
+                # THE TARGET IS FIXED, NOT A POPULATION QUANTILE. A quantile of the live pool is a
+                # goalpost defined on the population the rule is modifying, and at the median half
+                # that pool sits below it BY CONSTRUCTION, so no unit is ever released by reaching
+                # it and the cumulative cap does all the stopping. The target here is frm's cap,
+                # cap_fr * log1p(UpV)/log1p(N), measured on frm's own soft-max-over-time activity so
+                # that "reached the target" means what the penalty means, times rescale_target_frac.
+                # That fraction is well below 1 on purpose: driving every unit to a common absolute
+                # activity is what frm does by gradient, and frm's failure mode is homogenisation
+                # (0.8 orders of magnitude of spread against cortex's two), which is also how
+                # synaptic scaling collapsed dimensionality to 5.14 and, pushed hard, to 1.62. The
+                # goal is a survival floor that holds a unit alive while the gradient finds a use
+                # for it, not a set-point that makes every unit average.
+                #
+                # THE OUTGOING WEIGHTS ARE REDRAWN ONCE, at the reset that opens an episode, and
+                # then left to train. Redrawing them every step -- what the first version did --
+                # throws away the gradient a marginally firing unit has already accumulated on
+                # them, and they are the only route by which the loss can find a use for it, since
+                # their gradient is proportional to the unit's own rate.
+                #
+                # THE INCOMING ROWS ARE PROTECTED FROM THE GRADIENT while growing (see
+                # zero_protected_grads_, called before the optimiser step), so the rule and the
+                # gradient do not fight over them. Protection and the boost both end at maturity.
+                # The number of units concurrently protected is capped, because a protected row is
+                # a row removed from training and an uncapped rule would silently freeze most of
+                # the network.
                 a = float(args.get("rescale_alpha", 1.0005))
                 cum_cap = float(args.get("rescale_cap", 8.0))
-                hold_q = float(args.get("rescale_hold_q", 0.0))
-                under_cap = self._rescale_cum < cum_cap
-                act = idx[self._rescale_cum[idx] < cum_cap]          # below the floor: boost + redraw
-                hold = torch.zeros_like(under_cap)
-                if hold_q > 0.0:
-                    live_p = p[~silent]
-                    if live_p.numel() > 1:
-                        target = torch.quantile(live_p, hold_q)
-                        # already boosted at some point, firing but not yet up to the target
-                        hold = (self._rescale_cum > 1.0) & (p < target) & under_cap
-                        hold[act] = False                            # act is handled below
-                boost = torch.nonzero(hold, as_tuple=True)[0]
-                if boost.numel() > 0:
-                    self.rescale_rows_(boost, a, bool(args.get("rescale_normalize", True)))
-                    self._rescale_cum[boost] *= a
-                if act.numel() > 0:
-                    self.rescale_rows_(act, a, bool(args.get("rescale_normalize", True)))
-                    self.RNN.W_rec[:, act] = torch.randn(
-                        self.RNN.N, act.numel(), device=self.RNN.device,
-                        generator=self.RNN.random_generator) * std
-                    self.RNN.W_out[:, act] = torch.randn(
-                        self.RNN.W_out.shape[0], act.numel(), device=self.RNN.device,
-                        generator=self.RNN.random_generator) * std
-                    self._rescale_cum[act] *= a
+                frac = float(args.get("rescale_target_frac", 0.0))
+                protect_cap = int(round(float(args.get("rescale_protect_frac", 0.20)) * self.RNN.N))
+
+                if frac <= 0.0:
+                    # legacy behaviour: boost and redraw every step while below the floor
+                    act = idx[self._rescale_cum[idx] < cum_cap]
+                    if act.numel() > 0:
+                        self.rescale_rows_(act, a, bool(args.get("rescale_normalize", True)))
+                        self.RNN.W_rec[:, act] = torch.randn(
+                            self.RNN.N, act.numel(), device=self.RNN.device,
+                            generator=self.RNN.random_generator) * std
+                        self.RNN.W_out[:, act] = torch.randn(
+                            self.RNN.W_out.shape[0], act.numel(), device=self.RNN.device,
+                            generator=self.RNN.random_generator) * std
+                        self._rescale_cum[act] *= a
+                else:
+                    target = frac * self.frm_activity_cap_()
+                    activity = self.frm_activity_(states)
+
+                    # 1) GRADUATE: a growing unit that has reached the target is mature. Protection
+                    #    and boosting both stop; nothing else about it is touched.
+                    graduated = self._rescale_growing & (activity >= target)
+                    self._rescale_growing[graduated] = False
+
+                    # 2) OPEN AN EPISODE for doomed units not already growing, up to the ceiling on
+                    #    how many may be protected at once. The lowest-utility ones go first, which
+                    #    is the same selection rule the replacement cap uses.
+                    room = max(0, protect_cap - int(self._rescale_growing.sum()))
+                    fresh = doomed & ~self._rescale_growing
+                    cand = torch.nonzero(fresh, as_tuple=True)[0]
+                    if cand.numel() > room:
+                        cand = cand[torch.argsort(score[cand])[:room]]
+                    if cand.numel() > 0:
+                        # the outgoing redraw happens HERE and only here, once per episode
+                        self.RNN.W_rec[:, cand] = torch.randn(
+                            self.RNN.N, cand.numel(), device=self.RNN.device,
+                            generator=self.RNN.random_generator) * std
+                        self.RNN.W_out[:, cand] = torch.randn(
+                            self.RNN.W_out.shape[0], cand.numel(), device=self.RNN.device,
+                            generator=self.RNN.random_generator) * std
+                        self._rescale_cum[cand] = 1.0        # budget is per EPISODE, not per unit
+                        self._rescale_growing[cand] = True
+                        self._rescale_episodes[cand] += 1
+
+                    # 3) BOOST every growing unit still inside its budget. A unit that exhausts the
+                    #    budget without reaching the target stops growing and loses protection: it
+                    #    is one the rule could not rescue, and holding it frozen forever would take
+                    #    its row out of training for the rest of the run.
+                    spent = self._rescale_growing & (self._rescale_cum >= cum_cap)
+                    self._rescale_growing[spent] = False
+                    grow = torch.nonzero(self._rescale_growing, as_tuple=True)[0]
+                    if grow.numel() > 0:
+                        self.rescale_rows_(grow, a, bool(args.get("rescale_normalize", True)))
+                        self._rescale_cum[grow] *= a
 
             else:
                 self.RNN.W_rec[idx, :] = torch.randn(n, self.RNN.N, device=self.RNN.device,
@@ -1116,6 +1176,68 @@ class Trainer():
         self._last_replaced[doomed] = float(self.iter_n)
         self._n_reinit_events += n
         self._reinit_ever[doomed] = True
+        return None
+
+    def frm_activity_cap_(self):
+        """The firing-rate target the frm penalty drives units toward, for this network's size.
+
+        cap_fr * log1p(UpV)/log1p(N), the same expression frm uses, so a unit that reaches it has
+        reached what the penalty would have asked of it. UpV is the project's hard constant 100.
+        At cap_fr 0.3 that is 0.200 at N=1000 and 0.167 at N=4000.
+
+        Returns:
+            float, the activity cap in the units of frm_activity_.
+        """
+        cap_fr = float(self.frm_args.get("cap_fr", 0.3))
+        # UpV lives on the Penalties object, which is where the frm penalty reads it from;
+        # taking it from the same place is what keeps this target equal to frm's own cap
+        upv = self.Penalties.UpV
+        return cap_fr * float(np.log1p(upv) / np.log1p(self.RNN.N))
+
+    def frm_activity_(self, states):
+        """Per-unit activity on frm's own statistic: a soft maximum of the rate over time.
+
+        tau * (logsumexp(r/tau) - log(n_samples)), with tau from frm_args -- a smooth stand-in for
+        the peak rate, so a unit that fires strongly but briefly is not scored as silent. Used as
+        the maturity test for reinit_mode="rescale", which is why it has to be frm's statistic and
+        not participation: the target is frm's cap.
+
+        Args:
+            states: (N, T, B) tensor from the training forward pass.
+        Returns:
+            (N,) tensor of activities.
+        """
+        x = states.detach().reshape(states.shape[0], -1)
+        if self.RNN.equation_type == "h":
+            x = self.RNN.activation(x)
+        tau = float(self.frm_args.get("tau", 0.1))
+        n = torch.as_tensor(float(x.shape[1]), device=x.device, dtype=x.dtype)
+        return tau * (torch.logsumexp(x / tau, dim=1) - torch.log(n))
+
+    def zero_protected_grads_(self):
+        """Blank the gradient on the incoming rows of units the rescale rule is holding up.
+
+        Called between backward() and the optimiser step. Only the INCOMING rows are protected --
+        W_rec[i, :] and W_inp[i, :] -- so the rule and the gradient do not fight over the weights
+        the rule is tilting. The unit's OUTGOING weights (W_rec[:, i] and W_out[:, i]) are left
+        alone deliberately: their gradient is proportional to the unit's own firing rate and they
+        are the only route by which the loss can find a use for it.
+
+        This also suspends weight decay on those rows, which is wanted rather than incidental: this
+        trainer uses Adam with coupled L2, so decay arrives through the gradient, and a unit being
+        held up should not be shrinking at the same time.
+
+        Returns:
+            None; mutates .grad in place.
+        """
+        if not self.prune_reinit or self.prune_args.get("reinit_mode") != "rescale":
+            return None
+        idx = torch.nonzero(self._rescale_growing, as_tuple=True)[0]
+        if idx.numel() == 0:
+            return None
+        for W in (self.RNN.W_rec, self.RNN.W_inp):
+            if W.grad is not None:
+                W.grad[idx, :] = 0.0
         return None
 
     def rescale_rows_(self, idx, alpha, normalize):
@@ -1588,6 +1710,8 @@ class Trainer():
             self.gnorm_window.append(n_now)
         ref = (float(np.median(self.gnorm_window))
                if len(self.gnorm_window) >= self.gnorm_min_samples else None)
+        # hold the rescale rule's growing units out of this update before it is applied
+        self.zero_protected_grads_()
         spike = ref is not None and ref > 0 and n_now > self.spike_factor * ref
         if (not torch.isfinite(total_norm)) or spike:
             self.optimizer.zero_grad(set_to_none=True)

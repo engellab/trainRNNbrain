@@ -71,21 +71,34 @@
 # taken at the absolute measured rate it is 3h15m. 6 h requested, covering both.
 #   sbatch --array=1-12%6 slurm/SilentReLU_rescale_revive_della.slurm
 #
-# THE HOLD VARIANT. HOLD=q keeps the incoming boost running until a revived unit's participation
-# reaches the q-th quantile of the LIVE pool, instead of letting go the moment it clears the
-# silence floor at 5% of q95 -- barely firing. The first version stopped at the floor and every
-# cell landed at the control's active count; the weights say why, and it is not the mechanism:
-# the units it FAILS on end with an excitation/inhibition ratio far BELOW the control's
-# (0.17-0.52 against 0.79-1.14), which the rule cannot do directly. So they revived, the boost
-# stopped, and the gradient -- which a revived unit now has -- put them back, overshooting.
-# The OUTGOING redraw deliberately does NOT follow the hold: a held unit is firing, and its
-# outgoing weights are the only route by which the loss can find a use for it, so they have to be
-# allowed to train instead of being randomised every step.
-# CAP is raised with HOLD because holding a unit up to a population quantile needs far more
-# cumulative boost than crossing the floor does; with normalisation on, the row norm is fixed, so a
-# larger cap tilts the E/I ratio without letting any weight run away, and it self-limits once a row
-# has no inhibition left to shrink.
-#   HOLD=0.25 CAP=64 SWEEP=rescale_hold sbatch --array=1-3 ...
+# THE THREE-STATE VARIANT. TARGET=f > 0 switches the rule from "stop at the silence floor" to
+# dormant -> growing -> mature, with maturity at f x frm's cap (cap_fr*log1p(UpV)/log1p(N)) on
+# frm's own soft-max-over-time activity. The first version stopped at the floor -- 5% of q95,
+# barely firing -- and every cell landed at the control's active count. The weights said why, and
+# it was not the mechanism: the units it FAILED on ended with an excitation/inhibition ratio far
+# BELOW the control's (0.17-0.52 against 0.79-1.14), which the rule cannot produce directly. They
+# revived, the boost stopped, and the gradient a revived unit now has put them back.
+#
+# Three things change with TARGET > 0:
+#   - the target is FIXED, not a quantile of the live pool. A quantile is a goalpost defined on
+#     the population being modified, and at the median half that pool sits below it by
+#     construction, so no unit is ever released by reaching it.
+#   - the outgoing column is redrawn ONCE per episode, not every step, so a marginally firing
+#     unit keeps the gradient it has accumulated on the weights that are its only route to a role.
+#   - the INCOMING rows are held out of the gradient update while growing, so the rule and the
+#     gradient stop fighting over them. PROTECT caps the fraction of units protected at once,
+#     because a protected row is a row out of training.
+#
+# TARGET is deliberately well below 1: driving every unit to a common absolute activity is what frm
+# does by gradient, and frm's failure mode is homogenisation (0.8 orders of magnitude of spread
+# against cortex's two) -- the same way synaptic scaling collapsed dimensionality to 5.14, and to
+# 1.62 pushed hard. The aim is a survival floor that holds a unit alive while the gradient finds a
+# use for it, not a set-point that makes every unit average.
+#
+# READ THE EPISODE COUNT. This design makes visible for the first time how many times a unit is
+# rescued and lost again. A unit on its third or fourth episode says the gradient wins even with
+# protection, which is the decisive result whichever way it falls.
+#   TARGET=0.2 CAP=64 PROTECT=0.20 SWEEP=rescale_states sbatch --array=4-6 ...
 #
 # Output: $SAVE_TO/NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=<t|f>_a=<alpha>/
 
@@ -145,7 +158,7 @@ NORM=${CELL_NORM[$CELL]}
 ALPHA=${CELL_ALPHA[$CELL]}
 NTAG=$([ "$NORM" = "true" ] && echo t || echo f)
 
-TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_norm=${NTAG}_a=${ALPHA}_hold=${HOLD:-0.0}"
+TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_norm=${NTAG}_a=${ALPHA}_tgt=${TARGET:-0.0}"
 mkdir -p "${SAVE_TO}/NBitFlipFlop_${SWEEP:-rescale_revive}"
 echo "Task ${SLURM_ARRAY_TASK_ID}: cell=${CELL} normalize=${NORM} alpha=${ALPHA} rep=${REP} iters=${IT}"
 echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
@@ -170,6 +183,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   "trainer.prune_args.rescale_alpha=${ALPHA}" \
   "trainer.prune_args.rescale_normalize=${NORM}" \
   "trainer.prune_args.rescale_cap=${CAP:-8.0}" \
-  "trainer.prune_args.rescale_hold_q=${HOLD:-0.0}" \
+  "trainer.prune_args.rescale_target_frac=${TARGET:-0.0}" \
+  "trainer.prune_args.rescale_protect_frac=${PROTECT:-0.20}" \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""

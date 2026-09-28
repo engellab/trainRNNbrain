@@ -108,12 +108,17 @@ prune_args:
                       # a gradient-sized 0.8% would boost a unit 148x inside 1000 steps. At 1.0005
                       # the median silent unit (needing ~1.25 in total) revives in ~450 steps and
                       # the 90th-percentile one (~3-5) in ~3200.
-  rescale_hold_q: 0.0         # keep boosting a revived unit until its participation reaches this
-                      # quantile of the LIVE pool, instead of letting go the moment it clears the
-                      # silence floor (5% of q95, i.e. barely firing). 0 reproduces the old
-                      # behaviour. The OUTGOING redraw always stops at the floor: a unit being held
-                      # above it is firing, and its outgoing weights are the only route by which
-                      # the loss can find a use for it, so they must be allowed to train.
+  rescale_target_frac: 0.0    # >0 switches reinit_mode="rescale" to the three-state rule:
+                      # dormant -> growing -> mature, with maturity at this FRACTION of frm's cap
+                      # (cap_fr * log1p(UpV)/log1p(N)) measured on frm's soft-max-over-time
+                      # activity. Deliberately well below 1: driving every unit to a common
+                      # absolute activity is what frm does by gradient, and its failure mode is
+                      # homogenisation. 0 keeps the legacy stop-at-the-floor behaviour.
+  rescale_protect_frac: 0.20  # ceiling on the fraction of units that may be growing, and so
+                      # gradient-protected, at the same time. A protected row is a row removed
+                      # from training; without a ceiling the rule would silently freeze most of
+                      # the network.
+
   rescale_cap: 8.0            # cumulative boost ceiling per unit, so "until it revives" is bounded
                       # for a unit that never does -- reached after ~4200 steps of boosting.
   rescale_normalize: true     # hold each row's total synaptic weight fixed, making the event a
