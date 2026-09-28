@@ -71,6 +71,22 @@
 # taken at the absolute measured rate it is 3h15m. 6 h requested, covering both.
 #   sbatch --array=1-12%6 slurm/SilentReLU_rescale_revive_della.slurm
 #
+# THE HOLD VARIANT. HOLD=q keeps the incoming boost running until a revived unit's participation
+# reaches the q-th quantile of the LIVE pool, instead of letting go the moment it clears the
+# silence floor at 5% of q95 -- barely firing. The first version stopped at the floor and every
+# cell landed at the control's active count; the weights say why, and it is not the mechanism:
+# the units it FAILS on end with an excitation/inhibition ratio far BELOW the control's
+# (0.17-0.52 against 0.79-1.14), which the rule cannot do directly. So they revived, the boost
+# stopped, and the gradient -- which a revived unit now has -- put them back, overshooting.
+# The OUTGOING redraw deliberately does NOT follow the hold: a held unit is firing, and its
+# outgoing weights are the only route by which the loss can find a use for it, so they have to be
+# allowed to train instead of being randomised every step.
+# CAP is raised with HOLD because holding a unit up to a population quantile needs far more
+# cumulative boost than crossing the floor does; with normalisation on, the row norm is fixed, so a
+# larger cap tilts the E/I ratio without letting any weight run away, and it self-limits once a row
+# has no inhibition left to shrink.
+#   HOLD=0.25 CAP=64 SWEEP=rescale_hold sbatch --array=1-3 ...
+#
 # Output: $SAVE_TO/NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=<t|f>_a=<alpha>/
 
 #SBATCH --job-name=RescaleRev
@@ -129,7 +145,7 @@ NORM=${CELL_NORM[$CELL]}
 ALPHA=${CELL_ALPHA[$CELL]}
 NTAG=$([ "$NORM" = "true" ] && echo t || echo f)
 
-TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_norm=${NTAG}_a=${ALPHA}"
+TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_norm=${NTAG}_a=${ALPHA}_hold=${HOLD:-0.0}"
 mkdir -p "${SAVE_TO}/NBitFlipFlop_${SWEEP:-rescale_revive}"
 echo "Task ${SLURM_ARRAY_TASK_ID}: cell=${CELL} normalize=${NORM} alpha=${ALPHA} rep=${REP} iters=${IT}"
 echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
@@ -153,6 +169,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   trainer.prune_args.max_replace_frac=1.0 \
   "trainer.prune_args.rescale_alpha=${ALPHA}" \
   "trainer.prune_args.rescale_normalize=${NORM}" \
-  trainer.prune_args.rescale_cap=8.0 \
+  "trainer.prune_args.rescale_cap=${CAP:-8.0}" \
+  "trainer.prune_args.rescale_hold_q=${HOLD:-0.0}" \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""

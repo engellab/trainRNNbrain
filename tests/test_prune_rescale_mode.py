@@ -72,6 +72,8 @@ def _setup(alpha, normalize=True, cap=8.0, one_at_a_time=False):
         _reinit_ever=torch.zeros(N, dtype=torch.bool), _unit_utility=torch.zeros(N),
         _last_replaced=torch.full((N,), -1e9), _rescale_cum=torch.ones(N),
         participation_from_states_=lambda s, **k: Trainer.participation_from_states_(tr, s, **k))
+    # the production code calls these as methods on the Trainer; the stand-in has to bind them
+    tr.rescale_rows_ = lambda i, al, nm: Trainer.rescale_rows_(tr, i, al, nm)
     return rnn, tr
 
 
@@ -233,6 +235,72 @@ def test_the_drive_on_a_silent_unit_goes_up():
           f"(median change {float((d1 - d0).median()):+.4f})")
 
 
+def test_hold_keeps_boosting_a_revived_unit_but_stops_redrawing_its_outgoing():
+    """The fix for the treadmill: hold the unit above the floor, let its projection learn.
+
+    Stopping the boost at the silence floor is what the E/I measurement says goes wrong -- the unit
+    revives, the boost stops, and the gradient puts it straight back. rescale_hold_q keeps the
+    incoming boost running until the unit reaches a quantile of the live pool. The outgoing redraw
+    must NOT follow it: a held unit is firing, and its outgoing weights are the only route by which
+    the loss can find a use for it, so redrawing them every step would defeat the purpose.
+
+    Contract, fixed before running:
+      1. A unit above the floor but below the hold target still has its incoming row rescaled.
+      2. That unit's outgoing column is NOT redrawn.
+      3. With rescale_hold_q = 0 no such unit is touched at all.
+    """
+    for hold_q, expect_boost in ((0.9, True), (0.0, False)):
+        rnn, tr = _setup(1.5, cap=1e9)
+        tr.prune_args["rescale_hold_q"] = hold_q
+        inp = _inputs()
+        _step(rnn, tr, inp)                       # first event: the dead units get boosted
+        # promote one boosted unit above the floor by hand, so it enters the hold band
+        boosted = torch.nonzero(tr._rescale_cum > 1.0).flatten()
+        assert boosted.numel() > 0, "nothing was boosted on the first event"
+        with torch.no_grad():
+            rnn.W_inp[boosted[0], :] = 0.6        # enough to clear the floor, not to be a busy unit
+        states, _ = rnn(inp, w_noise=False)
+        p = tr.participation_from_states_(states).detach()
+        silent = p < 0.05 * torch.quantile(p, 0.95)
+        i = int(boosted[0])
+        # the test only says something if the unit sits in the band the hold rule targets: above
+        # the silence floor, below the chosen quantile of the live pool
+        assert not bool(silent[i]), "fixture failed: the promoted unit did not clear the floor"
+        if hold_q > 0:
+            tgt = torch.quantile(p[~silent], hold_q)
+            assert p[i] < tgt, (f"fixture failed: promoted unit sits at p={float(p[i]):.4f}, "
+                                f"already past the hold target {float(tgt):.4f}")
+        row_before = rnn.W_rec[i, :].detach().clone()
+        col_before = rnn.W_rec[:, i].detach().clone()
+        cum_before = tr._rescale_cum.clone()
+        Trainer.prune_and_reinit_(tr, states)
+        # units whose own boost did not fire this event: neither their row nor their column was
+        # rewritten, so they are the clean reference for both directions
+        untouched = torch.nonzero(tr._rescale_cum == cum_before).flatten()
+        untouched = untouched[untouched != i]
+        # Restricted to units whose own boost did not fire: their COLUMNS were not redrawn, so an
+        # entry there changed only if row i was itself rescaled. Comparing the whole row would pick
+        # up every other unit's outgoing redraw writing into it.
+        row_moved = not torch.allclose(rnn.W_rec[i, untouched].detach(),
+                                       row_before[untouched], atol=1e-9)
+        # "not redrawn" cannot mean bitwise identical: entry W_rec[j, i] sits in unit j's ROW as
+        # well as unit i's column, so any other unit being boosted edits this column incidentally.
+        # A redraw replaces the whole column with fresh Gaussians and destroys its relationship to
+        # what was there, so cosine against the previous column is the statistic that separates
+        # the two.
+        c = rnn.W_rec[:, i].detach()
+        assert row_moved == expect_boost, \
+            f"hold_q={hold_q}: incoming row {'did not move' if expect_boost else 'moved'}"
+        if expect_boost:
+            d = float((c[untouched] - col_before[untouched]).abs().max())
+            assert d == 0.0, f"the outgoing column was rewritten: max change {d:.3g} at rows " \
+                             f"whose own boost did not fire"
+            print(f"      hold_q={hold_q}: incoming boosted, outgoing column bitwise unchanged at "
+                  f"the {untouched.numel()} rows that were not themselves boosted")
+        else:
+            print(f"      hold_q={hold_q}: unit above the floor left alone, as intended")
+
+
 if __name__ == "__main__":
     for t in (test_signs_preserved_and_split_applied,
               test_normalize_holds_the_row_length,
@@ -241,7 +309,8 @@ if __name__ == "__main__":
               test_outgoing_is_redrawn_not_zeroed,
               test_active_units_are_never_touched,
               test_cumulative_cap_stops_a_unit_that_never_revives,
-              test_the_drive_on_a_silent_unit_goes_up):
+              test_the_drive_on_a_silent_unit_goes_up,
+              test_hold_keeps_boosting_a_revived_unit_but_stops_redrawing_its_outgoing):
         print(f"\n{t.__name__}")
         t()
     print("\nall checks passed")

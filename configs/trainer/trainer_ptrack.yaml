@@ -110,6 +110,12 @@ prune_args:
                       # a gradient-sized 0.8% would boost a unit 148x inside 1000 steps. At 1.0005
                       # the median silent unit (needing ~1.25 in total) revives in ~450 steps and
                       # the 90th-percentile one (~3-5) in ~3200.
+  rescale_hold_q: 0.0         # keep boosting a revived unit until its participation reaches this
+                      # quantile of the LIVE pool, instead of letting go the moment it clears the
+                      # silence floor (5% of q95, i.e. barely firing). 0 reproduces the old
+                      # behaviour. The OUTGOING redraw always stops at the floor: a unit being held
+                      # above it is firing, and its outgoing weights are the only route by which
+                      # the loss can find a use for it, so they must be allowed to train.
   rescale_cap: 8.0            # cumulative boost ceiling per unit, so "until it revives" is bounded
                       # for a unit that never does -- reached after ~4200 steps of boosting.
   rescale_normalize: true     # hold each row's total synaptic weight fixed, making the event a

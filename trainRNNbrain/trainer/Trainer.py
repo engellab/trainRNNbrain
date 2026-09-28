@@ -1030,26 +1030,43 @@ class Trainer():
                 # which is how the self-connection stays out of the multiplicative boost -- boosting
                 # a self-weight is direct positive feedback, and trained self-weights here run about
                 # 33x the median off-diagonal weight.
+                # HOLD THE UNIT UP AFTER IT FIRES, instead of letting go the moment it clears the
+                # silence floor. Stopping at the floor is what the measurements say goes wrong: the
+                # unit revives, the boost stops, and the gradient -- which a revived unit now HAS --
+                # puts it straight back, overshooting, so it lands with a lower excitation/inhibition
+                # ratio than it started with (0.17-0.52 against a control's 0.79-1.14). The floor is
+                # 5% of the 95th percentile of participation, which is barely firing at all.
+                #
+                # rescale_hold_q sets a second, higher bar as a quantile of the LIVE pool's
+                # participation: the incoming boost continues until the unit reaches it. 0 reproduces
+                # the old behaviour of stopping at the floor.
+                #
+                # ⚠️ THE OUTGOING REDRAW MUST NOT FOLLOW THE BOOST. It is redrawn every step a unit
+                # is still under the floor, which is right while the unit emits nothing -- but a unit
+                # being HELD above the floor is firing, and its outgoing weights are the only route
+                # by which the loss can find a use for it (their gradient is proportional to its own
+                # rate). Redrawing them while holding would make the unit fire harder into a
+                # projection that is randomised again on the next step, which is the opposite of the
+                # intent. So the redraw stops at the floor and only the incoming boost continues.
                 a = float(args.get("rescale_alpha", 1.0005))
                 cum_cap = float(args.get("rescale_cap", 8.0))
-                act = idx[self._rescale_cum[idx] < cum_cap]
+                hold_q = float(args.get("rescale_hold_q", 0.0))
+                under_cap = self._rescale_cum < cum_cap
+                act = idx[self._rescale_cum[idx] < cum_cap]          # below the floor: boost + redraw
+                hold = torch.zeros_like(under_cap)
+                if hold_q > 0.0:
+                    live_p = p[~silent]
+                    if live_p.numel() > 1:
+                        target = torch.quantile(live_p, hold_q)
+                        # already boosted at some point, firing but not yet up to the target
+                        hold = (self._rescale_cum > 1.0) & (p < target) & under_cap
+                        hold[act] = False                            # act is handled below
+                boost = torch.nonzero(hold, as_tuple=True)[0]
+                if boost.numel() > 0:
+                    self.rescale_rows_(boost, a, bool(args.get("rescale_normalize", True)))
+                    self._rescale_cum[boost] *= a
                 if act.numel() > 0:
-                    normalize = bool(args.get("rescale_normalize", True))
-                    for W in (self.RNN.W_rec, self.RNN.W_inp):
-                        blk = W[act, :]
-                        before = blk.norm(dim=1, keepdim=True)
-                        blk = torch.where(blk > 0, blk * a, blk / a)
-                        if normalize:
-                            # Holds the row's total synaptic weight fixed, making the event a pure
-                            # redistribution from inhibition to excitation. Without it the row
-                            # changes by exactly sqrt((alpha^2 E + I/alpha^2)/(E + I)) for summed
-                            # squares E of its excitatory and I of its inhibitory weights. That
-                            # exceeds 1 only where the two are COMPARABLE, which is the pump that
-                            # killed the first two attempts; an inhibition-dominated row, which is
-                            # what a silenced unit has, shrinks under the same rule (measured:
-                            # 0.667x at alpha 1.5 for I/E = 8e4, against 1.158x at I/E = 1).
-                            blk = blk * (before / blk.norm(dim=1, keepdim=True).clamp_min(1e-12))
-                        W[act, :] = blk
+                    self.rescale_rows_(act, a, bool(args.get("rescale_normalize", True)))
                     self.RNN.W_rec[:, act] = torch.randn(
                         self.RNN.N, act.numel(), device=self.RNN.device,
                         generator=self.RNN.random_generator) * std
@@ -1099,6 +1116,37 @@ class Trainer():
         self._last_replaced[doomed] = float(self.iter_n)
         self._n_reinit_events += n
         self._reinit_ever[doomed] = True
+        return None
+
+    def rescale_rows_(self, idx, alpha, normalize):
+        """Tilt the incoming weights of the given units from inhibition toward excitation.
+
+        Excitatory entries are multiplied by alpha and inhibitory ones divided by it, so the ratio
+        of excitatory to inhibitory drive changes by alpha^2 while every sign and every structural
+        zero is preserved. Shared by both paths of reinit_mode="rescale" -- the units still below
+        the silence floor and the ones being held above it -- so the two cannot drift apart.
+
+        Args:
+            idx: LongTensor of unit indices whose incoming rows are rescaled.
+            alpha: float > 1, the per-event boost.
+            normalize: bool. True holds each row's L2 norm at what it was, making the event a pure
+                redistribution at fixed total synaptic weight. False lets the row change by exactly
+                sqrt((alpha^2 E + I/alpha^2)/(E + I)) for summed squares E of the excitatory and I
+                of the inhibitory entries -- which exceeds 1 only where the two are COMPARABLE, the
+                pump that killed the first two synaptic-scaling attempts. An inhibition-dominated
+                row, which is what a silenced unit has, shrinks under the same rule (measured:
+                0.667x at alpha 1.5 for I/E = 8e4, against 1.158x at I/E = 1).
+
+        Returns:
+            None; mutates self.RNN.W_rec and self.RNN.W_inp in place.
+        """
+        for W in (self.RNN.W_rec, self.RNN.W_inp):
+            blk = W[idx, :]
+            before = blk.norm(dim=1, keepdim=True)
+            blk = torch.where(blk > 0, blk * alpha, blk / alpha)
+            if normalize:
+                blk = blk * (before / blk.norm(dim=1, keepdim=True).clamp_min(1e-12))
+            W[idx, :] = blk
         return None
 
     def synaptic_scaling_(self, states):
