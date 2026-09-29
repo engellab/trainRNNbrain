@@ -100,6 +100,22 @@
 # protection, which is the decisive result whichever way it falls.
 #   TARGET=0.2 CAP=64 PROTECT=0.20 SWEEP=rescale_states sbatch --array=4-6 ...
 #
+# ACTIVE=true RESTRICTS THE RECURRENT BOOST TO SYNAPSES FROM FIRING UNITS. Drive is
+# sum_k W[i,k]*r_k, so a synapse from a silent source delivers nothing however large it is made,
+# and a silent unit's excitatory weight mass splits 1.49 onto active sources against 2.16 onto
+# silent ones at N=1000 -- boosting the whole row spends 59% of the budget where it cannot raise h.
+# Input weights are always rescaled in full, since the task input drives on every step.
+#
+# WHY THIS RUN EXISTS. The protected fixed-target rule DID revive units: the control has 440 units
+# more than two decades below the silence threshold and that rule has TWO, with 423 of its silent
+# units within a factor of ten of the bar. It simply did not push them over a threshold defined
+# relative to the busiest units, so the active COUNT did not move (260 against a control's 275)
+# while r2 fell 1.5 points. Concentrating the same budget on synapses that can carry current is the
+# obvious next step, and normalisation is swept because it is what blocks magnitude restoration --
+# a silent unit's coupling to the firing population is 3-9x weaker than an active unit's in BOTH
+# signs, which is a magnitude deficit, not only a balance one.
+#   ACTIVE=true TARGET=0.2 CAP=64 PROTECT=0.20 SWEEP=rescale_active sbatch --array=4-6,10-12 ...
+#
 # Output: $SAVE_TO/NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=<t|f>_a=<alpha>/
 
 #SBATCH --job-name=RescaleRev
@@ -158,7 +174,7 @@ NORM=${CELL_NORM[$CELL]}
 ALPHA=${CELL_ALPHA[$CELL]}
 NTAG=$([ "$NORM" = "true" ] && echo t || echo f)
 
-TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_norm=${NTAG}_a=${ALPHA}_tgt=${TARGET:-0.0}"
+TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_norm=${NTAG}_a=${ALPHA}_tgt=${TARGET:-0.0}_act=${ACTIVE:-false}"
 mkdir -p "${SAVE_TO}/NBitFlipFlop_${SWEEP:-rescale_revive}"
 echo "Task ${SLURM_ARRAY_TASK_ID}: cell=${CELL} normalize=${NORM} alpha=${ALPHA} rep=${REP} iters=${IT}"
 echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
@@ -185,5 +201,6 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   "trainer.prune_args.rescale_cap=${CAP:-8.0}" \
   "trainer.prune_args.rescale_target_frac=${TARGET:-0.0}" \
   "trainer.prune_args.rescale_protect_frac=${PROTECT:-0.20}" \
+  "trainer.prune_args.rescale_active_only=${ACTIVE:-false}" \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""

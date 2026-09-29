@@ -73,7 +73,7 @@ def _setup(alpha, normalize=True, cap=8.0, one_at_a_time=False):
         _last_replaced=torch.full((N,), -1e9), _rescale_cum=torch.ones(N),
         participation_from_states_=lambda s, **k: Trainer.participation_from_states_(tr, s, **k))
     # the production code calls these as methods on the Trainer; the stand-in has to bind them
-    tr.rescale_rows_ = lambda i, al, nm: Trainer.rescale_rows_(tr, i, al, nm)
+    tr.rescale_rows_ = lambda i, al, nm, live=None: Trainer.rescale_rows_(tr, i, al, nm, live)
     return rnn, tr
 
 

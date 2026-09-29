@@ -114,6 +114,13 @@ prune_args:
                       # activity. Deliberately well below 1: driving every unit to a common
                       # absolute activity is what frm does by gradient, and its failure mode is
                       # homogenisation. 0 keeps the legacy stop-at-the-floor behaviour.
+  rescale_active_only: false  # restrict the recurrent boost to columns of units that are
+                      # actually FIRING. Drive is sum_k W[i,k]*r_k, so a synapse from a silent
+                      # source delivers nothing however large it is made -- and a silent unit's
+                      # excitatory mass splits 1.49 onto active sources against 2.16 onto silent
+                      # ones at N=1000, so boosting the whole row spends 59% of the effort where
+                      # it cannot raise h. Input weights are always rescaled in full: the task
+                      # input drives on every step, so every input synapse is a live source.
   rescale_protect_frac: 0.20  # ceiling on the fraction of units that may be growing, and so
                       # gradient-protected, at the same time. A protected row is a row removed
                       # from training; without a ceiling the rule would silently freeze most of

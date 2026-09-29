@@ -69,7 +69,7 @@ def _setup(target_frac=0.3, protect_frac=0.20, alpha=1.5, cap=8.0):
         _last_replaced=torch.full((N,), -1e9), _rescale_cum=torch.ones(N),
         _rescale_growing=torch.zeros(N, dtype=torch.bool), _rescale_episodes=torch.zeros(N))
     tr.participation_from_states_ = lambda s, **k: Trainer.participation_from_states_(tr, s, **k)
-    tr.rescale_rows_ = lambda i, al, nm: Trainer.rescale_rows_(tr, i, al, nm)
+    tr.rescale_rows_ = lambda i, al, nm, live=None: Trainer.rescale_rows_(tr, i, al, nm, live)
     tr.frm_activity_cap_ = lambda: Trainer.frm_activity_cap_(tr)
     tr.frm_activity_ = lambda s: Trainer.frm_activity_(tr, s)
     tr.zero_protected_grads_ = lambda: Trainer.zero_protected_grads_(tr)
@@ -196,12 +196,62 @@ def test_the_protected_population_never_exceeds_its_ceiling():
     print(f"      growing count over 8 events: {seen}, ceiling {ceiling}")
 
 
+def test_active_only_moves_synapses_from_firing_units_and_leaves_the_rest():
+    """The boost goes where it can raise h, and nowhere else.
+
+    Drive is sum_k W[i,k]*r_k, so a synapse from a silent source delivers nothing however large it
+    is made. With rescale_active_only the recurrent boost touches only the columns of firing units;
+    the columns of silent units are left bitwise alone. Input weights are always rescaled in full,
+    because the task input is driving on every step.
+
+    Contract, fixed before running: with the option on, a growing unit's weights from ACTIVE
+    sources move and its weights from SILENT sources do not; with it off, both move.
+    """
+    for active_only, expect_silent_cols_move in ((True, False), (False, True)):
+        # a small ceiling on purpose: with it lifted, every silent unit opens an episode and has
+        # its column redrawn, leaving no silent column untouched to compare against
+        rnn, tr = _setup(protect_frac=0.05)
+        tr.prune_args["rescale_active_only"] = active_only
+        tr.prune_args["rescale_normalize"] = False      # isolate the restriction from renormalising
+        inp = _inputs()
+        states, _ = rnn(inp, w_noise=False)
+        p = tr.participation_from_states_(states).detach()
+        silent = p < 0.05 * torch.quantile(p, 0.95)
+        live_cols = torch.nonzero(~silent).flatten()
+        dead_cols = torch.nonzero(silent).flatten()
+        assert live_cols.numel() > 5 and dead_cols.numel() > 5, "fixture has no two-sided split"
+        before = rnn.W_rec.detach().clone()
+        was_growing = tr._rescale_growing.clone()
+        Trainer.prune_and_reinit_(tr, states)
+        g = torch.nonzero(tr._rescale_growing).flatten()
+        assert g.numel() > 0, "nothing is growing"
+        i = int(g[0])
+        # Every unit that OPENED an episode this event had its outgoing column redrawn, which
+        # writes into row i at that unit's position. Those columns say nothing about whether row i
+        # was boosted, so they come out of both comparisons -- along with i's own column.
+        opened = (tr._rescale_growing & ~was_growing)
+        opened[i] = True
+        keep = ~opened
+        lc = torch.nonzero(~silent & keep).flatten()
+        dc = torch.nonzero(silent & keep).flatten()
+        assert lc.numel() > 5 and dc.numel() > 5, "too few untouched columns to compare"
+        moved_live = not torch.allclose(rnn.W_rec[i, lc].detach(), before[i, lc], atol=1e-9)
+        moved_dead = not torch.allclose(rnn.W_rec[i, dc].detach(), before[i, dc], atol=1e-9)
+        assert moved_live, f"active_only={active_only}: weights from firing units did not move"
+        assert moved_dead == expect_silent_cols_move, \
+            (f"active_only={active_only}: weights from silent units "
+             f"{'moved' if moved_dead else 'did not move'}")
+        print(f"      active_only={active_only}: from firing units moved={moved_live}, "
+              f"from silent units moved={moved_dead}")
+
+
 if __name__ == "__main__":
     for t in (test_outgoing_is_redrawn_once_per_episode_not_every_step,
               test_growing_units_have_incoming_gradient_zeroed_and_outgoing_left_alone,
               test_reaching_the_target_graduates_the_unit,
               test_a_mature_unit_that_dies_again_gets_a_fresh_budget,
-              test_the_protected_population_never_exceeds_its_ceiling):
+              test_the_protected_population_never_exceeds_its_ceiling,
+              test_active_only_moves_synapses_from_firing_units_and_leaves_the_rest):
         print(f"\n{t.__name__}")
         t()
     print("\nall checks passed")

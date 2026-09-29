@@ -1112,6 +1112,7 @@ class Trainer():
                     cand = torch.nonzero(fresh, as_tuple=True)[0]
                     if cand.numel() > room:
                         cand = cand[torch.argsort(score[cand])[:room]]
+                    live_mask = ~silent if bool(args.get("rescale_active_only", False)) else None
                     if cand.numel() > 0:
                         # the outgoing redraw happens HERE and only here, once per episode
                         self.RNN.W_rec[:, cand] = torch.randn(
@@ -1132,7 +1133,8 @@ class Trainer():
                     self._rescale_growing[spent] = False
                     grow = torch.nonzero(self._rescale_growing, as_tuple=True)[0]
                     if grow.numel() > 0:
-                        self.rescale_rows_(grow, a, bool(args.get("rescale_normalize", True)))
+                        self.rescale_rows_(grow, a, bool(args.get("rescale_normalize", True)),
+                                           live=live_mask)
                         self._rescale_cum[grow] *= a
 
             else:
@@ -1240,13 +1242,21 @@ class Trainer():
                 W.grad[idx, :] = 0.0
         return None
 
-    def rescale_rows_(self, idx, alpha, normalize):
+    def rescale_rows_(self, idx, alpha, normalize, live=None):
         """Tilt the incoming weights of the given units from inhibition toward excitation.
 
         Excitatory entries are multiplied by alpha and inhibitory ones divided by it, so the ratio
         of excitatory to inhibitory drive changes by alpha^2 while every sign and every structural
-        zero is preserved. Shared by both paths of reinit_mode="rescale" -- the units still below
-        the silence floor and the ones being held above it -- so the two cannot drift apart.
+        zero is preserved. Shared by every path of reinit_mode="rescale" so they cannot drift apart.
+
+        ⚠️ WHY `live` EXISTS. Drive is sum_k W[i,k] * r_k, so a synapse from a unit that emits
+        nothing delivers nothing however large it is made. Measured on unpenalised controls at
+        N=1000, a silent unit's excitatory weight mass splits 1.49 onto ACTIVE sources and 2.16
+        onto silent ones -- so boosting the whole row spends 59% of the effort on synapses that
+        cannot carry current. Passing `live` restricts the recurrent part to columns of units that
+        are actually firing, which puts the same budget where it can raise h. The input weights are
+        always rescaled in full: the task input is driving on every step, so every input synapse is
+        a live source.
 
         Args:
             idx: LongTensor of unit indices whose incoming rows are rescaled.
@@ -1256,16 +1266,24 @@ class Trainer():
                 sqrt((alpha^2 E + I/alpha^2)/(E + I)) for summed squares E of the excitatory and I
                 of the inhibitory entries -- which exceeds 1 only where the two are COMPARABLE, the
                 pump that killed the first two synaptic-scaling attempts. An inhibition-dominated
-                row, which is what a silenced unit has, shrinks under the same rule (measured:
-                0.667x at alpha 1.5 for I/E = 8e4, against 1.158x at I/E = 1).
+                row shrinks under the same rule (measured: 0.667x at alpha 1.5 for I/E = 8e4,
+                against 1.158x at I/E = 1). Normalisation also blocks MAGNITUDE restoration, and
+                magnitude is most of what a silent unit is missing: its coupling to the firing
+                population is 3-9x weaker than an active unit's, in both signs.
+            live: (N,) bool tensor over PREsynaptic units, or None to rescale the whole row.
 
         Returns:
             None; mutates self.RNN.W_rec and self.RNN.W_inp in place.
         """
-        for W in (self.RNN.W_rec, self.RNN.W_inp):
+        for W, restrict in ((self.RNN.W_rec, live), (self.RNN.W_inp, None)):
             blk = W[idx, :]
             before = blk.norm(dim=1, keepdim=True)
-            blk = torch.where(blk > 0, blk * alpha, blk / alpha)
+            tilted = torch.where(blk > 0, blk * alpha, blk / alpha)
+            if restrict is not None:
+                # only the columns of firing units move; the rest of the row is left exactly alone
+                blk = torch.where(restrict.unsqueeze(0), tilted, blk)
+            else:
+                blk = tilted
             if normalize:
                 blk = blk * (before / blk.norm(dim=1, keepdim=True).clamp_min(1e-12))
             W[idx, :] = blk
