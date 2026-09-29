@@ -140,7 +140,20 @@
 # control's 254-301 AND dimensionality at or above the control's 5.53. The second is what every
 # rule so far has failed, and it is the reason the novel-partner variant exists.
 #   OP=disinhibit     TARGET=2.5 CAP=64 PROTECT=0.20 SWEEP=revive_ops sbatch --array=4-6 ...
-#   OP=synaptogenesis SYNNOVEL=true TARGET=2.5 ... 
+#   OP=synaptogenesis SYNNOVEL=true TARGET=2.5 ...
+#
+# ⚠️ SYNSTEP IS CALIBRATED, not chosen by eye. The first synaptogenesis run used 0.02 and diverged
+# (32-37% of updates discarded, r2 -1.4e6): over the 2081-event budget with 8 synapses that adds
+# 333 of weight, against an active unit's ENTIRE excitatory mass from firing sources of 7.60 -- a
+# 44-fold overshoot. Setting 8 * 2081 * step = 7.60 gives step = 4.6e-4, so 5e-4 reaches an active
+# unit's excitatory mass over the full budget and 2e-3 reaches it in about 475 events.
+#
+# ⚠️ THE 5% GRADIENT-SPIKE GATE IS NOT SUFFICIENT ON ITS OWN. It passed two diverged runs on
+# 2026-09-29 -- the un-normalised active-only rescale at 1.2-2.5% discarded with r2 = -44.8, and a
+# synaptogenesis seed likewise. A network can fail smoothly. Any cell whose r2 falls more than 0.10
+# below its control is BROKEN whatever its spike rate, and its active count is meaningless: that
+# un-normalised run reported 988 of 1000 units "active", which is the scale-free criterion breaking
+# on a dead network.
 #
 # Output: $SAVE_TO/NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=<t|f>_a=<alpha>/
 
@@ -200,7 +213,7 @@ NORM=${CELL_NORM[$CELL]}
 ALPHA=${CELL_ALPHA[$CELL]}
 NTAG=$([ "$NORM" = "true" ] && echo t || echo f)
 
-TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_op=${OP:-rescale}_novel=${SYNNOVEL:-false}_tgt=${TARGET:-0.0}"
+TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_op=${OP:-rescale}_novel=${SYNNOVEL:-false}_tgt=${TARGET:-0.0}_step=${SYNSTEP:-0.0005}_prot=${PROTECT:-0.20}"
 mkdir -p "${SAVE_TO}/NBitFlipFlop_${SWEEP:-rescale_revive}"
 echo "Task ${SLURM_ARRAY_TASK_ID}: cell=${CELL} normalize=${NORM} alpha=${ALPHA} rep=${REP} iters=${IT}"
 echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
@@ -232,6 +245,6 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   "trainer.prune_args.syn_novel=${SYNNOVEL:-false}" \
   trainer.prune_args.disinhibit_k=10 \
   trainer.prune_args.syn_m=8 \
-  trainer.prune_args.syn_step=0.02 \
+  "trainer.prune_args.syn_step=${SYNSTEP:-0.0005}" \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""
