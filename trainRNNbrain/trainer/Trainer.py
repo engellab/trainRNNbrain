@@ -525,6 +525,11 @@ class Trainer():
         # dormant -> growing (boosted, incoming rows protected from the gradient) -> mature.
         self._rescale_growing = torch.zeros(self.RNN.N, dtype=torch.bool, device=self.RNN.device)
         self._rescale_episodes = torch.zeros(self.RNN.N, device=self.RNN.device)
+        # partners chosen by revive_op="synaptogenesis" for the current episode, -1 = unset. Fixed
+        # for the episode so a unit builds a stable identity instead of a new random projection
+        # every step.
+        self._syn_partners = torch.full((self.RNN.N, 32), -1, dtype=torch.long,
+                                        device=self.RNN.device)
 
         # --- homeostatic multiplicative scaling (excitation up / inhibition down) ---
         self.synaptic_scaling = synaptic_scaling
@@ -1098,6 +1103,11 @@ class Trainer():
                 else:
                     target = frac * self.frm_activity_cap_()
                     activity = self.frm_activity_(states)
+                    # mean firing rate per unit: the r in W*r, so the new operations can rank
+                    # partners by what they actually emit rather than by weight magnitude
+                    _st = states.detach()
+                    rbar = (self.RNN.activation(_st) if self.RNN.equation_type == "h" else _st
+                            ).reshape(self.RNN.N, -1).mean(dim=1)
 
                     # 1) GRADUATE: a growing unit that has reached the target is mature. Protection
                     #    and boosting both stop; nothing else about it is touched.
@@ -1124,6 +1134,7 @@ class Trainer():
                         self._rescale_cum[cand] = 1.0        # budget is per EPISODE, not per unit
                         self._rescale_growing[cand] = True
                         self._rescale_episodes[cand] += 1
+                        self._syn_partners[cand, :] = -1     # a new episode picks new partners
 
                     # 3) BOOST every growing unit still inside its budget. A unit that exhausts the
                     #    budget without reaching the target stops growing and loses protection: it
@@ -1133,8 +1144,20 @@ class Trainer():
                     self._rescale_growing[spent] = False
                     grow = torch.nonzero(self._rescale_growing, as_tuple=True)[0]
                     if grow.numel() > 0:
-                        self.rescale_rows_(grow, a, bool(args.get("rescale_normalize", True)),
-                                           live=live_mask)
+                        # WHICH per-step operation the three-state machinery drives. The episode,
+                        # maturity, protection and budget logic is identical for all of them; only
+                        # what happens to the weights differs, so the arms are comparable.
+                        op = args.get("revive_op", "rescale")
+                        if op == "disinhibit":
+                            self.disinhibit_rows_(grow, a, rbar, int(args.get("disinhibit_k", 10)))
+                        elif op == "synaptogenesis":
+                            self.grow_synapses_(grow, float(args.get("syn_step", 0.02)), rbar,
+                                                ~silent, int(args.get("syn_m", 8)),
+                                                bool(args.get("syn_novel", False)))
+                        else:
+                            self.rescale_rows_(grow, a,
+                                               bool(args.get("rescale_normalize", True)),
+                                               live=live_mask)
                         self._rescale_cum[grow] *= a
 
             else:
@@ -1178,6 +1201,87 @@ class Trainer():
         self._last_replaced[doomed] = float(self.iter_n)
         self._n_reinit_events += n
         self._reinit_ever[doomed] = True
+        return None
+
+    def disinhibit_rows_(self, idx, alpha, rates, k):
+        """Shrink only the synapses that are actually holding a unit down.
+
+        Biological reading: a unit that is being silenced by a few persistently active partners
+        escapes THOSE synapses rather than rebalancing its whole input. The culprits are picked by
+        their contribution to the drive, W[i,j] * r_j, not by weight magnitude -- a large weight
+        from a silent partner delivers nothing and is not what is keeping the unit down.
+
+        Measured motivation: a silent unit is not strongly inhibited, it is weakly coupled (its
+        excitation AND inhibition from the firing population are both 3-9x smaller than an active
+        unit's), so a rule that rebalances the whole row spends most of its effort on synapses that
+        carry no current. This one touches at most k per unit.
+
+        Args:
+            idx: LongTensor of unit indices to act on.
+            alpha: float > 1; the selected weights are divided by it.
+            rates: (N,) tensor of mean firing rates, the r in W*r.
+            k: int, how many inhibitory partners to weaken per unit.
+
+        Returns:
+            None; mutates self.RNN.W_rec in place.
+        """
+        if idx.numel() == 0:
+            return None
+        contrib = self.RNN.W_rec[idx, :] * rates.unsqueeze(0)     # (n, N), negative = inhibitory
+        kk = min(int(k), contrib.shape[1])
+        worst = torch.topk(-contrib, kk, dim=1).indices           # strongest inhibitory drive
+        rows = idx.unsqueeze(1).expand(-1, kk)
+        self.RNN.W_rec[rows.reshape(-1), worst.reshape(-1)] /= alpha
+        return None
+
+    def grow_synapses_(self, idx, step, rates, live, m, novel):
+        """Grow new excitatory synapses onto a silent unit from units that are firing.
+
+        Biological reading: a silent neuron senses which of its neighbours are active and forms
+        connections with them. This is structural rather than multiplicative -- it CREATES input
+        where the unit has none, which is what separates it from rescaling. A silent unit's input
+        weights are 21x smaller than an active unit's, so there is often little there to rescale.
+
+        Partners are fixed for the whole episode (stored in _syn_partners), so the unit builds a
+        stable identity rather than a new random projection every step.
+
+        Args:
+            idx: LongTensor of unit indices to act on.
+            step: float, increment added to each chosen synapse per event.
+            rates: (N,) mean firing rates, used to rank partners by how much they actually emit.
+            live: (N,) bool over presynaptic units; only firing units can be chosen.
+            m: int, synapses grown per unit.
+            novel: bool. False picks the LOUDEST active partners, which is the direct reading of
+                "connect to what is active". True picks active partners the unit currently listens
+                to LEAST, so each revived unit reads a different part of the active population --
+                the anti-homogenisation variant, since every rule tested so far collapsed
+                dimensionality by making revived units read the same dominant activity.
+
+        Returns:
+            None; mutates self.RNN.W_rec in place.
+        """
+        if idx.numel() == 0:
+            return None
+        live_idx = torch.nonzero(live, as_tuple=True)[0]
+        if live_idx.numel() < m:
+            return None
+        rows = idx.unsqueeze(1).expand(-1, m)
+        need = self._syn_partners[idx, 0] < 0                     # episodes without partners yet
+        if bool(need.any()):
+            fresh = idx[need]
+            if novel:
+                # smallest existing |weight| onto a firing unit: connect where there is no
+                # connection, so different revived units end up reading different partners
+                w = self.RNN.W_rec[fresh, :][:, live_idx].abs()
+                pick = live_idx[torch.topk(-w, m, dim=1).indices]
+            else:
+                # the loudest firing units, sampled per unit so the sets are not identical
+                wts = rates[live_idx].clamp_min(1e-12).expand(fresh.numel(), -1)
+                pick = live_idx[torch.multinomial(wts, m, replacement=False,
+                                                  generator=self.RNN.random_generator)]
+            self._syn_partners[fresh, :m] = pick
+        cols = self._syn_partners[idx, :m]
+        self.RNN.W_rec[rows.reshape(-1), cols.reshape(-1)] += step
         return None
 
     def frm_activity_cap_(self):

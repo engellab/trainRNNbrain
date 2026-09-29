@@ -140,6 +140,24 @@ prune_args:
                       # activity. Deliberately well below 1: driving every unit to a common
                       # absolute activity is what frm does by gradient, and its failure mode is
                       # homogenisation. 0 keeps the legacy stop-at-the-floor behaviour.
+  revive_op: rescale          # which per-step operation the three-state rule drives. The episode,
+                      # maturity, protection and budget logic is the same for all of them, so the
+                      # arms are directly comparable.
+                      #   rescale        tilt the incoming row from inhibition toward excitation
+                      #   disinhibit     weaken only the synapses actually holding the unit down,
+                      #                  ranked by drive W[i,j]*r_j rather than by weight
+                      #   synaptogenesis grow NEW excitatory synapses from firing units. Structural
+                      #                  rather than multiplicative: it creates input where the unit
+                      #                  has none, which matters because a silent unit's input
+                      #                  weights are 21x smaller than an active unit's
+  disinhibit_k: 10            # inhibitory partners weakened per unit per event
+  syn_m: 8                    # synapses grown per unit
+  syn_step: 0.02              # weight added to each grown synapse per event
+  syn_novel: false            # false connects to the LOUDEST firing units; true connects to the
+                      # firing units the unit currently listens to LEAST, so different revived
+                      # units read different parts of the active population. Every rule tested so
+                      # far collapsed dimensionality by making revived units read the same
+                      # dominant activity, which is what this is aimed at.
   rescale_active_only: false  # restrict the recurrent boost to columns of units that are
                       # actually FIRING. Drive is sum_k W[i,k]*r_k, so a synapse from a silent
                       # source delivers nothing however large it is made -- and a silent unit's

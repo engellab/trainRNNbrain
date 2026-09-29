@@ -116,6 +116,32 @@
 # signs, which is a magnitude deficit, not only a balance one.
 #   ACTIVE=true TARGET=0.2 CAP=64 PROTECT=0.20 SWEEP=rescale_active sbatch --array=4-6,10-12 ...
 #
+# OP SELECTS THE PER-STEP OPERATION. The episode, maturity, protection and budget logic is shared,
+# so the arms differ only in what happens to the weights.
+#   rescale        tilt the incoming row from inhibition toward excitation (everything measured so
+#                  far, and every variant of it collapsed dimensionality: control 5.53 directions,
+#                  synaptic scaling 5.14, rescale-at-floor 4.34, rescale-with-target 2.0-2.4)
+#   disinhibit     weaken ONLY the synapses actually holding the unit down, ranked by their
+#                  contribution to the drive W[i,j]*r_j rather than by weight magnitude, at most
+#                  disinhibit_k per unit, never touching excitation. Sparse and unit-specific, so it
+#                  should homogenise less than a whole-row rebalance.
+#   synaptogenesis GROW new excitatory synapses from firing units. Structural rather than
+#                  multiplicative: it creates input where the unit has none, which matters because a
+#                  silent unit's input weights are 21x smaller than an active unit's. SYNNOVEL=false
+#                  connects to the loudest firing units; true connects to the ones the unit listens
+#                  to LEAST, so different revived units read different parts of the active
+#                  population -- aimed at the homogenisation that sank the rescaling family.
+#
+# TARGET is 2.5, the CALIBRATED value: a unit needs frm-activity 0.50 to clear the participation
+# criterion at N=1000 while frm's own cap is 0.200, so the earlier sweep at target_frac 0.2 and 0.5
+# stopped the boost at a twelfth and a fifth of what was required.
+#
+# PRE-REGISTERED BAR, fixed before submission: a win needs the active-unit seed range to clear the
+# control's 254-301 AND dimensionality at or above the control's 5.53. The second is what every
+# rule so far has failed, and it is the reason the novel-partner variant exists.
+#   OP=disinhibit     TARGET=2.5 CAP=64 PROTECT=0.20 SWEEP=revive_ops sbatch --array=4-6 ...
+#   OP=synaptogenesis SYNNOVEL=true TARGET=2.5 ... 
+#
 # Output: $SAVE_TO/NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=<t|f>_a=<alpha>/
 
 #SBATCH --job-name=RescaleRev
@@ -174,7 +200,7 @@ NORM=${CELL_NORM[$CELL]}
 ALPHA=${CELL_ALPHA[$CELL]}
 NTAG=$([ "$NORM" = "true" ] && echo t || echo f)
 
-TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_norm=${NTAG}_a=${ALPHA}_tgt=${TARGET:-0.0}_act=${ACTIVE:-false}"
+TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_op=${OP:-rescale}_novel=${SYNNOVEL:-false}_tgt=${TARGET:-0.0}"
 mkdir -p "${SAVE_TO}/NBitFlipFlop_${SWEEP:-rescale_revive}"
 echo "Task ${SLURM_ARRAY_TASK_ID}: cell=${CELL} normalize=${NORM} alpha=${ALPHA} rep=${REP} iters=${IT}"
 echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
@@ -202,5 +228,10 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   "trainer.prune_args.rescale_target_frac=${TARGET:-0.0}" \
   "trainer.prune_args.rescale_protect_frac=${PROTECT:-0.20}" \
   "trainer.prune_args.rescale_active_only=${ACTIVE:-false}" \
+  "trainer.prune_args.revive_op=${OP:-rescale}" \
+  "trainer.prune_args.syn_novel=${SYNNOVEL:-false}" \
+  trainer.prune_args.disinhibit_k=10 \
+  trainer.prune_args.syn_m=8 \
+  trainer.prune_args.syn_step=0.02 \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""
