@@ -142,6 +142,16 @@
 #   OP=disinhibit     TARGET=2.5 CAP=64 PROTECT=0.20 SWEEP=revive_ops sbatch --array=4-6 ...
 #   OP=synaptogenesis SYNNOVEL=true TARGET=2.5 ...
 #
+# REFRACT KEEPS PROTECTION AFTER GRADUATION. The units this rule loses end with MORE inhibition
+# from firing sources than the control's silent units (3.93 against 2.22) although the rule can only
+# ever divide that inhibition down -- so the gradient added it, and it did so after graduation, when
+# protection lifts. The loss happens in a narrow window. A tail carries the unit through it while
+# its OUTGOING weights, never protected, go on looking for a use for it; once it has one the
+# gradient has a reason to keep it. This is a different bet from raising the target, which starts a
+# unit further from the edge but still releases it at the most exposed moment.
+# ⚠️ REPORT UNITS IN FLIGHT, not just the final count: a long tail plus a fixed protection ceiling
+# means fewer new units can enter an episode, so a tail can buy survival and cost throughput.
+#
 # ⚠️ SYNSTEP IS CALIBRATED, not chosen by eye. The first synaptogenesis run used 0.02 and diverged
 # (32-37% of updates discarded, r2 -1.4e6): over the 2081-event budget with 8 synapses that adds
 # 333 of weight, against an active unit's ENTIRE excitatory mass from firing sources of 7.60 -- a
@@ -213,7 +223,7 @@ NORM=${CELL_NORM[$CELL]}
 ALPHA=${CELL_ALPHA[$CELL]}
 NTAG=$([ "$NORM" = "true" ] && echo t || echo f)
 
-TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_op=${OP:-rescale}_novel=${SYNNOVEL:-false}_tgt=${TARGET:-0.0}_step=${SYNSTEP:-0.0005}_prot=${PROTECT:-0.20}"
+TAG="${SWEEP:-rescale_revive}/EqType=h_k=${K}_N=${N}_op=${OP:-rescale}_novel=${SYNNOVEL:-false}_tgt=${TARGET:-0.0}_step=${SYNSTEP:-0.0005}_prot=${PROTECT:-0.20}_refr=${REFRACT:-0}"
 mkdir -p "${SAVE_TO}/NBitFlipFlop_${SWEEP:-rescale_revive}"
 echo "Task ${SLURM_ARRAY_TASK_ID}: cell=${CELL} normalize=${NORM} alpha=${ALPHA} rep=${REP} iters=${IT}"
 echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
@@ -242,6 +252,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   "trainer.prune_args.rescale_protect_frac=${PROTECT:-0.20}" \
   "trainer.prune_args.rescale_active_only=${ACTIVE:-false}" \
   "trainer.prune_args.revive_op=${OP:-rescale}" \
+  "trainer.prune_args.rescale_refractory=${REFRACT:-0}" \
   "trainer.prune_args.syn_novel=${SYNNOVEL:-false}" \
   trainer.prune_args.disinhibit_k=10 \
   trainer.prune_args.syn_m=8 \

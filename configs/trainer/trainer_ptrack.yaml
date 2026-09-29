@@ -141,6 +141,14 @@ prune_args:
                       # ones at N=1000, so boosting the whole row spends 59% of the effort where
                       # it cannot raise h. Input weights are always rescaled in full: the task
                       # input drives on every step, so every input synapse is a live source.
+  rescale_refractory: 0       # steps of gradient protection a unit KEEPS after it graduates.
+                      # The units this rule loses end with more inhibition from firing sources than
+                      # the control's silent units (3.93 against 2.22) although the rule can only
+                      # divide that inhibition down -- so the gradient added it after graduation,
+                      # when protection lifts, and the loss happens in a narrow window. Outgoing
+                      # weights are never protected, so during the tail a unit can go on earning a
+                      # role while firing; once it has one the gradient has a reason to keep it.
+                      # 0 releases at graduation, as before.
   rescale_protect_frac: 0.20  # ceiling on the fraction of units that may be growing, and so
                       # gradient-protected, at the same time. A protected row is a row removed
                       # from training; without a ceiling the rule would silently freeze most of

@@ -74,7 +74,8 @@ def _setup(op, **over):
         _reinit_ever=torch.zeros(N, dtype=torch.bool), _unit_utility=torch.zeros(N),
         _last_replaced=torch.full((N,), -1e9), _rescale_cum=torch.ones(N),
         _syn_partners=torch.full((N, 32), -1, dtype=torch.long),
-        _rescale_growing=torch.zeros(N, dtype=torch.bool), _rescale_episodes=torch.zeros(N))
+        _rescale_growing=torch.zeros(N, dtype=torch.bool), _rescale_episodes=torch.zeros(N),
+        _rescale_refract_until=torch.zeros(N))
     tr.participation_from_states_ = lambda s, **k: Trainer.participation_from_states_(tr, s, **k)
     tr.rescale_rows_ = lambda i, al, nm, live=None: Trainer.rescale_rows_(tr, i, al, nm, live)
     tr.disinhibit_rows_ = lambda i, al, r, k: Trainer.disinhibit_rows_(tr, i, al, r, k)
@@ -189,12 +190,54 @@ def test_novel_partners_are_ones_the_unit_listens_to_least():
           f"< loudest {out['loudest']:.4g}")
 
 
+def test_refractory_tail_keeps_protection_after_graduation():
+    """The unit is carried through the window where it is otherwise lost.
+
+    The units this rule fails on end with MORE inhibition from firing sources than the control's
+    silent units, although the rule can only divide that inhibition down -- so the gradient added it
+    after graduation, when protection lifts. A refractory tail keeps the incoming rows out of the
+    gradient for a while longer, while the outgoing weights, never protected, go on looking for a
+    use for the unit.
+
+    Contract, fixed before running:
+      1. With rescale_refractory = 0 a graduated unit loses protection immediately.
+      2. With it > 0 the unit keeps protection for that many steps, then loses it.
+      3. A unit inside its tail does not open a new episode.
+    """
+    for refr, still_protected in ((0, False), (50, True)):
+        rnn, tr = _setup("rescale", rescale_refractory=refr, rescale_protect_frac=1.0)
+        inp = _inputs()
+        _step(rnn, tr, inp)
+        g = torch.nonzero(tr._rescale_growing).flatten()
+        assert g.numel() > 0, "nothing is growing"
+        i = int(g[0])
+        with torch.no_grad():                       # push it over the target
+            rnn.W_rec[i, :] = 0.0
+            rnn.W_inp[i, :] = 8.0
+        _step(rnn, tr, inp)
+        assert not bool(tr._rescale_growing[i]), "the unit did not graduate"
+        rnn.W_rec.grad = torch.ones(N, N)
+        Trainer.zero_protected_grads_(tr)
+        protected = float(rnn.W_rec.grad[i, :].abs().max()) == 0.0
+        assert protected == still_protected, \
+            f"refractory={refr}: graduated unit {'is' if protected else 'is not'} protected"
+        if still_protected:
+            tr.iter_n += refr + 1                   # walk past the end of the tail
+            rnn.W_rec.grad = torch.ones(N, N)
+            Trainer.zero_protected_grads_(tr)
+            assert float(rnn.W_rec.grad[i, :].abs().max()) == 1.0, \
+                "protection outlasted the refractory window"
+        print(f"      refractory={refr}: protected right after graduation = {protected}"
+              + (", released once the window closed" if still_protected else ""))
+
+
 if __name__ == "__main__":
     for t in (test_disinhibit_weakens_the_strongest_drive_contributors,
               test_disinhibit_never_touches_excitation,
               test_synaptogenesis_grows_onto_firing_units_only,
               test_synaptogenesis_partners_are_fixed_within_an_episode,
-              test_novel_partners_are_ones_the_unit_listens_to_least):
+              test_novel_partners_are_ones_the_unit_listens_to_least,
+              test_refractory_tail_keeps_protection_after_graduation):
         print(f"\n{t.__name__}")
         t()
     print("\nall checks passed")

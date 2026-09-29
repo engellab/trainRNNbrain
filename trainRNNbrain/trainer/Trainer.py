@@ -530,6 +530,9 @@ class Trainer():
         # every step.
         self._syn_partners = torch.full((self.RNN.N, 32), -1, dtype=torch.long,
                                         device=self.RNN.device)
+        # iteration until which a graduated unit keeps gradient protection, for
+        # rescale_refractory > 0. Zero means no tail is owed.
+        self._rescale_refract_until = torch.zeros(self.RNN.N, device=self.RNN.device)
 
         # --- homeostatic multiplicative scaling (excitation up / inhibition down) ---
         self.synaptic_scaling = synaptic_scaling
@@ -1109,16 +1112,38 @@ class Trainer():
                     rbar = (self.RNN.activation(_st) if self.RNN.equation_type == "h" else _st
                             ).reshape(self.RNN.N, -1).mean(dim=1)
 
-                    # 1) GRADUATE: a growing unit that has reached the target is mature. Protection
-                    #    and boosting both stop; nothing else about it is touched.
+                    # 1) GRADUATE, then optionally hold protection a little longer.
+                    #
+                    # Boosting always stops at the target. Protection does too, unless
+                    # rescale_refractory > 0, in which case the unit keeps its incoming rows out of
+                    # the gradient for that many further steps.
+                    #
+                    # ⚠️ WHY A REFRACTORY TAIL. The units this rule LOSES end with more inhibition
+                    # from firing sources than the control's silent units (3.93 against 2.22) even
+                    # though the rule can only ever divide that inhibition down -- so the gradient
+                    # added it faster than the rule removed it, and it did so AFTER graduation,
+                    # when protection lifts. The loss happens in a narrow window, not gradually.
+                    # A unit's OUTGOING weights are never protected, so during the tail it can go
+                    # on earning a role while still firing; once it has one, the gradient has a
+                    # reason to keep it rather than remove it. That is a different bet from raising
+                    # the target, which starts a unit further from the edge but still drops
+                    # protection at the moment it is most exposed.
+                    refractory = int(args.get("rescale_refractory", 0))
                     graduated = self._rescale_growing & (activity >= target)
                     self._rescale_growing[graduated] = False
+                    if refractory > 0:
+                        self._rescale_refract_until[graduated] = self.iter_n + refractory
+                        # a unit inside its tail is not eligible for a new episode either: it is
+                        # still being carried, and re-opening would reset its budget for nothing
+                        in_tail = self._rescale_refract_until > self.iter_n
+                    else:
+                        in_tail = torch.zeros_like(self._rescale_growing)
 
                     # 2) OPEN AN EPISODE for doomed units not already growing, up to the ceiling on
                     #    how many may be protected at once. The lowest-utility ones go first, which
                     #    is the same selection rule the replacement cap uses.
                     room = max(0, protect_cap - int(self._rescale_growing.sum()))
-                    fresh = doomed & ~self._rescale_growing
+                    fresh = doomed & ~self._rescale_growing & ~in_tail
                     cand = torch.nonzero(fresh, as_tuple=True)[0]
                     if cand.numel() > room:
                         cand = cand[torch.argsort(score[cand])[:room]]
@@ -1338,7 +1363,9 @@ class Trainer():
         """
         if not self.prune_reinit or self.prune_args.get("reinit_mode") != "rescale":
             return None
-        idx = torch.nonzero(self._rescale_growing, as_tuple=True)[0]
+        # units still growing, plus any carried through a refractory tail after graduating
+        held = self._rescale_growing | (self._rescale_refract_until > self.iter_n)
+        idx = torch.nonzero(held, as_tuple=True)[0]
         if idx.numel() == 0:
             return None
         for W in (self.RNN.W_rec, self.RNN.W_inp):
