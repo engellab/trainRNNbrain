@@ -71,7 +71,8 @@ def _setup(target_frac=0.3, protect_frac=0.20, alpha=1.5, cap=8.0):
         _rescale_growing=torch.zeros(N, dtype=torch.bool), _rescale_episodes=torch.zeros(N),
         _rescale_refract_until=torch.zeros(N))
     tr.participation_from_states_ = lambda s, **k: Trainer.participation_from_states_(tr, s, **k)
-    tr.rescale_rows_ = lambda i, al, nm, live=None: Trainer.rescale_rows_(tr, i, al, nm, live)
+    tr.rescale_rows_ = lambda i, al, nm, live=None, norm_ref=None: Trainer.rescale_rows_(
+        tr, i, al, nm, live, norm_ref)
     tr.frm_activity_cap_ = lambda: Trainer.frm_activity_cap_(tr)
     tr.frm_activity_ = lambda s: Trainer.frm_activity_(tr, s)
     tr.zero_protected_grads_ = lambda: Trainer.zero_protected_grads_(tr)

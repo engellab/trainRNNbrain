@@ -154,6 +154,14 @@ prune_args:
 
   rescale_cap: 8.0            # cumulative boost ceiling per unit, so "until it revives" is bounded
                       # for a unit that never does -- reached after ~4200 steps of boosting.
+  rescale_norm_mode: self     # what a normalised row is held AT. "self" pins it at the length it
+                      # already had, so the boost is pure redistribution and cannot add magnitude.
+                      # "median_active" lets a short row grow toward the median row norm of the
+                      # firing population instead, at most rescale_alpha per step and never
+                      # shrinking. Measured motivation: an active unit's incoming recurrent row is
+                      # 4.9x longer than a silent unit's at N=1000 and its input row 22.8x longer,
+                      # so "self" leaves a revived unit redistributing a budget that is several-fold
+                      # too small. Ignored when rescale_normalize is false.
   rescale_normalize: true     # hold each row's total synaptic weight fixed, making the event a
                       # pure redistribution. false lets the row grow; the sign split then pumps
                       # magnitude, since alpha + 1/alpha > 2 for every alpha but 1.   # rescale the jittered row back to the donor row's length, so

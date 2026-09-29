@@ -1180,9 +1180,14 @@ class Trainer():
                                                 ~silent, int(args.get("syn_m", 8)),
                                                 bool(args.get("syn_novel", False)))
                         else:
+                            # "median_active" grows a short row toward the active population's
+                            # median instead of pinning it at its own length; see rescale_rows_.
+                            ref = (~silent
+                                   if str(args.get("rescale_norm_mode", "self")) == "median_active"
+                                   else None)
                             self.rescale_rows_(grow, a,
                                                bool(args.get("rescale_normalize", True)),
-                                               live=live_mask)
+                                               live=live_mask, norm_ref=ref)
                         self._rescale_cum[grow] *= a
 
             else:
@@ -1373,7 +1378,7 @@ class Trainer():
                 W.grad[idx, :] = 0.0
         return None
 
-    def rescale_rows_(self, idx, alpha, normalize, live=None):
+    def rescale_rows_(self, idx, alpha, normalize, live=None, norm_ref=None):
         """Tilt the incoming weights of the given units from inhibition toward excitation.
 
         Excitatory entries are multiplied by alpha and inhibitory ones divided by it, so the ratio
@@ -1402,6 +1407,25 @@ class Trainer():
                 magnitude is most of what a silent unit is missing: its coupling to the firing
                 population is 3-9x weaker than an active unit's, in both signs.
             live: (N,) bool tensor over PREsynaptic units, or None to rescale the whole row.
+            norm_ref: (N,) bool tensor marking the units whose median row norm the boosted rows
+                should grow toward, or None to hold each row at its own norm. Only used when
+                `normalize` is True.
+
+                ⚠️ WHY IT EXISTS. Normalising to a row's OWN norm cannot add magnitude, and
+                magnitude is a large part of what a silent unit lacks: measured on unpenalised
+                controls at N=1000, an active unit's incoming recurrent row is 4.9x longer than a
+                silent unit's and its input row 22.8x longer. The rule could only ever
+                redistribute a budget that was already too small, leaving the gradient to supply
+                the magnitude after maturity -- which it did, but by draining the units that had
+                it: active-unit input rows fell 4.4x under the target-6.0 arm while silent-unit
+                rows rose 2.9x. Growing toward the active population's median adds magnitude
+                under a ceiling instead.
+
+                A row never SHRINKS toward the median and never grows faster than `alpha` per
+                step, so a short row creeps up at the same rate the balance tilts rather than
+                jumping several-fold in one iteration -- an instantaneous jump across up to
+                `rescale_protect_frac * N` rows at once is the kind of magnitude step that
+                diverged the un-normalised arm (r2 -44.8).
 
         Returns:
             None; mutates self.RNN.W_rec and self.RNN.W_inp in place.
@@ -1409,6 +1433,10 @@ class Trainer():
         for W, restrict in ((self.RNN.W_rec, live), (self.RNN.W_inp, None)):
             blk = W[idx, :]
             before = blk.norm(dim=1, keepdim=True)
+            if norm_ref is not None and bool(norm_ref.any()):
+                med = W[norm_ref, :].norm(dim=1).median()
+                before = torch.where(before >= med, before,
+                                     torch.minimum(before * alpha, med.expand_as(before)))
             tilted = torch.where(blk > 0, blk * alpha, blk / alpha)
             if restrict is not None:
                 # only the columns of firing units move; the rest of the row is left exactly alone
