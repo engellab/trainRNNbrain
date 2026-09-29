@@ -52,7 +52,10 @@
 #             earlier failure was a magnitude problem misdiagnosed as a maturity problem, and the
 #             target can come back down.
 #
-# ~1h25m at N=1000 on this task. 4 h requested.
+# MEASURED 3h20m at N=1000 on this task, at ~3.3 iterations/second for 40,000 iterations,
+# with several array tasks sharing a GPU. 4 h requested, so the margin is ~40 min. The 1h25m
+# this header first claimed was carried over from an earlier sweep without being checked
+# against this one; size the limit from a rate measured on the sweep being submitted.
 # Output: $SAVE_TO/NBitFlipFlop_norm_mode/EqType=h_k=3_N=1000_nm=<mode>_tgt=<t>_act=<bool>/
 
 #SBATCH --job-name=NormMode
