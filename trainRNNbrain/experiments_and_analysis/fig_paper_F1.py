@@ -444,6 +444,121 @@ def live_matched(pattern, cap=None, min_r2=None):
     return np.array(counts), it_read
 
 
+PENALTY_KEYS = ("lambda_frm", "lambda_rws", "lambda_met", "lambda_orth")
+CONV_MARGIN = 1.10   # "converged" = clean loss within this factor of the task's absolute bar
+
+
+def clean_loss_series(run_dir, trace):
+    """The dropout-off training loss of one run, and the iterations it was sampled at.
+
+    Prefers metrics["loss_clean_train"] inside the participation trace, which is recorded beside
+    the participation probes and is the clean loss by construction. Falls back to TrainLosses.json
+    ONLY where the run's own config shows dropout off and every penalty at zero, since the
+    training-pass loss is then the same quantity; otherwise returns nothing rather than mixing two
+    definitions. CDDM's runs predate the metric and come through the fallback.
+
+    Args:
+        run_dir: path to one trained-network folder; trace: its loaded ParticipationTrace dict.
+    Returns:
+        (iterations, loss) float arrays, or (None, None).
+    """
+    m = trace.get("metrics", {})
+    if "loss_clean_train" in m:
+        return np.asarray(trace["iters"], float), np.asarray(m["loss_clean_train"], float)
+    cfg = glob.glob(os.path.join(run_dir, "*config.yaml"))
+    jf = glob.glob(os.path.join(run_dir, "*TrainLosses.json"))
+    if not (cfg and jf):
+        return None, None
+    t = OmegaConf.load(cfg[0]).trainer
+    if bool(t.get("dropout")) or any(float(t.get(k, 0) or 0) for k in PENALTY_KEYS):
+        return None, None
+    L = np.asarray(json.load(open(jf[0])).get("train_losses", []), float)
+    return (np.arange(len(L), dtype=float), L) if len(L) else (None, None)
+
+
+def runs_with_loss(pattern, min_r2=None):
+    """Every non-diverged run under a glob, with its loss series and active-unit series.
+
+    Args:
+        pattern: glob matching run folders; min_r2: drop runs scoring below this, or None.
+    Returns:
+        list of dicts with it_loss/loss, it_act/active, and the run's folder name.
+    """
+    out = []
+    for d in sorted(glob.glob(os.path.join(pattern, "*"))):
+        if not os.path.isdir(d):
+            continue
+        head = os.path.basename(d).split("_")[0]
+        if head == "nan":
+            continue
+        if min_r2 is not None:
+            try:
+                if float(head) < min_r2:
+                    continue
+            except ValueError:
+                continue
+        tp = glob.glob(os.path.join(d, "*ParticipationTrace.pkl"))
+        if not tp:
+            continue
+        try:
+            tr = pickle.load(open(tp[0], "rb"))
+        except Exception:
+            continue
+        it_l, L = clean_loss_series(d, tr)
+        if L is None or not len(L):
+            continue
+        P = np.asarray(tr["participation"])
+        it_a = np.asarray(tr["participation_iters"], float)
+        if P.ndim != 2 or not len(it_a):
+            continue
+        act = np.array([(p >= SILENT_REL * np.quantile(p, 0.95)).sum() for p in P], float)
+        out.append(dict(it_loss=it_l, loss=L, it_act=it_a, active=act, name=os.path.basename(d)))
+    return out
+
+
+def matched_after_convergence(cells):
+    """Active units per size, read the same number of iterations after each network CONVERGED.
+
+    ⚠️ WHY NOT A FIXED ITERATION CAP. Reading every size at the same iteration assumes every size
+    reaches its final performance at the same point, and on DMTS that is false: the mean crossing
+    runs 650, 31,620 and 83,040 iterations at N = 500, 1000 and 2000, so at a 150,000-iteration
+    read-out the largest networks have spent a fifth as long in the phase where units go silent.
+    That alone put the DMTS exponent at 0.87 against 0.31-0.47 for every other task. On the
+    flip-flops and CDDM the crossing does NOT move with size (24,307/26,340/25,777 and
+    705/946/1,007), which is why they were unaffected and why the artefact went unnoticed.
+
+    THE BAR IS ABSOLUTE PER TASK, not per run: CONV_MARGIN times the worst final clean loss among
+    that task's runs, so every run reaches it and none sets its own. A per-run floor is
+    backward-looking -- a network ending at a higher loss gets a looser bar and crosses earlier,
+    and training the same network longer moves its bar and so its crossing.
+
+    K IS BOUNDED BY THE WORST INDIVIDUAL RUN, not by a cell mean. Bounding it by the mean lets a
+    late-converging seed's target fall past its last probe, where a nearest-probe lookup silently
+    clamps it to the endpoint -- reading it exactly the way this function exists to avoid. Measured
+    on DMTS, that mistake reported an exponent of 0.56 where the correct value is 0.33.
+
+    Args:
+        cells: dict N -> list of run dicts from runs_with_loss.
+    Returns:
+        (dict N -> (counts array, mean crossing), bar, K).
+    """
+    runs = [r for v in cells.values() for r in v]
+    bar = max(r["loss"][-1] for r in runs) * CONV_MARGIN
+    for r in runs:
+        r["cross"] = float(r["it_loss"][int(np.argmax(r["loss"] <= bar))])
+    K = min(r["it_act"][-1] - r["cross"] for r in runs)
+    out = {}
+    for N, v in cells.items():
+        counts = []
+        for r in v:
+            want = r["cross"] + K
+            if want > r["it_act"][-1] + 50:            # never read past where it was measured
+                raise AssertionError(f"N={N} {r['name'][:14]}: target {want:,.0f} past last probe")
+            counts.append(r["active"][int(np.argmin(np.abs(r["it_act"] - want)))])
+        out[N] = (np.array(counts, float), float(np.mean([r["cross"] for r in v])))
+    return out, bar, K
+
+
 def example_network(refresh=False):
     """Rates, targets and participation of one trained unpenalised flip-flop network.
 
@@ -767,35 +882,44 @@ def panel_b(ax, p):
 
 
 def panel_c(ax):
-    """Panel (c): active units vs network size, both tasks, with the fitted power law.
+    """Panel (c): active units vs network size, read a matched time AFTER each network converged.
+
+    Not at a fixed iteration. See matched_after_convergence for why: on DMTS the crossing moves
+    from 650 to 83,040 iterations between N = 500 and N = 2000, so a fixed read-out compares
+    networks that have spent very different amounts of time in the phase where units go silent,
+    and reported that task at N^0.87 against N^0.31-0.47 for every other one. Under the matched
+    read-out all four lie between 0.33 and 0.42.
 
     Returns:
-        dict task -> (b, A, N_needed_for_1000) of the fit.
+        dict task -> (b, A, N_needed_for_1000, n_sizes, largest N) of the fit.
     """
     fits, handles = {}, []
     for task, (Ns, pats, cap, col) in SCALING.items():
         min_r2 = TASK_MIN_R2.get(task)
-        xs, ys, sds = [], [], []
+        cells = {}
         for N in Ns:
-            got = live_matched(pats[N], cap, min_r2=min_r2)
-            if got is None:
-                continue
-            if min_r2 is not None:
-                kept, total = len(got[0]), len(traces_of(pats[N]))
-                if kept < total:
-                    print(f"  .. {task} N={N}: {total - kept} of {total} seed(s) below "
-                          f"r2 {min_r2} dropped, {kept} kept")
-            c, _ = got
+            rs = runs_with_loss(pats[N], min_r2=min_r2)
+            total = len(runs_with_loss(pats[N]))
+            if min_r2 is not None and len(rs) < total:
+                print(f"  .. {task} N={N}: {total - len(rs)} of {total} seed(s) below "
+                      f"r2 {min_r2} dropped, {len(rs)} kept")
+            if rs:
+                cells[N] = rs
+        if len(cells) < 2:
+            print(f"  !! {task}: {len(cells)} size(s) with a usable clean loss - series omitted")
+            continue
+        read, bar, K = matched_after_convergence(cells)
+        print(f"  .. {task}: converged bar {bar:.5f}, read {K:,.0f} iterations after each "
+              f"network crossed it; mean crossing per size "
+              + ", ".join(f"N={N}:{read[N][1]:,.0f}" for N in sorted(read)))
+        xs, ys, sds = [], [], []
+        for N in sorted(read):
+            c = read[N][0]
             xs.append(N)
             ys.append(c.mean())
             sds.append(c.std(ddof=1) if len(c) > 1 else 0.0)
             ax.plot([N] * len(c), c, "o", ms=2.4, color=col, alpha=0.55, mec="none", zorder=4)
         xs, ys, sds = np.array(xs, float), np.array(ys, float), np.array(sds, float)
-        # a series whose runs are still training (DMTS after the 2026-09-21 task fix) is skipped
-        # rather than crashing the build, and says so on stdout
-        if len(xs) < 2:
-            print(f"  !! {task}: {len(xs)} size(s) on disk - series omitted from panel c")
-            continue
         ax.errorbar(xs, ys, yerr=sds, fmt="o-", color=col, ms=3.4, lw=1.1, zorder=5, capsize=1.6)
         if task in NO_FIT:
             print(f"  !! {task}: not fitted - {NO_FIT[task]}")
@@ -829,7 +953,8 @@ def panel_c(ax):
         ax.text(xl, frac * xl * 1.12, lab, fontsize=5.2, color=ps.FAINT, ha="center", va="bottom")
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
     ax.text(3.4e2, 1045, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
-    ax.set(xscale="log", yscale="log", xlabel="network size N", ylabel="active units",
+    ax.set(xscale="log", yscale="log", xlabel="network size N",
+           ylabel="active units, matched after convergence",
            xlim=(3.2e2, 2.7e4), ylim=(100, 2.3e3))
     # Lower right is the only corner the guides, the data and the extrapolations all leave empty.
     # It used to be held inboard of the right edge, away from panel d's longest row labels across
