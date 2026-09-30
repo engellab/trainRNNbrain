@@ -26,13 +26,19 @@ has to explain the measurement before the second and third rows quantify it:
                                        axis. It is bimodal with four orders of magnitude of empty
                                        valley between the modes, so the threshold is read off the
                                        data rather than chosen; the pictogram states the answer.
-  (c) SIZE MAKES IT WORSE              active units vs N on two tasks. The count grows as roughly
-                                       N^0.46, so the FRACTION falls: 41% of a 500-unit network,
-                                       13% of a 4,000-unit one. Extrapolating, 1,000 active units
-                                       would need N ~ 13,000.
-  (d) IT IS NOT ONE TASK               active fraction at N = 1000 on six tasks, including the
-                                       20-task multitask family. None reaches half the network.
-  (e) NO KNOB FIXES IT                 every intervention we tried, as a change from its OWN matched
+  (c) SIZE MAKES IT WORSE,             active units vs N on all four tasks with participation
+      AND IT IS NOT ONE TASK           traces at more than one size: the 3-bit and 6-bit
+                                       flip-flops, CDDM, and DMTS at a delay of 7 tau. The count
+                                       grows as roughly N^0.46 on three of them, so the FRACTION
+                                       falls: 41% of a 500-unit network, 13% of a 4,000-unit one.
+                                       Extrapolating, 1,000 active units would need N ~ 14,000.
+                                       DMTS is the exception at N^0.87, from three sizes -- its
+                                       projection is marked in the caption output and must not be
+                                       quoted on its own.
+                                       NOT HERE, and why: MemoryAntiAngle was run before
+                                       participation tracking existed and has no traces at all,
+                                       and the Walsh flip-flop has one seed per cell.
+  (d) NO KNOB FIXES IT                 every intervention we tried, as a change from its OWN matched
                                        reference. The best moves the count by ~120 units; several
                                        make it worse; weight decay is a monotone poison. For scale,
                                        the rate penalty of Figure 3 moves it by ~710.
@@ -144,13 +150,28 @@ SCALING = {
     "CDDM": ([500, 1000, 2000, 5000], {
         N: f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N={N}_iters=*" for N in (500, 1000, 2000, 5000)
     }, 100_000, ps.SLOTS[1]),
-    # DMTS_v2, not DMTS_std_pen: the task was redesigned on 2026-09-21 (2 stimuli instead of 4, so
-    # the batch is 50/50 match rather than 25/75) and every run of the old layout was deleted. The
-    # folder name differs so the two series can never be pooled by accident.
-    "DMTS": ([500, 1000, 2000, 4000], {
-        N: f"{DATA_DIR}/DMTS_v2_pen/EqType=h_N={N}_pen=none" for N in (500, 1000, 2000, 4000)
-    }, 100_000, ps.SLOTS[2]),
+    # DMTS_d7_pen, at a delay of exactly 7 tau (70 steps of dt = 1 with tau = 10, from the sample
+    # going off at t = 40 to the match arriving at t = 110). The series named DMTS_v2_pen that this
+    # entry used to point at is on no disk we have; the panel silently dropped DMTS for as long as
+    # that reference stood, which is why the dangling glob is recorded here rather than deleted.
+    # No N = 4000 cell was ever run: at 150,000 iterations it needs ~45 h per seed.
+    "DMTS, 7$\\tau$ delay": ([500, 1000, 2000], {
+        N: f"{DATA_DIR}/DMTS_d7_pen/EqType=h_N={N}_pen=none" for N in (500, 1000, 2000)
+    }, 150_000, ps.SLOTS[2]),
 }
+
+# ⚠️ A NETWORK THAT NEVER LEARNED THE TASK IS NOT EVIDENCE ABOUT HOW MANY UNITS THE TASK NEEDS.
+# Unpenalised DMTS at this delay is bimodal per seed: it either solves the task or sits at the
+# constant-output solution. Of the nine seeds, two land at r2 = 0.4275 and 0.4278 -- the same
+# number to three decimals, which is what a constant output scores -- and the other seven at
+# 0.9837 to 0.9995. Nothing lies between 0.43 and 0.98, so the cut is read off an empty valley
+# rather than chosen; 0.8 is stated here because it sits in that valley, and it was set after
+# seeing the split, not before. The excluded seeds are N = 500 (one of three) and N = 2000 (one
+# of three), leaving those two cells at n = 2.
+#
+# No other series needs this. The flip-flop and CDDM sweeps have no chance-level runs, and
+# diverged runs are already dropped by name in traces_of.
+TASK_MIN_R2 = {"DMTS, 7$\\tau$ delay": 0.8}
 
 # Every intervention we ran, grouped into families that share a task, an architecture, a read-out
 # iteration AND a silence criterion. The panel plots a CHANGE from each family's OWN reference,
@@ -350,7 +371,7 @@ def audit_scaling_coverage(refresh=False):
     return missed
 
 
-def traces_of(pattern):
+def traces_of(pattern, min_r2=None):
     """Every (participation matrix, iteration vector) pair under a run-folder glob.
 
     DIVERGED RUNS ARE DROPPED. A run folder is named `<score>_<task>;...`, and a run whose loss went
@@ -359,15 +380,29 @@ def traces_of(pattern):
     completely - which is the opposite of what happened. There are 59 such folders on disk; one of
     them sits in the 8-bit flip-flop cell at N = 2000 and was pulling its mean down by ~160 units.
 
+    RUNS THAT NEVER LEARNED THE TASK ARE DROPPED TOO, when `min_r2` is given. A network sitting at
+    the constant-output solution has whatever activity its initialisation left it, which says
+    nothing about how many units the task needs -- see TASK_MIN_R2 for the one series that needs
+    this and why its threshold lands where it does.
+
     Args:
         pattern: glob matching run folders (not the pickles themselves).
+        min_r2: float, drop any run whose score prefix is below this, or None to keep every run
+            that did not diverge.
     Returns:
         list of (P, iters): P is (n_probes, N) participation, iters is (n_probes,).
     """
     out = []
     for f in sorted(glob.glob(os.path.join(pattern, "*", "*ParticipationTrace.pkl"))):
-        if os.path.basename(os.path.dirname(f)).split("_")[0] == "nan":
+        head = os.path.basename(os.path.dirname(f)).split("_")[0]
+        if head == "nan":
             continue
+        if min_r2 is not None:
+            try:
+                if float(head) < min_r2:
+                    continue
+            except ValueError:
+                continue
         try:
             d = pickle.load(open(f, "rb"))
         except Exception:
@@ -378,7 +413,7 @@ def traces_of(pattern):
     return out
 
 
-def live_matched(pattern, cap=None):
+def live_matched(pattern, cap=None, min_r2=None):
     """Active units per seed at the largest iteration every seed in the cell reaches.
 
     Matched compute, not each run's own endpoint: a big network read at its end and a small one read
@@ -387,11 +422,11 @@ def live_matched(pattern, cap=None):
 
     Args:
         pattern: glob matching run folders; cap: read no later than this iteration, or None for the
-            deepest shared probe.
+            deepest shared probe; min_r2: drop runs scoring below this, passed to traces_of.
     Returns:
         (counts, iteration) with counts an (n_seeds,) int array, or None if the cell is empty.
     """
-    tr = traces_of(pattern)
+    tr = traces_of(pattern, min_r2=min_r2)
     if not tr:
         return None
     shared = min(int(it[-1]) for _, it in tr)
@@ -733,11 +768,17 @@ def panel_c(ax):
     """
     fits, handles = {}, []
     for task, (Ns, pats, cap, col) in SCALING.items():
+        min_r2 = TASK_MIN_R2.get(task)
         xs, ys, sds = [], [], []
         for N in Ns:
-            got = live_matched(pats[N], cap)
+            got = live_matched(pats[N], cap, min_r2=min_r2)
             if got is None:
                 continue
+            if min_r2 is not None:
+                kept, total = len(got[0]), len(traces_of(pats[N]))
+                if kept < total:
+                    print(f"  .. {task} N={N}: {total - kept} of {total} seed(s) below "
+                          f"r2 {min_r2} dropped, {kept} kept")
             c, _ = got
             xs.append(N)
             ys.append(c.mean())
@@ -755,7 +796,8 @@ def panel_c(ax):
             handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=1.1, label=task))
             continue
         b, loga = np.polyfit(np.log(xs), np.log(ys), 1)
-        fits[task] = (b, np.exp(loga), np.exp((np.log(1000) - loga) / b))
+        fits[task] = (b, np.exp(loga), np.exp((np.log(1000) - loga) / b), len(xs),
+                      float(xs.max()))
         # extrapolate only the tasks with four sizes; a three-size fit with a wide seed spread is
         # not something to project a decade beyond the data
         hi = 2.4e4 if len(xs) >= 4 else xs.max() * 1.25
@@ -767,8 +809,11 @@ def panel_c(ax):
                               label=f"{task}  $\\propto N^{{{b:.2f}}}$"))
 
     # The y axis stops just above the 1,000-unit line rather than at the top of the "every unit
-    # active" diagonal. Every measured point is between 200 and 700, so three of the four decades
-    # the old limit spanned held nothing at all and squashed the data into the bottom fifth.
+    # active" diagonal: three of the four decades the full diagonal spans hold no data at all and
+    # squashed the points into the bottom fifth. The FLOOR is 100, not the 150 that fitted the
+    # flip-flop and CDDM series alone -- unpenalised DMTS at N = 500 sits at 114 and 134 active
+    # units, and at a floor of 150 both seeds and their whole cell were clipped off the panel
+    # without any warning that they had been.
     nn = np.array([3e2, 2.6e4])
     ax.plot(nn, nn, "-", lw=0.7, color=ps.MUTED, zorder=2)
     ax.text(1.55e3, 1.72e3, "every unit active", fontsize=5.5, color=ps.MUTED, ha="left",
@@ -779,7 +824,7 @@ def panel_c(ax):
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
     ax.text(3.4e2, 1045, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N", ylabel="active units",
-           xlim=(3.2e2, 2.7e4), ylim=(150, 2.3e3))
+           xlim=(3.2e2, 2.7e4), ylim=(100, 2.3e3))
     # Lower right is the only corner the guides, the data and the extrapolations all leave empty,
     # but flush against the axis it runs into panel d's longest row labels across the gutter, so it
     # is held inboard of the right edge.
@@ -988,8 +1033,16 @@ def main():
     print("\n--- numbers quoted in the caption ---")
     print(f"  panel a: {n_live} of {N_UNITS} units active; {n_shown_live} of {N_SHOWN} randomly "
           f"drawn units active; {n_conn} connections drawn over {N_GLYPH} glyphs")
-    for task, (b, A, need) in fits.items():
-        print(f"  {task:18} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at N = {need:,.0f}")
+    for task, (b, A, need, n_sizes, n_max) in fits.items():
+        # A series measured at three sizes is fitted but its projection is not quotable on its own:
+        # the DMTS exponent of 0.87 puts 1,000 active units at N = 6,022, which is 3x beyond the
+        # largest network the series contains. Panel c already stops such a series' dotted line at
+        # 1.25x its largest N; the caption has to carry the same warning, or the number reads as a
+        # measurement.
+        note = ("" if n_sizes >= 4 else
+                f"   [{n_sizes} sizes, {need / n_max:.1f}x beyond N = {n_max:,.0f} - "
+                f"do not quote alone]")
+        print(f"  {task:18} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at N = {need:,.0f}{note}")
     for fam, label, d, se, n in rows_d:
         print(f"  {fam:30} {label:24} {d:+7.1f} +- {1.96 * se:5.1f} (n={n})")
     print("\n  TRIED but with no read-out that fits this axis (weights survive, traces do not):")
