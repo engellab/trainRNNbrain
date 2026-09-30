@@ -13116,9 +13116,12 @@ the panel that separates the arms when the other three do not.
 
 That was the pre-registered question of the size series: an intervention whose ratio falls toward 1.0
 as N grows does not address a problem that worsens with size. Duplication's rises, reaching 1,775 of
-4,000 units against an untreated 596. **Its r2 cost appears at scale, though** — 0.9189 at N = 4000
-against the control's 0.9472, having been indistinguishable from the control at every smaller size.
-That is new and it is the thing to watch.
+4,000 units against an untreated 596. **Its r2 at N = 4000 sits below the control** — 0.9189 against
+0.9472, having been indistinguishable at every smaller size — **but that gap is confounded with
+convergence and should not yet be called a cost.** Measured from the training records, duplication
+at N = 4000 is the least converged cell in the set: its smoothed loss still falls 18.2% over the
+last quarter of the run, against 5% for the same arm at N = 500 and 1.2% for the 150,000-iteration
+cells. Only two of its three seeds have finished. More training moves this number up, not down.
 
 **Still training.** frm + rws at the matched 40,000-iteration budget (every existing cell of the pair
 is at 400,000, which would have broken matched compute); rescale at N = 4000; synaptic noise at
