@@ -224,12 +224,6 @@ class RNN_torch(torch.nn.Module):
                  bias_init="uniform",
                  y_init=None,
                  seed=None,
-                 inhibitory_boost=None,
-                 silent_init_frac=0.25,
-                 master_inhib_frac=None,
-                 master_inhib_strength=5.0,
-                 master_ctx_drive=1.0,
-                 freeze_master=False,
                  n_inputs=6,
                  n_outputs=2,
                  input_row_norm=None,
@@ -365,43 +359,6 @@ class RNN_torch(torch.nn.Module):
         if self.input_row_norm is not None:
             W_inp = W_inp * (self.input_row_norm / W_inp.norm(dim=1, keepdim=True).clamp_min(1e-12))
 
-        # deliberate silent-at-init perturbation: over-inhibit a fixed random `silent_init_frac` of
-        # units (set S) by scaling the inhibitory columns (synapses from I-units, dale_mask==-1) of
-        # their W_rec rows by `inhibitory_boost`, driving their input net-negative -> silent at init.
-        # S is drawn from this net's seed so it is reproducible/reconstructable from the saved config.
-        # No-op unless inhibitory_boost is set (all normal runs are unaffected).
-        if inhibitory_boost is not None and inhibitory_boost > 1e-12:
-            seed_used = int(self.random_generator.initial_seed())
-            n_sil = int(round(silent_init_frac * self.N))
-            S = np.random.default_rng(seed_used).choice(self.N, size=n_sil, replace=False)
-            inh_cols = torch.where(self.dale_mask == -1)[0].to(W_rec.device)
-            S_rows = torch.as_tensor(S, dtype=torch.long, device=W_rec.device)
-            W_rec[S_rows.unsqueeze(1), inh_cols.unsqueeze(0)] *= inhibitory_boost
-
-        # deliberate silent-at-init perturbation (v2, "master inhibitor"): one inhibitory unit (the first
-        # I-unit) is driven ONLY by the two CDDM context cues (input channels 0,1 — on every trial) with
-        # weight master_ctx_drive, receives no recurrent input, and projects deep inhibition
-        # (-master_inhib_strength) onto a fixed random `master_inhib_frac` of the other units and to no
-        # one else. That target set is held silent by a SUSTAINED, context-locked inhibition whose weights
-        # gradients cannot reach (the master->target path runs through the dead target's zero ReLU deriv),
-        # so it is truly unrescuable -> clean "no gradient -> no rescue" test. Target set drawn from the
-        # net's seed (reconstructable). No-op unless master_inhib_frac is set.
-        self.master_idx = None                             # set below iff the master inhibitor is used
-        if master_inhib_frac is not None and master_inhib_frac > 1e-12:
-            seed_used = int(self.random_generator.initial_seed())
-            Ne = int(np.floor(self.N * self.exc2inhR / (self.exc2inhR + 1)))
-            mstr = Ne                                       # first inhibitory unit = master
-            self.master_idx = mstr
-            others = np.setdiff1d(np.arange(self.N), [mstr])
-            T = np.random.default_rng(seed_used).choice(others, int(round(master_inhib_frac * (self.N - 1))), replace=False)
-            dev = W_rec.device
-            W_inp[mstr, :] = 0.0
-            W_inp[mstr, 0] = master_ctx_drive               # CDDM context-cue channels
-            W_inp[mstr, 1] = master_ctx_drive
-            W_rec[mstr, :] = 0.0                            # master receives no recurrent input
-            W_rec[:, mstr] = 0.0                           # master projects only to the target set
-            W_rec[torch.as_tensor(T, dtype=torch.long, device=dev), mstr] = -abs(master_inhib_strength)
-
         dtp = W_rec.dtype
         dev = self.device
 
@@ -427,34 +384,6 @@ class RNN_torch(torch.nn.Module):
         self.W_out = torch.nn.Parameter(W_out.to(self.device))
         self.W_rec = torch.nn.Parameter(W_rec.to(self.device))
         self.W_inp = torch.nn.Parameter(W_inp.to(self.device))
-
-        # Freeze the master inhibitor so gradients cannot tame it, making the clamp genuinely
-        # gradient-proof -> the true "no-rescue" test. Two mechanisms: (1) a gradient hook zeros the
-        # gradient on the master's input row (W_inp[m,:]) and its recurrent input row + output column
-        # (W_rec[m,:], W_rec[:,m]); (2) a forward-pre-hook restores those entries to their init values
-        # before every forward pass. (1) alone is insufficient because Adam + weight_decay reintroduce a
-        # tiny effective gradient inside step() that Adam normalizes into a full-sized update; (2)
-        # guarantees the master is exactly at init during every training/eval forward regardless. No-op
-        # unless requested.
-        if freeze_master and self.master_idx is not None:
-            m = self.master_idx
-            keep_winp = torch.ones_like(self.W_inp); keep_winp[m, :] = 0.0
-            keep_wrec = torch.ones_like(self.W_rec); keep_wrec[m, :] = 0.0; keep_wrec[:, m] = 0.0
-            self.register_buffer("_keep_winp", keep_winp)
-            self.register_buffer("_keep_wrec", keep_wrec)
-            self.register_buffer("_winp0_row", self.W_inp[m, :].detach().clone())
-            self.register_buffer("_wrec0_col", self.W_rec[:, m].detach().clone())
-            self.register_buffer("_wrec0_row", self.W_rec[m, :].detach().clone())
-            self.W_inp.register_hook(lambda g: g * self._keep_winp)
-            self.W_rec.register_hook(lambda g: g * self._keep_wrec)
-
-            def _restore_master(module, _inp):
-                with torch.no_grad():
-                    mm = module.master_idx
-                    module.W_inp[mm, :] = module._winp0_row
-                    module.W_rec[:, mm] = module._wrec0_col
-                    module.W_rec[mm, :] = module._wrec0_row
-            self.register_forward_pre_hook(_restore_master)
 
     @staticmethod
     def configure_activation_(activation_args):

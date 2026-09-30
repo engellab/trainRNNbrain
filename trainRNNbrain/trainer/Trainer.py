@@ -33,64 +33,6 @@ class Penalties:
     def task_penalty(self, states, input, output, target, mask):
         return ((scored_(output, mask) - scored_(target, mask)) ** 2).mean()
     
-    def inp_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap100=0.5, gamma=5.0, eps=1e-12):
-        """Soft cap on |W_inp|, hinged at gamma. Cap scales with N only, as its siblings do.
-
-        FIXED 2026-09-22. It read `N, U = states.size(0), states.size(1)`, so U was the TRIAL
-        LENGTH, and the cap came out as cap100 * (T/N) * log1p(N)/log1p(T). Two things were wrong:
-        the cap depended on how long a trial is, which is not a property of the network and should
-        never enter a weight scale; and the log ratio was inverted relative to
-        out_weights_magnitude_penalty, so the cap scaled the wrong way with N. As coded, the same
-        1000-unit network got a cap of 0.182 on a T=300 task and 0.278 on a T=500 one, and going
-        from N=1000 to N=4000 shrank it 3.3x where the intended form shrinks it 1.2x.
-
-        `U` was almost certainly meant to be `self.UpV`, the same hard constant 100 that
-        out_weights_magnitude_penalty and fr_magnitude_penalty use. That is what it now is.
-
-        No result is affected: lambda_iwm is 0 in every config and launcher, so this penalty has
-        never been applied to a run on disk.
-
-        Args:
-            states: (N, T, B), used only for device/dtype and N; cap100: cap at the N=UpV
-            reference; gamma: hinge sharpness; eps: division guard.
-        Returns:
-            scalar penalty, mean over W_inp entries of ((relu(|W|/cap - 1) + 1)^gamma - 1).
-        """
-        dev, dt = states.device, states.dtype
-        N = states.size(0)
-        scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / torch.log1p(
-            torch.as_tensor(N, device=dev, dtype=dt))
-        cap = torch.as_tensor(cap100, device=dev, dtype=dt) * scale
-        A = self.RNN.W_inp.abs()
-        r = (A + eps) / (cap + eps)
-        over = torch.pow(torch.relu(r - 1) + 1.0, gamma) - 1.0
-        return over.mean()
-
-    def out_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, cap100=0.03, gamma=5.0, eps=1e-12):
-        R, dev, dt = self.RNN, states.device, states.dtype
-        N = R.N
-        scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / torch.log1p(torch.as_tensor(N, device=dev, dtype=dt))
-        cap = torch.as_tensor(cap100, device=dev, dtype=dt) * scale
-        W = R.W_out.abs()
-        r = (W + eps) / (cap + eps)
-        over = torch.pow(torch.relu(r - 1.0) + 1.0, gamma) - 1.0
-        return over.mean()
-
-    # def rec_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None,
-    #                                    cap100=0.07, N_ref=100, k_ref=20, gamma=5.0, eps=1e-12):
-    #     R, dev, dt = self.RNN, states.device, states.dtype
-    #     N = R.N
-    #     scale = torch.log1p(torch.as_tensor(self.UpV, device=dev, dtype=dt)) / torch.log1p(torch.as_tensor(N, device=dev, dtype=dt))
-    #     cap = torch.as_tensor(cap100, device=dev, dtype=dt) * scale
-    #     cap_e, cap_i = cap, cap * torch.as_tensor(R.exc2inhR, device=dev, dtype=dt)
-    #     W = R.W_rec.abs()
-    #     exc, inh = (R.dale_mask > 0), (R.dale_mask < 0)
-    #     rE = (W[:, exc] + eps) / (cap_e + eps)
-    #     rI = (W[:, inh] + eps) / (cap_i + eps)
-    #     pE = (torch.pow(torch.relu(rE - 1.0) + 1.0, gamma) - 1.0)
-    #     pI = (torch.pow(torch.relu(rI - 1.0) + 1.0, gamma) - 1.0)
-    #     return (pE.mean() + pI.mean()) * (N / (N_ref * k_ref))
-
     def rec_weights_magnitude_penalty(self, states, input=None, output=None, target=None, mask=None, account4dale=True,
                                        cap100=0.07, N_ref=100, k_ref=20, gamma=5.0, eps=1e-12):
         R, dev, dt = self.RNN, states.device, states.dtype
@@ -269,95 +211,6 @@ class Penalties:
         n = p.numel()
         return (n * hhi - 1.0) / (n - 1.0 + eps)
 
-    def trial_output_var_penalty(self, states, input=None, output=None, target=None, mask=None, eps=1e-12):
-        # states: (N, T, K), W_out: (n_out, N)
-        yc = output - output.mean(dim=2, keepdim=True)  # center across trials (K)
-        num = (yc * yc).mean()  # E_{o,t,k}[(y - ⟨y⟩_trial)^2]
-        den = (output * output).mean().clamp_min(eps)  # normalize by overall power
-        return num / den
-
-    def fr_inequality_penalty(self, states, input=None, output=None, target=None, mask=None, method='hhi'):
-        activity = torch.mean(torch.abs(states), dim=(1, 2))  # (N,)
-        if method == 'gini':
-            method_fn = self.gini_penalty_
-        elif method == 'hhi':
-            method_fn = self.hhi_penalty_
-        else:
-            raise NotImplementedError
-        return method_fn(activity)
-
-    def h_inequality_penalty(self, states, input, output=None, target=None, mask=None, method='hhi'):
-        h = (torch.einsum('ij,jkl->ikl', self.RNN.W_rec, states) +
-             torch.einsum('ij,jkl->ikl', self.RNN.W_inp, input))
-        mean_h = torch.mean(h, dim=(1, 2))  # (N,)
-        if method == 'gini':
-            method_fn = self.gini_penalty_
-        elif method == 'hhi':
-            method_fn = self.hhi_penalty_
-        else:
-            raise NotImplementedError
-        return method_fn(mean_h)
-
-    def h_time_variance_penalty(self, states, input, output=None, target=None, mask=None, eps=1e-8):
-        h = (torch.einsum('ij,jkl->ikl', self.RNN.W_rec, states)
-             + torch.einsum('ij,jkl->ikl', self.RNN.W_inp, input))
-        mean_t = h.mean((0, 2))
-        var_between = mean_t.var(unbiased=False)
-        var_within = h.var((0, 2), unbiased=False).mean()
-        denom = (var_between + var_within).detach() + eps
-        return var_between / denom
-    
-    def clustering_penalty(self, states, input, output, target, mask,
-                           attract_margin=0.1,
-                           repell_margin=0.3,
-                           diameter_quantile=0.9,
-                           beta=20.0, eps=1e-8):
-        X = states.view(states.shape[0], -1)
-        if self.RNN.equation_type == 'h':
-            X = self.RNN.activation(X)
-        loss = torch.tensor(0.0, device=states.device, dtype=states.dtype)
-        if getattr(self.RNN, 'dale_mask', None) is None:
-            dale_mask = torch.ones(X.shape[0], device=states.device, dtype=states.dtype)
-        else:
-            dale_mask = self.RNN.dale_mask
-
-        for nrn_sign in [1, -1]:
-            X_subpop = X[dale_mask == nrn_sign, :]
-            if X_subpop.shape[0] <= 1:
-                continue
-            X_norm_sq = (X_subpop ** 2).sum(dim=1, keepdim=True)
-            D2 = X_norm_sq + X_norm_sq.T - 2 * X_subpop @ X_subpop.T
-            D = D2.clamp(min=eps).sqrt()
-            # Remove diagonal (self-distances)
-            i, j = torch.triu_indices(D.shape[0], D.shape[1], offset=1)
-            dists = D[i, j]
-
-            diameter = torch.quantile(dists, diameter_quantile).detach()
-            attract_thresh = attract_margin * diameter
-            repel_thresh = repell_margin * diameter
-
-            # Triangle penalty (fully smooth)
-            term1 = F.softplus(dists / (attract_thresh + eps), beta=beta)
-            term2 = F.softplus((dists - attract_thresh) / (attract_thresh + eps), beta=beta)
-            term3 = F.softplus((dists - attract_thresh) / ((repel_thresh - attract_thresh) + eps), beta=beta)
-            triangle = F.softplus(term1 - term2 - term3, beta=beta)
-            loss += triangle.mean()
-        return loss
-    
-    def eff_dim_tail_energy_penalty(self, states, input=None, output=None, target=None, mask=None, k=6, eps=1e-8):
-        # states: (N, T, K)  ->  X: (N, D), D = T*K
-        X = states.reshape(states.shape[0], -1)
-        if self.RNN.equation_type == 'h':
-            X = self.RNN.activation(X)
-        X = X - torch.mean(X, dim=1, keepdim=True)
-
-        D = X.shape[1]
-        C = (X @ X.T) / (D + eps)                      # (N, N) covariance-like (PSD)
-        e = torch.linalg.eigvalsh(C).flip(0)           # descending eigenvalues
-
-        k = int(k)
-        tail = torch.sum(e[k:]) if k < e.numel() else torch.zeros((), device=e.device, dtype=e.dtype)
-        return tail / (torch.sum(e).detach() + eps)    # scale-invariant tail energy
 
 
 class Trainer():
@@ -365,16 +218,10 @@ class Trainer():
                  RNN, Task, optimizer,
                  max_iter=1000,
                  anneal_noise=True,
-                 lambda_iwm=0.0,
-                 iwm_args=None,
                  lambda_rwm=0.0,
                  rwm_args=None,
-                 lambda_owm=0.0,
-                 owm_args=None,
                  lambda_rws=0.05,
                  rws_args=None,
-                 lambda_tv=0.0,
-                 tv_args=None,
                  lambda_orth=0.3,
                  orth_args={"orth_input_only": True},
                  lambda_frm=0.005,
@@ -383,16 +230,6 @@ class Trainer():
                  hm_args=None,
                  lambda_met = 0.0,
                  met_args=None,
-                 lambda_fri=0.0,
-                 fri_args=None,
-                 lambda_hi=0.0,
-                 hi_args=None,
-                 lambda_htvar=0.0,
-                 htvar_args=None,
-                 lambda_cl=0.0,
-                 cl_args = None,
-                 lambda_effdim=0.0,
-                 effdim_args=None,
                  synaptic_scaling=False,
                  scaling_args=None,
                  prune_reinit=False,
@@ -477,20 +314,12 @@ class Trainer():
         self.frm_args = frm_args
         self.penalty_map = {
             "task": (self.Penalties.task_penalty, 1.0, {}),
-            "inp_weights_magnitude": (self.Penalties.inp_weights_magnitude_penalty, lambda_iwm, iwm_args),
             "rec_weights_magnitude": (self.Penalties.rec_weights_magnitude_penalty, lambda_rwm, rwm_args),
-            "out_weights_magnitude": (self.Penalties.out_weights_magnitude_penalty, lambda_owm, owm_args),
             "rec_weights_sparsity": (self.Penalties.rec_weights_sparsity_penalty, lambda_rws, rws_args),
-            "output_var": (self.Penalties.trial_output_var_penalty, lambda_tv, tv_args),
             "channel_overlap": (self.Penalties.channel_overlap_penalty, lambda_orth, orth_args),
             "fr_magnitude": (self.Penalties.fr_magnitude_penalty, lambda_frm, frm_args),
             "h_magnitude": (self.Penalties.h_magnitude_penalty, lambda_hm, hm_args),
             "metabolic": (self.Penalties.metabolic_penalty, lambda_met, met_args),
-            "fr_inequality": (self.Penalties.fr_inequality_penalty, lambda_fri, fri_args),
-            "h_inequality": (self.Penalties.h_inequality_penalty, lambda_hi, hi_args),
-            "h_time_variance": (self.Penalties.h_time_variance_penalty, lambda_htvar, htvar_args),
-            "clustering": (self.Penalties.clustering_penalty, lambda_cl, cl_args),
-            "eff_dim_tail_energy": (self.Penalties.eff_dim_tail_energy_penalty, lambda_effdim, effdim_args),
         }
         if monitor:
             self.loss_monitor = {**{k: [] for k in self.penalty_map}}
@@ -1574,8 +1403,9 @@ class Trainer():
     def enforce_inp_cap_(self):
         """Clamp |W_inp| to the model's inp_weight_cap after an optimiser step. No-op if unset.
 
-        WHY A CLAMP AND NOT A PENALTY. `inp_weights_magnitude_penalty` exists and is wired in as
-        lambda_iwm, but its gamma=5 hinge is unusable as a soft cap here: at initialisation every
+        WHY A CLAMP AND NOT A PENALTY. A magnitude penalty on W_inp was written and wired in as
+        lambda_iwm; it was never given a nonzero weight in any run and was deleted on 2026-09-30,
+        for the reason recorded here. Its gamma=5 hinge is unusable as a soft cap: at init every
         |W_inp| is ~0.03, well under any sensible cap, so the penalty is EXACTLY zero and exerts no
         gradient at all; on a trained unpenalised network the largest weight is ~41x a cap of 0.36,
         so the term reaches ~1e8. A lambda sized for one end is inert or explosive at the other,
