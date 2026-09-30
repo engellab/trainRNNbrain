@@ -1,166 +1,132 @@
 #!/usr/bin/env python3
 """
-Manuscript Figure 2 - DROPOUT. The cheapest remedy: it keeps about a hundred more units alive, it
-costs nothing measurable, and it is nowhere near enough.
+Manuscript Figure 2 - THREE WAYS TO KEEP UNITS ALIVE, measured on the same four axes.
 
-Dropout is the first remedy the paper offers because it is the one a reader would try first, it is
-free, and its failure to do more is what motivates the penalty of Figure 3. The figure therefore
-has to be honest about a small effect rather than dress it up, and it has to say precisely what
-"dropout" means here, because the variant used is not standard dropout:
+Three interventions that need no change to the loss function, each asked the same four questions:
+does the network still solve the task, how many units end up active, how many directions does the
+population use, and does the weight distribution still look like the one biology has.
 
-  (a) WHAT DROPOUT MEANS HERE          `mute` masks the unit's read-out weight only: the unit goes
-                                       on driving its neighbours, but the task loss cannot see it.
-                                       Drawn as the same three-unit circuit twice so the difference
-                                       from no dropout is a cut edge, not a paragraph.
-                                       A second variant, `dead`, which also removes the unit from
-                                       the recurrent dynamics, was dropped from the paper on
-                                       2026-09-21: it is unstable once the sampler targets
-                                       accurately, because the task loss is evaluated on the
-                                       ablated network, so a unit selected on a fraction p of
-                                       iterations is regularised on only (1-p) of them and runs away
-                                       as p -> 1. It also bought nothing (mute 373.1 +- 18.4 vs dead
-                                       362.1 +- 8.4 live units at 150k, n = 7 each, Welch p = 0.22).
-  (b) THE SAMPLING RULE, MEASURED      units are not dropped uniformly: p_drop is proportional to a
-                                       softmax of participation, so the busiest units are preferred.
-                                       Read off a real trained network rather than asserted.
-                                       ⚠️ This panel documents the sampler AS THE RUNS ON DISK USED
-                                       IT. The sampler was corrected on 2026-09-21 (it scored |h|,
-                                       not the rate) and this panel will be redesigned when the
-                                       corrected sweep lands.
-  (c) WHAT IT DOES ALONG TRAINING      live units vs iteration, 7 seeds per arm. Dropout lifts the
-                                       whole curve and does not flatten it: still silencing at the
-                                       same rate at 150k, so this is an offset, not a cure.
-  (d) WHAT IT COSTS                    live units against noise-free task loss, one point per seed,
-                                       with the equivalence test.
+  (a) WHAT THE THREE RULES DO       drawn as the same picture three times - a silent unit among live
+                                    ones - so the difference between the rules is a cut edge, a
+                                    copied row and a tilted row, not a paragraph.
+                                      dropout: mute      the sampled unit's READ-OUT weight is
+                                                         zeroed, so it goes on driving its
+                                                         neighbours but the task loss cannot see it.
+                                                         Sampling is biased toward busy units.
+                                      prune + duplicate  a silent unit is deleted and rebuilt as a
+                                                         copy of a working one; the donor's outgoing
+                                                         column is halved and the pair's 2x2 weight
+                                                         block set so the network's output is
+                                                         unchanged at the moment of surgery.
+                                      rescale            the silent unit keeps its wiring. Its
+                                                         incoming excitatory weights are multiplied
+                                                         by alpha and its inhibitory ones divided by
+                                                         it, tilting its drive toward excitation at
+                                                         a preserved row norm.
+  (b) ACTIVE UNITS                  the scale-free rule, every network drawn, out of 1000.
+  (c) HELD-OUT r2                   recomputed on a fresh batch, so it can be checked against the
+                                    value stored at training time.
+  (d) DIMENSIONS USED               participation ratio of the noise-free rate covariance over the
+                                    active units: how many directions the population actually uses.
+                                    The count of components carrying 95% of the variance moves the
+                                    same way but further - 12 for the control, 25 under dropout, 23
+                                    under duplication, 12 under rescale - so the panel's ratio is
+                                    the conservative reading of the same effect. Both are printed.
+  (e) WEIGHT MAGNITUDES             the distribution of |W_rec| over all 10^6 entries. Cortical
+                                    synaptic strengths are lognormal over roughly two orders of
+                                    magnitude (Song et al. 2005; Lefort et al. 2009), so an
+                                    intervention that recruits units by manufacturing a weight
+                                    distribution biology does not produce has bought them with an
+                                    artifact. This panel is the check that none of the three does.
 
-  uncorrected sampler, and whose beta = 4 arm is void (the 0.999 clamp redistributed nothing, so
-  the dose collapsed to 7.9 of a nominal 50). It is superseded by the rho x beta sweep on `mute`
-  with the corrected sampler, and the panel returns when those runs land.
+MATCHED, AND WHY THAT COST A CELL. Every arm is gamma = 0, N = 1000, 3-bit flip-flop, 40,000
+iterations, lr 1e-3, weight decay 1e-6, sigma_rec = sigma_inp = 0.05, batch 1024 - the intervention
+is the only difference. The duplication sweep at gamma = 0.1 (`ff_revive_g01_fix`) is NOT pooled in:
+gamma is cubic saturation in the dynamics, so it changes the base network and a cross-gamma
+comparison is not like for like. Duplication here is the corrected construction of 2026-09-24; the
+cells carrying the earlier detuned self-weight are excluded (see f2_remedies_cache.py).
 
-CRITERION AND READ-OUT as Figure 1: scale-free participation, matched compute, every seed drawn.
+RESCALE IS FOUR SETTINGS POOLED into one arm (row normalisation on and off, alpha 1.0005 and
+1.002), which is why its n is 12 and its spread is wider than the others'. None of the four recruits
+anything, so pooling hides nothing - the per-setting means are printed below the figure.
+
+WHAT REPLACED WHAT. The previous Figure 2 was dropout alone: a mute schematic, a characterisation of
+the dropout sampler, the 150k training curve and a cost panel. The sampler panel documented a
+sampler that was corrected on 2026-09-21 and was already marked for redesign; the training curve and
+the cost panel are superseded by (b) and (c) here, which carry the same read-out for three
+interventions instead of one.
+
+CRITERION AND READ-OUT as Figure 1: scale-free participation, matched compute, every network drawn.
 
 Usage:  python fig_paper_F2.py
 Output: img/internal_figures/fig_paper_F2.pdf (+ .svg; vector only - see paperstyle.save)
+Cache:  data/fig_paper_F2_cache.npz, built on the cluster by f2_remedies_cache.py
 """
 
-import glob
 import os
-import pickle
 import sys
 
-import hydra
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib.lines import Line2D
-from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
-from common import DATA_DIR, SILENT_REL
-from flipflop_diversity import load_net
-from flipflop_dropout_readout import collect, welch
-from trainRNNbrain.training.training_utils import prepare_task_arguments
+from flipflop_dropout_readout import welch
 
-DROP = f"{DATA_DIR}/NBitFlipFlop_std_dropout"
-CELL = "EqType=h_k=3_N=1000_pen=none_do={kind}"
+CACHE = "data/fig_paper_F2_cache.npz"
 N_UNITS = 1000
-READ_AT = 150_000
-SAMPLE_AT = 50_000           # iteration at which panel (b) reads the participation vector
-SAMPLER_CACHE = "data/fig_paper_F2_sampler.npz"
-DROP_RATE, BETA = 0.05, 1.0
 
-ARMS = [("none", "no dropout", ps.BASE),
-        ("mute", "dropout: mute", ps.COND_COL["mute"])]
-
-# Read at 40k, where the standard setting already shows its full effect.
-LADDER_READ_AT = 40_000
-LADDER = [("0.05", "1", "5%\n(standard)"), ("0.10", "1", "10%"),
-          ("0.20", "1", "20%"), ("0.40", "1", "40%")]
-SHARP = ("0.05", "4", "5%, sharper\ntargeting (β=4)")
+# (key in the cache, x tick label, full name, colour). The x tick labels are short because panel
+# (a) names the rules directly above them. The control is neutral ink: it is the reference every
+# remedy is measured against, not a fifth condition.
+ARMS = [("control", "none", "no intervention", ps.BASE),
+        ("mute", "dropout", "dropout: mute", ps.COND_COL["mute"]),
+        ("duplicate", "duplicate", "prune + duplicate", ps.COND_COL["duplicate"]),
+        ("rescale", "rescale", "rescale", ps.COND_COL["rescale"])]
 
 
-def spearman(a, b):
-    """Spearman rank correlation of two 1-D arrays, without a scipy dependency.
+def load(path=CACHE):
+    """Read the per-network cache.
 
     Args:
-        a, b: equal-length 1-D arrays.
+        path: path to the npz written by f2_remedies_cache.py.
     Returns:
-        the rank correlation as a float.
+        dict of arrays, one row per network, all the same length. Raises SystemExit if absent.
     """
-    ra = np.argsort(np.argsort(np.asarray(a, float)))
-    rb = np.argsort(np.argsort(np.asarray(b, float)))
-    ra = ra - ra.mean()
-    rb = rb - rb.mean()
-    return float((ra * rb).sum() / np.sqrt((ra ** 2).sum() * (rb ** 2).sum()))
+    if not os.path.exists(path):
+        raise SystemExit(f"{path} is missing - build it on the cluster with f2_remedies_cache.py")
+    z = np.load(path, allow_pickle=True)
+    return {k: z[k] for k in z.files}
 
 
-def trace_rows(cell_glob):
-    """Every (iters, participation matrix) pair under a cell folder.
+def by_arm(c, key):
+    """One array of per-network values per arm, in ARMS order.
 
     Args:
-        cell_glob: path of a cell folder holding one sub-folder per network.
+        c: the cache dict; key: the field to pull, e.g. 'n_active'.
     Returns:
-        list of (iters, P) with P of shape (n_probes, N).
+        list of 1-D float arrays, one per arm.
     """
-    out = []
-    for f in sorted(glob.glob(os.path.join(cell_glob, "*", "*ParticipationTrace.pkl"))):
-        try:
-            d = pickle.load(open(f, "rb"))
-        except Exception:
-            continue
-        it, P = np.asarray(d.get("participation_iters", [])), np.asarray(d.get("participation", []))
-        if len(it) and P.ndim == 2:
-            out.append((it, P))
-    return out
-
-
-def live_curve(it, P):
-    """Active-unit count at every probe of one trace.
-
-    Args:
-        it: (n_probes,) iterations; P: (n_probes, N) participation.
-    Returns:
-        (it, counts) with counts an int array of the same length.
-    """
-    q = np.quantile(P, 0.95, axis=1, keepdims=True)
-    return it, (P >= SILENT_REL * q).sum(axis=1)
-
-
-def live_at(cell_glob, iteration):
-    """Active units per seed at one iteration.
-
-    Args:
-        cell_glob: cell folder; iteration: read-out iteration.
-    Returns:
-        (n_seeds,) int array; empty if the cell is missing.
-    """
-    out = []
-    for it, P in trace_rows(cell_glob):
-        j = int(np.argmin(np.abs(it - iteration)))
-        if abs(it[j] - iteration) > 2000:
-            continue
-        p = P[j]
-        out.append(int((p >= SILENT_REL * np.quantile(p, 0.95)).sum()))
-    return np.array(out)
+    return [np.asarray(c[key][c["arm"] == a], float) for a, _, _, _ in ARMS]
 
 
 def tost(a, b, margin_frac=0.05):
     """Two one-sided tests for equivalence of two means within +-margin_frac of b's mean.
 
-    "p = 0.95 so dropout is free" is absence of evidence, not evidence of equivalence. TOST asks the
-    question the paper actually means: is the difference small enough to be uninteresting? The
-    margin is fixed at 5% of the reference loss, chosen because the rate penalty of Figure 3 costs
-    7%, so the bar is "cheaper than the remedy we recommend".
+    "p = 0.95 so it is free" is absence of evidence, not evidence of equivalence. TOST asks the
+    question the paper actually means: is the difference small enough to be uninteresting? The margin
+    is fixed at 5% of the reference, chosen because the rate penalty of Figure 3 costs 7%, so the bar
+    is "cheaper than the remedy we recommend".
 
     Args:
-        a, b: 1-D samples (a = dropout arm, b = reference); margin_frac: equivalence margin as a
+        a, b: 1-D samples (a = intervention, b = reference); margin_frac: equivalence margin as a
             fraction of mean(b).
     Returns:
-        (p_tost, diff_frac, lo_frac, hi_frac): the larger of the two one-sided p-values, the
-        relative difference, and its 95% CI, all as fractions of mean(b).
+        (p_tost, diff_frac, lo_frac, hi_frac): the larger of the two one-sided p-values, the relative
+        difference, and its 95% CI, all as fractions of mean(b).
     """
     a, b = np.asarray(a, float), np.asarray(b, float)
     if len(a) < 2 or len(b) < 2:
@@ -181,241 +147,253 @@ def tost(a, b, margin_frac=0.05):
     return float(p), d / b.mean(), (d - crit * se) / b.mean(), (d + crit * se) / b.mean()
 
 
-def panel_a(ax):
-    """Panel (a): `mute` drawn as a three-unit circuit with the sampled unit's read-out cut."""
-    ps.blank(ax)
-    ax.set(xlim=(0, 1), ylim=(0, 1))
-    cases = [("mute", "mute", ps.COND_COL["mute"])]
-    w = 0.40
-    for ci, (title, kind, col) in enumerate(cases):
-        x0 = 0.05 + ci * (w + 0.10)
-        ax.text(x0 + w / 2, 0.955, title, ha="center", fontsize=6.8, color=col, fontweight="bold")
-
-        # three units in a row, recurrently connected, feeding one read-out
-        ux = [x0 + 0.055, x0 + w / 2, x0 + w - 0.055]
-        uy = 0.60
-        dropped = 1                                   # the middle unit is the one sampled out
-        for i, x in enumerate(ux):
-            gone = False
-            ax.scatter(x, uy, s=95, zorder=5,
-                       color="none" if gone else (ps.FAINT if i != dropped else col),
-                       edgecolor=ps.FAINT if gone else (ps.MUTED if i != dropped else col),
-                       linewidth=0.9, linestyle=":" if gone else "-")
-            ax.text(x, uy, f"$r_{i + 1}$", ha="center", va="center", fontsize=5.4, zorder=6,
-                    color=ps.FAINT if gone else ("white" if i == dropped else ps.MUTED))
-
-        # Recurrent edges between neighbours. Endpoints are the unit CENTRES and the shrink clears
-        # the glyph; rad then puts the forward arc above and the return arc below. Offsetting the
-        # endpoints vertically instead pinches the pair into a bowtie over the units.
-        for i in range(2):
-            cut = False
-            col = ps.FAINT if cut else ps.MUTED
-            ls = ":" if cut else "-"
-            ps.arrow(ax, (ux[i], uy), (ux[i + 1], uy), col=col, rad=-0.62, style="-|>",
-                     lw=0.7, ls=ls, shrink=6.5, mutation_scale=6)
-            ps.arrow(ax, (ux[i + 1], uy), (ux[i], uy), col=col, rad=-0.62, style="-|>",
-                     lw=0.7, ls=ls, shrink=6.5, mutation_scale=6)
-
-        # the read-out
-        ry = 0.215
-        ps.box(ax, x0 + w / 2 - 0.058, ry - 0.045, 0.116, 0.09, "read-out", col=ps.MUTED,
-               face="#f2f1ec", lw=0.6, fs=5.4)
-        for i, x in enumerate(ux):
-            cut = (i == dropped)
-            ps.arrow(ax, (x, uy - 0.075), (x0 + w / 2 + (i - 1) * 0.036, ry + 0.05),
-                     col=ps.FAINT if cut else ps.MUTED, lw=0.7, ls=":" if cut else "-")
-            if cut:
-                mx = (x + x0 + w / 2 + (i - 1) * 0.036) / 2
-                my = (uy - 0.075 + ry + 0.05) / 2
-                ax.plot([mx - 0.016, mx + 0.016], [my - 0.022, my + 0.022], lw=1.0, color=ps.BAD,
-                        zorder=7)
-                ax.plot([mx - 0.016, mx + 0.016], [my + 0.022, my - 0.022], lw=1.0, color=ps.BAD,
-                        zorder=7)
-
-
-
-
-def sampler_cache(refresh=False, n_nets=4, n_trials=256):
-    """Both participation definitions, per unit, for several trained dropout networks.
-
-    THIS IS THE POINT OF PANEL (b), so it is worth being exact about. The dropout sampler calls
-    `Trainer.get_participation_`, which reads the RAW states - for equation_type "h" those are
-    PRE-ACTIVATIONS - and returns q_0.9(|x|) + std(|x|). The participation the trace logs, and that
-    every "active unit" count in this paper uses, is `participation_from_states_`: the same formula
-    applied to the ReLU'd RATE. Trainer's own docstring says the two are "deliberately kept
-    distinct". They are not interchangeable, and reading p_drop off the logged vector - which is
-    what the first version of this panel did - measures the wrong thing.
-
-    The difference is not cosmetic. A unit held far BELOW threshold on every trial has a large
-    negative pre-activation, hence a large |x|, hence a high sampled participation - while its rate
-    is identically zero. The sampler cannot tell that unit apart from a genuinely busy one.
+def _units(ax, x, y, states, col):
+    """Draw a row of unit glyphs for a schematic.
 
     Args:
-        refresh: re-simulate even if the cache exists; n_nets: networks to average over;
-        n_trials: batch size for the noise-free probe.
+        ax: schematic axes; x: list of x centres; y: shared y centre;
+        states: one of 'live', 'silent', 'new' per unit. Live is filled in `col`; silent is hollow
+            and dotted, because a silent unit is still present in the network and that is the whole
+            point; new is filled in `col` inside the dotted ring of the unit it replaced.
+        col: the arm's colour.
     Returns:
-        dict with per-net arrays: 'v_drop' (sampler's participation), 'v_rate' (the logged one),
-        'live' (bool mask under the scale-free rule) and 'p_drop'.
+        None.
     """
-    if os.path.exists(SAMPLER_CACHE) and not refresh:
-        z = np.load(SAMPLER_CACHE)
-        return {k: z[k] for k in z.files}
-    folders = sorted(glob.glob(os.path.join(DROP, CELL.format(kind="mute"), "*", "")))[:n_nets]
-    vd, vr, lv, pd_ = [], [], [], []
-    for folder in folders:
-        cfg = OmegaConf.load(glob.glob(os.path.join(folder, "*_config.yaml"))[0])
-        cfg.task.batch_size = n_trials
-        task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
-        inputs, _, _ = task.get_batch()
-        net, _ = load_net(folder)
-        net.clear_history()
-        net.y = net.y_init
-        net.run(input_timeseries=inputs, sigma_rec=0.0, sigma_inp=0.0)
-        h = np.asarray(net.get_history(), float)
-        X = h.reshape(h.shape[0], -1)
-        R = np.maximum(X, 0.0)
-        v_drop = np.quantile(np.abs(X), 0.9, axis=1) + np.abs(X).std(axis=1)
-        v_rate = R.std(axis=1) + np.quantile(R, 0.9, axis=1)
-        e = np.exp(BETA * (v_drop - v_drop.max()))
-        vd.append(v_drop)
-        vr.append(v_rate)
-        lv.append(v_rate >= SILENT_REL * np.quantile(v_rate, 0.95))
-        pd_.append(np.clip(DROP_RATE * N_UNITS * e / e.sum(), 0.0, 0.999))
-    out = {"v_drop": np.array(vd), "v_rate": np.array(vr), "live": np.array(lv),
-           "p_drop": np.array(pd_)}
-    np.savez_compressed(SAMPLER_CACHE, **out)
+    for xi, st in zip(x, states):
+        if st in ("silent", "new"):
+            ax.scatter(xi, y, s=150, color="none", edgecolor=ps.FAINT, linewidth=0.8,
+                       linestyle=":", zorder=4)
+        if st != "silent":
+            ax.scatter(xi, y, s=62, color=col, edgecolor=col, linewidth=0.8, zorder=5)
+
+
+def panel_a(ax):
+    """Panel (a): the three rules, each drawn on the same three-unit picture.
+
+    Args:
+        ax: a blank axes spanning the figure's top row.
+    Returns:
+        None.
+    """
+    ps.blank(ax)
+    ax.set(xlim=(0, 3.18), ylim=(0, 1))
+    y = 0.66                                    # the row of units
+    cap_y = 0.17                                # the one-line explanation under each rule
+    for i, (kind, _, title, col) in enumerate(ARMS[1:]):
+        x0 = i * 1.06
+        ux = [x0 + 0.22, x0 + 0.50, x0 + 0.78]
+        ax.text(x0 + 0.50, 0.99, title, ha="center", va="top", fontsize=6.8,
+                color=col, fontweight="bold")
+
+        if kind == "mute":
+            # the BUSY unit is the one sampled; its read-out weight is cut, its recurrent edges stay
+            _units(ax, ux, y, ["live", "live", "silent"], col)
+            ry = 0.30
+            ps.box(ax, x0 + 0.50 - 0.15, ry, 0.30, 0.095, "read-out", col=ps.MUTED,
+                   face="#f2f1ec", lw=0.6, fs=5.4)
+            for j, xi in enumerate(ux):
+                cut = (j == 0)
+                ps.arrow(ax, (xi, y - 0.06), (x0 + 0.50 + (j - 1) * 0.085, ry + 0.095),
+                         col=ps.BAD if cut else ps.MUTED, lw=0.75, ls=":" if cut else "-")
+                if cut:
+                    mx, my = (xi + x0 + 0.50 - 0.085) / 2, (y - 0.06 + ry + 0.095) / 2
+                    for sgn in (1, -1):
+                        ax.plot([mx - 0.028, mx + 0.028], [my - sgn * 0.035, my + sgn * 0.035],
+                                lw=1.0, color=ps.BAD, zorder=7)
+            ax.text(x0 + 0.50, cap_y, "the loss cannot see it;\nit still drives the others",
+                    ha="center", va="top", fontsize=5.4, color=ps.MUTED, linespacing=1.3)
+
+        elif kind == "duplicate":
+            # the silent unit is deleted and rebuilt as a copy of the live donor on the left
+            _units(ax, ux, y, ["live", "live", "new"], col)
+            ps.arrow(ax, (ux[0], y), (ux[2], y), col=col, rad=-0.42, lw=0.85, shrink=7.0,
+                     mutation_scale=6)
+            ax.text((ux[0] + ux[2]) / 2, y + 0.17, "copy the incoming row", ha="center",
+                    va="bottom", fontsize=5.4, color=col)
+            ax.text(ux[0], y - 0.10, "donor:\noutgoing $\\times\\,1/2$", ha="center",
+                    va="top", fontsize=5.2, color=ps.MUTED, linespacing=1.25)
+            ax.text(x0 + 0.50, cap_y, "the output is unchanged at\nthe moment of surgery",
+                    ha="center", va="top", fontsize=5.4, color=ps.MUTED, linespacing=1.3)
+
+        else:
+            # the silent unit keeps its wiring; its incoming weights are tilted toward excitation
+            _units(ax, ux, y, ["live", "live", "silent"], col)
+            for src, lbl, c, rad, dy in ((0, "excitatory $\\times\\,\\alpha$", col, -0.42, 0.17),
+                                         (1, "inhibitory $\\div\\,\\alpha$", ps.MUTED, 0.42, -0.17)):
+                ps.arrow(ax, (ux[src], y), (ux[2], y), col=c, lw=0.85, rad=rad, shrink=7.0,
+                         mutation_scale=6)
+                ax.text((ux[src] + ux[2]) / 2, y + dy, lbl, ha="center",
+                        va="bottom" if dy > 0 else "top", fontsize=5.4, color=c)
+            ax.text(x0 + 0.50, cap_y, "the same synapses, its drive\ntilted at a fixed row norm",
+                    ha="center", va="top", fontsize=5.4, color=ps.MUTED, linespacing=1.3)
+
+
+def _cat_axes(ax, ylabel):
+    """Shared cosmetics for the three per-arm dot panels.
+
+    Args:
+        ax: axes; ylabel: y axis label.
+    Returns:
+        the x positions of the arms.
+    """
+    xs = np.arange(len(ARMS), dtype=float)
+    ax.set_xticks(xs)
+    ax.set_xticklabels([lab for _, lab, _, _ in ARMS], fontsize=6.2, rotation=30,
+                       ha="right", rotation_mode="anchor")
+    ax.set_xlim(-0.55, len(ARMS) - 0.45)
+    ax.set_ylabel(ylabel)
+    ps.ygrid(ax)
+    return xs
+
+
+def panel_b(ax, c):
+    """Panel (b): active units per network, out of 1000. Returns per-arm (mean, sd, n)."""
+    xs = _cat_axes(ax, "active units")
+    res = ps.strip(ax, xs, by_arm(c, "n_active"), [col for _, _, _, col in ARMS],
+                   rng=np.random.default_rng(3))
+    ax.axhline(N_UNITS, color=ps.FAINT, lw=0.7, ls=":", zorder=1)
+    ax.text(len(ARMS) - 0.5, N_UNITS, f"all {N_UNITS}", fontsize=5.4, color=ps.MUTED,
+            va="bottom", ha="right")
+    ax.set_ylim(0, N_UNITS * 1.12)
+    for x, (m, sd, n) in zip(xs, res):
+        ax.text(x, m + 62, f"{m:.0f}", ha="center", fontsize=5.8, color=ps.INK)
+    return res
+
+
+def panel_c(ax, c):
+    """Panel (c): held-out r2 per network. Returns per-arm (mean, sd, n)."""
+    xs = _cat_axes(ax, "held-out $r^2$")
+    res = ps.strip(ax, xs, by_arm(c, "r2"), [col for _, _, _, col in ARMS],
+                   rng=np.random.default_rng(4))
+    ref = res[0][0]
+    ax.axhline(ref, color=ps.BASE, lw=0.7, ls=":", zorder=1)
+    # No +-5% equivalence band is drawn: the margin is 0.047 of r2 and the largest cost here is
+    # 0.017, so the band would fill the panel and say nothing. The TOST verdicts are printed below.
+    ax.set_ylim(0.918, 0.952)
+    for x, (m, sd, n) in zip(xs[1:], res[1:]):
+        ax.text(x, 0.0, f"{(m - ref) / ref:+.1%}", ha="center", va="bottom", fontsize=5.6,
+                color=ps.MUTED, transform=ax.get_xaxis_transform())
+    return res
+
+
+def panel_d(ax, c):
+    """Panel (d): dimensions the active population uses. Returns per-arm (mean, sd, n)."""
+    xs = _cat_axes(ax, "dimensions used")
+    res = ps.strip(ax, xs, by_arm(c, "dims"), [col for _, _, _, col in ARMS],
+                   rng=np.random.default_rng(5))
+    ax.set_ylim(0, 10)
+    return res
+
+
+def panel_e(ax, c):
+    """Panel (e): the distribution of recurrent-weight magnitudes, one curve per arm.
+
+    Densities are normalised per network and then averaged within an arm, so a network with more
+    nonzero weights does not weigh more than its neighbour.
+
+    Args:
+        ax: axes; c: the cache dict.
+    Returns:
+        dict with the per-arm median magnitude and the sd of log|W|.
+    """
+    edges = np.asarray(c["log_bins"], float)
+    mid = 0.5 * (edges[1:] + edges[:-1])
+    out = {}
+    for kind, short, _, col in ARMS:
+        h = np.asarray(c["w_hist"][c["arm"] == kind], float)
+        if not len(h):
+            continue
+        d = (h / h.sum(axis=1, keepdims=True)).mean(axis=0)
+        ax.plot(mid, d / (mid[1] - mid[0]), lw=1.1, color=col, zorder=4,
+                label=short)
+        cdf = np.cumsum(d)
+        out[kind] = dict(median=float(mid[np.searchsorted(cdf, 0.5)]),
+                         sigma_log=float(np.mean(c["w_sigma_log"][c["arm"] == kind])))
+    ax.set(xlim=(-5.2, -0.2), xlabel="recurrent weight\n$\\log_{10}|W_{ij}|$", ylabel="density")
+    # Headroom above the peak so the legend and the panel's one-line result sit clear of the curves
+    # rather than on top of them; the legend repeats the x tick labels of (b)-(d), not longer names.
+    ax.set_ylim(0, ax.get_ylim()[1] * 1.34)
+    ax.legend(loc="upper left", fontsize=5.6, handlelength=1.0, borderpad=0.1,
+              borderaxespad=0.2)
+    # The four curves nearly coincide, and that is the panel's result, so it is said in words rather
+    # than left for the reader to infer from an overlap.
+    spread = np.array([np.mean(c["w_spread"][c["arm"] == k].astype(float)) for k, _, _, _ in ARMS])
+    lo, hi = (10 ** np.array([spread.min(), spread.max()])).round(-2)
+    ax.text(0.99, 0.70, f"a {lo:,.0f}- to {hi:,.0f}-fold\nrange in every arm",
+            transform=ax.transAxes, ha="right", va="top", fontsize=5.4, color=ps.MUTED,
+            linespacing=1.35)
+    ps.ygrid(ax)
     return out
 
 
-def panel_b(ax, refresh=False):
-    """Panel (b): what the sampler thinks 'busy' means, against what busy actually is.
-
-    Returns:
-        dict of the numbers quoted on the panel and in the caption.
-    """
-    c = sampler_cache(refresh=refresh)
-    if not len(c.get("v_drop", [])):
-        ax.text(0.5, 0.5, "no dropout networks on disk", ha="center", transform=ax.transAxes)
-        return {}
-    vd, vr, live, pdr = c["v_drop"][0], c["v_rate"][0], c["live"][0], c["p_drop"][0]
-
-    ax.scatter(vd[~live], np.maximum(vr[~live], 1e-6), s=2.4, color=ps.FAINT, alpha=0.55,
-               edgecolor="none", zorder=3, label=f"silent ({(~live).sum()})")
-    ax.scatter(vd[live], np.maximum(vr[live], 1e-6), s=2.4, color=ps.COND_COL["mute"], alpha=0.6,
-               edgecolor="none", zorder=4, label=f"active ({live.sum()})")
-
-    # rho OVER EVERY NETWORK, not just the one the scatter shows. The scatter is net 0 because a
-    # scatter has to be one network, but quoting net 0's rho made an n=1 number read as n=4 -- and
-    # the folders sort by r2, so net 0 is the WORST network and has the lowest rho of the four
-    # (0.237, 0.392, 0.496, 0.313). The panel and the caption now both carry the mean +- SD.
-    rhos = np.array([spearman(a, b) for a, b in zip(c["v_drop"], c["v_rate"])])
-    rho, rho_sd = float(rhos.mean()), float(rhos.std(ddof=1))
-    wasted = np.array([p[~l].sum() / p.sum() for p, l in zip(c["p_drop"], c["live"])])
-    dropped = np.array([p.sum() for p in c["p_drop"]])
-
-    ax.set(xscale="log", yscale="log", xlabel="sampler score", ylabel="participation  $p_i$")
-    ax.text(0.03, 0.96, f"ρ = {rho:.2f} ± {rho_sd:.2f}", transform=ax.transAxes, fontsize=6.2,
-            color=ps.INK, va="top")
-    ax.legend(loc="lower right", fontsize=5.8)
-    ps.ygrid(ax)
-    return {"spearman_rho": rho, "spearman_rho_sd": rho_sd, "wasted_share": float(wasted.mean()),
-            "wasted_sd": float(wasted.std(ddof=1)), "dropped": float(dropped.mean()),
-            "n_nets": int(len(c["p_drop"]))}
-
-
-def panel_c(ax):
-    """Panel (c): active units along training, every seed. Returns per-arm final counts."""
-    finals = {}
-    for kind, label, col in ARMS:
-        rows = trace_rows(os.path.join(DROP, CELL.format(kind=kind)))
-        if not rows:
-            continue
-        for it, P in rows:
-            t, c = live_curve(it, P)
-            m = t <= READ_AT
-            ax.plot(t[m], c[m], lw=0.5, color=col, alpha=0.32, zorder=3)
-        grid = np.linspace(2000, READ_AT, 120)
-        stack = []
-        for it, P in rows:
-            t, c = live_curve(it, P)
-            stack.append(np.interp(grid, t, c))
-        mu = np.mean(stack, axis=0)
-        ax.plot(grid, mu, lw=1.5, color=col, zorder=5,
-                label=f"{label}  (n={len(rows)})")
-        finals[kind] = live_at(os.path.join(DROP, CELL.format(kind=kind)), READ_AT)
-        nudge = {"none": -12, "mute": 14}.get(kind, 0)
-        ax.text(READ_AT * 1.06, mu[-1] + nudge, f"{mu[-1]:.0f}", fontsize=5.8, color=col,
-                va="center")
-    ax.set(xscale="log", xlabel="training iteration", ylabel="active units",
-           xlim=(2e3, 2.3e5), ylim=(150, 1000))
-    ax.legend(loc="lower left", fontsize=5.9)
-
-    ps.ygrid(ax)
-    return finals
-
-
-def panel_d(ax):
-    """Panel (d): active units against noise-free task loss, one point per seed. Returns the TOSTs."""
-    data, verdicts = {}, {}
-    for kind, label, col in ARMS:
-        rows = collect(os.path.join(DROP, CELL.format(kind=kind)))
-        if not len(rows):
-            continue
-        data[kind] = rows
-        ax.scatter(rows[:, 2], rows[:, 0], s=13, color=col, alpha=0.9, edgecolor="none", zorder=4,
-                   label=f"{label}  (n={len(rows)})")
-        ax.errorbar(rows[:, 2].mean(), rows[:, 0].mean(),
-                    xerr=rows[:, 2].std(ddof=1), yerr=rows[:, 0].std(ddof=1),
-                    fmt="o", ms=4.5, color=col, mec="white", mew=0.6, lw=1.0, zorder=6, capsize=1.5)
-    if "none" in data:
-        ref = data["none"]
-        for kind, _, _ in ARMS[1:]:
-            if kind in data:
-                verdicts[kind] = tost(data[kind][:, 2], ref[:, 2])
-        ax.axvline(ref[:, 2].mean(), color=ps.BASE, lw=0.7, ls=":", zorder=2)
-        ax.axvspan(ref[:, 2].mean() * 0.95, ref[:, 2].mean() * 1.05, color="#f2f1ec", zorder=0)
-        ax.text(ref[:, 2].mean(), 1.0, "  ±5%", transform=ax.get_xaxis_transform(),
-                fontsize=5.4, color=ps.MUTED, va="top", ha="left")
-    ax.set(xlabel="noise-free task loss", ylabel="active units")
-    ax.legend(loc="upper left", fontsize=5.9)
-
-    ps.ygrid(ax)
-    return verdicts
-
-
 def main():
-    """Assemble Figure 2 and write it. Returns the output path."""
+    """Assemble Figure 2, write it, and print the numbers the caption quotes. Returns the path."""
+    c = load()
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 150 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.92, 1.0], hspace=0.46, wspace=0.30)
+    fig = plt.figure(figsize=(ps.W2, 98 * ps.MM))
+    gs = GridSpec(2, 4, figure=fig, height_ratios=[0.72, 1.0], hspace=0.28, wspace=0.44)
 
-    ax_a = fig.add_subplot(gs[0, 0])
+    ax_a = fig.add_subplot(gs[0, :])
     panel_a(ax_a)
-    ps.panel_letter(ax_a, "a", dx=-0.015, dy=1.0)
+    ps.panel_letter(ax_a, "a", dx=-0.008, dy=0.98)
 
-    ax_b = fig.add_subplot(gs[0, 1])
-    info_b = panel_b(ax_b)
-    ps.panel_letter(ax_b, "b")
-
-    ax_c = fig.add_subplot(gs[1, 0])
-    finals = panel_c(ax_c)
-    ps.panel_letter(ax_c, "c")
-
-    ax_d = fig.add_subplot(gs[1, 1])
-    verdicts = panel_d(ax_d)
-    ps.panel_letter(ax_d, "d")
-
+    axes = {}
+    for j, (key, fn, letter) in enumerate((("b", panel_b, "b"), ("c", panel_c, "c"),
+                                           ("d", panel_d, "d"), ("e", panel_e, "e"))):
+        ax = fig.add_subplot(gs[1, j])
+        axes[letter] = (ax, fn(ax, c))
+        ps.panel_letter(ax, letter, dx=-0.30, dy=1.02)
 
     out = ps.save(fig, "fig_paper_F2")
 
-    print("\n--- numbers quoted in the caption ---")
-    for k, v in info_b.items():
-        print(f"  {k}: {v:.4g}")
-    for kind, c in finals.items():
-        if len(c):
-            print(f"  live at 150k, {kind:5}: {c.mean():.1f} ± {c.std(ddof=1):.1f} (n={len(c)})")
-    for kind, (p, d, lo, hi) in verdicts.items():
-        print(f"  loss {kind:5}: {d:+.2%} [{lo:+.2%}, {hi:+.2%}]  TOST p={p:.3g}")
+    # ---- the numbers the caption quotes -------------------------------------------------------
+    ref = {k: np.asarray(c[k][c["arm"] == "control"], float)
+           for k in ("n_active", "r2", "dims", "w_sigma_log")}
+    print("\n--- per arm: mean +- sd (n networks) ---")
+    print(f"{'arm':>12s} {'n':>2s} {'active':>14s} {'r2':>15s} {'r2 noise-free':>15s} "
+          f"{'dims (PR)':>13s} {'dims 95%':>10s} {'sd log|W|':>11s} {'log10 q99/q01':>13s}")
+    for kind, _, label, _ in ARMS:
+        m = c["arm"] == kind
+        g = {k: np.asarray(c[k][m], float) for k in
+             ("n_active", "r2", "r2_clean", "dims", "dims95", "w_sigma_log", "w_spread")}
+        print(f"{kind:>12s} {m.sum():2d} "
+              f"{g['n_active'].mean():7.1f} ±{g['n_active'].std(ddof=1):5.1f} "
+              f"{g['r2'].mean():8.4f} ±{g['r2'].std(ddof=1):5.4f} "
+              f"{g['r2_clean'].mean():8.3f} ±{g['r2_clean'].std(ddof=1):5.3f} "
+              f"{g['dims'].mean():6.2f} ±{g['dims'].std(ddof=1):5.2f} "
+              f"{g['dims95'].mean():6.1f}    "
+              f"{g['w_sigma_log'].mean():5.2f} ±{g['w_sigma_log'].std(ddof=1):4.2f} "
+              f"{g['w_spread'].mean():10.2f}")
+    print("  r2 is recomputed WITH the network's own noise, which is the quantity stored at training")
+    print("  time and what panel (c) draws. The noise-free column is lower and far more variable for")
+    print("  every arm, control included - the noise-free trajectory is not one these networks take.")
+
+    print("\n--- against the control ---")
+    for kind, _, label, _ in ARMS[1:]:
+        m = c["arm"] == kind
+        da = np.asarray(c["n_active"][m], float)
+        dq = np.asarray(c["r2"][m], float)
+        dd = np.asarray(c["dims"][m], float)
+        _, pa = welch(da, ref["n_active"])
+        _, pq = welch(dq, ref["r2"])
+        _, pdi = welch(dd, ref["dims"])
+        p_eq, diff, lo, hi = tost(dq, ref["r2"])
+        print(f"  {kind:>10s}: active {da.mean() - ref['n_active'].mean():+7.1f} (Welch p={pa:.3g})   "
+              f"dims {dd.mean() - ref['dims'].mean():+5.2f} (p={pdi:.3g})   "
+              f"r2 {diff:+.2%} [{lo:+.2%}, {hi:+.2%}] (Welch p={pq:.3g}, TOST p={p_eq:.3g})")
+
+    print("\n--- rescale, per setting (pooled in the figure) ---")
+    rm = c["arm"] == "rescale"
+    for cell in sorted(set(c["cell"][rm])):
+        s = rm & (c["cell"] == cell)
+        print(f"  {cell:>34s} n={s.sum()}  active {np.asarray(c['n_active'][s], float).mean():5.1f}"
+              f"  r2 {np.asarray(c['r2'][s], float).mean():.4f}"
+              f"  dims {np.asarray(c['dims'][s], float).mean():5.2f}")
+
+    print("\n--- weight magnitudes ---")
+    for kind, info in axes["e"][1].items():
+        print(f"  {kind:>10s}: median |W| = 10^{info['median']:+.2f}, sd of log|W| "
+              f"= {info['sigma_log']:.2f}")
     return out
 
 

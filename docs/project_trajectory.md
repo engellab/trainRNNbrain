@@ -13047,3 +13047,49 @@ This is what makes the rescaling work worth keeping in the paper as a negative c
 dropping: it is not a failed attempt at the same goal, it is a family of interventions that moves
 the population the WRONG WAY on the measure that matters, and it says why -- homeostasis equalises,
 and equalised units are redundant units.
+
+## 2026-09-30 — Figure 2 rebuilt: three interventions, four measures, one matched comparison
+
+![Figure 2](../img/internal_figures/fig_paper_F2.svg)
+
+Figure 2 was dropout alone — a schematic of `mute`, a characterisation of the dropout sampler, the
+150k training curve and a cost panel. It is now the three loss-free interventions side by side,
+each asked the same four questions, with the control drawn beside them: how many units stay active,
+whether the task is still solved, how many directions the population uses, and whether the weight
+distribution still looks like the one biology has.
+
+Everything is matched: gamma = 0, N = 1000, 3-bit flip-flop, 40,000 iterations, lr 1e-3, weight
+decay 1e-6, sigma_rec = sigma_inp = 0.05, batch 1024. Every network was rebuilt from its own saved
+config and rescored; all 21 reproduced the r2 stored at training time to within 0.03, which is the
+gate. The duplication cell at gamma = 0.1 (`ff_revive_g01_fix`) is left out on purpose — gamma is
+cubic saturation in the dynamics, so it changes the base network — which is why duplication here is
+`copy_perturb/cn=0`, the corrected construction at gamma = 0, rather than the larger g01 sweep.
+
+| arm | n | active units | held-out r2 | dimensions used | PCs to 95% | sd of log\|W_rec\| |
+|---|---|---|---|---|---|---|
+| no intervention | 3 | 278 ± 26 | 0.9451 ± 0.0020 | 5.54 ± 0.26 | 12 | 1.52 |
+| dropout: mute | 3 | 509 ± 41 | 0.9282 ± 0.0041 | 7.01 ± 0.57 | 25 | 1.59 |
+| prune + duplicate | 3 | **707 ± 30** | 0.9409 ± 0.0014 | **7.83 ± 0.45** | 23 | 1.42 |
+| rescale (4 settings) | 12 | 252 ± 24 | 0.9405 ± 0.0037 | **4.06 ± 1.22** | 12 | 1.59 |
+
+**Duplication buys the most units for the least performance.** It adds 429 active units to the
+control's 278 (Welch p = 5.8e-05) for 0.45% of r2, against dropout's 231 units for 1.8%. Per
+percentage point of r2 given up, duplication returns 953 units and dropout 129 — seven
+times the yield. Both raise dimensionality; rescale lowers it, at no gain in active units
+(-26, p = 0.22), which repeats the 2026-09-27 result on the cell set the figure uses.
+
+**None of the three distorts the weight distribution.** The magnitudes of the recurrent weights
+span a 1,300- to 2,000-fold range in every arm, control included, and the median magnitude moves
+by at most a factor of 2 across the four arms (10^-2.37 under rescale to 10^-2.07 under
+duplication). The units are not being bought by manufacturing a weight distribution cortex does not
+have — which was the way duplication could most easily have cheated, since it multiplies whole rows.
+
+**One number points the other way and is not drawn.** Panel (c) shows r2 recomputed WITH the
+network's own noise, the quantity stored at training time. Scored noise-free instead, duplication
+falls to 0.793 ± 0.038 against the control's 0.887 ± 0.050, while dropout rises to 0.920 ± 0.020.
+The noise-free trajectory is not one these networks take, and the control's own noise-free score is
+both lower and more variable than its trained-condition score, so the trained condition is the
+honest read-out — but duplication's ranking depends on that choice and the caption has to say so.
+
+Built by `f2_remedies_cache.py` on Della (the sweeps are only there) into
+`data/fig_paper_F2_cache.npz`, drawn by `fig_paper_F2.py`.

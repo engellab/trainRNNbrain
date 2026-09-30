@@ -54,6 +54,14 @@ PAPER = "#fcfcfb"               # the surface the palette was validated against
 # generated hue; it gets a facet or folds into "other".
 SLOTS = ["#2a78d6", "#d94f2b", "#12916a", "#8b46d6", "#a67c00"]
 
+# Pruning and reinitialising a silent unit is ONE mechanism with two rules - duplicate a working
+# unit, or tilt the silent unit's own incoming weights - so the two rules share one hue in two tints
+# rather than taking two categorical slots, which there are not enough of. The hue is SLOTS[3],
+# freed when the `dead` dropout variant was dropped from the paper on 2026-09-21. The dark tint
+# was not passed through the slot validator (it is a tint, not a new slot); checked by hand at the
+# PAPER surface: contrast 9.4:1, and dE76 26.6 against SLOTS[3], well clear of the separation floor.
+RESCALE_TINT = "#5b2b8f"
+
 # Semantic assignment used across every manuscript figure, so one colour means one thing everywhere.
 COND_COL = {
     "baseline":  BASE,
@@ -61,6 +69,8 @@ COND_COL = {
     "dropout":   SLOTS[0],
     "mute":      SLOTS[0],
     "dead":      SLOTS[3],
+    "duplicate": SLOTS[3],
+    "rescale":   RESCALE_TINT,
     "frm":       SLOTS[1],
     "rws":       SLOTS[4],
     "both":      SLOTS[2],
