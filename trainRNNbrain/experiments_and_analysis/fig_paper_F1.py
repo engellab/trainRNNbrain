@@ -61,8 +61,10 @@ Output: img/internal_figures/fig_paper_F1.pdf (+ .svg; vector only - see paperst
 import argparse
 import csv
 import glob
+import json
 import os
 import pickle
+import re
 import sys
 
 import numpy as np
@@ -833,6 +835,161 @@ def panel_c(ax):
     return fits
 
 
+# (label, glob, colour, N) for the trajectory panels, one per task. Two sources of the clean
+# (dropout-off) loss are accepted, because the loss is the same quantity in both: metrics
+# ["loss_clean_train"] inside the participation trace, recorded every 10 iterations, and
+# TrainLosses.json for runs that predate that metric. The second is only used for a run with
+# dropout off and every penalty at zero, where the training-pass loss IS the clean loss; the
+# loader checks that against the run's own config rather than assuming it.
+TRAJ = [
+    ("3-bit flip-flop", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=500000",
+     ps.SLOTS[0], 1000),
+    ("CDDM", f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=200000", ps.SLOTS[1], 1000),
+    ("DMTS, 7$\\tau$ delay", f"{DATA_DIR}/DMTS_d7_pen/EqType=h_N=1000_pen=none", ps.SLOTS[2], 1000),
+]
+PLATEAU_TOL = 0.10        # "performance has plateaued" = clean loss within this of its final value
+PENALTY_KEYS = ("lambda_frm", "lambda_rws", "lambda_met", "lambda_orth")
+
+
+def clean_loss(run_dir, trace):
+    """The dropout-off training loss of one run, and the iterations it was sampled at.
+
+    Prefers metrics["loss_clean_train"] in the participation trace, which is recorded beside the
+    participation probes and is the clean loss by construction. Falls back to TrainLosses.json
+    ONLY when the run's own config shows dropout off and every penalty at zero, since the
+    training-pass loss is then the same quantity; otherwise it is not, and the run is skipped
+    rather than silently plotted against a different definition.
+
+    Args:
+        run_dir: path to one trained-network folder; trace: its loaded ParticipationTrace dict.
+    Returns:
+        (iterations, loss) arrays, or (None, None).
+    """
+    m = trace.get("metrics", {})
+    if "loss_clean_train" in m:
+        return np.asarray(trace["iters"], float), np.asarray(m["loss_clean_train"], float)
+    cfg = glob.glob(os.path.join(run_dir, "*config.yaml"))
+    jf = glob.glob(os.path.join(run_dir, "*TrainLosses.json"))
+    if not (cfg and jf):
+        return None, None
+    t = OmegaConf.load(cfg[0]).trainer
+    if bool(t.get("dropout")) or any(float(t.get(k, 0) or 0) for k in PENALTY_KEYS):
+        return None, None
+    L = np.asarray(json.load(open(jf[0])).get("train_losses", []), float)
+    return (np.arange(len(L), dtype=float), L) if len(L) else (None, None)
+
+
+def trajectory(run_dir):
+    """Silent-unit count and clean training loss over training, for one run.
+
+    Args:
+        run_dir: path to one trained-network folder.
+    Returns:
+        dict with the loss series, the silent-unit series, the network size, the final r2 from the
+        folder name, and the iteration at which the loss first comes within PLATEAU_TOL of its
+        final value; or None if the run carries no usable clean loss.
+    """
+    tp = glob.glob(os.path.join(run_dir, "*ParticipationTrace.pkl"))
+    if not tp:
+        return None
+    t = pickle.load(open(tp[0], "rb"))
+    it_L, L = clean_loss(run_dir, t)
+    if L is None or not len(L):
+        return None
+    P, it_P = np.asarray(t["participation"]), np.asarray(t["participation_iters"], float)
+    live = np.array([(p >= SILENT_REL * np.quantile(p, 0.95)).sum() for p in P], float)
+    m = re.match(r"(-?[0-9.]+)_", os.path.basename(run_dir))
+    return dict(it_loss=it_L, loss=L, it_act=it_P, silent=P.shape[1] - live, N=P.shape[1],
+                r2=float(m.group(1)) if m else float("nan"),
+                plateau=float(it_L[int(np.argmax(L <= L[-1] * (1.0 + PLATEAU_TOL)))]))
+
+
+def running_median(y, frac=0.12, w_max=401):
+    """Median over a sliding window whose width GROWS with the index, for display only.
+
+    A fixed window is wrong on a log x axis. The clean loss falls by most of its total inside the
+    first ~2,000 iterations, and a window 301 samples wide flattens exactly that part: normalised
+    by its own smoothed start, a 28-fold drop is drawn as a 5-fold one. A window proportional to
+    the index is narrow where the curve is steep and wide where it is only noisy, which is what a
+    log axis asks for.
+
+    The PLATEAU ITERATION is computed on the raw series, never on this.
+
+    Args:
+        y: 1-D array; frac: window half-width as a fraction of the index; w_max: cap in samples.
+    Returns: array of the same length.
+    """
+    n = len(y)
+    out = np.empty(n)
+    for i in range(n):
+        h = min(w_max // 2, int(frac * (i + 1)))
+        out[i] = np.median(y[max(0, i - h):min(n, i + h + 1)])
+    return out
+
+
+def panel_e(axes):
+    """Panel (e): every task trains to a good solution, and units keep going silent afterwards.
+
+    One sub-panel per task, each showing EVERY seed rather than a mean. Left axis, dark: the
+    dropout-off training loss, which is what "trained to a good level" has to be read off. Right
+    axis, in the task's colour from panel c: the number of silent units, which keeps climbing after
+    the loss has stopped moving. The vertical rule marks where the loss first comes within 10% of
+    its final value.
+
+    Args:
+        axes: a list of one Axes per entry of TRAJ.
+    Returns:
+        list of (task, N, plateau iteration, silent there, silent at end, mean final r2) rows.
+    """
+    rows, twins = [], []
+    for ax, (label, pat, col, _) in zip(axes, TRAJ):
+        runs = [trajectory(d) for d in sorted(glob.glob(os.path.join(pat, "*"))) if os.path.isdir(d)]
+        runs = [r for r in runs if r]
+        if not runs:
+            print(f"  !! {label}: no run carries a usable clean loss - sub-panel left empty")
+            continue
+        axr = ax.twinx()
+        for r in runs:
+            # the loss is drawn RELATIVE TO ITS OWN START so all three sub-panels share one axis.
+            # The three tasks finish 0.026, 0.022 and 1e-4, so on an absolute axis each sub-panel
+            # would need its own range and a left label that only one of them carries would be
+            # telling the reader something untrue about the other two.
+            # normalised by the RAW first loss, so the drawn drop is the true one; the growing
+            # window leaves the first samples essentially unsmoothed, so the curve still starts at 1
+            ax.plot(r["it_loss"][1:], (running_median(r["loss"]) / r["loss"][0])[1:], "-",
+                    lw=0.85, color=ps.INK, alpha=0.75, zorder=4)
+            axr.plot(r["it_act"][1:], r["silent"][1:], "-", lw=0.9, color=col, alpha=0.85, zorder=5)
+        plateau = float(np.mean([r["plateau"] for r in runs]))
+        s_plat = float(np.mean([r["silent"][np.argmin(np.abs(r["it_act"] - plateau))] for r in runs]))
+        s_end = float(np.mean([r["silent"][-1] for r in runs]))
+        r2 = float(np.mean([r["r2"] for r in runs]))
+        N = runs[0]["N"]
+        ax.axvline(plateau, color=ps.MUTED, lw=0.7, ls=(0, (3, 2)), zorder=2)
+
+        # x starts at 8, not 90: most of the loss drop happens inside the first hundred iterations
+        # and a panel that begins at 90 shows a curve already a third of the way down while its
+        # axis label says "relative to its start".
+        ax.set(xscale="log", yscale="log", xlabel="training iteration", ylim=(4e-4, 2.2),
+               xlim=(8, max(r["it_loss"][-1] for r in runs) * 1.6))
+        axr.set(ylim=(0, N * 1.04))
+        axr.spines[["top"]].set_visible(False)
+        ax.set_title(f"{label}\n$r^2 = {r2:.3f}$, $N = {N}$", fontsize=5.8, color=ps.INK, pad=3)
+        twins.append(axr)
+        rows.append((label, N, plateau, s_plat, s_end, r2))
+
+    # one axis title per row rather than three: across a row this narrow, repeated titles collide
+    # with the neighbouring sub-panel's tick labels
+    axes[0].set_ylabel("clean loss, relative to its start")
+    for ax in axes[1:]:
+        ax.tick_params(labelleft=False)
+    for axr in twins[:-1]:
+        axr.tick_params(labelright=False)
+    if twins:
+        twins[-1].set_ylabel("silent units", color=TRAJ[-1][2])
+        twins[-1].tick_params(axis="y", colors=TRAJ[-1][2])
+    return rows
+
+
 def csv_active(fname, **match):
     """Active-unit counts from an archived summary CSV, at CDDM N = 1000, eq = h.
 
@@ -1004,10 +1161,15 @@ def main():
     ps.setup()
     rates, _, p = example_network(refresh=args.refresh)
 
-    fig = plt.figure(figsize=(ps.W2, 176 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.74, 1.55],
-                  width_ratios=[1.30, 1.0], hspace=0.36, wspace=0.44)
+    # Panel e spans the full width in a row of its own. Stacked under panel b it had two log axes,
+    # three tasks and six curves inside a quarter-width cell, and the legend covered the data it
+    # was labelling; a trajectory reads along x, so width is what it needs and height is what it
+    # can give up.
+    fig = plt.figure(figsize=(ps.W2, 206 * ps.MM))
+    gs = GridSpec(3, 2, figure=fig, height_ratios=[0.74, 1.55, 0.60],
+                  width_ratios=[1.30, 1.0], hspace=0.44, wspace=0.44)
 
+    # panel a keeps the whole top-left cell; b and e split the top-right one
     gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=[1.32, 1.0],
                                    wspace=0.02)
     ax_net = fig.add_subplot(gs_a[0, 0])
@@ -1028,6 +1190,11 @@ def main():
     rows_d = panel_d(ax_d)
     ps.panel_letter(ax_d, "d", dx=-0.32)
 
+    gs_e = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[2, :], wspace=0.62)
+    axes_e = [fig.add_subplot(gs_e[0, i]) for i in range(3)]
+    rows_e = panel_e(axes_e)
+    ps.panel_letter(axes_e[0], "e", dx=-0.16)
+
     out = ps.save(fig, "fig_paper_F1")
 
     print("\n--- numbers quoted in the caption ---")
@@ -1043,6 +1210,10 @@ def main():
                 f"   [{n_sizes} sizes, {need / n_max:.1f}x beyond N = {n_max:,.0f} - "
                 f"do not quote alone]")
         print(f"  {task:18} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at N = {need:,.0f}{note}")
+    for task, N, plateau, s_plat, s_end, r2 in rows_e:
+        print(f"  panel e: {task:20} N={N}, final r2 {r2:.3f}; loss within {PLATEAU_TOL:.0%} of "
+              f"final at iter {plateau:,.0f} with {s_plat:.0f} silent, {s_end:.0f} at the end "
+              f"-> {s_end - s_plat:.0f} MORE units silenced after performance plateaued")
     for fam, label, d, se, n in rows_d:
         print(f"  {fam:30} {label:24} {d:+7.1f} +- {1.96 * se:5.1f} (n={n})")
     print("\n  TRIED but with no read-out that fits this axis (weights survive, traces do not):")

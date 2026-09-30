@@ -316,8 +316,12 @@ def save(fig, name, w_mm=180, h_mm=None):
         fig.set_size_inches(w_mm * MM, h_mm * MM)
     os.makedirs(IMG_DIR, exist_ok=True)
     out = os.path.join(IMG_DIR, f"{name}.pdf")
+    # transparent=True, not the PAPER surface: the palette is validated against PAPER (#fcfcfb) and
+    # the figures are drawn on it, but an exported panel carrying that fill reads as a grey block
+    # against the white of a LaTeX page or a slide. Transparent export lets the page supply the
+    # surface; #fcfcfb and #ffffff differ too little for any contrast check to notice.
     for path in (out, os.path.join(IMG_DIR, f"{name}.svg")):
-        fig.savefig(path, bbox_inches="tight", pad_inches=0.02)
+        fig.savefig(path, bbox_inches="tight", pad_inches=0.02, transparent=True)
     plt.close(fig)
     print(f"wrote {out} (+ .svg)")
     return out
