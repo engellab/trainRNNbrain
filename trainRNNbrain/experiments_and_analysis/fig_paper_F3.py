@@ -21,7 +21,7 @@ where the minimum sits decides whether a unit is paid to fire or paid to fall si
                                        in-degree and says nothing about rates at all.
 
   (e-h) WHAT EACH ONE DOES             four measures against network size, on CDDM, and
-  (i-l) ACROSS SIZE AND DIFFICULTY     against task difficulty on the n-bit flip-flop. Four,
+  (i-l) ON TWO TASKS, ACROSS SIZE      the same four on the 3-bit flip-flop. Four,
                                        because a remedy that fixes the count and wrecks the rest
                                        has not fixed anything:
                                          active units    does the population come back
@@ -106,9 +106,12 @@ MEASURES = [
 # already uses in section 6. Every arm here sits below it.
 CORTEX_SIGMA = 1.0
 
-FLIPFLOP_K = 3                  # the k plotted in the size row; the difficulty row sweeps k
-SIZE_ROW_N = (500, 1000, 2000, 5000)
-DIFF_ROW_N = 1000
+# Both rows are the same four measures against network size, one task each. The flip-flop is
+# taken at k = 3, the bit count used everywhere else in the paper, and its sizes stop at 2000
+# because that is where its penalised cells stop.
+FLIPFLOP_K = 3
+CDDM_N = (500, 1000, 2000, 5000)
+FLIPFLOP_N = (500, 1000, 2000)
 
 # A network that never learned its task has population statistics, and they mean nothing: its
 # active units are not solving anything, so averaging them into a cell misreports what the penalty
@@ -360,7 +363,12 @@ def measure_row(axes, d, dm, task, xfield, xvals, fixed, xlabel, logx):
                     fontsize=5.2, color=ps.MUTED, va="bottom")
         ax.set(xlabel=xlabel, ylabel=ylab)
         if logx:
+            # ticks at the sizes actually trained, written out: matplotlib's log locator labels
+            # this range 4x10^2, 6x10^2, 10^3, 2x10^3, which is four ways of writing three numbers
             ax.set_xscale("log")
+            ax.set_xticks(list(xvals))
+            ax.set_xticklabels([f"{v:,}" for v in xvals])
+            ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
         if logy:
             ax.set_yscale("log")
         ps.ygrid(ax)
@@ -389,7 +397,7 @@ def main():
 
     gs_b = GridSpecFromSubplotSpec(1, 4, subplot_spec=gs[1], wspace=0.46)
     axes_b = [fig.add_subplot(gs_b[0, i]) for i in range(4)]
-    rows_n = measure_row(axes_b, d, dm, "CDDM", "N", SIZE_ROW_N, {},
+    rows_n = measure_row(axes_b, d, dm, "CDDM", "N", CDDM_N, {},
                          "network size $N$", True)
     for ax, letter in zip(axes_b, "efgh"):
         ps.panel_letter(ax, letter, dx=-0.30)
@@ -397,13 +405,12 @@ def main():
 
     gs_c = GridSpecFromSubplotSpec(1, 4, subplot_spec=gs[2], wspace=0.46)
     axes_c = [fig.add_subplot(gs_c[0, i]) for i in range(4)]
-    rows_k = measure_row(axes_c, d, dm, "flip-flop", "k", list(range(1, 9)),
-                         dict(N=DIFF_ROW_N),
-                         "flip-flop bits $k$", False)
+    rows_k = measure_row(axes_c, d, dm, "flip-flop", "N", FLIPFLOP_N, dict(k=FLIPFLOP_K),
+                         "network size $N$", True)
     for ax, letter in zip(axes_c, "ijkl"):
         ps.panel_letter(ax, letter, dx=-0.30)
-    axes_c[0].set_title(f"$k$-bit flip-flop, $N={DIFF_ROW_N:,}$", fontsize=6.2, color=ps.INK,
-                        pad=3, loc="left")
+    axes_c[0].set_title(f"{FLIPFLOP_K}-bit flip-flop, three sizes", fontsize=6.2,
+                        color=ps.INK, pad=3, loc="left")
 
     # the arm key goes between the rows rather than inside a data panel: every panel carries all
     # four arms, and in the active-units panel the frm arm sits exactly where a legend would
@@ -416,7 +423,8 @@ def main():
 
     print("\n--- frm target cap ---")
     print(f"  N=1000: {cap1k:.4f}   N=5000: {cap5k:.4f}  (falls as 1/log N)")
-    for tag, rows in (("CDDM vs N", rows_n), (f"flip-flop vs k at N={DIFF_ROW_N}", rows_k)):
+    for tag, rows in (("CDDM vs N", rows_n),
+                      (f"{FLIPFLOP_K}-bit flip-flop vs N", rows_k)):
         print(f"\n--- {tag} ---")
         for key, arm, x, mean, sd, n in rows:
             print(f"  {key:12s} {arm:5s} x={x:6g}  {mean:9.3f} +- {sd:7.3f}  n={n}")
