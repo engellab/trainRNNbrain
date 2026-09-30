@@ -13121,3 +13121,146 @@ Built by `f2_remedies_cache.py` on Della (the sweeps are only there) into
 `data/fig_paper_F2_cache.npz`, drawn by `fig_paper_F2.py`. `check_labels_clear` asserts that no
 label in the figure overlaps another label or any drawn datum, testing the ink of each curve rather
 than its bounding box.
+
+## 2026-09-30 11:25 — synaptic noise, a maturity-target ladder, and dropout across sizes
+
+Three things that were not in this document. Synaptic noise is a new intervention and has no entry
+at all. The maturity-target ladder **overturns the conclusion of the 2026-09-27 entry** that
+rescaling cannot add dimensions. The dropout size series was submitted on 2026-09-20, the sampler
+bug on 2026-09-21 forced a full re-run, and no result entry ever followed the re-run.
+
+Everything below is the 3-bit flip-flop at N = 1000 unless a size is named, gamma = 0, 40,000
+iterations, no penalties, lr 1e-3, weight decay 1e-6, sigma_rec = sigma_inp = 0.05. Every network
+was rebuilt from its own saved config and rescored; cells whose recomputed r2 misses the stored one
+by 0.03 are dropped and said so. The untreated control is 277 ± 26 active units, 5.5 dimensions,
+r2 0.945.
+
+### 1. Synaptic noise: a connectivity that never repeats
+
+`model.sigma_w` multiplies W_rec and W_inp by (1 + sigma_w * eps) with a **fresh eps at every
+timestep**, so the network never runs the same connectivity twice. Default 0, which a test pins as
+bit-for-bit the historical forward pass.
+
+This is not sigma_rec by another name, and the distinction is the reason to try it. State noise adds
+a current every unit receives whatever its weights are, so a unit whose incoming row has decayed to
+nothing gets the full kick and still cannot use it — which is why removing recurrent noise entirely
+costs 340 units (Fig. 1d) while adding more does almost nothing. Synaptic noise scales with the
+weights: a disconnected unit feels nothing (measured state sd 0.00e+00 at sigma_w = 0.5, against
+3.71e-01 under sigma_rec = 0.5). What it does reach is a unit sitting just under threshold, which
+crosses on some steps and not others — and on those steps its incoming and outgoing weights have a
+gradient that is not exactly zero, which is the absorbing state this whole project is about.
+
+![synaptic noise](../img/internal_figures/fig_synaptic_noise.png)
+
+| sigma_w | active units | dimensions | clean r2 | \|W\| fold range |
+|---|---|---|---|---|
+| control | 277 | 5.52 | 0.8945 | 1,643x |
+| 0.1 | 369 | 5.69 | — | 1,815x |
+| 0.3 | 370 | 5.66 | — | 1,944x |
+| **1.0** | **543** | **6.76** | **0.9269** | **1,145x** |
+| 2.0 | BROKEN | BROKEN | 0.7839 | 1,232x |
+| 3.0 | BROKEN | BROKEN | 0.6548 | 1,207x |
+
+**At sigma_w = 1 it doubles the active population and adds directions, and it does not cost
+performance at all.** 543 units against 277, 6.76 dimensions against 5.52. The r2 comparison has to
+be made on the NOISE-FREE pass, and that is not a technicality: the stored score is a single noisy
+forward pass, so at high sigma_w it is a lottery, and comparing stored scores across noise levels
+compares different noise regimes. Measured cleanly, sigma_w = 1 scores **0.927 against the control's
+0.894** — the control loses 5 points when its training noise is removed and the sigma_w network does
+not move at all (0.9277 noisy, 0.9269 clean). It is the more robust of the two.
+
+**The useful range stops between 1 and 2.** sigma_w 2.0 and 3.0 score 0.784 and 0.655 clean, 11 and
+24 points below the control, so they are BROKEN and their unit counts are not interpreted.
+
+**It costs nothing to run.** These jobs took 2h52m–3h04m against 3h23m for the same cell without it.
+
+**It transfers down in size and gets stronger.** At N = 500: 374 active against a control's 221
+(+69%) and 7.17 dimensions against 5.15 (+39%), a larger effect than at N = 1000. N = 2000 and
+N = 4000 are running; N = 4000 may not fit, since autograd holds one N x N tensor per timestep —
+19.2 GB at N = 4000 over T = 300.
+
+### 2. The maturity-target ladder, and what it overturns
+
+The rescale rule releases a dormant unit once its activity reaches `rescale_target_frac` times the
+firing-rate penalty's cap (0.200 at N = 1000). **The 2026-09-27 entry concluded that rescaling
+reaches dropout's unit count while the population spans the directions it already had, and the
+2026-09-30 Figure 2 entry put its dimensionality gain at 0.63, not resolvable from zero. Both were
+measured at targets at or below 2.5. They are wrong as general statements about the rule.**
+
+![target ladder](../img/internal_figures/fig_target_ladder.png)
+
+| target | active units | dimensions | r2 |
+|---|---|---|---|
+| untreated | 278 | 5.59 | 0.945 |
+| 2.5 | 396 | 3.39 | — |
+| 4.0 | 437 | 3.36 | — |
+| 6.0 | 466 | 5.93 | 0.932 |
+| 8.0 | 455 | 6.37 | 0.935 |
+| **10.0** | 453 | **7.32** | 0.932 |
+| 14.0 | 438 | 7.01 | 0.931 |
+| 20.0 | 438 | 6.52 | 0.934 |
+| 30.0 | 420 | 6.26 | 0.933 |
+
+There is a sharp transition between 4 and 6, a peak at 10, and a slow decline above it. At target 10
+the rule gives 453 units at 7.32 dimensions — a gain of 1.7 dimensions over the control, where the
+old cells gave 0.63. The reason the earlier entries missed it is that every target they tested was
+below the transition.
+
+**Releasing a unit early is what breaks it, and the mechanism was already measured.** At target 2.5
+the units the rule LOSES end with an excitation/inhibition ratio of 0.17–0.52 against the control's
+0.79–1.14: they revive, protection lifts, and the gradient puts them straight back. A higher target
+releases them further from that edge.
+
+**Two things it is not.** It does not win by intervening less — the event count is 20.4–22.3 million
+at targets 2.5, 4.0 and 6.0 alike, and every target touches all 1000 units at some point. And the
+ceiling at 10 is not the boost budget running out: if it were, the collapse would return at the top
+of the ladder, and instead the decline is gentle and r2 never moves.
+
+### 3. The weight distribution separates them, and it is where rescale fails
+
+This is the check that decides which of these can go in the paper, and it was run before any of the
+above was written up.
+
+| arm | sd of log\|W_rec\| | skewness | \|W\| fold range |
+|---|---|---|---|
+| control | 1.52 | −0.44 | 1,643x |
+| duplication | 1.43 | −0.52 | 1,388x |
+| mute dropout | 1.59 | −0.21 | 1,992x |
+| **synaptic noise, sigma_w 1.0** | **1.40** | −0.51 | **1,145x** |
+| rescale, target 6 | 3.06 | −2.83 | 34,000,000x |
+| rescale, target 10 | 3.48 | −2.31 | 91,000,000x |
+| rescale, target 30 | 3.67 | −3.33 | 25,000,000,000x |
+
+**Synaptic noise is indistinguishable from the control**, as are duplication and mute dropout: all
+four span roughly 1,000–2,000-fold, which is the lognormal shape cortex has over about two orders of
+magnitude (Song et al. 2005; Lefort et al. 2009).
+
+**Every rescale target destroys it, and the damage grows with the target.** The 2026-09-30 entry
+found this for the cell then available and the target ladder confirms it across the whole range: at
+target 10, the configuration with the best dimensionality, the recurrent weights span 91 million-fold.
+So the dimensionality gain in section 2 is real and it is bought with a distribution no network
+biology could hold. **The 2026-09-27 verdict on the rescale family was right for the wrong reason:
+the rule does add dimensions, and it should still not go in the paper as a mechanism.**
+
+### 4. Dropout across sizes, never reported
+
+Matched controls at gamma = 0 are 211, 275, 451 and 622 active units at N = 500, 1000, 2000 and 4000.
+
+| arm | N=500 | N=1000 | N=2000 | N=4000 |
+|---|---|---|---|---|
+| mute | 398 (1.89x) | 524 (1.91x) | 720 (1.60x) | 1087 (1.75x) |
+| dead | 498 (2.36x) | 904 (3.29x) | 1370 (3.04x) | 1897 (3.05x) |
+| mute r2 | 0.928 | 0.928 | 0.931 | 0.931 |
+| dead r2 | 0.779 | 0.828 | 0.818 | 0.817 |
+
+**Both hold across a four-fold size range**, which matters because the problem worsens with size:
+the active fraction falls from 41% at N = 500 to 13% at N = 4000. `mute` recruits about 1.8x at a
+constant 1.7-point r2 cost; `dead` recruits about 3x and costs 13–17 points, and that cost does not
+shrink with size.
+
+### What is running
+
+Size series for both working interventions (rescale target 10 at N = 500 and 2000; synaptic noise at
+N = 4000), synaptic noise on CDDM at 100k, the DMTS fourth size at N = 4000 on 210,000 iterations,
+and the remaining paper-grid cells.
+
