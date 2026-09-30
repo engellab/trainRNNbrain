@@ -13149,3 +13149,70 @@ Built by `f2_remedies_cache.py` on Della into `data/fig_paper_F2_cache.npz`, dra
 `fig_paper_F2.py`. `check_labels_clear` asserts that no label overlaps another label or any drawn
 datum, testing the ink of each curve rather than its bounding box; it caught three collisions the
 moment the sixth arm went in.
+
+## 2026-09-30 16:40 — synaptic noise transfers; rescale does not; and the controls need noise to work
+
+The 11:25 entry reported both interventions at N = 1000 on the flip-flop only, and said so. The
+transfer tests have landed, and they separate the two. **Every r2 below is the CLEAN (noise-free)
+score**, which is the only one comparable across arms — the stored score is a single noisy forward
+pass and includes the synaptic noise, so across noise levels it compares different regimes.
+
+![size transfer](../img/internal_figures/fig_size_transfer.png)
+
+| N | control active | + synaptic noise | ratio | control dims | + noise | control clean r2 | + noise |
+|---|---|---|---|---|---|---|---|
+| 500 | 220 | 375 | 1.70x | 5.24 | 7.14 | 0.771 | **0.907** |
+| 1000 | 277 | 545 | 1.97x | 5.59 | 6.73 | 0.895 | **0.928** |
+| 2000 | 457 | 600 | 1.31x | 4.32 | 6.33 | 0.864 | **0.926** |
+
+**Synaptic noise recruits at every size, adds dimensions at every size, and beats the control on
+clean r2 at every size.** The recruitment ratio falls with N (1.70, 1.97, 1.31) and the dimension
+gain does not (+1.9, +1.1, +2.0).
+
+**The r2 column is the surprise and it is not a detail.** An untreated network scores 0.946 noisy
+and 0.895 clean at N = 1000 — it is 5 points worse when its training noise is removed, and 8 points
+worse at N = 2000. A sigma_w = 1 network does not move at all (0.9277 noisy, 0.9282 clean). The
+control has learned to use the noise it trains with; the synaptic-noise network has learned to work
+without it. So the 1.7-point "cost" the 11:25 entry reported was an artifact of scoring two networks
+under their own training noise, and read cleanly the intervention is **free or better at every size
+tested**.
+
+**It transfers across TASK as well.** CDDM at N = 1000, 100,000 iterations: 400 active units against
+the control's 259 (1.54x) and 2.28 dimensions against 1.96. The clean r2 goes the other way here —
+0.928 against the control's 0.972 — so on CDDM it does cost something. Both CDDM cells are thin: the
+r2 gate rejected two of three control seeds and one of three treated, leaving n = 1 and n = 2, so
+this is a direction, not a measurement.
+
+**Rescale does not transfer down.** At target 10, N = 500: 330 active against 220 (1.50x), but
+dimensions FALL to 4.37 from the control's 5.23 and clean r2 falls to 0.713 from 0.769. At N = 1000
+the same setting gives 7.20 dimensions against 5.51. So the dimensionality gain that made target 10
+worth reporting is a property of N = 1000, not of the rule. Its participation spread at N = 500 is
+9,023 against the control's 125,437 — a 14-fold compression, worse than anything at N = 1000.
+
+![target ladder](../img/internal_figures/fig_target_ladder.png)
+![synaptic noise](../img/internal_figures/fig_synaptic_noise.png)
+
+The target ladder is now at n = 4 throughout and the peak holds: 5.86, 6.45, **7.25**, 6.99, 6.17,
+6.62 dimensions at targets 6, 8, 10, 14, 20, 30.
+
+**Where this leaves the two.** Synaptic noise recruits 1.3-2.0x across a four-fold size range and on
+a second task, adds dimensions everywhere, keeps the weight distribution inside the control's range
+(1,145x against 1,643x), and costs nothing on the only performance measure that compares arms
+fairly. Rescale recruits, works at one size, compresses the participation distribution 3-14x, and
+spans 91 million-fold in |W| at its best target. **One of these belongs in the paper.**
+
+### Two failures worth recording
+
+**The N = 4000 synaptic-noise cells OOMed, and the launcher's own memory warning did not prevent
+it.** The header predicted the wall correctly — autograd holds one N x N tensor per timestep, 19.2
+GB at N = 4000 over T = 300 — and then asked for it with `--mem-per-gpu=80G`, which is HOST memory.
+The card was still a 40 GB A100 and two of three tasks died in 17 seconds. Della tags its 80 GB
+nodes with a `gpu80` feature; the third task landed on one by chance and ran. Resubmitted with
+`--constraint=gpu80`. Predicting a failure mode is not the same as guarding against it.
+
+**The cluster sync ran at 0.3 MB/s for nearly four hours.** macOS ships `openrsync` (protocol 29)
+as `/usr/bin/rsync`, and it moved about 1 GB of a 112 GB backlog in 3h43m while plain `scp` of a
+100 MB file ran at 12.4 MB/s on the same link. Installing GNU rsync 3.5.1 took it to 15.3 MB/s, a
+50-fold difference. It also silently rejects `--info=progress2`, which killed an earlier attempt in
+seconds — reported at the time as a running sync that was not running.
+
