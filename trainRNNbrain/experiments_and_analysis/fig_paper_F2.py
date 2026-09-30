@@ -170,6 +170,12 @@ def _units(ax, x, y, states, col):
 def panel_a(ax):
     """Panel (a): the three rules, each drawn on the same three-unit picture.
 
+    Every sub-schematic has the same anatomy, so a reader can set the three against each other: the
+    rule's name, the operation written above the arrow that performs it, a label under each unit the
+    rule touches saying what that unit is, and one line at the bottom giving the consequence. The
+    rows sit at the same heights in all three, and everything a rule draws below the units - the
+    read-out under `mute`, the inhibitory arc under `rescale` - is kept above the label row.
+
     Args:
         ax: a blank axes spanning the figure's top row.
     Returns:
@@ -177,55 +183,70 @@ def panel_a(ax):
     """
     ps.blank(ax)
     ax.set(xlim=(0, 3.18), ylim=(0, 1))
-    y = 0.66                                    # the row of units
-    cap_y = 0.17                                # the one-line explanation under each rule
+    y = 0.68                                                  # the row of units
+    y_title, y_op, y_unit, y_foot = 1.00, 0.885, 0.30, 0.13
     for i, (kind, _, title, col) in enumerate(ARMS[1:]):
         x0 = i * 1.06
-        ux = [x0 + 0.22, x0 + 0.50, x0 + 0.78]
-        ax.text(x0 + 0.50, 0.99, title, ha="center", va="top", fontsize=6.8,
+        left, mid, right = x0 + 0.18, x0 + 0.50, x0 + 0.82
+        ax.text(x0 + 0.50, y_title, title, ha="center", va="top", fontsize=7.2,
                 color=col, fontweight="bold")
 
         if kind == "mute":
-            # the BUSY unit is the one sampled; its read-out weight is cut, its recurrent edges stay
-            _units(ax, ux, y, ["live", "live", "silent"], col)
-            ry = 0.30
-            ps.box(ax, x0 + 0.50 - 0.15, ry, 0.30, 0.095, "read-out", col=ps.MUTED,
-                   face="#f2f1ec", lw=0.6, fs=5.4)
-            for j, xi in enumerate(ux):
+            # the unit the sampler picks is an ACTIVE one, and only its read-out weight is cut
+            _units(ax, [left, mid, right], y, ["live", "live", "silent"], col)
+            ry = 0.40
+            ps.box(ax, x0 + 0.50 - 0.15, ry, 0.30, 0.085, "read-out", col=ps.MUTED,
+                   face="#f2f1ec", lw=0.6, fs=5.6)
+            for j, xi in enumerate((left, mid, right)):
                 cut = (j == 0)
-                ps.arrow(ax, (xi, y - 0.06), (x0 + 0.50 + (j - 1) * 0.085, ry + 0.095),
+                ps.arrow(ax, (xi, y - 0.055), (x0 + 0.50 + (j - 1) * 0.085, ry + 0.085),
                          col=ps.BAD if cut else ps.MUTED, lw=0.75, ls=":" if cut else "-")
                 if cut:
-                    mx, my = (xi + x0 + 0.50 - 0.085) / 2, (y - 0.06 + ry + 0.095) / 2
+                    mx, my = (xi + x0 + 0.50 - 0.085) / 2, (y - 0.055 + ry + 0.085) / 2
                     for sgn in (1, -1):
-                        ax.plot([mx - 0.028, mx + 0.028], [my - sgn * 0.035, my + sgn * 0.035],
+                        ax.plot([mx - 0.026, mx + 0.026], [my - sgn * 0.028, my + sgn * 0.028],
                                 lw=1.0, color=ps.BAD, zorder=7)
-            ax.text(x0 + 0.50, cap_y, "the loss cannot see it;\nit still drives the others",
-                    ha="center", va="top", fontsize=5.4, color=ps.MUTED, linespacing=1.3)
+            ax.text(x0 + 0.50, y_op, "set its read-out weight to zero", ha="center", va="center",
+                    fontsize=5.8, color=col)
+            ax.text(left, y_unit, "sampled:\nan active unit", ha="center", va="top", fontsize=5.5,
+                    color=ps.MUTED, linespacing=1.3)
+            ax.text(x0 + 0.50, y_foot, "the loss can no longer see this unit,\n"
+                    "but it still drives the others", ha="center", va="top", fontsize=5.6,
+                    color=ps.INK, linespacing=1.35)
 
         elif kind == "duplicate":
             # the silent unit is deleted and rebuilt as a copy of the live donor on the left
-            _units(ax, ux, y, ["live", "live", "new"], col)
-            ps.arrow(ax, (ux[0], y), (ux[2], y), col=col, rad=-0.42, lw=0.85, shrink=7.0,
+            _units(ax, [left, mid, right], y, ["live", "live", "new"], col)
+            ps.arrow(ax, (left, y), (right, y), col=col, rad=-0.26, lw=0.9, shrink=7.0,
                      mutation_scale=6)
-            ax.text((ux[0] + ux[2]) / 2, y + 0.17, "copy the incoming row", ha="center",
-                    va="bottom", fontsize=5.4, color=col)
-            ax.text(ux[0], y - 0.10, "donor:\noutgoing $\\times\\,1/2$", ha="center",
-                    va="top", fontsize=5.2, color=ps.MUTED, linespacing=1.25)
-            ax.text(x0 + 0.50, cap_y, "the output is unchanged at\nthe moment of surgery",
-                    ha="center", va="top", fontsize=5.4, color=ps.MUTED, linespacing=1.3)
+            ax.text(x0 + 0.50, y_op, "copy the donor's incoming connections",
+                    ha="center", va="center", fontsize=5.8, color=col)
+            ax.text(left, y_unit, "donor:\nan active unit", ha="center", va="top", fontsize=5.5,
+                    color=ps.MUTED, linespacing=1.3)
+            ax.text(right, y_unit, "pruned silent unit,\nrebuilt as the copy", ha="center",
+                    va="top", fontsize=5.5, color=ps.MUTED, linespacing=1.3)
+            ax.text(x0 + 0.50, y_foot, "divide the donor's outgoing connections by 2,\n"
+                    "and the network's output does not change", ha="center", va="top",
+                    fontsize=5.6, color=ps.INK, linespacing=1.35)
 
         else:
-            # the silent unit keeps its wiring; its incoming weights are tilted toward excitation
-            _units(ax, ux, y, ["live", "live", "silent"], col)
-            for src, lbl, c, rad, dy in ((0, "excitatory $\\times\\,\\alpha$", col, -0.42, 0.17),
-                                         (1, "inhibitory $\\div\\,\\alpha$", ps.MUTED, 0.42, -0.17)):
-                ps.arrow(ax, (ux[src], y), (ux[2], y), col=c, lw=0.85, rad=rad, shrink=7.0,
-                         mutation_scale=6)
-                ax.text((ux[src] + ux[2]) / 2, y + dy, lbl, ha="center",
-                        va="bottom" if dy > 0 else "top", fontsize=5.4, color=c)
-            ax.text(x0 + 0.50, cap_y, "the same synapses, its drive\ntilted at a fixed row norm",
-                    ha="center", va="top", fontsize=5.4, color=ps.MUTED, linespacing=1.3)
+            # the silent unit keeps every synapse it has; only their balance changes. The label goes
+            # under `right`, which is the silent one - under `left` it named a unit the rule does
+            # not touch.
+            _units(ax, [left, mid, right], y, ["live", "live", "silent"], col)
+            ps.arrow(ax, (left, y), (right, y), col=col, lw=0.9, rad=-0.26, shrink=7.0,
+                     mutation_scale=6)
+            ps.arrow(ax, (mid, y), (right, y), col=ps.MUTED, lw=0.9, rad=0.55, shrink=7.0,
+                     mutation_scale=6)
+            ax.text(x0 + 0.50, y_op, r"excitatory inputs $\times\,\alpha$", ha="center",
+                    va="center", fontsize=5.8, color=col)
+            ax.text(x0 + 0.60, 0.545, r"inhibitory inputs $\div\,\alpha$", ha="center",
+                    va="top", fontsize=5.8, color=ps.MUTED)
+            ax.text(right, y_unit, "silent unit,\nkept in place", ha="center", va="top",
+                    fontsize=5.5, color=ps.MUTED, linespacing=1.3)
+            ax.text(x0 + 0.50, y_foot, "no new wiring: more excitation and less\n"
+                    "inhibition, at the same total synaptic weight", ha="center", va="top",
+                    fontsize=5.6, color=ps.INK, linespacing=1.35)
 
 
 def _cat_axes(ax, ylabel):
@@ -331,37 +352,49 @@ def panel_e(ax, c):
 
 
 def check_labels_clear(fig):
-    """Raise if any label inside a quantitative panel touches a drawn datum.
+    """Raise if any label overlaps another label, or a drawn datum, anywhere in the figure.
 
-    Hand-placed annotations drift onto the data as soon as the data move: an offset that clears a
-    three-seed arm lands on a twelve-seed one, and a density curve that gains a shoulder walks under
-    a corner annotation. This ran and failed on four labels before the offsets below were changed to
-    anchor on the data, so it is a test that has caught something rather than a formality.
+    Two separate failures, because both have happened here. Labels drift onto DATA as soon as the
+    data move: an offset that clears a three-seed arm lands on a twelve-seed one, and a density
+    curve that gains a shoulder walks under a corner annotation. Labels also collide with EACH
+    OTHER, which is how the schematic's rule names ended up sitting on the lines describing them.
 
-    Panel (a) is exempt: it is a schematic whose text is meant to sit against the glyphs it names.
+    Label-against-label is checked in every panel, the schematic included. Label-against-data is
+    checked only where "data" means a measurement: the schematic's arrows and unit glyphs are drawn
+    to be annotated, so text is meant to sit against them.
 
     Args:
         fig: the drawn figure. Its canvas is drawn here, so call it before saving.
     Returns:
         the number of labels checked.
     Raises:
-        AssertionError naming every label that overlaps, with the panel it is in.
+        AssertionError naming every colliding pair and every label on top of data.
     """
     fig.canvas.draw()
     r = fig.canvas.get_renderer()
     bad, checked = [], 0
     for ax in fig.axes:
-        if not ax.get_ylabel():                       # the schematic panel has no y label
-            continue
-        data = [a.get_window_extent(r) for a in list(ax.lines) + list(ax.collections)]
-        labels = [(t.get_text().replace("\n", " "), t.get_window_extent(r)) for t in ax.texts]
+        where = ax.get_ylabel() or "schematic"
+        labels = [(t.get_text().replace("\n", " "), t.get_window_extent(r))
+                  for t in ax.texts if t.get_text().strip()]
+        if ax.get_title():
+            labels.append((ax.get_title().replace("\n", " "), ax.title.get_window_extent(r)))
         if ax.get_legend() is not None:
             labels.append(("<legend>", ax.get_legend().get_window_extent(r)))
+        checked += len(labels)
+
+        for i, (ta, ba) in enumerate(labels):
+            for tb, bb in labels[i + 1:]:
+                if ba.overlaps(bb):
+                    bad.append(f"{where}: {ta!r} overlaps {tb!r}")
+
+        if where == "schematic":
+            continue
+        data = [a.get_window_extent(r) for a in list(ax.lines) + list(ax.collections)]
         for text, box in labels:
-            checked += 1
             if any(box.overlaps(d) for d in data):
-                bad.append(f"{ax.get_ylabel()}: {text!r}")
-    assert not bad, "labels overlapping data in Figure 2:\n  " + "\n  ".join(bad)
+                bad.append(f"{where}: {text!r} sits on the data")
+    assert not bad, "Figure 2 label collisions:\n  " + "\n  ".join(bad)
     return checked
 
 
@@ -369,8 +402,8 @@ def main():
     """Assemble Figure 2, write it, and print the numbers the caption quotes. Returns the path."""
     c = load()
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 98 * ps.MM))
-    gs = GridSpec(2, 4, figure=fig, height_ratios=[0.72, 1.0], hspace=0.28, wspace=0.44)
+    fig = plt.figure(figsize=(ps.W2, 112 * ps.MM))
+    gs = GridSpec(2, 4, figure=fig, height_ratios=[0.95, 1.0], hspace=0.30, wspace=0.44)
 
     ax_a = fig.add_subplot(gs[0, :])
     panel_a(ax_a)
