@@ -13048,48 +13048,76 @@ dropping: it is not a failed attempt at the same goal, it is a family of interve
 the population the WRONG WAY on the measure that matters, and it says why -- homeostasis equalises,
 and equalised units are redundant units.
 
+
 ## 2026-09-30 — Figure 2 rebuilt: three interventions, four measures, one matched comparison
 
 ![Figure 2](../img/internal_figures/fig_paper_F2.svg)
 
 Figure 2 was dropout alone — a schematic of `mute`, a characterisation of the dropout sampler, the
 150k training curve and a cost panel. It is now the three loss-free interventions side by side,
-each asked the same four questions, with the control drawn beside them: how many units stay active,
+each asked the same four questions, with the control beside them: how many units stay active,
 whether the task is still solved, how many directions the population uses, and whether the weight
 distribution still looks like the one biology has.
 
 Everything is matched: gamma = 0, N = 1000, 3-bit flip-flop, 40,000 iterations, lr 1e-3, weight
 decay 1e-6, sigma_rec = sigma_inp = 0.05, batch 1024. Every network was rebuilt from its own saved
-config and rescored; all 21 reproduced the r2 stored at training time to within 0.03, which is the
-gate. The duplication cell at gamma = 0.1 (`ff_revive_g01_fix`) is left out on purpose — gamma is
-cubic saturation in the dynamics, so it changes the base network — which is why duplication here is
-`copy_perturb/cn=0`, the corrected construction at gamma = 0, rather than the larger g01 sweep.
+config and rescored; the 46 that reproduced their stored r2 to within 0.03 are kept. The duplication
+cell at gamma = 0.1 (`ff_revive_g01_fix`) is left out on purpose — gamma is cubic saturation in the
+dynamics, so it changes the base network — which is why duplication here is `copy_perturb/cn=0`, the
+corrected construction at gamma = 0.
 
-| arm | n | active units | held-out r2 | dimensions used | PCs to 95% | sd of log\|W_rec\| |
-|---|---|---|---|---|---|---|
-| no intervention | 3 | 278 ± 26 | 0.9451 ± 0.0020 | 5.54 ± 0.26 | 12 | 1.52 |
-| dropout: mute | 3 | 509 ± 41 | 0.9282 ± 0.0041 | 7.01 ± 0.57 | 25 | 1.59 |
-| prune + duplicate | 3 | **707 ± 30** | 0.9409 ± 0.0014 | **7.83 ± 0.45** | 23 | 1.42 |
-| rescale (4 settings) | 12 | 252 ± 24 | 0.9405 ± 0.0037 | **4.06 ± 1.22** | 12 | 1.59 |
+| arm | n | active units | held-out r2 | dimensions used | PCs to 95% | sd of log\|W_rec\| | magnitude range |
+|---|---|---|---|---|---|---|---|
+| no intervention | 3 | 277 ± 26 | 0.9449 ± 0.0016 | 5.48 ± 0.27 | 12 | 1.52 | 1,700-fold |
+| dropout: mute | 3 | 511 ± 41 | 0.9291 ± 0.0061 | 7.03 ± 0.21 | 25 | 1.59 | 2,000-fold |
+| prune + duplicate | 3 | **704 ± 32** | 0.9440 ± 0.0023 | **8.30 ± 1.26** | 23 | 1.42 | 1,300-fold |
+| rescale, best cell | 3 | 516 ± 36 | 0.9266 ± 0.0175 | 6.11 ± 1.41 | 18 | **4.36** | **5 billion-fold** |
 
-**Duplication buys the most units for the least performance.** It adds 429 active units to the
-control's 278 (Welch p = 5.8e-05) for 0.45% of r2, against dropout's 231 units for 1.8%. Per
-percentage point of r2 given up, duplication returns 953 units and dropout 129 — seven
-times the yield. Both raise dimensionality; rescale lowers it, at no gain in active units
-(-26, p = 0.22), which repeats the 2026-09-27 result on the cell set the figure uses.
+**Duplication is the only one that is close to free.** It adds 427 active units to the control's 277
+(Welch p = 8e-05) at an r2 cost of 0.10%, whose 95% interval runs from -0.60% to +0.40% and which is
+equivalent to the control within 5% (TOST p = 1.3e-05). Dropout adds 234 units for 1.67%, rescale
+239 for 1.94%.
 
-**None of the three distorts the weight distribution.** The magnitudes of the recurrent weights
-span a 1,300- to 2,000-fold range in every arm, control included, and the median magnitude moves
-by at most a factor of 2 across the four arms (10^-2.37 under rescale to 10^-2.07 under
-duplication). The units are not being bought by manufacturing a weight distribution cortex does not
-have — which was the way duplication could most easily have cheated, since it multiplies whole rows.
+**Dropout and duplication add directions; rescale does not.** Dimensionality rises 1.55 under
+dropout (p = 0.002) and 2.82 under duplication (p = 0.055) against the control's 5.48. Under rescale
+it rises 0.63 and the test does not resolve it from zero (p = 0.52) — so rescale reaches dropout's
+unit count while the population spans the directions it already had. The units it recruits are
+redundant, which is what the 2026-09-27 synaptic-scaling entry predicted for the homeostatic family.
+
+**Rescale pays for its units in the weight distribution, and it is the only one that does.** The
+magnitudes of the recurrent weights span about 1,700-fold in the control, 2,000-fold under dropout
+and 1,300-fold under duplication — one lognormal-looking distribution, three times over. Under
+rescale they span 5 billion-fold, with the sd of log|W| at 4.36 against the control's 1.52. The rule
+holds each row's L2 norm fixed, so the total synaptic weight per unit is preserved; what it does is
+multiply the excitatory entries and divide the inhibitory ones, episode after episode under a cap,
+until the within-row spread runs away. Cortical synaptic strengths are lognormal over roughly two
+orders of magnitude (Song et al. 2005; Lefort et al. 2009). A nine-order-of-magnitude range is not
+a network biology could hold, so rescale's units are bought with an artifact.
+
+**Two mistakes this entry corrects, both mine, both caught by Pavel.** The first version of this
+figure drew `rescale` from `rescale_revive`, the rule's earliest alpha-only form, which has no
+activity target and recruits nothing (236-260 units, below the control). The rule was developed over
+five sweeps and its later cells recruit 397-517; quoting the first form reported the rule at its
+weakest. The figure now draws one cell chosen by a rule fixed before the cells were scored — most
+active units among those whose r2 is within 5% of the control's — and prints all thirteen matched
+cells beneath itself. That bar is doing work: one cell reaches 988 active units at r2 0.62, and is
+excluded.
+
+The second mistake followed from the first. With only the weak rescale cells measured, the weight
+histogram ran from 10^-8 to 10^0.5 and the panel was written up as a null result: no intervention
+distorts the distribution. On the cells that recruit, that range silently dropped up to 4.2% of the
+weights off its right edge — the tail the panel exists to show. The cache now runs 10^-12 to 10^4
+and asserts per network that less than 0.01% falls outside it.
 
 **One number points the other way and is not drawn.** Panel (c) shows r2 recomputed WITH the
 network's own noise, the quantity stored at training time. Scored noise-free instead, duplication
-falls to 0.793 ± 0.038 against the control's 0.887 ± 0.050, while dropout rises to 0.920 ± 0.020.
-The noise-free trajectory is not one these networks take, and the control's own noise-free score is
-both lower and more variable than its trained-condition score, so the trained condition is the
-honest read-out — but duplication's ranking depends on that choice and the caption has to say so.
+falls to 0.820 ± 0.043 and rescale to 0.794 ± 0.040 against the control's 0.899 ± 0.037, while
+dropout rises to 0.929 ± 0.008. The noise-free trajectory is not one these networks take, and the
+control's own noise-free score is both lower and more variable than its trained-condition score, so
+the trained condition is the read-out — but duplication's ranking depends on that choice and the
+caption has to say so.
 
 Built by `f2_remedies_cache.py` on Della (the sweeps are only there) into
-`data/fig_paper_F2_cache.npz`, drawn by `fig_paper_F2.py`.
+`data/fig_paper_F2_cache.npz`, drawn by `fig_paper_F2.py`. `check_labels_clear` asserts that no
+label in the figure overlaps another label or any drawn datum, testing the ink of each curve rather
+than its bounding box.

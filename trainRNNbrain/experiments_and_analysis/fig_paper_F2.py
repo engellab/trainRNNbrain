@@ -37,7 +37,9 @@ population use, and does the weight distribution still look like the one biology
                                     magnitude (Song et al. 2005; Lefort et al. 2009), so an
                                     intervention that recruits units by manufacturing a weight
                                     distribution biology does not produce has bought them with an
-                                    artifact. This panel is the check that none of the three does.
+                                    artifact. This is the panel that catches one: dropout and
+                                    duplication leave the range where the control has it, and
+                                    rescale does not.
 
 MATCHED, AND WHY THAT COST A CELL. Every arm is gamma = 0, N = 1000, 3-bit flip-flop, 40,000
 iterations, lr 1e-3, weight decay 1e-6, sigma_rec = sigma_inp = 0.05, batch 1024 - the intervention
@@ -46,9 +48,13 @@ gamma is cubic saturation in the dynamics, so it changes the base network and a 
 comparison is not like for like. Duplication here is the corrected construction of 2026-09-24; the
 cells carrying the earlier detuned self-weight are excluded (see f2_remedies_cache.py).
 
-RESCALE IS FOUR SETTINGS POOLED into one arm (row normalisation on and off, alpha 1.0005 and
-1.002), which is why its n is 12 and its spread is wider than the others'. None of the four recruits
-anything, so pooling hides nothing - the per-setting means are printed below the figure.
+RESCALE IS SHOWN AT ITS BEST CONFIGURATION, NOT ITS FIRST. The rule was developed over five sweeps
+-- an alpha-only form, then a fixed activity target that holds a boosted unit until it fires, then a
+refractory tail after it graduates -- and the early alpha-only form recruits nothing at all. Quoting
+that form as "rescale" would report the rule at its weakest, and pooling the grid would average the
+developed rule with it. The cell drawn is picked by `select_rescale_cell`, on a rule fixed before
+the cells were scored: most active units among the cells whose r2 is within 5% of the control's.
+Every matched cell is printed under the figure, the drawn one marked.
 
 WHAT REPLACED WHAT. The previous Figure 2 was dropout alone: a mute schematic, a characterisation of
 the dropout sampler, the 150k training curve and a cost panel. The sampler panel documented a
@@ -111,6 +117,47 @@ def by_arm(c, key):
         list of 1-D float arrays, one per arm.
     """
     return [np.asarray(c[key][c["arm"] == a], float) for a, _, _, _ in ARMS]
+
+
+def select_rescale_cell(c, margin_frac=0.05):
+    """Which of the matched rescale cells the figure draws, by a rule fixed before the numbers.
+
+    The rescale rule was developed over five sweeps: an alpha-only form, then a fixed activity
+    target, then a refractory tail after a unit graduates. Its cells therefore range from "does
+    nothing" to whatever the rule can do, and pooling them, or quoting the earliest, reports the rule
+    at its weakest. Dropout and duplication are each shown at one configuration, so rescale is too.
+
+    THE RULE, fixed before these cells were scored: take the cell with the highest mean active-unit
+    count among those whose mean r2 is within `margin_frac` of the control's - the same equivalence
+    margin the cost read-out uses. Recruiting units by destroying the task is not recruiting.
+
+    Args:
+        c: the full cache dict; margin_frac: how far below the control's r2 a cell may sit.
+    Returns:
+        the chosen cell string, or None if the cache holds no rescale cell.
+    """
+    ref = np.mean(c["r2"][c["arm"] == "control"].astype(float))
+    best, best_active = None, -1.0
+    for cell in sorted(set(c["cell"][c["arm"] == "rescale"])):
+        m = (c["arm"] == "rescale") & (c["cell"] == cell)
+        if np.mean(c["r2"][m].astype(float)) < ref * (1 - margin_frac):
+            continue
+        active = float(np.mean(c["n_active"][m].astype(float)))
+        if active > best_active:
+            best, best_active = cell, active
+    return best
+
+
+def keep_rescale_cell(c, cell):
+    """Drop every rescale network that is not from `cell`, leaving the other arms untouched.
+
+    Args:
+        c: the full cache dict; cell: the rescale cell to keep.
+    Returns:
+        a new dict of the same keys, with the rescale rows filtered. 'log_bins' is passed through.
+    """
+    keep = (c["arm"] != "rescale") | (c["cell"] == cell)
+    return {k: (v if k == "log_bins" else v[keep]) for k, v in c.items()}
 
 
 def tost(a, b, margin_frac=0.05):
@@ -288,16 +335,19 @@ def panel_b(ax, c):
 def panel_c(ax, c):
     """Panel (c): held-out r2 per network. Returns per-arm (mean, sd, n)."""
     xs = _cat_axes(ax, "held-out $r^2$")
-    res = ps.strip(ax, xs, by_arm(c, "r2"), [col for _, _, _, col in ARMS],
-                   rng=np.random.default_rng(4))
+    groups = by_arm(c, "r2")
+    res = ps.strip(ax, xs, groups, [col for _, _, _, col in ARMS], rng=np.random.default_rng(4))
     ref = res[0][0]
     ax.axhline(ref, color=ps.BASE, lw=0.7, ls=":", zorder=1)
     # No +-5% equivalence band is drawn: the margin is 0.047 of r2 and the largest cost here is
     # 0.017, so the band would fill the panel and say nothing. The TOST verdicts are printed below.
-    ax.set_ylim(0.918, 0.952)
+    # The delta row sits in a band cleared BELOW the lowest seed drawn, not at a fixed ylim: which
+    # rescale cell is drawn changes the floor of this panel by more than the band is tall.
+    lo = min(g.min() for g in groups)
+    ax.set_ylim(lo - 0.011, max(0.952, max(g.max() for g in groups) + 0.003))
     for x, (m, sd, n) in zip(xs[1:], res[1:]):
-        ax.text(x, 0.0, f"{(m - ref) / ref:+.1%}", ha="center", va="bottom", fontsize=5.6,
-                color=ps.MUTED, transform=ax.get_xaxis_transform())
+        ax.text(x, lo - 0.0085, f"{(m - ref) / ref:+.1%}", ha="center", va="center", fontsize=5.6,
+                color=ps.MUTED)
     return res
 
 
@@ -310,6 +360,21 @@ def panel_d(ax, c):
     return res
 
 
+def _fold(log10_range):
+    """A log10 range written as a fold-range a reader can picture, rounded, never in exponent form.
+
+    Args:
+        log10_range: the log10 of a ratio, e.g. 3.22 for a 1,660-fold range.
+    Returns:
+        a string such as "2,000-fold" or "5 billion-fold".
+    """
+    v = 10.0 ** log10_range
+    for cut, name in ((1e9, "billion"), (1e6, "million"), (1e3, "thousand")):
+        if v >= cut:
+            return f"{v / cut:.0f} {name}-fold"
+    return f"{v:,.0f}-fold"
+
+
 def panel_e(ax, c):
     """Panel (e): the distribution of recurrent-weight magnitudes, one curve per arm.
 
@@ -319,44 +384,81 @@ def panel_e(ax, c):
     Args:
         ax: axes; c: the cache dict.
     Returns:
-        dict with the per-arm median magnitude and the sd of log|W|.
+        dict with the per-arm median magnitude, the sd of log|W| and the log10 q99/q01 range.
     """
     edges = np.asarray(c["log_bins"], float)
     mid = 0.5 * (edges[1:] + edges[:-1])
-    out = {}
+    out, lo_x, hi_x = {}, [], []
     for kind, short, _, col in ARMS:
         h = np.asarray(c["w_hist"][c["arm"] == kind], float)
         if not len(h):
             continue
         d = (h / h.sum(axis=1, keepdims=True)).mean(axis=0)
-        ax.plot(mid, d / (mid[1] - mid[0]), lw=1.1, color=col, zorder=4,
+        dens = d / (mid[1] - mid[0])
+        ax.plot(mid, np.where(dens > 0, dens, np.nan), lw=1.1, color=col, zorder=4,
                 label=short)
         cdf = np.cumsum(d)
+        # the arms differ by orders of magnitude in spread, so the window is taken from the data:
+        # a fixed one either clips the widest arm or squeezes the others into a spike
+        lo_x.append(mid[np.searchsorted(cdf, 0.01)])
+        hi_x.append(mid[np.searchsorted(cdf, 0.99)])
         out[kind] = dict(median=float(mid[np.searchsorted(cdf, 0.5)]),
-                         sigma_log=float(np.mean(c["w_sigma_log"][c["arm"] == kind])))
-    ax.set(xlim=(-5.2, -0.2), xlabel="recurrent weight\n$\\log_{10}|W_{ij}|$", ylabel="density")
-    # Headroom above the peak so the legend and the panel's one-line result sit clear of the curves
-    # rather than on top of them; the legend repeats the x tick labels of (b)-(d), not longer names.
-    ax.set_ylim(0, ax.get_ylim()[1] * 1.34)
-    ax.legend(loc="upper left", fontsize=5.6, handlelength=1.0, borderpad=0.1,
-              borderaxespad=0.2)
-    # The four curves nearly coincide, and that is the panel's result, so it is said in words rather
-    # than left for the reader to infer from an overlap. It goes in the TITLE, outside the data
-    # area: there is no corner of this panel that stays empty as the curves move.
-    spread = np.array([np.mean(c["w_spread"][c["arm"] == k].astype(float)) for k, _, _, _ in ARMS])
-    lo, hi = (10 ** np.array([spread.min(), spread.max()])).round(-2)
-    ax.set_title(f"a {lo:,.0f}- to {hi:,.0f}-fold range\nin every arm", fontsize=5.6,
-                 color=ps.MUTED, linespacing=1.3, pad=3)
+                         sigma_log=float(np.mean(c["w_sigma_log"][c["arm"] == kind])),
+                         spread=float(np.mean(c["w_spread"][c["arm"] == kind])))
+    # LOG DENSITY, not linear. What separates the arms is the TAIL: rescale's bulk sits where every
+    # other arm's does and its range comes from weights driven far below the rest, so on a linear
+    # density the four curves are one peak and a 5-billion-fold range reads as a faint shoulder.
+    ax.set(xlim=(min(lo_x) - 0.3, max(hi_x) + 0.3), yscale="log", ylim=(2e-4, 6.0),
+           xlabel="recurrent weight\n$\\log_{10}|W_{ij}|$", ylabel="density")
+    ax.legend(loc="upper left", fontsize=5.6, handlelength=1.0, borderpad=0.1, borderaxespad=0.2)
+    # The panel's result, in the title so it cannot land on a curve. The magnitude RANGE is the
+    # statistic quoted rather than the sd, because a fold-range is a number a reader can picture.
+    others = max(out[k]["spread"] for k in out if k != "rescale")
+    ax.set_title(f"a {_fold(others)} range of magnitudes,\n"
+                 f"{_fold(out['rescale']['spread'])} under rescale",
+                 fontsize=5.6, color=ps.MUTED, linespacing=1.3, pad=3)
     ps.ygrid(ax)
     return out
 
 
-def check_labels_clear(fig):
-    """Raise if any label overlaps another label, or a drawn datum, anywhere in the figure.
+def _ink_points(artist, renderer, max_step=2.0):
+    """Every point of a drawn artist, in display coordinates, densified along its segments.
+
+    A bounding box is the wrong test for a curve. A density curve on a log axis has a box covering
+    the whole panel, so every in-panel label reads as a collision; a diagonal line has a box whose
+    corners it never visits, so a label in one corner reads as clear when it is. This returns the
+    ink itself, with long segments subdivided so a label cannot slip between two vertices.
+
+    Args:
+        artist: a Line2D or a collection with offsets; renderer: the active renderer;
+        max_step: longest gap left between consecutive returned points, in display units.
+    Returns:
+        (n, 2) array of display-space points, empty if the artist draws nothing.
+    """
+    if hasattr(artist, "get_xydata"):
+        pts = artist.get_transform().transform(np.asarray(artist.get_xydata(), float))
+    else:
+        off = np.asarray(artist.get_offsets(), float)
+        pts = artist.get_offset_transform().transform(off) if len(off) else np.empty((0, 2))
+    pts = pts[np.isfinite(pts).all(axis=1)]
+    if len(pts) < 2:
+        return pts
+    out = [pts[:1]]
+    for a, b in zip(pts[:-1], pts[1:]):
+        n = int(np.ceil(np.hypot(*(b - a)) / max_step))
+        if n > 1:
+            out.append(a + np.outer(np.linspace(0, 1, n + 1)[1:], b - a))
+        else:
+            out.append(b[None, :])
+    return np.vstack(out)
+
+
+def check_labels_clear(fig, pad=2.0):
+    """Raise if any label overlaps another label, or drawn data, anywhere in the figure.
 
     Two separate failures, because both have happened here. Labels drift onto DATA as soon as the
-    data move: an offset that clears a three-seed arm lands on a twelve-seed one, and a density
-    curve that gains a shoulder walks under a corner annotation. Labels also collide with EACH
+    data move: an offset that clears a three-seed arm lands on a twelve-seed one, and a rescale cell
+    with a lower r2 drops a point into the row of deltas beneath it. Labels also collide with EACH
     OTHER, which is how the schematic's rule names ended up sitting on the lines describing them.
 
     Label-against-label is checked in every panel, the schematic included. Label-against-data is
@@ -365,6 +467,7 @@ def check_labels_clear(fig):
 
     Args:
         fig: the drawn figure. Its canvas is drawn here, so call it before saving.
+        pad: display-unit margin added around each label, so a curve grazing a glyph counts.
     Returns:
         the number of labels checked.
     Raises:
@@ -390,9 +493,12 @@ def check_labels_clear(fig):
 
         if where == "schematic":
             continue
-        data = [a.get_window_extent(r) for a in list(ax.lines) + list(ax.collections)]
+        ink = [p for a in list(ax.lines) + list(ax.collections)
+               for p in (_ink_points(a, r),) if len(p)]
         for text, box in labels:
-            if any(box.overlaps(d) for d in data):
+            hit = any(((p[:, 0] > box.x0 - pad) & (p[:, 0] < box.x1 + pad) &
+                       (p[:, 1] > box.y0 - pad) & (p[:, 1] < box.y1 + pad)).any() for p in ink)
+            if hit:
                 bad.append(f"{where}: {text!r} sits on the data")
     assert not bad, "Figure 2 label collisions:\n  " + "\n  ".join(bad)
     return checked
@@ -400,7 +506,9 @@ def check_labels_clear(fig):
 
 def main():
     """Assemble Figure 2, write it, and print the numbers the caption quotes. Returns the path."""
-    c = load()
+    c_all = load()
+    rescale_cell = select_rescale_cell(c_all)
+    c = keep_rescale_cell(c_all, rescale_cell)
     ps.setup()
     fig = plt.figure(figsize=(ps.W2, 112 * ps.MM))
     gs = GridSpec(2, 4, figure=fig, height_ratios=[0.95, 1.0], hspace=0.30, wspace=0.44)
@@ -456,13 +564,19 @@ def main():
               f"dims {dd.mean() - ref['dims'].mean():+5.2f} (p={pdi:.3g})   "
               f"r2 {diff:+.2%} [{lo:+.2%}, {hi:+.2%}] (Welch p={pq:.3g}, TOST p={p_eq:.3g})")
 
-    print("\n--- rescale, per setting (pooled in the figure) ---")
-    rm = c["arm"] == "rescale"
-    for cell in sorted(set(c["cell"][rm])):
-        s = rm & (c["cell"] == cell)
-        print(f"  {cell:>34s} n={s.sum()}  active {np.asarray(c['n_active'][s], float).mean():5.1f}"
-              f"  r2 {np.asarray(c['r2'][s], float).mean():.4f}"
-              f"  dims {np.asarray(c['dims'][s], float).mean():5.2f}")
+    print(f"\n--- every matched rescale cell; the figure draws {rescale_cell} ---")
+    ref_r2 = np.mean(c_all["r2"][c_all["arm"] == "control"].astype(float))
+    rm = c_all["arm"] == "rescale"
+    rows = []
+    for cell in sorted(set(c_all["cell"][rm])):
+        s = rm & (c_all["cell"] == cell)
+        rows.append((float(np.mean(c_all["n_active"][s].astype(float))), cell, s))
+    for active, cell, s in sorted(rows, reverse=True):
+        r2 = float(np.mean(c_all["r2"][s].astype(float)))
+        print(f"  {'->' if cell == rescale_cell else '  '} {cell.split('/')[-1][:58]:60s} "
+              f"n={s.sum():2d}  active {active:5.1f}  r2 {r2:.4f}"
+              f"{'' if r2 >= ref_r2 * 0.95 else '  (fails the r2 bar)'}"
+              f"  dims {float(np.mean(c_all['dims'][s].astype(float))):5.2f}")
 
     print("\n--- weight magnitudes ---")
     for kind, info in axes["e"][1].items():

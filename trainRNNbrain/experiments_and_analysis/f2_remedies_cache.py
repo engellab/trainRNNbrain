@@ -61,10 +61,35 @@ TRIALS = 128                 # 300 timesteps x 128 trials = 38400 samples agains
                              # holds two 1000x76800 rate matrices at once and is OOM-killed.
 SILENT_REL = 0.05            # the scale-free silence rule used everywhere in this project
 ZERO_TOL = 1e-12
-LOG_BINS = np.linspace(-8.0, 0.5, 171)   # log10|W| bin edges, wide enough for every arm
+# log10|W| bin edges. The range has to cover the WIDEST arm, not the control: at [-8, 0.5] the
+# target-based rescale cells lost up to 4.2% of their weights off the right edge, which is the
+# tail that panel (e) exists to show. The lower edge matches ZERO_TOL, so nothing falls off the
+# left; the check below asserts the loss is negligible rather than trusting the range.
+LOG_BINS = np.linspace(-12.0, 4.0, 321)
 
-# (arm, label, cell path). The rescale grid is four settings; they are one arm in the figure and
-# four rows in the printed table, so the pooling can be checked rather than trusted.
+# (arm, label, cell path). Every rescale cell that is matched to the other arms is measured, not
+# just one: the rule was developed over five sweeps and its early alpha-only form recruits nothing,
+# so quoting that form as "rescale" reports the rule at its weakest. Which cell the FIGURE draws is
+# chosen in fig_paper_F2.py and the whole grid is printed beneath it.
+RESCALE_CELLS = [
+    # alpha only, no activity target: the first form of the rule (2026-09-25)
+    "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=t_a=1.0005",
+    "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=t_a=1.002",
+    "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=f_a=1.0005",
+    "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=f_a=1.002",
+    # a fixed activity target, so a boosted unit is held until it fires and then released
+    "NBitFlipFlop_rescale_states/EqType=h_k=3_N=1000_norm=t_a=1.002_tgt=0.2",
+    "NBitFlipFlop_rescale_states/EqType=h_k=3_N=1000_norm=t_a=1.002_tgt=0.5",
+    "NBitFlipFlop_rescale_active/EqType=h_k=3_N=1000_norm=t_a=1.002_tgt=2.5_act=true",
+    "NBitFlipFlop_rescale_active/EqType=h_k=3_N=1000_norm=f_a=1.002_tgt=2.5_act=true",
+    "NBitFlipFlop_revive_ops2/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.35",
+    "NBitFlipFlop_revive_ops2/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=4.0_step=0.0005_prot=0.20",
+    "NBitFlipFlop_revive_ops2/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=6.0_step=0.0005_prot=0.20",
+    # ... and released with a refractory tail rather than immediately
+    "NBitFlipFlop_revive_refr/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.20_refr=1000",
+    "NBitFlipFlop_revive_refr/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.20_refr=4000",
+]
+
 CELLS = [
     ("control", "no intervention",
      "NBitFlipFlop_ff_revive/EqType=h_k=3_N=1000_pen=none_arm=none"),
@@ -72,15 +97,7 @@ CELLS = [
      "NBitFlipFlop_dropout_sizes/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4"),
     ("duplicate", "prune + duplicate",
      "NBitFlipFlop_copy_perturb/EqType=h_k=3_N=1000_cn=0"),
-    ("rescale", "rescale",
-     "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=t_a=1.0005"),
-    ("rescale", "rescale",
-     "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=t_a=1.002"),
-    ("rescale", "rescale",
-     "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=f_a=1.0005"),
-    ("rescale", "rescale",
-     "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=f_a=1.002"),
-]
+] + [("rescale", "rescale", c) for c in RESCALE_CELLS]
 
 
 def participation_ratio(x):
@@ -148,7 +165,11 @@ def load_net(net_dir):
     d = {k: (v.item() if isinstance(v, np.ndarray) and v.dtype == object and v.shape == () else v)
          for k, v in raw.items()}
     m = cfg.model
-    rnn = RNN_torch(N=int(m.N), activation_args=dict(d["activation_args"]),
+    # activation_args comes from the CONFIG, not the npz. Different sweeps saved it differently -
+    # the cperturb runs stored the dict, the CDDM/flip-flop penalty runs stored only its KEYS as a
+    # string array, which dict() turns into a ValueError - and the config is the authoritative
+    # record either way.
+    rnn = RNN_torch(N=int(m.N), activation_args=OmegaConf.to_container(m.activation_args),
                     equation_type=str(m.equation_type), dale=bool(m.dale),
                     io_nonnegativity=bool(m.io_nonnegativity),
                     self_connections=bool(m.self_connections), bias_range=list(m.bias_range),
@@ -205,6 +226,10 @@ def analyse(net_dir):
     rows = weight_shape(W[live]) if live.sum() > 5 else None
     inp = weight_shape(np.asarray(d["W_inp"], dtype=np.float64))
 
+    if whole is not None:
+        outside = 1.0 - whole["hist"].sum() / whole["n_nonzero"]
+        assert outside < 1e-4, (f"{outside:.2%} of |W_rec| falls outside the histogram range "
+                               f"{LOG_BINS[0]:.0f}..{LOG_BINS[-1]:.0f}; widen LOG_BINS")
     out_d = dict(stored=stored, r2=r2_noisy, r2_clean=r2_clean, n_active=int(live.sum()),
                  dims=float("nan"), dims95=float("nan"),
                  w_inp_sigma=float("nan") if inp is None else inp["sigma_log"])
@@ -237,7 +262,7 @@ def main(out_path):
                   f"dims {r['dims']:6.2f}  sigma_log {r['w_sigma_log']:5.2f}", flush=True)
             if not gate:
                 continue
-            r.update(arm=arm, label=label, cell=pat.split("/")[-1])
+            r.update(arm=arm, label=label, cell="/".join(pat.split("/")[-2:]))
             recs.append(r)
             fields = fields or sorted(r)
     if not recs:
