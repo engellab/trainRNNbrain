@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Manuscript Figure 2 - FOUR WAYS TO KEEP UNITS ALIVE, measured on the same four axes.
+Manuscript Figure 2 - FIVE WAYS TO KEEP UNITS ALIVE, measured on the same four axes.
 
-Four interventions that need no change to the loss function, each asked the same four questions:
+Every intervention the paper offers, each asked the same four questions:
 does the network still solve the task, how many units end up active, how many directions does the
 population use, and does the weight distribution still look like the one biology has. Then, for the
 cheapest of them, whether any of it survives a change of network size.
 
-  (a) WHAT THE FOUR RULES DO        drawn as the same picture four times - a silent unit among live
+  (a) WHAT THE FIVE RULES DO        drawn as the same picture five times - a silent unit among live
                                     ones - so the difference between the rules is a cut edge, a
-                                    copied row, a tilted row and a redrawn matrix, not a paragraph.
+                                    copied row, a tilted row, a redrawn matrix and a changed loss,
+                                    not a paragraph. Four act on the network, one on the objective.
                                       dropout: mute      the sampled unit's READ-OUT weight is
                                                          zeroed, so it goes on driving its
                                                          neighbours but the task loss cannot see it.
@@ -31,9 +32,23 @@ cheapest of them, whether any of it survives a change of network size.
                                                          stay accurate while its own wiring
                                                          fluctuates. It is the one arm that changes
                                                          the dynamics rather than the update rule.
+                                      frm + rws          the only arm that changes the LOSS. A
+                                                         firing-rate penalty whose minimum sits at a
+                                                         non-zero target makes silence the most
+                                                         expensive state, and a weight-sparsity term
+                                                         caps a unit's inputs so the rate term
+                                                         cannot be paid off with transients. The
+                                                         PAIR is the arm: neither half is a remedy
+                                                         alone, which is why Figures 3-5 take them
+                                                         apart and this one carries them together.
   (b) ACTIVE UNITS                  the scale-free rule, every network drawn, out of 1000.
-  (c) HELD-OUT r2                   recomputed on a fresh batch, so it can be checked against the
-                                    value stored at training time.
+  (c) HELD-OUT r2                   in ONE condition for every arm: sigma_w = 0 with the recurrent
+                                    and input noise they all share, averaged over eight draws. Each
+                                    network's own trained condition is the wrong basis for a
+                                    comparison - only the synaptic-noise arm is then measured with
+                                    its wiring fluctuating, and its stored score is a single draw,
+                                    untrustworthy once sigma_w is large. The trained-condition and
+                                    fully noise-free values are printed beside it.
   (d) DIMENSIONS USED               participation ratio of the noise-free rate covariance over the
                                     active units: how many directions the population actually uses.
                                     The count of components carrying 95% of the variance is printed
@@ -48,11 +63,11 @@ cheapest of them, whether any of it survives a change of network size.
                                     bought them with an artifact. This is the panel that catches
                                     one: three arms leave the range where the control has it, and
                                     rescale does not.
-  (f), (g) DOES IT SURVIVE SIZE     dropout against the control at N = 500 to 4000, in active units
-                                    and in r2. The other three arms have no matched size series at
-                                    gamma = 0 yet, so this asks the question of dropout alone. The
-                                    diagonal in (f) is "every unit active", which is the thing the
-                                    gap is measured against.
+  (f), (g) DOES IT SURVIVE SIZE     every arm measured at more than one size, against the control,
+                                    in active units and in r2. Which arms those are depends on what
+                                    has finished training, so the panels fill in as the size series
+                                    land rather than being edited. The diagonal in (f) is "every
+                                    unit active", the thing the gap is measured against.
 
 MATCHED, AND WHY THAT COST A CELL. Every arm is gamma = 0, 3-bit flip-flop, 40,000 iterations,
 lr 1e-3, weight decay 1e-6, sigma_rec = sigma_inp = 0.05, batch 1024 - the intervention is the only
@@ -112,11 +127,23 @@ ARMS = [("control", "none", "no intervention", ps.BASE),
         ("mute", "dropout", "dropout: mute", ps.COND_COL["mute"]),
         ("duplicate", "duplicate", "prune + duplicate", ps.COND_COL["duplicate"]),
         ("rescale", "rescale", "rescale", ps.COND_COL["rescale"]),
-        ("synnoise", "syn. noise", "synaptic noise", ps.COND_COL["synnoise"])]
+        ("synnoise", "syn. noise", "synaptic noise", ps.COND_COL["synnoise"]),
+        ("both", "frm + rws", "penalty: frm + rws", ps.COND_COL["both"])]
 
 # The arms whose cache holds a hyperparameter grid rather than one setting, so the figure has to
 # choose. See `select_cell` for the rule, which is fixed before the cells are scored.
-GRID_ARMS = ("rescale", "synnoise")
+# EVERY intervention is a grid, not just two: dropout has a rate x beta sweep in `std_bernoulli`
+# that the first version of this figure never saw, duplication has a jitter sweep, rescale five
+# sweeps and synaptic noise a noise ladder. All four are therefore shown at the setting `select_cell`
+# picks, on one rule, and the full grid of each is printed beneath the figure.
+GRID_ARMS = ("mute", "duplicate", "rescale", "synnoise", "both")
+
+# THE READ-OUT. `r2` is each network scored in its OWN trained condition - the quantity stored at
+# training time, which the cache builder uses as its gate. It is the wrong thing to compare arms on:
+# only the synaptic-noise arm is then measured with its wiring fluctuating, and its stored score is
+# a single draw, untrustworthy once sigma_w is large. `r2_common` is every arm under ONE condition,
+# sigma_w = 0 with the recurrent and input noise they all share, averaged over eight draws.
+R2_KEY = "r2_common"
 
 
 def load(path=CACHE):
@@ -145,31 +172,66 @@ def by_arm(c, key):
     return [np.asarray(c[key][c["arm"] == a], float) for a, _, _, _ in ARMS]
 
 
-def select_cell(c, arm, margin_frac=0.05):
-    """Which cell of a grid arm the figure draws, by a rule fixed before the numbers.
+# THE OPERATING POINT OF EACH ARM, which is NOT chosen from these results. Every arm is a grid, so
+# one cell has to be drawn, and picking it by "most active units" is unsound twice over: active
+# units is one of the four measures the figure compares, so maximising it biases the other three,
+# and the grids are dense enough that the rule chases noise - it put duplication at copy_noise 3.0
+# over the paper's own cell on a 10-unit difference, and rescale at a cell that recruits 583 units
+# while the population collapses to 1.97 dimensions.
+#
+# Each arm is therefore drawn at the setting its SIZE SERIES was launched with. Those settings were
+# fixed by the size-series and paper-grid designs before this figure existed, independently of what
+# is measured here, and using them makes panels (b)-(e) and (f)-(g) the same networks rather than
+# two different choices of cell. `select_cell` survives as the fallback for an arm with no committed
+# operating point, and the full grid of every arm is printed beneath the figure either way.
+OPERATING_POINT = {
+    "mute": ("do=mute_rate=0.20_beta=4",),          # paper_grid / dropout_sizes
+    "duplicate": ("paper_grid/EqType=h_N=",),       # copy_noise 1.0, capped 0.025, maturity 1000
+    "rescale": ("tgt=10.0", "arm=rescale_tgt10"),   # target ladder's operating point
+    "synnoise": ("sw=1.0", "sw1.0"),                # the level the size series runs
+    "both": ("ff_both40k",),                        # the only matched frm+rws cell
+}
 
-    Two of the arms are grids rather than single settings. Rescale was developed over five sweeps -
-    an alpha-only form, then a fixed activity target, then a refractory tail after a unit graduates -
-    so its cells range from "does nothing" to whatever the rule can do. Synaptic noise is a sweep
-    over the noise level. Pooling either, or quoting its first cell, reports the rule at a strength
-    nobody chose; dropout and duplication are each shown at one setting, so these are too.
+
+def pick_cell(c, arm, margin_frac=0.05):
+    """The cell of a grid arm the figure draws: its operating point, or the fallback rule.
+
+    Args:
+        c: the cache dict restricted to one N; arm: the grid arm;
+        margin_frac: passed to the fallback rule.
+    Returns:
+        (cell string or None, "operating point" or "fallback rule" or None).
+    """
+    cells = sorted(set(c["cell"][c["arm"] == arm]))
+    for pat in OPERATING_POINT.get(arm, ()):
+        hits = [x for x in cells if pat in x]
+        if len(hits) == 1:
+            return hits[0], "operating point"
+        if len(hits) > 1:
+            raise SystemExit(f"{arm}: {len(hits)} cells match the operating point {pat!r}: {hits}")
+    got = select_cell(c, arm, margin_frac)
+    return got, (None if got is None else "fallback rule")
+
+
+def select_cell(c, arm, margin_frac=0.05):
+    """Fallback when an arm has no committed operating point: most active units, task intact.
 
     THE RULE, fixed before the cells were scored: take the cell with the highest mean active-unit
     count among those whose mean r2 is within `margin_frac` of the control's - the same equivalence
     margin the cost read-out uses. Recruiting units by destroying the task is not recruiting, and
-    the bar does real work: one rescale cell reaches 988 active units at r2 0.62 and is excluded.
+    the bar does real work: one rescale cell reaches 983 active units at r2 0.62 and is excluded.
 
     Args:
-        c: the cache dict restricted to one N; arm: the grid arm to choose within;
+        c: the cache dict restricted to one N; arm: the arm to choose within;
         margin_frac: how far below the control's r2 a cell may sit.
     Returns:
-        the chosen cell string, or None if the cache holds no cell for that arm.
+        the chosen cell string, or None if no cell qualifies.
     """
-    ref = np.mean(c["r2"][c["arm"] == "control"].astype(float))
+    ref = np.mean(c[R2_KEY][c["arm"] == "control"].astype(float))
     best, best_active = None, -1.0
     for cell in sorted(set(c["cell"][c["arm"] == arm])):
         m = (c["arm"] == arm) & (c["cell"] == cell)
-        if np.mean(c["r2"][m].astype(float)) < ref * (1 - margin_frac):
+        if np.mean(c[R2_KEY][m].astype(float)) < ref * (1 - margin_frac):
             continue
         active = float(np.mean(c["n_active"][m].astype(float)))
         if active > best_active:
@@ -270,8 +332,8 @@ def panel_a(ax):
     for i, (kind, _, title, col) in enumerate(ARMS[1:]):
         x0 = i * 1.06
         left, mid, right = x0 + 0.18, x0 + 0.50, x0 + 0.82
-        ax.text(x0 + 0.50, y_title, title, ha="center", va="top", fontsize=6.8,
-                color=col, fontweight="bold")
+        ax.text(x0 + 0.50, y_title, title, ha="center", va="top", fontsize=6.2,
+                color=col, fontweight="bold", linespacing=1.15)
 
         if kind == "mute":
             # the unit the sampler picks is an ACTIVE one, and only its read-out weight is cut
@@ -292,8 +354,8 @@ def panel_a(ax):
                     fontsize=5.6, color=col)
             ax.text(left, y_unit, "sampled:\nan active unit", ha="center", va="top", fontsize=5.3,
                     color=ps.MUTED, linespacing=1.3)
-            ax.text(x0 + 0.50, y_foot, "the loss cannot see it, but it\n"
-                    "still drives the other units", ha="center", va="top", fontsize=5.4,
+            ax.text(x0 + 0.50, y_foot, "the loss cannot see it,\n"
+                    "but it still drives the rest", ha="center", va="top", fontsize=5.4,
                     color=ps.INK, linespacing=1.35)
 
         elif kind == "duplicate":
@@ -307,9 +369,9 @@ def panel_a(ax):
                     color=ps.MUTED, linespacing=1.3)
             ax.text(right, y_unit, "pruned silent unit,\nrebuilt as the copy", ha="center",
                     va="top", fontsize=5.3, color=ps.MUTED, linespacing=1.3)
-            ax.text(x0 + 0.50, y_foot, "the donor's outgoing weights are\n"
-                    "halved, so the output is unchanged", ha="center", va="top",
-                    fontsize=5.4, color=ps.INK, linespacing=1.35)
+            ax.text(x0 + 0.50, y_foot, "the donor's outgoing weights\n"
+                    "halve, so the output holds", ha="center", va="top",
+                    fontsize=5.1, color=ps.INK, linespacing=1.35)
 
         elif kind == "rescale":
             # the silent unit keeps every synapse it has; only their balance changes. The label goes
@@ -327,8 +389,26 @@ def panel_a(ax):
             ax.text(right, y_unit, "silent unit,\nkept in place", ha="center", va="top",
                     fontsize=5.3, color=ps.MUTED, linespacing=1.3)
             ax.text(x0 + 0.50, y_foot, "no new wiring: more excitation,\n"
-                    "less inhibition, same row norm", ha="center", va="top",
-                    fontsize=5.4, color=ps.INK, linespacing=1.35)
+                    "less inhibition, same norm", ha="center", va="top",
+                    fontsize=5.1, color=ps.INK, linespacing=1.35)
+
+        elif kind == "both":
+            # the only arm that changes the LOSS. Nothing is done to any unit: silence simply stops
+            # being free, and the sparsity term stops the rate term being paid off with transients.
+            _units(ax, [left, mid, right], y, ["live", "live", "silent"], col)
+            ry = 0.40
+            ps.box(ax, x0 + 0.50 - 0.19, ry, 0.38, 0.085, "loss + penalty", col=col,
+                   face="#f2f1ec", lw=0.7, fs=5.4)
+            for xi in (left, mid, right):
+                ps.arrow(ax, (xi, y - 0.055), (x0 + 0.50 + (xi - mid) * 0.55, ry + 0.085),
+                         col=ps.MUTED, lw=0.75)
+            ax.text(x0 + 0.50, y_op, "make silence expensive", ha="center", va="center",
+                    fontsize=5.6, color=col)
+            ax.text(right, y_unit, "silent unit,\nnow costly", ha="center", va="top",
+                    fontsize=5.3, color=ps.MUTED, linespacing=1.3)
+            ax.text(x0 + 0.50, y_foot, "the loss changes, not the\n"
+                    "units; transients cannot pay", ha="center", va="top",
+                    fontsize=5.1, color=ps.INK, linespacing=1.35)
 
         else:
             # no unit is selected and no weight is rewritten: the whole matrix is redrawn around its
@@ -342,9 +422,9 @@ def panel_a(ax):
                     fontsize=5.6, color=col)
             ax.text(right, y_unit, "silent unit,\nnot targeted", ha="center", va="top",
                     fontsize=5.3, color=ps.MUTED, linespacing=1.3)
-            ax.text(x0 + 0.50, y_foot, "no rule acts on any unit: the\n"
-                    "dynamics are noisy, not the update", ha="center", va="top",
-                    fontsize=5.4, color=ps.INK, linespacing=1.35)
+            ax.text(x0 + 0.50, y_foot, "no unit is singled out; the\n"
+                    "dynamics are noisy, not the rule", ha="center", va="top",
+                    fontsize=5.1, color=ps.INK, linespacing=1.35)
 
 
 def _cat_axes(ax, ylabel):
@@ -388,7 +468,7 @@ def panel_b(ax, c):
 def panel_c(ax, c):
     """Panel (c): held-out r2 per network. Returns per-arm (mean, sd, n)."""
     xs = _cat_axes(ax, "held-out $r^2$")
-    groups = by_arm(c, "r2")
+    groups = by_arm(c, R2_KEY)
     res = ps.strip(ax, xs, groups, [col for _, _, _, col in ARMS], rng=np.random.default_rng(4))
     ref = res[0][0]
     ax.axhline(ref, color=ps.BASE, lw=0.7, ls=":", zorder=1)
@@ -402,7 +482,7 @@ def panel_c(ax, c):
     for x, (m, sd, n) in zip(xs[1:], res[1:]):
         if not n:
             continue
-        ax.text(x, lo - 0.0085, f"{(m - ref) / ref:+.1%}", ha="center", va="center", fontsize=4.9,
+        ax.text(x, lo - 0.0085, f"{(m - ref) / ref:+.1%}", ha="center", va="center", fontsize=4.3,
                 color=ps.MUTED)
     return res
 
@@ -464,9 +544,11 @@ def panel_e(ax, c):
     # LOG DENSITY, not linear. What separates the arms is the TAIL: rescale's bulk sits where every
     # other arm's does and its range comes from weights driven far below the rest, so on a linear
     # density the four curves are one peak and a 5-billion-fold range reads as a faint shoulder.
-    ax.set(xlim=(min(lo_x) - 0.3, max(hi_x) + 0.3), yscale="log", ylim=(2e-4, 6.0),
+    # the headroom above the peak has to hold a legend that grows with the number of arms
+    ax.set(xlim=(min(lo_x) - 0.3, max(hi_x) + 0.3), yscale="log", ylim=(2e-4, 40.0),
            xlabel="recurrent weight\n$\\log_{10}|W_{ij}|$", ylabel="density")
-    ax.legend(loc="upper left", fontsize=5.6, handlelength=1.0, borderpad=0.1, borderaxespad=0.2)
+    ax.legend(loc="upper left", fontsize=5.2, handlelength=0.9, borderpad=0.1,
+              borderaxespad=0.2, ncol=2, columnspacing=0.8, labelspacing=0.25)
     # The panel's result, in the title so it cannot land on a curve. The magnitude RANGE is the
     # statistic quoted rather than the sd, because a fold-range is a number a reader can picture.
     others = max(out[k]["spread"] for k in out if k != "rescale")
@@ -478,7 +560,11 @@ def panel_e(ax, c):
 
 
 def _size_series(c, arm, key):
-    """Per-size mean, sd and n of one field for one arm, over the sizes present in the cache.
+    """Per-size mean of one field for one arm, choosing a cell per size by the same rule.
+
+    An arm whose cache holds a grid needs one cell per SIZE, not one cell overall: the size series
+    trains its own cell at each N, and at N = 1000 there are a dozen to choose between. The rule is
+    the one `select_cell` applies, evaluated inside each size against that size's own control.
 
     Args:
         c: the full cache dict (every N); arm: the arm key; key: the field to pull.
@@ -487,75 +573,87 @@ def _size_series(c, arm, key):
     """
     sizes, mu, sd, ns = [], [], [], []
     for n_units in SIZES:
-        m = (c["arm"] == arm) & (c["N"].astype(int) == n_units)
-        if not m.any():
+        at_n = restrict(c, n_units=n_units)
+        if not (at_n["arm"] == arm).any() or not (at_n["arm"] == "control").any():
             continue
-        g = c[key][m].astype(float)
+        if arm in GRID_ARMS:
+            cell, _ = pick_cell(at_n, arm)
+            if cell is None:
+                continue
+            at_n = restrict(at_n, chosen={arm: cell})
+        g = at_n[key][at_n["arm"] == arm].astype(float)
+        if not len(g):
+            continue
         sizes.append(n_units)
         mu.append(g.mean())
         sd.append(g.std(ddof=1) if len(g) > 1 else 0.0)
-        ns.append(int(m.sum()))
+        ns.append(len(g))
     return np.array(sizes, float), np.array(mu), np.array(sd), np.array(ns)
 
 
+def _size_arms(c):
+    """The arms worth drawing in the size panels: those measured at more than one size.
+
+    Args:
+        c: the full cache dict.
+    Returns:
+        list of (arm, short label, colour) in ARMS order.
+    """
+    out = []
+    for arm, short, _, col in ARMS:
+        n_sizes = len({int(v) for v in c["N"][c["arm"] == arm]})
+        if n_sizes > 1:
+            out.append((arm, short, col))
+    return out
+
+
 def panel_f(ax, c):
-    """Panel (f): active units against network size, dropout against the control.
+    """Panel (f): active units against network size, every arm measured at more than one size.
 
     Args:
         ax: axes; c: the FULL cache dict, every size.
     Returns:
-        dict of per-size (control mean, dropout mean, ratio).
+        dict {N: {arm: (mean, n)}}.
     """
     out = {}
     ns_all = np.array(SIZES, float)
     ax.plot(ns_all, ns_all, lw=0.7, ls=":", color=ps.FAINT, zorder=1)
     ax.annotate("every unit active", (ns_all[-1], ns_all[-1]), textcoords="offset points",
                 xytext=(-2, 3), ha="right", va="bottom", fontsize=5.2, color=ps.MUTED)
-    for arm, short, _, col in ARMS:
-        if arm not in ("control", "mute"):
-            continue
+    for arm, short, col in _size_arms(c):
         sizes, mu, sd, ns = _size_series(c, arm, "n_active")
         if not len(sizes):
             continue
-        for n_units in sizes:
-            m = (c["arm"] == arm) & (c["N"].astype(int) == int(n_units))
-            ax.plot(np.full(m.sum(), n_units), c["n_active"][m].astype(float), "o", ms=2.2,
-                    color=col, alpha=0.55, mec="none", zorder=3)
-        ax.plot(sizes, mu, "-o", lw=1.1, ms=3.2, color=col, mec="white", mew=0.5, zorder=4,
-                label=f"{short}")
+        ax.plot(sizes, mu, "-o", lw=1.1, ms=3.0, color=col, mec="white", mew=0.5, zorder=4,
+                label=short)
         for n_units, v, k in zip(sizes, mu, ns):
-            out.setdefault(int(n_units), {})[arm] = (float(v), k)
+            out.setdefault(int(n_units), {})[arm] = (float(v), int(k))
     ax.set(xscale="log", yscale="log", xlabel="network size $N$", ylabel="active units",
            xlim=(400, 5200), ylim=(150, 5200))
-    ax.set_yticks([200, 500, 1000, 2000, 4000])
-    ax.set_yticklabels(["200", "500", "1000", "2000", "4000"])
     ax.set_xticks(list(SIZES))
     ax.set_xticklabels([str(s) for s in SIZES])
-    ax.legend(loc="upper left", fontsize=5.8, handlelength=1.2, borderaxespad=0.2)
+    ax.set_yticks([200, 500, 1000, 2000, 4000])
+    ax.set_yticklabels(["200", "500", "1000", "2000", "4000"])
+    ax.legend(loc="upper left", fontsize=5.5, handlelength=1.1, borderaxespad=0.2, ncol=2,
+              columnspacing=0.9)
     ps.ygrid(ax)
     return out
 
 
 def panel_g(ax, c):
-    """Panel (g): held-out r2 against network size, dropout against the control.
+    """Panel (g): held-out r2 in the common test condition, against network size.
 
     Args:
         ax: axes; c: the FULL cache dict, every size.
     Returns:
-        dict of per-size (control mean, dropout mean).
+        dict {N: {arm: mean}}.
     """
     out = {}
-    for arm, short, _, col in ARMS:
-        if arm not in ("control", "mute"):
-            continue
-        sizes, mu, sd, ns = _size_series(c, arm, "r2")
+    for arm, short, col in _size_arms(c):
+        sizes, mu, sd, ns = _size_series(c, arm, R2_KEY)
         if not len(sizes):
             continue
-        for n_units in sizes:
-            m = (c["arm"] == arm) & (c["N"].astype(int) == int(n_units))
-            ax.plot(np.full(m.sum(), n_units), c["r2"][m].astype(float), "o", ms=2.2, color=col,
-                    alpha=0.55, mec="none", zorder=3)
-        ax.plot(sizes, mu, "-o", lw=1.1, ms=3.2, color=col, mec="white", mew=0.5, zorder=4,
+        ax.plot(sizes, mu, "-o", lw=1.1, ms=3.0, color=col, mec="white", mew=0.5, zorder=4,
                 label=short)
         for n_units, v in zip(sizes, mu):
             out.setdefault(int(n_units), {})[arm] = float(v)
@@ -684,7 +782,8 @@ def main():
     """Assemble Figure 2, write it, and print the numbers the caption quotes. Returns the path."""
     c_all = load()
     at_main = restrict(c_all, n_units=N_MAIN)
-    chosen = {a: select_cell(at_main, a) for a in GRID_ARMS}
+    picked = {a: pick_cell(at_main, a) for a in GRID_ARMS}
+    chosen = {a: cell for a, (cell, _) in picked.items()}
     c = restrict(c_all, n_units=N_MAIN, chosen=chosen)
     ps.setup()
     fig = plt.figure(figsize=(ps.W2, 168 * ps.MM))
@@ -717,70 +816,76 @@ def main():
 
     # ---- the numbers the caption quotes -------------------------------------------------------
     ref = {k: np.asarray(c[k][c["arm"] == "control"], float)
-           for k in ("n_active", "r2", "dims", "w_sigma_log")}
+           for k in ("n_active", R2_KEY, "dims", "w_sigma_log")}
     print(f"\n--- at N = {N_MAIN}: mean +- sd (n networks) ---")
-    print(f"{'arm':>12s} {'n':>2s} {'active':>14s} {'r2':>15s} {'r2 noise-free':>15s} "
-          f"{'dims (PR)':>13s} {'dims 95%':>10s} {'sd log|W|':>11s} {'log10 q99/q01':>13s}")
+    print(f"{'arm':>12s} {'n':>2s} {'active':>14s} {'r2 common':>15s} {'r2 as trained':>9s} "
+          f"{'r2 clean':>9s} {'dims (PR)':>13s} {'dims 95%':>9s} {'sd log|W|':>11s} "
+          f"{'log10 q99/q01':>13s}")
     for kind, _, label, _ in ARMS:
         m = c["arm"] == kind
         if not m.any():
             continue
         g = {k: np.asarray(c[k][m], float) for k in
-             ("n_active", "r2", "r2_clean", "dims", "dims95", "w_sigma_log", "w_spread")}
+             ("n_active", R2_KEY, "r2", "r2_clean", "dims", "dims95", "w_sigma_log",
+              "w_spread")}
         print(f"{kind:>12s} {m.sum():2d} "
               f"{g['n_active'].mean():7.1f} ±{g['n_active'].std(ddof=1):5.1f} "
-              f"{g['r2'].mean():8.4f} ±{g['r2'].std(ddof=1):5.4f} "
-              f"{g['r2_clean'].mean():8.3f} ±{g['r2_clean'].std(ddof=1):5.3f} "
+              f"{g[R2_KEY].mean():8.4f} ±{g[R2_KEY].std(ddof=1):5.4f} "
+              f"{g['r2'].mean():9.4f} {g['r2_clean'].mean():9.4f} "
               f"{g['dims'].mean():6.2f} ±{g['dims'].std(ddof=1):5.2f} "
               f"{g['dims95'].mean():6.1f}    "
               f"{g['w_sigma_log'].mean():5.2f} ±{g['w_sigma_log'].std(ddof=1):4.2f} "
               f"{g['w_spread'].mean():10.2f}")
-    print("  r2 is recomputed WITH the network's own noise, which is the quantity stored at training")
-    print("  time and what panel (c) draws. The noise-free column is lower and far more variable for")
-    print("  every arm, control included - the noise-free trajectory is not one these networks take.")
+    print("  'r2 common' is the read-out and what panel (c) draws: sigma_w = 0 with the recurrent")
+    print("  and input noise every arm shares, averaged over eight draws, so one condition scores")
+    print("  every arm. 'as trained' is each network in its own condition - the quantity stored at")
+    print("  training time, used as the rebuild's gate, not as a comparison. 'clean' is fully")
+    print("  noise-free, which is a trajectory none of these networks normally takes.")
 
     print("\n--- against the control ---")
     for kind, _, label, _ in ARMS[1:]:
         m = c["arm"] == kind
         if not m.any():
             continue
-        da, dq, dd = (np.asarray(c[k][m], float) for k in ("n_active", "r2", "dims"))
+        da, dq, dd = (np.asarray(c[k][m], float) for k in ("n_active", R2_KEY, "dims"))
         _, pa = welch(da, ref["n_active"])
-        _, pq = welch(dq, ref["r2"])
+        _, pq = welch(dq, ref[R2_KEY])
         _, pdi = welch(dd, ref["dims"])
-        p_eq, diff, lo, hi = tost(dq, ref["r2"])
+        p_eq, diff, lo, hi = tost(dq, ref[R2_KEY])
         print(f"  {kind:>10s}: active {da.mean() - ref['n_active'].mean():+7.1f} (Welch p={pa:.3g})"
               f"   dims {dd.mean() - ref['dims'].mean():+5.2f} (p={pdi:.3g})"
               f"   r2 {diff:+.2%} [{lo:+.2%}, {hi:+.2%}] (Welch p={pq:.3g}, TOST p={p_eq:.3g})")
 
     for arm in GRID_ARMS:
-        print(f"\n--- every matched {arm} cell; the figure draws {chosen[arm]} ---")
-        ref_r2 = np.mean(at_main["r2"][at_main["arm"] == "control"].astype(float))
+        cell, how = picked[arm]
+        print(f"\n--- every matched {arm} cell; the figure draws {cell} ({how}) ---")
+        ref_r2 = np.mean(at_main[R2_KEY][at_main["arm"] == "control"].astype(float))
         rm = at_main["arm"] == arm
         rows = [(float(np.mean(at_main["n_active"][rm & (at_main["cell"] == cl)].astype(float))),
                  cl, rm & (at_main["cell"] == cl)) for cl in sorted(set(at_main["cell"][rm]))]
         for active, cl, s in sorted(rows, reverse=True):
-            r2 = float(np.mean(at_main["r2"][s].astype(float)))
+            r2 = float(np.mean(at_main[R2_KEY][s].astype(float)))
             print(f"  {'->' if cl == chosen[arm] else '  '} {cl.split('/')[-1][:56]:58s} "
                   f"n={s.sum():2d}  active {active:5.1f}  r2 {r2:.4f}"
                   f"{'' if r2 >= ref_r2 * 0.95 else '  (fails the r2 bar)'}"
                   f"  dims {float(np.mean(at_main['dims'][s].astype(float))):5.2f}")
 
-    print("\n--- dropout against the control, by network size ---")
-    print(f"{'N':>6s} {'control':>18s} {'dropout: mute':>18s} {'units gained':>13s} "
-          f"{'control r2':>11s} {'dropout r2':>11s}")
-    for n_units in SIZES:
-        cf, cg = results["f"].get(n_units, {}), results["g"].get(n_units, {})
-        if "control" not in cf or "mute" not in cf:
-            missing = "control" if "control" not in cf else "dropout"
-            got = cf.get("mute") or cf.get("control")
-            print(f"{n_units:6d}   no matched {missing} at this size"
-                  f"{'' if got is None else f'; the other arm has {got[0]:.0f} active units'}")
-            continue
-        print(f"{n_units:6d} {cf['control'][0]:10.1f} (n={cf['control'][1]}) "
-              f"{cf['mute'][0]:10.1f} (n={cf['mute'][1]}) "
-              f"{cf['mute'][0] - cf['control'][0]:+13.1f} "
-              f"{cg['control']:11.4f} {cg['mute']:11.4f}")
+    print("\n--- against the control, by network size (panels f and g) ---")
+    print(f"{'arm':>12s} {'N':>6s} {'control':>9s} {'arm':>9s} {'gained':>8s} {'ratio':>6s} "
+          f"{'control r2':>11s} {'arm r2':>9s}")
+    for arm, _, _, _ in ARMS[1:]:
+        for n_units in SIZES:
+            cf, cg = results["f"].get(n_units, {}), results["g"].get(n_units, {})
+            if arm not in cf or "control" not in cf:
+                continue
+            ctl, val = cf["control"][0], cf[arm][0]
+            print(f"{arm:>12s} {n_units:6d} {ctl:9.1f} {val:9.1f} {val - ctl:+8.1f} "
+                  f"{val / ctl:5.2f}x {cg['control']:11.4f} {cg[arm]:9.4f}")
+    missing = [(a, n) for a, _, _, _ in ARMS[1:] for n in SIZES
+               if a not in results["f"].get(n, {})]
+    if missing:
+        print("  absent from the size panels (an arm needs two sizes to be drawn at all): "
+              + ", ".join(f"{a} N={n}" for a, n in missing))
 
     print("\n--- weight magnitudes ---")
     for kind, info in results["e"].items():

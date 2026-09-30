@@ -15,9 +15,12 @@ with half of its own, so a single duplication moved the output by up to 8.9e-03 
 scale of 0.27. Cells carrying that bug are named `__DETUNED_SELFWEIGHT` on disk and are excluded.
 
 THE FOUR MEASURES, per network:
-  r2            recomputed on a fresh held-out batch WITH the network's own noise, which is the
-                quantity stored in the folder name -- so it can be checked against it. The
-                noise-free value is recorded too and printed in the table.
+  r2            three of them, because one is not enough. `r2` is recomputed WITH the network's
+                own noise, the quantity stored in the folder name, and exists so the rebuild can be
+                checked against it -- it is the GATE, not the read-out. `r2_common` is the read-out:
+                sigma_w = 0 with the recurrent and input noise every arm shares, averaged over
+                COMMON_DRAWS draws, so the arms are compared under one condition rather than each
+                under its own. `r2_clean` is the fully noise-free pass.
   active units  scale-free rule, p_i >= 0.05 * q_95(p), on p_i = std(r_i) + q_0.9(|r_i|).
   dimensionality  participation ratio (sum ev)^2 / sum ev^2 of the noise-free rate covariance over
                 the ACTIVE units: the number of directions the population uses, 1 if every unit does
@@ -61,6 +64,7 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments, get_tr
 
 D = os.environ.get("F2_DATA", "/home/pt1290/trainRNNbrain/data/trained_RNNs")
 R2_TOL = 0.03
+COMMON_DRAWS = 8             # noise draws averaged for the common test condition
 TRIALS = 128                 # 300 timesteps x 128 trials = 38400 samples against 1000 units, far
                              # above what a covariance over at most 1000 units needs. 256 trials
                              # holds two 1000x76800 rate matrices at once and is OOM-killed.
@@ -72,66 +76,90 @@ ZERO_TOL = 1e-12
 # left; the check below asserts the loss is negligible rather than trusting the range.
 LOG_BINS = np.linspace(-12.0, 4.0, 321)
 
-# (arm, label, N, cell path). Every cell is gamma = 0, 3-bit flip-flop, 40,000 iterations, lr 1e-3,
-# weight decay 1e-6, sigma_rec = sigma_inp = 0.05, batch 1024 - checked config by config, not assumed
-# from the folder name. N = 1000 carries the four-way comparison; the other sizes carry the dropout
-# size series, whose N = 4000 control comes from `paper_grid` because `ff_revive` never ran one.
-#
-# Every rescale cell that is matched is measured, not just one: the rule was developed over five
-# sweeps and its early alpha-only form recruits nothing, so quoting that form as "rescale" reports
-# the rule at its weakest. Synaptic noise is a grid in the same way. Which cell the FIGURE draws is
-# chosen in fig_paper_F2.py and the whole grid is printed beneath it.
-RESCALE_CELLS = [
-    # alpha only, no activity target: the first form of the rule (2026-09-25)
-    "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=t_a=1.0005",
-    "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=t_a=1.002",
-    "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=f_a=1.0005",
-    "NBitFlipFlop_rescale_revive/EqType=h_k=3_N=1000_norm=f_a=1.002",
-    # a fixed activity target, so a boosted unit is held until it fires and then released
-    "NBitFlipFlop_rescale_states/EqType=h_k=3_N=1000_norm=t_a=1.002_tgt=0.2",
-    "NBitFlipFlop_rescale_states/EqType=h_k=3_N=1000_norm=t_a=1.002_tgt=0.5",
-    "NBitFlipFlop_rescale_active/EqType=h_k=3_N=1000_norm=t_a=1.002_tgt=2.5_act=true",
-    "NBitFlipFlop_rescale_active/EqType=h_k=3_N=1000_norm=f_a=1.002_tgt=2.5_act=true",
-    "NBitFlipFlop_revive_ops2/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.35",
-    "NBitFlipFlop_revive_ops2/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=4.0_step=0.0005_prot=0.20",
-    "NBitFlipFlop_revive_ops2/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=6.0_step=0.0005_prot=0.20",
-    # ... and released with a refractory tail rather than immediately
-    "NBitFlipFlop_revive_refr/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.20_refr=1000",
-    "NBitFlipFlop_revive_refr/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.20_refr=4000",
-]
+# WHICH CELLS GO IN IS DISCOVERED, NOT LISTED. A hand-written cell list went stale three times in
+# one day: it held rescale's first form and missed four later sweeps of the same rule, then missed
+# the target ladder that set its operating point. Every cell under SWEEP_GLOB is now read, its saved
+# config classified, and the ones that match on task, size, budget and gamma are kept. A new sweep
+# joins the figure by finishing, not by being remembered.
+SWEEP_GLOB = "NBitFlipFlop_*"
+SIZES = (500, 1000, 2000, 4000)
+ITERS = 40000
+EXCLUDE = ("__DETUNED_SELFWEIGHT", "RETRACTED")   # superseded constructions, named on disk
 
-# Synaptic noise: the recurrent weight matrix is redrawn around its mean at EVERY timestep, with
-# per-synapse sd sigma_w * |W_ij|. sw is that multiplier, so 1.0 means a synapse fluctuates by as
-# much as its own strength. This is not a rule that acts on silent units at all - it is a property
-# of the dynamics - which is why it is the one arm here that changes no update rule.
-SYNNOISE_CELLS = [
-    "NBitFlipFlop_synnoise/EqType=h_k=3_N=1000_sw=0.1",
-    "NBitFlipFlop_synnoise/EqType=h_k=3_N=1000_sw=0.3",
-    "NBitFlipFlop_synnoise/EqType=h_k=3_N=1000_sw=1.0",
-    "NBitFlipFlop_synnoise_ext/EqType=h_N=1000_sw=2.0_iters=40000",
-    "NBitFlipFlop_synnoise_ext/EqType=h_N=1000_sw=3.0_iters=40000",
-]
 
-# The dropout size series, and the control at each size it is measured against.
-SIZE_CELLS = [
-    ("control", 500, "NBitFlipFlop_ff_revive/EqType=h_k=3_N=500_pen=none_arm=none"),
-    ("control", 2000, "NBitFlipFlop_ff_revive/EqType=h_k=3_N=2000_pen=none_arm=none"),
-    ("control", 4000, "NBitFlipFlop_paper_grid/EqType=h_N=4000_arm=control"),
-    ("mute", 500, "NBitFlipFlop_dropout_sizes/EqType=h_k=3_N=500_pen=none_do=mute_rate=0.20_beta=4"),
-    ("mute", 2000, "NBitFlipFlop_dropout_sizes/EqType=h_k=3_N=2000_pen=none_do=mute_rate=0.20_beta=4"),
-    ("mute", 4000, "NBitFlipFlop_dropout_sizes/EqType=h_k=3_N=4000_pen=none_do=mute_rate=0.20_beta=4"),
-]
+def classify(cfg):
+    """Which arm a saved config belongs to, or None if it is not one of the four.
 
-CELLS = [
-    ("control", "no intervention", 1000,
-     "NBitFlipFlop_ff_revive/EqType=h_k=3_N=1000_pen=none_arm=none"),
-    ("mute", "dropout: mute", 1000,
-     "NBitFlipFlop_dropout_sizes/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4"),
-    ("duplicate", "prune + duplicate", 1000,
-     "NBitFlipFlop_copy_perturb/EqType=h_k=3_N=1000_cn=0"),
-] + [("rescale", "rescale", 1000, c) for c in RESCALE_CELLS] \
-  + [("synnoise", "synaptic noise", 1000, c) for c in SYNNOISE_CELLS] \
-  + [(arm, "size series", n, c) for arm, n, c in SIZE_CELLS]
+    The arms are defined by what the config switches on, so a cell cannot be filed under the wrong
+    one by its folder name. Anything that is a different intervention - the non-copy revival rules,
+    synaptic scaling, a loss penalty - returns None and is left for the figures that cover it.
+
+    Args:
+        cfg: the OmegaConf config saved beside a trained network.
+    Returns:
+        one of "control", "mute", "duplicate", "rescale", "synnoise", or None.
+    """
+    m, t = cfg.model, cfg.trainer
+    if float(getattr(m, "sigma_w", 0.0) or 0.0) > 0.0:
+        return "synnoise"
+    if any(float(getattr(t, k, 0.0) or 0.0) > 0.0 for k in ("lambda_met", "lambda_orth")):
+        return None                                   # metabolic / orthogonality: not this figure
+    lam_frm = float(getattr(t, "lambda_frm", 0.0) or 0.0)
+    lam_rws = float(getattr(t, "lambda_rws", 0.0) or 0.0)
+    if lam_frm > 0.0 or lam_rws > 0.0:
+        # The penalty arm of this figure is the PAIR. The rate penalty alone is satisfied by
+        # transients and weight sparsity alone does not raise any rate, so the two are only a remedy
+        # together; Figures 3-5 take them apart and this one carries the combination.
+        return "both" if (lam_frm > 0.0 and lam_rws > 0.0) else None
+    if bool(getattr(t, "synaptic_scaling", False)):
+        return None                                   # its own family, measured elsewhere
+    if bool(getattr(t, "dropout", False)):
+        return "mute" if str(t.dropout_args.dropout_kind) == "mute" else None
+    if bool(getattr(t, "prune_reinit", False)):
+        a = t.prune_args
+        mode = str(a.get("reinit_mode", ""))
+        if mode == "rescale":
+            # `reinit_mode: rescale` is also how synaptogenesis and disinhibition are configured;
+            # what separates them is `revive_op`, so filing on the mode alone mixes three rules.
+            return "rescale" if str(a.get("revive_op", "rescale")) == "rescale" else None
+        if mode == "copy":
+            # copy_noise is duplication's own knob and stays in; what is excluded is the copy
+            # DECOMPOSITION, which replaces the donor's weights with iid draws or a permutation and
+            # asks what a copy inherits rather than what duplication does.
+            if not bool(a.get("copy_iid", False)) and not bool(a.get("copy_permute", False)):
+                return "duplicate"
+        return None                                   # orth, mix, bias_kick, random, zero_out
+    return "control"
+
+
+def discover(root):
+    """Every matched cell on disk, classified by arm.
+
+    Args:
+        root: the trained-RNN directory to scan.
+    Returns:
+        list of (arm, N, cell path relative to root), sorted, one entry per cell folder.
+    """
+    out = []
+    for cell in sorted(glob.glob(os.path.join(root, SWEEP_GLOB, "*"))):
+        if not os.path.isdir(cell) or any(x in cell for x in EXCLUDE):
+            continue
+        cfgs = sorted(glob.glob(os.path.join(cell, "*", "*_config.yaml")))
+        if not cfgs:
+            continue
+        try:
+            cfg = OmegaConf.load(cfgs[0])
+        except Exception:
+            continue
+        m, t = cfg.model, cfg.trainer
+        if (str(cfg.task.get("taskname", "")) != "NBitFlipFlop" or int(cfg.task.n_inputs) != 3
+                or str(m.equation_type) != "h" or float(m.gamma) != 0.0
+                or int(t.max_iter) != ITERS or int(m.N) not in SIZES):
+            continue
+        arm = classify(cfg)
+        if arm is not None:
+            out.append((arm, int(m.N), os.path.relpath(cell, root)))
+    return out
 
 
 def participation_ratio(x):
@@ -252,6 +280,19 @@ def analyse(net_dir):
         r2_noisy = float(Trainer.r2_score(out, bt, mask))
         r_noisy = torch.relu(states).numpy().reshape(rnn.N, -1)   # float32, on purpose
         srec, sinp, sw = float(rnn.sigma_rec), float(rnn.sigma_inp), float(rnn.sigma_w)
+
+        # THE COMMON TEST CONDITION. Scoring each network in its OWN trained condition is not a
+        # comparison: the synaptic-noise arm is then the only one measured with its wiring
+        # fluctuating, and its stored score is one draw, which is untrustworthy once sigma_w is
+        # large. Every arm is therefore also scored with sigma_w = 0 and the recurrent and input
+        # noise left at the values every arm shares, averaged over COMMON_DRAWS draws.
+        rnn.sigma_w = 0.0
+        draws = []
+        for _ in range(COMMON_DRAWS):
+            _, out_k = rnn(bi, w_noise=True)
+            draws.append(float(Trainer.r2_score(out_k, bt, mask)))
+        rnn.sigma_w = sw
+
         rnn.sigma_rec = rnn.sigma_inp = rnn.sigma_w = 0.0
         states_c, out_c = rnn(bi, w_noise=False)
         rnn.sigma_rec, rnn.sigma_inp, rnn.sigma_w = srec, sinp, sw
@@ -273,6 +314,7 @@ def analyse(net_dir):
         assert outside < 1e-4, (f"{outside:.2%} of |W_rec| falls outside the histogram range "
                                f"{LOG_BINS[0]:.0f}..{LOG_BINS[-1]:.0f}; widen LOG_BINS")
     out_d = dict(N_cfg=n_from_cfg, stored=stored, r2=r2_noisy, r2_clean=r2_clean,
+                 r2_common=float(np.mean(draws)), r2_common_sd=float(np.std(draws, ddof=1)),
                  n_active=int(live.sum()),
                  dims=float("nan"), dims95=float("nan"),
                  w_inp_sigma=float("nan") if inp is None else inp["sigma_log"])
@@ -288,8 +330,13 @@ def analyse(net_dir):
 
 def main(out_path):
     """Score every network of every cell and write the cache. Returns the output path."""
+    cells = discover(D)
+    print(f"discovered {len(cells)} matched cells under {D}/{SWEEP_GLOB}")
+    for arm in sorted({a for a, _, _ in cells}):
+        per_n = {n: sum(1 for a, m, _ in cells if a == arm and m == n) for n in SIZES}
+        print(f"  {arm:>10s}: " + ", ".join(f"N={n}: {k} cells" for n, k in per_n.items() if k))
     recs, fields = [], None
-    for arm, label, n_units, pat in CELLS:
+    for arm, n_units, pat in cells:
         for nd in sorted(glob.glob(os.path.join(D, pat, "*"))):
             if not os.path.isdir(nd):
                 continue
@@ -305,11 +352,12 @@ def main(out_path):
                 continue
             gate = abs(r["stored"] - r["r2"]) < R2_TOL
             print(f"  {arm:>10s} N={n_units:5d} stored {r['stored']:7.4f} recomp {r['r2']:7.4f} "
+                  f"common {r['r2_common']:6.3f}±{r['r2_common_sd']:.3f} clean {r['r2_clean']:6.3f} "
                   f"{'PASS' if gate else 'FAIL':>4s}  active {r['n_active']:4d}  "
                   f"dims {r['dims']:6.2f}  sigma_log {r['w_sigma_log']:5.2f}", flush=True)
             if not gate:
                 continue
-            r.update(arm=arm, label=label, N=n_units, cell="/".join(pat.split("/")[-2:]))
+            r.update(arm=arm, N=n_units, cell=pat)
             recs.append(r)
             fields = fields or sorted(r)
     if not recs:

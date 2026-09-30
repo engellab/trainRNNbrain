@@ -13050,80 +13050,81 @@ and equalised units are redundant units.
 
 
 
-## 2026-09-30 — Figure 2 rebuilt: four interventions, four measures, and dropout across size
+
+## 2026-09-30 — Figure 2: every intervention, four measures, one test condition
 
 ![Figure 2](../img/internal_figures/fig_paper_F2.svg)
 
-Figure 2 was dropout alone — a schematic of `mute`, a characterisation of the dropout sampler, the
-150k training curve and a cost panel. It is now the four loss-free interventions side by side, each
-asked the same four questions, with the control beside them: how many units stay active, whether the
-task is still solved, how many directions the population uses, and whether the weight distribution
-still looks like the one biology has. Panels (f) and (g) then ask whether dropout's effect survives
-a change of network size.
+Figure 2 was dropout alone. It is now every intervention the paper offers, each asked the same four
+questions — how many units stay active, whether the task is still solved, how many directions the
+population uses, and whether the weight distribution still looks like the one biology has — plus two
+panels asking whether any of it survives a change of network size.
 
-Everything is matched: gamma = 0, 3-bit flip-flop, 40,000 iterations, lr 1e-3, weight decay 1e-6,
-sigma_rec = sigma_inp = 0.05, batch 1024. Every network is rebuilt from its own saved config and
-rescored; 82 of 84 reproduced their stored r2 to within 0.03, the two rejects being diverged rescale
-runs at r2 -114 and -21. The N = 4000 control comes from `paper_grid`, since `ff_revive` never ran
-one; its config was checked field by field rather than assumed from the folder name.
+**Three things changed in how it is built, each because the previous version was wrong.**
 
-| arm | n | active units | held-out r2 | dimensions used | PCs to 95% | magnitude range |
+*The cell list discovers itself.* A hand-written list went stale three times in a day: it held
+rescale's first alpha-only form and missed four later sweeps of the same rule, then missed the target
+ladder that set its operating point, then missed a twelve-cell dropout grid in `std_bernoulli`.
+Every cell under `NBitFlipFlop_*` is now read, classified from its saved config, and kept if it
+matches on task, size, budget and gamma. 210 networks across 67 cells pass the gate. Two rejects,
+both diverged rescale runs.
+
+*One test condition, not each network in its own.* Scoring every arm as it trained is not a
+comparison: only the synaptic-noise arm is then measured with its wiring fluctuating, and its stored
+score is a single draw. Every network is now also scored at sigma_w = 0 with the recurrent and input
+noise every arm shares, averaged over eight draws, and that is what the figure reads. The change
+moved the synaptic-noise arm from sigma_w = 3 to sigma_w = 1 on its own: at the common read-out
+sigma_w 2 and 3 score 0.812 and 0.677 and fail the 5% bar, which is the ceiling the size-series
+launcher had already identified independently.
+
+*Each arm is drawn at the operating point its size series fixed, not at whichever cell scores
+highest.* Picking by "most active units" is unsound twice over. Active units is one of the four
+measures, so maximising it biases the other three; and the grids are dense enough that the rule
+chases noise — it put duplication at copy_noise 3.0 over the paper's own cell on a 10-unit
+difference, and rescale at a cell recruiting 583 units while the population collapsed to 1.97
+dimensions. The operating points come from the size-series and paper-grid designs, fixed before this
+figure existed.
+
+| arm | n | active units | r2 (common) | dimensions | PCs to 95% | magnitude range |
 |---|---|---|---|---|---|---|
-| no intervention | 3 | 279 ± 26 | 0.9443 ± 0.0018 | 5.48 ± 0.21 | 12 | 1,700-fold |
-| dropout: mute | 3 | 510 ± 42 | 0.9262 ± 0.0037 | 7.06 ± 0.39 | 25 | 2,000-fold |
-| prune + duplicate | 3 | 705 ± 33 | 0.9417 ± 0.0020 | 8.10 ± 1.59 | 24 | 1,300-fold |
-| rescale, best cell | 3 | 516 ± 38 | 0.9256 ± 0.0183 | 6.21 ± 1.13 | 18 | **5 billion-fold** |
-| synaptic noise, sigma_w = 3 | 3 | **767 ± 27** | 0.9244 ± 0.0034 | **8.38 ± 0.17** | 21 | 1,200-fold |
+| no intervention | 6 | 299 ± 34 | 0.9455 ± 0.0024 | 5.35 ± 0.42 | 12 | 1,700-fold |
+| dropout: mute, rate 0.20 | 3 | 510 ± 39 | 0.9267 ± 0.0046 | 7.27 ± 0.35 | 25 | 2,000-fold |
+| prune + duplicate, jitter 1.0 | 3 | **770 ± 26** | 0.9428 ± 0.0030 | 7.14 ± 2.09 | 24 | 1,300-fold |
+| rescale, target 10 | 4 | 454 ± 60 | 0.9315 ± 0.0061 | **7.31 ± 1.14** | 18 | **16 million-fold** |
+| synaptic noise, sigma_w 1 | 3 | 564 ± 12 | 0.9274 ± 0.0053 | 6.64 ± 0.36 | 17 | 1,100-fold |
 
-**Synaptic noise recruits the most units of anything tried, and it does not touch a single unit to
-do it.** W_rec is redrawn around its mean at every timestep with per-synapse sd sigma_w·|W_ij|; no
-unit is selected, no weight is rewritten, no update rule changes. At sigma_w = 3 that leaves 767
-active units against the control's 279 (Welch p = 2e-05), spanning 8.38 directions against 5.48
-(p = 6e-05), for 2.11% of r2. It is monotone in the noise level across the five cells measured —
-369, 371, 568, 728, 767 units at sigma_w = 0.1, 0.3, 1, 2, 3 — so it is a dose, not a threshold.
+**Every arm recruits, and every arm adds directions.** Against the control's 299 units: duplication
++472 (Welch p = 2e-06), synaptic noise +265 (p = 9e-07), dropout +211 (p = 0.002), rescale +155
+(p = 0.008). Dimensionality rises in all four, from the control's 5.35 to between 6.6 and 7.3.
 
-**Duplication is still the only one that is close to free.** It adds 426 units for 0.28% of r2,
-whose 95% interval runs from -0.74% to +0.40% and which is equivalent to the control within 5%
-(TOST p = 5e-06). Dropout costs 1.92%, rescale 1.98%, synaptic noise 2.11%.
+**Only duplication is close to free.** Its r2 cost is 0.29%, whose interval spans zero and which is
+equivalent to the control within 5% (TOST p = 5e-05). The other three cost 1.5% to 2.0%.
 
-**Rescale is the one that pays in the weight distribution.** Three arms leave the magnitude range
-where the control has it — 1,200 to 2,000-fold, one lognormal-looking distribution four times over.
-Rescale spans 5 billion-fold, sd of log|W| 4.36 against 1.52. It also adds the fewest directions per
-unit recruited: +237 units for +0.73 dimensions, which the test does not resolve from zero
-(p = 0.38), against +2.62 for duplication and +2.90 for synaptic noise.
+**Rescale is the one that pays in the weight distribution.** Four arms leave the magnitude range
+where the control has it, 1,100 to 2,000-fold — one lognormal-looking distribution, four times over.
+Rescale spans 16 million-fold, sd of log|W| 3.48 against 1.53. Cortical synaptic strengths run over
+roughly two orders of magnitude, so a seven-order range is not a network biology could hold. This is
+the panel that separates the arms when the other three do not.
 
-**Dropout across size: a constant multiplier on a falling fraction.**
+**Duplication's advantage grows with size; dropout's does not.**
 
-| N | control | dropout | ratio | control r2 | dropout r2 |
-|---|---|---|---|---|---|
-| 500 | 220 (n=6) | 398 | 1.81x | 0.9457 | 0.9281 |
-| 1000 | 279 | 510 | 1.83x | 0.9443 | 0.9262 |
-| 2000 | 458 | 707 | 1.55x | 0.9468 | 0.9292 |
-| 4000 | 597 | 1070 | 1.79x | 0.9463 | 0.9315 |
+| arm | N=500 | N=1000 | N=2000 | N=4000 |
+|---|---|---|---|---|
+| dropout, active / control | 1.80x | 1.71x | 1.55x | 1.80x |
+| duplication, active / control | 2.00x | 2.58x | 2.54x | **2.98x** |
+| synaptic noise, active / control | 1.74x | 1.89x | — | — |
 
-Dropout roughly doubles the active count at every size and costs 1.6-1.9% of r2 at every size. It
-does not change the scaling: the control keeps 44% of its units at N = 500 and 15% at N = 4000, and
-dropout keeps 80% and 27%. The curve is shifted up and still falls away from the diagonal. That is
-the same verdict the 150k training curve gave on the old Figure 2 — an offset, not a cure — now
-measured against size rather than against training time.
+That was the pre-registered question of the size series: an intervention whose ratio falls toward 1.0
+as N grows does not address a problem that worsens with size. Duplication's rises, reaching 1,775 of
+4,000 units against an untreated 596. **Its r2 cost appears at scale, though** — 0.9189 at N = 4000
+against the control's 0.9472, having been indistinguishable from the control at every smaller size.
+That is new and it is the thing to watch.
 
-**Two bugs found while adding the synaptic-noise arm, both in the cache builder.** `load_net` never
-passed `sigma_w` to `RNN_torch`, so every synaptic-noise network was rebuilt with its noise switched
-off — scored under dynamics it never trained in. The r2 gate caught it at sigma_w = 2 and 3, which
-recomputed at 0.66-0.83 against a stored 0.92-0.93; the quieter cells passed the gate while still
-being measured wrongly, so those alone would not have shown it. Fixing that then exposed the second:
-the cluster worktree the builder imports from, `trainRNNbrain_cperturb`, predates `sigma_w` and
-raises TypeError on the whole arm. It now defaults to `trainRNNbrain_sizeser`, and the older cells
-still pass the gate from there, which is the check that the task class has not moved under them.
+**Still training.** frm + rws at the matched 40,000-iteration budget (every existing cell of the pair
+is at 400,000, which would have broken matched compute); rescale at N = 4000; synaptic noise at
+N = 2000 and 4000; and DMTS controls at three sizes, which the paper grid never ran.
 
-**One number points the other way and is not drawn.** Panel (c) shows r2 recomputed WITH the
-network's own noise, the quantity stored at training time. Scored noise-free instead, synaptic noise
-falls to 0.655 ± 0.019, the lowest of any arm, against the control's 0.904 ± 0.035 — which is what a
-network trained under sigma_w = 3 should do, since the noise-free trajectory is furthest from its
-training condition. Duplication falls to 0.806 and rescale to 0.797. The trained condition is the
-read-out, but the ranking depends on that choice and the caption has to say so.
-
-Built by `f2_remedies_cache.py` on Della (the sweeps are only there) into
-`data/fig_paper_F2_cache.npz`, drawn by `fig_paper_F2.py`. `check_labels_clear` asserts that no
-label in the figure overlaps another label or any drawn datum, testing the ink of each curve rather
-than its bounding box, and covering the figure-level task banner as well as the panels.
+Built by `f2_remedies_cache.py` on Della into `data/fig_paper_F2_cache.npz`, drawn by
+`fig_paper_F2.py`. `check_labels_clear` asserts that no label overlaps another label or any drawn
+datum, testing the ink of each curve rather than its bounding box; it caught three collisions the
+moment the sixth arm went in.
