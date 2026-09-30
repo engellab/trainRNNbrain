@@ -13100,11 +13100,29 @@ figure existed.
 **Only duplication is close to free.** Its r2 cost is 0.29%, whose interval spans zero and which is
 equivalent to the control within 5% (TOST p = 5e-05). The other three cost 1.5% to 2.0%.
 
-**Rescale is the one that pays in the weight distribution.** Four arms leave the magnitude range
-where the control has it, 1,100 to 2,000-fold — one lognormal-looking distribution, four times over.
-Rescale spans 16 million-fold, sd of log|W| 3.48 against 1.53. Cortical synaptic strengths run over
-roughly two orders of magnitude, so a seven-order range is not a network biology could hold. This is
-the panel that separates the arms when the other three do not.
+**Rescale is the one that pays in the weight distribution, and it errs by being too spread.** A
+fold-range was the wrong summary — two different distributions can share a q99/q01 ratio. What the
+comparison needs is whether ln|W| keeps the shape and width the untreated network has, and where it
+does not, which side it errs on.
+
+| arm | sd ln\|W\| | vs control | KS to best-fit normal | vs control | skew | excess kurtosis |
+|---|---|---|---|---|---|---|
+| no intervention | 1.53 | 1.00x | 0.026 | 1.0x | -0.42 | 1.00 |
+| dropout | 1.59 | 1.03x | 0.031 | 1.2x | -0.21 | 0.71 |
+| duplication | 1.43 | 0.93x | 0.038 | 1.4x | -0.53 | 1.45 |
+| synaptic noise | 1.40 | 0.91x | 0.047 | 1.8x | -0.51 | 1.60 |
+| rescale | **3.48** | **2.27x** | **0.205** | **7.8x** | **-2.31** | **6.41** |
+
+Three arms keep the control's width to within 7% and its distance from lognormal to within 1.8x.
+Rescale is 2.3x WIDER and eight times further from lognormal, with a skewness of -2.31 against the
+control's -0.42: a heavy tail of very small weights, which is what repeatedly dividing one sign of a
+row produces, and which shows in the panel as a shoulder near 10^-6.5 that no other arm has.
+
+The comparison is against the CONTROL, not against an exact lognormal, and deliberately so: with
+10^6 weights nothing is exactly lognormal, the untreated network included. A same-size sample drawn
+from the fitted lognormal scores a KS distance of 0.0007; the control itself scores 0.026, 37 times
+that. So "is it lognormal" answers no for every arm and says nothing. What an intervention has to
+answer for is making the fit worse than ordinary training already does.
 
 **Duplication's advantage grows with size; dropout's does not.**
 

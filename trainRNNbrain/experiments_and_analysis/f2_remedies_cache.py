@@ -26,10 +26,12 @@ THE FOUR MEASURES, per network:
                 the ACTIVE units: the number of directions the population uses, 1 if every unit does
                 the same thing. The count of components reaching 95% of the variance is recorded
                 beside it, because participation ratio and a variance threshold can disagree.
-  weight distribution  histogram of log10|W_rec| over the nonzero entries, plus the lognormal shape
-                statistics of ln|W_rec| (sd, skew, and the log10 q99/q01 range). Recorded for the
-                whole matrix and for the incoming rows of the active units only, since duplication
-                and rescale both act on incoming rows.
+  weight distribution  histogram of log10|W_rec| over the nonzero entries, plus how lognormal
+                those magnitudes are and which way they err: the width of ln|W| (sigma_log), its
+                distance to the best-fit normal against a same-size normal reference (ks, ks_ref),
+                and its skewness and excess kurtosis, both 0 for an exact lognormal. Recorded for
+                the whole matrix and for the incoming rows of the active units only, since
+                duplication and rescale both act on incoming rows.
 
 ⚠️ GATE. Every network is rebuilt from ITS OWN saved config and scored; anything whose recomputed r2
 misses the stored value by more than R2_TOL is dropped, because a wrong forward pass still yields a
@@ -50,6 +52,7 @@ import sys
 import hydra
 import numpy as np
 import torch
+from scipy import stats
 from omegaconf import OmegaConf
 
 # The repo the networks are REBUILT from must have every model feature they were trained with.
@@ -188,26 +191,51 @@ def n_comp_95(x):
     return int(np.searchsorted(np.cumsum(ev) / ev.sum(), 0.95) + 1)
 
 
-def weight_shape(w):
-    """Histogram and lognormal shape of a set of weight magnitudes.
+def weight_shape(w, rng=np.random.default_rng(0)):
+    """How lognormal a set of weight magnitudes is, and which way it errs.
+
+    A fold-range says only how far the extremes sit apart, which two very different distributions
+    can share. What the comparison needs is whether |W| is lognormal at all - the shape cortical
+    synaptic strengths take - and, where it is not, whether the weights are too CONCENTRATED or too
+    SPREAD relative to the untreated network.
+
+    Both come from ln|W|, which is normal exactly when |W| is lognormal:
+      sigma_log   its standard deviation: the width of the lognormal, and the axis on which "too
+                  concentrated" and "too spread" are read against the control's value.
+      ks          the Kolmogorov-Smirnov distance from ln|W| to the best-fit normal. The parameters
+                  are fitted on the same data, so this is a DISTANCE, not a calibrated test, and
+                  with ~10^6 weights any real distribution would reject at any p-value. `ks_ref`
+                  gives it a scale: the same distance computed on a same-size sample drawn from
+                  that fitted normal. A ks near ks_ref means "lognormal as far as this can tell".
+      skew_log    asymmetry of ln|W|, 0 for an exact lognormal. Its SIGN says which side the
+                  departure is on: negative means a heavy tail of very small weights.
+      kurt_log    excess kurtosis of ln|W|, 0 for an exact lognormal. Positive means the mass is
+                  peaked with heavy tails, negative that it is flatter than a lognormal.
+      spread      log10 of the q99/q01 magnitude ratio, kept as a robust width for reference.
 
     Args:
         w: array of weights of any shape; zeros and structural zeros are dropped.
+        rng: generator for the same-size normal reference sample.
     Returns:
-        dict with 'hist' (counts over LOG_BINS of log10|w|), 'n_nonzero', 'sigma_log' (sd of
-        ln|w|), 'skew_log' (skewness of ln|w|, 0 for an exact lognormal) and 'spread'
-        (log10 of the q99/q01 magnitude ratio), or None if fewer than 100 nonzeros.
+        dict of the above plus 'hist' and 'n_nonzero', or None if fewer than 100 nonzeros.
     """
     m = np.abs(np.asarray(w, dtype=np.float64).ravel())
     m = m[m > ZERO_TOL]
     if m.size < 100:
         return None
     lg = np.log(m)
-    z = (lg - lg.mean()) / lg.std(ddof=1)
+    mu, sd = lg.mean(), lg.std(ddof=1)
+    z = (lg - mu) / sd
+    ks = float(stats.kstest(lg, "norm", args=(mu, sd)).statistic)
+    ref = rng.normal(mu, sd, m.size)
+    ks_ref = float(stats.kstest(ref, "norm", args=(ref.mean(), ref.std(ddof=1))).statistic)
     return dict(hist=np.histogram(np.log10(m), bins=LOG_BINS)[0].astype(np.int64),
                 n_nonzero=int(m.size),
-                sigma_log=float(lg.std(ddof=1)),
+                sigma_log=float(sd),
+                ks=ks,
+                ks_ref=ks_ref,
                 skew_log=float((z ** 3).mean()),
+                kurt_log=float((z ** 4).mean() - 3.0),
                 spread=float(np.log10(np.quantile(m, 0.99) / np.quantile(m, 0.01))))
 
 
@@ -322,7 +350,8 @@ def analyse(net_dir):
         out_d["dims"] = participation_ratio(r_clean[live])
         out_d["dims95"] = float(n_comp_95(r_clean[live]))
     for tag, sh in (("w", whole), ("wact", rows)):
-        for k in ("hist", "n_nonzero", "sigma_log", "skew_log", "spread"):
+        for k in ("hist", "n_nonzero", "sigma_log", "ks", "ks_ref", "skew_log",
+                  "kurt_log", "spread"):
             out_d[f"{tag}_{k}"] = (np.zeros(len(LOG_BINS) - 1, np.int64) if k == "hist" else
                                    float("nan")) if sh is None else sh[k]
     return out_d

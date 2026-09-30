@@ -496,20 +496,40 @@ def panel_d(ax, c):
     return res
 
 
-def _fold(log10_range):
-    """A log10 range written as a fold-range a reader can picture, rounded, never in exponent form.
+def lognormal_verdict(out, ctl="control", width_tol=0.15, ks_tol=2.0):
+    """One sentence saying which arms keep a lognormal weight distribution and how the rest err.
+
+    A fold-range says only how far the extremes sit apart. The question is whether |W| is lognormal
+    - the shape cortical synaptic strengths take - and, where it is not, whether the weights end up
+    too CONCENTRATED or too SPREAD relative to the untreated network. Both are read off ln|W|: its
+    standard deviation is the width, and its distance to the best-fit normal, measured against a
+    same-size normal sample, says how far from lognormal it is at all.
 
     Args:
-        log10_range: the log10 of a ratio, e.g. 3.22 for a 1,660-fold range.
+        out: {arm: dict with sigma_log, ks, ks_ref}; ctl: the reference arm;
+        width_tol: fractional width difference still called "the control's width";
+        ks_tol: how many times the CONTROL's own KS distance still counts as the same shape. The
+            comparison is against the control and not against a perfect lognormal on purpose: with
+            ~10^6 weights no real distribution is exactly lognormal, the untreated network included,
+            so the question an intervention has to answer is whether it makes the fit worse.
     Returns:
-        a string such as "2,000-fold" or "5 billion-fold".
+        (summary string of two lines, dict of per-arm (width ratio, ks in units of ks_ref)).
     """
-    v = 10.0 ** log10_range
-    for cut, name in ((1e9, "billion"), (1e6, "million")):
-        if v >= cut:
-            return f"{v / cut:.0f} {name}-fold"
-    return f"{round(v, -2):,.0f}-fold"
-
+    if ctl not in out:
+        return "", {}
+    ref_sigma, ref_ks = out[ctl]["sigma_log"], out[ctl]["ks"]
+    stat = {k: (v["sigma_log"] / ref_sigma, v["ks"] / max(ref_ks, 1e-12))
+            for k, v in out.items()}
+    off = [k for k, (r, ks) in stat.items()
+           if k != ctl and (abs(r - 1.0) > width_tol or ks > ks_tol)]
+    if not off:
+        return "the control's shape and width\nin every arm", stat
+    worst = max(off, key=lambda k: abs(np.log(stat[k][0])))
+    r = stat[worst][0]
+    name = dict((a, lab) for a, lab, _, _ in ARMS).get(worst, worst)
+    others = "every other arm" if len(off) == 1 else f"{len(stat) - len(off)} of {len(stat)} arms"
+    return (f"the control's shape and width in\n{others}; {name} is "
+            f"{r:.1f}x {'wider' if r > 1 else 'narrower'}"), stat
 
 def panel_e(ax, c):
     """Panel (e): the distribution of recurrent-weight magnitudes, one curve per arm.
@@ -538,9 +558,14 @@ def panel_e(ax, c):
         # a fixed one either clips the widest arm or squeezes the others into a spike
         lo_x.append(mid[np.searchsorted(cdf, 0.01)])
         hi_x.append(mid[np.searchsorted(cdf, 0.99)])
+        m = c["arm"] == kind
         out[kind] = dict(median=float(mid[np.searchsorted(cdf, 0.5)]),
-                         sigma_log=float(np.mean(c["w_sigma_log"][c["arm"] == kind])),
-                         spread=float(np.mean(c["w_spread"][c["arm"] == kind])))
+                         sigma_log=float(np.mean(c["w_sigma_log"][m])),
+                         ks=float(np.mean(c["w_ks"][m])),
+                         ks_ref=float(np.mean(c["w_ks_ref"][m])),
+                         skew=float(np.mean(c["w_skew_log"][m])),
+                         kurt=float(np.mean(c["w_kurt_log"][m])),
+                         spread=float(np.mean(c["w_spread"][m])))
     # LOG DENSITY, not linear. What separates the arms is the TAIL: rescale's bulk sits where every
     # other arm's does and its range comes from weights driven far below the rest, so on a linear
     # density the four curves are one peak and a 5-billion-fold range reads as a faint shoulder.
@@ -551,10 +576,8 @@ def panel_e(ax, c):
               borderaxespad=0.2, ncol=2, columnspacing=0.8, labelspacing=0.25)
     # The panel's result, in the title so it cannot land on a curve. The magnitude RANGE is the
     # statistic quoted rather than the sd, because a fold-range is a number a reader can picture.
-    others = max(out[k]["spread"] for k in out if k != "rescale")
-    ax.set_title(f"a {_fold(others)} range of magnitudes,\n"
-                 f"{_fold(out['rescale']['spread'])} under rescale",
-                 fontsize=5.6, color=ps.MUTED, linespacing=1.3, pad=3)
+    verdict, _ = lognormal_verdict(out)
+    ax.set_title(verdict, fontsize=5.6, color=ps.MUTED, linespacing=1.3, pad=3)
     ps.ygrid(ax)
     return out
 
@@ -887,10 +910,22 @@ def main():
         print("  absent from the size panels (an arm needs two sizes to be drawn at all): "
               + ", ".join(f"{a} N={n}" for a, n in missing))
 
-    print("\n--- weight magnitudes ---")
+    print("\n--- are the recurrent weights still lognormal, and which way do they err? ---")
+    _, stat = lognormal_verdict(results["e"])
+    print(f"{'arm':>12s} {'sd ln|W|':>9s} {'vs control':>11s} {'KS':>7s} {'KS of a':>8s} "
+          f"{'KS/ctl':>7s} {'skew':>7s} {'kurtosis':>9s}")
+    print(f"{'':>12s} {'':>9s} {'':>11s} {'':>7s} {'normal':>8s} {'':>7s} "
+          f"{'ln|W|':>7s} {'ln|W|':>9s}")
     for kind, info in results["e"].items():
-        print(f"  {kind:>10s}: median |W| = 10^{info['median']:+.2f}, sd of log|W| "
-              f"= {info['sigma_log']:.2f}, range 10^{info['spread']:.2f}")
+        ratio, ks_rel = stat[kind]
+        side = "same" if abs(ratio - 1) <= 0.15 else ("wider" if ratio > 1 else "narrower")
+        print(f"  {kind:>10s} {info['sigma_log']:9.2f} {ratio:8.2f}x {side:>6s} {info['ks']:7.3f} "
+              f"{info['ks_ref']:8.4f} {ks_rel:7.1f} {info['skew']:7.2f} {info['kurt']:9.2f}")
+    print("  KS is the distance from ln|W| to the best-fit normal, 0 for an exact lognormal. The")
+    print("  parameters are fitted on the same data and there are ~10^6 weights, so it is a distance")
+    print("  and not a test: the next column is the same distance for a same-size sample drawn from")
+    print("  that fitted normal, which is the scale to read it against. skew and kurtosis are 0 for")
+    print("  an exact lognormal; a negative skew means a heavy tail of very small weights.")
     return out
 
 
