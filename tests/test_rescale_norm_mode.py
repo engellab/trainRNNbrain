@@ -16,8 +16,13 @@ past the median.
 CONTRACT, fixed before running:
   1. With mode "self" the boosted row's norm is unchanged, to 1e-5 relative. The historical
      behaviour, which must not move.
-  2. With mode "median_active" a SHORT row's norm grows by exactly `alpha` per step, to 1e-5
-     relative, for as long as it stays below the median.
+  2. With mode "median_active" a short RECURRENT row's norm grows by exactly `alpha` per step,
+     to 1e-5 relative, for as long as it stays below the median.
+  2b. The INPUT row does NOT grow, under either mode, to 1e-5 relative. The input row is n_inputs
+     wide against a recurrent row of N, so enlarging it can only make a unit a function of those
+     few signals -- a sensory unit, which adds nothing on a task whose computation runs through
+     intermediate variables. Growing both took the median input row norm of active units from
+     0.177 to 1.052 and dropped dimensionality from 4.90 to 3.46.
   3. Growth stops at the median: after enough steps the row norm sits at the median and does not
      exceed it, to 1e-5 relative.
   4. A row ALREADY longer than the median is left at its own length -- the mode grows short rows,
@@ -95,18 +100,35 @@ def test_self_mode_holds_the_row_length():
     print(f"      mode 'self': row norm held at {before[0]:.6f} through a boost")
 
 
-def test_median_active_grows_a_short_row_by_alpha():
-    """A row below the median grows by exactly alpha per step, on BOTH weight matrices."""
+def test_median_active_grows_a_short_recurrent_row_by_alpha():
+    """A recurrent row below the median grows by exactly alpha per step."""
     rnn, tr, ref = _setup()
     idx = torch.tensor(SHORT)
     b_rec = rnn.W_rec[idx, :].norm(dim=1).detach().clone().numpy()
-    b_inp = rnn.W_inp[idx, :].norm(dim=1).detach().clone().numpy()
-    rec, inp = _step(tr, idx, ref)
+    rec, _ = _step(tr, idx, ref)
     assert np.allclose(rec, b_rec * ALPHA, rtol=1e-5), \
         f"W_rec grew by {rec[0] / b_rec[0]:.6f}, expected {ALPHA}"
-    assert np.allclose(inp, b_inp * ALPHA, rtol=1e-5), \
-        f"W_inp grew by {inp[0] / b_inp[0]:.6f}, expected {ALPHA}"
-    print(f"      median_active: short row grew {rec[0] / b_rec[0]:.6f}x (alpha = {ALPHA})")
+    print(f"      median_active: short W_rec row grew {rec[0] / b_rec[0]:.6f}x (alpha = {ALPHA})")
+
+
+def test_the_input_row_never_grows():
+    """W_inp is pinned at its own length under BOTH modes -- the rule must not build sensory units.
+
+    The input row is n_inputs wide (3 on the 3-bit flip-flop) against a recurrent row of N, so a
+    unit recruited by enlarging it can only become a function of those few signals. Measured: when
+    W_inp grew alongside W_rec, the median input row norm of active units went 0.177 -> 1.052,
+    past the untreated control's 0.769, and dimensionality fell 4.90 -> 3.46.
+    """
+    for label, use_ref in (("self", False), ("median_active", True)):
+        rnn, tr, ref = _setup()
+        idx = torch.tensor(SHORT)
+        before = rnn.W_inp[idx, :].norm(dim=1).detach().clone().numpy()
+        for _ in range(40):
+            _, inp = _step(tr, idx, ref if use_ref else None)
+        assert np.allclose(inp, before, rtol=1e-5), \
+            (f"{label}: W_inp row norm moved {before[0]:.6f} -> {inp[0]:.6f} over 40 boosts; "
+             f"the input row must stay pinned")
+        print(f"      {label}: W_inp held at {before[0]:.6f} through 40 boosts")
 
 
 def test_growth_stops_at_the_median():
@@ -174,7 +196,8 @@ def test_the_tilt_is_unchanged_by_the_mode():
 
 if __name__ == "__main__":
     for t in (test_self_mode_holds_the_row_length,
-              test_median_active_grows_a_short_row_by_alpha,
+              test_median_active_grows_a_short_recurrent_row_by_alpha,
+              test_the_input_row_never_grows,
               test_growth_stops_at_the_median,
               test_a_long_row_is_not_shrunk,
               test_the_tilt_is_unchanged_by_the_mode):

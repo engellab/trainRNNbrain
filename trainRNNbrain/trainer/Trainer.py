@@ -1427,13 +1427,25 @@ class Trainer():
                 `rescale_protect_frac * N` rows at once is the kind of magnitude step that
                 diverged the un-normalised arm (r2 -44.8).
 
+                ⚠️ ONLY W_rec GROWS. W_inp stays pinned at its own length however this is set.
+                The input row is n_inputs wide -- 3 on the 3-bit flip-flop, 6 on CDDM -- against a
+                recurrent row of N, so a unit recruited by enlarging its input row can only ever
+                become a function of those few signals. That is a sensory unit, and on a task whose
+                computation runs through intermediate variables it adds nothing: growing W_inp
+                alongside W_rec took the median input row norm of active units from 0.177 to 1.052,
+                above the untreated control's 0.769, and dimensionality fell from 4.90 to 3.46.
+                Across every treated cell measured, input magnitude and dimensionality ran in
+                strict opposite order. Recruitment has to come through the recurrent row, which is
+                where the population's intermediate variables live.
+
         Returns:
             None; mutates self.RNN.W_rec and self.RNN.W_inp in place.
         """
-        for W, restrict in ((self.RNN.W_rec, live), (self.RNN.W_inp, None)):
+        for W, restrict, may_grow in ((self.RNN.W_rec, live, True),
+                                      (self.RNN.W_inp, None, False)):
             blk = W[idx, :]
             before = blk.norm(dim=1, keepdim=True)
-            if norm_ref is not None and bool(norm_ref.any()):
+            if may_grow and norm_ref is not None and bool(norm_ref.any()):
                 med = W[norm_ref, :].norm(dim=1).median()
                 before = torch.where(before >= med, before,
                                      torch.minimum(before * alpha, med.expand_as(before)))
