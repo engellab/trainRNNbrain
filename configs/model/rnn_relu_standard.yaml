@@ -29,6 +29,13 @@ spectral_rad: 1.2
 sigma_rec: .05
 sigma_inp: .05
 sigma_out: .03
+# SYNAPTIC noise: W_rec and W_inp are multiplied by (1 + sigma_w * eps) with a FRESH eps at every
+# timestep, so the network never runs the same connectivity twice. 0 = off, which is every run
+# before 2026-09-30. Distinct from sigma_rec above: that adds a current to the state, which every
+# unit receives whatever its weights are, whereas this jitters the couplings, so a unit whose
+# incoming row has decayed to nothing still receives nothing. Multiplicative, so signs and
+# structural zeros survive and the perturbation scales with synapse strength.
+sigma_w: 0.0
 # NO TRAINABLE BIAS (changed 2026-09-21). A degenerate range makes the bias a fixed zero tensor
 # rather than an nn.Parameter, matching rnn_relu_noDale.yaml and every Dale config. It was trainable
 # in [-1, 1] for every run up to commit 4f7d73f; those runs are described by their commit hash.

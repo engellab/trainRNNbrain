@@ -233,7 +233,8 @@ class RNN_torch(torch.nn.Module):
                  n_inputs=6,
                  n_outputs=2,
                  input_row_norm=None,
-                 inp_weight_cap=None):
+                 inp_weight_cap=None,
+                 sigma_w=0.0):
         '''
         :param N: int, number of neural nodes in the RNN
         :param input_row_norm: float or None. None (default) keeps the drawn W_inp (entries at std
@@ -265,6 +266,20 @@ class RNN_torch(torch.nn.Module):
             the initial condition (needed for a one-variable trainable-bias control). Ignored for a
             degenerate bias_range.
         :param gamma: float, coefficient of the cubic nonlinearity in the RNN dynamics
+        :param sigma_w: float >= 0, relative std of MULTIPLICATIVE synaptic noise on W_rec and
+            W_inp, resampled at EVERY timestep of the forward pass: the matrices used at step t are
+            W * (1 + sigma_w * eps_t). 0 (default) is the historical behaviour and costs nothing.
+
+            Distinct from sigma_rec, which adds noise to the STATE. Noise on the state is a current
+            every unit receives whatever its weights are; noise on the weights is jitter on the
+            couplings themselves, so a unit with a near-zero incoming row still receives near
+            nothing. Multiplicative rather than additive for the same reason and because additive
+            noise would manufacture couplings where the trained network has none, and it keeps
+            every sign and every structural zero.
+
+            ONE DRAW PER TIMESTEP, SHARED ACROSS THE BATCH. A per-trial draw would need an
+            (N, N, batch) tensor -- 1000 x 1000 x 256 floats at N = 1000 -- which does not fit; the
+            trials in a batch therefore see the same synaptic jitter at the same step.
         :param sigma_rec: float, std of the gaussian noise in the recurrent dynamics
         :param sigma_inp: float, std of the gaussian noise in the input to the RNN
         :param sigma_out: float, std of the gaussian noise in the output of the RNN
@@ -290,6 +305,7 @@ class RNN_torch(torch.nn.Module):
         self.alpha = torch.tensor((dt / tau)).to(self.device)
         self.sigma_inp = torch.from_numpy(np.array(sigma_inp)).to(self.device)
         self.sigma_rec = torch.from_numpy(np.array(sigma_rec)).to(self.device)
+        self.sigma_w = float(sigma_w)
         self.sigma_out = torch.from_numpy(np.array(sigma_out)).to(self.device)
         self.n_inputs = int(n_inputs)
         self.n_outputs = int(n_outputs)
@@ -656,14 +672,26 @@ class RNN_torch(torch.nn.Module):
 
         states_list = [states[:, 0, :]]
 
+        # synaptic noise: a fresh multiplicative perturbation of BOTH weight matrices at every
+        # step, so the network never runs the same connectivity twice. Only drawn when asked for
+        # and only when the pass is noisy at all, so w_noise=False stays exactly deterministic --
+        # every offline read-out depends on that.
+        sw = self.sigma_w if w_noise else 0.0
         for t in range(1, T_steps):
+            if sw > 0.0:
+                Wr_t = Wrec_c * (1.0 + sw * torch.randn(
+                    Wrec_c.shape, generator=self.random_generator, device=self.device))
+                Wi_t = Winp_c * (1.0 + sw * torch.randn(
+                    Winp_c.shape, generator=self.random_generator, device=self.device))
+            else:
+                Wr_t, Wi_t = Wrec_c, Winp_c
             rhs_val = self.rhs(
                 x=states_list[-1],
                 I=u[:, t - 1, :],
                 i_noise=inp_noise[:, t - 1, :],
                 r_noise=rec_noise[:, t - 1, :],
-                W_rec=Wrec_c,
-                W_inp=Winp_c,
+                W_rec=Wr_t,
+                W_inp=Wi_t,
                 dropout_kind=dk,
                 dropout_mask=dropout_mask
             )
