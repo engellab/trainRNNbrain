@@ -188,28 +188,33 @@ TRACE_FAMILIES = [
         ("leaky ReLU",        f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=leakyrelu_iters=*",  "activation"),
         ("softplus",          f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=softplus25_iters=*", "activation"),
         ("bounded sigmoid",   f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=sigmoid_iters=*",    "activation"),
-        ("weight decay 0",    f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=0_iters=*",           "weight decay"),
+        ("W.D. 0",            f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=0_iters=*",           "weight decay"),
         # 1e-6 is the default in configs/trainer/trainer.yaml, so every run in this family's
         # reference carries WD=1e-06 - the reference IS this rung, and saying so turns three
         # scattered points into a monotone dose-response
-        ("weight decay 10⁻⁶ (reference)", None,                                                             "reference"),
-        ("weight decay 10⁻⁵", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-5_iters=*",        "weight decay"),
-        ("weight decay 10⁻⁴", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-4_iters=*",        "weight decay"),
+        ("W.D. 10⁻⁶ *", None,                                                             "reference"),
+        ("W.D. 10⁻⁵",         f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-5_iters=*",        "weight decay"),
+        ("W.D. 10⁻⁴",         f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-4_iters=*",        "weight decay"),
     ]),
     ("3-bit flip-flop, 150k", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", 150_000, [
         ("bounded sigmoid",   f"{DATA_DIR}/NBitFlipFlop_std_sigmoid/EqType=h_k=3_N=1000_iters=*",   "activation"),
-        ("input weights ×0.5", f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=0.5_iters=*", "input scale"),
-        ("input weights ×2",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=2_iters=*",   "input scale"),
-        ("input weights ×5",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=5_iters=*",   "input scale"),
-        ("input weights ×20",  f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=20_iters=*",  "input scale"),
+        ("input w. ×0.5", f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=0.5_iters=*", "input scale"),
+        ("input w. ×2",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=2_iters=*",   "input scale"),
+        ("input w. ×5",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=5_iters=*",   "input scale"),
+        ("input w. ×20",  f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=20_iters=*",  "input scale"),
     ]),
 ]
 
 # (label, csv, row filter, group). All at CDDM N=1000, eq=h, 30k.
 ARCHIVE_FAMILY = ("CDDM, 30k (archived)",
                   ("silent_stats_all.csv", dict(sweep="std", penalty="none")), [
-    ("s equation instead of h",  ("silent_stats_all.csv", dict(sweep="std", penalty="none", eq="s")), "architecture"),
-    # ⚠️ THESE TWO ROWS WERE MISLABELLED until 2026-09-21. The CSV's sweep names were read as
+    ("eq. s instead of h",       ("silent_stats_all.csv", dict(sweep="std", penalty="none", eq="s")), "architecture"),
+    # The `dale` sweep (Dale's law with non-negative input and output weights) was a row here until
+    # 2026-09-30. Its label was the longest on the panel and cost every other panel width, and
+    # Dale-constrained networks have a supplementary section of their own (S4), so it was dropped
+    # from the figure rather than shortened into something unreadable.
+    #
+    # ⚠️ THESE ROWS WERE MISLABELLED until 2026-09-21. The CSV's sweep names were read as
     # "self-connections off" (nodale_bias) and "bias fixed at 0" (nodale). Neither is what they are.
     # Matching each sweep's per-net counts against the participation traces still on disk identifies
     # them exactly: `dale` is CDDM_ptrack_g0 (Dale + non-negative I/O), `nodale` is
@@ -222,7 +227,6 @@ ARCHIVE_FAMILY = ("CDDM, 30k (archived)",
     #     intervention is making the bias trainable, which is what `nodale_bias` does;
     #   - `nodale` differs from the `std` reference only in being a different sweep of the same
     #     unconstrained architecture, so it is a sweep-to-sweep replicate, not a knob. Dropped.
-    ("Dale's law + non-negative I/O", ("silent_stats_all.csv", dict(sweep="dale", penalty="none")), "architecture"),
     ("trainable bias",           ("silent_stats_all.csv", dict(sweep="nodale_bias", penalty="none")), "architecture"),
     ("metabolic λ = 0.01",       ("silent_stats_v2.csv", dict(sweep="metabolic", met="0.01")), "metabolic"),
     ("metabolic λ = 0.1",        ("silent_stats_v2.csv", dict(sweep="metabolic", met="0.1")), "metabolic"),
@@ -234,10 +238,10 @@ ARCHIVE_FAMILY = ("CDDM, 30k (archived)",
 # sigma_rec = 0.05 is the default in every model config, so as with weight decay the reference is a
 # rung of this ladder rather than something outside it. Listed in ascending order with the rest.
 NOISE_FAMILY = ("CDDM, 30k (peak-rate criterion)", "0.05", [
-    ("recurrent noise σ = 0",    "0.0",  "noise"),
-    ("recurrent noise σ = 0.01", "0.01", "noise"),
-    ("recurrent noise σ = 0.05 (reference)", None, "reference"),
-    ("recurrent noise σ = 0.1",  "0.1",  "noise"),
+    ("rec. noise σ = 0",    "0.0",  "noise"),
+    ("rec. noise σ = 0.01", "0.01", "noise"),
+    ("rec. noise σ = 0.05 *", None, "reference"),
+    ("rec. noise σ = 0.1",  "0.1",  "noise"),
 ])
 
 # Tried, but with no read-out that can sit on this axis. These sweeps saved no participation traces
@@ -848,6 +852,9 @@ TRAJ = [
     ("CDDM", f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=200000", ps.SLOTS[1], 1000),
     ("DMTS, 7$\\tau$ delay", f"{DATA_DIR}/DMTS_d7_pen/EqType=h_N=1000_pen=none", ps.SLOTS[2], 1000),
 ]
+# how far left of the e stack the panel letter of that column sits, as a fraction of the stack's
+# width; panel a's letter is placed to match it
+E_LETTER_DX = 0.13
 PLATEAU_TOL = 0.10        # "performance has plateaued" = clean loss within this of its final value
 PENALTY_KEYS = ("lambda_frm", "lambda_rws", "lambda_met", "lambda_orth")
 
@@ -1184,16 +1191,23 @@ def main():
     # gutter its real job - panel d's row labels reach 34 mm left of d's own axis and the e stack's
     # silent-units ticks reach 11 mm right of its axis, and the two were overlapping by 11 mm.
     fig = plt.figure(figsize=(ps.W2, 205 * ps.MM))
+    LEFT, RIGHT, W_RATIO, GUTTER = 0.06, 0.975, 1.06, 0.52
     gs = GridSpec(2, 2, figure=fig, height_ratios=[0.74, 2.50],
-                  width_ratios=[1.06, 1.0], hspace=0.26, wspace=0.82,
-                  left=0.06, right=0.975)
+                  width_ratios=[W_RATIO, 1.0], hspace=0.26, wspace=GUTTER,
+                  left=LEFT, right=RIGHT)
 
     # The top row is split on its own rather than inheriting the columns below it. The wide gutter
     # the bottom row needs is there to hold panel d's row labels, and nothing in the top row has
     # labels to put in it - inherited, it was 42 mm of blank paper between the traces and panel b.
     # The split is chosen so that b still starts exactly where c and d start, at 0.660.
-    gs_top = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, :], width_ratios=[1.714, 1.0],
-                                     wspace=0.140)
+    # Its right cell is made exactly as wide as the column below it, so panel b starts where c and
+    # d start whatever GUTTER is set to, instead of two hand-tuned ratios drifting apart.
+    span = RIGHT - LEFT
+    w_right = span / ((W_RATIO + 1.0) * (1.0 + GUTTER / 2.0))
+    gap_top = 0.06
+    gs_top = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, :],
+                                     width_ratios=[span - w_right - gap_top, w_right],
+                                     wspace=gap_top / ((span - gap_top) / 2.0))
     # the schematic is a circle and cannot grow past the row's height, so the width panel a gains
     # goes to the traces, which read along time
     gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_top[0, 0], width_ratios=[1.0, 1.81],
@@ -1202,10 +1216,11 @@ def main():
     ax_tr = fig.add_subplot(gs_a[0, 1])
     n_live, n_shown_live, n_conn = panel_a(ax_net, ax_tr, rates, p)
     ax_net.set_title("trained ReLU RNN", fontsize=6.6, color=ps.INK, pad=2)
-    # -0.228 against the e stack's -0.13: the offset is a fraction of its own axes width, and the
-    # schematic's axes is 0.19 of the figure against the stack's 0.33, so equal offsets would not
-    # put the two letters of this column on the same vertical
-    ps.panel_letter(ax_net, "a", dx=-0.228, dy=1.02)
+    # panel_letter's offset is a fraction of its OWN axes width, and the schematic's axes is much
+    # narrower than the e stack's, so the same number would not put the two letters of this column
+    # on one vertical. a's is derived from e's instead.
+    w_net = (span - w_right - gap_top) / (2.81 * 1.01)
+    ps.panel_letter(ax_net, "a", dx=-E_LETTER_DX * W_RATIO * w_right / w_net, dy=1.02)
 
     ax_b = fig.add_subplot(gs_top[0, 1])
     panel_b(ax_b, p)
@@ -1227,7 +1242,7 @@ def main():
     gs_e = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[1, 0], hspace=0.30)
     axes_e = [fig.add_subplot(gs_e[i, 0]) for i in range(3)]
     rows_e = panel_e(axes_e)
-    ps.panel_letter(axes_e[0], "e", dx=-0.13)
+    ps.panel_letter(axes_e[0], "e", dx=-E_LETTER_DX)
 
     out = ps.save(fig, "fig_paper_F1")
 
