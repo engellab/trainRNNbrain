@@ -249,14 +249,18 @@ def _cat_axes(ax, ylabel):
 def panel_b(ax, c):
     """Panel (b): active units per network, out of 1000. Returns per-arm (mean, sd, n)."""
     xs = _cat_axes(ax, "active units")
-    res = ps.strip(ax, xs, by_arm(c, "n_active"), [col for _, _, _, col in ARMS],
-                   rng=np.random.default_rng(3))
+    groups = by_arm(c, "n_active")
+    res = ps.strip(ax, xs, groups, [col for _, _, _, col in ARMS], rng=np.random.default_rng(3))
     ax.axhline(N_UNITS, color=ps.FAINT, lw=0.7, ls=":", zorder=1)
-    ax.text(len(ARMS) - 0.5, N_UNITS, f"all {N_UNITS}", fontsize=5.4, color=ps.MUTED,
-            va="bottom", ha="right")
     ax.set_ylim(0, N_UNITS * 1.12)
-    for x, (m, sd, n) in zip(xs, res):
-        ax.text(x, m + 62, f"{m:.0f}", ha="center", fontsize=5.8, color=ps.INK)
+    # Offsets are in POINTS from the highest seed of each arm, not in data units from its mean: the
+    # arms differ in spread (12 rescale seeds against 3 elsewhere), so a fixed data-unit offset
+    # clears the dots in one arm and lands on them in the next.
+    ax.annotate(f"all {N_UNITS}", (len(ARMS) - 0.5, N_UNITS), textcoords="offset points",
+                xytext=(0, 3), ha="right", va="bottom", fontsize=5.4, color=ps.MUTED)
+    for x, g, (m, sd, n) in zip(xs, groups, res):
+        ax.annotate(f"{m:.0f}", (x, g.max()), textcoords="offset points", xytext=(0, 5),
+                    ha="center", va="bottom", fontsize=5.8, color=ps.INK)
     return res
 
 
@@ -316,14 +320,49 @@ def panel_e(ax, c):
     ax.legend(loc="upper left", fontsize=5.6, handlelength=1.0, borderpad=0.1,
               borderaxespad=0.2)
     # The four curves nearly coincide, and that is the panel's result, so it is said in words rather
-    # than left for the reader to infer from an overlap.
+    # than left for the reader to infer from an overlap. It goes in the TITLE, outside the data
+    # area: there is no corner of this panel that stays empty as the curves move.
     spread = np.array([np.mean(c["w_spread"][c["arm"] == k].astype(float)) for k, _, _, _ in ARMS])
     lo, hi = (10 ** np.array([spread.min(), spread.max()])).round(-2)
-    ax.text(0.99, 0.70, f"a {lo:,.0f}- to {hi:,.0f}-fold\nrange in every arm",
-            transform=ax.transAxes, ha="right", va="top", fontsize=5.4, color=ps.MUTED,
-            linespacing=1.35)
+    ax.set_title(f"a {lo:,.0f}- to {hi:,.0f}-fold range\nin every arm", fontsize=5.6,
+                 color=ps.MUTED, linespacing=1.3, pad=3)
     ps.ygrid(ax)
     return out
+
+
+def check_labels_clear(fig):
+    """Raise if any label inside a quantitative panel touches a drawn datum.
+
+    Hand-placed annotations drift onto the data as soon as the data move: an offset that clears a
+    three-seed arm lands on a twelve-seed one, and a density curve that gains a shoulder walks under
+    a corner annotation. This ran and failed on four labels before the offsets below were changed to
+    anchor on the data, so it is a test that has caught something rather than a formality.
+
+    Panel (a) is exempt: it is a schematic whose text is meant to sit against the glyphs it names.
+
+    Args:
+        fig: the drawn figure. Its canvas is drawn here, so call it before saving.
+    Returns:
+        the number of labels checked.
+    Raises:
+        AssertionError naming every label that overlaps, with the panel it is in.
+    """
+    fig.canvas.draw()
+    r = fig.canvas.get_renderer()
+    bad, checked = [], 0
+    for ax in fig.axes:
+        if not ax.get_ylabel():                       # the schematic panel has no y label
+            continue
+        data = [a.get_window_extent(r) for a in list(ax.lines) + list(ax.collections)]
+        labels = [(t.get_text().replace("\n", " "), t.get_window_extent(r)) for t in ax.texts]
+        if ax.get_legend() is not None:
+            labels.append(("<legend>", ax.get_legend().get_window_extent(r)))
+        for text, box in labels:
+            checked += 1
+            if any(box.overlaps(d) for d in data):
+                bad.append(f"{ax.get_ylabel()}: {text!r}")
+    assert not bad, "labels overlapping data in Figure 2:\n  " + "\n  ".join(bad)
+    return checked
 
 
 def main():
@@ -344,7 +383,9 @@ def main():
         axes[letter] = (ax, fn(ax, c))
         ps.panel_letter(ax, letter, dx=-0.30, dy=1.02)
 
+    n_checked = check_labels_clear(fig)
     out = ps.save(fig, "fig_paper_F2")
+    print(f"label check: {n_checked} labels, none touching data")
 
     # ---- the numbers the caption quotes -------------------------------------------------------
     ref = {k: np.asarray(c[k][c["arm"] == "control"], float)
