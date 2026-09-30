@@ -975,6 +975,9 @@ def panel_e(axes):
         ax.set(xscale="log", yscale="log", ylim=(4e-4, 2.2))
         axr.set(ylim=(0, N * 1.04))
         axr.spines[["top"]].set_visible(False)
+        # the house style hides every right spine; this axis needs its own, or the silent-units
+        # ticks hang off nothing and the reader cannot tell which panel edge they belong to
+        axr.spines[["right"]].set_visible(True)
         # each sub-panel now carries its own right-hand ticks, so each set is coloured by its own
         # task rather than all three by the last one
         axr.tick_params(axis="y", colors=col)
@@ -1175,32 +1178,51 @@ def main():
     # schematic; panels c and d stack in the right column beside them. Each e sub-panel keeps the
     # width of the whole left column, which is the axis a trajectory reads along, and the three
     # give up the height they no longer need once they share one x axis and one x label.
+    # The side margins are set explicitly rather than left at the matplotlib default of
+    # 0.125/0.90, which spent 25 mm of the canvas on blank edges that the tight-bbox export then
+    # trimmed away: the panels were paying for whitespace nobody ever saw. Reclaiming it buys the
+    # gutter its real job - panel d's row labels reach 34 mm left of d's own axis and the e stack's
+    # silent-units ticks reach 11 mm right of its axis, and the two were overlapping by 11 mm.
     fig = plt.figure(figsize=(ps.W2, 205 * ps.MM))
     gs = GridSpec(2, 2, figure=fig, height_ratios=[0.74, 2.50],
-                  width_ratios=[1.06, 1.0], hspace=0.26, wspace=0.62)
+                  width_ratios=[1.06, 1.0], hspace=0.26, wspace=0.82,
+                  left=0.06, right=0.975)
 
-    # panel a keeps the whole top-left cell, its schematic over the e stack below it
-    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=[1.32, 1.0],
+    # The top row is split on its own rather than inheriting the columns below it. The wide gutter
+    # the bottom row needs is there to hold panel d's row labels, and nothing in the top row has
+    # labels to put in it - inherited, it was 42 mm of blank paper between the traces and panel b.
+    # The split is chosen so that b still starts exactly where c and d start, at 0.660.
+    gs_top = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, :], width_ratios=[1.714, 1.0],
+                                     wspace=0.140)
+    # the schematic is a circle and cannot grow past the row's height, so the width panel a gains
+    # goes to the traces, which read along time
+    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_top[0, 0], width_ratios=[1.0, 1.81],
                                    wspace=0.02)
     ax_net = fig.add_subplot(gs_a[0, 0])
     ax_tr = fig.add_subplot(gs_a[0, 1])
     n_live, n_shown_live, n_conn = panel_a(ax_net, ax_tr, rates, p)
     ax_net.set_title("trained ReLU RNN", fontsize=6.6, color=ps.INK, pad=2)
-    ps.panel_letter(ax_net, "a", dx=-0.13, dy=1.02)
+    # -0.228 against the e stack's -0.13: the offset is a fraction of its own axes width, and the
+    # schematic's axes is 0.19 of the figure against the stack's 0.33, so equal offsets would not
+    # put the two letters of this column on the same vertical
+    ps.panel_letter(ax_net, "a", dx=-0.228, dy=1.02)
 
-    ax_b = fig.add_subplot(gs[0, 1])
+    ax_b = fig.add_subplot(gs_top[0, 1])
     panel_b(ax_b, p)
     ps.panel_letter(ax_b, "b")
 
-    gs_cd = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[1, 1], height_ratios=[1.0, 1.55],
-                                    hspace=0.30)
+    # c and d are laid on the SAME three rows as the e stack beside them, c on the first and d on
+    # the other two, so every horizontal edge in this block lines up across the figure: c's top and
+    # bottom with the first e sub-panel's, d's top with the second's and d's bottom with the third's.
+    gs_cd = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[1, 1], hspace=0.30)
     ax_c = fig.add_subplot(gs_cd[0, 0])
     fits = panel_c(ax_c)
     ps.panel_letter(ax_c, "c")
 
-    ax_d = fig.add_subplot(gs_cd[1, 0])
+    ax_d = fig.add_subplot(gs_cd[1:3, 0])
     rows_d = panel_d(ax_d)
-    ps.panel_letter(ax_d, "d", dx=-0.28)
+    # the same offset b and c use, so the three letters of the right column sit on one vertical
+    ps.panel_letter(ax_d, "d")
 
     gs_e = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[1, 0], hspace=0.30)
     axes_e = [fig.add_subplot(gs_e[i, 0]) for i in range(3)]
