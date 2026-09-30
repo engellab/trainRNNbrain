@@ -62,6 +62,13 @@ SLOTS = ["#2a78d6", "#d94f2b", "#12916a", "#8b46d6", "#a67c00"]
 # PAPER surface: contrast 9.4:1, and dE76 26.6 against SLOTS[3], well clear of the separation floor.
 RESCALE_TINT = "#5b2b8f"
 
+# The same argument for the second family in Figure 2: dropout and synaptic noise are both noise
+# injected during training that the network must stay accurate under, one by hiding a unit from the
+# loss and one by redrawing every synapse each timestep. They share the dropout hue in two tints.
+# Checked by hand at the PAPER surface, as above: contrast 9.3:1, and the smallest dE76 among the
+# five colours Figure 2 uses is 26.6, well clear of the separation floor.
+SYNNOISE_TINT = "#17457f"
+
 # Semantic assignment used across every manuscript figure, so one colour means one thing everywhere.
 COND_COL = {
     "baseline":  BASE,
@@ -71,6 +78,7 @@ COND_COL = {
     "dead":      SLOTS[3],
     "duplicate": SLOTS[3],
     "rescale":   RESCALE_TINT,
+    "synnoise":  SYNNOISE_TINT,
     "frm":       SLOTS[1],
     "rws":       SLOTS[4],
     "both":      SLOTS[2],

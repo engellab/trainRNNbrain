@@ -32,9 +32,10 @@ THE FOUR MEASURES, per network:
 misses the stored value by more than R2_TOL is dropped, because a wrong forward pass still yields a
 plausible-looking dimensionality and a perfectly plausible weight histogram.
 
-Usage (on the cluster, from a repo whose code matches the runs):
+Usage (on the cluster, under a repo new enough for every feature these runs used):
     python f2_remedies_cache.py                     # writes ~/fig_paper_F2_cache.npz
     python f2_remedies_cache.py OUT.npz
+    F2_REPO=~/other_worktree python f2_remedies_cache.py
 Then copy the file to data/fig_paper_F2_cache.npz beside the figure script.
 """
 
@@ -48,7 +49,11 @@ import numpy as np
 import torch
 from omegaconf import OmegaConf
 
-REPO = os.environ.get("F2_REPO", "/home/pt1290/trainRNNbrain_cperturb")
+# The repo the networks are REBUILT from must have every model feature they were trained with.
+# `_cperturb` predates `sigma_w` and raises TypeError on the whole synaptic-noise arm, so the
+# default is a worktree new enough to carry it. Older cells still pass the r2 gate from here,
+# which is the check that the task class has not moved under them.
+REPO = os.environ.get("F2_REPO", "/home/pt1290/trainRNNbrain_sizeser")
 sys.path.insert(0, REPO)
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.trainer.Trainer import Trainer
@@ -67,9 +72,14 @@ ZERO_TOL = 1e-12
 # left; the check below asserts the loss is negligible rather than trusting the range.
 LOG_BINS = np.linspace(-12.0, 4.0, 321)
 
-# (arm, label, cell path). Every rescale cell that is matched to the other arms is measured, not
-# just one: the rule was developed over five sweeps and its early alpha-only form recruits nothing,
-# so quoting that form as "rescale" reports the rule at its weakest. Which cell the FIGURE draws is
+# (arm, label, N, cell path). Every cell is gamma = 0, 3-bit flip-flop, 40,000 iterations, lr 1e-3,
+# weight decay 1e-6, sigma_rec = sigma_inp = 0.05, batch 1024 - checked config by config, not assumed
+# from the folder name. N = 1000 carries the four-way comparison; the other sizes carry the dropout
+# size series, whose N = 4000 control comes from `paper_grid` because `ff_revive` never ran one.
+#
+# Every rescale cell that is matched is measured, not just one: the rule was developed over five
+# sweeps and its early alpha-only form recruits nothing, so quoting that form as "rescale" reports
+# the rule at its weakest. Synaptic noise is a grid in the same way. Which cell the FIGURE draws is
 # chosen in fig_paper_F2.py and the whole grid is printed beneath it.
 RESCALE_CELLS = [
     # alpha only, no activity target: the first form of the rule (2026-09-25)
@@ -90,14 +100,38 @@ RESCALE_CELLS = [
     "NBitFlipFlop_revive_refr/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.20_refr=4000",
 ]
 
+# Synaptic noise: the recurrent weight matrix is redrawn around its mean at EVERY timestep, with
+# per-synapse sd sigma_w * |W_ij|. sw is that multiplier, so 1.0 means a synapse fluctuates by as
+# much as its own strength. This is not a rule that acts on silent units at all - it is a property
+# of the dynamics - which is why it is the one arm here that changes no update rule.
+SYNNOISE_CELLS = [
+    "NBitFlipFlop_synnoise/EqType=h_k=3_N=1000_sw=0.1",
+    "NBitFlipFlop_synnoise/EqType=h_k=3_N=1000_sw=0.3",
+    "NBitFlipFlop_synnoise/EqType=h_k=3_N=1000_sw=1.0",
+    "NBitFlipFlop_synnoise_ext/EqType=h_N=1000_sw=2.0_iters=40000",
+    "NBitFlipFlop_synnoise_ext/EqType=h_N=1000_sw=3.0_iters=40000",
+]
+
+# The dropout size series, and the control at each size it is measured against.
+SIZE_CELLS = [
+    ("control", 500, "NBitFlipFlop_ff_revive/EqType=h_k=3_N=500_pen=none_arm=none"),
+    ("control", 2000, "NBitFlipFlop_ff_revive/EqType=h_k=3_N=2000_pen=none_arm=none"),
+    ("control", 4000, "NBitFlipFlop_paper_grid/EqType=h_N=4000_arm=control"),
+    ("mute", 500, "NBitFlipFlop_dropout_sizes/EqType=h_k=3_N=500_pen=none_do=mute_rate=0.20_beta=4"),
+    ("mute", 2000, "NBitFlipFlop_dropout_sizes/EqType=h_k=3_N=2000_pen=none_do=mute_rate=0.20_beta=4"),
+    ("mute", 4000, "NBitFlipFlop_dropout_sizes/EqType=h_k=3_N=4000_pen=none_do=mute_rate=0.20_beta=4"),
+]
+
 CELLS = [
-    ("control", "no intervention",
+    ("control", "no intervention", 1000,
      "NBitFlipFlop_ff_revive/EqType=h_k=3_N=1000_pen=none_arm=none"),
-    ("mute", "dropout: mute",
+    ("mute", "dropout: mute", 1000,
      "NBitFlipFlop_dropout_sizes/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4"),
-    ("duplicate", "prune + duplicate",
+    ("duplicate", "prune + duplicate", 1000,
      "NBitFlipFlop_copy_perturb/EqType=h_k=3_N=1000_cn=0"),
-] + [("rescale", "rescale", c) for c in RESCALE_CELLS]
+] + [("rescale", "rescale", 1000, c) for c in RESCALE_CELLS] \
+  + [("synnoise", "synaptic noise", 1000, c) for c in SYNNOISE_CELLS] \
+  + [(arm, "size series", n, c) for arm, n, c in SIZE_CELLS]
 
 
 def participation_ratio(x):
@@ -175,7 +209,14 @@ def load_net(net_dir):
                     self_connections=bool(m.self_connections), bias_range=list(m.bias_range),
                     gamma=float(m.gamma), dt=float(m.dt), tau=float(m.tau),
                     sigma_rec=float(m.sigma_rec), sigma_inp=float(m.sigma_inp),
-                    sigma_out=float(m.sigma_out), n_inputs=int(cfg.task.n_inputs),
+                    sigma_out=float(m.sigma_out),
+                    # ⚠️ sigma_w IS PART OF THE TRAINED CONDITION. The synaptic-noise arm redraws
+                    # W_rec around its mean at every timestep; rebuilding without it scores the
+                    # network under dynamics it never trained in. Left out, the sw=2.0 and sw=3.0
+                    # cells recomputed at r2 0.66-0.83 against a stored 0.92-0.93 and failed the
+                    # gate, and the quieter cells passed while still being scored wrongly.
+                    sigma_w=float(getattr(m, "sigma_w", 0.0)),
+                    n_inputs=int(cfg.task.n_inputs),
                     n_outputs=int(cfg.task.n_outputs), seed=0)
     with torch.no_grad():
         for k in ("W_rec", "W_inp", "W_out"):
@@ -202,6 +243,7 @@ def analyse(net_dir):
         dict of scalars plus the two weight histograms.
     """
     rnn, task, mask, stored, d = load_net(net_dir)
+    n_from_cfg = int(rnn.N)
     bi, bt, _ = task.get_batch()
     bi = torch.tensor(bi[:, :, :TRIALS], dtype=torch.float32)
     bt = torch.tensor(bt[:, :, :TRIALS], dtype=torch.float32)
@@ -209,10 +251,10 @@ def analyse(net_dir):
         states, out = rnn(bi, w_noise=True)
         r2_noisy = float(Trainer.r2_score(out, bt, mask))
         r_noisy = torch.relu(states).numpy().reshape(rnn.N, -1)   # float32, on purpose
-        srec, sinp = float(rnn.sigma_rec), float(rnn.sigma_inp)
-        rnn.sigma_rec = rnn.sigma_inp = 0.0
+        srec, sinp, sw = float(rnn.sigma_rec), float(rnn.sigma_inp), float(rnn.sigma_w)
+        rnn.sigma_rec = rnn.sigma_inp = rnn.sigma_w = 0.0
         states_c, out_c = rnn(bi, w_noise=False)
-        rnn.sigma_rec, rnn.sigma_inp = srec, sinp
+        rnn.sigma_rec, rnn.sigma_inp, rnn.sigma_w = srec, sinp, sw
         r2_clean = float(Trainer.r2_score(out_c, bt, mask))
         r_clean = torch.relu(states_c).numpy().reshape(rnn.N, -1)
 
@@ -230,7 +272,8 @@ def analyse(net_dir):
         outside = 1.0 - whole["hist"].sum() / whole["n_nonzero"]
         assert outside < 1e-4, (f"{outside:.2%} of |W_rec| falls outside the histogram range "
                                f"{LOG_BINS[0]:.0f}..{LOG_BINS[-1]:.0f}; widen LOG_BINS")
-    out_d = dict(stored=stored, r2=r2_noisy, r2_clean=r2_clean, n_active=int(live.sum()),
+    out_d = dict(N_cfg=n_from_cfg, stored=stored, r2=r2_noisy, r2_clean=r2_clean,
+                 n_active=int(live.sum()),
                  dims=float("nan"), dims95=float("nan"),
                  w_inp_sigma=float("nan") if inp is None else inp["sigma_log"])
     if live.sum() >= 2:
@@ -246,7 +289,7 @@ def analyse(net_dir):
 def main(out_path):
     """Score every network of every cell and write the cache. Returns the output path."""
     recs, fields = [], None
-    for arm, label, pat in CELLS:
+    for arm, label, n_units, pat in CELLS:
         for nd in sorted(glob.glob(os.path.join(D, pat, "*"))):
             if not os.path.isdir(nd):
                 continue
@@ -256,13 +299,17 @@ def main(out_path):
                 print(f"  SKIP {arm:>10s} {os.path.basename(nd)[:12]}: {type(e).__name__}: {e}",
                       flush=True)
                 continue
+            if r["N_cfg"] != n_units:
+                print(f"  SKIP {arm:>10s} {os.path.basename(nd)[:12]}: cell says N={n_units} but "
+                      f"the saved config says N={r['N_cfg']}", flush=True)
+                continue
             gate = abs(r["stored"] - r["r2"]) < R2_TOL
-            print(f"  {arm:>10s} stored {r['stored']:7.4f} recomp {r['r2']:7.4f} "
+            print(f"  {arm:>10s} N={n_units:5d} stored {r['stored']:7.4f} recomp {r['r2']:7.4f} "
                   f"{'PASS' if gate else 'FAIL':>4s}  active {r['n_active']:4d}  "
                   f"dims {r['dims']:6.2f}  sigma_log {r['w_sigma_log']:5.2f}", flush=True)
             if not gate:
                 continue
-            r.update(arm=arm, label=label, cell="/".join(pat.split("/")[-2:]))
+            r.update(arm=arm, label=label, N=n_units, cell="/".join(pat.split("/")[-2:]))
             recs.append(r)
             fields = fields or sorted(r)
     if not recs:
