@@ -187,17 +187,17 @@ TRACE_FAMILIES = [
     ("CDDM, 200k", f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*", None, [
         ("leaky ReLU",        f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=leakyrelu_iters=*",  "activation"),
         ("softplus",          f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=softplus25_iters=*", "activation"),
-        ("bounded sigmoid",   f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=sigmoid_iters=*",    "activation"),
+        ("sigmoid",           f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=sigmoid_iters=*",    "activation"),
         ("W.D. 0",            f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=0_iters=*",           "weight decay"),
         # 1e-6 is the default in configs/trainer/trainer.yaml, so every run in this family's
         # reference carries WD=1e-06 - the reference IS this rung, and saying so turns three
         # scattered points into a monotone dose-response
-        ("W.D. 10⁻⁶ *", None,                                                             "reference"),
+        ("W.D. 10⁻⁶*", None,                                                             "reference"),
         ("W.D. 10⁻⁵",         f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-5_iters=*",        "weight decay"),
         ("W.D. 10⁻⁴",         f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-4_iters=*",        "weight decay"),
     ]),
     ("3-bit flip-flop, 150k", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", 150_000, [
-        ("bounded sigmoid",   f"{DATA_DIR}/NBitFlipFlop_std_sigmoid/EqType=h_k=3_N=1000_iters=*",   "activation"),
+        ("sigmoid",           f"{DATA_DIR}/NBitFlipFlop_std_sigmoid/EqType=h_k=3_N=1000_iters=*",   "activation"),
         ("input w. ×0.5", f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=0.5_iters=*", "input scale"),
         ("input w. ×2",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=2_iters=*",   "input scale"),
         ("input w. ×5",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=5_iters=*",   "input scale"),
@@ -240,7 +240,7 @@ ARCHIVE_FAMILY = ("CDDM, 30k (archived)",
 NOISE_FAMILY = ("CDDM, 30k (peak-rate criterion)", "0.05", [
     ("rec. noise σ = 0",    "0.0",  "noise"),
     ("rec. noise σ = 0.01", "0.01", "noise"),
-    ("rec. noise σ = 0.05 *", None, "reference"),
+    ("rec. noise σ = 0.05*", None, "reference"),
     ("rec. noise σ = 0.1",  "0.1",  "noise"),
 ])
 
@@ -954,7 +954,7 @@ def panel_c(ax):
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
     ax.text(3.4e2, 1045, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N",
-           ylabel="active units, matched after convergence",
+           ylabel="active units\n(read a matched time\nafter convergence)",
            xlim=(3.2e2, 2.7e4), ylim=(100, 2.3e3))
     # Lower right is the only corner the guides, the data and the extrapolations all leave empty.
     # It used to be held inboard of the right edge, away from panel d's longest row labels across
@@ -1192,7 +1192,7 @@ def panel_d(ax):
     Returns:
         list of (family, label, delta, se, n) rows.
     """
-    rows, ticks, labels, y = [], [], [], 0.0
+    rows, ticks, labels, refs, y = [], [], [], [], 0.0
     bands = []
 
     def block(title, ref, items):
@@ -1207,6 +1207,7 @@ def panel_d(ax):
             # the neutral reference ink rather than a categorical slot.
             if group == "reference":
                 ax.plot(0, y, "o", ms=3.4, color=ps.BASE, zorder=5, mec="none")
+                refs.append(len(labels))
                 ticks.append(y)
                 labels.append(label)
                 y += 1
@@ -1248,6 +1249,7 @@ def panel_d(ax):
     for label, sigma, group in items:
         if group == "reference":
             ax.plot(0, y, "o", ms=3.4, color=ps.BASE, zorder=5, mec="none")
+            refs.append(len(labels))
             ticks.append(y)
             labels.append(label)
             y += 1
@@ -1290,6 +1292,12 @@ def panel_d(ax):
            xlabel="change in active units")
     ps.despine(ax, keep=("bottom",))
     ax.tick_params(axis="y", length=0, labelsize=5.8)
+    # Each block's reference row is drawn in the same neutral ink as its marker dot, so the label
+    # and the point it names carry one colour and the asterisk is not the only thing marking it.
+    # NOT bold: this style's font stack resolves both weights to the same Helvetica.ttc face, so
+    # set_fontweight("bold") sets the property and changes nothing on the page.
+    for i in refs:
+        ax.get_yticklabels()[i].set_color(ps.BASE)
     ax.xaxis.grid(True, alpha=0.2, lw=0.5, color=ps.GRID)
     ax.set_axisbelow(True)
     return rows
@@ -1316,8 +1324,13 @@ def main():
     # gutter its real job - panel d's row labels reach 34 mm left of d's own axis and the e stack's
     # silent-units ticks reach 11 mm right of its axis, and the two were overlapping by 11 mm.
     fig = plt.figure(figsize=(ps.W2, 205 * ps.MM))
-    LEFT, RIGHT, W_RATIO, GUTTER = 0.06, 0.975, 1.06, 0.52
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.74, 2.50],
+    # Panel a sits in the left column, the same width as the e stack under it, and panel b in the
+    # right column, the same width as c and d under it - so every panel edge lines up with the one
+    # above or below it. The left column is narrower than the right because panel d's row labels
+    # hang off the right column's left edge and c has a legend to fit.
+    LEFT, RIGHT, W_RATIO, GUTTER = 0.06, 0.975, 0.86, 0.52
+    A_RATIOS, A_WSPACE = (1.25, 1.0), 0.02
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.62, 2.50],
                   width_ratios=[W_RATIO, 1.0], hspace=0.26, wspace=GUTTER,
                   left=LEFT, right=RIGHT)
 
@@ -1325,29 +1338,19 @@ def main():
     # the bottom row needs is there to hold panel d's row labels, and nothing in the top row has
     # labels to put in it - inherited, it was 42 mm of blank paper between the traces and panel b.
     # The split is chosen so that b still starts exactly where c and d start, at 0.660.
-    # Its right cell is made exactly as wide as the column below it, so panel b starts where c and
-    # d start whatever GUTTER is set to, instead of two hand-tuned ratios drifting apart.
-    span = RIGHT - LEFT
-    w_right = span / ((W_RATIO + 1.0) * (1.0 + GUTTER / 2.0))
-    gap_top = 0.06
-    gs_top = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, :],
-                                     width_ratios=[span - w_right - gap_top, w_right],
-                                     wspace=gap_top / ((span - gap_top) / 2.0))
-    # the schematic is a circle and cannot grow past the row's height, so the width panel a gains
-    # goes to the traces, which read along time
-    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_top[0, 0], width_ratios=[1.0, 1.81],
-                                   wspace=0.02)
+    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=list(A_RATIOS),
+                                   wspace=A_WSPACE)
     ax_net = fig.add_subplot(gs_a[0, 0])
     ax_tr = fig.add_subplot(gs_a[0, 1])
     n_live, n_shown_live, n_conn = panel_a(ax_net, ax_tr, rates, p)
     ax_net.set_title("trained ReLU RNN", fontsize=6.6, color=ps.INK, pad=2)
-    # panel_letter's offset is a fraction of its OWN axes width, and the schematic's axes is much
-    # narrower than the e stack's, so the same number would not put the two letters of this column
-    # on one vertical. a's is derived from e's instead.
-    w_net = (span - w_right - gap_top) / (2.81 * 1.01)
-    ps.panel_letter(ax_net, "a", dx=-E_LETTER_DX * W_RATIO * w_right / w_net, dy=1.02)
+    # panel_letter's offset is a fraction of its OWN axes width, and the schematic's axes is a
+    # fraction of the column, so the same number would not put the two letters of this column on
+    # one vertical. a's offset is derived from e's by the ratio of their widths.
+    net_frac = A_RATIOS[0] / (sum(A_RATIOS) * (1.0 + A_WSPACE / 2.0))
+    ps.panel_letter(ax_net, "a", dx=-E_LETTER_DX / net_frac, dy=1.02)
 
-    ax_b = fig.add_subplot(gs_top[0, 1])
+    ax_b = fig.add_subplot(gs[0, 1])
     panel_b(ax_b, p)
     ps.panel_letter(ax_b, "b")
 
