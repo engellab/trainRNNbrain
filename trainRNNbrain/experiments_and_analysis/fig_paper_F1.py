@@ -827,10 +827,11 @@ def panel_c(ax):
     ax.text(3.4e2, 1045, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N", ylabel="active units",
            xlim=(3.2e2, 2.7e4), ylim=(100, 2.3e3))
-    # Lower right is the only corner the guides, the data and the extrapolations all leave empty,
-    # but flush against the axis it runs into panel d's longest row labels across the gutter, so it
-    # is held inboard of the right edge.
-    ax.legend(handles=handles, loc="lower right", bbox_to_anchor=(0.80, 0.0), fontsize=5.9)
+    # Lower right is the only corner the guides, the data and the extrapolations all leave empty.
+    # It used to be held inboard of the right edge, away from panel d's longest row labels across
+    # the gutter; panel d now sits BELOW this panel, so the corner is free and the legend goes
+    # flush - held inboard in a panel this narrow it sat on top of the curves it was labelling.
+    ax.legend(handles=handles, loc="lower right", fontsize=5.9)
     ps.ygrid(ax)
     return fits
 
@@ -936,12 +937,14 @@ def panel_e(axes):
     the loss has stopped moving. The vertical rule marks where the loss first comes within 10% of
     its final value.
 
+    The sub-panels are stacked vertically, so they share one x range and one x label.
+
     Args:
-        axes: a list of one Axes per entry of TRAJ.
+        axes: a list of one Axes per entry of TRAJ, top to bottom.
     Returns:
         list of (task, N, plateau iteration, silent there, silent at end, mean final r2) rows.
     """
-    rows, twins = [], []
+    rows, drawn, twins, x_end = [], [], [], []
     for ax, (label, pat, col, _) in zip(axes, TRAJ):
         runs = [trajectory(d) for d in sorted(glob.glob(os.path.join(pat, "*"))) if os.path.isdir(d)]
         runs = [r for r in runs if r]
@@ -969,24 +972,31 @@ def panel_e(axes):
         # x starts at 8, not 90: most of the loss drop happens inside the first hundred iterations
         # and a panel that begins at 90 shows a curve already a third of the way down while its
         # axis label says "relative to its start".
-        ax.set(xscale="log", yscale="log", xlabel="training iteration", ylim=(4e-4, 2.2),
-               xlim=(8, max(r["it_loss"][-1] for r in runs) * 1.6))
+        ax.set(xscale="log", yscale="log", ylim=(4e-4, 2.2))
         axr.set(ylim=(0, N * 1.04))
         axr.spines[["top"]].set_visible(False)
-        ax.set_title(f"{label}\n$r^2 = {r2:.3f}$, $N = {N}$", fontsize=5.8, color=ps.INK, pad=3)
+        # each sub-panel now carries its own right-hand ticks, so each set is coloured by its own
+        # task rather than all three by the last one
+        axr.tick_params(axis="y", colors=col)
+        ax.set_title(f"{label},  $r^2 = {r2:.3f}$, $N = {N}$", fontsize=5.8, color=ps.INK, pad=3)
+        drawn.append(ax)
         twins.append(axr)
+        x_end.append(max(r["it_loss"][-1] for r in runs))
         rows.append((label, N, plateau, s_plat, s_end, r2))
 
-    # one axis title per row rather than three: across a row this narrow, repeated titles collide
-    # with the neighbouring sub-panel's tick labels
-    axes[0].set_ylabel("clean loss, relative to its start")
-    for ax in axes[1:]:
-        ax.tick_params(labelleft=False)
-    for axr in twins[:-1]:
-        axr.tick_params(labelright=False)
-    if twins:
-        twins[-1].set_ylabel("silent units", color=TRAJ[-1][2])
-        twins[-1].tick_params(axis="y", colors=TRAJ[-1][2])
+    if not drawn:
+        return rows
+    # one x range for the stack, so a vertical read across the three sub-panels compares the same
+    # iteration; the label and its tick labels go under the bottom sub-panel only
+    for ax in drawn:
+        ax.set_xlim(8, max(x_end) * 1.6)
+    for ax in drawn[:-1]:
+        ax.tick_params(labelbottom=False)
+    drawn[-1].set_xlabel("training iteration")
+    # the axis labels sit on the middle sub-panel, where each one labels all three
+    mid = len(drawn) // 2
+    drawn[mid].set_ylabel("clean loss, relative to its start")
+    twins[mid].set_ylabel("silent units")
     return rows
 
 
@@ -1161,15 +1171,15 @@ def main():
     ps.setup()
     rates, _, p = example_network(refresh=args.refresh)
 
-    # Panel e spans the full width in a row of its own. Stacked under panel b it had two log axes,
-    # three tasks and six curves inside a quarter-width cell, and the legend covered the data it
-    # was labelling; a trajectory reads along x, so width is what it needs and height is what it
-    # can give up.
-    fig = plt.figure(figsize=(ps.W2, 206 * ps.MM))
-    gs = GridSpec(3, 2, figure=fig, height_ratios=[0.74, 1.55, 0.60],
-                  width_ratios=[1.30, 1.0], hspace=0.44, wspace=0.44)
+    # The three sub-panels of panel e stack vertically in the left column, under the network
+    # schematic; panels c and d stack in the right column beside them. Each e sub-panel keeps the
+    # width of the whole left column, which is the axis a trajectory reads along, and the three
+    # give up the height they no longer need once they share one x axis and one x label.
+    fig = plt.figure(figsize=(ps.W2, 205 * ps.MM))
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.74, 2.50],
+                  width_ratios=[1.06, 1.0], hspace=0.26, wspace=0.62)
 
-    # panel a keeps the whole top-left cell; b and e split the top-right one
+    # panel a keeps the whole top-left cell, its schematic over the e stack below it
     gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=[1.32, 1.0],
                                    wspace=0.02)
     ax_net = fig.add_subplot(gs_a[0, 0])
@@ -1182,18 +1192,20 @@ def main():
     panel_b(ax_b, p)
     ps.panel_letter(ax_b, "b")
 
-    ax_c = fig.add_subplot(gs[1, 0])
+    gs_cd = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[1, 1], height_ratios=[1.0, 1.55],
+                                    hspace=0.30)
+    ax_c = fig.add_subplot(gs_cd[0, 0])
     fits = panel_c(ax_c)
     ps.panel_letter(ax_c, "c")
 
-    ax_d = fig.add_subplot(gs[1, 1])
+    ax_d = fig.add_subplot(gs_cd[1, 0])
     rows_d = panel_d(ax_d)
-    ps.panel_letter(ax_d, "d", dx=-0.32)
+    ps.panel_letter(ax_d, "d", dx=-0.28)
 
-    gs_e = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[2, :], wspace=0.62)
-    axes_e = [fig.add_subplot(gs_e[0, i]) for i in range(3)]
+    gs_e = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[1, 0], hspace=0.30)
+    axes_e = [fig.add_subplot(gs_e[i, 0]) for i in range(3)]
     rows_e = panel_e(axes_e)
-    ps.panel_letter(axes_e[0], "e", dx=-0.16)
+    ps.panel_letter(axes_e[0], "e", dx=-0.13)
 
     out = ps.save(fig, "fig_paper_F1")
 
