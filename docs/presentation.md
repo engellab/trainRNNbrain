@@ -7,6 +7,18 @@ opinion.
 
 `⚠` marks a slide whose figure does not exist yet.
 
+## The standard network
+
+Every result in this deck is a ReLU RNN with **self-connections on, the bias fixed at 0, no Dale
+constraint, no input/output positivity constraint, and no cubic term (γ = 0)**, trained for at least
+50,000 iterations. Any panel whose networks depart from that says so under the figure, with the one
+word that differs — nothing deviates silently.
+
+Audited by `trainRNNbrain/experiments_and_analysis/standard_audit.py`, which reads each sweep's own
+saved configs rather than trusting the launcher. `dale`, `io_nonnegativity` and `γ` conform
+everywhere; the live deviations are a trainable bias on the older CDDM and flip-flop sweeps and
+self-connections off on the recurrent-noise sweep. Those are being re-run.
+
 Every figure is centred at one fixed width (760 px) so the deck reads at a constant scale — add new
 ones as `<p align="center"><img src="..." width="760"></p>`, not as Markdown image syntax, which
 cannot be centred.
@@ -106,6 +118,7 @@ are the scale-free rule, p ≥ 0.05·q₉₅(p). N = 1000. Every seed drawn.
 
 ### 7b. The control is not one number — it depends when you look
 <p align="center"><img src="../img/internal_figures/slide_07b_control_trajectory.svg" width="760"></p>
+⚠ **Deviates:** trainable bias (`bias_range [-1, 1]`). Re-run queued.
 The CDDM control of slides 8, 10 and 11 against training: 411 at 30k, 272 at 200k. Slides 12 and 13
 read a second sweep of the same architecture at 30k and get 414, which is this curve at that point.
 So 272 and 414 are one population read at two times, not two populations. (Slide 14 is a third
@@ -113,6 +126,7 @@ architecture and sits apart — see there.)
 
 ### 8. A different activation does not help
 <p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.svg" width="760"></p>
+⚠ **Deviates:** trainable bias, reference and arms alike. Re-run queued.
 Of 1000 units: ReLU 272 active, leaky ReLU 278, softplus 249, sigmoid 205. None raises the count.
 
 ### 8b. And the units they shed were not doing anything
@@ -124,6 +138,7 @@ softplus), so on the folder score sigmoid is the worst arm and noise-free it is 
 
 ### 9. Nor on the other task
 <p align="center"><img src="../img/internal_figures/slide_x_activation_ff.svg" width="760"></p>
+⚠ **Deviates:** trainable bias. Re-run queued.
 ReLU 263 of 1000 (282/261/247), sigmoid 240 — the seed ranges overlap. ⏳ Softplus and leaky ReLU
 still training.
 
@@ -134,6 +149,7 @@ higher.
 
 ### 10. Weight decay makes it monotonically worse
 <p align="center"><img src="../img/internal_figures/slide_x_weightdecay.svg" width="760"></p>
+⚠ **Deviates:** trainable bias, every rung. Re-run queued.
 
 ### 10b. …and the task does not notice the units it takes
 <p align="center"><img src="../img/internal_figures/slide_x_weightdecay_r2.svg" width="760"></p>
@@ -144,6 +160,7 @@ Only the strongest rung costs anything: 10⁻⁴ is 0.011 below the default on a
 
 ### 11. A bigger input scale adds 40–75 units of 1000, and not monotonically
 <p align="center"><img src="../img/internal_figures/slide_x_inputscale.svg" width="760"></p>
+⚠ **Deviates:** trainable bias. Re-run queued.
 Rungs are the **absolute** L2 norm of each W_inp row at init. The default draw is 0.050, the bottom
 of the ladder, so the rungs are 10×, 40×, 100× and 400× it — at true scale the curve is
 single-peaked, 263 → 302 → 339 → 324 → 306. The N = 500 cells repeat the ordering: 191 → 219 → 237
@@ -162,6 +179,7 @@ input scale we tried buys less than the next 350,000 iterations take away.
 
 ### 12. The field-standard metabolic penalty moves nothing beyond seed scatter
 <p align="center"><img src="../img/internal_figures/slide_x_metabolic.svg" width="760"></p>
+⚠ **Deviates:** trainable bias; 30,000 iterations, under the 50,000 floor. Re-run queued.
 
 ### 12b. …and up to λ = 1 it is free
 <p align="center"><img src="../img/internal_figures/slide_x_metabolic_r2.svg" width="760"></p>
@@ -174,9 +192,11 @@ by the same 6×, dividing the effect out. On a fixed bar the same networks go 44
 
 ### 13. Nor the equation form, nor a trainable bias
 <p align="center"><img src="../img/internal_figures/slide_x_architecture.svg" width="760"></p>
+⚠ **Deviates:** trainable bias; 30,000 iterations. (The trainable-bias arm deviates by construction — it is the knob.) Re-run queued.
 
 ### 14. Removing recurrent noise is the largest effect — and it is negative
 <p align="center"><img src="../img/internal_figures/slide_x_recnoise.svg" width="760"></p>
+⚠ **Deviates:** self-connections OFF, and 30,000 iterations. This is why its control reads 443 against slide 12's 414. Re-run queued.
 σ = 0 collapses to 153 active against 443 at the default and 449 at both other levels — a 2.9-fold
 drop, and the only knob in this section that moves the count that far.
 
@@ -197,6 +217,11 @@ Panel d. Each against its **own** matched reference. ⚠ wants its own export.
 ---
 
 ## WHAT DOES WORK
+
+These sweeps match the standard architecture on all five knobs. ⚠ **Deviates:** the
+3-bit flip-flop grid trains 40,000 iterations, under the 50,000 floor — and its own
+read-out (slide 5) lands at 35,000–43,000, so the budget ends where the measurement
+begins. The CDDM (100k) and DMTS (150k) grids are clear of it.
 
 ### 16. Five interventions, and where each one acts
 <p align="center"><img src="../img/internal_figures/slide_rules.svg" width="760"></p>
