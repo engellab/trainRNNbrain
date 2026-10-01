@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Pull the weight-displacement trajectories for one unpenalised cell per task, for the talk.
+Pull the weight-displacement trajectories AND the final participation vector, one unpenalised
+cell per task, for the talk.
 
 RUNS ON THE CLUSTER, where the participation traces live; writes a small npz the slide script reads.
 
@@ -15,6 +16,10 @@ ONE CELL PER TASK, unpenalised, N = 1000, every seed. The budgets differ because
 DMTS needs 150,000 iterations to be solved and CDDM 100,000. The flip-flop's long runs (150k and
 400k) were deleted before drift logging existed, so 40,000 is the longest flip-flop trace that
 carries these metrics - the panel says so rather than implying the task was only ever run that far.
+
+The participation vector is the first seed's, at its last probe: the distribution panel shows one
+real network per task rather than a pooled histogram, which would blur the bimodality that is the
+whole point of it.
 
 Usage (on the cluster):  python f2_drift_traces.py [OUT.npz]
 Output: ~/f2_drift_traces.npz -> data/f2_drift_traces.npz beside the slide script
@@ -73,6 +78,12 @@ def main(out_path):
             except Exception as e:
                 print(f"  SKIP {task} seed {s}: {type(e).__name__}")
                 continue
+            if s == 0:
+                # the final participation vector of the first seed, for the per-task distribution
+                # panel: one real network per task rather than a pooled histogram
+                P = np.asarray(tr.get("participation", []), float)
+                if P.ndim == 2 and len(P):
+                    store[f"{task}|participation"] = P[-1]
             for var in VARS:
                 it, v = series(tr, f"drift_{var}_lag{LAG}")
                 if not len(it):

@@ -18,8 +18,10 @@ cannot be centred.
 ### 1. Most units of a trained ReLU RNN never fire
 <p align="center"><img src="../img/internal_figures/slide_01_schematic.svg" width="760"></p>
 
-### 2. It is not a threshold artefact — the distribution is bimodal
-<p align="center"><img src="../img/internal_figures/slide_02_participation.svg" width="760"></p>
+### 2. It is not a threshold artefact — the distribution is bimodal, on every task
+<p align="center"><img src="../img/internal_figures/slide_02_participation_by_task.svg" width="760"></p>
+One network per task at N = 1000. Shared x; each panel keeps its own count axis because CDDM puts
+600 of its 1,000 units in a single bin. Active: 318, 269, 175.
 
 ### 3. Units keep going silent long after the loss has stopped moving
 <p align="center"><img src="../img/internal_figures/slide_03_silencing_vs_training.svg" width="760"></p>

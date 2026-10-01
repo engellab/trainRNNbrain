@@ -296,6 +296,42 @@ DRIFT_TASKS = ["CDDM", "NBitFlipFlop", "DMTS"]
 DRIFT_VARS = [("W_inp", ps.SLOTS[0]), ("W_rec", ps.SLOTS[3]), ("W_out", ps.SLOTS[2])]
 
 
+def participation_by_task():
+    """The participation distribution on all three tasks, three panels in a row.
+
+    One real network per task at its last probe, not a pooled histogram: pooling across seeds blurs
+    the gap between the two modes, and the gap is the claim. Each panel is Figure 1's own panel (b)
+    drawing, so the criterion line and the bin edges are the paper's.
+
+    Returns:
+        the output path, or None if the trace cache is missing.
+    """
+    if not os.path.exists(DRIFT_CACHE):
+        print(f"  SKIP participation_by_task: {DRIFT_CACHE} missing")
+        return None
+    z = np.load(DRIFT_CACHE, allow_pickle=True)
+    have = [t for t in DRIFT_TASKS if f"{t}|participation" in z.files]
+    if not have:
+        print("  SKIP participation_by_task: no participation vectors in the cache")
+        return None
+    ps.setup()
+    # x is shared so the three distributions sit on one scale; y is NOT, because CDDM puts 600 of
+    # its 1000 units in a single bin and a shared count axis flattens the other two panels to a line
+    fig, axes = plt.subplots(1, len(have), figsize=(ps.W2, 58 * ps.MM), sharex=True)
+    axes = np.atleast_1d(axes)
+    for ax, task in zip(axes, have):
+        F1.panel_b(ax, np.asarray(z[f"{task}|participation"], float))
+        lab = str(z[f"{task}|label"]) if f"{task}|label" in z.files else task
+        ax.set_title(lab, fontsize=6.8, color=ps.INK, pad=4)
+    # panel_b writes a gloss under its own axes; three copies of it overlap, so only the first keeps
+    for ax in axes[1:]:
+        ax.set_ylabel("")
+        for t in list(ax.texts):
+            if "rate moves over a trial" in t.get_text():
+                t.remove()
+    return ps.save(fig, "slide_02_participation_by_task")
+
+
 def drift_slides():
     """Do the parameters stop moving? One panel per task, trajectories against iteration.
 
@@ -374,6 +410,9 @@ def main(list_only=False):
     out.append(ps.save(fig, "slide_01_schematic"))
 
     out.append(panel_slide("slide_02_participation", F1.panel_b, p=pvec))
+    got = participation_by_task()
+    if got:
+        out.append(got)
     out.append(panel_slide("slide_06_scaling", F1.panel_c, width=W, height=78 * ps.MM))
 
     # panel (e) is one sub-panel per task, stacked; DMTS is kept even though it breaks the pattern
