@@ -310,8 +310,8 @@ the next cache rebuild.
 ### 23. Dropout is four choices, not one knob
 <p align="center"><img src="../img/internal_figures/slide_23_dropout_variants.svg" width="760"></p>
 "We tried dropout" names almost nothing. The rule has four independent settings, and this project's
-first dropout sweep came back null because three of them were set wrongly, not because the
-intervention fails. Here is the whole rule, as the code runs it:
+first dropout sweep came back null because of three defects in who it chose and how many, not
+because the intervention fails. Here is the whole rule, as the code runs it:
 
 ```
     tau dx/dt = -x + W_rec r + W_inp u + b + eta,    r = ReLU(x),    y = W_out r
@@ -326,17 +326,19 @@ intervention fails. Here is the whole rule, as the code runs it:
                                             y = W_out (c * r)
 
  2. WHO IS CHOSEN
-        v_i = std(r_i) + q_0.9(r_i), pooled over time and trials, carried as an EMA
+        v_i = std(r_i) + q_0.9(r_i), pooled over time and trials, kept as a running average
               (sampling_method: uniform -> v = 1; output_weights -> v_i = sum_o |W_out[o,i]|)
         live pool   L = { i : v_i >= 0.05 * q_95(v) },   M = |L|
         w_i = softmax( beta * rank_i / (M - 1) ),  rank taken inside L, 0 = quietest
 
  3. HOW MANY
-        p_i = min( p_max, c * w_i ),  with c solved so that  sum over L of p_i = rho * M
+        p_i = min( p_max, kappa * w_i ),  kappa solved so that  sum over L of p_i = rho * M
         d_i ~ Bernoulli(p_i), drawn independently
 
- 4. WHAT HAPPENS TO THE SURVIVORS
-        c_i = 1 / (1 - p_i)   (rescale: true, the shipped setting)      c_i = 1  otherwise
+ 4. WHAT HAPPENS TO EACH UNIT
+        dropped, d_i = 1:   c_i = s_i = 0
+        kept,    d_i = 0:   s_i = 1,  and  c_i = 1 / (1 - p_i)   (rescale: true, as shipped)
+                                           c_i = 1               (rescale: false)
 
     and the task loss is scored on the DROPOUT pass; the penalties on the full pass.
 ```
@@ -348,7 +350,8 @@ own drive and its own noise, so it decays to zero and sends nothing, and the pre
 recurrent wiring.
 
 **Who is chosen.** `uniform` is textbook dropout. `output_weights` ranks units by the size of their
-read-out column. `participation`, which every run in this deck uses, ranks them by firing rate, and
+read-out column. `participation`, which every run in this deck uses, ranks them by firing rate
+(held as an exponential moving average over iterations, so one unlucky batch cannot reorder it), and
 `beta` says how sharply to prefer the busy ones: the busiest living unit is e^beta times likelier
 than the quietest, 2.7 at beta = 1 and 55 at beta = 4. Panel (b) is drawn by calling the production
 sampler, not by sketching it. Ranks rather than raw scores, because participation grows by more
@@ -379,8 +382,8 @@ can be compared. A higher rate adds units in every series but `dead` at beta = 1
 (344, 330, 343) until rho = 0.175 and then climbs to 416.
 
 **Active units of 1000, at the corners.** No dropout 316. `mute` runs 388 at rho = 0.05, beta = 1
-to 636 at rho = 0.25, beta = 4. `dead` runs 344 to 963 — close enough to the whole population that
-the count stops being able to separate the strongest settings from each other.
+to 636 at rho = 0.25, beta = 4. `dead` runs 344 to 963 of 1000, its three seeds within 6 units of
+each other — a ceiling the count is about to run into.
 
 **What it costs depends on how you score it.** On the noise-free, dropout-off probe drawn in the
 right panel, `mute` sits below the no-dropout mean of 0.101 at every setting (0.052 to 0.086) and
@@ -413,13 +416,18 @@ are pre-activations, and the expression depends on h only through |h| — so a u
 h = -c, silent, scored exactly like one pinned at h = +c, maximally active. Measured on the trained
 networks: 51 +- 4% of the drop mass landed on units that were already silent, where dropping
 changes nothing. Among the units still alive the ordering started informative and decayed to
-nothing, Spearman 0.63 early against -0.04 by 150,000 iterations.
+nothing: the Spearman rank correlation between the sampler's ordering and the units' true firing
+order went from 0.63 early to -0.04 by 150,000 iterations.
 
 Raising beta did not sharpen that ordering either, it cut the dose: probability mass above the cap
 was discarded rather than redistributed, so a nominal 50 drops per iteration became 7.9 at beta = 4.
 
 **One limit holds whatever the sampler does.** 41% of the whole 0 to 150,000 die-off happens in the
 first 100 iterations, before any firing-rate statistic has had time to mean anything.
+
+**Not from `fig_slides.py`.** This is the one figure in the deck that script does not write, and
+the one raster panel. It came out of the instrumented re-run that found the defect, and that
+instrumentation was not kept.
 
 ### 25. Prune-and-duplicate ⚠
 Needs its own figure: recruitment against jitter, and the output unchanged at the moment of surgery.
