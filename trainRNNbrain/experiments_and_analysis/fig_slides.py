@@ -29,6 +29,7 @@ import sys
 
 import glob
 import pickle
+import re
 
 import numpy as np
 import matplotlib
@@ -426,6 +427,130 @@ def dropout_along_training_slide(name="slide_23_dropout_along_training"):
              f"Both arms end at the same loss. The loss axis is clipped at 1; "
              f"{spikes} run{'s' if spikes != 1 else ''} spike above it early.",
              ha="center", va="top", fontsize=6.6, color=ps.MUTED)
+    return ps.save(fig, name)
+
+
+# The penalty pair on the two tasks that have it at more than one size. The 3-bit flip-flop panels
+# (slides 21/22) cannot carry it: their only frm+rws cells are N = 1000, and the other penalised
+# flip-flop cells are k = 7 and k = 8, a different task rather than a bigger network. CDDM and DMTS
+# both have a real size axis, so the comparison goes here instead of being left unmade.
+#
+# Cells are found by their naming scheme, which differs per sweep: CDDM encodes the penalty as
+# LmbdRWS/LmbdFR in the directory name, DMTS as pen=<name>.
+PEN_KINDS = [("control", "no penalty", ps.BASE), ("frm", "frm", ps.SLOTS[0]),
+             ("rws", "rws", ps.SLOTS[2]), ("both", "frm + rws", ps.SLOTS[1])]
+PEN_CDDM = {"control": "LmbdRWS=0_LmbdFR=0", "frm": "LmbdRWS=0_LmbdFR=0.2",
+            "rws": "LmbdRWS=0.05_LmbdFR=0", "both": "LmbdRWS=0.05_LmbdFR=0.2"}
+
+
+def _pen_cells(task, kind):
+    """Every cell of one task and penalty, as {N: [trace paths]}.
+
+    Args:
+        task: "CDDM" or "DMTS"; kind: a key of PEN_CDDM.
+    Returns:
+        dict mapping network size to the list of ParticipationTrace paths in that cell.
+    """
+    out = {}
+    if task == "CDDM":
+        pats = [f"{DATA_DIR}/CDDM_std_g0/EqType=h_N=*_{PEN_CDDM[kind]}",
+                f"{DATA_DIR}/CDDM_std_g0_Nsweep/EqType=h_N=*_{PEN_CDDM[kind]}"]
+    else:
+        pats = [f"{DATA_DIR}/DMTS_d7_pen/EqType=h_N=*_pen={'none' if kind == 'control' else kind}"]
+    for pat in pats:
+        for cell in sorted(glob.glob(pat)):
+            m = re.search(r"_N=(\d+)", os.path.basename(cell))
+            tr = sorted(glob.glob(os.path.join(cell, "*", "*ParticipationTrace.pkl")))
+            if m and tr:
+                out.setdefault(int(m.group(1)), []).extend(tr)
+    return out
+
+
+def penalty_size_by_task(name="slide_22b_penalty_by_task"):
+    """Active units against network size for every penalty, on the two tasks that have a size axis.
+
+    The count is the scale-free rule at each run's last participation probe, which the Trainer logs
+    from a NOISE-FREE pass - the same quantity every other active-unit panel reports.
+
+    Args:
+        name: output file stem.
+    Returns:
+        the output path, or None if neither task has cells.
+    """
+    tasks = [("CDDM", "CDDM, 30,000 iterations"), ("DMTS", "DMTS 7$\\tau$, 150,000 iterations")]
+    data = {}
+    for task, _lab in tasks:
+        per_kind = {}
+        for kind, _k, _c in PEN_KINDS:
+            cells = _pen_cells(task, kind)
+            rows = {}
+            for N, traces in sorted(cells.items()):
+                vals, ratios = [], []
+                for f in traces:
+                    try:
+                        d = pickle.load(open(f, "rb"))
+                    except Exception:
+                        continue
+                    P = np.asarray(d.get("participation", []), float)
+                    if P.ndim == 2 and len(P):
+                        vals.append(active_count(P[-1], "scalefree"))
+                        q50, q95 = np.quantile(P[-1], 0.5), np.quantile(P[-1], 0.95)
+                        ratios.append(float(q50 / max(q95, 1e-12)))
+                if vals:
+                    # q_50/q_95 is the rule's own health check: more than half the units pass
+                    # exactly when it exceeds 0.05. Under frm the participation distribution stops
+                    # being bimodal (median ~ 95th percentile), so a count of "every unit" is a
+                    # floor on the truth rather than a precise number, and the panel says so.
+                    rows[N] = (float(np.mean(vals)), float(np.std(vals, ddof=1)) if len(vals) > 1
+                               else 0.0, len(vals), float(np.mean(ratios)))
+            if rows:
+                per_kind[kind] = rows
+        if per_kind:
+            data[task] = per_kind
+    if not data:
+        print(f"  SKIP {name}: no penalty cells found")
+        return None
+    ps.setup()
+    fig, axes = plt.subplots(1, len(data), figsize=(ps.W2, 64 * ps.MM))
+    axes = np.atleast_1d(axes)
+    notes, sat = [], []
+    for ax, (task, lab) in zip(axes, [t for t in tasks if t[0] in data]):
+        per_kind = data[task]
+        allN = sorted({n for r in per_kind.values() for n in r})
+        ax.plot(allN, allN, lw=0.7, ls=":", color=ps.FAINT, zorder=1)
+        for kind, klab, col in PEN_KINDS:
+            r = per_kind.get(kind)
+            if not r:
+                continue
+            Ns = sorted(r)
+            mu = [r[n][0] for n in Ns]
+            sd = [r[n][1] for n in Ns]
+            # a single-size arm is a marker, not a line of one point
+            if len(Ns) == 1:
+                ax.errorbar(Ns, mu, yerr=sd, fmt="D", ms=5.0, color=col, mec="white", mew=0.7,
+                            capsize=1.8, zorder=5, label=f"{klab} ({r[Ns[0]][2]})")
+                notes.append(f"{task} {klab} is N = {Ns[0]} only")
+            else:
+                ax.errorbar(Ns, mu, yerr=sd, fmt="o-", ms=3.6, lw=1.1, color=col, mec="white",
+                            mew=0.6, capsize=1.8, zorder=4, label=f"{klab} ({r[Ns[0]][2]})")
+            if any(r[n][3] > 0.05 for n in Ns):
+                sat.append(f"{task} {klab}")
+        ax.set(xscale="log", yscale="log", xlabel="network size $N$")
+        ax.set_xticks(allN); ax.set_xticklabels([str(n) for n in allN])
+        ax.xaxis.set_minor_locator(NullLocator())
+        ax.set_title(lab, fontsize=7.4, color=ps.INK, pad=5)
+        ax.legend(loc="upper left", fontsize=5.8, handlelength=1.1, borderaxespad=0.25)
+        ps.ygrid(ax)
+    axes[0].set_ylabel("active units")
+    fig.suptitle("The penalty pair, on the two tasks with a size axis", fontsize=7.8,
+                 color=ps.INK, y=1.02)
+    cap = ["dotted: every unit active"] + notes
+    if sat:
+        # one clause, not one per arm: the caption ran off the page at one per arm
+        cap.append("where the count saturates (" + ", ".join(sat)
+                   + ") the participation distribution is unimodal, so it is a floor, not a count")
+    fig.text(0.5, -0.04, ";  ".join(cap), ha="center", va="top", fontsize=6.2, color=ps.MUTED,
+             wrap=True)
     return ps.save(fig, name)
 
 
@@ -1540,6 +1665,9 @@ def main(list_only=False):
         out.append(draw(stem, title, ref_label, entries, ref,
                         F1.GROUP_COL.get(group, ps.MUTED), note=full_note, ref_at=ref_at))
 
+    got = penalty_size_by_task()
+    if got:
+        out.append(got)
     got = dropout_along_training_slide()
     if got:
         out.append(got)

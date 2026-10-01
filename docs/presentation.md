@@ -307,6 +307,22 @@ the next cache rebuild.
 
 ## PER-INTERVENTION DETAIL
 
+### 22b. The penalty pair, on the two tasks that have a size axis
+<p align="center"><img src="../img/internal_figures/slide_22b_penalty_by_task.svg" width="760"></p>
+**frm drives the whole population to fire, at every size, on both tasks.** CDDM goes 88 → 100,
+183 → 250, 297 → 500, 414 → 1000 active as N runs 100 → 1000; DMTS goes 132 → 500, 180 → 996,
+346 → 1952. frm + rws does the same. **rws alone does almost nothing** — 361 against the control's
+414 on CDDM, and 161/255/406 against 132/180/346 on DMTS.
+
+Read "every unit active" as a floor, not a count. Under frm the participation distribution stops
+being bimodal — the median unit sits near the 95th percentile — so the scale-free rule cannot
+separate 100% from 99%. What moved is the median itself: at CDDM N = 1000 it goes from 0.0018
+(control) to 0.267, and at DMTS N = 1000 from 0.00006 to 0.431, three to four orders of magnitude.
+
+**Deviations.** CDDM trains 30,000 iterations and DMTS 150,000, so the two panels are not read at a
+common budget. CDDM has rws and frm + rws at N = 1000 only. DMTS is the 7τ delay, which the 5τ
+re-runs supersede.
+
 ### 23. Dropout delays the silencing; it does not stop it
 <p align="center"><img src="../img/internal_figures/slide_23_dropout_along_training.svg" width="760"></p>
 At 150,000 iterations dropout holds 373 live units against 263 — but it is losing them faster, −216
