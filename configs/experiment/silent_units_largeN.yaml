@@ -3,7 +3,15 @@
 # job (~3 h single-threaded CPU at N=10000, a 10.8 GB float64 trajectory array, PCA over a
 # 10000 x 135000 matrix, ~4 GB of json parameters). The readout for these runs is the participation
 # trace, which needs none of it. Parameters are saved as .npz instead of json.
-# N is set by the launcher (it is the swept variable); max_iter likewise.
+# N is set by the launcher (it is the swept variable).
+#
+# BUDGET: 75,000 iterations is the standard for this line, measured rather than assumed. Over 493
+# runs on disk, 50k reaches 1.07x the run's own fitted loss floor for 74% of them and 75k for 94%;
+# the runs that miss at 50k are not scattered but concentrated at high flip-flop complexity
+# (k >= 5), at N = 4000, under frm, and on DMTS under rws. Conditions known to need longer still
+# override it: see configs/experiment/ for the drift line, whose read-out is lag-10,000 weight
+# drift and needs 200k+.
 light_outputs: true
 trainer:
   trainer_tag: ""
+  max_iter: 75000

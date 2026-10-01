@@ -6,6 +6,7 @@ from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.training.training_utils import *
 from trainRNNbrain.utils import jsonify, unjsonify
 import time
+import pickle
 import hydra
 import matplotlib
 matplotlib.use('Agg')
@@ -46,6 +47,71 @@ def storable_(v):
     if isinstance(v, Mapping):
         return np.array(dict(v), dtype=object)
     return np.asarray(v)
+
+
+def warm_start_offset(init_from):
+    """Iterations already trained by the chain of runs that `init_from` points at.
+
+    A continuation's training loop counts from 0, so its trace needs this added to every logged
+    iteration. Without it the read-out machinery - which fits a floor over [T_START, budget] and
+    reports the crossing in absolute iterations - reads a 50k-to-75k continuation as a fresh
+    0-to-25k run. Taken from the parent's saved config rather than its trace, so it costs one small
+    yaml parse, and it accumulates down a chain of continuations.
+
+    Args:
+        init_from: a finished run's folder, or None/"" for a run starting from scratch.
+    Returns:
+        int: the parent's own offset plus the parent's max_iter, or 0 when there is no parent.
+    """
+    if not init_from:
+        return 0
+    cfgs = sorted(Path(init_from).glob("*_config.yaml"))
+    if not cfgs:
+        raise FileNotFoundError(f"warm start: no *_config.yaml in {init_from}, so the iteration "
+                                f"window this run covers cannot be established")
+    pcfg = OmegaConf.load(cfgs[0])
+    off = pcfg.trainer.get("iter_offset", 0)
+    return (int(off) if isinstance(off, (int, float)) else 0) + int(pcfg.trainer.max_iter)
+
+
+def join_parent_trace(mon, init_from):
+    """Prepend the parent run's samples so a continuation writes ONE complete trace.
+
+    The alternative is teaching every analysis script to follow `paths.init_from` and splice the
+    segments itself; this keeps the splice in one place, and a warm-started run's trace then looks
+    exactly like a single long run's - which is what it is. Relies on Trainer.iter_offset having
+    dated this run's samples absolutely, so the segments abut instead of overlapping.
+
+    Args:
+        mon: this run's participation monitor, its "metrics" already float32 arrays.
+        init_from: the parent run's folder.
+    Returns:
+        dict: the monitor with the parent's samples prepended; or `mon` unchanged (with a warning) if
+        the parent trace is missing or tracks a different set of metrics. Never fatal: training has
+        finished by the time this runs, and `paths.init_from` in the saved config keeps the chain
+        reconstructable by hand.
+    """
+    src = sorted(Path(init_from).glob("*ParticipationTrace.pkl"))
+    if not src:
+        print(f"WARNING: no *ParticipationTrace.pkl in {init_from}; saving this segment alone")
+        return mon
+    with open(src[0], "rb") as fh:
+        par = pickle.load(fh)
+    pm, cm = set(par.get("metrics", {})), set(mon["metrics"])
+    if pm != cm:
+        print(f"WARNING: parent trace {src[0].name} and this run disagree on tracked metrics "
+              f"{sorted(pm ^ cm)}; saving this segment alone")
+        return mon
+    out = dict(mon)
+    for k in ("iters", "participation", "temporal_pr", "participation_iters"):
+        if k in par and k in mon:
+            out[k] = list(par[k]) + list(mon[k])
+    out["metrics"] = {k: np.concatenate([np.asarray(par["metrics"][k], dtype="float32"),
+                                         np.asarray(mon["metrics"][k], dtype="float32")])
+                      for k in cm}
+    print(f"joined parent trace {src[0].name}: {len(par.get('iters', []))} + {len(mon['iters'])} "
+          f"samples, iterations {out['iters'][0]}-{out['iters'][-1]}")
+    return out
 
 
 @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
@@ -148,6 +214,17 @@ def run_training(cfg: DictConfig) -> None:
                                             f"in {init_from}")
                 opt.load_state_dict(torch.load(ast[0], map_location=rnn_torch.device))
                 print(f"warm start: restored Adam moments from {ast[0]}")
+
+        # THE ITERATION CLOCK. `iter_offset: auto` in the trainer config means "carry on counting
+        # from the parent", which is 0 when there is no parent. Resolved here and written back, so
+        # the saved config records the absolute iteration window this run covers - the same
+        # record-what-was-used treatment the seed gets above.
+        off = cfg.trainer.get("iter_offset", "auto")
+        if not isinstance(off, (int, float)):
+            off = warm_start_offset(init_from)
+        cfg.trainer.iter_offset = int(off)
+        if off:
+            print(f"iteration clock: this run logs iterations {off}-{off + cfg.trainer.max_iter}")
 
         # defining the trainer
         trainer_cfg = OmegaConf.create(cfg.trainer)
@@ -292,6 +369,8 @@ def run_training(cfg: DictConfig) -> None:
             # pkl, not json: (max_iter/track_every) x N float32 is ~12 MB as a pickle but ~100 MB as indented json
             mon = dict(trainer.participation_monitor)
             mon["metrics"] = {k: np.asarray(v, dtype="float32") for k, v in mon["metrics"].items()}
+            if init_from:
+                mon = join_parent_trace(mon, init_from)
             if not (datasaver is None): datasaver.save_data(mon, f"{stem}_ParticipationTrace.pkl")
 
         # the total loss per iteration, saved regardless of `monitor` (which controls only the

@@ -2,6 +2,10 @@
 _target_: trainRNNbrain.trainer.Trainer.Trainer
 trainer_tag: "BaseTrainer"
 max_iter: 3000
+# `auto` = continue the parent's iteration count when paths.init_from is set, else 0. Resolved in
+# run_experiment and written back, so a warm-started run's trace is dated absolutely and its saved
+# config records the window it covers.
+iter_offset: auto
 anneal_noise: False
 lr: 0.001
 weight_decay: 1e-6

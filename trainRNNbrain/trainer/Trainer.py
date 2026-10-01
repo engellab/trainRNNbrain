@@ -240,6 +240,7 @@ class Trainer():
                  task_safe_gradients=True,
                  track_participation=False,
                  track_every=10,
+                 iter_offset=0,
                  store_participation_every=None,
                  log_silent_every=None,
                  track_drift=False,
@@ -372,6 +373,12 @@ class Trainer():
         # per-unit participation logged every `track_every` iterations during training
         self.track_participation = track_participation
         self.track_every = int(track_every)
+        # WARM START CLOCK. A continuation run's loop counts from 0 again, so without this every
+        # trace it writes claims to start at iteration 0 and the read-out machinery (which fits a
+        # floor over [T_START, budget] and reports the crossing in ITERATIONS) reads a 50k-75k
+        # segment as if it were a fresh 0-25k run. Set from the parent's cumulative budget in
+        # run_experiment, so what lands in the trace is the absolute iteration.
+        self.iter_offset = int(iter_offset)
         # "metrics": scalar series aligned to "iters" (NaN where a lag was not due this probe).
         # "participation": the per-unit matrix, on its own coarser cadence. Nothing about the
         # weights is ever written to disk — everything is reduced to scalars during training.
@@ -1548,7 +1555,7 @@ class Trainer():
             states, out_clean = self.RNN(input_batch, w_noise=False, dropout=False, dropout_args=None)
             p = self.participation_from_states_(states)
 
-        mon["iters"].append(int(iter))
+        mon["iters"].append(int(iter) + self.iter_offset)
         met = mon["metrics"]
         met["silent_1em6"].append(float((p < 1e-6).sum()))
         # Prune-and-reinit diagnostics. `events` counts every redraw INCLUDING repeats of the same
@@ -1601,7 +1608,7 @@ class Trainer():
                 tpr = torch.where(den > 0, num / den.clamp_min(1e-300),
                                   torch.zeros_like(den))       # 0 for an all-silent unit
             mon["temporal_pr"].append(tpr.cpu().numpy().astype("float32"))
-            mon["participation_iters"].append(int(iter))
+            mon["participation_iters"].append(int(iter) + self.iter_offset)
 
         nan = float("nan")
         if not self.track_drift:
