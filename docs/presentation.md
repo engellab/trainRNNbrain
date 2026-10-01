@@ -106,14 +106,55 @@ No activation raises the count, but two of the three lower it: of 1000 units, Re
 (259/272/284 across seeds), leaky ReLU 278, softplus 249 and sigmoid 205. Leaky ReLU sits inside the
 reference's own seed spread; softplus's three seeds all fall below the reference's lowest.
 
+### 8b. And the units they shed were not doing anything
+<p align="center"><img src="../img/internal_figures/slide_x_activation_cddm_r2.svg" width="760"></p>
+The same 12 networks. Across a 191–284 range of active units every one sits within 0.016 of
+R² = 0.950: ReLU 0.951, leaky ReLU 0.956, softplus 0.948, sigmoid 0.949. Sigmoid gives up a quarter
+of its live units and pays 0.002 of R² for it, which is less than the measurement's own noise.
+
+R² here is **noise-free**, and on this panel that choice is not cosmetic. The score in the folder
+name comes from a forward pass with the noise **on**, and that penalty is activation-dependent:
++0.063 for leaky ReLU, +0.062 for softplus, but +0.074 for sigmoid. On the folder score sigmoid is
+the worst arm (0.869 against ReLU's 0.874); noise-free it is level with the rest. A bounded sigmoid
+does not absorb injected noise the way a ReLU net does, so the ranking flips with the choice.
+
+The ReLU reference predates the Trainer's clean-loss probe, so all four arms are re-scored offline
+instead — rebuilt from their saved parameters and run on a noise-free batch, one route for every
+arm. On the three arms that do carry the probe, each offline number lands inside the range that
+probe spans over the last 10,000 iterations. That range is wide (per-probe standard deviation
+0.004–0.018) because the weights are still moving at 200k, which is slide 4's point: a single probe
+is a sample of a drifting network, not a fixed property.
+
 ### 9. Nor on the other task
 <p align="center"><img src="../img/internal_figures/slide_x_activation_ff.svg" width="760"></p>
 ReLU 263 active of 1000 (282/261/247), sigmoid 240 — the seed ranges overlap, so this one is inside
 scatter. ⏳ Softplus and leaky ReLU are training at 150k (Della, 2 sizes × 3 seeds each) so this panel
 carries the same three activations as slide 8; until they land it rests on sigmoid alone.
 
+### 9b. Nor does it cost anything here
+<p align="center"><img src="../img/internal_figures/slide_x_activation_ff_r2.svg" width="760"></p>
+Six networks so far, both axes read at 150,000 iterations, spanning 226–282 active units within
+0.005 of R² = 0.967. Sigmoid holds 23 fewer units than ReLU and scores slightly **higher** (0.969
+against 0.965). The flip-flop's clean probe is much quieter than CDDM's — per-probe standard
+deviation 0.0004–0.003 near the read-out — so single-probe values are used directly here, as on
+slide 11b. ⏳ The leaky-ReLU and softplus arms join this panel when they finish.
+
 ### 10. Weight decay makes it monotonically worse
 <p align="center"><img src="../img/internal_figures/slide_x_weightdecay.svg" width="760"></p>
+
+### 10b. …and the task does not notice the units it takes
+<p align="center"><img src="../img/internal_figures/slide_x_weightdecay_r2.svg" width="760"></p>
+The same 12 networks, R² against active units. Across the ladder the mean active count falls 395 →
+272 → 171 → 84, a 4.7-fold drop, while R² sits at 0.950, 0.951, 0.953, 0.940. Three quarters of the
+units go and the task is scored no worse.
+
+The one rung that does cost something is the strongest, λ = 10⁻⁴: 0.940 against the default's 0.951,
+a gap of 0.011 against a standard error of 0.004 on that cell. Small, but it is the only rung where
+the sign is consistent across all three seeds, so it is a real cost and not scatter.
+
+R² is the **noise-free** re-score of each net's final parameters, simulated offline — not the score
+in the folder name, which is a single forward pass with the noise on. Active units are read at
+199,900 iterations under the same scale-free rule as every other panel.
 
 ### 11. A bigger input scale adds 40–75 units of 1000, and not monotonically
 <p align="center"><img src="../img/internal_figures/slide_x_inputscale.svg" width="760"></p>
@@ -141,8 +182,45 @@ The size of the whole effect, for scale: the reference cell has a 500k budget, a
 150k with nothing changed takes it from 263 to 190. Every input scale we tried buys less than the next
 350,000 iterations take away.
 
+### 11b. And the units it buys are free
+<p align="center"><img src="../img/internal_figures/slide_x_inputscale_r2.svg" width="760"></p>
+The same 15 networks, both axes read at 150,000 iterations. Across a 247–342 range of active units
+every one sits within 0.002 of R² = 0.964: whatever the extra units are doing, the task does not need
+them, and the rungs that shed them do not pay for it.
+
+R² here is the **noise-free** probe the Trainer records beside the participation vector, not the score
+in the folder name — the reference cell has a 500k budget, so its folder score is the best over a run
+3.3× longer than the rungs it is compared with, while the count beside it is read at 150k. The two
+differ by a uniform offset: re-scoring every cell offline with the noise on and off gives 0.0047 at
+all five rungs, so the choice favours none of them.
+
 ### 12. The field-standard metabolic penalty moves nothing beyond seed scatter
 <p align="center"><img src="../img/internal_figures/slide_x_metabolic.svg" width="760"></p>
+
+### 12b. …and it does not break the task either
+<p align="center"><img src="../img/internal_figures/slide_x_metabolic_r2.svg" width="760"></p>
+The same 17 networks as the panel above, read from their own run folders rather than the archived
+CSV, which has no r² column. Active counts agree element for element (414 / 393 / 431 / 432 / 380),
+so the two paths are reading the same networks. r² never leaves 0.83–0.88, which closes the first
+objection to a null result: the penalty did not fail to move the count because it was busy breaking
+CDDM.
+
+The cells with more live units also score slightly higher — across the five cell means r = 0.94,
+but that is five points and the whole r² span is 0.05, so it is an observation, not a result.
+Within a cell there is nothing (r = 0.13 over 17 networks).
+
+**The ladder is not non-monotonic in what the penalty controls.** `mean(fr²)` penalises rate
+magnitude, and it delivers: q₉₅ of the participation distribution falls 0.33 → 0.33 → 0.23 → 0.14 →
+0.05 across λ = 0 → 10, a 6× shrink with no reversal. The plotted criterion counts units above
+0.05·q₉₅(p), so the bar falls by the same 6× and divides the effect out by construction. What is
+left on the axis is a race between the bar and the body of the distribution, and at λ ≤ 1 the two
+shrink factors differ by under 30% — so seed noise picks the sign. Only at λ = 10 does the gap open
+(bar 6.0×, body 8.1×) and the count fall for real, by 34 units at 3.9 standard errors.
+
+On a **fixed** bar the same networks go 448 → 427 → 452 → 371 → 169 active, a 2.7× collapse. The
+units are not dying, they are being turned down: at λ = 10, 568 units still exceed 10⁻⁶ against the
+reference's 576, while only 169 exceed 10⁻². N = 1000 is also the size with the least headroom — at
+N = 100 the same ladder runs 12 → 12 → 17 → 33 → 59% silent.
 
 ### 13. Nor the equation form, nor a trainable bias
 <p align="center"><img src="../img/internal_figures/slide_x_architecture.svg" width="760"></p>

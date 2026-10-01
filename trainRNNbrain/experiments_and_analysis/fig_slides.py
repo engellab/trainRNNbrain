@@ -39,6 +39,13 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import NullLocator
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import hydra.utils
+from omegaconf import OmegaConf
+
+from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
+from trainRNNbrain.training.training_utils import prepare_task_arguments, get_training_mask
+from trainRNNbrain.utils import filter_kwargs
+
 import paperstyle as ps
 import fig_paper_F1 as F1
 import pr_matrix as PR
@@ -231,6 +238,325 @@ INTERVENTIONS = [
 ]
 
 
+# ---- slide 11's companion: are the units the input scale keeps paid for? -----------------------
+#
+# R^2 denominator for the 3-bit flip-flop: mean((t - mean t)^2) over the masked target, which is what
+# Trainer.r2_score divides by. Measured over six independent 1024-trial batches of the task as the
+# runs' own configs instantiate it - 0.7158, 0.7206, 0.7232, 0.7184, 0.7265, 0.7221 - so 0.721 +-
+# 0.003. One shared constant rather than each net's own batch variance, which moves R^2 in the 4th
+# decimal.
+VAR_TARGET_FF = 0.721
+
+# WHY THIS PANEL DOES NOT USE THE FOLDER-NAME SCORE, the way met_cell above does. The input-scale
+# reference is the ksweep cell, which has a 500,000-iteration budget while the four rungs stop at
+# 150,000 - so its score prefix is the best over a run 3.3x longer than theirs, while the active
+# count beside it is read at 150,000. R^2 here is computed instead from `loss_clean_train`, the
+# noise-free probe the Trainer records beside the participation vector, at the SAME iteration as the
+# count. It reads ~0.964 against the ~0.954 in the folder names because the folder score comes from a
+# forward pass with noise on; that offset was measured per rung by re-scoring each cell offline with
+# the noise on and off, and it is 0.0047 at all five rungs, so no rung is favoured by the choice.
+#
+# The clean-loss route is validated end to end against an independent re-score: load each net's
+# LastParams into RNN_numpy, run a freshly drawn noise-free batch, take the masked MSE. Across the
+# five cells the offline MSE and the trace's own clean loss agree to 0.00026-0.00064, against a
+# threshold of 0.005 set before looking. ⚠️ That re-score needs `equation_type` passed explicitly -
+# it is NOT in the saved npz and RNN_numpy defaults to "s" while these nets are "h", which scores
+# them at MSE 2.08 instead of 0.026. penalty_matched.clean_loss has that bug.
+#
+# Colour carries the rung, as in the metabolic panel: four validated slots plus BASE for the
+# unpenalised reference, and the dose order encoded a second time as a line through the cell means.
+INPUTSCALE_LADDER = [
+    ("row norm 0.05 (default)", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", ps.BASE),
+    ("row norm 0.5", f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=0.5_iters=*", ps.SLOTS[0]),
+    ("row norm 2",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=2_iters=*",   ps.SLOTS[2]),
+    ("row norm 5",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=5_iters=*",   ps.SLOTS[3]),
+    ("row norm 20",  f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=20_iters=*",  ps.SLOTS[1]),
+]
+
+
+def winp_cell(pattern, at_iter):
+    """Noise-free R^2 and active-unit count, per seed, for one rung of the input-scale ladder.
+
+    Both are read at the same iteration, each on its own probe grid: the participation vector is
+    stored every 100 iterations and the clean loss every 10. Diverged runs (`nan_` prefix) are
+    dropped, as everywhere else in this project.
+
+    Args:
+        pattern: glob matching the rung's run folders; at_iter: int, the iteration to read at.
+    Returns:
+        (r2, active) float arrays of shape (n_seeds,), empty where the cell is missing.
+    """
+    r2, active = [], []
+    for f in sorted(glob.glob(os.path.join(pattern, "*", "*ParticipationTrace.pkl"))):
+        if os.path.basename(os.path.dirname(f)).split("_")[0] == "nan":
+            continue
+        with open(f, "rb") as fh:
+            d = pickle.load(fh)
+        pit = np.asarray(d["participation_iters"], float)
+        p = np.asarray(d["participation"], float)[int(np.argmin(np.abs(pit - at_iter)))]
+        it = np.asarray(d["iters"], float)
+        L = np.asarray(d["metrics"]["loss_clean_train"], float)
+        active.append(active_count(p, "scalefree"))
+        r2.append(1.0 - L[int(np.argmin(np.abs(it - at_iter)))] / VAR_TARGET_FF)
+    return np.array(r2, float), np.array(active, float)
+
+
+def inputscale_r2_slide(name="slide_x_inputscale_r2", at_iter=150_000):
+    """Task R^2 against active units for every net of the input-scale ladder, one colour per rung.
+
+    Answers the question the ladder panel raises: its rungs differ by 95 active units of 1000, so
+    did the rungs keeping more units pay for them? The y axis is held to a window ten times the
+    spread of the data, because an axis zoomed to the data turns 0.002 of R^2 into a visible slope.
+
+    Args:
+        name: output file stem; at_iter: the iteration both axes are read at.
+    Returns:
+        the output path, or None if no cell of the ladder is on disk.
+    """
+    cells = [(lab, col) + winp_cell(pat, at_iter) for lab, pat, col in INPUTSCALE_LADDER]
+    drawn = [c for c in cells if len(c[2])]
+    if not drawn:
+        print(f"  SKIP {name}: no input-scale cells on disk")
+        return None
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, H))
+
+    # the dose order, encoded a second time: categorical colour cannot carry it
+    ax.plot([c[3].mean() for c in drawn], [c[2].mean() for c in drawn], "-", lw=0.8,
+            color=ps.FAINT, zorder=2, label="in order of input scale")
+    for lab, col, r2, active in drawn:
+        ax.plot(active, r2, "o", ms=4.6, color=col, mec="white", mew=0.6, zorder=4,
+                label=f"{lab}  ({len(r2)})")
+        # A SQUARE, not a large translucent circle. metabolic_r2_slide settled this: the mean
+        # differs from a seed by SHAPE, not by opacity, because a translucent dot reads as blurred
+        # or as less certain and a mean over three seeds is neither. One convention across the
+        # scatter panels.
+        ax.plot(active.mean(), r2.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=5)
+
+    every_r2 = np.concatenate([c[2] for c in drawn])
+    every_active = np.concatenate([c[3] for c in drawn])
+    mid = 0.5 * (every_r2.min() + every_r2.max())
+    ax.set_ylim(mid - 0.01, mid + 0.01)
+    ax.set_xlabel("active units of 1000  (scale-free rule, $p \\geq 0.05\\,q_{95}(p)$)")
+    ax.set_ylabel("task $R^2$, noise-free probe")
+    ax.set_title("No rung of the ladder trades performance for live units\n"
+                 f"3-bit flip-flop, N = 1000, both axes read at {at_iter:,} iterations. Every seed "
+                 f"drawn.\n{len(every_r2)} networks spanning {every_active.min():.0f}\u2013"
+                 f"{every_active.max():.0f} active units sit within "
+                 f"{every_r2.max() - every_r2.min():.3f} of $R^2$ = {mid:.3f}. "
+                 "Circles are networks, squares the cell means.",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
+    ax.legend(loc="lower left", fontsize=5.8, handlelength=1.0, borderpad=0.2,
+              borderaxespad=0.3, ncol=2)
+    ps.ygrid(ax)
+    return ps.save(fig, name)
+
+
+# ---- slides 8b and 9b: are the activation panels' unit counts paid for in performance? ---------
+#
+# Slides 8 and 9 say a different activation does not raise the active count, and on CDDM two of the
+# three LOWER it (272 active for ReLU against 249 for softplus and 205 for sigmoid, of 1000). The
+# objection that leaves open is the same one slide 12b closes for the metabolic penalty: maybe the
+# arms that shed units shed them because they were failing the task. These panels put R^2 on the
+# other axis for the same networks.
+#
+# ⚠️ THE FOLDER-NAME SCORE CANNOT BE USED HERE, although met_cell uses it and all four CDDM arms
+# share a 200,000-iteration budget so it looks comparable. It is a forward pass with the noise ON,
+# and that noise penalty is ACTIVATION-DEPENDENT. Measured clean-minus-folder per arm: +0.0626
+# (leaky ReLU), +0.0617 (softplus), +0.0738 (sigmoid) - a 0.0121 spread against a between-arm spread
+# of only 0.007 in either measure alone. The consequence is not academic: on the folder score sigmoid
+# is the WORST arm (0.8690 vs 0.8740 for ReLU) and on the clean score it is among the best. The
+# ranking INVERTS with the choice, so the folder score is not a shared currency across activations.
+# A bounded sigmoid saturates and a softplus has a nonzero floor; they do not absorb injected noise
+# the way a ReLU net does. (For the input-scale ladder above, every arm IS a ReLU net, which is why
+# a single uniform 0.0047 offset was enough there.)
+#
+# So R^2 is the NOISE-FREE score throughout. On the flip-flop every arm carries `loss_clean_train`
+# in its trace and winp_cell already reads it. On CDDM the three activation arms carry it but the
+# ReLU reference does not - CDDM_std_g0_drift predates that probe - so the reference is re-scored
+# OFFLINE, by rebuilding each net from its saved parameters and running a noise-free batch. The same
+# re-score is applied to all four arms, so no arm reaches the axis by a different route.
+#
+# THE OFFLINE RE-SCORE IS VALIDATED against the recorded probe on the three arms that have both, and
+# the criterion comes from the measured scatter rather than being picked: `loss_clean_train` is
+# noise-free in its forward pass but the PARAMETERS are still moving at 200k (slide 4's own point),
+# so consecutive probes score different networks - per-probe sd 0.0035-0.0062 in R^2 over the last
+# 10,000 iterations, with single-probe sigmoid excursions down to 0.465. One offline sample must
+# therefore land inside the [min, max] the recorded probe actually spans over that window. All nine
+# nets pass. On the flip-flop the same probe is far quieter (sd 0.0004-0.0033 near 150k, single probe
+# within 0.001 of the window mean), which is why winp_cell's single-probe read is sound there.
+#
+# ⚠️ RNN_numpy's softplus is `log(1 + exp(beta*slope*x))/beta`, which OVERFLOWS np.exp and returns
+# NaN for the whole run once beta*x > ~709 - at beta = 25 that is any unit above x ~ 28. torch's
+# Softplus does not, because it switches to the linear branch above threshold=20. The instance is
+# patched below with the stable form. The class itself is left alone, but the bug is live for anyone
+# re-scoring the new flip-flop softplus nets offline.
+ACTIVATION_CDDM = [
+    ("ReLU (default)", f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=200000", ps.BASE),
+    ("leaky ReLU, leak 0.01", f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=leakyrelu_iters=200000", ps.SLOTS[0]),
+    ("softplus, $\\beta$ = 25", f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=softplus25_iters=200000", ps.SLOTS[2]),
+    ("sigmoid, 7.5(x$-$0.3)", f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=sigmoid_iters=200000", ps.SLOTS[3]),
+]
+
+# The weight-decay ladder, in DOSE ORDER rather than with the default first. 1e-6 is the default in
+# configs/trainer/trainer.yaml, so the family's reference cell IS a rung of this ladder - the same
+# point F1's own table makes - and the ladder only reads as a dose-response when it sits in its
+# place between 0 and 1e-5 rather than being drawn as a separate condition.
+WEIGHTDECAY_CDDM = [
+    ("W.D. 0", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=0_iters=200000", ps.SLOTS[2]),
+    ("W.D. 10$^{-6}$ (default)", f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=200000", ps.BASE),
+    ("W.D. 10$^{-5}$", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-5_iters=200000",
+     ps.SLOTS[1]),
+    ("W.D. 10$^{-4}$", f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-4_iters=200000",
+     ps.SLOTS[3]),
+]
+
+ACTIVATION_FF = [
+    ("ReLU (default)", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", ps.BASE),
+    ("leaky ReLU, leak 0.01", f"{DATA_DIR}/NBitFlipFlop_std_activations/EqType=h_k=3_N=1000_act=leakyrelu_iters=150000", ps.SLOTS[0]),
+    ("softplus, $\\beta$ = 25", f"{DATA_DIR}/NBitFlipFlop_std_activations/EqType=h_k=3_N=1000_act=softplus25_iters=150000", ps.SLOTS[2]),
+    ("sigmoid, 7.5(x$-$0.3)", f"{DATA_DIR}/NBitFlipFlop_std_sigmoid/EqType=h_k=3_N=1000_iters=150000", ps.SLOTS[3]),
+]
+
+
+def cddm_batch_and_mask(folder):
+    """The CDDM batch, scoring mask and R^2 denominator, built from one run's own config.
+
+    CDDM is deterministic - the batch enumerates every coherence pair - so one call is the whole
+    task and every net is scored on identical input.
+
+    Args:
+        folder: a net folder holding `*_config.yaml`.
+    Returns:
+        (inputs, target, mask, var): inputs (n_inp, T, B), target (n_out, T, B), mask a timepoint
+        index array, var the masked target variance that R^2 divides by.
+    """
+    cfg = OmegaConf.load(glob.glob(os.path.join(folder, "*_config.yaml"))[0])
+    task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
+    inputs, target, _ = task.get_batch()
+    mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
+    tm = np.asarray(target, float)[:, mask, :]
+    return (np.asarray(inputs, float), np.asarray(target, float), mask,
+            float(np.mean((tm - tm.mean()) ** 2)))
+
+
+def offline_clean_r2(folder, inputs, target, mask, var):
+    """Noise-free R^2 of one net's final parameters, rebuilt and simulated offline.
+
+    Args:
+        folder: net folder holding `*LastParams*.npz` and `*_config.yaml`;
+        inputs: (n_inp, T, B) input batch; target: (n_out, T, B); mask: scoring timepoint indices;
+        var: the R^2 denominator.
+    Returns:
+        float R^2 = 1 - masked MSE / var.
+    """
+    d = np.load(glob.glob(os.path.join(folder, "*LastParams*.npz"))[0], allow_pickle=True)
+    p = {k: d[k] for k in d.files}
+    # The activation and the equation form both come from the CONFIG, for every arm alike. The npz
+    # cannot supply either: the drift sweep predates storable_ and stored activation_args as the
+    # dict's KEYS, and equation_type was never saved at all while RNN_numpy defaults it to "s" -
+    # these nets are "h", and simulating the wrong one scores a good net near zero.
+    cfg = OmegaConf.load(glob.glob(os.path.join(folder, "*_config.yaml"))[0])
+    p["activation_args"] = OmegaConf.to_container(cfg.model.activation_args, resolve=True)
+    rnn = RNN_numpy(**filter_kwargs(RNN_numpy, p), equation_type=str(cfg.model.equation_type), seed=0)
+    rnn.clear_history()
+    rnn.y = rnn.y_init
+    rnn.run(input_timeseries=inputs, sigma_rec=0.0, sigma_inp=0.0)
+    o = rnn.get_output()
+    return 1.0 - float(((o[:, mask, :] - target[:, mask, :]) ** 2).mean()) / var
+
+
+def cddm_activation_cell(pattern, at_iter):
+    """Noise-free R^2 and active-unit count, per seed, for one CDDM activation arm.
+
+    R^2 is the offline re-score of each net's final parameters; the count is the scale-free rule at
+    the participation probe nearest `at_iter`. Diverged runs (`nan_` prefix) are dropped.
+
+    Args:
+        pattern: glob matching the arm's run folders; at_iter: iteration to read the count at.
+    Returns:
+        (r2, active) float arrays of shape (n_seeds,), empty where the cell is missing.
+    """
+    folders = [f for f in sorted(glob.glob(os.path.join(pattern, "*/")))
+               if os.path.basename(f.rstrip("/")).split("_")[0] != "nan"]
+    if not folders:
+        return np.array([]), np.array([])
+    inputs, target, mask, var = cddm_batch_and_mask(folders[0])
+    r2, active = [], []
+    for folder in folders:
+        tf = glob.glob(os.path.join(folder, "*ParticipationTrace.pkl"))
+        if not tf:
+            continue
+        with open(tf[0], "rb") as fh:
+            d = pickle.load(fh)
+        pit = np.asarray(d["participation_iters"], float)
+        p = np.asarray(d["participation"], float)[int(np.argmin(np.abs(pit - at_iter)))]
+        active.append(active_count(p, "scalefree"))
+        r2.append(offline_clean_r2(folder, inputs, target, mask, var))
+    return np.array(r2, float), np.array(active, float)
+
+
+def activation_r2_slide(name, ladder, cell_fn, at_iter, task_line, n_units=1000,
+                        headline=None):
+    """Task R^2 against active units for every net of one activation family, one colour per arm.
+
+    Args:
+        name: output file stem; ladder: list of (label, glob, colour);
+        cell_fn: callable(pattern, at_iter) -> (r2, active) per seed;
+        at_iter: the iteration the count is read at; task_line: the subtitle naming task and read-out;
+        n_units: network size, for the x axis label;
+        headline: the claim the panel makes, or None for the activation family's. It is a parameter
+            because this function draws more than one family now, and the activation headline
+            printed over a weight-decay panel is a caption describing a different figure.
+    Returns:
+        the output path, or None if no cell of the family is on disk.
+    """
+    cells = [(lab, col) + cell_fn(pat, at_iter) for lab, pat, col in ladder]
+    drawn = [c for c in cells if len(c[2])]
+    if not drawn:
+        print(f"  SKIP {name}: no cells for this activation family")
+        return None
+    missing = [c[0] for c in cells if not len(c[2])]
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, H))
+    for lab, col, r2, active in drawn:
+        ax.plot(active, r2, "o", ms=4.2, color=col, mec="white", mew=0.6, zorder=3,
+                label=f"{lab}  ({len(r2)})")
+        # A SQUARE, not a large translucent circle. metabolic_r2_slide settled this: the mean
+        # differs from a seed by SHAPE, not by opacity, because a translucent dot reads as blurred
+        # or as less certain and a mean over three seeds is neither. One convention across the
+        # scatter panels.
+        ax.plot(active.mean(), r2.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=4)
+    every_r2 = np.concatenate([c[2] for c in drawn])
+    every_active = np.concatenate([c[3] for c in drawn])
+    # No connecting line here, unlike the dose panels: activation is CATEGORICAL, with no order for
+    # a line to encode.
+    #
+    # The y window is several times the data spread, so a hair's-breadth range cannot read as a
+    # slope - but it is CLAMPED AT R^2 = 1, which a pure multiple of the spread is not: the CDDM
+    # arms span 0.016, and 10x that centred on 0.95 would run the axis up to 1.03 and spend a third
+    # of the panel on scores no network can reach.
+    mid = 0.5 * (every_r2.min() + every_r2.max())
+    half = max(3.0 * (every_r2.max() - every_r2.min()), 0.025)
+    lo, hi = mid - half, min(mid + half, 1.0)
+    ax.set_ylim(min(lo, hi - 2 * half), hi)
+    ax.set_xlabel(f"active units of {n_units}  (scale-free rule, $p \\geq 0.05\\,q_{{95}}(p)$)")
+    ax.set_ylabel("task $R^2$, noise-free")
+    note = ("\n" + "; ".join(missing) + (" is" if len(missing) == 1 else " are")
+            + " still training") if missing else ""
+    ax.set_title(f"{headline or 'The activations differ in live units, not in performance'}\n"
+                 f"{task_line}\n"
+                 f"{len(every_r2)} networks spanning {every_active.min():.0f}–"
+                 f"{every_active.max():.0f} active units sit within "
+                 f"{every_r2.max() - every_r2.min():.3f} of $R^2$ = {mid:.3f}. "
+                 f"Circles are networks, squares the cell means.{note}",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
+    ax.legend(loc="lower right", fontsize=5.8, handlelength=1.0, borderpad=0.2,
+              borderaxespad=0.3, ncol=2)
+    ps.ygrid(ax)
+    return ps.save(fig, name)
+
+
 # ---- slide 12's companion: is the flat metabolic ladder bought with performance? ----------------
 #
 # The metabolic slide above reads the archived CSV, which has no r2 column, so it cannot answer the
@@ -242,8 +568,8 @@ INTERVENTIONS = [
 # COLOUR CARRIES lambda HERE, which the dose slides do not need - they put lambda on the x axis and
 # use one hue for the whole family. Five conditions is exactly the number of validated slots, and
 # the unpenalised cell keeps BASE rather than taking a slot, per this project's rule that the
-# baseline is not a series. Because categorical hues carry no order, the dose ORDER is encoded a
-# second time, as a line through the cell means.
+# baseline is not a series. Categorical hues carry no order, and the lambda ordering is left to the
+# legend rather than drawn: see metabolic_r2_slide for why a line through the means was removed.
 MET_CELL = f"{DATA_DIR}/CDDM_std_g0_metabolic/EqType=h_N=1000_LmbdMet={{lam}}"
 MET_LADDER = [
     ("$\\lambda$ = 0 (no penalty)", f"{DATA_DIR}/CDDM_std_g0/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
@@ -306,26 +632,31 @@ def metabolic_r2_slide(name="slide_x_metabolic_r2"):
     ps.setup()
     fig, ax = plt.subplots(figsize=(W, H))
 
-    # the dose order, encoded a second time: categorical colour cannot carry it
-    ax.plot([c[3].mean() for c in drawn], [c[2].mean() for c in drawn], "-", lw=0.8,
-            color=ps.FAINT, zorder=2, label="in order of $\\lambda$")
+    # The mean differs from a seed by SHAPE, not by opacity. A large translucent dot reads as
+    # blurred or as less certain, and a mean over 3-5 seeds is neither.
+    #
+    # NO LINE JOINS THE MEANS. An earlier version drew one to carry the lambda ordering, since
+    # categorical colour cannot. But neither axis here is lambda, so a path between the means
+    # implies a trajectory through a plane that has none - and it doubles back, which reads as
+    # noise rather than as order. The legend names every lambda; that is enough.
     for lab, col, r2, active, _ in drawn:
-        ax.plot(active, r2, "o", ms=4.6, color=col, mec="white", mew=0.6, zorder=4,
+        ax.plot(active, r2, "o", ms=4.2, color=col, mec="white", mew=0.6, zorder=3,
                 label=f"{lab}  ({len(r2)})")
-        ax.plot(active.mean(), r2.mean(), "o", ms=9.0, color=col, mec="white", mew=1.0,
-                alpha=0.45, zorder=3)
+        ax.plot(active.mean(), r2.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=4)
 
     ax.set_xlabel("active units of 1000  (scale-free rule, $p \\geq 0.05\\,q_{95}(p)$)")
     ax.set_ylabel("task $r^2$")
     every_r2 = np.concatenate([c[2] for c in drawn])
     probe = f"{sorted(probes)[0]:,}" if len(probes) == 1 else "the last probe"
-    ax.set_title("No rung of the ladder trades performance for live units\n"
+    # A y axis cropped to the data would span 0.05 in r2 and make a flat ladder look like scatter.
+    # The round 0.08 band is the honest frame for the claim this panel makes.
+    ax.set_ylim(0.82, 0.90)
+    ax.set_title(f"No rung breaks the task: r$^2$ holds at {every_r2.min():.2f}–"
+                 f"{every_r2.max():.2f} across four decades of $\\lambda$\n"
                  f"CDDM, N = 1000, read at 30,000 iterations (last probe {probe}). "
-                 f"Every seed drawn; r$^2$ stays within {every_r2.min():.2f}–{every_r2.max():.2f} "
-                 "across four decades of $\\lambda$.\nLarge pale dot is the cell mean; the grey "
-                 "line joins them in order of $\\lambda$.",
+                 "Circles are networks, squares the cell means.",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
-    ax.legend(loc="lower left", fontsize=5.8, handlelength=1.0, borderpad=0.2,
+    ax.legend(loc="lower right", fontsize=5.8, handlelength=1.0, borderpad=0.2,
               borderaxespad=0.3, ncol=2)
     ps.ygrid(ax)
     return ps.save(fig, name)
@@ -778,8 +1109,10 @@ def main(list_only=False):
     if list_only:
         for stem, title, *_ in INTERVENTIONS:
             print(f"  {stem:28s} {title}")
-        print(f"  {'slide_x_metabolic_r2':28s} "
+        print(f"  {'slide_x_inputscale_r2':28s} "
               "No rung of the ladder trades performance for live units")
+        print(f"  {'slide_x_metabolic_r2':28s} "
+              "No rung breaks the task: r2 holds at 0.83-0.88 across four decades of lambda")
         return []
     out = []
 
@@ -847,6 +1180,27 @@ def main(list_only=False):
         out.append(draw(stem, title, ref_label, entries, ref,
                         F1.GROUP_COL.get(group, ps.MUTED), note=note, ref_at=ref_at))
 
+    got = activation_r2_slide(
+        "slide_x_activation_cddm_r2", ACTIVATION_CDDM, cddm_activation_cell, 199_900,
+        "CDDM, N = 1000. Active units read at 199,900; $R^2$ re-scored offline, noise off. "
+        "Every seed drawn.")
+    if got:
+        out.append(got)
+    got = activation_r2_slide(
+        "slide_x_weightdecay_r2", WEIGHTDECAY_CDDM, cddm_activation_cell, 199_900,
+        "CDDM, N = 1000. Active units read at 199,900; $R^2$ is the noise-free re-score of each "
+        "net's final parameters. Every seed drawn.",
+        headline="Weight decay removes units without the task noticing")
+    if got:
+        out.append(got)
+    got = activation_r2_slide(
+        "slide_x_activation_ff_r2", ACTIVATION_FF, winp_cell, 150_000,
+        "3-bit flip-flop, N = 1000, both axes read at 150,000 iterations. Every seed drawn.")
+    if got:
+        out.append(got)
+    got = inputscale_r2_slide()
+    if got:
+        out.append(got)
     got = metabolic_r2_slide()
     if got:
         out.append(got)
