@@ -7,18 +7,22 @@ opinion.
 
 `⚠` marks a slide whose figure does not exist yet.
 
+Every figure is centred at one fixed width (760 px) so the deck reads at a constant scale — add new
+ones as `<p align="center"><img src="..." width="760"></p>`, not as Markdown image syntax, which
+cannot be centred.
+
 ---
 
 ## THE PROBLEM
 
 ### 1. Most units of a trained ReLU RNN never fire
-![](../img/internal_figures/slide_01_schematic.svg)
+<p align="center"><img src="../img/internal_figures/slide_01_schematic.svg" width="760"></p>
 
 ### 2. It is not a threshold artefact — the distribution is bimodal
-![](../img/internal_figures/slide_02_participation.svg)
+<p align="center"><img src="../img/internal_figures/slide_02_participation.svg" width="760"></p>
 
 ### 3. Units keep going silent long after the loss has stopped moving
-![](../img/internal_figures/slide_03_silencing_vs_training.svg)
+<p align="center"><img src="../img/internal_figures/slide_03_silencing_vs_training.svg" width="760"></p>
 Three tasks, every seed. DMTS does not follow the other two — shown, not hidden.
 
 ---
@@ -26,18 +30,18 @@ Three tasks, every seed. DMTS does not follow the other two — shown, not hidde
 ## WHY ITERATION COUNT IS THE WRONG CLOCK
 
 ### 4. The input weights settle
-![](../img/internal_figures/slide_04_drift_W_inp.svg)
+<p align="center"><img src="../img/internal_figures/slide_04_drift_W_inp.svg" width="760"></p>
 
 ### 5. The recurrent weights settle
-![](../img/internal_figures/slide_04_drift_W_rec.svg)
+<p align="center"><img src="../img/internal_figures/slide_04_drift_W_rec.svg" width="760"></p>
 
 ### 6. The read-out weights settle hardest
-![](../img/internal_figures/slide_04_drift_W_out.svg)
+<p align="center"><img src="../img/internal_figures/slide_04_drift_W_out.svg" width="760"></p>
 All three are mean-reverting by the end. **The weights stop moving and units keep going silent** —
 so silencing is not weight drift.
 
 ### 7. But bigger networks need longer to get there
-![](../img/internal_figures/excess_time_matrix.png)
+<p align="center"><img src="../img/internal_figures/excess_time_matrix.png" width="760"></p>
 Iterations at 1.10× each run's own loss floor. Matching iterations compares a converged small
 network with an unconverged large one — so every read-out below is at a matched loss, not a matched
 step count.
@@ -47,7 +51,7 @@ step count.
 ## THE SCALING
 
 ### 8. Active units grow as N^0.3–0.4 — so the fraction falls
-![](../img/internal_figures/slide_06_scaling.svg)
+<p align="center"><img src="../img/internal_figures/slide_06_scaling.svg" width="760"></p>
 Both silence criteria, both task families.
 
 ---
@@ -55,29 +59,29 @@ Both silence criteria, both task families.
 ## WHAT DOES NOT WORK — one knob at a time
 
 ### 9. A different activation does not help
-![](../img/internal_figures/slide_x_activation_cddm.svg)
+<p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.svg" width="760"></p>
 
 ### 10. Nor on the other task
-![](../img/internal_figures/slide_x_activation_ff.svg)
+<p align="center"><img src="../img/internal_figures/slide_x_activation_ff.svg" width="760"></p>
 
 ### 11. Weight decay makes it monotonically worse
-![](../img/internal_figures/slide_x_weightdecay.svg)
+<p align="center"><img src="../img/internal_figures/slide_x_weightdecay.svg" width="760"></p>
 
 ### 12. Scaling the input weights does not help
-![](../img/internal_figures/slide_x_inputscale.svg)
+<p align="center"><img src="../img/internal_figures/slide_x_inputscale.svg" width="760"></p>
 
 ### 13. The field-standard metabolic penalty moves nothing beyond seed scatter
-![](../img/internal_figures/slide_x_metabolic.svg)
+<p align="center"><img src="../img/internal_figures/slide_x_metabolic.svg" width="760"></p>
 
 ### 14. Nor the equation form, nor a trainable bias
-![](../img/internal_figures/slide_x_architecture.svg)
+<p align="center"><img src="../img/internal_figures/slide_x_architecture.svg" width="760"></p>
 
 ### 15. Removing recurrent noise is the largest effect — and it is negative
-![](../img/internal_figures/slide_x_recnoise.svg)
+<p align="center"><img src="../img/internal_figures/slide_x_recnoise.svg" width="760"></p>
 Mean and 95% interval: this sweep saved no per-seed rows.
 
 ### 16. Everything above, on one axis
-![](../img/internal_figures/fig_paper_F1.svg)
+<p align="center"><img src="../img/internal_figures/fig_paper_F1.svg" width="760"></p>
 Panel d. Each against its **own** matched reference. ⚠ wants its own export.
 
 ---
@@ -85,35 +89,35 @@ Panel d. Each against its **own** matched reference. ⚠ wants its own export.
 ## WHAT DOES WORK
 
 ### 17. Five interventions, and where each one acts
-![](../img/internal_figures/slide_rules.svg)
+<p align="center"><img src="../img/internal_figures/slide_rules.svg" width="760"></p>
 
 ### 18. Active units
-![](../img/internal_figures/slide_f2_active.svg)
+<p align="center"><img src="../img/internal_figures/slide_f2_active.svg" width="760"></p>
 
 ### 19. Performance
-![](../img/internal_figures/slide_f2_r2.svg)
+<p align="center"><img src="../img/internal_figures/slide_f2_r2.svg" width="760"></p>
 
 ### 20. Dimensionality
-![](../img/internal_figures/slide_f2_dims.svg)
+<p align="center"><img src="../img/internal_figures/slide_f2_dims.svg" width="760"></p>
 
 ### 21. Weight distribution — lognormal, and which way it errs
-![](../img/internal_figures/slide_f2_weights.svg)
+<p align="center"><img src="../img/internal_figures/slide_f2_weights.svg" width="760"></p>
 
 ### 22. Does it survive a change of size? — units
-![](../img/internal_figures/slide_f2_size_active.svg)
+<p align="center"><img src="../img/internal_figures/slide_f2_size_active.svg" width="760"></p>
 
 ### 23. …and performance
-![](../img/internal_figures/slide_f2_size_r2.svg)
+<p align="center"><img src="../img/internal_figures/slide_f2_size_r2.svg" width="760"></p>
 
 ---
 
 ## PER-INTERVENTION DETAIL
 
 ### 24. Dropout, along training
-![](../img/internal_figures/dropout_live_vs_iter.png)
+<p align="center"><img src="../img/internal_figures/dropout_live_vs_iter.png" width="760"></p>
 
 ### 25. Dropout is capped: the sampler cannot see firing
-![](../img/internal_figures/dropout_sampler_blindness.png)
+<p align="center"><img src="../img/internal_figures/dropout_sampler_blindness.png" width="760"></p>
 
 ### 26. Prune-and-duplicate ⚠
 Needs its own figure: recruitment against jitter, and the output unchanged at the moment of surgery.
