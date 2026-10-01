@@ -246,10 +246,12 @@ ARCHIVE_FAMILY = ("CDDM, 30k (archived)",
     ("metabolic λ = 10",         ("silent_stats_v2.csv", dict(sweep="metabolic", met="10.0")), "metabolic"),
 ])
 
-# The noise sweep is the one family under a peak-rate rather than a participation criterion.
+# The noise sweep saved no participation traces, so it was the one family under a peak-rate rather
+# than a participation criterion; cddm_noise_participation.py re-scores it from the trained weights
+# and it now shares the rule with every other family (see noise_active).
 # sigma_rec = 0.05 is the default in every model config, so as with weight decay the reference is a
 # rung of this ladder rather than something outside it. Listed in ascending order with the rest.
-NOISE_FAMILY = ("CDDM, 30k (peak-rate criterion)", "0.05", [
+NOISE_FAMILY = ("CDDM, 30k", "0.05", [
     ("rec. noise σ = 0",    "0.0",  "noise"),
     ("rec. noise σ = 0.01", "0.01", "noise"),
     ("rec. noise σ = 0.05*", None, "reference"),
@@ -1194,23 +1196,56 @@ def csv_active(fname, **match):
 
 
 def noise_active(sigma):
-    """Active units at one recurrent-noise level, from the per-condition CSV of the noise sweep.
+    """Active units at one recurrent-noise level, under the participation rule where available.
 
-    This sweep has no participation traces, so its silence rule is peak-rate based: a unit is
-    silent below 5% of the 95th-percentile peak rate. It is therefore never compared with the
-    other families except as a change from its own reference.
+    THIS SWEEP SAVED NO PARTICIPATION TRACES, so its original number came from a peak-rate rule - a
+    unit silent below 5% of the 95th-percentile peak rate - which put its sigma = 0.05 reference at
+    524 active where the metabolic reference, same task and size at the same 30,000-iteration budget,
+    reads 414. That gap was the measuring stick, not the networks.
+
+    The trained weights are on disk, so `cddm_noise_participation.py` rebuilds each net, runs it
+    noise-free and scores it with the same scale-free participation rule as every other family. When
+    that CSV is present it is used and the reference reads 443, beside the metabolic sweep's 414.
+    The peak-rate CSV remains the fallback, so the panel still draws if the re-score has not been run.
 
     Args:
         sigma: sigma_rec as it appears in the CSV.
     Returns:
         (mean active, sd, n_nets).
     """
-    path = os.path.join(DATA_DIR, "CDDM_fb2792_g0_noise", "silent_units_per_condition.csv")
-    for r in csv.DictReader(open(path)):
+    root = os.path.join(DATA_DIR, "CDDM_fb2792_g0_noise")
+    rescored = os.path.join(root, "silent_units_per_condition_participation.csv")
+    if os.path.exists(rescored):
+        for r in csv.DictReader(open(rescored)):
+            if r["eq"] == "h" and float(r["sigma_rec"]) == float(sigma):
+                return (float(r["active_mean"]), float(r["active_std"]), int(r["n_nets"]))
+    for r in csv.DictReader(open(os.path.join(root, "silent_units_per_condition.csv"))):
         if r["eq"] == "h" and float(r["sigma_rec"]) == float(sigma):
             return (N_UNITS - float(r["silent_rel_mean"]), float(r["silent_rel_std"]),
                     int(r["n_nets"]))
     return (float("nan"), float("nan"), 0)
+
+
+def noise_counts(sigma):
+    """Per-seed active-unit counts at one recurrent-noise level, where the re-score supplies them.
+
+    The original sweep kept only a per-condition mean, sd and n, which is why its slide drew an
+    interval where every other family draws its individual networks. `cddm_noise_participation.py`
+    re-scores the trained weights and records each net, so the seeds are available again.
+
+    Args:
+        sigma: sigma_rec as it appears in the CSV.
+    Returns:
+        list of ints, one per net; empty when the re-score has not been run.
+    """
+    path = os.path.join(DATA_DIR, "CDDM_fb2792_g0_noise",
+                        "silent_units_per_condition_participation.csv")
+    if not os.path.exists(path):
+        return []
+    for r in csv.DictReader(open(path)):
+        if r["eq"] == "h" and float(r["sigma_rec"]) == float(sigma):
+            return [int(x) for x in r.get("active_counts", "").split(";") if x]
+    return []
 
 
 def panel_d(ax):

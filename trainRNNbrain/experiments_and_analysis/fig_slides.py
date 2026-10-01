@@ -37,6 +37,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 from matplotlib.ticker import NullLocator
+from matplotlib import transforms
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hydra.utils
@@ -63,47 +64,63 @@ def _family_values(family, trace=True):
         family: an entry of F1.TRACE_FAMILIES, or F1.ARCHIVE_FAMILY / F1.NOISE_FAMILY;
         trace: True for the trace families (glob patterns), False for the CSV/noise families.
     Returns:
-        (reference array, [(label, values array, group), ...]) with empty arrays where a cell is
-        missing, so a slide shows the gap rather than silently dropping a condition.
+        (reference array, [(label, values array, group), ...], iters) with empty arrays where a cell
+        is missing, so a slide shows the gap rather than silently dropping a condition. `iters` is
+        the set of iterations the family's cells were actually read at - one element when every cell
+        shares a probe, more when they do not - and is EMPTY for the CSV and noise families, whose
+        surviving summaries carry no iteration (see ARCHIVE_READOUT).
     """
     if trace:
         title, ref_pat, cap, items = family
-        ref = (F1.live_matched(ref_pat, cap) or (np.array([]),))[0]
+        got = F1.live_matched(ref_pat, cap)
+        iters = {got[1]} if got else set()
+        ref = (got or (np.array([]),))[0]
         out = []
         for lab, pat, grp in items:
-            v = np.array([]) if pat is None else (F1.live_matched(pat, cap) or (np.array([]),))[0]
+            got = None if pat is None else F1.live_matched(pat, cap)
+            if got:
+                iters.add(got[1])
+            v = (got or (np.array([]),))[0]
             out.append((lab, np.asarray(v, float), grp))
-        return np.asarray(ref, float), out
+        return np.asarray(ref, float), out, iters
     title, ref_spec, items = family
     if isinstance(ref_spec, tuple):
         ref = F1.csv_active(ref_spec[0], **ref_spec[1])
         out = [(lab, np.asarray(F1.csv_active(s[0], **s[1]), float), grp) for lab, s, grp in items]
     else:
-        # ⚠️ THE NOISE SWEEP SAVED NO PER-NETWORK ROWS, only a per-condition mean, sd and n, and it
-        # uses a peak-rate silence rule rather than participation. Its slide therefore draws mean
-        # and a 95% interval where the others draw every seed, and says so on the figure.
-        ref = F1.noise_active(ref_spec)
-        out = [(lab, (float("nan"), float("nan"), 0) if s is None else F1.noise_active(s), grp)
-               for lab, s, grp in items]
-    return ref, out
+        # THE NOISE SWEEP'S SEEDS ARE BACK. It saved no per-network rows and scored silence on peak
+        # rate rather than participation, so its slide drew a mean and a 95% interval where every
+        # other family draws its networks. cddm_noise_participation.py re-scores the trained weights
+        # under the shared rule and records each net, so per-seed arrays are used when that CSV is
+        # present and the old per-condition summary remains the fallback.
+        if F1.noise_counts(ref_spec):
+            ref = np.asarray(F1.noise_counts(ref_spec), float)
+            out = [(lab, np.asarray([] if s is None else F1.noise_counts(s), float), grp)
+                   for lab, s, grp in items]
+        else:
+            ref = F1.noise_active(ref_spec)
+            out = [(lab, (float("nan"), float("nan"), 0) if s is None else F1.noise_active(s), grp)
+                   for lab, s, grp in items]
+    return ref, out, set()
 
 
 def collect():
     """Every intervention in Figure 1d, keyed by (family title, group).
 
     Returns:
-        dict {(family title, group): (reference array, [(label, values), ...])}.
+        dict {(family title, group): (reference array, [(label, values), ...], iters)}, with `iters`
+        the set of iterations that family was read at - empty where the data do not record it.
     """
     out = {}
     fams = [(f, True) for f in F1.TRACE_FAMILIES]
     fams += [(F1.ARCHIVE_FAMILY, False), (F1.NOISE_FAMILY, False)]
     for fam, trace in fams:
         title = fam[0]
-        ref, items = _family_values(fam, trace)
+        ref, items, iters = _family_values(fam, trace)
         for lab, vals, grp in items:
             if grp == "reference":
                 continue
-            out.setdefault((title, grp), (ref, []))[1].append((lab, vals))
+            out.setdefault((title, grp), (ref, [], iters))[1].append((lab, vals))
     return out
 
 
@@ -209,22 +226,127 @@ def panel_slide(name, fn, width=W, height=H, **kw):
 
 
 # (slide stem, title, family title, group, reference label, reference rung, note)
+# ⚠️ THE TWO ARCHIVED FAMILIES CANNOT DERIVE THEIR READ-OUT: their raw sweeps were deleted
+# (Supplementary S6) and the surviving summaries do not all carry it. `silent_stats_all.csv`, which
+# supplies the archive family's reference and its architecture rows, has no `iters` column at all,
+# and the noise sweep's per-condition CSV has none either. Recorded here instead, each verified
+# against something that does carry it:
+#   - the archive reference's five rows (rel_5p95 = 0.569, 0.572, 0.575, 0.598, 0.614) are five of
+#     the twenty `silent_stats_v2.csv` sweep=std rows at N = 1000, eq = h, every one at iters=30000;
+#   - the metabolic rows come from `silent_stats_v2.csv` directly, all twelve at iters=30000;
+#   - the architecture rows' sweeps still have their run folders - CDDM_ptrack_g0,
+#     CDDM_ptrack_g0_nodale and CDDM_ptrack_g0_nodale_trainablebias are all MI=30000;
+#   - the noise sweep's run folders survive too (CDDM_fb2792_g0_noise), max_iter 30000, and its nets
+#     were scored from their FINAL weights, so the budget is the read-out.
+ARCHIVE_READOUT = {"CDDM, 30k (archived)": 30_000, "CDDM, 30k": 30_000}
+
+
+# The CDDM control's own trajectory. The panels in this section read at different budgets because
+# the sweeps have different budgets, so the control they are each measured against is a different
+# number - 414 at 30,000 iterations, 272 at 200,000. That is not an inconsistency between panels, it
+# is the paper's own claim showing up in the reference, and the deck says so once rather than leaving
+# a listener to notice three control numbers and distrust all three.
+CONTROL_TRAJ_CELL = f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*"
+CONTROL_TRAJ_MARKS = [(30_000, "slides 12\u201314 read here"), (200_000, "slides 8, 10, 11 read here")]
+
+
+def control_trajectory_slide(name="slide_07b_control_trajectory"):
+    """The CDDM control's active count against training iteration, with the read-out points marked.
+
+    Args:
+        name: output file stem.
+    Returns:
+        the output path, or None if the cell has no traces.
+    """
+    curves = []
+    for f in sorted(glob.glob(os.path.join(CONTROL_TRAJ_CELL, "*", "*ParticipationTrace.pkl"))):
+        try:
+            d = pickle.load(open(f, "rb"))
+        except Exception:
+            continue
+        P = np.asarray(d["participation"], float)
+        it = np.asarray(d.get("participation_iters", d.get("iters", [])), float)
+        n = min(len(P), len(it))
+        if n < 2:
+            continue
+        curves.append((it[:n], np.array([active_count(p, "scalefree") for p in P[:n]], float)))
+    if not curves:
+        print(f"  SKIP {name}: no traces under {CONTROL_TRAJ_CELL}")
+        return None
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, H))
+    for it, a in curves:
+        ax.plot(it, a, lw=0.7, color=ps.BASE, alpha=0.55, zorder=3)
+    grid = curves[0][0]
+    mean = np.mean([np.interp(grid, it, a) for it, a in curves], axis=0)
+    ax.plot(grid, mean, lw=1.5, color=ps.SLOTS[0], zorder=5)
+    for i, (x, lab) in enumerate(CONTROL_TRAJ_MARKS):
+        # clamp rather than skip: the trace's last probe is 199,900, so a 200,000 mark would be
+        # dropped and the panel would show only one of the two read-out points it exists to compare
+        x = min(x, float(grid.max()))
+        y = float(np.interp(x, grid, mean))
+        ax.axvline(x, color=ps.MUTED, lw=0.7, ls=(0, (3, 2)), zorder=2)
+        ax.plot([x], [y], "o", ms=5.0, color=ps.SLOTS[0], mec="white", mew=0.8, zorder=6)
+        # the label sits at the TOP of its rule, in blended (data x, axes y) coordinates, not beside
+        # the marker: the curve descends across the panel, so a label offset from the 200,000 point
+        # runs back across the data it is annotating
+        # STAGGERED, and both hanging to the LEFT of their rule. 30,000 and 200,000 are close
+        # together on a log axis, so two labels at one height collide with each other, and a label
+        # offset rightward from the 200,000 rule leaves the panel.
+        ax.annotate(f"{lab}\n{y:.0f} active", xy=(x, 0.98 - 0.16 * i),
+                    xycoords=transforms.blended_transform_factory(ax.transData, ax.transAxes),
+                    textcoords="offset points", xytext=(-5, -2), ha="right", va="top",
+                    fontsize=6.2, color=ps.INK, linespacing=1.25)
+    ax.set(xscale="log", xlabel="training iteration", ylabel="active units of 1000")
+    ax.set_ylim(top=ax.get_ylim()[1] * 1.18)      # headroom for the two rule labels
+    ax.set_title("The control is not one number — it depends when you look\n"
+                 f"CDDM, N = 1000, unpenalised, {len(curves)} seeds. The panels that follow each "
+                 "read at their own\nsweep's budget, so each is measured against the control at "
+                 "that budget.",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
+    ps.ygrid(ax)
+    return ps.save(fig, name)
+
+
+def readout_line(iters, recorded=None):
+    """The 'read at ...' sentence a panel carries, from where its cells were actually read.
+
+    Derived rather than typed, so it cannot drift from the data: a family read at one shared probe
+    gives one number, a family whose cells land on different probes gives the range, and a family
+    whose surviving data record no iteration says so rather than borrowing the sweep's nominal
+    budget silently.
+
+    Args:
+        iters: set of iterations the family's cells were read at, possibly empty;
+        recorded: the iteration from ARCHIVE_READOUT when the data cannot supply one.
+    Returns:
+        a one-sentence string, always ending in a full stop.
+    """
+    if iters:
+        lo, hi = min(iters), max(iters)
+        return f"Read at {lo:,} iterations." if lo == hi else \
+               f"Read at {lo:,}\u2013{hi:,} iterations (the cells do not share a probe)."
+    if recorded is not None:
+        return f"Read at {recorded:,} iterations (recorded, not in the archived summary)."
+    return "⚠️ Read-out iteration not recorded."
+
+
 INTERVENTIONS = [
     ("slide_x_activation_cddm", "A different activation does not help",
      "CDDM, 200k", "activation", "ReLU (default)", 0,
-     "CDDM, N = 1000, read at 200k. Every seed drawn."),
+     "CDDM, N = 1000. Every seed drawn."),
     ("slide_x_weightdecay", "Weight decay makes it monotonically worse",
      "CDDM, 200k", "weight decay", "W.D. 10$^{-6}$ (default)", 1,
      "CDDM, N = 1000. The default is a rung of this ladder, not a separate condition."),
     ("slide_x_activation_ff", "Nor on the other task",
      "3-bit flip-flop, 150k", "activation", "ReLU (default)", 0,
-     "3-bit flip-flop, N = 1000, read at 150k."),
+     "3-bit flip-flop, N = 1000. Every seed drawn."),
     # The reference is the DEFAULT DRAW, whose rows sit at norm 0.050 at N = 1000 - the lowest rung
     # of this ladder, not a middle one, which is why ref_at is 0. Labelling it "×1" and putting it
     # second (every version before 2026-10-01) was what made this panel look non-monotone.
     ("slide_x_inputscale", "Scaling the input weights up adds 40\u201375 units of 1000, peaking at row norm 2",
      "3-bit flip-flop, 150k", "input scale", "row norm 0.05 (default draw)", 0,
-     "3-bit flip-flop, N = 1000, read at 150,000 iterations. Every seed drawn.\n"
+     "3-bit flip-flop, N = 1000. Every seed drawn.\n"
      "Rungs are the absolute L2 norm of each W$_{inp}$ row at init; the default draw is 0.050."),
     ("slide_x_metabolic", "The field-standard metabolic penalty moves nothing beyond seed scatter",
      "CDDM, 30k (archived)", "metabolic", "$\\lambda$ = 0 (default)", 0,
@@ -233,8 +355,9 @@ INTERVENTIONS = [
      "CDDM, 30k (archived)", "architecture", "standard", 0,
      "CDDM, N = 1000."),
     ("slide_x_recnoise", "Removing recurrent noise is the largest effect we found — and it is negative",
-     "CDDM, 30k (peak-rate criterion)", "noise", "$\\sigma$ = 0.05 (default)", 2,
-     "CDDM, N = 1000, peak-rate criterion. Mean and 95% interval: this sweep saved no per-seed rows."),
+     "CDDM, 30k", "noise", "$\\sigma$ = 0.05 (default)", 2,
+     "CDDM, N = 1000. Re-scored from the trained weights onto the participation rule, so the seeds "
+     "this sweep never saved are drawn."),
 ]
 
 
@@ -284,21 +407,25 @@ def winp_cell(pattern, at_iter):
     Args:
         pattern: glob matching the rung's run folders; at_iter: int, the iteration to read at.
     Returns:
-        (r2, active) float arrays of shape (n_seeds,), empty where the cell is missing.
+        (r2, active, probes): r2 and active are (n_seeds,) float arrays, empty where the cell is
+        missing; probes is the set of participation-probe iterations actually landed on, which is
+        not always `at_iter` - the cells of this ladder have different budgets.
     """
-    r2, active = [], []
+    r2, active, probes = [], [], set()
     for f in sorted(glob.glob(os.path.join(pattern, "*", "*ParticipationTrace.pkl"))):
         if os.path.basename(os.path.dirname(f)).split("_")[0] == "nan":
             continue
         with open(f, "rb") as fh:
             d = pickle.load(fh)
         pit = np.asarray(d["participation_iters"], float)
-        p = np.asarray(d["participation"], float)[int(np.argmin(np.abs(pit - at_iter)))]
+        j = int(np.argmin(np.abs(pit - at_iter)))
+        p = np.asarray(d["participation"], float)[j]
+        probes.add(int(pit[j]))
         it = np.asarray(d["iters"], float)
         L = np.asarray(d["metrics"]["loss_clean_train"], float)
         active.append(active_count(p, "scalefree"))
         r2.append(1.0 - L[int(np.argmin(np.abs(it - at_iter)))] / VAR_TARGET_FF)
-    return np.array(r2, float), np.array(active, float)
+    return np.array(r2, float), np.array(active, float), probes
 
 
 def inputscale_r2_slide(name="slide_x_inputscale_r2", at_iter=150_000):
@@ -315,23 +442,27 @@ def inputscale_r2_slide(name="slide_x_inputscale_r2", at_iter=150_000):
     """
     cells = [(lab, col) + winp_cell(pat, at_iter) for lab, pat, col in INPUTSCALE_LADDER]
     drawn = [c for c in cells if len(c[2])]
+    probes = set().union(*[c[4] for c in drawn]) if drawn else set()
     if not drawn:
         print(f"  SKIP {name}: no input-scale cells on disk")
         return None
     ps.setup()
     fig, ax = plt.subplots(figsize=(W, H))
 
-    # the dose order, encoded a second time: categorical colour cannot carry it
-    ax.plot([c[3].mean() for c in drawn], [c[2].mean() for c in drawn], "-", lw=0.8,
-            color=ps.FAINT, zorder=2, label="in order of input scale")
-    for lab, col, r2, active in drawn:
-        ax.plot(active, r2, "o", ms=4.6, color=col, mec="white", mew=0.6, zorder=4,
+    # NO LINE JOINS THE MEANS, as on the metabolic and activation panels. An earlier version
+    # drew one to carry the input-scale ordering, since categorical colour cannot. But neither
+    # axis here is input scale, so a path between the means implies a trajectory through a plane
+    # that has none - and it doubles back, because the ladder is single-peaked in active units
+    # (263 -> 302 -> 339 -> 324 -> 306) while the R^2 it would thread spans 0.001. A line that
+    # reverses inside the noise reads as noise, not as order. The legend names every rung.
+    for lab, col, r2, active, _ in drawn:
+        ax.plot(active, r2, "o", ms=4.2, color=col, mec="white", mew=0.6, zorder=3,
                 label=f"{lab}  ({len(r2)})")
         # A SQUARE, not a large translucent circle. metabolic_r2_slide settled this: the mean
         # differs from a seed by SHAPE, not by opacity, because a translucent dot reads as blurred
         # or as less certain and a mean over three seeds is neither. One convention across the
         # scatter panels.
-        ax.plot(active.mean(), r2.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=5)
+        ax.plot(active.mean(), r2.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=4)
 
     every_r2 = np.concatenate([c[2] for c in drawn])
     every_active = np.concatenate([c[3] for c in drawn])
@@ -340,13 +471,13 @@ def inputscale_r2_slide(name="slide_x_inputscale_r2", at_iter=150_000):
     ax.set_xlabel("active units of 1000  (scale-free rule, $p \\geq 0.05\\,q_{95}(p)$)")
     ax.set_ylabel("task $R^2$, noise-free probe")
     ax.set_title("No rung of the ladder trades performance for live units\n"
-                 f"3-bit flip-flop, N = 1000, both axes read at {at_iter:,} iterations. Every seed "
+                 f"3-bit flip-flop, N = 1000. {readout_line(probes)} Every seed "
                  f"drawn.\n{len(every_r2)} networks spanning {every_active.min():.0f}\u2013"
                  f"{every_active.max():.0f} active units sit within "
                  f"{every_r2.max() - every_r2.min():.3f} of $R^2$ = {mid:.3f}. "
                  "Circles are networks, squares the cell means.",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
-    ax.legend(loc="lower left", fontsize=5.8, handlelength=1.0, borderpad=0.2,
+    ax.legend(loc="lower right", fontsize=5.8, handlelength=1.0, borderpad=0.2,
               borderaxespad=0.3, ncol=2)
     ps.ygrid(ax)
     return ps.save(fig, name)
@@ -475,14 +606,16 @@ def cddm_activation_cell(pattern, at_iter):
     Args:
         pattern: glob matching the arm's run folders; at_iter: iteration to read the count at.
     Returns:
-        (r2, active) float arrays of shape (n_seeds,), empty where the cell is missing.
+        (r2, active, probes): r2 and active are (n_seeds,) float arrays, empty where the cell is
+        missing; probes is the set of participation-probe iterations actually landed on, which need
+        not be `at_iter` - the panel's read-out sentence is derived from it rather than typed.
     """
     folders = [f for f in sorted(glob.glob(os.path.join(pattern, "*/")))
                if os.path.basename(f.rstrip("/")).split("_")[0] != "nan"]
     if not folders:
-        return np.array([]), np.array([])
+        return np.array([]), np.array([]), set()
     inputs, target, mask, var = cddm_batch_and_mask(folders[0])
-    r2, active = [], []
+    r2, active, probes = [], [], set()
     for folder in folders:
         tf = glob.glob(os.path.join(folder, "*ParticipationTrace.pkl"))
         if not tf:
@@ -490,10 +623,12 @@ def cddm_activation_cell(pattern, at_iter):
         with open(tf[0], "rb") as fh:
             d = pickle.load(fh)
         pit = np.asarray(d["participation_iters"], float)
-        p = np.asarray(d["participation"], float)[int(np.argmin(np.abs(pit - at_iter)))]
+        j = int(np.argmin(np.abs(pit - at_iter)))
+        p = np.asarray(d["participation"], float)[j]
+        probes.add(int(pit[j]))
         active.append(active_count(p, "scalefree"))
         r2.append(offline_clean_r2(folder, inputs, target, mask, var))
-    return np.array(r2, float), np.array(active, float)
+    return np.array(r2, float), np.array(active, float), probes
 
 
 def activation_r2_slide(name, ladder, cell_fn, at_iter, task_line, n_units=1000,
@@ -502,8 +637,10 @@ def activation_r2_slide(name, ladder, cell_fn, at_iter, task_line, n_units=1000,
 
     Args:
         name: output file stem; ladder: list of (label, glob, colour);
-        cell_fn: callable(pattern, at_iter) -> (r2, active) per seed;
-        at_iter: the iteration the count is read at; task_line: the subtitle naming task and read-out;
+        cell_fn: callable(pattern, at_iter) -> (r2, active, probes) per seed;
+        at_iter: the iteration the count is read at; task_line: the subtitle naming the task and the
+            conditions, WITHOUT a read-out iteration - that sentence is derived from the probes the
+            cells actually landed on, so it cannot drift from the data;
         n_units: network size, for the x axis label;
         headline: the claim the panel makes, or None for the activation family's. It is a parameter
             because this function draws more than one family now, and the activation headline
@@ -517,9 +654,10 @@ def activation_r2_slide(name, ladder, cell_fn, at_iter, task_line, n_units=1000,
         print(f"  SKIP {name}: no cells for this activation family")
         return None
     missing = [c[0] for c in cells if not len(c[2])]
+    probes = set().union(*[c[4] for c in drawn])
     ps.setup()
     fig, ax = plt.subplots(figsize=(W, H))
-    for lab, col, r2, active in drawn:
+    for lab, col, r2, active, _ in drawn:
         ax.plot(active, r2, "o", ms=4.2, color=col, mec="white", mew=0.6, zorder=3,
                 label=f"{lab}  ({len(r2)})")
         # A SQUARE, not a large translucent circle. metabolic_r2_slide settled this: the mean
@@ -545,7 +683,7 @@ def activation_r2_slide(name, ladder, cell_fn, at_iter, task_line, n_units=1000,
     note = ("\n" + "; ".join(missing) + (" is" if len(missing) == 1 else " are")
             + " still training") if missing else ""
     ax.set_title(f"{headline or 'The activations differ in live units, not in performance'}\n"
-                 f"{task_line}\n"
+                 f"{task_line} {readout_line(probes)}\n"
                  f"{len(every_r2)} networks spanning {every_active.min():.0f}–"
                  f"{every_active.max():.0f} active units sit within "
                  f"{every_r2.max() - every_r2.min():.3f} of $R^2$ = {mid:.3f}. "
@@ -571,35 +709,46 @@ def activation_r2_slide(name, ladder, cell_fn, at_iter, task_line, n_units=1000,
 # baseline is not a series. Categorical hues carry no order, and the lambda ordering is left to the
 # legend rather than drawn: see metabolic_r2_slide for why a line through the means was removed.
 MET_CELL = f"{DATA_DIR}/CDDM_std_g0_metabolic/EqType=h_N=1000_LmbdMet={{lam}}"
+MET_R2_CACHE = f"{DATA_DIR}/metabolic_clean_r2.npz"
 MET_LADDER = [
     ("$\\lambda$ = 0 (no penalty)", f"{DATA_DIR}/CDDM_std_g0/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
-     ps.BASE),
-    ("$\\lambda$ = 0.01", MET_CELL.format(lam="0.01"), ps.SLOTS[0]),
-    ("$\\lambda$ = 0.1", MET_CELL.format(lam="0.1"), ps.SLOTS[1]),
-    ("$\\lambda$ = 1", MET_CELL.format(lam="1.0"), ps.SLOTS[2]),
-    ("$\\lambda$ = 10", MET_CELL.format(lam="10.0"), ps.SLOTS[3]),
+     ps.BASE, "0"),
+    ("$\\lambda$ = 0.01", MET_CELL.format(lam="0.01"), ps.SLOTS[0], "0.01"),
+    ("$\\lambda$ = 0.1", MET_CELL.format(lam="0.1"), ps.SLOTS[1], "0.1"),
+    ("$\\lambda$ = 1", MET_CELL.format(lam="1.0"), ps.SLOTS[2], "1.0"),
+    ("$\\lambda$ = 10", MET_CELL.format(lam="10.0"), ps.SLOTS[3], "10.0"),
 ]
 
 
-def met_cell(cell_dir):
-    """Task r2 and active-unit count, per seed, for one cell of the metabolic sweep.
+def met_cell(cell_dir, lam):
+    """Noise-free task r2 and active-unit count, per seed, for one cell of the metabolic sweep.
 
-    r2 is the run folder's own score prefix - the same field `F1.traces_of` filters on with its
-    `min_r2` argument - and the active count is `common.active_count` under the scale-free rule at
-    the last participation probe. Diverged runs (`nan_` prefix) are dropped, as everywhere else in
-    this project.
+    ⚠️ R2 IS THE NOISE-FREE PROBE, NOT THE FOLDER'S SCORE PREFIX. That prefix is
+    `get_validation_score(...)` run at sigma_rec = sigma_inp = 0.05, i.e. r2_noisy. It is the wrong
+    probe for a rate penalty: the penalty shrinks the rate scale ~6x while the injected noise stays
+    at a fixed 0.05, so signal-to-noise falls with lambda for reasons unrelated to the task. Using
+    it understated lambda = 10 by less than the truth and inflated the apparent tie between the
+    other rungs. The clean values come from `metabolic_clean_r2.py`, which MUST run in a worktree
+    pinned at 223c550f - RNN_torch's constructor has changed since, including the default of
+    `self_connections`. Slide 8b hit the same defect independently on the activation arms.
+
+    The active count still comes from the saved trace, whose final row the Trainer already wrote
+    from a w_noise=False pass. Diverged runs (`nan_` prefix) are dropped, as everywhere else.
 
     This cannot go through `F1.traces_of`: that loader keys on `participation_iters`, and the
     2026-07-28 metabolic traces store their probe iterations under `iters`, so it returns nothing
     for this sweep. Reading `participation[-1]` is the last probe either way.
 
     Args:
-        cell_dir: path to one cell directory, holding one run folder per seed.
+        cell_dir: path to one cell directory, holding one run folder per seed;
+        lam: the cell's lambda, as the cache spells it, used to pull its cached clean r2.
     Returns:
         (r2, active, iteration): r2 and active are (n_seeds,) float arrays, empty where the cell is
         missing; iteration is the last probe the cell was read at, or None if it is empty.
     """
-    r2, active, last = [], [], None
+    cache = np.load(MET_R2_CACHE)
+    clean = cache["clean"][cache["lam"] == lam]
+    active, last = [], None
     for f in sorted(glob.glob(os.path.join(cell_dir, "*", "*ParticipationTrace.pkl"))):
         head = os.path.basename(os.path.dirname(f)).split("_")[0]
         if head == "nan":
@@ -608,11 +757,10 @@ def met_cell(cell_dir):
             d = pickle.load(open(f, "rb"))
         except Exception:
             continue
-        p = np.asarray(d["participation"], float)[-1]
-        r2.append(float(head))
-        active.append(active_count(p, "scalefree"))
+        active.append(active_count(np.asarray(d["participation"], float)[-1], "scalefree"))
         last = int(np.asarray(d["iters"])[-1])
-    return np.array(r2, float), np.array(active, float), last
+    assert len(clean) == len(active), f"{cell_dir}: {len(clean)} cached r2 vs {len(active)} nets"
+    return np.asarray(clean, float), np.array(active, float), last
 
 
 def metabolic_r2_slide(name="slide_x_metabolic_r2"):
@@ -623,7 +771,7 @@ def metabolic_r2_slide(name="slide_x_metabolic_r2"):
     Returns:
         the output path, or None if no cell of the ladder is on disk.
     """
-    cells = [(lab, col) + met_cell(pat) for lab, pat, col in MET_LADDER]
+    cells = [(lab, col) + met_cell(pat, lam) for lab, pat, col, lam in MET_LADDER]
     drawn = [c for c in cells if len(c[2])]
     if not drawn:
         print(f"  SKIP {name}: no metabolic cells on disk")
@@ -645,14 +793,16 @@ def metabolic_r2_slide(name="slide_x_metabolic_r2"):
         ax.plot(active.mean(), r2.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=4)
 
     ax.set_xlabel("active units of 1000  (scale-free rule, $p \\geq 0.05\\,q_{95}(p)$)")
-    ax.set_ylabel("task $r^2$")
+    ax.set_ylabel("task $r^2$, noise-free probe")
     every_r2 = np.concatenate([c[2] for c in drawn])
     probe = f"{sorted(probes)[0]:,}" if len(probes) == 1 else "the last probe"
-    # A y axis cropped to the data would span 0.05 in r2 and make a flat ladder look like scatter.
-    # The round 0.08 band is the honest frame for the claim this panel makes.
-    ax.set_ylim(0.82, 0.90)
-    ax.set_title(f"No rung breaks the task: r$^2$ holds at {every_r2.min():.2f}–"
-                 f"{every_r2.max():.2f} across four decades of $\\lambda$\n"
+    # The axis runs to r2 = 1 so the reader can see how close to perfect these all are; cropping
+    # to the data would turn a 0.07 spread into the whole canvas.
+    ax.set_ylim(0.88, 1.00)
+    lo = np.mean([c[2] for c in drawn if c[0].endswith("= 10")][0])
+    ref = np.mean([c[2] for c in drawn if "no penalty" in c[0]][0])
+    ax.set_title(f"Up to $\\lambda$ = 1 the penalty is free; $\\lambda$ = 10 costs "
+                 f"{ref - lo:.2f} of r$^2$\n"
                  f"CDDM, N = 1000, read at 30,000 iterations (last probe {probe}). "
                  "Circles are networks, squares the cell means.",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
@@ -1159,7 +1309,11 @@ def main(list_only=False):
 
     out.append(panel_slide("slide_rules", F2.panel_a, width=ps.W2, height=52 * ps.MM))
     out.append(panel_slide("slide_f2_active", F2.panel_b, c=at_1000))
-    out.append(panel_slide("slide_f2_r2", F2.panel_c, c=at_1000))
+    # The deck draws r2 AGAINST active units rather than r2 on its own: the two categorical panels
+    # ask one question together, and the scatter answers it in one picture. It carries every r2
+    # value panel_c carries, with the per-arm cost in its legend. panel_c itself is untouched - the
+    # manuscript figure still uses it, where it sits beside (b) and (d) in a row of three.
+    out.append(panel_slide("slide_f2_r2_vs_active", F2.panel_r2_vs_active, c=at_1000))
     out.append(panel_slide("slide_f2_dims", F2.panel_d, c=at_1000))
     out.append(panel_slide("slide_f2_weights", F2.panel_e, c=at_1000))
     got = weights_by_task(everything)
@@ -1175,27 +1329,35 @@ def main(list_only=False):
         if got is None:
             print(f"  SKIP {stem}: no cells for ({fam_title}, {group})")
             continue
-        ref, entries = got
-        draw = summary_slide if group == "noise" else dose_slide
+        ref, entries, iters = got
+        # by what the data ARE, not by which family: the noise sweep now supplies per-seed
+        # arrays and draws like the rest, and falls back to the interval only if the
+        # re-score is missing
+        per_seed = isinstance(ref, np.ndarray)
+        draw = dose_slide if per_seed else summary_slide
+        # the read-out goes on its own line, last, on every panel of this block
+        full_note = f"{note}\n{readout_line(iters, ARCHIVE_READOUT.get(fam_title))}"
         out.append(draw(stem, title, ref_label, entries, ref,
-                        F1.GROUP_COL.get(group, ps.MUTED), note=note, ref_at=ref_at))
+                        F1.GROUP_COL.get(group, ps.MUTED), note=full_note, ref_at=ref_at))
 
+    got = control_trajectory_slide()
+    if got:
+        out.append(got)
     got = activation_r2_slide(
         "slide_x_activation_cddm_r2", ACTIVATION_CDDM, cddm_activation_cell, 199_900,
-        "CDDM, N = 1000. Active units read at 199,900; $R^2$ re-scored offline, noise off. "
-        "Every seed drawn.")
+        "CDDM, N = 1000. $R^2$ is the noise-free offline re-score. Every seed drawn.")
     if got:
         out.append(got)
     got = activation_r2_slide(
         "slide_x_weightdecay_r2", WEIGHTDECAY_CDDM, cddm_activation_cell, 199_900,
-        "CDDM, N = 1000. Active units read at 199,900; $R^2$ is the noise-free re-score of each "
-        "net's final parameters. Every seed drawn.",
+        "CDDM, N = 1000. $R^2$ is the noise-free re-score of each net's final parameters. "
+        "Every seed drawn.",
         headline="Weight decay removes units without the task noticing")
     if got:
         out.append(got)
     got = activation_r2_slide(
         "slide_x_activation_ff_r2", ACTIVATION_FF, winp_cell, 150_000,
-        "3-bit flip-flop, N = 1000, both axes read at 150,000 iterations. Every seed drawn.")
+        "3-bit flip-flop, N = 1000. Every seed drawn.")
     if got:
         out.append(got)
     got = inputscale_r2_slide()

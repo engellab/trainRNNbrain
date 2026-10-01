@@ -104,6 +104,12 @@ Throughout: R² is the **noise-free** score, re-simulated offline from each net'
 parameters, never the folder-name score (one forward pass with the noise on). Active units
 are the scale-free rule, p ≥ 0.05·q₉₅(p). N = 1000. Every seed drawn.
 
+### 7b. The control is not one number — it depends when you look
+<p align="center"><img src="../img/internal_figures/slide_07b_control_trajectory.svg" width="760"></p>
+The CDDM control's own active count against training: 411 at 30k, 272 at 200k. The sweeps below have
+different budgets, so each panel is measured against the control at its own budget — the three
+control numbers in this section are one network family read at three times, not three populations.
+
 ### 8. A different activation does not help
 <p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.svg" width="760"></p>
 Of 1000 units: ReLU 272 active, leaky ReLU 278, softplus 249, sigmoid 205. None raises the count.
@@ -170,7 +176,13 @@ by the same 6×, dividing the effect out. On a fixed bar the same networks go 44
 
 ### 14. Removing recurrent noise is the largest effect — and it is negative
 <p align="center"><img src="../img/internal_figures/slide_x_recnoise.svg" width="760"></p>
-Mean and 95% interval — this sweep saved no per-seed rows.
+σ = 0 collapses to 153 active against 443 at the default and 449 at both other levels — a 2.9-fold
+drop, and the only knob in this section that moves the count that far.
+
+This sweep saved no participation traces, so it used to be scored on peak rate and read 524 at its
+reference, out of step with the 414 next door. Its trained weights are on disk, so it is re-scored
+from them onto the same rule as every other panel: the reference is 443, and the five seeds per
+level are drawn rather than a summary interval.
 
 ### 15. Everything above, on one axis
 <p align="center"><img src="../img/internal_figures/fig_paper_F1.svg" width="760"></p>
@@ -186,8 +198,13 @@ Panel d. Each against its **own** matched reference. ⚠ wants its own export.
 ### 17. Active units
 <p align="center"><img src="../img/internal_figures/slide_f2_active.svg" width="760"></p>
 
-### 18. Performance
-<p align="center"><img src="../img/internal_figures/slide_f2_r2.svg" width="760"></p>
+### 18. Performance, against the units it bought
+<p align="center"><img src="../img/internal_figures/slide_f2_r2_vs_active.svg" width="760"></p>
+The same 22 networks as slide 17, now joined. The arms do not lie on one trade-off curve:
+prune + duplicate recruits 474 units more than the control and lands on the control's own line
+(−0.1%, its three seeds inside the control's seed range), while dropout, rescale and synaptic noise
+each give up 1.3–1.9% for fewer units than that. The penalty pair buys the most units, 939 of 1000,
+and pays the most, −2.7%.
 
 ### 19. Dimensionality
 <p align="center"><img src="../img/internal_figures/slide_f2_dims.svg" width="760"></p>
