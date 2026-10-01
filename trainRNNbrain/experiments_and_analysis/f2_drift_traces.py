@@ -82,8 +82,12 @@ def main(out_path):
                 # the final participation vector of the first seed, for the per-task distribution
                 # panel: one real network per task rather than a pooled histogram
                 P = np.asarray(tr.get("participation", []), float)
+                pit = np.asarray(tr.get("participation_iters", []), float)
                 if P.ndim == 2 and len(P):
                     store[f"{task}|participation"] = P[-1]
+                    # the iteration the vector was probed at, so the panel can say how long this
+                    # network trained rather than leaving the budget to a caption
+                    store[f"{task}|participation_iter"] = np.array(pit[-1] if len(pit) else np.nan)
             for var in VARS:
                 it, v = series(tr, f"drift_{var}_lag{LAG}")
                 if not len(it):

@@ -322,13 +322,22 @@ def participation_by_task():
     for ax, task in zip(axes, have):
         F1.panel_b(ax, np.asarray(z[f"{task}|participation"], float))
         lab = str(z[f"{task}|label"]) if f"{task}|label" in z.files else task
-        ax.set_title(lab, fontsize=6.8, color=ps.INK, pad=4)
-    # panel_b writes a gloss under its own axes; three copies of it overlap, so only the first keeps
-    for ax in axes[1:]:
-        ax.set_ylabel("")
+        it = float(z[f"{task}|participation_iter"]) if f"{task}|participation_iter" in z.files \
+            else float("nan")
+        ax.set_title(lab + (f"\n{it:,.0f} iterations" if np.isfinite(it) else ""),
+                     fontsize=6.8, color=ps.INK, linespacing=1.3, pad=4)
+    # panel_b labels and glosses its own axes. Three copies of each overlap and say nothing extra,
+    # so the x label is kept on the middle panel only and the gloss is dropped - the deck defines
+    # participation and the criterion once, in text, under the figure.
+    mid = len(axes) // 2
+    for i, ax in enumerate(axes):
         for t in list(ax.texts):
             if "rate moves over a trial" in t.get_text():
                 t.remove()
+        if i != mid:
+            ax.set_xlabel("")
+        if i != 0:
+            ax.set_ylabel("")
     return ps.save(fig, "slide_02_participation_by_task")
 
 
