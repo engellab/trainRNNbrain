@@ -29,18 +29,13 @@ Three tasks, every seed. DMTS does not follow the other two — shown, not hidde
 
 ## WHY ITERATION COUNT IS THE WRONG CLOCK
 
-### 4. The input weights settle
-<p align="center"><img src="../img/internal_figures/slide_04_drift_W_inp.svg" width="760"></p>
+### 4. The parameters never stop moving — all three tasks
+<p align="center"><img src="../img/internal_figures/slide_04_drift_trajectories.svg" width="760"></p>
+Relative weight change over a 10,000-iteration lag, every seed. Still 10–100% of the weights' own
+magnitude at 140,000 iterations. The budgets differ because the tasks do — DMTS needs 150k to be
+solved, CDDM 100k; the flip-flop's longer runs predate drift logging.
 
-### 5. The recurrent weights settle
-<p align="center"><img src="../img/internal_figures/slide_04_drift_W_rec.svg" width="760"></p>
-
-### 6. The read-out weights settle hardest
-<p align="center"><img src="../img/internal_figures/slide_04_drift_W_out.svg" width="760"></p>
-All three are mean-reverting by the end. **The weights stop moving and units keep going silent** —
-so silencing is not weight drift.
-
-### 7. But bigger networks need longer to get there
+### 5. But bigger networks need longer to reach their loss floor
 <p align="center"><img src="../img/internal_figures/excess_time_matrix.png" width="760"></p>
 Iterations at 1.10× each run's own loss floor. Matching iterations compares a converged small
 network with an unconverged large one — so every read-out below is at a matched loss, not a matched
@@ -50,7 +45,7 @@ step count.
 
 ## THE SCALING
 
-### 8. Active units grow as N^0.3–0.4 — so the fraction falls
+### 6. Active units grow as N^0.3–0.4 — so the fraction falls
 <p align="center"><img src="../img/internal_figures/slide_06_scaling.svg" width="760"></p>
 Both silence criteria, both task families.
 
@@ -58,29 +53,29 @@ Both silence criteria, both task families.
 
 ## WHAT DOES NOT WORK — one knob at a time
 
-### 9. A different activation does not help
+### 7. A different activation does not help
 <p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.svg" width="760"></p>
 
-### 10. Nor on the other task
+### 8. Nor on the other task
 <p align="center"><img src="../img/internal_figures/slide_x_activation_ff.svg" width="760"></p>
 
-### 11. Weight decay makes it monotonically worse
+### 9. Weight decay makes it monotonically worse
 <p align="center"><img src="../img/internal_figures/slide_x_weightdecay.svg" width="760"></p>
 
-### 12. Scaling the input weights does not help
+### 10. Scaling the input weights does not help
 <p align="center"><img src="../img/internal_figures/slide_x_inputscale.svg" width="760"></p>
 
-### 13. The field-standard metabolic penalty moves nothing beyond seed scatter
+### 11. The field-standard metabolic penalty moves nothing beyond seed scatter
 <p align="center"><img src="../img/internal_figures/slide_x_metabolic.svg" width="760"></p>
 
-### 14. Nor the equation form, nor a trainable bias
+### 12. Nor the equation form, nor a trainable bias
 <p align="center"><img src="../img/internal_figures/slide_x_architecture.svg" width="760"></p>
 
-### 15. Removing recurrent noise is the largest effect — and it is negative
+### 13. Removing recurrent noise is the largest effect — and it is negative
 <p align="center"><img src="../img/internal_figures/slide_x_recnoise.svg" width="760"></p>
 Mean and 95% interval: this sweep saved no per-seed rows.
 
-### 16. Everything above, on one axis
+### 14. Everything above, on one axis
 <p align="center"><img src="../img/internal_figures/fig_paper_F1.svg" width="760"></p>
 Panel d. Each against its **own** matched reference. ⚠ wants its own export.
 
@@ -88,44 +83,44 @@ Panel d. Each against its **own** matched reference. ⚠ wants its own export.
 
 ## WHAT DOES WORK
 
-### 17. Five interventions, and where each one acts
+### 15. Five interventions, and where each one acts
 <p align="center"><img src="../img/internal_figures/slide_rules.svg" width="760"></p>
 
-### 18. Active units
+### 16. Active units
 <p align="center"><img src="../img/internal_figures/slide_f2_active.svg" width="760"></p>
 
-### 19. Performance
+### 17. Performance
 <p align="center"><img src="../img/internal_figures/slide_f2_r2.svg" width="760"></p>
 
-### 20. Dimensionality
+### 18. Dimensionality
 <p align="center"><img src="../img/internal_figures/slide_f2_dims.svg" width="760"></p>
 
-### 21. Weight distribution — lognormal, and which way it errs
+### 19. Weight distribution — lognormal, and which way it errs
 <p align="center"><img src="../img/internal_figures/slide_f2_weights.svg" width="760"></p>
 
-### 22. Does it survive a change of size? — units
+### 20. Does it survive a change of size? — units
 <p align="center"><img src="../img/internal_figures/slide_f2_size_active.svg" width="760"></p>
 
-### 23. …and performance
+### 21. …and performance
 <p align="center"><img src="../img/internal_figures/slide_f2_size_r2.svg" width="760"></p>
 
 ---
 
 ## PER-INTERVENTION DETAIL
 
-### 24. Dropout, along training
+### 22. Dropout, along training
 <p align="center"><img src="../img/internal_figures/dropout_live_vs_iter.png" width="760"></p>
 
-### 25. Dropout is capped: the sampler cannot see firing
+### 23. Dropout is capped: the sampler cannot see firing
 <p align="center"><img src="../img/internal_figures/dropout_sampler_blindness.png" width="760"></p>
 
-### 26. Prune-and-duplicate ⚠
+### 24. Prune-and-duplicate ⚠
 Needs its own figure: recruitment against jitter, and the output unchanged at the moment of surgery.
 
-### 27. Synaptic noise ⚠
+### 25. Synaptic noise ⚠
 Needs its own figure: the σ_w ladder, active units and clean r² against noise level.
 
-### 28. The penalty pair ⚠
+### 26. The penalty pair ⚠
 `fig_paper_F3.pdf` exists but will not render in Markdown — needs an SVG export.
 
 ---
@@ -133,4 +128,4 @@ Needs its own figure: the σ_w ladder, active units and clean r² against noise 
 ## Open
 
 - The four-measure comparison is one task. CDDM and DMTS size series are training.
-- Three figures still to build (26, 27, 28) and one panel to export (16).
+- Three figures still to build (the last three slides) and one panel to export (slide 14).

@@ -37,7 +37,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 import fig_paper_F1 as F1
 import fig_paper_F2 as F2
-import drift_matrix as DM
 
 W = 110 * ps.MM             # a single-panel slide: wider than a journal column, same 7 pt type
 H = 72 * ps.MM
@@ -221,52 +220,136 @@ INTERVENTIONS = [
 ]
 
 
+# The three tasks, and the arms that exist on all of them. Rescale, synaptic noise and the penalty
+# pair were only ever run on the flip-flop, so putting them in one panel and not the others would
+# make the three panels answer different questions.
+TASKS = [("CDDM", "CDDM", 100_000), ("NBitFlipFlop", "3-bit flip-flop", 40_000),
+         ("DMTS", "DMTS, 7$\\tau$ delay", 150_000)]
+SHARED_ARMS = ("control", "mute", "duplicate")
+
+
+def weights_by_task(c_all, n_units=1000):
+    """Weight-magnitude distributions for the three tasks, side by side.
+
+    The weight check is the one measure that separated the arms when the other three did not, so it
+    is the one worth asking on more than one task. Only the arms present on every task are drawn:
+    a panel carrying six arms next to one carrying three is not a comparison.
+
+    Args:
+        c_all: the full cache dict, every task and size; n_units: the size to read at.
+    Returns:
+        the output path, or None if the cache has no task column yet.
+    """
+    if "task" not in c_all:
+        print("  SKIP weights_by_task: this cache predates the task column")
+        return None
+    edges = np.asarray(c_all["log_bins"], float)
+    mid = 0.5 * (edges[1:] + edges[:-1])
+    ps.setup()
+    fig, axes = plt.subplots(1, len(TASKS), figsize=(ps.W2, 62 * ps.MM), sharey=True)
+    lo_x, hi_x, drawn_any = [], [], False
+    for ax, (task, nice, _) in zip(axes, TASKS):
+        for arm, short, _, col in F2.ARMS:
+            if arm not in SHARED_ARMS:
+                continue
+            m = (c_all["task"] == task) & (c_all["arm"] == arm) & \
+                (c_all["N"].astype(int) == n_units)
+            if not m.any():
+                continue
+            h = np.asarray(c_all["w_hist"][m], float)
+            d = (h / h.sum(axis=1, keepdims=True)).mean(axis=0)
+            dens = d / (mid[1] - mid[0])
+            ax.plot(mid, np.where(dens > 0, dens, np.nan), lw=1.1, color=col, zorder=4,
+                    label=f"{short} ({m.sum()})")
+            cdf = np.cumsum(d)
+            lo_x.append(mid[np.searchsorted(cdf, 0.01)])
+            hi_x.append(mid[np.searchsorted(cdf, 0.99)])
+            drawn_any = True
+        ctl = (c_all["task"] == task) & (c_all["arm"] == "control") & \
+              (c_all["N"].astype(int) == n_units)
+        sub = []
+        for arm in SHARED_ARMS:
+            m = (c_all["task"] == task) & (c_all["arm"] == arm) & \
+                (c_all["N"].astype(int) == n_units)
+            if m.any() and ctl.any() and arm != "control":
+                r = (np.mean(c_all["w_sigma_log"][m].astype(float)) /
+                     np.mean(c_all["w_sigma_log"][ctl].astype(float)))
+                sub.append(f"{arm} {r:.2f}×")
+        ax.set_title(nice + ("\n" + "  ".join(sub) + " the control's width" if sub else ""),
+                     fontsize=6.8, color=ps.INK, linespacing=1.3, pad=4)
+        ax.set_xlabel("recurrent weight\n$\\log_{10}|W_{ij}|$")
+        ps.ygrid(ax)
+    if not drawn_any:
+        plt.close(fig)
+        print("  SKIP weights_by_task: no networks at N=%d" % n_units)
+        return None
+    axes[0].set_ylabel("density")
+    for ax in axes:
+        ax.set(xlim=(min(lo_x) - 0.3, max(hi_x) + 0.3), yscale="log", ylim=(2e-4, 40.0))
+    axes[0].legend(loc="upper left", fontsize=5.6, handlelength=1.0, borderpad=0.1,
+                   borderaxespad=0.2)
+    return ps.save(fig, "slide_f2_weights_by_task")
+
+
+DRIFT_CACHE = "data/f2_drift_traces.npz"
+DRIFT_TASKS = ["CDDM", "NBitFlipFlop", "DMTS"]
+DRIFT_VARS = [("W_inp", ps.SLOTS[0]), ("W_rec", ps.SLOTS[3]), ("W_out", ps.SLOTS[2])]
+
+
 def drift_slides():
-    """One heatmap per weight matrix, unpenalised networks only: does training ever settle?
+    """Do the parameters stop moving? One panel per task, trajectories against iteration.
 
-    `drift_matrix.py` draws three weight matrices against four penalty conditions on one sheet,
-    which is the right audit and the wrong slide - twelve heatmaps cannot be pointed at one at a
-    time. These are the `none` column, one matrix per figure, read at each run's own end.
+    THE QUESTION IS NOT THE LAG EXPONENT. An earlier version of this function drew the final
+    lag-scaling exponent over the (N, k) grid, which answers "is the motion biased or unbiased" for
+    the flip-flop only, and k is not a dimension this talk needs. What the audience has to see is
+    whether the weights are still moving at the end, so the y axis is the displacement itself and
+    the x axis is the iteration count.
 
-    alpha is the exponent in |W(t+L) - W(t)| / |W(t)| ~ L^alpha: 1.0 ballistic (still travelling),
-    0.5 diffusive (jittering in place), below 0.5 confined (mean-reverting in a basin).
+    Each curve is |W(t+L) - W(t)| / |W(t)| at L = 10,000, logged every 100 iterations, every seed
+    drawn. A curve falling to zero means training has stopped changing the weights; one that
+    flattens at a non-zero value means they are still moving.
+
+    THE BUDGETS DIFFER AND THE PANELS SAY SO. DMTS needs 150,000 iterations to be solved and CDDM
+    100,000; the flip-flop's long runs predate drift logging, so 40,000 is the longest one that
+    carries these metrics.
 
     Returns:
-        list of output paths.
+        list of output paths - one figure, or an empty list if the cache is missing.
     """
-    data, buds, _dropped = DM.load()
-    ks = sorted({k for _, k, _ in data})
-    Ns = sorted({N for _, _, N in data})
-    out = []
-    for var in DM.VARS:
-        Z, S, C = DM.grid(data, "none", var, ks, Ns, None)
-        ps.setup()
-        fig, ax = plt.subplots(figsize=(88 * ps.MM, 64 * ps.MM))
-        # the scale spans the whole regime range, 0 to 1: clipped at 0.3 every cell fell into the
-        # bottom colour, hiding that these networks sit at the SETTLED end of it
-        im = ax.imshow(Z, origin="lower", aspect="auto", cmap="viridis", vmin=0.0, vmax=1.0)
-        for i in range(len(Ns)):
-            for j in range(len(ks)):
-                if np.isfinite(Z[i, j]):
-                    ax.text(j, i, f"{Z[i, j]:.2f}", ha="center", va="center", fontsize=6.0,
-                            color="white" if Z[i, j] < 0.72 else "#111111")
-        ax.set_xticks(range(len(ks)), [str(k) for k in ks])
-        ax.set_yticks(range(len(Ns)), [str(n) for n in Ns])
-        ax.set(xlabel="task complexity $k$", ylabel="network size $N$")
-        # the verdict is computed from this figure's own median, not asserted: an earlier version
-        # titled these "the weights never stop moving", which every cell on them contradicted
-        med = float(np.nanmedian(Z))
-        verdict = ("still travelling" if med > 0.8 else
-                   "jittering in place" if med > 0.45 else "settled, mean-reverting")
-        ax.set_title(f"{var}: {verdict}" + r" (median $\alpha$ = " + f"{med:.2f})\n"
-                     r"$\alpha$ in $|W(t{+}L)-W(t)|/|W(t)| \sim L^{\alpha}$: "
-                     r"1.0 travelling, 0.5 jittering, below 0.5 confined",
-                     fontsize=7.2, color=ps.INK, linespacing=1.35, pad=6)
-        cb = fig.colorbar(im, ax=ax, fraction=0.045, pad=0.03)
-        cb.ax.tick_params(labelsize=6.0)
-        cb.set_label(r"$\alpha$", fontsize=7)
-        out.append(ps.save(fig, f"slide_04_drift_{var}"))
-    return out
+    if not os.path.exists(DRIFT_CACHE):
+        print(f"  SKIP drift_slides: {DRIFT_CACHE} missing (build it with f2_drift_traces.py)")
+        return []
+    z = np.load(DRIFT_CACHE, allow_pickle=True)
+    lag = int(z["lag"])
+    ps.setup()
+    fig, axes = plt.subplots(1, len(DRIFT_TASKS), figsize=(ps.W2, 62 * ps.MM), sharey=True)
+    for ax, task in zip(axes, DRIFT_TASKS):
+        last = []
+        for var, col in DRIFT_VARS:
+            seeds = sorted({int(k.split("|")[2]) for k in z.files
+                            if k.startswith(f"{task}|{var}|") and k.endswith("|it")})
+            curves = []
+            for s in seeds:
+                it, v = z[f"{task}|{var}|{s}|it"], z[f"{task}|{var}|{s}|v"]
+                ax.plot(it, v, lw=0.5, color=col, alpha=0.35, zorder=3)
+                curves.append((it, v))
+            if not curves:
+                continue
+            grid_t = curves[0][0]
+            stack = [np.interp(grid_t, it, v) for it, v in curves]
+            ax.plot(grid_t, np.mean(stack, axis=0), lw=1.3, color=col, zorder=5,
+                    label=f"{var} ({len(curves)})")
+            last.append(np.mean([v[-1] for _, v in curves]))
+        lab = str(z[f"{task}|label"]) if f"{task}|label" in z.files else task
+        end = max((z[f"{task}|{v}|0|it"].max() for v, _ in DRIFT_VARS
+                   if f"{task}|{v}|0|it" in z.files), default=0)
+        ax.set_title(f"{lab}\nstill moving at {end:,.0f} iterations",
+                     fontsize=6.8, color=ps.INK, linespacing=1.3, pad=4)
+        ax.set(xscale="log", yscale="log", xlabel="training iteration")
+        ps.ygrid(ax)
+    axes[0].set_ylabel(f"relative weight change\nover {lag:,} iterations")
+    axes[0].legend(loc="lower left", fontsize=5.6, handlelength=1.1, borderaxespad=0.2)
+    return [ps.save(fig, "slide_04_drift_trajectories")]
 
 
 def main(list_only=False):
@@ -306,6 +389,9 @@ def main(list_only=False):
     out.append(panel_slide("slide_f2_r2", F2.panel_c, c=at_1000))
     out.append(panel_slide("slide_f2_dims", F2.panel_d, c=at_1000))
     out.append(panel_slide("slide_f2_weights", F2.panel_e, c=at_1000))
+    got = weights_by_task(everything)
+    if got:
+        out.append(got)
     out.append(panel_slide("slide_f2_size_active", F2.panel_f, c=everything))
     out.append(panel_slide("slide_f2_size_r2", F2.panel_g, c=everything))
 

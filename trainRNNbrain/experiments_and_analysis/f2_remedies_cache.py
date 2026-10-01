@@ -67,6 +67,7 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments, get_tr
 
 D = os.environ.get("F2_DATA", "/home/pt1290/trainRNNbrain/data/trained_RNNs")
 R2_TOL = 0.03
+R2_KEY_GATE = "r2_common"   # the field TASK_MIN_R2 is applied to
 COMMON_DRAWS = 8             # noise draws averaged for the common test condition
 TRIALS = 128                 # 300 timesteps x 128 trials = 38400 samples against 1000 units, far
                              # above what a covariance over at most 1000 units needs. 256 trials
@@ -84,9 +85,20 @@ LOG_BINS = np.linspace(-12.0, 4.0, 321)
 # the target ladder that set its operating point. Every cell under SWEEP_GLOB is now read, its saved
 # config classified, and the ones that match on task, size, budget and gamma are kept. A new sweep
 # joins the figure by finishing, not by being remembered.
-SWEEP_GLOB = "NBitFlipFlop_*"
+SWEEP_GLOB = ("NBitFlipFlop_*", "CDDM_*", "DMTS_*")
 SIZES = (500, 1000, 2000, 4000)
-ITERS = 40000
+
+# EACH TASK HAS ITS OWN BUDGET and they are not interchangeable: DMTS needs 150,000 iterations to be
+# solved at all (at 40,000 the unpenalised network does not escape) and CDDM 100,000. Matching
+# iterations ACROSS tasks would compare a converged flip-flop with an unconverged DMTS, so the
+# budget is per task and every comparison in the figure stays inside one task.
+ITERS = {"NBitFlipFlop": 40000, "CDDM": 100000, "DMTS": 150000}
+
+# ⚠️ DMTS AT A 7 TAU DELAY IS NOT ALWAYS SOLVED. An unpenalised network either escapes to r2 ~ 0.999
+# or sits at ~0.42 forever, and an unsolved network's active-unit count is not comparable with a
+# solved one's - it is a different dynamical object, not a worse version of the same one. Networks
+# below this are dropped and the SOLVE RATE is printed per cell, so the loss is visible.
+TASK_MIN_R2 = {"DMTS": 0.8}
 EXCLUDE = ("__DETUNED_SELFWEIGHT", "RETRACTED")   # superseded constructions, named on disk
 
 
@@ -141,10 +153,11 @@ def discover(root):
     Args:
         root: the trained-RNN directory to scan.
     Returns:
-        list of (arm, N, cell path relative to root), sorted, one entry per cell folder.
+        list of (arm, task, N, cell path relative to root), sorted, one entry per cell folder.
     """
     out = []
-    for cell in sorted(glob.glob(os.path.join(root, SWEEP_GLOB, "*"))):
+    cells = [c for g in SWEEP_GLOB for c in glob.glob(os.path.join(root, g, "*"))]
+    for cell in sorted(cells):
         if not os.path.isdir(cell) or any(x in cell for x in EXCLUDE):
             continue
         cfgs = sorted(glob.glob(os.path.join(cell, "*", "*_config.yaml")))
@@ -155,13 +168,16 @@ def discover(root):
         except Exception:
             continue
         m, t = cfg.model, cfg.trainer
-        if (str(cfg.task.get("taskname", "")) != "NBitFlipFlop" or int(cfg.task.n_inputs) != 3
-                or str(m.equation_type) != "h" or float(m.gamma) != 0.0
-                or int(t.max_iter) != ITERS or int(m.N) not in SIZES):
+        task = str(cfg.task.get("taskname", ""))
+        if task not in ITERS or str(m.equation_type) != "h" or float(m.gamma) != 0.0:
+            continue
+        if int(t.max_iter) != ITERS[task] or int(m.N) not in SIZES:
+            continue
+        if task == "NBitFlipFlop" and int(cfg.task.n_inputs) != 3:
             continue
         arm = classify(cfg)
         if arm is not None:
-            out.append((arm, int(m.N), os.path.relpath(cell, root)))
+            out.append((arm, task, int(m.N), os.path.relpath(cell, root)))
     return out
 
 
@@ -361,11 +377,14 @@ def main(out_path):
     """Score every network of every cell and write the cache. Returns the output path."""
     cells = discover(D)
     print(f"discovered {len(cells)} matched cells under {D}/{SWEEP_GLOB}")
-    for arm in sorted({a for a, _, _ in cells}):
-        per_n = {n: sum(1 for a, m, _ in cells if a == arm and m == n) for n in SIZES}
-        print(f"  {arm:>10s}: " + ", ".join(f"N={n}: {k} cells" for n, k in per_n.items() if k))
+    for task in sorted({t for _, t, _, _ in cells}):
+        print(f"  {task}:")
+        for arm in sorted({a for a, t, _, _ in cells if t == task}):
+            per_n = {n: sum(1 for a2, t2, m, _ in cells if a2 == arm and t2 == task and m == n)
+                     for n in SIZES}
+            print(f"    {arm:>10s}: " + ", ".join(f"N={n}: {k}" for n, k in per_n.items() if k))
     recs, fields = [], None
-    for arm, n_units, pat in cells:
+    for arm, task, n_units, pat in cells:
         for nd in sorted(glob.glob(os.path.join(D, pat, "*"))):
             if not os.path.isdir(nd):
                 continue
@@ -380,13 +399,16 @@ def main(out_path):
                       f"the saved config says N={r['N_cfg']}", flush=True)
                 continue
             gate = abs(r["stored"] - r["r2"]) < R2_TOL
-            print(f"  {arm:>10s} N={n_units:5d} stored {r['stored']:7.4f} recomp {r['r2']:7.4f} "
+            print(f"  {task[:5]:>5s} {arm:>10s} N={n_units:5d} stored {r['stored']:7.4f} recomp {r['r2']:7.4f} "
                   f"common {r['r2_common']:6.3f}±{r['r2_common_sd']:.3f} clean {r['r2_clean']:6.3f} "
                   f"{'PASS' if gate else 'FAIL':>4s}  active {r['n_active']:4d}  "
                   f"dims {r['dims']:6.2f}  sigma_log {r['w_sigma_log']:5.2f}", flush=True)
             if not gate:
                 continue
-            r.update(arm=arm, N=n_units, cell=pat)
+            if r[R2_KEY_GATE] < TASK_MIN_R2.get(task, -np.inf):
+                print(f"  UNSOLVED {task} {arm} N={n_units} r2={r[R2_KEY_GATE]:.3f}", flush=True)
+                continue
+            r.update(arm=arm, task=task, N=n_units, cell=pat)
             recs.append(r)
             fields = fields or sorted(r)
     if not recs:
