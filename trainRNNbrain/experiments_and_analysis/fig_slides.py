@@ -408,7 +408,8 @@ def drift_slides():
                      fontsize=6.8, color=ps.INK, linespacing=1.3, pad=4)
         ax.set(xscale="log", yscale="log", xlabel="training iteration")
         ps.ygrid(ax)
-    axes[0].set_ylabel(f"relative weight change\nover {lag:,} iterations")
+    axes[0].set_ylabel("relative weight change\n"
+                       r"$\|W(t)-W(t-L)\|_F/\|W(t)\|_F$, " + f"$L$ = {lag:,}")
     axes[0].legend(loc="lower left", fontsize=5.6, handlelength=1.1, borderaxespad=0.2)
     return [ps.save(fig, "slide_04_drift_trajectories")]
 

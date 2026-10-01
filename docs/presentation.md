@@ -40,14 +40,23 @@ Shared x; each panel keeps its own count axis because CDDM puts 600 of its 1,000
 <p align="center"><img src="../img/internal_figures/slide_03_silencing_vs_training.svg" width="760"></p>
 Three tasks, every seed. DMTS does not follow the other two — shown, not hidden.
 
+**Which runs are drawn.** Every run folder in the cell is read and kept if it carries a usable
+*dropout-off* training loss — taken from `loss_clean_train` logged beside the participation probes,
+or from `TrainLosses.json` only where that run's own config has dropout off and every penalty at
+zero, so two definitions of "loss" are never mixed. Runs without one are dropped; nothing else is
+filtered, no seed is averaged away, and no unsolved seed is removed. The black loss curve is a
+running median (12% window) normalised by each run's own first value, so the three tasks share one
+axis. The dashed rule is the mean over seeds of where the smoothed loss first comes within 10% of
+its final value. Silent counts use the same criterion as slide 2, applied at every probe.
+
 ---
 
 ## WHY ITERATION COUNT IS THE WRONG CLOCK
 
 ### 4. The parameters never stop moving — all three tasks
 <p align="center"><img src="../img/internal_figures/slide_04_drift_trajectories.svg" width="760"></p>
-Relative weight change over a 10,000-iteration lag, every seed. Still 10–100% of the weights' own
-magnitude at 140,000 iterations. The budgets differ because the tasks do — DMTS needs 150k to be
+Relative weight change over a 10,000-iteration lag (‖W(t) − W(t−L)‖_F / ‖W(t)‖_F, Frobenius, bias
+excluded), every seed. Still 10–100% of the weights' own magnitude at 140,000 iterations. The budgets differ because the tasks do — DMTS needs 150k to be
 solved, CDDM 100k; the flip-flop's longer runs predate drift logging.
 
 ### 5. But bigger networks need longer to reach their loss floor
