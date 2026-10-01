@@ -36,11 +36,12 @@ why the dashed line moves between panels. Shared x, separate count axes.
 <p align="center"><img src="../img/internal_figures/slide_03_silencing_vs_training.svg" width="760"></p>
 Three tasks, every seed. DMTS does not follow the other two — shown, not hidden.
 
-Kept: every run with a *dropout-off* loss. Dropped: runs without one. No seed averaged away, no
-unsolved seed removed. Loss normalised by its own first value; smoothed with a median over
-y[i−h … i+h], h = min(200, ⌊0.03·(i+1)⌋) — a window that grows with the index, because a fixed one
-flattens the first ~2,000 iterations where most of the drop happens. The dashed rule is where the
-**raw** loss first comes within 10% of its final value. Silent counts use the same criterion as slide 2, applied at every probe.
+Vanilla networks — no dropout, no penalty, no augmentation. Kept: every run whose training loss was
+recorded; nothing else filtered, no seed averaged away, no unsolved seed removed. Grey is the raw
+loss, black a running median over y[i−h … i+h], h = min(200, ⌊0.03·(i+1)⌋). The median removes 99.6%
+of the step-to-step wiggle, which is why the raw is drawn under it. Loss normalised by its own first
+value. The dashed rule is where the **raw** loss first comes within 10% of its final value. Silent
+counts use the criterion from slide 2, applied at every probe.
 
 ---
 
