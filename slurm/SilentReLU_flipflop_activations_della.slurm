@@ -92,10 +92,22 @@ if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
   echo "FATAL: $REPO has uncommitted changes; this sweep is pinned, so refusing to run." >&2; exit 1
 fi
 # This sweep is only meaningful against the sigmoid arm and the ReLU ksweep control, both trained at
-# a831629. Refuse to run from any other commit rather than silently producing a non-comparable cell.
+# a831629, so the invariant is not "HEAD == a831629" (HEAD is this branch's tip) but: a831629 is an
+# ANCESTOR of HEAD, and the only files that differ between them are the two activation configs and
+# this launcher. Any other changed file means some trainer or model code moved, which would confound
+# the activation with a code version - so refuse rather than write a non-comparable cell.
 PINNED=a831629
-if [ "$(git -C "$REPO" rev-parse --short=7 HEAD)" != "$PINNED" ]; then
-  echo "FATAL: $REPO is not at $PINNED; the activation comparison would confound a code version." >&2; exit 1
+EXPECTED="configs/model/rnn_leaky_relu_standard.yaml
+configs/model/rnn_softplus_beta25_standard.yaml
+slurm/SilentReLU_flipflop_activations_della.slurm"
+if ! git -C "$REPO" merge-base --is-ancestor "$PINNED" HEAD; then
+  echo "FATAL: $PINNED is not an ancestor of HEAD in $REPO; this is not the pinned sweep." >&2; exit 1
+fi
+CHANGED=$(git -C "$REPO" diff --name-only "$PINNED" HEAD | sort)
+if [ "$CHANGED" != "$(echo "$EXPECTED" | sort)" ]; then
+  echo "FATAL: $REPO differs from $PINNED in more than the two configs and this launcher:" >&2
+  echo "$CHANGED" >&2
+  echo "The activation comparison would confound a code version. Aborting." >&2; exit 1
 fi
 # The .npz saver lost dict-valued parameters (activation_args stored as its KEYS) until the
 # storable_ fix. Refuse to run on code that predates it, or these nets cannot be reconstructed.
