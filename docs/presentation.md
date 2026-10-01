@@ -307,30 +307,119 @@ the next cache rebuild.
 
 ## PER-INTERVENTION DETAIL
 
-### 22b. CDDM: frm saturates the network, rws barely moves it
-<p align="center"><img src="../img/internal_figures/slide_22b_penalty_cddm.svg" width="760"></p>
-Control 201 → 272 → 311 → 629 across N = 500 → 5000. frm and frm + rws sit on the diagonal at every
-size — 500, 1000, 2000, 4999 — and coincide, so only one line is visible. rws alone is **below** the
-control at all four sizes: 142, 181, 279, 440.
+### 23. Dropout is four choices, not one knob
+<p align="center"><img src="../img/internal_figures/slide_23_dropout_variants.svg" width="760"></p>
+"We tried dropout" names almost nothing. The rule has four independent settings, and this project's
+first dropout sweep came back null because three of them were set wrongly, not because the
+intervention fails. Here is the whole rule, as the code runs it:
 
-Where a curve is on the diagonal the participation distribution is unimodal, so the count is a floor,
-not a count. Budgets: control 200k/200k/300k/100k, penalties 200k/200k/150k/120k.
+```
+    tau dx/dt = -x + W_rec r + W_inp u + b + eta,    r = ReLU(x),    y = W_out r
 
-### 22c. DMTS: the same, on the other task
-<p align="center"><img src="../img/internal_figures/slide_22b_penalty_dmts.svg" width="760"></p>
-Control 132 → 180 → 346 across N = 500 → 2000; frm 500, 996, 1952; frm + rws 500, 1000, 1844. rws
-sits just above the control (161, 255, 406) rather than below it as on CDDM.
+    one draw produces two vectors over the N units:
+        c_i   what unit i SENDS    0 if dropped; else 1, or 1/(1 - p_i) with rescaling on
+        s_i   whether it RUNS      0 if dropped; else 1 - never rescaled
 
-150,000 iterations throughout. 7τ delay — the 5τ re-runs supersede it.
+ 1. WHAT IS REMOVED
+        mute   dynamics untouched;          y = W_out (c * r)
+        dead   dx_i/dt = -x_i + s_i [ (W_rec (c * r))_i + (W_inp u)_i + b_i + eta_i ]
+                                            y = W_out (c * r)
 
-### 23. Dropout delays the silencing; it does not stop it
-<p align="center"><img src="../img/internal_figures/slide_23_dropout_along_training.svg" width="760"></p>
-At 150,000 iterations dropout holds 373 live units against 263 — but it is losing them faster, −216
-against −161 units per decade, so the gap is closing rather than holding. Both arms end at the same
+ 2. WHO IS CHOSEN
+        v_i = std(r_i) + q_0.9(r_i), pooled over time and trials, carried as an EMA
+              (sampling_method: uniform -> v = 1; output_weights -> v_i = sum_o |W_out[o,i]|)
+        live pool   L = { i : v_i >= 0.05 * q_95(v) },   M = |L|
+        w_i = softmax( beta * rank_i / (M - 1) ),  rank taken inside L, 0 = quietest
+
+ 3. HOW MANY
+        p_i = min( p_max, c * w_i ),  with c solved so that  sum over L of p_i = rho * M
+        d_i ~ Bernoulli(p_i), drawn independently
+
+ 4. WHAT HAPPENS TO THE SURVIVORS
+        c_i = 1 / (1 - p_i)   (rescale: true, the shipped setting)      c_i = 1  otherwise
+
+    and the task loss is scored on the DROPOUT pass; the penalties on the full pass.
+```
+
+**What is removed.** `mute` leaves the recurrent dynamics completely alone and zeros one column of
+`W_out`. The unit keeps running and keeps driving its neighbours; it disappears only from the
+output, so the only redundancy `mute` pressures is read-out redundancy. `dead` also cuts the unit's
+own drive and its own noise, so it decays to zero and sends nothing, and the pressure reaches the
+recurrent wiring.
+
+**Who is chosen.** `uniform` is textbook dropout. `output_weights` ranks units by the size of their
+read-out column. `participation`, which every run in this deck uses, ranks them by firing rate, and
+`beta` says how sharply to prefer the busy ones: the busiest living unit is e^beta times likelier
+than the quietest, 2.7 at beta = 1 and 55 at beta = 4. Panel (b) is drawn by calling the production
+sampler, not by sketching it. Ranks rather than raw scores, because participation grows by more
+than an order of magnitude over training — on raw scores beta = 4 drew the same unit at every
+iteration by the end.
+
+**How many.** `rho` is a fraction of the LIVE pool, not of N, and the pool uses the project's own
+silence rule. Two reasons, both in panel (c): dropping an already-silent unit changes no other
+unit's state by any amount (measured, max |dh| = 0 exactly, for both kinds), so sampling over all N
+only dilutes the dose; and the population collapses as training runs, so a dose fixed at rho * N
+= 250 would be 90% of the 279 units the seed in panel (c) still has alive at iteration 40,000, and
+79% of the three-seed mean of 316.
+
+**The survivors.** Without the 1/(1 - p_i) factor the task loss is scored on a network missing part
+of its live population while every measurement is taken on the full network, and nothing reconciles
+the two. Independent Bernoulli draws are what make the factor exact: p_i is then the marginal drop
+probability. Drawing exactly k units without replacement, which this code used for one revision,
+makes that marginal intractable — the exact value sums over every size-k subset containing the unit
+— so the correction would have to be a uniform guess for every unit.
+
+---
+
+### 24. Sweeping the drop rate: both knobs work, once the sampler can see firing
+<p align="center"><img src="../img/internal_figures/slide_24_dropout_rate_sweep.svg" width="760"></p>
+Four drop rates by three targeting exponents by two kinds, three seeds each, against the no-dropout
+cell of the same launcher. Sharper targeting adds units at every one of the eight settings where it
+can be compared. A higher rate adds units in every series but `dead` at beta = 1, which is flat
+(344, 330, 343) until rho = 0.175 and then climbs to 416.
+
+**Active units of 1000, at the corners.** No dropout 316. `mute` runs 388 at rho = 0.05, beta = 1
+to 636 at rho = 0.25, beta = 4. `dead` runs 344 to 963 — close enough to the whole population that
+the count stops being able to separate the strongest settings from each other.
+
+**What it costs depends on how you score it.** On the noise-free, dropout-off probe drawn in the
+right panel, `mute` sits below the no-dropout mean of 0.101 at every setting (0.052 to 0.086) and
+`dead` reaches 0.207, about twice the control. Under the re-score that keeps the recurrent and
+input noise the networks trained with, `mute` instead gives up about 2 points of R-squared, 0.945
+to 0.922 at the strongest setting. Both read-outs are in `data/fig_paper_F2_cache.npz`; the noisy
+one is the manuscript's. `dead` has no entry in that cache, so its cost is quoted here only on the
+noise-free probe.
+
+**This replaces a withdrawn result.** The first drop-rate ladder reported the rate irrelevant over
+an eightfold range (387 units with no dropout against 487, 498, 471, 511 across rho = 0.05 to 0.40)
+and sharper targeting worse than useless. Both halves were artefacts of the sampler, not findings
+about dropout, and slide 24c is the measurement that shows why.
+
+### 24b. Dropout delays the silencing; it does not stop it
+<p align="center"><img src="../img/internal_figures/slide_24b_dropout_along_training.svg" width="760"></p>
+At 150,000 iterations dropout holds 373 live units against 263 — but it is losing them faster, -216
+against -161 units per decade, so the gap is closing rather than holding. Both arms end at the same
 loss.
 
-### 24. Dropout is capped: the sampler cannot see firing
+**Deviation.** These are the ONLY dropout networks trained past 40,000 iterations, and they predate
+the sampler rewrite: rho = 0.05, beta = 1, no live-pool restriction and no rescaling. The question
+the panel answers — does dropout halt the silencing or only slow it — has not been re-asked of the
+corrected rule, because the corrected sweep stops at 40,000 iterations.
+
+### 24c. Why the first sweep said nothing: the sampler could not see firing
 <p align="center"><img src="../img/internal_figures/dropout_sampler_blindness.png" width="760"></p>
+The shipped sampler scored q_0.9(|h|) + std(|h|) on the raw states. For `equation_type: h` those
+are pre-activations, and the expression depends on h only through |h| — so a unit pinned at
+h = -c, silent, scored exactly like one pinned at h = +c, maximally active. Measured on the trained
+networks: 51 +- 4% of the drop mass landed on units that were already silent, where dropping
+changes nothing. Among the units still alive the ordering started informative and decayed to
+nothing, Spearman 0.63 early against -0.04 by 150,000 iterations.
+
+Raising beta did not sharpen that ordering either, it cut the dose: probability mass above the cap
+was discarded rather than redistributed, so a nominal 50 drops per iteration became 7.9 at beta = 4.
+
+**One limit holds whatever the sampler does.** 41% of the whole 0 to 150,000 die-off happens in the
+first 100 iterations, before any firing-rate statistic has had time to mean anything.
 
 ### 25. Prune-and-duplicate ⚠
 Needs its own figure: recruitment against jitter, and the output unchanged at the moment of surgery.
@@ -340,6 +429,47 @@ Needs its own figure: the σ_w ladder, active units and clean r² against noise 
 
 ### 27. The penalty pair ⚠
 `fig_paper_F3.pdf` exists but will not render in Markdown — needs an SVG export.
+
+---
+
+---
+
+## THE PENALTY PAIR — what actually fixes it
+
+### 28. CDDM: frm saturates the network, rws barely moves it
+<p align="center"><img src="../img/internal_figures/slide_22b_penalty_cddm.svg" width="760"></p>
+Control 201 → 272 → 311 → 629 across N = 500 → 5000. frm and frm + rws sit on the diagonal at every
+size — 500, 1000, 2000, 4999 — and coincide, so only one line is visible. rws alone is **below** the
+control at all four sizes: 142, 181, 279, 440.
+
+Where a curve is on the diagonal the participation distribution is unimodal, so the count is a floor,
+not a count. Budgets: control 200k/200k/300k/100k, penalties 200k/200k/150k/120k.
+
+### 29. DMTS: the same, on the other task
+<p align="center"><img src="../img/internal_figures/slide_22b_penalty_dmts.svg" width="760"></p>
+Control 132 → 180 → 346 across N = 500 → 2000; frm 500, 996, 1952; frm + rws 500, 1000, 1844. rws
+sits just above the control (161, 255, 406) rather than below it as on CDDM.
+
+150,000 iterations throughout. 7τ delay — the 5τ re-runs supersede it.
+
+### 30. rws does not change the typical unit — it rescues the worst ones
+<p align="center"><img src="../img/internal_figures/slide_30_temporal_pr.svg" width="760"></p>
+frm puts every unit over the silence bar, so the count saturates and cannot tell a unit that fires
+throughout the trial from one that fires in a brief transient. tPR/n does — 1 for a constant rate,
+near 0 for a burst.
+
+The effect is in the lower tail. Median tPR/n barely moves (frm 0.123, frm + rws 0.125), but the
+lower quartile goes 0.028 → 0.060 and burst units (tPR/n < 0.05) fall from 28% to 24%. Every
+frm + rws seed is above every frm seed on both.
+
+### 31. frm against frm + rws, all four measures
+<p align="center"><img src="../img/internal_figures/slide_31_frm_vs_both.svg" width="760"></p>
+CDDM, N = 1000, 3 seeds. Active units 272 → 1000 → 182 → 1000 (control, frm, rws, frm + rws);
+R² 0.951 → 0.954 → 0.956 → 0.958; dimensionality 2.2 → 6.6 → 2.2 → 6.3. The weight distribution is
+where the two penalised arms part: frm pushes the bulk to larger magnitudes, frm + rws less so.
+
+So frm buys the units and the dimensions, rws buys neither — rws alone leaves both at control level —
+and what rws contributes is the temporal quality of frm's units, not their number.
 
 ---
 
