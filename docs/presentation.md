@@ -307,21 +307,21 @@ the next cache rebuild.
 
 ## PER-INTERVENTION DETAIL
 
-### 22b. The penalty pair, on the two tasks that have a size axis
-<p align="center"><img src="../img/internal_figures/slide_22b_penalty_by_task.svg" width="760"></p>
-**frm drives the whole population to fire, at every size, on both tasks.** CDDM goes 88 → 100,
-183 → 250, 297 → 500, 414 → 1000 active as N runs 100 → 1000; DMTS goes 132 → 500, 180 → 996,
-346 → 1952. frm + rws does the same. **rws alone does almost nothing** — 361 against the control's
-414 on CDDM, and 161/255/406 against 132/180/346 on DMTS.
+### 22b. CDDM: frm saturates the network, rws barely moves it
+<p align="center"><img src="../img/internal_figures/slide_22b_penalty_cddm.svg" width="760"></p>
+Control 201 → 272 → 311 → 629 across N = 500 → 5000. frm and frm + rws sit on the diagonal at every
+size — 500, 1000, 2000, 4999 — and coincide, so only one line is visible. rws alone is **below** the
+control at all four sizes: 142, 181, 279, 440.
 
-Read "every unit active" as a floor, not a count. Under frm the participation distribution stops
-being bimodal — the median unit sits near the 95th percentile — so the scale-free rule cannot
-separate 100% from 99%. What moved is the median itself: at CDDM N = 1000 it goes from 0.0018
-(control) to 0.267, and at DMTS N = 1000 from 0.00006 to 0.431, three to four orders of magnitude.
+Where a curve is on the diagonal the participation distribution is unimodal, so the count is a floor,
+not a count. Budgets: control 200k/200k/300k/100k, penalties 200k/200k/150k/120k.
 
-**Deviations.** CDDM trains 30,000 iterations and DMTS 150,000, so the two panels are not read at a
-common budget. CDDM has rws and frm + rws at N = 1000 only. DMTS is the 7τ delay, which the 5τ
-re-runs supersede.
+### 22c. DMTS: the same, on the other task
+<p align="center"><img src="../img/internal_figures/slide_22b_penalty_dmts.svg" width="760"></p>
+Control 132 → 180 → 346 across N = 500 → 2000; frm 500, 996, 1952; frm + rws 500, 1000, 1844. rws
+sits just above the control (161, 255, 406) rather than below it as on CDDM.
+
+150,000 iterations throughout. 7τ delay — the 5τ re-runs supersede it.
 
 ### 23. Dropout delays the silencing; it does not stop it
 <p align="center"><img src="../img/internal_figures/slide_23_dropout_along_training.svg" width="760"></p>
