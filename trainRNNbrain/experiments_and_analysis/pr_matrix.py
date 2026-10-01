@@ -61,7 +61,11 @@ PROBE = 10
 T_START = 2000
 MIN_ITERS = 50_000
 R2_MIN = 0.5           # below this the run never solved the task; see load()
-EXCESS_DELTA = 0.10
+EXCESS_DELTA = 0.07  # the read-out margin: a run is read where its loss first reaches
+                     # (1 + this) x its own fitted floor. 0.10 let a run be read while its loss was
+                     # still 10% above what it would reach, which on DMTS and CDDM is thousands of
+                     # iterations of real improvement; 0.05 was tight enough that runs whose floor
+                     # fit sits slightly low are never read at all. 0.07 is the compromise.
 R2_FRAC = 0.98         # r2= mode: read where R^2 reaches this fraction of its fitted ceiling
 
 

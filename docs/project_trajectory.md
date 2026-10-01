@@ -13147,3 +13147,53 @@ The first diagnostic died on a wrong assumption of mine, that the CDDM task conf
 `batch_size`; it does not, because `TaskCDDM.get_batch` enumerates the whole 15 x 15 x 2 coherence
 grid deterministically. That rules out batch sampling as the cause and leaves the three noise
 channels, the synaptic noise and the scoring mask. Job 14831010 scores two networks under each.
+
+## 2026-10-01 13:23 — the read-out margin is 7%, and Figure 2 was pooling three tasks
+
+**The margin.** Every figure now reads a network where its loss first comes within **7%** of the
+reference, replacing 10%. The 10% margin let a run be read while its loss was still a tenth above
+what it would reach, which on CDDM and DMTS is thousands of iterations of real improvement; 5% was
+tight enough that runs whose floor fit sits slightly low are never read at all. One constant,
+`pr_matrix.EXCESS_DELTA`, and `fig_paper_F1.CONV_MARGIN` and `PLATEAU_TOL` set to match it.
+`cddm_criteria.py` and `flipflop_figures.py` had their own copies at 0.10 and now import the shared
+one, so the project reads at one margin instead of four.
+
+Two axis labels spelled the margin out as the literal "1.10×". Both are now computed from the
+constant: a label that disagrees with the number it describes is worse than no label.
+
+**What moved.** Read-out times come later, as they should: on the 3-bit flip-flop the per-size means
+go from 31k/34k/31k/38k to 35k/39k/37k/43k over N = 500 to 4000. The pooled size exponent is
+essentially unchanged, T ∝ N^0.143 [0.065, 0.244] against N^0.158 [0.086, 0.251] — 1.35× over an 8×
+size range, so "size barely matters within a task" survives the change and is if anything slightly
+weaker. Re-measuring the old margin reproduced the previously recorded β = +0.159 and the 31k–38k
+range exactly, which is the check that the re-measurement is the same arithmetic and not a new one.
+
+The scaling exponents of Figure 1 panel (c) move by at most 0.003: 3-bit flip-flop 0.445, 6-bit
+0.323, CDDM 0.427, DMTS 0.372. The deck had been calling that range "N^0.3–0.4" and the panel's own
+docstring "0.33 to 0.42"; both now say 0.32 to 0.45.
+
+**The cost, stated rather than hidden.** Six of the 96 unpenalised runs never come within 7% of their
+own fitted floor and so are absent from the read-out panels; at 10% it was four. A run goes missing
+when its fitted floor sits a little below what it actually reaches, putting the threshold under its
+whole loss curve. The deck says so under the slide.
+
+**The bug this uncovered.** Rebuilding the deck aborted on Figure 2's operating-point assertion: the
+pattern `paper_grid/EqType=h_N=` matched two cells, the flip-flop's duplication grid and CDDM's. The
+assertion was right, and the cause was worse than an ambiguous string. Figure 2's banner says "all
+interventions trained on the 3-bit flip-flop", and that was true while the cache held only flip-flop
+runs. It now holds 270 networks across three tasks, and `restrict()` had no task filter — so at
+N = 1000 the flip-flop control was being pooled with 13 CDDM and DMTS control networks (288.3 mean
+active units against the flip-flop's own 298.2), and the `both` arm with 3 more (969.3 against
+938.7). Every contrast in panels b–e was measured against a contaminated reference. `restrict()` now
+takes `task=TASK_MAIN` and the duplication pattern is task-qualified. The label guard passes on the
+rebuilt figure: 47 labels, none touching data.
+
+**Not caused by the margin change, but visible in the rebuild:** CDDM crosses its absolute
+convergence bar at roughly 1,000 of 100,000 iterations, and DMTS at 518 / 31,627 / 78,640 iterations
+for N = 500 / 1000 / 2000. The bar is 1.07× the worst final clean loss among that task's runs, so one
+bad run lifts it until everything clears it almost immediately. The numbers are the same at 1.10×, so
+this is the absolute-bar rule's own weakness and not something the new margin introduced. The matched
+read-out offset past the crossing is unchanged for both tasks, which is why panel (c) still holds.
+
+Figures rebuilt: all 25 deck figures in `img/internal_figures/`, plus `fig_paper_F1` and
+`fig_paper_F2`.

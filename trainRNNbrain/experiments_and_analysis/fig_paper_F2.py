@@ -117,6 +117,11 @@ import paperstyle as ps
 from flipflop_dropout_readout import welch
 
 CACHE = "data/fig_paper_F2_cache.npz"
+# THE FIGURE IS ONE TASK, and the cache is not. The banner says "all interventions trained on the
+# 3-bit flip-flop", and that was true while the cache held only flip-flop runs. It now also holds
+# CDDM and DMTS, where `control` and `duplicate` exist at the same N - so an unfiltered restrict()
+# would pool three tasks into one box and the banner would be false. restrict() filters on this.
+TASK_MAIN = "NBitFlipFlop"
 N_MAIN = 1000                    # the size the four-way comparison is made at
 SIZES = (500, 1000, 2000, 4000)  # the sizes the dropout series covers
 
@@ -186,7 +191,8 @@ def by_arm(c, key):
 # operating point, and the full grid of every arm is printed beneath the figure either way.
 OPERATING_POINT = {
     "mute": ("do=mute_rate=0.20_beta=4",),          # paper_grid / dropout_sizes
-    "duplicate": ("paper_grid/EqType=h_N=",),       # copy_noise 1.0, capped 0.025, maturity 1000
+    # task-qualified: "paper_grid/EqType=h_N=" alone also matches the CDDM and DMTS grids
+    "duplicate": ("NBitFlipFlop_paper_grid/EqType=h_N=",),  # copy_noise 1.0, capped 0.025, maturity 1000
     "rescale": ("tgt=10.0", "arm=rescale_tgt10"),   # target ladder's operating point
     "synnoise": ("sw=1.0", "sw1.0"),                # the level the size series runs
     "both": ("ff_both40k",),                        # the only matched frm+rws cell
@@ -239,16 +245,20 @@ def select_cell(c, arm, margin_frac=0.05):
     return best
 
 
-def restrict(c, n_units=None, chosen=None):
-    """Keep the rows one panel should see: one network size, one cell per grid arm.
+def restrict(c, n_units=None, chosen=None, task=TASK_MAIN):
+    """Keep the rows one panel should see: one task, one network size, one cell per grid arm.
 
     Args:
         c: the full cache dict; n_units: keep only this N, or None for every size;
-        chosen: {arm: cell} for the grid arms, or None to keep all of their cells.
+        chosen: {arm: cell} for the grid arms, or None to keep all of their cells;
+        task: keep only this task, or None for every task. Defaults to the one the figure is about,
+            because the cache holds three and several arms exist on more than one of them.
     Returns:
         a new dict of the same keys, filtered. 'log_bins' is passed through unfiltered.
     """
     keep = np.ones(len(c["arm"]), bool)
+    if task is not None and "task" in c:
+        keep &= c["task"] == task
     if n_units is not None:
         keep &= c["N"].astype(int) == n_units
     for arm, cell in (chosen or {}).items():

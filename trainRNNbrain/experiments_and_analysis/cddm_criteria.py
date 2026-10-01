@@ -40,12 +40,13 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (IMG_DIR, active_count, diffusive_onset, load_traces, logbin, stretched)
+import pr_matrix as PR
 import plotstyle as ps
 
 DEFAULT_SWEEP = "data/trained_RNNs/CDDM_std_g0_drift"
 T_START = 2000
-EXCESS_DELTA = 0.10
-LOSS_MARGIN = 1.10
+EXCESS_DELTA = PR.EXCESS_DELTA   # imported, not copied: this script compares criteria against
+LOSS_MARGIN = 1.0 + EXCESS_DELTA  # the one the figures actually read at, so a local copy would lie
 ALPHA_THRESH = 0.6
 CRITS = ["endpoint", "iter", "loss", "excess", "drift"]
 

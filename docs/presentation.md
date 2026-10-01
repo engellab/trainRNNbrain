@@ -40,7 +40,7 @@ Vanilla networks — no dropout, no penalty, no augmentation. Kept: every run wh
 recorded; nothing else filtered, no seed averaged away, no unsolved seed removed. Grey is the raw
 loss, black a running median over y[i−h … i+h], h = min(200, ⌊0.03·(i+1)⌋). The median removes 99.6%
 of the step-to-step wiggle, which is why the raw is drawn under it. Loss normalised by its own first
-value. The dashed rule is where the **raw** loss first comes within 10% of its final value.
+value. The dashed rule is where the **raw** loss first comes within 7% of its final value.
 
 The coloured silent-unit curve is **not smoothed at all** — it is the raw count, criterion from
 slide 2, at every 100-iteration probe. It is simply that quiet: the median change between probes is
@@ -58,22 +58,28 @@ own magnitude at 140,000 iterations.
 
 ### 5. A single iteration count cannot serve every condition
 <p align="center"><img src="../img/internal_figures/slide_05_readout_time.svg" width="760"></p>
-Iterations to reach 1.10× that run's **own** fitted floor. Within a task, size barely matters: 31k
-to 38k over an 8× range (pooled fit T ∝ N^0.159 [0.090, 0.249]). Across tasks it does: the flip-flop
-reaches its floor near 31k, CDDM needs 100k, DMTS 150k.
+Iterations to reach 1.07× that run's **own** fitted floor. Within a task, size barely matters: 35k
+to 43k over an 8× range (pooled fit T ∝ N^0.143 [0.065, 0.244], which is 1.35× over 8×). Across tasks
+it does: the flip-flop reaches its floor near 35k, CDDM needs 100k, DMTS 150k.
+
+Six of the 96 unpenalised runs never come within 7% of their own fitted floor and are absent from the
+panel — at the looser 10% it was four. A run goes missing when its fitted floor sits a little below
+what it actually reaches, so the threshold falls under its whole loss curve.
 
 ### 6. So: read every network where its own loss stops falling
 <p align="center"><img src="../img/internal_figures/slide_06_readout_rule.svg" width="760"></p>
-Each run has its own fitted floor (dotted) and its own crossing of 1.10× it (dashed, dot). That
+Each run has its own fitted floor (dotted) and its own crossing of 1.07× it (dashed, dot). That
 iteration is the read-out — not a number fixed in advance. Every count in this talk is taken there.
 
 ---
 
 ## THE SCALING
 
-### 7. Active units grow as N^0.3–0.4 — so the fraction falls
+### 7. Active units grow as N^0.32–0.45 — so the fraction falls
 <p align="center"><img src="../img/internal_figures/slide_06_scaling.svg" width="760"></p>
-Both silence criteria, both task families.
+Both silence criteria, both task families. Fitted exponents: 3-bit flip-flop 0.45, 6-bit flip-flop
+0.32, CDDM 0.43, DMTS 0.37. Each network is read a matched number of iterations after it crossed its
+task's convergence bar, not at a fixed iteration.
 
 ---
 

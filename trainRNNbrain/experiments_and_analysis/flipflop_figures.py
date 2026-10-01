@@ -55,14 +55,16 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (IMG_DIR, active_count, diffusive_onset, excess_time, logbin, stretched)
 import plotstyle as ps
+import pr_matrix as PR
 
 KSWEEP = "data/trained_RNNs/NBitFlipFlop_std_ksweep"
 PROBE_EVERY = 10          # trainer.track_every; loss_clean_train is indexed in probes
 T_ITER = 150000           # the `iter` criterion: largest budget EVERY cell in the grid reaches
 T_START = 2000            # fit start; skips the initial collapse, which no smooth model describes
 TGT_VAR = 0.735           # k-independent target variance, for R^2 = 1 - MSE/TGT_VAR
-EXCESS_DELTA = 0.10       # `excess` criterion: read where L = (1 + delta) * L_inf
-LOSS_MARGIN = 1.10        # `loss` criterion: L* = margin * the WORST floor, so every cell reaches it
+# imported, not copied, so the whole project reads at one margin (pr_matrix.EXCESS_DELTA)
+EXCESS_DELTA = PR.EXCESS_DELTA   # `excess` criterion: read where L = (1 + delta) * L_inf
+LOSS_MARGIN = 1.0 + EXCESS_DELTA # `loss` criterion: L* = margin * the WORST floor, so every cell reaches it
 ALPHA_THRESH = 0.6        # `drift` criterion: alpha below this counts as no longer directed
 CRITS = ["endpoint", "iter", "loss", "excess", "drift"]
 

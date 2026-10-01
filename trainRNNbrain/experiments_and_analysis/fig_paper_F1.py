@@ -185,9 +185,13 @@ TASK_MIN_R2 = {"DMTS, 7$\\tau$ delay": 0.8}
 # which is exactly why they are their own blocks with their own references.
 TRACE_FAMILIES = [
     ("CDDM, 200k", f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*", None, [
-        ("leaky ReLU",        f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=leakyrelu_iters=*",  "activation"),
-        ("softplus",          f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=softplus25_iters=*", "activation"),
-        ("sigmoid",           f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=sigmoid_iters=*",    "activation"),
+        # Each activation carries its own shape parameter in the label: "a different activation" is
+        # not one condition, and a reader cannot tell a leak of 0.01 from one of 0.3, or softplus at
+        # beta=25 (a floor of log(2)/25 = 0.028, nearly a ReLU) from beta=1 (a floor of 0.69, nothing
+        # like one). The values are read from the trained nets' own saved configs.
+        ("leaky ReLU, leak 0.01", f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=leakyrelu_iters=*",  "activation"),
+        ("softplus, $\\beta$ = 25", f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=softplus25_iters=*", "activation"),
+        ("sigmoid, 7.5(x$-$0.3)", f"{DATA_DIR}/CDDM_std_g0_activations/EqType=h_N=1000_act=sigmoid_iters=*",    "activation"),
         ("W.D. 0",            f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=0_iters=*",           "weight decay"),
         # 1e-6 is the default in configs/trainer/trainer.yaml, so every run in this family's
         # reference carries WD=1e-06 - the reference IS this rung, and saying so turns three
@@ -197,11 +201,19 @@ TRACE_FAMILIES = [
         ("W.D. 10⁻⁴",         f"{DATA_DIR}/CDDM_std_g0_weightdecay/EqType=h_N=1000_wd=1e-4_iters=*",        "weight decay"),
     ]),
     ("3-bit flip-flop, 150k", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*", 150_000, [
-        ("sigmoid",           f"{DATA_DIR}/NBitFlipFlop_std_sigmoid/EqType=h_k=3_N=1000_iters=*",   "activation"),
-        ("input w. ×0.5", f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=0.5_iters=*", "input scale"),
-        ("input w. ×2",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=2_iters=*",   "input scale"),
-        ("input w. ×5",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=5_iters=*",   "input scale"),
-        ("input w. ×20",  f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=20_iters=*",  "input scale"),
+        ("leaky ReLU, leak 0.01", f"{DATA_DIR}/NBitFlipFlop_std_activations/EqType=h_k=3_N=1000_act=leakyrelu_iters=*",  "activation"),
+        ("softplus, $\\beta$ = 25", f"{DATA_DIR}/NBitFlipFlop_std_activations/EqType=h_k=3_N=1000_act=softplus25_iters=*", "activation"),
+        ("sigmoid, 7.5(x$-$0.3)", f"{DATA_DIR}/NBitFlipFlop_std_sigmoid/EqType=h_k=3_N=1000_iters=*",   "activation"),
+        # ⚠️ THESE WERE LABELLED "input w. ×0.5 … ×20" until 2026-10-01, which read as multiples of
+        # the default. They are not. `model.input_row_norm=s` sets every W_inp row to the ABSOLUTE
+        # norm s at init, and the default draw's rows sit at √(n_inputs/N) = 0.050 at N = 1000, so
+        # the four rungs are 10×, 40×, 100× and 400× the default and the reference is BELOW all of
+        # them, not between 0.5 and 2. The old labels put the reference in the middle of its own
+        # ladder and made a single-peaked curve look non-monotone.
+        ("row norm 0.5", f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=0.5_iters=*", "input scale"),
+        ("row norm 2",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=2_iters=*",   "input scale"),
+        ("row norm 5",   f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=5_iters=*",   "input scale"),
+        ("row norm 20",  f"{DATA_DIR}/NBitFlipFlop_std_winp/EqType=h_k=3_N=1000_s=20_iters=*",  "input scale"),
     ]),
 ]
 
@@ -445,7 +457,8 @@ def live_matched(pattern, cap=None, min_r2=None):
 
 
 PENALTY_KEYS = ("lambda_frm", "lambda_rws", "lambda_met", "lambda_orth")
-CONV_MARGIN = 1.10   # "converged" = clean loss within this factor of the task's absolute bar
+CONV_MARGIN = 1.07   # "converged" = clean loss within this factor of the task's absolute bar
+                     # (7%, matching pr_matrix.EXCESS_DELTA; see the note there)
 
 
 def clean_loss_series(run_dir, trace):
@@ -888,7 +901,8 @@ def panel_c(ax):
     from 650 to 83,040 iterations between N = 500 and N = 2000, so a fixed read-out compares
     networks that have spent very different amounts of time in the phase where units go silent,
     and reported that task at N^0.87 against N^0.31-0.47 for every other one. Under the matched
-    read-out all four lie between 0.33 and 0.42.
+    read-out all four lie between 0.32 and 0.45 (3-bit flip-flop 0.45, 6-bit 0.32, CDDM 0.43,
+    DMTS 0.37), and they move by at most 0.003 if CONV_MARGIN is changed from 1.07 to 1.10.
 
     Returns:
         dict task -> (b, A, N_needed_for_1000, n_sizes, largest N) of the fit.
@@ -980,7 +994,8 @@ TRAJ = [
 # how far left of the e stack the panel letter of that column sits, as a fraction of the stack's
 # width; panel a's letter is placed to match it
 E_LETTER_DX = 0.13
-PLATEAU_TOL = 0.10        # "performance has plateaued" = clean loss within this of its final value
+PLATEAU_TOL = 0.07        # "performance has plateaued" = clean loss within this of its final
+                          # value (7%, matching pr_matrix.EXCESS_DELTA)
 PENALTY_KEYS = ("lambda_frm", "lambda_rws", "lambda_met", "lambda_orth")
 
 

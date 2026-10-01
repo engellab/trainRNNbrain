@@ -209,9 +209,13 @@ INTERVENTIONS = [
     ("slide_x_activation_ff", "Nor on the other task",
      "3-bit flip-flop, 150k", "activation", "ReLU (default)", 0,
      "3-bit flip-flop, N = 1000, read at 150k."),
-    ("slide_x_inputscale", "Scaling the input weights does not help either",
-     "3-bit flip-flop, 150k", "input scale", "input w. $\\times$1 (default)", 1,
-     "3-bit flip-flop, N = 1000."),
+    # The reference is the DEFAULT DRAW, whose rows sit at norm 0.050 at N = 1000 - the lowest rung
+    # of this ladder, not a middle one, which is why ref_at is 0. Labelling it "×1" and putting it
+    # second (every version before 2026-10-01) was what made this panel look non-monotone.
+    ("slide_x_inputscale", "A 10-400x larger input scale buys 40-75 units, then gives them back",
+     "3-bit flip-flop, 150k", "input scale", "row norm 0.05 (default draw)", 0,
+     "3-bit flip-flop, N = 1000, read at 150,000 iterations. Rungs are the ABSOLUTE L2 norm every\n"
+     "W$_{inp}$ row is set to at init; the default draw sits at $\\sqrt{n_{inp}/N}$ = 0.050. Every seed drawn."),
     ("slide_x_metabolic", "The field-standard metabolic penalty moves nothing beyond seed scatter",
      "CDDM, 30k (archived)", "metabolic", "$\\lambda$ = 0 (default)", 0,
      "CDDM, N = 1000, four decades of $\\lambda$."),
@@ -398,14 +402,16 @@ def readout_time_slide(k=3):
         ax.annotate(f"{m/1000:.0f}k", (n, m), textcoords="offset points", xytext=(0, 7),
                     ha="center", fontsize=6.2, color=ps.INK)
     ax.set(xscale="log", yscale="log", xlabel="network size $N$",
-           ylabel="iterations to reach\n$1.10\\times$ its own loss floor")
+           ylabel="iterations to reach\n"
+                  rf"${1 + PR.EXCESS_DELTA:.2f}\times$ its own loss floor")
     ax.set_xticks(Ns, [str(n) for n in Ns])
     # ⚠️ THE TITLE STATES WHAT THIS PANEL SHOWS, which is not what it was built to show. Over an 8x
-    # size range the read-out time moves from 31k to 38k and the within-size scatter overlaps, so
+    # size range the read-out time moves from 35k to 43k and the within-size scatter overlaps, so
     # "bigger networks need longer" is not readable here. The pooled fit across the whole
-    # unpenalised grid does give a positive size exponent, beta = +0.159 [0.090, 0.249], but that is
-    # 1.39x over 8x and it controls for k, which this panel holds fixed - so it is quoted in the
-    # deck text rather than asserted over a panel that cannot support it.
+    # unpenalised grid does give a positive size exponent, beta = +0.143 [+0.065, +0.244], but that
+    # is 1.35x over 8x and it controls for k, which this panel holds fixed - so it is quoted in the
+    # deck text rather than asserted over a panel that cannot support it. (At the previous 1.10x
+    # margin: 31k to 38k, beta = +0.158 [+0.086, +0.251]. The margin barely touches the exponent.)
     lo, hi = min(mu), max(mu)
     ax.set_title(f"Read-out time hardly moves with size on one task\n"
                  f"{k}-bit flip-flop, unpenalised, {lo/1000:.0f}k to {hi/1000:.0f}k "
@@ -416,7 +422,7 @@ def readout_time_slide(k=3):
 
 
 def readout_rule_slide(k=3, sizes=(500, 4000)):
-    """The comparison rule itself: read every network at 1.10x its OWN loss floor.
+    """The comparison rule itself: read every network at (1 + EXCESS_DELTA) x its OWN floor.
 
     This is the slide between "iteration count is the wrong clock" and the scaling result, and it
     has to show the rule rather than state it. Two sizes, one task, unpenalised: each run's loss
@@ -467,7 +473,8 @@ def readout_rule_slide(k=3, sizes=(500, 4000)):
     ax.set(xscale="log", yscale="log", xlabel="training iteration", ylabel="noise-free task loss")
     ax.legend(loc="upper right", fontsize=6.2, handlelength=1.2)
     ax.set_title("Read every network where ITS OWN loss stops falling\n"
-                 r"dotted: that run's fitted floor;  dashed: $1.10\times$ it;  dot: the read-out",
+                 rf"dotted: that run's fitted floor;  "
+                 rf"dashed: ${1 + PR.EXCESS_DELTA:.2f}\times$ it;  dot: the read-out",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
     ps.ygrid(ax)
     return ps.save(fig, "slide_06_readout_rule")
