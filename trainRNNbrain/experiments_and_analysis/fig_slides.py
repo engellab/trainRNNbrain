@@ -717,20 +717,27 @@ def dropout_rate_sweep_slide(name="slide_24_dropout_rate_sweep"):
               loc="upper left", fontsize=6.4, handlelength=2.2)
     best = grid[("dead", 0.25, 4)][0].mean()
     mute_best = grid[("mute", 0.25, 4)][0].mean()
-    # THE HEADLINE IS COMPUTED, NOT TYPED. "rises monotonically in both knobs" was the first
-    # version of this sentence and it is false for one of the six series - dead at beta = 1 dips at
-    # rho = 0.10 and is flat to rho = 0.175. Naming the exceptions from the data means the caption
-    # cannot drift away from the panel when the cells are rebuilt.
-    def _mono(series):
-        return bool(np.all(np.diff(series) > 0))
+    # THE HEADLINE IS COMPUTED, NOT TYPED, AND IT IS TESTED AGAINST THE SEED SCATTER. Two earlier
+    # versions of this sentence were wrong. "Rises monotonically in both knobs" is false for dead at
+    # beta = 1, which dips at rho = 0.10 and is flat to rho = 0.175. "Sharper targeting adds units
+    # at every setting" then survived a monotonicity test but not a cross-check: on the Figure 2
+    # cache's own count, which rebuilds each net from its saved parameters instead of reading the
+    # trace, mute at rho = 0.05 goes 386 -> 384 -> 406 and the first step is DOWN. The two read-outs
+    # differ by at most 17 units everywhere and agree on every ordering that matters, so the right
+    # conclusion is that a 25-unit rise against a 59-unit seed sd was never resolvable. A series
+    # therefore counts only if it rises at every step AND rises by more than the seeds scatter.
+    def _rises(key_series):
+        means = [v[0].mean() for v in key_series]
+        sd = float(np.sqrt(np.mean([v[0].var(ddof=1) for v in key_series])))
+        return bool(np.all(np.diff(means) > 0) and means[-1] - means[0] > sd)
     rate_bad = [rf"{k} at $\beta$ = {b}" for k, _ in BERN_KINDS for b in BERN_BETAS
-                if not _mono([grid[(k, r, b)][0].mean() for r in BERN_RATES])]
+                if not _rises([grid[(k, r, b)] for r in BERN_RATES])]
     beta_bad = [rf"{k} at $\rho$ = {r:g}" for k, _ in BERN_KINDS for r in BERN_RATES
-                if not _mono([grid[(k, r, b)][0].mean() for b in BERN_BETAS])]
+                if not _rises([grid[(k, r, b)] for b in BERN_BETAS])]
     rate_txt = ("a higher rate does too, with no exception" if not rate_bad else
                 "a higher rate does too, except for " + " and ".join(rate_bad))
     beta_txt = ("Sharper targeting adds units at every setting" if not beta_bad else
-                "Sharper targeting adds units except at " + " and ".join(beta_bad))
+                "Sharper targeting adds units at every setting but " + " and ".join(beta_bad))
     fig.suptitle("Both dropout knobs work, once the sampler can see firing\n"
                  f"3-bit flip-flop, $N$ = 1000, unpenalised, 40,000 iterations, 3 seeds a cell. "
                  f"{beta_txt};\n{rate_txt}. "

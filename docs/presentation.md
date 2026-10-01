@@ -377,8 +377,9 @@ makes that marginal intractable — the exact value sums over every size-k subse
 ### 24. Sweeping the drop rate: both knobs work, once the sampler can see firing
 <p align="center"><img src="../img/internal_figures/slide_24_dropout_rate_sweep.svg" width="760"></p>
 Four drop rates by three targeting exponents by two kinds, three seeds each, against the no-dropout
-cell of the same launcher. Sharper targeting adds units at every one of the eight settings where it
-can be compared. A higher rate adds units in every series but `dead` at beta = 1, which is flat
+cell of the same launcher. Sharper targeting adds units at seven of the eight (kind, rate) settings;
+at the weakest, `mute` at rho = 0.05, the 25-unit rise sits inside a 59-unit seed spread and is not
+a result. A higher rate adds units in every series but `dead` at beta = 1, which is flat
 (344, 330, 343) until rho = 0.175 and then climbs to 416.
 
 **Active units of 1000, at the corners.** No dropout 316. `mute` runs 388 at rho = 0.05, beta = 1
@@ -392,6 +393,15 @@ input noise the networks trained with, `mute` instead gives up about 2 points of
 to 0.922 at the strongest setting. Both read-outs are in `data/fig_paper_F2_cache.npz`; the noisy
 one is the manuscript's. `dead` has no entry in that cache, so its cost is quoted here only on the
 noise-free probe.
+
+**Two read-outs, checked against each other.** The panels read each network's active count off its
+participation trace, taken at iteration 39,900 from the probe the trainer runs with the noise and
+the dropout switched off. `data/fig_paper_F2_cache.npz` computes the same count a different way,
+by rebuilding each network from its saved parameters and re-running it offline. Across the twelve
+`mute` cells they never differ by more than 17 units of 1000, and they agree on every ordering but
+one: at rho = 0.05 the cache has mute going 386, 384, 406 as beta rises, so its first step is down
+where the trace has it up. Two units against a 59-unit seed spread, which is why the claim above
+stops at seven settings.
 
 **This replaces a withdrawn result.** The first drop-rate ladder reported the rate irrelevant over
 an eightfold range (387 units with no dropout against 487, 498, 471, 511 across rho = 0.05 to 0.40)
