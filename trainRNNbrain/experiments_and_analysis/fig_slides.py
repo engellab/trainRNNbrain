@@ -412,6 +412,64 @@ def readout_time_slide(k=3):
     return ps.save(fig, "slide_05_readout_time")
 
 
+def readout_rule_slide(k=3, sizes=(500, 4000)):
+    """The comparison rule itself: read every network at 1.10x its OWN loss floor.
+
+    This is the slide between "iteration count is the wrong clock" and the scaling result, and it
+    has to show the rule rather than state it. Two sizes, one task, unpenalised: each run's loss
+    against iteration, its own fitted floor as a dotted line, 1.10x that floor as the threshold, and
+    a marker where it crosses. Different networks have different floors, so the same rule lands at
+    different iterations - which is the whole point of not fixing the iteration.
+
+    Args:
+        k: task complexity; sizes: the two network sizes to contrast.
+    Returns:
+        the output path, or None if no run is usable.
+    """
+    runs = [r for r in PR.load() if r["pen"] == "none" and r["k"] == k and r["N"] in sizes]
+    for r in runs:
+        r["floor"] = PR.fit_floor(r["loss"], r["budget"])
+        r["T"] = PR.excess_time(r["loss"], r["floor"], PR.EXCESS_DELTA)
+    runs = [r for r in runs if np.isfinite(r["T"]) and np.isfinite(r["floor"])]
+    if not runs:
+        print("  SKIP readout_rule_slide: no usable runs")
+        return None
+    cols = {sizes[0]: ps.BASE, sizes[-1]: ps.SLOTS[0]}
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, H))
+    seen = set()
+    for r in runs:
+        c = cols.get(r["N"], ps.MUTED)
+        L = np.asarray(r["loss"], float)
+        it = np.arange(1, len(L) + 1, dtype=float)
+        lab = f"N = {r['N']}" if r["N"] not in seen else None
+        seen.add(r["N"])
+        ax.plot(it, F1.running_median(L), lw=0.9, color=c, alpha=0.85, zorder=3, label=lab)
+    for n in sizes:
+        g = [r for r in runs if r["N"] == n]
+        if not g:
+            continue
+        fl = float(np.mean([r["floor"] for r in g]))
+        T = float(np.mean([r["T"] for r in g]))
+        c = cols.get(n, ps.MUTED)
+        ax.axhline(fl, color=c, lw=0.6, ls=":", zorder=2)
+        ax.axhline(fl * (1 + PR.EXCESS_DELTA), color=c, lw=0.8, ls="--", zorder=2)
+        ax.plot([T], [fl * (1 + PR.EXCESS_DELTA)], "o", ms=5.0, color=c, mec="white", mew=0.8,
+                zorder=6)
+        # the two sizes reach almost the same floor on this task, so the markers nearly coincide:
+        # the labels are staggered rather than left to overlap
+        dy = 9 if n == sizes[0] else -13
+        ax.annotate(f"N={n}: {T/1000:.0f}k", (T, fl * (1 + PR.EXCESS_DELTA)),
+                    textcoords="offset points", xytext=(8, dy), fontsize=6.2, color=c)
+    ax.set(xscale="log", yscale="log", xlabel="training iteration", ylabel="noise-free task loss")
+    ax.legend(loc="upper right", fontsize=6.2, handlelength=1.2)
+    ax.set_title("Read every network where ITS OWN loss stops falling\n"
+                 r"dotted: that run's fitted floor;  dashed: $1.10\times$ it;  dot: the read-out",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
+    ps.ygrid(ax)
+    return ps.save(fig, "slide_06_readout_rule")
+
+
 def drift_slides():
     """Do the parameters stop moving? One panel per task, trajectories against iteration.
 
@@ -509,6 +567,9 @@ def main(list_only=False):
 
     out += drift_slides()
     got = readout_time_slide()
+    if got:
+        out.append(got)
+    got = readout_rule_slide()
     if got:
         out.append(got)
 

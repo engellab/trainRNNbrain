@@ -1037,7 +1037,7 @@ def trajectory(run_dir):
                 plateau=float(it_L[int(np.argmax(L <= L[-1] * (1.0 + PLATEAU_TOL)))]))
 
 
-def running_median(y, frac=0.12, w_max=401):
+def running_median(y, frac=0.06, w_max=401):
     """Median over a sliding window whose width GROWS with the index, for display only.
 
     A fixed window is wrong on a log x axis. The clean loss falls by most of its total inside the
@@ -1049,7 +1049,9 @@ def running_median(y, frac=0.12, w_max=401):
     The PLATEAU ITERATION is computed on the raw series, never on this.
 
     Args:
-        y: 1-D array; frac: window half-width as a fraction of the index; w_max: cap in samples.
+        y: 1-D array; frac: window half-width as a fraction of the index (0.06, narrowed from 0.12
+            on 2026-10-01 so the smoothing follows the curve rather than the trend); w_max: cap in
+            samples.
     Returns: array of the same length.
     """
     n = len(y)

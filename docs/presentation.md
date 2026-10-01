@@ -29,29 +29,18 @@ The same three networks at the end of their own budgets. Active: 318, 269, 175. 
 65 units between 40k and 100k, DMTS a further 101 between 40k and 150k — the flip-flop panel is
 unchanged because 40k is where it ends.
 
-**Participation** p_i = std(r_i) + q₀.₉(|r_i|) — how much unit *i*'s rate moves over a trial, and how
-high it gets. **Criterion**: a unit is active when p_i ≥ 0.05 · q₀.₉₅(p), five per cent of the 95th
-percentile of that network's own participation distribution. It is relative, so it does not assume a
-scale — which is why the dashed line sits at a different place in each panel.
-
-Shared x; each panel keeps its own count axis because CDDM puts 600 of its 1,000 units in one bin.
+p_i = std(r_i) + q₀.₉(|r_i|). Active when p_i ≥ 0.05·q₀.₉₅(p) — relative to each network, which is
+why the dashed line moves between panels. Shared x, separate count axes.
 
 ### 3. Units keep going silent long after the loss has stopped moving
 <p align="center"><img src="../img/internal_figures/slide_03_silencing_vs_training.svg" width="760"></p>
 Three tasks, every seed. DMTS does not follow the other two — shown, not hidden.
 
-**Which runs are drawn.** Every run folder in the cell is read and kept if it carries a usable
-*dropout-off* training loss — taken from `loss_clean_train` logged beside the participation probes,
-or from `TrainLosses.json` only where that run's own config has dropout off and every penalty at
-zero, so two definitions of "loss" are never mixed. Runs without one are dropped; nothing else is
-filtered, no seed is averaged away, and no unsolved seed is removed. The black loss curve is
-normalised by each run's own first value, so the three tasks share one axis, and smoothed with a
-median over a window that **grows with the index**: at sample *i* it is the median of
-y[i−h … i+h] with h = min(200, ⌊0.12·(i+1)⌋). A fixed window is wrong on a log x axis — most of the
-loss drop happens inside the first ~2,000 iterations, and a wide window flattens exactly that part,
-drawing a 28-fold drop as a 5-fold one. The growing window is narrow where the curve is steep and
-wide where it is only noisy. The dashed rule is the mean over seeds of where the loss first comes
-within 10% of its final value, computed on the **raw** series, never on the smoothed one. Silent counts use the same criterion as slide 2, applied at every probe.
+Kept: every run with a *dropout-off* loss. Dropped: runs without one. No seed averaged away, no
+unsolved seed removed. Loss normalised by its own first value; smoothed with a median over
+y[i−h … i+h], h = min(200, ⌊0.06·(i+1)⌋) — a window that grows with the index, because a fixed one
+flattens the first ~2,000 iterations where most of the drop happens. The dashed rule is where the
+**raw** loss first comes within 10% of its final value. Silent counts use the same criterion as slide 2, applied at every probe.
 
 ---
 
@@ -59,29 +48,25 @@ within 10% of its final value, computed on the **raw** series, never on the smoo
 
 ### 4. The parameters never stop moving — all three tasks
 <p align="center"><img src="../img/internal_figures/slide_04_drift_trajectories.svg" width="760"></p>
-Relative weight change over a 10,000-iteration lag (‖W(t) − W(t−L)‖_F / ‖W(t)‖_F, Frobenius, bias
-excluded), every seed. Still 10–100% of the weights' own magnitude at 140,000 iterations. The budgets differ because the tasks do — DMTS needs 150k to be
-solved, CDDM 100k; the flip-flop's longer runs predate drift logging.
+‖W(t) − W(t−L)‖_F / ‖W(t)‖_F at L = 10,000, bias excluded, every seed. Still 10–100% of the weights'
+own magnitude at 140,000 iterations.
 
 ### 5. A single iteration count cannot serve every condition
 <p align="center"><img src="../img/internal_figures/slide_05_readout_time.svg" width="760"></p>
-Iterations at which the noise-free loss first reaches 1.10× that run's **own** fitted floor —
-unpenalised only, one task, every run drawn. Three of the four conditions in the original version of
-this figure are penalties the talk has not introduced yet, so they are gone.
+Iterations to reach 1.10× that run's **own** fitted floor. Within a task, size barely matters: 31k
+to 38k over an 8× range (pooled fit T ∝ N^0.159 [0.090, 0.249]). Across tasks it does: the flip-flop
+reaches its floor near 31k, CDDM needs 100k, DMTS 150k.
 
-**Read it honestly.** Within one task, size barely matters: 31k to 38k from N = 500 to 4,000, with
-the per-size scatter overlapping. Pooled across the whole unpenalised grid the size exponent is
-positive but small — T ∝ N^0.159 [0.090, 0.249], so 1.4× over an 8× size range — while task
-complexity costs 2.6× over the same fit.
-
-What does force a loss-based read-out is the **task**: the flip-flop reaches its floor around 31k,
-CDDM needs 100k and DMTS 150k to be solved at all. No single iteration count serves all three.
+### 6. So: read every network where its own loss stops falling
+<p align="center"><img src="../img/internal_figures/slide_06_readout_rule.svg" width="760"></p>
+Each run has its own fitted floor (dotted) and its own crossing of 1.10× it (dashed, dot). That
+iteration is the read-out — not a number fixed in advance. Every count in this talk is taken there.
 
 ---
 
 ## THE SCALING
 
-### 6. Active units grow as N^0.3–0.4 — so the fraction falls
+### 7. Active units grow as N^0.3–0.4 — so the fraction falls
 <p align="center"><img src="../img/internal_figures/slide_06_scaling.svg" width="760"></p>
 Both silence criteria, both task families.
 
@@ -89,29 +74,29 @@ Both silence criteria, both task families.
 
 ## WHAT DOES NOT WORK — one knob at a time
 
-### 7. A different activation does not help
+### 8. A different activation does not help
 <p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.svg" width="760"></p>
 
-### 8. Nor on the other task
+### 9. Nor on the other task
 <p align="center"><img src="../img/internal_figures/slide_x_activation_ff.svg" width="760"></p>
 
-### 9. Weight decay makes it monotonically worse
+### 10. Weight decay makes it monotonically worse
 <p align="center"><img src="../img/internal_figures/slide_x_weightdecay.svg" width="760"></p>
 
-### 10. Scaling the input weights does not help
+### 11. Scaling the input weights does not help
 <p align="center"><img src="../img/internal_figures/slide_x_inputscale.svg" width="760"></p>
 
-### 11. The field-standard metabolic penalty moves nothing beyond seed scatter
+### 12. The field-standard metabolic penalty moves nothing beyond seed scatter
 <p align="center"><img src="../img/internal_figures/slide_x_metabolic.svg" width="760"></p>
 
-### 12. Nor the equation form, nor a trainable bias
+### 13. Nor the equation form, nor a trainable bias
 <p align="center"><img src="../img/internal_figures/slide_x_architecture.svg" width="760"></p>
 
-### 13. Removing recurrent noise is the largest effect — and it is negative
+### 14. Removing recurrent noise is the largest effect — and it is negative
 <p align="center"><img src="../img/internal_figures/slide_x_recnoise.svg" width="760"></p>
 Mean and 95% interval: this sweep saved no per-seed rows.
 
-### 14. Everything above, on one axis
+### 15. Everything above, on one axis
 <p align="center"><img src="../img/internal_figures/fig_paper_F1.svg" width="760"></p>
 Panel d. Each against its **own** matched reference. ⚠ wants its own export.
 
@@ -119,44 +104,44 @@ Panel d. Each against its **own** matched reference. ⚠ wants its own export.
 
 ## WHAT DOES WORK
 
-### 15. Five interventions, and where each one acts
+### 16. Five interventions, and where each one acts
 <p align="center"><img src="../img/internal_figures/slide_rules.svg" width="760"></p>
 
-### 16. Active units
+### 17. Active units
 <p align="center"><img src="../img/internal_figures/slide_f2_active.svg" width="760"></p>
 
-### 17. Performance
+### 18. Performance
 <p align="center"><img src="../img/internal_figures/slide_f2_r2.svg" width="760"></p>
 
-### 18. Dimensionality
+### 19. Dimensionality
 <p align="center"><img src="../img/internal_figures/slide_f2_dims.svg" width="760"></p>
 
-### 19. Weight distribution — lognormal, and which way it errs
+### 20. Weight distribution — lognormal, and which way it errs
 <p align="center"><img src="../img/internal_figures/slide_f2_weights.svg" width="760"></p>
 
-### 20. Does it survive a change of size? — units
+### 21. Does it survive a change of size? — units
 <p align="center"><img src="../img/internal_figures/slide_f2_size_active.svg" width="760"></p>
 
-### 21. …and performance
+### 22. …and performance
 <p align="center"><img src="../img/internal_figures/slide_f2_size_r2.svg" width="760"></p>
 
 ---
 
 ## PER-INTERVENTION DETAIL
 
-### 22. Dropout, along training
+### 23. Dropout, along training
 <p align="center"><img src="../img/internal_figures/dropout_live_vs_iter.png" width="760"></p>
 
-### 23. Dropout is capped: the sampler cannot see firing
+### 24. Dropout is capped: the sampler cannot see firing
 <p align="center"><img src="../img/internal_figures/dropout_sampler_blindness.png" width="760"></p>
 
-### 24. Prune-and-duplicate ⚠
+### 25. Prune-and-duplicate ⚠
 Needs its own figure: recruitment against jitter, and the output unchanged at the moment of surgery.
 
-### 25. Synaptic noise ⚠
+### 26. Synaptic noise ⚠
 Needs its own figure: the σ_w ladder, active units and clean r² against noise level.
 
-### 26. The penalty pair ⚠
+### 27. The penalty pair ⚠
 `fig_paper_F3.pdf` exists but will not render in Markdown — needs an SVG export.
 
 ---
