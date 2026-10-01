@@ -85,6 +85,10 @@ def main(out_path):
                 pit = np.asarray(tr.get("participation_iters", []), float)
                 if P.ndim == 2 and len(P):
                     store[f"{task}|participation"] = P[-1]
+                    # the WHOLE history, so a matched-iteration panel can be read at any common
+                    # probe without re-running this on the cluster
+                    store[f"{task}|participation_all"] = P
+                    store[f"{task}|participation_all_iters"] = pit
                     # the iteration the vector was probed at, so the panel can say how long this
                     # network trained rather than leaving the budget to a caption
                     store[f"{task}|participation_iter"] = np.array(pit[-1] if len(pit) else np.nan)

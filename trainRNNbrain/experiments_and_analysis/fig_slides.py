@@ -296,12 +296,21 @@ DRIFT_TASKS = ["CDDM", "NBitFlipFlop", "DMTS"]
 DRIFT_VARS = [("W_inp", ps.SLOTS[0]), ("W_rec", ps.SLOTS[3]), ("W_out", ps.SLOTS[2])]
 
 
-def participation_by_task():
+def participation_by_task(at_iteration=None, stem="slide_02_participation_by_task"):
     """The participation distribution on all three tasks, three panels in a row.
 
-    One real network per task at its last probe, not a pooled histogram: pooling across seeds blurs
-    the gap between the two modes, and the gap is the claim. Each panel is Figure 1's own panel (b)
-    drawing, so the criterion line and the bin edges are the paper's.
+    Args:
+        at_iteration: read every task at the probe nearest this iteration, for a matched-budget
+            comparison; None reads each at the end of its own budget.
+        stem: output file stem.
+
+    ⚠️ THE TWO VERSIONS ANSWER DIFFERENT QUESTIONS and the figure says which it is showing. Reading
+    each task at its own end asks "what does a trained network look like", and the budgets differ
+    because the tasks do - DMTS needs 150,000 iterations to be solved, CDDM 100,000. Reading all
+    three at one iteration asks "what do they look like after the same amount of training", which
+    is matched on exactly the axis this talk argues is the wrong clock: at a common 40,000 the CDDM
+    and DMTS networks are far less converged than the flip-flop. Neither is wrong; they are not
+    interchangeable.
 
     Returns:
         the output path, or None if the trace cache is missing.
@@ -320,10 +329,17 @@ def participation_by_task():
     fig, axes = plt.subplots(1, len(have), figsize=(ps.W2, 58 * ps.MM), sharex=True)
     axes = np.atleast_1d(axes)
     for ax, task in zip(axes, have):
-        F1.panel_b(ax, np.asarray(z[f"{task}|participation"], float))
+        if at_iteration is None:
+            vec = np.asarray(z[f"{task}|participation"], float)
+            it = float(z[f"{task}|participation_iter"]) \
+                if f"{task}|participation_iter" in z.files else float("nan")
+        else:
+            P = np.asarray(z[f"{task}|participation_all"], float)
+            pit = np.asarray(z[f"{task}|participation_all_iters"], float)
+            j = int(np.argmin(np.abs(pit - at_iteration)))
+            vec, it = P[j], float(pit[j])
+        F1.panel_b(ax, vec)
         lab = str(z[f"{task}|label"]) if f"{task}|label" in z.files else task
-        it = float(z[f"{task}|participation_iter"]) if f"{task}|participation_iter" in z.files \
-            else float("nan")
         ax.set_title(lab + (f"\n{it:,.0f} iterations" if np.isfinite(it) else ""),
                      fontsize=6.8, color=ps.INK, linespacing=1.3, pad=4)
     # panel_b labels and glosses its own axes. Three copies of each overlap and say nothing extra,
@@ -338,7 +354,7 @@ def participation_by_task():
             ax.set_xlabel("")
         if i != 0:
             ax.set_ylabel("")
-    return ps.save(fig, "slide_02_participation_by_task")
+    return ps.save(fig, stem)
 
 
 def drift_slides():
@@ -420,6 +436,11 @@ def main(list_only=False):
 
     out.append(panel_slide("slide_02_participation", F1.panel_b, p=pvec))
     got = participation_by_task()
+    if got:
+        out.append(got)
+    # the same three panels read at one common iteration, which is the flip-flop's ceiling
+    got = participation_by_task(at_iteration=40_000,
+                                stem="slide_02_participation_by_task_matched")
     if got:
         out.append(got)
     out.append(panel_slide("slide_06_scaling", F1.panel_c, width=W, height=78 * ps.MM))

@@ -19,8 +19,15 @@ cannot be centred.
 <p align="center"><img src="../img/internal_figures/slide_01_schematic.svg" width="760"></p>
 
 ### 2. It is not a threshold artefact — the distribution is bimodal, on every task
+<p align="center"><img src="../img/internal_figures/slide_02_participation_by_task_matched.svg" width="760"></p>
+One network per task at N = 1000, all three read at the **same 40,000 iterations**. Active: 383,
+269, 276 — the three tasks look alike at a matched budget.
+
+### 2b. …and they diverge as training continues
 <p align="center"><img src="../img/internal_figures/slide_02_participation_by_task.svg" width="760"></p>
-One network per task at N = 1000, each at the end of its own budget. Active: 318, 269, 175.
+The same three networks at the end of their own budgets. Active: 318, 269, 175. CDDM loses a further
+65 units between 40k and 100k, DMTS a further 101 between 40k and 150k — the flip-flop panel is
+unchanged because 40k is where it ends.
 
 **Participation** p_i = std(r_i) + q₀.₉(|r_i|) — how much unit *i*'s rate moves over a trial, and how
 high it gets. **Criterion**: a unit is active when p_i ≥ 0.05 · q₀.₉₅(p), five per cent of the 95th
