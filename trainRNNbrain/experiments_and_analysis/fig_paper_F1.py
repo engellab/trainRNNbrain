@@ -1051,13 +1051,13 @@ def running_median(y, frac=0.03, w_max=401):
     Args:
         y: 1-D array; frac: window half-width as a fraction of the index; w_max: cap in samples.
 
-    ⚠️ THE SETTING BARELY MATTERS ON THIS DATA, measured rather than assumed. frac only controls the
-    window before w_max binds - at 0.03 that is the first 6,667 of a 50,000-sample series - and
-    across 0.12, 0.06 and 0.03 the drawn curves are indistinguishable, the quoted max differences of
-    23% and 70% falling on isolated loss spikes rather than on the shape. Dropping w_max from 401 to
-    21 does not change it either. The clean loss is already smooth apart from those spikes, and a
-    median removes them at any width. frac was narrowed 0.12 -> 0.06 -> 0.03 on 2026-10-01 to sit
-    closer to the raw series; nobody should expect a visible change from moving it again.
+    ⚠️ CHANGING frac DOES ALMOST NOTHING, AND NOT BECAUSE THE DATA IS SMOOTH. frac only sets the
+    window before w_max binds - at 0.03 that is the first 6,667 of a 50,000-sample series - so 87%
+    of the curve is identical at any frac. What that hides is how much smoothing happens at all: the
+    raw clean loss steps by 2.1% of its mean from one sample to the next, and the smoothed curve by
+    0.4%, so 99.6% of the jaggedness is gone. A narrower cap keeps more (w_max 21 keeps 7.9%) and an
+    uncapped proportional window keeps less (0.08%), but nothing in this range makes the drawn line
+    look like the data. That is why panel (e) draws the raw series underneath it.
     Returns: array of the same length.
     """
     n = len(y)
@@ -1099,6 +1099,13 @@ def panel_e(axes):
             # telling the reader something untrue about the other two.
             # normalised by the RAW first loss, so the drawn drop is the true one; the growing
             # window leaves the first samples essentially unsmoothed, so the curve still starts at 1
+            # THE RAW SERIES GOES UNDERNEATH. The smoothed line removes 99.6% of the step-to-step
+            # wiggle (measured: 2.1% of the mean per step raw, 0.4% smoothed), so on its own it
+            # shows a clean descent and hides that the loss is in fact very jagged. No setting of
+            # the window fixes that - a wider one smooths more, an uncapped one smooths more still.
+            # Drawing both is the only honest version: the trend is readable and the noise is there.
+            ax.plot(r["it_loss"][1:], (np.asarray(r["loss"], float) / r["loss"][0])[1:], "-",
+                    lw=0.35, color=ps.INK, alpha=0.16, zorder=3)
             ax.plot(r["it_loss"][1:], (running_median(r["loss"]) / r["loss"][0])[1:], "-",
                     lw=0.85, color=ps.INK, alpha=0.75, zorder=4)
             axr.plot(r["it_act"][1:], r["silent"][1:], "-", lw=0.9, color=col, alpha=0.85, zorder=5)
