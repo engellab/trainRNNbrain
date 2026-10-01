@@ -26,5 +26,9 @@ spectral_rad: 1.2
 sigma_rec: .05
 sigma_inp: .05
 sigma_out: .03
-bias_range: [-1.0, 1.0]
-bias_init: "zeros"
+bias_range: [0.0, 0.0]         # degenerate -> fixed, non-trainable bias = 0.
+                               # Matched to rnn_relu_standard.yaml, which commit ae52c58 moved
+                               # to a fixed bias. These three were missed, so an activation arm
+                               # carried a trainable bias while its ReLU reference did not -
+                               # the comparison would confound activation with bias.
+bias_init: "zeros"             # ignored for a degenerate range

@@ -11,8 +11,15 @@ the networks, and it made the deck's slide 14 look inconsistent with slides 12 a
 The trained weights ARE on disk, so each net is rebuilt and run noise-free on the CDDM batch - the
 condition Trainer.track_participation_ logs under, and the condition every other active-unit count in
 this project is measured in - and scored with the same scale-free rule. Re-scored, the sigma = 0.05
-reference reads 443, which sits beside the metabolic sweep's 414 as two independent sweeps of the
-same thing rather than as two different measurements.
+reference reads 443.
+
+THAT IS STILL 29 ABOVE the metabolic sweep's 414 at the same task, size and budget, and it is not
+scatter (Welch t = 3.0, p ~ 0.02). The cause is architecture, confirmed in the trained weights:
+these networks have bias_trainable=False with the bias exactly 0 in all 1000 units and every
+self-connection exactly 0, where the metabolic, drift and weight-decay sweeps all have a trained
+bias (|b| up to ~0.5) and nonzero self-connections. Two different architectures, so the two control
+counts are not meant to match - which is why Figure 1d plots each family's CHANGE from its own
+reference rather than counts across families.
 
 ⚠️ THIS SWEEP STORES PARAMETERS AS JSON, not the npz every later sweep uses - it predates the npz
 format. The npz loader the other offline re-scores use finds nothing here and returns no nets at all,
@@ -46,9 +53,14 @@ SWEEP = os.path.join(DATA_DIR, "CDDM_fb2792_g0_noise")
 OUT = os.path.join(SWEEP, "silent_units_per_condition_participation.csv")
 SIGMAS = ["0", "0.01", "0.05", "0.1"]
 EQ = "h"
-# A STRIDED subsample of the trial axis, not the first N. TaskCDDM.get_batch enumerates the
-# coherence x context grid in a fixed order, so the leading trials are one context out of two.
-TRIALS = 128
+# ⚠️ THE WHOLE BATCH, NO SUBSAMPLE. Participation is std(fr) + q_0.9(|fr|) over pooled (time, trial)
+# samples, and both terms shrink when trials are dropped: fewer samples narrow the spread and pull the
+# 0.9 quantile in, so q_95 of the population falls and the 0.05*q_95 bar falls with it. Measured
+# against the Trainer's own trace on the five metabolic reference nets, a strided 128 of 450 trials
+# reads 393 against the trace's 414 - a 22-unit undercount - while the full batch reads 413, within
+# one unit. The trace scores every trial, so anything that is to sit beside a trace-derived count
+# must too.
+TRIALS = None
 
 
 def offline_participation(folder, inputs):
@@ -95,8 +107,9 @@ def cell_counts(sigma, eq=EQ):
     if not folders:
         return []
     inputs, _target, _mask, _var = cddm_batch_and_mask(folders[0])
-    sub = np.arange(0, inputs.shape[2], max(1, inputs.shape[2] // TRIALS))[:TRIALS]
-    inputs = inputs[:, :, sub]
+    if TRIALS:
+        sub = np.arange(0, inputs.shape[2], max(1, inputs.shape[2] // TRIALS))[:TRIALS]
+        inputs = inputs[:, :, sub]
     out = []
     for f in folders:
         p = offline_participation(f, inputs)

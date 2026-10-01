@@ -106,9 +106,10 @@ are the scale-free rule, p ≥ 0.05·q₉₅(p). N = 1000. Every seed drawn.
 
 ### 7b. The control is not one number — it depends when you look
 <p align="center"><img src="../img/internal_figures/slide_07b_control_trajectory.svg" width="760"></p>
-The CDDM control's own active count against training: 411 at 30k, 272 at 200k. The sweeps below have
-different budgets, so each panel is measured against the control at its own budget — the three
-control numbers in this section are one network family read at three times, not three populations.
+The CDDM control of slides 8, 10 and 11 against training: 411 at 30k, 272 at 200k. Slides 12 and 13
+read a second sweep of the same architecture at 30k and get 414, which is this curve at that point.
+So 272 and 414 are one population read at two times, not two populations. (Slide 14 is a third
+architecture and sits apart — see there.)
 
 ### 8. A different activation does not help
 <p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.svg" width="760"></p>
@@ -180,9 +181,14 @@ by the same 6×, dividing the effect out. On a fixed bar the same networks go 44
 drop, and the only knob in this section that moves the count that far.
 
 This sweep saved no participation traces, so it used to be scored on peak rate and read 524 at its
-reference, out of step with the 414 next door. Its trained weights are on disk, so it is re-scored
-from them onto the same rule as every other panel: the reference is 443, and the five seeds per
-level are drawn rather than a summary interval.
+reference. Its trained weights are on disk, so it is re-scored from them onto the same rule as every
+other panel: the reference is 443, and the five seeds per level are drawn rather than a summary
+interval.
+
+443 is still 29 above slide 12's 414 at the same task, size and budget, and that is not scatter. It
+is a different architecture: these networks have the bias fixed at 0 and every self-connection 0,
+where every other CDDM sweep in this deck has a trained bias and nonzero self-connections. Compare
+each knob with the control beside it, never across panels.
 
 ### 15. Everything above, on one axis
 <p align="center"><img src="../img/internal_figures/fig_paper_F1.svg" width="760"></p>
