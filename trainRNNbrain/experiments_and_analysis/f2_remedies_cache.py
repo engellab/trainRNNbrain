@@ -359,9 +359,20 @@ def analyse(net_dir):
         rnn.sigma_rec, rnn.sigma_inp, rnn.sigma_w = srec, sinp, sw
         r_clean = torch.relu(states_c).numpy().reshape(rnn.N, -1)
 
-    # active units on the NOISY run, which is the condition the network trained in and the one every
-    # other active-unit count in this project is measured under
-    p = r_noisy.std(axis=1) + np.quantile(np.abs(r_noisy), 0.9, axis=1)
+    # ACTIVE UNITS ON THE NOISE-FREE RUN. This previously used the noisy run, with a comment
+    # claiming that was "the condition every other active-unit count in this project is measured
+    # under". It is not: the Trainer logs the participation trace that every other figure reads from
+    # a w_noise=False pass ("so the trace is comparable to the offline noise-free analysis"), and a
+    # unit that never fires then reads exactly 0.
+    #
+    # Measuring it under noise breaks the rule outright at large N. Rectified recurrent noise lifts
+    # every unit to a floor of about (dt/tau) * sigma_rec ~ 0.0056, while q_95 falls roughly as 1/N
+    # as the representation spreads. Once 0.05 * q_95 drops below that floor the threshold is under
+    # the whole population and almost everything counts as active. On CDDM controls the noisy count
+    # ran 232 / 334 / 697 / 3797 at N = 500 / 1000 / 2000 / 4000 against a noise-free 222 / 309 /
+    # 407 / 559 - a sixfold overcount at N = 4000, and the noise-free series is the one that follows
+    # the N^0.43 the scaling figure fits.
+    p = r_clean.std(axis=1) + np.quantile(np.abs(r_clean), 0.9, axis=1)
     live = p >= SILENT_REL * np.quantile(p, 0.95)
 
     W = np.asarray(d["W_rec"], dtype=np.float64)
