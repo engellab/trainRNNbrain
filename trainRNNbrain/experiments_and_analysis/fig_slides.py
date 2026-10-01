@@ -36,6 +36,7 @@ from matplotlib.gridspec import GridSpec
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 import fig_paper_F1 as F1
+import pr_matrix as PR
 import fig_paper_F2 as F2
 
 W = 110 * ps.MM             # a single-panel slide: wider than a journal column, same 7 pt type
@@ -357,6 +358,60 @@ def participation_by_task(at_iteration=None, stem="slide_02_participation_by_tas
     return ps.save(fig, stem)
 
 
+def readout_time_slide(k=3):
+    """How long each size takes to reach its own loss floor — unpenalised only, one panel.
+
+    `excess_time_matrix.py` draws this over the (N, k) grid for four penalty conditions, which is a
+    2 x 4 sheet of heat maps. Three of those conditions have not been introduced at the point this
+    slide appears, and k is not a dimension the talk needs, so this is the `none` column at one k,
+    as a curve against N with every run drawn.
+
+    T is the iteration at which a run's noise-free loss first reaches (1 + EXCESS_DELTA) times its
+    OWN fitted floor, so each network is judged against what it can do rather than against a shared
+    target - which is the whole point: a larger network has a lower floor and takes longer to get
+    there.
+
+    Args:
+        k: task complexity to show, the 3-bit flip-flop by default.
+    Returns:
+        the output path, or None if no run yields a finite time.
+    """
+    runs = [r for r in PR.load() if r["pen"] == "none" and r["k"] == k]
+    for r in runs:
+        r["floor"] = PR.fit_floor(r["loss"], r["budget"])
+        r["T"] = PR.excess_time(r["loss"], r["floor"], PR.EXCESS_DELTA)
+    runs = [r for r in runs if np.isfinite(r["T"])]
+    if not runs:
+        print("  SKIP readout_time_slide: no finite read-out times")
+        return None
+    Ns = sorted({r["N"] for r in runs})
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, H))
+    for r in runs:
+        ax.plot(r["N"], r["T"], "o", ms=3.0, color=ps.BASE, alpha=0.55, mec="none", zorder=3)
+    mu = [np.mean([r["T"] for r in runs if r["N"] == n]) for n in Ns]
+    ax.plot(Ns, mu, "-o", lw=1.3, ms=4.0, color=ps.SLOTS[0], mec="white", mew=0.6, zorder=5)
+    for n, m in zip(Ns, mu):
+        ax.annotate(f"{m/1000:.0f}k", (n, m), textcoords="offset points", xytext=(0, 7),
+                    ha="center", fontsize=6.2, color=ps.INK)
+    ax.set(xscale="log", yscale="log", xlabel="network size $N$",
+           ylabel="iterations to reach\n$1.10\\times$ its own loss floor")
+    ax.set_xticks(Ns, [str(n) for n in Ns])
+    # ⚠️ THE TITLE STATES WHAT THIS PANEL SHOWS, which is not what it was built to show. Over an 8x
+    # size range the read-out time moves from 31k to 38k and the within-size scatter overlaps, so
+    # "bigger networks need longer" is not readable here. The pooled fit across the whole
+    # unpenalised grid does give a positive size exponent, beta = +0.159 [0.090, 0.249], but that is
+    # 1.39x over 8x and it controls for k, which this panel holds fixed - so it is quoted in the
+    # deck text rather than asserted over a panel that cannot support it.
+    lo, hi = min(mu), max(mu)
+    ax.set_title(f"Read-out time hardly moves with size on one task\n"
+                 f"{k}-bit flip-flop, unpenalised, {lo/1000:.0f}k to {hi/1000:.0f}k "
+                 f"over an 8$\\times$ size range ({len(runs)} runs)",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
+    ps.ygrid(ax)
+    return ps.save(fig, "slide_05_readout_time")
+
+
 def drift_slides():
     """Do the parameters stop moving? One panel per task, trajectories against iteration.
 
@@ -453,6 +508,9 @@ def main(list_only=False):
     out.append(ps.save(fig, "slide_03_silencing_vs_training"))
 
     out += drift_slides()
+    got = readout_time_slide()
+    if got:
+        out.append(got)
 
     out.append(panel_slide("slide_rules", F2.panel_a, width=ps.W2, height=52 * ps.MM))
     out.append(panel_slide("slide_f2_active", F2.panel_b, c=at_1000))

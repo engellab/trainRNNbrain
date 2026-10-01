@@ -44,10 +44,14 @@ Three tasks, every seed. DMTS does not follow the other two — shown, not hidde
 *dropout-off* training loss — taken from `loss_clean_train` logged beside the participation probes,
 or from `TrainLosses.json` only where that run's own config has dropout off and every penalty at
 zero, so two definitions of "loss" are never mixed. Runs without one are dropped; nothing else is
-filtered, no seed is averaged away, and no unsolved seed is removed. The black loss curve is a
-running median (12% window) normalised by each run's own first value, so the three tasks share one
-axis. The dashed rule is the mean over seeds of where the smoothed loss first comes within 10% of
-its final value. Silent counts use the same criterion as slide 2, applied at every probe.
+filtered, no seed is averaged away, and no unsolved seed is removed. The black loss curve is
+normalised by each run's own first value, so the three tasks share one axis, and smoothed with a
+median over a window that **grows with the index**: at sample *i* it is the median of
+y[i−h … i+h] with h = min(200, ⌊0.12·(i+1)⌋). A fixed window is wrong on a log x axis — most of the
+loss drop happens inside the first ~2,000 iterations, and a wide window flattens exactly that part,
+drawing a 28-fold drop as a 5-fold one. The growing window is narrow where the curve is steep and
+wide where it is only noisy. The dashed rule is the mean over seeds of where the loss first comes
+within 10% of its final value, computed on the **raw** series, never on the smoothed one. Silent counts use the same criterion as slide 2, applied at every probe.
 
 ---
 
@@ -59,11 +63,19 @@ Relative weight change over a 10,000-iteration lag (‖W(t) − W(t−L)‖_F / 
 excluded), every seed. Still 10–100% of the weights' own magnitude at 140,000 iterations. The budgets differ because the tasks do — DMTS needs 150k to be
 solved, CDDM 100k; the flip-flop's longer runs predate drift logging.
 
-### 5. But bigger networks need longer to reach their loss floor
-<p align="center"><img src="../img/internal_figures/excess_time_matrix.png" width="760"></p>
-Iterations at 1.10× each run's own loss floor. Matching iterations compares a converged small
-network with an unconverged large one — so every read-out below is at a matched loss, not a matched
-step count.
+### 5. A single iteration count cannot serve every condition
+<p align="center"><img src="../img/internal_figures/slide_05_readout_time.svg" width="760"></p>
+Iterations at which the noise-free loss first reaches 1.10× that run's **own** fitted floor —
+unpenalised only, one task, every run drawn. Three of the four conditions in the original version of
+this figure are penalties the talk has not introduced yet, so they are gone.
+
+**Read it honestly.** Within one task, size barely matters: 31k to 38k from N = 500 to 4,000, with
+the per-size scatter overlapping. Pooled across the whole unpenalised grid the size exponent is
+positive but small — T ∝ N^0.159 [0.090, 0.249], so 1.4× over an 8× size range — while task
+complexity costs 2.6× over the same fit.
+
+What does force a loss-based read-out is the **task**: the flip-flop reaches its floor around 31k,
+CDDM needs 100k and DMTS 150k to be solved at all. No single iteration count serves all three.
 
 ---
 
