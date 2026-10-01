@@ -161,8 +161,70 @@ def load():
     return runs
 
 
+SMOOTH_ITERS = 210   # the read-out smoothing window, in ITERATIONS rather than samples. 21 samples
+                     # at PROBE = 10 is what excess_time has always used on the flip-flop grid, and
+                     # expressing it in iterations is what lets a trace logged every iteration (CDDM
+                     # is) get the same amount of smoothing instead of a tenth of it. A tenth of it
+                     # leaves the curve jagged enough that the threshold is crossed on a noise dip.
+
+
+def fit_floor_at(L, it, t_end):
+    """Stretched-exponential floor of a loss trace sampled at arbitrary iterations.
+
+    The PROBE-based `fit_floor` below is this with the iterations implied. Tasks differ in how often
+    the trainer logged the clean loss - every 10 iterations on the flip-flop grid, every 1 on CDDM -
+    so anything comparing tasks has to pass the iterations rather than assume a spacing.
+
+    Args:
+        L: clean loss samples; it: the iteration each sample was taken at, same length as L;
+        t_end: fit over iterations [T_START, t_end].
+    Returns:
+        the fitted floor as a float, or None if the fit fails or the window is too short.
+    """
+    L, it = np.asarray(L, float), np.asarray(it, float)
+    m = (it >= T_START) & (it <= t_end)
+    if m.sum() < 8:
+        return None
+    tb, yb = logbin(it[m], L[m])
+    if len(tb) < 8:
+        return None
+    try:
+        s = least_squares(lambda p: np.log(np.clip(stretched(tb, *p), 1e-12, None)) - np.log(yb),
+                          [yb.min() * .9, float(yb.max()), 2e4, .4],
+                          bounds=([1e-6, 1e-6, 1e2, .05], [1., 1e3, 1e8, 3.]), max_nfev=20000)
+    except Exception:
+        return None
+    return float(s.x[0])
+
+
+def excess_time_at(L, it, floor, delta, smooth_iters=SMOOTH_ITERS):
+    """Iteration where the smoothed loss first reaches (1 + delta) x floor, else nan.
+
+    Args:
+        L: clean loss samples; it: the iteration of each sample; floor: the fitted floor, or None;
+        delta: the excess margin (0.07 = read at 1.07x the floor);
+        smooth_iters: width of the box smoother, in ITERATIONS, converted to samples per trace.
+    Returns:
+        the read-out iteration as a float, or nan if the loss never reaches the threshold.
+    """
+    L, it = np.asarray(L, float), np.asarray(it, float)
+    if floor is None or len(L) < 3:
+        return float("nan")
+    step = float(np.median(np.diff(it))) if len(it) > 1 else 1.0
+    w = max(3, int(round(smooth_iters / max(step, 1e-9))))
+    w += 1 - (w % 2)                      # odd, so the window has a centre sample
+    if len(L) < w:
+        return float("nan")
+    sm = np.convolve(L, np.ones(w) / w, mode="valid")
+    hit = np.flatnonzero(sm <= (1 + delta) * floor)
+    return float(it[hit[0] + w // 2]) if len(hit) else float("nan")
+
+
 def fit_floor(L, t_end):
-    """Stretched-exponential floor over [T_START, t_end]; None if the fit fails."""
+    """Stretched-exponential floor over [T_START, t_end]; None if the fit fails.
+
+    Assumes L was sampled every PROBE iterations. Use fit_floor_at for a trace that was not.
+    """
     t = (np.arange(len(L)) + 1) * PROBE
     m = (t >= T_START) & (t <= t_end)
     tb, yb = logbin(t[m], L[m])
@@ -180,16 +242,15 @@ def fit_floor(L, t_end):
 def excess_time(L, floor, delta):
     """Iteration where the smoothed loss first reaches (1+delta) x floor, else nan.
 
+    Assumes L was sampled every PROBE iterations; excess_time_at takes the iterations explicitly.
+    At PROBE = 10 the SMOOTH_ITERS window is 21 samples, which is the width this used before it was
+    expressed in iterations, so flip-flop read-out times are unchanged.
+
     ⚠️ `delta` is REQUIRED, not defaulted. It was previously `delta=EXCESS_DELTA`, which binds the
     module-level value at DEFINITION time - so reassigning the global from the command line left the
     threshold frozen at 0.10 and every "swept" figure came out identical.
     """
-    w = 21
-    if floor is None or len(L) < w:
-        return float("nan")
-    s = np.convolve(L, np.ones(w) / w, mode="valid")
-    hit = np.flatnonzero(s <= (1 + delta) * floor)
-    return float((hit[0] + w // 2 + 1) * PROBE) if len(hit) else float("nan")
+    return excess_time_at(L, (np.arange(len(L)) + 1) * PROBE, floor, delta)
 
 
 def measure(run, fn):

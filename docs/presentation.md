@@ -58,18 +58,33 @@ own magnitude at 140,000 iterations.
 
 ### 5. A single iteration count cannot serve every condition
 <p align="center"><img src="../img/internal_figures/slide_05_readout_time.svg" width="760"></p>
-Iterations to reach 1.07× that run's **own** fitted floor. Within a task, size barely matters: 35k
-to 43k over an 8× range (pooled fit T ∝ N^0.143 [0.065, 0.244], which is 1.35× over 8×). Across tasks
-it does: the flip-flop reaches its floor near 35k, CDDM needs 100k, DMTS 150k.
+Iterations to reach 1.07× that run's **own** fitted floor, two tasks, every run drawn. Within a task
+size barely moves it: the flip-flop goes 35k → 39k → 37k → 43k over an 8× range in N, CDDM 15k → 16k
+→ 18k → 19k over a 10× range. Across tasks it does move: at N = 1000 CDDM reaches its floor at 16k
+and the flip-flop at 39k, so the same rule lands at times differing by a factor of 2.4 on networks of
+the same size. That is the argument for not fixing an iteration count.
 
-Six of the 96 unpenalised runs never come within 7% of their own fitted floor and are absent from the
-panel — at the looser 10% it was four. A run goes missing when its fitted floor sits a little below
+CDDM is the cleaner of the two: its read-out rises monotonically with N, where the flip-flop's N=2000
+sits below its N=1000 and the within-size scatter overlaps. The pooled fit over the whole unpenalised
+flip-flop grid gives T ∝ N^0.143 [0.065, 0.244], which is 1.35× over an 8× size range.
+
+Each panel prints its per-size budget because they are not equal, and each floor is fitted over its
+own run's whole trace: a longer trace pins the floor down better and so crosses slightly later.
+
+Six of the 96 unpenalised flip-flop runs never come within 7% of their own fitted floor and are
+absent — at the looser 10% it was four. A run goes missing when its fitted floor sits a little below
 what it actually reaches, so the threshold falls under its whole loss curve.
 
 ### 6. So: read every network where its own loss stops falling
 <p align="center"><img src="../img/internal_figures/slide_06_readout_rule.svg" width="760"></p>
-Each run has its own fitted floor (dotted) and its own crossing of 1.07× it (dashed, dot). That
-iteration is the read-out — not a number fixed in advance. Every count in this talk is taken there.
+Four sizes per task, both tasks, every run drawn. Each size has its own fitted floor (dotted) and its
+own crossing of 1.07× it (dashed, dot); the read-out iteration is in the legend. That iteration is
+the read-out — not a number fixed in advance. Every count in this talk is taken there.
+
+The four markers sit almost on top of each other because on both tasks the four sizes reach floors
+within 2% of one another. The floors being that close is the point: what separates the networks is
+when they get there, not where they stop. Drawn from iteration 100, since CDDM's loss is logged from
+iteration 0 where an untrained network sits near 10³.
 
 ---
 
@@ -87,15 +102,44 @@ task's convergence bar, not at a fixed iteration.
 
 ### 8. A different activation does not help
 <p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.svg" width="760"></p>
+No activation raises the count, but two of the three lower it: of 1000 units, ReLU holds 272 active
+(259/272/284 across seeds), leaky ReLU 278, softplus 249 and sigmoid 205. Leaky ReLU sits inside the
+reference's own seed spread; softplus's three seeds all fall below the reference's lowest.
 
 ### 9. Nor on the other task
 <p align="center"><img src="../img/internal_figures/slide_x_activation_ff.svg" width="760"></p>
+ReLU 263 active of 1000 (282/261/247), sigmoid 240 — the seed ranges overlap, so this one is inside
+scatter. ⏳ Softplus and leaky ReLU are training at 150k (Della, 2 sizes × 3 seeds each) so this panel
+carries the same three activations as slide 8; until they land it rests on sigmoid alone.
 
 ### 10. Weight decay makes it monotonically worse
 <p align="center"><img src="../img/internal_figures/slide_x_weightdecay.svg" width="760"></p>
 
-### 11. Scaling the input weights does not help
+### 11. A bigger input scale adds 40–75 units of 1000, and not monotonically
 <p align="center"><img src="../img/internal_figures/slide_x_inputscale.svg" width="760"></p>
+`model.input_row_norm = s` sets every row of W_inp to the **absolute** L2 norm `s` at
+initialisation. The default draw puts its rows at √(n_inputs/N) = 0.050 at N = 1000, so the four
+rungs are 10×, 40×, 100× and 400× the default — the reference is the bottom of the ladder, not
+its middle. Labelling it "×1" was what made the curve look like it zigzagged: put every rung at its
+true scale and it is single-peaked, 263 → 302 → 339 → 324 → 306.
+
+The peak is not seed scatter. The N = 500 cells, independent seeds and never plotted, give the same
+ordering: 191 → 219 → 237 → 226 → 213.
+
+Why it turns over. (i) The knob is an **initialisation**, not a constraint — W_inp is trainable and
+nothing holds the row norm. Every arm up to row norm 5 ends at the same total, ‖W_inp‖_F ≈ 94, from
+starting totals of 1.7, 16, 63 and 158. Only row norm 20 is still above it at 150k (377), so that arm
+is not even at a comparable state. (ii) Starting everyone at the same middling norm leaves the trained
+W_inp least concentrated — mean row norm 1.67 at rung 2 against 1.09 for the default draw, with the
+same total to share — and a less concentrated W_inp is more units with input drive. (iii) Every arm is
+still falling at the read-out. The bigger the init, the later the collapse starts and the steeper it is
+when it comes: at 40k the five arms read 378 / 446 / 517 / 506 / **758**, and rung 20 crosses below
+rung 2 somewhere between 100k and 130k. The 150,000-iteration read-out catches five curves that are
+still crossing.
+
+The size of the whole effect, for scale: the reference cell has a 500k budget, and training it on past
+150k with nothing changed takes it from 263 to 190. Every input scale we tried buys less than the next
+350,000 iterations take away.
 
 ### 12. The field-standard metabolic penalty moves nothing beyond seed scatter
 <p align="center"><img src="../img/internal_figures/slide_x_metabolic.svg" width="760"></p>
