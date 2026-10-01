@@ -239,22 +239,68 @@ and pays the most, −2.7%.
 
 ### 19. Dimensionality
 <p align="center"><img src="../img/internal_figures/slide_f2_dims.svg" width="760"></p>
+**Participation ratio** of the active units' noise-free rates: covariance across units, eigenvalues
+λ₁…λₙ (variance along each principal direction), then
+
+&nbsp;&nbsp;&nbsp;&nbsp;**PR = (Σᵢ λᵢ)² ∕ Σᵢ λᵢ²**
+
+A soft count of directions used — exactly n for n equally-loaded directions, → 1 when one dominates,
+never an integer. Measured over active units only; a silent unit adds no variance.
+
+### 19b. Two other counts, same answer
+<p align="center"><img src="../img/internal_figures/slide_f2_srank_vs_pc99.svg" width="760"></p>
+PCs for 99% of the variance (a hard count, feels the tail) against stable rank Σλᵢ∕λ₁ (the softest,
+ignores the tail). The three measures weight the spectrum very differently and **agree anyway** —
+pairwise r = +0.82 to +0.93 over 22 networks — so slide 19 is not an artefact of the participation
+ratio. All three put the control lowest and frm + rws highest, and all three separate only those two:
+of the six pairings among the middle four arms, one is significant on one measure and none on the
+other two.
 
 ### 20. Weight distribution — lognormal, and which way it errs
 <p align="center"><img src="../img/internal_figures/slide_f2_weights.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_f2_weight_shape.svg" width="760"></p>
+**It errs toward too many very small weights — every arm, including the control.** The skew of ln|W|
+is negative in all 22 networks, never positive: the departure is always a left tail of near-silent
+synapses.
 
-### 21. Does it survive a change of size? — units
+Width and shape fail independently, and only **rescale** commits both — 2.3× the control's width
+*and* excess kurtosis 6.4 against 1.0. **frm + rws** is 2.0× wider but its shape is *nearer* an exact
+lognormal than the control's (0.11 against 1.00). So wide is not bad in itself: the arm that works is
+wide and keeps its shape. Dropout, duplication and synaptic noise do nothing here.
+
+⚠️ **The reference is the control, not cortex.** The control's own KS distance to lognormal is 40× the
+sampling scale, so no arm is lognormal in absolute terms. There is no published skewness of ln(EPSP)
+to compare against, and paired recordings are detection-limited — blind to exactly the small-weight
+excess these networks show.
+
+### 21. Does it survive a change of size? — units, 3-bit flip-flop
 <p align="center"><img src="../img/internal_figures/slide_f2_size_active.svg" width="760"></p>
+Every arm beats the control at every size and none closes the gap to the diagonal: at N = 4000 the
+control holds 596 of 4000, duplication 1764, dropout 1072. **frm + rws is N = 1000 only** (939 of
+1000) — a lone diamond, the one arm that nearly reaches the diagonal and the one with no size series.
 
-### 22. …and performance
+### 22. …and performance, same task
 <p align="center"><img src="../img/internal_figures/slide_f2_size_r2.svg" width="760"></p>
+Held-out R² in the common test condition (σ_w = 0, shared recurrent and input noise, eight draws).
+Read the axis before the shapes: it spans 0.03, so every arm at every size sits between 0.919 and
+0.948. The control is flat at 0.946 across an 8× size range.
+
+Duplication's drop at N = 4000 is the largest move on the panel and is worth 0.027 of R² (0.946 →
+0.919). frm + rws sits at 0.919, level with synaptic noise at N = 500 — it buys 939 active units for
+about 0.025 of R².
 
 ---
 
 ## PER-INTERVENTION DETAIL
 
-### 23. Dropout, along training
-<p align="center"><img src="../img/internal_figures/dropout_live_vs_iter.png" width="760"></p>
+### 23. Dropout delays the silencing; it does not stop it
+<p align="center"><img src="../img/internal_figures/slide_23_dropout_along_training.svg" width="760"></p>
+At 150,000 iterations dropout holds 373 live units against 263 — but it is losing them faster, −216
+against −161 units per decade, so the gap is closing rather than holding. Both arms end at the same
+loss.
+
+The 150k table shows dropout keeping more units alive; a table cannot tell "holds them open" from
+"slows the same decline". The trace can, and the answer is the second.
 
 ### 24. Dropout is capped: the sampler cannot see firing
 <p align="center"><img src="../img/internal_figures/dropout_sampler_blindness.png" width="760"></p>

@@ -36,7 +36,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
-from matplotlib.ticker import NullLocator
+from matplotlib.ticker import NullFormatter, NullLocator, ScalarFormatter
 from matplotlib import transforms
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -210,6 +210,49 @@ def dose_slide(name, title, ref_label, entries, ref, col, ylabel="active units",
     return ps.save(fig, name)
 
 
+# Both size panels are manuscript panels, which carry no title because Figure 2's caption names the
+# task and the budget once for all seven panels. A slide has no caption, so the title has to.
+SIZE_LINE = ("3-bit flip-flop, N = 500\u20134000, every arm read at 40,000 iterations.\n"
+             "Matched: $\\gamma$ = 0, lr 10$^{-3}$, weight decay 10$^{-6}$, "
+             "$\\sigma_{rec}$ = $\\sigma_{inp}$ = 0.05 \u2014 the intervention is the only difference.")
+
+
+def size_active_titled(ax, c):
+    """Figure 2's panel (f) with the slide's own title: the task and the read-out iteration.
+
+    Args:
+        ax: axes; c: the full cache dict, every size.
+    Returns:
+        whatever F2.panel_f returns, {N: {arm: (mean, n)}}.
+    """
+    out = F2.panel_f(ax, c)
+    ax.set_title("Every arm beats the control at every size; none closes the gap\n" + SIZE_LINE,
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
+    return out
+
+
+def size_r2_with_legend(ax, c):
+    """Figure 2's panel (g), plus the legend and title it does not carry in the manuscript.
+
+    In the paper (g) sits beside (f) and reads off its neighbour's legend. On a slide it stands
+    alone, so an unlabelled marker - the single-size `frm + rws` diamond especially - names nothing.
+
+    Args:
+        ax: axes; c: the full cache dict, every size.
+    Returns:
+        whatever F2.panel_g returns, {N: {arm: mean}}.
+    """
+    out = F2.panel_g(ax, c)
+    # ABOVE THE AXES, not inside. Every in-panel corner is occupied here: the control and
+    # duplication run along the top, synaptic noise climbs through the lower left, and duplication's
+    # N = 4000 crash sweeps the lower right. A legend outside cannot collide with any of them.
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01), fontsize=5.5, handlelength=1.1,
+              borderaxespad=0.0, ncol=3, columnspacing=1.0)
+    ax.set_title("The whole y axis spans 0.03 of $r^2$\n" + SIZE_LINE, fontsize=7.4,
+                 color=ps.INK, linespacing=1.35, pad=28)
+    return out
+
+
 def panel_slide(name, fn, width=W, height=H, **kw):
     """One manuscript panel on its own figure.
 
@@ -305,6 +348,84 @@ def control_trajectory_slide(name="slide_07b_control_trajectory"):
                  "that budget.",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
     ps.ygrid(ax)
+    return ps.save(fig, name)
+
+
+def dropout_along_training_slide(name="slide_23_dropout_along_training"):
+    """Does dropout hold units open, or only delay the same silencing? Two panels, one condition.
+
+    THE FIGURE THIS REPLACES DREW TWELVE PANELS and answered the question in one of them. Four
+    penalty columns x (two silence criteria + loss): the frm and both columns sit pinned at ~1000
+    live units, where the penalty saturates the count and dropout cannot be assessed at all; the
+    second criterion repeats the first; and the loss row says only that every arm solves the task. It
+    also drew a `dead` dropout arm whose cells are no longer on disk - that sweep was abandoned for
+    mute (commit ae52c58, "dead is unstable under targeting") - so the panel could not be rebuilt
+    from what exists.
+
+    What is left is the question the script's own docstring asks: the 150k table shows dropout keeping
+    more units alive, and a table cannot separate "holds them open" from "slows the same decline".
+    The trace separates them, and the answer is the second: dropout buys a level, not a halt.
+
+    Args:
+        name: output file stem.
+    Returns:
+        the output path, or None if the cells are missing.
+    """
+    import fig_dropout_live as DL
+    root = DL.DATA_DIR
+    arms = [("no dropout", ps.BASE,
+             DL.cell(os.path.join(root, DL.REFS["none"]))
+             + DL.cell(os.path.join(root, DL.DROP_SUB, "EqType=h_k=3_N=1000_pen=none_do=none"))),
+            ("mute dropout", ps.SLOTS[0],
+             DL.cell(os.path.join(root, DL.DROP_SUB, "EqType=h_k=3_N=1000_pen=none_do=mute")))]
+    arms = [a for a in arms if a[2]]
+    if len(arms) < 2:
+        print(f"  SKIP {name}: dropout cells missing")
+        return None
+    ps.setup()
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(ps.W2, 62 * ps.MM))
+    stats = {}
+    for lab, col, traces in arms:
+        ends, slopes = [], []
+        for t in traces:
+            pit, sf = np.asarray(t["pit"], float), np.asarray(t["sf"], float)
+            ax.plot(pit, sf, lw=0.6, color=col, alpha=0.45, zorder=3)
+            ends.append(sf[-1])
+            m = pit >= pit.max() / 10.0            # the last decade, where the curves are straight
+            if m.sum() > 3:
+                slopes.append(np.polyfit(np.log10(pit[m]), sf[m], 1)[0])
+            it, loss = np.asarray(t["it"], float), np.asarray(t["loss"], float)
+            n = min(len(it), len(loss))
+            ax2.plot(it[:n], loss[:n], lw=0.6, color=col, alpha=0.45, zorder=3)
+        grid = np.asarray(traces[0]["pit"], float)
+        mean = np.mean([np.interp(grid, np.asarray(t["pit"], float),
+                                  np.asarray(t["sf"], float)) for t in traces], axis=0)
+        ax.plot(grid, mean, lw=1.5, color=col, zorder=5, label=f"{lab} ({len(traces)})")
+        stats[lab] = (float(np.mean(ends)), float(np.mean(slopes)))
+    ax.set(xscale="log", xlabel="training iteration", ylabel="live units of 1000")
+    ax.legend(loc="lower left", fontsize=6.0, handlelength=1.2)
+    ps.ygrid(ax)
+    # ⚠️ ONE no-dropout SEED SPIKES to ~1e7 near iteration 2,000 and, left on the axis, stretches it
+    # over eight decades and flattens the comparison into a single line. The axis is clipped to the
+    # band the two arms actually occupy and the excursion is named in the caption, rather than the
+    # panel silently showing a flat pair of curves.
+    spikes = sum(1 for _lab, _c, tr in arms for t in tr
+                 if np.nanmax(np.asarray(t["loss"], float)) > 1.0)
+    lo = min(float(np.nanmin(np.asarray(t["loss"], float))) for _l, _c, tr in arms for t in tr)
+    ax2.set(xscale="log", yscale="log", xlabel="training iteration", ylabel="clean training loss",
+            ylim=(lo * 0.7, 1.6))      # headroom so the 1e0 tick is not printed on the frame edge
+    ps.ygrid(ax2)
+    (e0, s0), (e1, s1) = stats["no dropout"], stats["mute dropout"]
+    fig.suptitle("Dropout delays the silencing; it does not stop it\n"
+                 f"3-bit flip-flop, $N$ = 1000, unpenalised, every seed. At 150,000 iterations "
+                 f"dropout holds {e1:.0f} units\nagainst {e0:.0f} — and is losing them faster "
+                 f"({s1:.0f} against {s0:.0f} units per decade), so the gap is closing.",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.02)
+    # below the panels: a fourth title line ran into the loss axis's top tick label
+    fig.text(0.5, -0.02,
+             f"Both arms end at the same loss. The loss axis is clipped at 1; "
+             f"{spikes} run{'s' if spikes != 1 else ''} spike above it early.",
+             ha="center", va="top", fontsize=6.6, color=ps.MUTED)
     return ps.save(fig, name)
 
 
@@ -479,6 +600,81 @@ def inputscale_r2_slide(name="slide_x_inputscale_r2", at_iter=150_000):
                  fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
     ax.legend(loc="lower right", fontsize=5.8, handlelength=1.0, borderpad=0.2,
               borderaxespad=0.3, ncol=2)
+    ps.ygrid(ax)
+    return ps.save(fig, name)
+
+
+# ---- slide 19b: two more ways to count dimensions, and they do not agree ------------------------
+#
+# Slide 19 plots the PARTICIPATION RATIO of the active units' rates, (sum L)^2 / sum L^2 over the
+# eigenvalues L of their covariance. It is a soft count dominated by the top of the spectrum: equal
+# variance in n directions gives exactly n, one dominant direction gives 1.
+#
+# Two other summaries of the SAME spectrum answer different questions, and 19b draws them against
+# each other:
+#   k99        the smallest number of principal components carrying 99% of the variance. A HARD
+#              count, and the one sensitive to the tail - it asks how many directions are needed
+#              before almost nothing is left.
+#   stable rank  sum L / max L, the total variance in units of the single largest direction. The
+#              softest of the three; it ignores the shape of the tail entirely.
+# ⚠️ THIS PANEL WAS BUILT EXPECTING THEM TO DISAGREE, AND THEY DO NOT. The first version was titled
+# "two other ways to count dimensions, and they disagree", on the strength of duplication doubling
+# k99 (33 -> 65) while its stable rank sat on the control's (3.06 against 3.05). That dissociation
+# does not survive a test: Welch p = 0.99 with n = 3 and fully overlapping ranges, which is "cannot
+# tell", not "does not move". Measured properly, the three summaries AGREE - pairwise Pearson r from
+# +0.82 to +0.93 over the 22 networks - and all three rank the control lowest and frm+rws highest.
+# Dropping the penalty arm, which is extreme on every axis, weakens but does not reverse it
+# (k99 vs stable rank r = +0.33, Spearman rho = +0.48).
+#
+# So the panel earns its place as a ROBUSTNESS CHECK rather than a dissociation: the slide-19 result
+# does not depend on the participation ratio's particular weighting of the spectrum. What none of the
+# three measures can do is separate the middle four arms - one of the six pairings is significant on
+# k99 and none on the other two.
+#
+# The numbers come from `f2_dimensionality_extra.py` rather than the shared F2 cache, which stores
+# `dims` and `dims95` as scalars and keeps no spectrum. That script re-derives every measure from one
+# eigendecomposition per network and checks itself against the cache per network, with the agreement
+# interval taken from each network's own batch-to-batch spread - 2.6% on control nets but 9-11% on
+# duplication nets, whose near-identical unit pairs make the covariance near-degenerate.
+DIMS_EXTRA = "data/f2_dimensionality_extra.npz"
+
+
+def dims_extra_slide(name="slide_f2_srank_vs_pc99"):
+    """Stable rank against the 99%-variance PC count, every slide-19 network, one colour per arm.
+
+    Args:
+        name: output file stem.
+    Returns:
+        the output path, or None if the companion cache has not been built.
+    """
+    if not os.path.exists(DIMS_EXTRA):
+        print(f"  SKIP {name}: {DIMS_EXTRA} missing - build it with f2_dimensionality_extra.py")
+        return None
+    d = np.load(DIMS_EXTRA, allow_pickle=True)
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, H))
+    xs, ys = [], []
+    for arm, _, full, col in F2.ARMS:
+        m = d["arm"] == arm
+        if not m.any():
+            continue
+        x, y = np.asarray(d["k99"][m], float), np.asarray(d["srank"][m], float)
+        xs.append(x), ys.append(y)
+        ax.plot(x, y, "o", ms=4.2, color=col, mec="white", mew=0.6, zorder=3,
+                label=f"{full} ({m.sum()})")
+        ax.plot(x.mean(), y.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=4)
+    # LOG x. The counts run 31 to 231, and every claim this panel makes is a RATIO - duplication
+    # doubles the 99% count while leaving the stable rank where the control has it, the penalty pair
+    # multiplies it by 6.6. On a linear axis the penalty arm sits alone on the right and squeezes the
+    # other five into the left quarter, where a doubling is invisible.
+    ax.set_xscale("log")
+    ax.set_xticks([30, 50, 70, 100, 150, 220])
+    ax.xaxis.set_major_formatter(ScalarFormatter())
+    ax.xaxis.set_minor_formatter(NullFormatter())
+    ax.set_xlabel("principal components carrying 99% of the variance")
+    ax.set_ylabel("stable rank,  $\\sum_i \\lambda_i \\,/\\, \\lambda_1$")
+    ax.legend(loc="upper left", fontsize=5.4, handlelength=1.0, borderpad=0.25,
+              borderaxespad=0.3, ncol=1)
     ps.ygrid(ax)
     return ps.save(fig, name)
 
@@ -1315,12 +1511,16 @@ def main(list_only=False):
     # manuscript figure still uses it, where it sits beside (b) and (d) in a row of three.
     out.append(panel_slide("slide_f2_r2_vs_active", F2.panel_r2_vs_active, c=at_1000))
     out.append(panel_slide("slide_f2_dims", F2.panel_d, c=at_1000))
+    got = dims_extra_slide()
+    if got:
+        out.append(got)
     out.append(panel_slide("slide_f2_weights", F2.panel_e, c=at_1000))
+    out.append(panel_slide("slide_f2_weight_shape", F2.panel_weight_shape, c=at_1000))
     got = weights_by_task(everything)
     if got:
         out.append(got)
-    out.append(panel_slide("slide_f2_size_active", F2.panel_f, c=everything))
-    out.append(panel_slide("slide_f2_size_r2", F2.panel_g, c=everything))
+    out.append(panel_slide("slide_f2_size_active", size_active_titled, c=everything))
+    out.append(panel_slide("slide_f2_size_r2", size_r2_with_legend, c=everything))
 
     # ---- one figure per failed intervention ---------------------------------------------------
     fams = collect()
@@ -1340,6 +1540,9 @@ def main(list_only=False):
         out.append(draw(stem, title, ref_label, entries, ref,
                         F1.GROUP_COL.get(group, ps.MUTED), note=full_note, ref_at=ref_at))
 
+    got = dropout_along_training_slide()
+    if got:
+        out.append(got)
     got = control_trajectory_slide()
     if got:
         out.append(got)
