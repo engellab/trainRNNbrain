@@ -13051,168 +13051,60 @@ and equalised units are redundant units.
 
 
 
-## 2026-09-30 — Figure 2: every intervention, four measures, one test condition
+
+## 2026-10-01 — Figure 2 complete: six arms, four measures, four size series
 
 ![Figure 2](../img/internal_figures/fig_paper_F2.svg)
 
-Figure 2 was dropout alone. It is now every intervention the paper offers, each asked the same four
-questions — how many units stay active, whether the task is still solved, how many directions the
-population uses, and whether the weight distribution still looks like the one biology has — plus two
-panels asking whether any of it survives a change of network size.
+225 networks across 71 cells, discovered from their saved configs rather than listed, every one
+rebuilt and rescored in one test condition: sigma_w = 0 with the recurrent and input noise every arm
+shares, averaged over eight draws. Each arm is drawn at the operating point its size series fixed.
 
-**Three things changed in how it is built, each because the previous version was wrong.**
+| arm | n | active | r2 | dimensions | PCs to 95% | sd ln\|W\| | vs control |
+|---|---|---|---|---|---|---|---|
+| no intervention | 6 | 298 ± 35 | 0.9458 | 5.39 | 12 | 1.53 | 1.00x |
+| dropout: mute | 3 | 510 ± 42 | 0.9285 | 7.10 | 25 | 1.59 | 1.03x |
+| prune + duplicate | 3 | 771 ± 25 | 0.9416 | 7.04 | 24 | 1.43 | 0.93x |
+| rescale | 4 | 453 ± 56 | 0.9313 | 7.26 | 18 | **3.48** | **2.27x** |
+| synaptic noise | 3 | 568 ± 14 | 0.9277 | 6.69 | 17 | 1.40 | 0.91x |
+| **frm + rws** | 3 | **939 ± 19** | 0.9214 | **11.95** | **59** | 3.13 | 2.04x |
 
-*The cell list discovers itself.* A hand-written list went stale three times in a day: it held
-rescale's first alpha-only form and missed four later sweeps of the same rule, then missed the target
-ladder that set its operating point, then missed a twelve-cell dropout grid in `std_bernoulli`.
-Every cell under `NBitFlipFlop_*` is now read, classified from its saved config, and kept if it
-matches on task, size, budget and gamma. 210 networks across 67 cells pass the gate. Two rejects,
-both diverged rescale runs.
+**The penalty pair is in a different class.** It wakes 939 of 1000 units (+640, Welch p = 6e-09) and
+the population spans 11.95 directions against the control's 5.39 (+6.56, p = 5e-05), with 59
+components needed for 95% of the variance against 12. No network-side intervention comes close: the
+best of them, duplication, reaches 771 units and 7.04 dimensions. It is also the most expensive,
+2.58% of r2, and it is the only arm whose cost is clearly separated from every other arm's.
 
-*One test condition, not each network in its own.* Scoring every arm as it trained is not a
-comparison: only the synaptic-noise arm is then measured with its wiring fluctuating, and its stored
-score is a single draw. Every network is now also scored at sigma_w = 0 with the recurrent and input
-noise every arm shares, averaged over eight draws, and that is what the figure reads. The change
-moved the synaptic-noise arm from sigma_w = 3 to sigma_w = 1 on its own: at the common read-out
-sigma_w 2 and 3 score 0.812 and 0.677 and fail the 5% bar, which is the ceiling the size-series
-launcher had already identified independently.
+**Two arms widen the weight distribution, and they fail differently.** Dropout, duplication and
+synaptic noise keep the control's width to within 7% and its distance from lognormal to within 1.8x.
+Rescale is 2.27x wider AND misshapen - skew -2.31 against -0.42, excess kurtosis 6.41 against 1.00,
+a heavy tail of very small weights. The penalty pair is 2.04x wider but its shape stays close to
+lognormal: excess kurtosis 0.11, NEARER zero than the control's own 1.00. Width and shape are
+separate failures and only rescale commits both. That distinction did not exist while the summary
+was a fold-range.
 
-*Each arm is drawn at the operating point its size series fixed, not at whichever cell scores
-highest.* Picking by "most active units" is unsound twice over. Active units is one of the four
-measures, so maximising it biases the other three; and the grids are dense enough that the rule
-chases noise — it put duplication at copy_noise 3.0 over the paper's own cell on a 10-unit
-difference, and rescale at a cell recruiting 583 units while the population collapsed to 1.97
-dimensions. The operating points come from the size-series and paper-grid designs, fixed before this
-figure existed.
-
-| arm | n | active units | r2 (common) | dimensions | PCs to 95% | magnitude range |
-|---|---|---|---|---|---|---|
-| no intervention | 6 | 299 ± 34 | 0.9455 ± 0.0024 | 5.35 ± 0.42 | 12 | 1,700-fold |
-| dropout: mute, rate 0.20 | 3 | 510 ± 39 | 0.9267 ± 0.0046 | 7.27 ± 0.35 | 25 | 2,000-fold |
-| prune + duplicate, jitter 1.0 | 3 | **770 ± 26** | 0.9428 ± 0.0030 | 7.14 ± 2.09 | 24 | 1,300-fold |
-| rescale, target 10 | 4 | 454 ± 60 | 0.9315 ± 0.0061 | **7.31 ± 1.14** | 18 | **16 million-fold** |
-| synaptic noise, sigma_w 1 | 3 | 564 ± 12 | 0.9274 ± 0.0053 | 6.64 ± 0.36 | 17 | 1,100-fold |
-
-**Every arm recruits, and every arm adds directions.** Against the control's 299 units: duplication
-+472 (Welch p = 2e-06), synaptic noise +265 (p = 9e-07), dropout +211 (p = 0.002), rescale +155
-(p = 0.008). Dimensionality rises in all four, from the control's 5.35 to between 6.6 and 7.3.
-
-**Only duplication is close to free.** Its r2 cost is 0.29%, whose interval spans zero and which is
-equivalent to the control within 5% (TOST p = 5e-05). The other three cost 1.5% to 2.0%.
-
-**Rescale is the one that pays in the weight distribution, and it errs by being too spread.** A
-fold-range was the wrong summary — two different distributions can share a q99/q01 ratio. What the
-comparison needs is whether ln|W| keeps the shape and width the untreated network has, and where it
-does not, which side it errs on.
-
-| arm | sd ln\|W\| | vs control | KS to best-fit normal | vs control | skew | excess kurtosis |
-|---|---|---|---|---|---|---|
-| no intervention | 1.53 | 1.00x | 0.026 | 1.0x | -0.42 | 1.00 |
-| dropout | 1.59 | 1.03x | 0.031 | 1.2x | -0.21 | 0.71 |
-| duplication | 1.43 | 0.93x | 0.038 | 1.4x | -0.53 | 1.45 |
-| synaptic noise | 1.40 | 0.91x | 0.047 | 1.8x | -0.51 | 1.60 |
-| rescale | **3.48** | **2.27x** | **0.205** | **7.8x** | **-2.31** | **6.41** |
-
-Three arms keep the control's width to within 7% and its distance from lognormal to within 1.8x.
-Rescale is 2.3x WIDER and eight times further from lognormal, with a skewness of -2.31 against the
-control's -0.42: a heavy tail of very small weights, which is what repeatedly dividing one sign of a
-row produces, and which shows in the panel as a shoulder near 10^-6.5 that no other arm has.
-
-The comparison is against the CONTROL, not against an exact lognormal, and deliberately so: with
-10^6 weights nothing is exactly lognormal, the untreated network included. A same-size sample drawn
-from the fitted lognormal scores a KS distance of 0.0007; the control itself scores 0.026, 37 times
-that. So "is it lognormal" answers no for every arm and says nothing. What an intervention has to
-answer for is making the fit worse than ordinary training already does.
-
-**Duplication's advantage grows with size; dropout's does not.**
+**The size series, four arms against each size's own control:**
 
 | arm | N=500 | N=1000 | N=2000 | N=4000 |
 |---|---|---|---|---|
-| dropout, active / control | 1.80x | 1.71x | 1.55x | 1.80x |
-| duplication, active / control | 2.00x | 2.58x | 2.54x | **2.98x** |
-| synaptic noise, active / control | 1.74x | 1.89x | — | — |
+| dropout | 1.81x | 1.71x | 1.55x | 1.79x |
+| duplication | 2.01x | 2.59x | 2.55x | **2.96x** |
+| rescale | 1.50x | 1.52x | 1.46x | — |
+| synaptic noise | 1.74x | 1.90x | **1.39x** | — |
 
-That was the pre-registered question of the size series: an intervention whose ratio falls toward 1.0
-as N grows does not address a problem that worsens with size. Duplication's rises, reaching 1,775 of
-4,000 units against an untreated 596. **Its r2 at N = 4000 sits below the control** — 0.9189 against
-0.9472, having been indistinguishable at every smaller size — **but that gap is confounded with
-convergence and should not yet be called a cost.** Measured from the training records, duplication
-at N = 4000 is the least converged cell in the set: its smoothed loss still falls 18.2% over the
-last quarter of the run, against 5% for the same arm at N = 500 and 1.2% for the 150,000-iteration
-cells. Only two of its three seeds have finished. More training moves this number up, not down.
+Duplication is the only arm whose advantage grows with size. Dropout and rescale hold a flat
+multiplier. Synaptic noise FALLS at N = 2000, from 1.90x to 1.39x, which is the pre-registered
+failure signal - an intervention whose ratio heads toward 1.0 as N grows does not address a problem
+that worsens with size. One size is not a trend and N = 4000 is still training, but it is the number
+to watch.
 
-**Still training.** frm + rws at the matched 40,000-iteration budget (every existing cell of the pair
-is at 400,000, which would have broken matched compute); rescale at N = 4000; synaptic noise at
-N = 2000 and 4000; and DMTS controls at three sizes, which the paper grid never ran.
+**Rescale loses seeds at scale.** One of four at N = 2000 and one of three at N = 4000 diverged -
+training loss at 10^5 and 10^6, sitting there for hundreds of iterations rather than recovering
+through the snapshot restore. No other arm has lost a seed. That is a stability property of the
+rule, not bad luck, and it belongs in the text rather than in a silent gate rejection.
 
-Built by `f2_remedies_cache.py` on Della into `data/fig_paper_F2_cache.npz`, drawn by
-`fig_paper_F2.py`. `check_labels_clear` asserts that no label overlaps another label or any drawn
-datum, testing the ink of each curve rather than its bounding box; it caught three collisions the
-moment the sixth arm went in.
-
-## 2026-09-30 16:40 — synaptic noise transfers; rescale does not; and the controls need noise to work
-
-The 11:25 entry reported both interventions at N = 1000 on the flip-flop only, and said so. The
-transfer tests have landed, and they separate the two. **Every r2 below is the CLEAN (noise-free)
-score**, which is the only one comparable across arms — the stored score is a single noisy forward
-pass and includes the synaptic noise, so across noise levels it compares different regimes.
-
-![size transfer](../img/internal_figures/fig_size_transfer.png)
-
-| N | control active | + synaptic noise | ratio | control dims | + noise | control clean r2 | + noise |
-|---|---|---|---|---|---|---|---|
-| 500 | 220 | 375 | 1.70x | 5.24 | 7.14 | 0.771 | **0.907** |
-| 1000 | 277 | 545 | 1.97x | 5.59 | 6.73 | 0.895 | **0.928** |
-| 2000 | 457 | 600 | 1.31x | 4.32 | 6.33 | 0.864 | **0.926** |
-
-**Synaptic noise recruits at every size, adds dimensions at every size, and beats the control on
-clean r2 at every size.** The recruitment ratio falls with N (1.70, 1.97, 1.31) and the dimension
-gain does not (+1.9, +1.1, +2.0).
-
-**The r2 column is the surprise and it is not a detail.** An untreated network scores 0.946 noisy
-and 0.895 clean at N = 1000 — it is 5 points worse when its training noise is removed, and 8 points
-worse at N = 2000. A sigma_w = 1 network does not move at all (0.9277 noisy, 0.9282 clean). The
-control has learned to use the noise it trains with; the synaptic-noise network has learned to work
-without it. So the 1.7-point "cost" the 11:25 entry reported was an artifact of scoring two networks
-under their own training noise, and read cleanly the intervention is **free or better at every size
-tested**.
-
-**It transfers across TASK as well.** CDDM at N = 1000, 100,000 iterations: 400 active units against
-the control's 259 (1.54x) and 2.28 dimensions against 1.96. The clean r2 goes the other way here —
-0.928 against the control's 0.972 — so on CDDM it does cost something. Both CDDM cells are thin: the
-r2 gate rejected two of three control seeds and one of three treated, leaving n = 1 and n = 2, so
-this is a direction, not a measurement.
-
-**Rescale does not transfer down.** At target 10, N = 500: 330 active against 220 (1.50x), but
-dimensions FALL to 4.37 from the control's 5.23 and clean r2 falls to 0.713 from 0.769. At N = 1000
-the same setting gives 7.20 dimensions against 5.51. So the dimensionality gain that made target 10
-worth reporting is a property of N = 1000, not of the rule. Its participation spread at N = 500 is
-9,023 against the control's 125,437 — a 14-fold compression, worse than anything at N = 1000.
-
-![target ladder](../img/internal_figures/fig_target_ladder.png)
-![synaptic noise](../img/internal_figures/fig_synaptic_noise.png)
-
-The target ladder is now at n = 4 throughout and the peak holds: 5.86, 6.45, **7.25**, 6.99, 6.17,
-6.62 dimensions at targets 6, 8, 10, 14, 20, 30.
-
-**Where this leaves the two.** Synaptic noise recruits 1.3-2.0x across a four-fold size range and on
-a second task, adds dimensions everywhere, keeps the weight distribution inside the control's range
-(1,145x against 1,643x), and costs nothing on the only performance measure that compares arms
-fairly. Rescale recruits, works at one size, compresses the participation distribution 3-14x, and
-spans 91 million-fold in |W| at its best target. **One of these belongs in the paper.**
-
-### Two failures worth recording
-
-**The N = 4000 synaptic-noise cells OOMed, and the launcher's own memory warning did not prevent
-it.** The header predicted the wall correctly — autograd holds one N x N tensor per timestep, 19.2
-GB at N = 4000 over T = 300 — and then asked for it with `--mem-per-gpu=80G`, which is HOST memory.
-The card was still a 40 GB A100 and two of three tasks died in 17 seconds. Della tags its 80 GB
-nodes with a `gpu80` feature; the third task landed on one by chance and ran. Resubmitted with
-`--constraint=gpu80`. Predicting a failure mode is not the same as guarding against it.
-
-**The cluster sync ran at 0.3 MB/s for nearly four hours.** macOS ships `openrsync` (protocol 29)
-as `/usr/bin/rsync`, and it moved about 1 GB of a 112 GB backlog in 3h43m while plain `scp` of a
-100 MB file ran at 12.4 MB/s on the same link. Installing GNU rsync 3.5.1 took it to 15.3 MB/s, a
-50-fold difference. It also silently rejects `--info=progress2`, which killed an earlier attempt in
-seconds — reported at the time as a running sync that was not running.
-
+**Still open.** Rescale and synaptic noise at N = 4000 are training. The DMTS controls, which the
+paper grid never ran, are retraining after four of nine hit an 8-hour wall I set from the wrong
+reference class - the duplication and mute arms converge in under 3 hours, but the control at a 7
+tau delay is precisely the one that struggles. At N = 1000 all three controls reached r2 >= 0.9987;
+at N = 2000 none has escaped the 0.42 plateau yet.

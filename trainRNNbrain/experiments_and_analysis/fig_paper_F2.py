@@ -455,8 +455,10 @@ def panel_b(ax, c):
     # Offsets are in POINTS from the highest seed of each arm, not in data units from its mean: the
     # arms differ in spread (12 rescale seeds against 3 elsewhere), so a fixed data-unit offset
     # clears the dots in one arm and lands on them in the next.
-    ax.annotate(f"all {N_MAIN}", (len(ARMS) - 0.5, N_MAIN), textcoords="offset points",
-                xytext=(0, 3), ha="right", va="bottom", fontsize=5.4, color=ps.MUTED)
+    # the label sits on the LEFT: the penalty arm reaches 939 of 1000, so a right-hand label lands
+    # on its count
+    ax.annotate(f"all {N_MAIN}", (-0.45, N_MAIN), textcoords="offset points",
+                xytext=(0, 3), ha="left", va="bottom", fontsize=5.4, color=ps.MUTED)
     for x, g, (m, sd, n) in zip(xs, groups, res):
         if not n:                       # a cell that has not finished training yet
             continue
@@ -490,9 +492,11 @@ def panel_c(ax, c):
 def panel_d(ax, c):
     """Panel (d): dimensions the active population uses. Returns per-arm (mean, sd, n)."""
     xs = _cat_axes(ax, "dimensions used")
-    res = ps.strip(ax, xs, by_arm(c, "dims"), [col for _, _, _, col in ARMS],
-                   rng=np.random.default_rng(5))
-    ax.set_ylim(0, 10)
+    groups = by_arm(c, "dims")
+    res = ps.strip(ax, xs, groups, [col for _, _, _, col in ARMS], rng=np.random.default_rng(5))
+    # the ceiling follows the data: a fixed one at 10 clipped the penalty arm's 12 dimensions
+    top = max((g.max() for g in groups if len(g)), default=10.0)
+    ax.set_ylim(0, top * 1.12)
     return res
 
 
