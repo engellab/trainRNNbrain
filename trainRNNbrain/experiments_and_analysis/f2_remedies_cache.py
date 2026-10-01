@@ -69,9 +69,17 @@ D = os.environ.get("F2_DATA", "/home/pt1290/trainRNNbrain/data/trained_RNNs")
 R2_TOL = 0.03
 R2_KEY_GATE = "r2_common"   # the field TASK_MIN_R2 is applied to
 COMMON_DRAWS = 8             # noise draws averaged for the common test condition
-TRIALS = 128                 # 300 timesteps x 128 trials = 38400 samples against 1000 units, far
-                             # above what a covariance over at most 1000 units needs. 256 trials
-                             # holds two 1000x76800 rate matrices at once and is OOM-killed.
+TRIALS = 128                 # cap on the trials kept for the RATE matrices: 300 timesteps x 128
+                             # trials = 38400 samples against at most 1000 units, far above what a
+                             # covariance needs, and 256 trials holds two 1000x76800 rate matrices at
+                             # once and is OOM-killed. THE SUBSAMPLE IS STRIDED, NOT THE FIRST 128.
+                             # TaskCDDM.get_batch enumerates the coherence x context grid in a fixed
+                             # order, so bi[:, :, :128] was 128 trials of ONE context out of 450
+                             # balanced ones - it scored every CDDM network on half its task (r2
+                             # 0.855 against 0.875 on the full batch, and the draw-to-draw sd
+                             # tripled). The flip-flop samples its batch at random, which is why only
+                             # CDDM was affected. Every r2 is now scored on the FULL batch, which is
+                             # also what the trainer stored in the folder name.
 SILENT_REL = 0.05            # the scale-free silence rule used everywhere in this project
 ZERO_TOL = 1e-12
 # log10|W| bin edges. The range has to cover the WIDEST arm, not the control: at [-8, 0.5] the
@@ -316,12 +324,19 @@ def analyse(net_dir):
     """
     rnn, task, mask, stored, d = load_net(net_dir)
     n_from_cfg = int(rnn.N)
-    bi, bt, _ = task.get_batch()
-    bi = torch.tensor(bi[:, :, :TRIALS], dtype=torch.float32)
-    bt = torch.tensor(bt[:, :, :TRIALS], dtype=torch.float32)
+    bi_np, bt_np, _ = task.get_batch()
+    bi_np, bt_np = np.asarray(bi_np), np.asarray(bt_np)
+    n_trials = bi_np.shape[2]
+    # every r2 is scored on the FULL batch, matching what the trainer wrote into the folder name.
+    bi = torch.tensor(bi_np, dtype=torch.float32)
+    bt = torch.tensor(bt_np, dtype=torch.float32)
+    # the rate matrices come from a STRIDED subsample, so a task whose batch is an ordered grid is
+    # sampled across the whole grid rather than down one corner of it
+    sub = np.arange(0, n_trials, max(1, n_trials // TRIALS))[:TRIALS]
+    bi_sub = torch.tensor(bi_np[:, :, sub], dtype=torch.float32)
     with torch.no_grad():
-        states, out = rnn(bi, w_noise=True)
-        r2_noisy = float(Trainer.r2_score(out, bt, mask))
+        states, _ = rnn(bi_sub, w_noise=True)
+        r2_noisy = float(Trainer.r2_score(rnn(bi, w_noise=True)[1], bt, mask))
         r_noisy = torch.relu(states).numpy().reshape(rnn.N, -1)   # float32, on purpose
         srec, sinp, sw = float(rnn.sigma_rec), float(rnn.sigma_inp), float(rnn.sigma_w)
 
@@ -335,12 +350,13 @@ def analyse(net_dir):
         for _ in range(COMMON_DRAWS):
             _, out_k = rnn(bi, w_noise=True)
             draws.append(float(Trainer.r2_score(out_k, bt, mask)))
+        del out_k
         rnn.sigma_w = sw
 
         rnn.sigma_rec = rnn.sigma_inp = rnn.sigma_w = 0.0
-        states_c, out_c = rnn(bi, w_noise=False)
+        r2_clean = float(Trainer.r2_score(rnn(bi, w_noise=False)[1], bt, mask))
+        states_c, _ = rnn(bi_sub, w_noise=False)
         rnn.sigma_rec, rnn.sigma_inp, rnn.sigma_w = srec, sinp, sw
-        r2_clean = float(Trainer.r2_score(out_c, bt, mask))
         r_clean = torch.relu(states_c).numpy().reshape(rnn.N, -1)
 
     # active units on the NOISY run, which is the condition the network trained in and the one every
