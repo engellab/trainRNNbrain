@@ -1037,7 +1037,7 @@ def trajectory(run_dir):
                 plateau=float(it_L[int(np.argmax(L <= L[-1] * (1.0 + PLATEAU_TOL)))]))
 
 
-def running_median(y, frac=0.06, w_max=401):
+def running_median(y, frac=0.03, w_max=401):
     """Median over a sliding window whose width GROWS with the index, for display only.
 
     A fixed window is wrong on a log x axis. The clean loss falls by most of its total inside the
@@ -1049,9 +1049,15 @@ def running_median(y, frac=0.06, w_max=401):
     The PLATEAU ITERATION is computed on the raw series, never on this.
 
     Args:
-        y: 1-D array; frac: window half-width as a fraction of the index (0.06, narrowed from 0.12
-            on 2026-10-01 so the smoothing follows the curve rather than the trend); w_max: cap in
-            samples.
+        y: 1-D array; frac: window half-width as a fraction of the index; w_max: cap in samples.
+
+    ⚠️ THE SETTING BARELY MATTERS ON THIS DATA, measured rather than assumed. frac only controls the
+    window before w_max binds - at 0.03 that is the first 6,667 of a 50,000-sample series - and
+    across 0.12, 0.06 and 0.03 the drawn curves are indistinguishable, the quoted max differences of
+    23% and 70% falling on isolated loss spikes rather than on the shape. Dropping w_max from 401 to
+    21 does not change it either. The clean loss is already smooth apart from those spikes, and a
+    median removes them at any width. frac was narrowed 0.12 -> 0.06 -> 0.03 on 2026-10-01 to sit
+    closer to the raw series; nobody should expect a visible change from moving it again.
     Returns: array of the same length.
     """
     n = len(y)

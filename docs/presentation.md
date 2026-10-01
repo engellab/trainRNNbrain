@@ -38,7 +38,7 @@ Three tasks, every seed. DMTS does not follow the other two — shown, not hidde
 
 Kept: every run with a *dropout-off* loss. Dropped: runs without one. No seed averaged away, no
 unsolved seed removed. Loss normalised by its own first value; smoothed with a median over
-y[i−h … i+h], h = min(200, ⌊0.06·(i+1)⌋) — a window that grows with the index, because a fixed one
+y[i−h … i+h], h = min(200, ⌊0.03·(i+1)⌋) — a window that grows with the index, because a fixed one
 flattens the first ~2,000 iterations where most of the drop happens. The dashed rule is where the
 **raw** loss first comes within 10% of its final value. Silent counts use the same criterion as slide 2, applied at every probe.
 
