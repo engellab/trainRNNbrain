@@ -13098,10 +13098,13 @@ failure signal - an intervention whose ratio heads toward 1.0 as N grows does no
 that worsens with size. One size is not a trend and N = 4000 is still training, but it is the number
 to watch.
 
-**Rescale loses seeds at scale.** One of four at N = 2000 and one of three at N = 4000 diverged -
-training loss at 10^5 and 10^6, sitting there for hundreds of iterations rather than recovering
-through the snapshot restore. No other arm has lost a seed. That is a stability property of the
-rule, not bad luck, and it belongs in the text rather than in a silent gate rejection.
+**Rescale spikes at scale but recovers; an earlier note here said otherwise and was wrong.** One
+seed of four at N = 2000 and one of three at N = 4000 were seen at a training loss of 10^5 and 10^6,
+sitting there across the four log lines visible at the time, and were written up as divergences the
+snapshot restore had failed to catch. Both recovered. The N = 2000 cell finished with four healthy
+seeds at r2 0.9283, 0.9284, 0.9326 and 0.9335, and the N = 4000 runs are at r2 0.92-0.93 with eight
+hours left. A four-line window is not a trajectory, and the restore mechanism did its job. Rescale
+has lost no seeds.
 
 **Still open.** Rescale and synaptic noise at N = 4000 are training. The DMTS controls, which the
 paper grid never ran, are retraining after four of nine hit an 8-hour wall I set from the wrong
