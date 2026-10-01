@@ -276,8 +276,15 @@ excess these networks show.
 ### 21. Does it survive a change of size? — units, 3-bit flip-flop
 <p align="center"><img src="../img/internal_figures/slide_f2_size_active.svg" width="760"></p>
 Every arm beats the control at every size and none closes the gap to the diagonal: at N = 4000 the
-control holds 596 of 4000, duplication 1764, dropout 1072. **frm + rws is N = 1000 only** (939 of
-1000) — a lone diamond, the one arm that nearly reaches the diagonal and the one with no size series.
+control holds 596 of 4000, duplication 1764, dropout 1072. frm + rws is the lone diamond at N = 1000
+(939 of 1000) — the one arm that nearly reaches the diagonal.
+
+**Deviations.** Every arm here trains 40,000 iterations, so no point is read at a different
+budget. frm + rws is **one size**: the 3-bit flip-flop has no frm + rws run at any N but 1000.
+The other penalised flip-flop cells are k = 7 and k = 8, a different task, and the 400,000-
+iteration penalty sweep is k = 1–8 at N = 1000, so neither extends this axis. rescale and
+synnoise stop at N = 2000 in this build; their N = 4000 cells have since finished and join on
+the next cache rebuild.
 
 ### 22. …and performance, same task
 <p align="center"><img src="../img/internal_figures/slide_f2_size_r2.svg" width="760"></p>
@@ -289,6 +296,13 @@ Duplication's drop at N = 4000 is the largest move on the panel and is worth 0.0
 0.919). frm + rws sits at 0.919, level with synaptic noise at N = 500 — it buys 939 active units for
 about 0.025 of R².
 
+**Deviations.** Every arm here trains 40,000 iterations, so no point is read at a different
+budget. frm + rws is **one size**: the 3-bit flip-flop has no frm + rws run at any N but 1000.
+The other penalised flip-flop cells are k = 7 and k = 8, a different task, and the 400,000-
+iteration penalty sweep is k = 1–8 at N = 1000, so neither extends this axis. rescale and
+synnoise stop at N = 2000 in this build; their N = 4000 cells have since finished and join on
+the next cache rebuild.
+
 ---
 
 ## PER-INTERVENTION DETAIL
@@ -298,9 +312,6 @@ about 0.025 of R².
 At 150,000 iterations dropout holds 373 live units against 263 — but it is losing them faster, −216
 against −161 units per decade, so the gap is closing rather than holding. Both arms end at the same
 loss.
-
-The 150k table shows dropout keeping more units alive; a table cannot tell "holds them open" from
-"slows the same decline". The trace can, and the answer is the second.
 
 ### 24. Dropout is capped: the sampler cannot see firing
 <p align="center"><img src="../img/internal_figures/dropout_sampler_blindness.png" width="760"></p>
