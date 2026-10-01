@@ -27,6 +27,9 @@ import argparse
 import os
 import sys
 
+import glob
+import pickle
+
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -470,6 +473,62 @@ def readout_rule_slide(k=3, sizes=(500, 4000)):
     return ps.save(fig, "slide_06_readout_rule")
 
 
+def floor_fit_slide():
+    """How the loss floor is fitted, one panel per task, before the read-out rule is used.
+
+    The read-out rule rests on a fitted floor, so the fit has to be shown before the rule is. Each
+    panel: the raw clean loss, the fitted stretched exponential L(t) = L_inf + A exp(-(t/tau)^beta),
+    the fitted floor, 1.10x it, and where the loss crosses.
+
+    ⚠️ IT FITS TWO OF THE THREE TASKS. On the flip-flop and CDDM beta comes out at 0.29 and 0.25 -
+    strongly stretched, a broad spectrum of relaxation times - and forcing beta = 1, a plain
+    exponential, makes the fit 1.5x and 2.9x worse. On DMTS the model fails outright: the RMS log
+    residual is 0.59 against 0.004 and 0.043, and beta runs to the top of its range. DMTS does not
+    descend smoothly, it sits near chance and then escapes, which no stretched exponential
+    describes. The panel shows that rather than hiding it, and the read-out rule is not applied
+    there.
+
+    Returns:
+        the output path.
+    """
+    from scipy.optimize import least_squares
+    from common import stretched, logbin
+    ps.setup()
+    fig, axes = plt.subplots(1, len(F1.TRAJ), figsize=(ps.W2, 60 * ps.MM))
+    for ax, (lab, pat, col, _) in zip(np.atleast_1d(axes), F1.TRAJ):
+        runs = sorted(glob.glob(os.path.join(pat, "*")))
+        if not runs:
+            continue
+        tr = pickle.load(open(glob.glob(os.path.join(runs[0], "*ParticipationTrace.pkl"))[0], "rb"))
+        it, L = F1.clean_loss(runs[0], tr)
+        it, L = np.asarray(it, float), np.asarray(L, float)
+        m = it >= PR.T_START
+        tb, yb = logbin(it[m], L[m])
+        f = least_squares(lambda q: np.log(np.clip(stretched(tb, *q), 1e-12, None)) - np.log(yb),
+                          [yb.min() * .9, float(yb.max()), 2e4, .4],
+                          bounds=([1e-6, 1e-6, 1e2, .05], [1., 1e3, 1e8, 3.]), max_nfev=20000)
+        floor, beta = float(f.x[0]), float(f.x[3])
+        resid = float(np.sqrt(np.mean(f.fun ** 2)))
+        ax.plot(it, L, lw=0.35, color=ps.FAINT, zorder=2)
+        ax.plot(tb, stretched(tb, *f.x), lw=1.2, color=col, zorder=5)
+        ax.axhline(floor, color=ps.MUTED, lw=0.7, ls=":", zorder=3)
+        ax.axhline(floor * (1 + PR.EXCESS_DELTA), color=ps.MUTED, lw=0.8, ls="--", zorder=3)
+        T = PR.excess_time(L, floor, PR.EXCESS_DELTA)
+        if np.isfinite(T):
+            # excess_time already returns an ITERATION, not a sample index - multiplying by the
+            # probe step put the marker off the right-hand end of the data
+            ax.plot([T], [floor * (1 + PR.EXCESS_DELTA)], "o", ms=5, color=col,
+                    mec="white", mew=0.8, zorder=6)
+        ok = resid < 0.1
+        ax.set_title(f"{lab}\n" + r"$\beta$ = " + f"{beta:.2f}, residual {resid:.3f}"
+                     + ("" if ok else "  — does not fit"),
+                     fontsize=6.8, color=ps.INK if ok else ps.BAD, linespacing=1.3, pad=4)
+        ax.set(xscale="log", yscale="log", xlabel="training iteration")
+        ps.ygrid(ax)
+    np.atleast_1d(axes)[0].set_ylabel("clean task loss")
+    return ps.save(fig, "slide_05a_floor_fit")
+
+
 def drift_slides():
     """Do the parameters stop moving? One panel per task, trajectories against iteration.
 
@@ -566,6 +625,9 @@ def main(list_only=False):
     out.append(ps.save(fig, "slide_03_silencing_vs_training"))
 
     out += drift_slides()
+    got = floor_fit_slide()
+    if got:
+        out.append(got)
     got = readout_time_slide()
     if got:
         out.append(got)
