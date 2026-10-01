@@ -40,8 +40,12 @@ Vanilla networks — no dropout, no penalty, no augmentation. Kept: every run wh
 recorded; nothing else filtered, no seed averaged away, no unsolved seed removed. Grey is the raw
 loss, black a running median over y[i−h … i+h], h = min(200, ⌊0.03·(i+1)⌋). The median removes 99.6%
 of the step-to-step wiggle, which is why the raw is drawn under it. Loss normalised by its own first
-value. The dashed rule is where the **raw** loss first comes within 10% of its final value. Silent
-counts use the criterion from slide 2, applied at every probe.
+value. The dashed rule is where the **raw** loss first comes within 10% of its final value.
+
+The coloured silent-unit curve is **not smoothed at all** — it is the raw count, criterion from
+slide 2, at every 100-iteration probe. It is simply that quiet: the median change between probes is
+1–3 units. The occasional jumps of 200–300 are the relative criterion moving, not units switching
+off together — when overall activity dips, 0.05·q₀.₉₅(p) falls with it and many units cross at once.
 
 ---
 
