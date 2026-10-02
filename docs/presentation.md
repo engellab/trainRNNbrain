@@ -337,6 +337,12 @@ Rho fixes the budget the probabilities are scaled to. It multiplies the live poo
 because dropping an already-silent unit moves no other unit's state at all, so a dose spread over
 all N is mostly spent on nothing.
 
+**The shaded bands are not part of the argument, and they matter anyway.** Two of the three control
+seeds transiently blow up there — rates reaching 10^6 and the clean loss 10^9 or worse — and then
+recover and finish at their usual loss. The active count does not register it: its bar is 5% of the
+95th percentile, so the bar rises with the excursion and the count stays ordinary. The same
+criterion carries every count in this deck.
+
 ### 23d. A dropped unit can lose its output, or everything
 <p align="center"><img src="../img/internal_figures/slide_23d_dropout_kinds.svg" width="760"></p>
 

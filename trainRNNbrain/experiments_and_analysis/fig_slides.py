@@ -687,41 +687,77 @@ def dropout_targeting_slide(name="slide_23b_dropout_targeting"):
     return ps.save(fig, name, w_mm=110)
 
 
-def dropout_dose_slide(name="slide_23c_dropout_dose"):
+def dropout_dose_slide(name="slide_23c_dropout_dose", rho=0.25):
     """One claim: the rate is a share of the units still alive, not of N.
 
+    THE EARLIER VERSION DREW THE DOSE AS A SECOND CURVE, rho * M beside M. On a log axis that is
+    the same curve shifted down by a constant, so the panel carried one measurement twice and read
+    as a comparison between two things. Only the reference matters, so only the reference is drawn.
+
+    TWO OF THE THREE CONTROL SEEDS PASS THROUGH A TRANSIENT BLOW-UP, and the first version of this
+    panel drew one of them alone with no sign of it. Participation reaches ~1e6 and the clean loss
+    1e9 or worse for five consecutive snapshots, then the run recovers and finishes at its usual
+    loss. The scale-free criterion is scale-INVARIANT - the bar is 5% of the 95th percentile, which
+    rises with the excursion - so the active count walks straight through reporting an ordinary
+    number. Every seed is drawn and the windows are shaded: a measure that cannot see a 1e6-fold
+    rate excursion is worth knowing about wherever that measure is used, and it is used everywhere
+    in this deck.
+
     Args:
-        name: output file stem.
+        name: output file stem; rho: the drop rate whose dose is being compared.
     Returns:
-        the output path, or None if the control trace is missing.
+        the output path, or None if the control cells are missing.
     """
-    ctrl = sorted(glob.glob(os.path.join(DATA_DIR, BERN_CTRL, "*", "")))
-    if not ctrl:
+    runs = []
+    for d in sorted(glob.glob(os.path.join(DATA_DIR, BERN_CTRL, "*", ""))):
+        fs = glob.glob(os.path.join(d, "*ParticipationTrace.pkl"))
+        if not fs:
+            continue
+        with open(fs[0], "rb") as fh:
+            tr = pickle.load(fh)
+        P = [np.asarray(p, float) for p in tr["participation"]]
+        runs.append((np.asarray(tr["participation_iters"], float),
+                     np.array([active_count(p, "scalefree") for p in P], float),
+                     np.array([np.quantile(p, 0.95) for p in P], float)))
+    if not runs:
         print(f"  SKIP {name}: {BERN_CTRL} missing")
         return None
-    with open(glob.glob(os.path.join(ctrl[0], "*ParticipationTrace.pkl"))[0], "rb") as fh:
-        tr = pickle.load(fh)
-    it = np.asarray(tr["participation_iters"], float)
-    live = np.array([active_count(np.asarray(p, float), "scalefree") for p in tr["participation"]],
-                    float)
-    pos = it > 0
+
     ps.setup()
     fig, ax = plt.subplots(figsize=(W, 62 * ps.MM))
-    ax.plot(it[pos], live[pos], color=ps.BASE, lw=1.4, zorder=4)
-    ax.plot(it[pos], 0.25 * live[pos], color=ps.COND_COL["mute"], lw=1.4, zorder=4)
-    ax.axhline(250, color=ps.BAD, lw=1.1, ls=(0, (2.4, 1.8)), zorder=3)
-    ax.text(115, live[pos][0] * 1.10, "units still alive", fontsize=6.8, color=ps.BASE, va="bottom")
-    ax.text(115, 264, r"$\rho N$ = 250, a share of the whole net", fontsize=6.8, color=ps.BAD,
-            va="bottom")
-    ax.text(115, 0.25 * live[pos][0] * 0.82, r"$\rho M$, a share of the living",
-            fontsize=6.8, color=ps.COND_COL["mute"], va="top")
-    ax.set(xscale="log", yscale="log", xlim=(100, 5e4), ylim=(40, 2000),
+    blew = 0
+    for it, live, q95 in runs:
+        pos = it > 0
+        ax.plot(it[pos], live[pos], color=ps.BASE, lw=1.0, alpha=0.85, zorder=4)
+        # a healthy net's q95 stays under 5 all through training; the excursions reach 1e5 to 1e7.
+        hot = it[q95 > 100]
+        if len(hot):
+            blew += 1
+            ax.axvspan(hot.min(), hot.max(), color=ps.BAD, alpha=0.12, lw=0, zorder=1)
+    ax.axhline(rho * 1000, color=ps.BAD, lw=1.2, ls=(0, (2.4, 1.8)), zorder=3)
+    ends = sorted(int(live[-1]) for _i, live, _q in runs)
+    ax.text(115, 1080, f"units still alive, {len(runs)} control seeds", fontsize=6.8,
+            color=ps.BASE, va="bottom")
+    ax.text(115, rho * 1000 * 0.94, rf"$\rho N$ = {rho * 1000:.0f}, a share of the whole net",
+            fontsize=6.8, color=ps.BAD, va="top")
+    ax.set(xscale="log", yscale="log", xlim=(100, 5e4), ylim=(150, 1500),
            xlabel="training iteration", ylabel="units")
+    # one decade of range, so the log locator fills the axis with 2x10^2-style minor labels
+    ax.set_yticks([200, 300, 500, 1000])
+    ax.set_yticklabels(["200", "300", "500", "1000"])
+    ax.yaxis.set_minor_formatter(NullFormatter())
     ps.ygrid(ax)
-    fig.suptitle(r"The drop rate is a share of the units still alive"
-                 f"\nTaking $\\rho$ = 0.25 of $N$ instead would ablate 250 of the "
-                 f"{live[-1]:.0f} survivors at iteration 40,000.",
+    fig.suptitle("The drop rate is a share of the units still alive\n"
+                 f"The pool falls to {ends[0]}-{ends[-1]} units by iteration 40,000, so "
+                 rf"$\rho$ = {rho:g} spends {rho * ends[0]:.0f}-{rho * ends[-1]:.0f} drops a step, "
+                 rf"where $\rho N$ would spend {rho * 1000:.0f}.",
                  fontsize=8.0, color=ps.INK, linespacing=1.4, y=1.03)
+    fig.text(0.5, -0.015,
+             f"Shaded: {blew} of the {len(runs)} seeds pass through a transient blow-up, "
+             "participation reaching $10^6$ and the clean loss $10^9$ or worse, then recover.\n"
+             "The active count is a fraction of the 95th percentile, so it rescales with the "
+             "excursion and reports an ordinary number straight through it.",
+             ha="center", va="top", fontsize=6.4, color=ps.MUTED, linespacing=1.4)
     return ps.save(fig, name, w_mm=110)
 
 
