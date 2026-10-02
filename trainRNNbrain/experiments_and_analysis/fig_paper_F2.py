@@ -499,6 +499,55 @@ def panel_c(ax, c):
     return res
 
 
+def panel_r2_vs_active(ax, c):
+    """Held-out r2 against active units, every network, one colour per arm.
+
+    The deck's active-unit and performance panels show the same 22 networks on two categorical axes,
+    which leaves the reader to join them by arm. The question those two panels are asked together -
+    does a rule that recruits units pay for them? - is a statement about the JOINT distribution, so
+    this draws it directly. It carries every r2 value the performance panel carries, as the same
+    dots in the same colours, and adds the units axis; the per-arm cost moves into the legend.
+
+    What the join shows that the two panels apart do not: the arms are not strung along one
+    trade-off curve. Prune + duplicate sits far to the right of the control and at the control's own
+    height, while dropout, rescale and synaptic noise give up 1.3-1.9% of r2 for FEWER units than it
+    recruits. A reader looking at two categorical panels has to hold six pairs of numbers in mind to
+    see that; here it is the shape of the cloud.
+
+    Args:
+        ax: the axes to draw on; c: the cache, restricted to one N and one cell per grid arm.
+    Returns:
+        list of (mean_active, mean_r2, n) per arm, in ARMS order, with (nan, nan, 0) for an arm
+        whose cells have not finished training.
+    """
+    act, r2 = by_arm(c, "n_active"), by_arm(c, R2_KEY)
+    ref = r2[0].mean()
+    ax.axhline(ref, color=ps.BASE, lw=0.7, ls=":", zorder=1)
+    out = []
+    for (_, _, full, col), A, R in zip(ARMS, act, r2):
+        if not len(A):
+            out.append((float("nan"), float("nan"), 0))
+            continue
+        # Circles are networks, squares the cell means - the convention the other scatter panels
+        # use. The mean differs from a seed by SHAPE, not by opacity: a translucent dot reads as
+        # less certain, and a mean over three seeds is not.
+        ax.plot(A, R, "o", ms=4.2, color=col, mec="white", mew=0.6, zorder=3,
+                label=f"{full} ({len(A)})" if full == "no intervention"
+                      else f"{full} ({len(A)})  {(R.mean() - ref) / ref:+.1%}")
+        ax.plot(A.mean(), R.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=4)
+        out.append((float(A.mean()), float(R.mean()), len(A)))
+    ax.set_xlabel(f"active units of {N_MAIN}  (scale-free rule, $p \\geq 0.05\\,q_{{95}}(p)$)")
+    ax.set_ylabel("held-out $r^2$")
+    ax.set_xlim(0, N_MAIN)
+    # The legend sits LOWER LEFT, not lower right as on the activation and metabolic panels: the
+    # penalty arm is the most active AND the lowest scoring, so it occupies the lower right corner
+    # of this particular cloud. Position follows the data; the convention is the markers.
+    ax.legend(loc="lower left", fontsize=5.4, handlelength=1.0, borderpad=0.25,
+              borderaxespad=0.3, ncol=1)
+    ps.ygrid(ax)
+    return out
+
+
 def panel_d(ax, c):
     """Panel (d): dimensions the active population uses. Returns per-arm (mean, sd, n)."""
     xs = _cat_axes(ax, "dimensions used")
@@ -508,6 +557,46 @@ def panel_d(ax, c):
     top = max((g.max() for g in groups if len(g)), default=10.0)
     ax.set_ylim(0, top * 1.12)
     return res
+
+
+def panel_weight_shape(ax, c):
+    """Width against shape of the recurrent-weight distribution, one colour per arm.
+
+    The weight-magnitude curves show every arm's distribution but make the comparison a matter of
+    reading six overlapping lines. The two statistics that separate the arms are the WIDTH of ln|W|
+    and its SHAPE, and they are independent failures: plotting them on two axes shows at a glance
+    that only rescale commits both, which a table of four columns does not.
+
+    x is sd(ln|W|), the lognormal width parameter; y is the excess kurtosis of ln|W|, which is 0 for
+    an exact lognormal. Both are invariant under multiplying every weight by a constant.
+
+    Args:
+        ax: axes; c: the cache dict, restricted to one N and one cell per grid arm.
+    Returns:
+        list of (arm, mean sd, mean excess kurtosis) in ARMS order, skipping absent arms.
+    """
+    out = []
+    for kind, _, full, col in ARMS:
+        m = c["arm"] == kind
+        if not m.any():
+            continue
+        x = np.asarray(c["w_sigma_log"][m], float)
+        y = np.asarray(c["w_kurt_log"][m], float)
+        ax.plot(x, y, "o", ms=4.2, color=col, mec="white", mew=0.6, zorder=3,
+                label=f"{full} ({m.sum()})")
+        ax.plot(x.mean(), y.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=4)
+        out.append((kind, float(x.mean()), float(y.mean())))
+    # an exact lognormal sits on this line; the control is already well above it, so the axis is
+    # drawn to show that no arm is lognormal in absolute terms and the comparison is to the control
+    ax.axhline(0.0, color=ps.FAINT, lw=0.7, ls=":", zorder=1)
+    ax.annotate("exact lognormal", (ax.get_xlim()[0], 0.0), textcoords="offset points",
+                xytext=(3, 3), ha="left", va="bottom", fontsize=5.4, color=ps.MUTED)
+    ax.set_xlabel("width of the distribution,  sd $\\ln|W|$")
+    ax.set_ylabel("departure from lognormal,\nexcess kurtosis of $\\ln|W|$")
+    ax.legend(loc="upper left", fontsize=5.4, handlelength=1.0, borderpad=0.25,
+              borderaxespad=0.3, ncol=1)
+    ps.ygrid(ax)
+    return out
 
 
 def lognormal_verdict(out, ctl="control", width_tol=0.15, ks_tol=2.0):
@@ -571,7 +660,14 @@ def panel_e(ax, c):
         # the arms differ by orders of magnitude in spread, so the window is taken from the data:
         # a fixed one either clips the widest arm or squeezes the others into a spike
         lo_x.append(mid[np.searchsorted(cdf, 0.01)])
-        hi_x.append(mid[np.searchsorted(cdf, 0.99)])
+        # ⚠️ THE RIGHT EDGE IS THE END OF THE SUPPORT, NOT THE 99TH PERCENTILE. It was q99 until
+        # 2026-10-01, which cut every curve off mid-descent: each arm's largest weights run 0.9 to
+        # 1.6 decades past its own q99, so the curves stopped against the frame instead of falling
+        # to the floor and the panel read as if the data had been truncated. The two edges are
+        # treated differently on purpose - |W| has a hard upper end a decade or so above q99, while
+        # the lower tail runs to the 1e-12 zero tolerance with no natural stopping point, so a
+        # support-based LEFT edge would push every arm but rescale into a sliver.
+        hi_x.append(mid[np.nonzero(d > 0)[0][-1]])
         m = c["arm"] == kind
         out[kind] = dict(median=float(mid[np.searchsorted(cdf, 0.5)]),
                          sigma_log=float(np.mean(c["w_sigma_log"][m])),
@@ -629,19 +725,39 @@ def _size_series(c, arm, key):
 
 
 def _size_arms(c):
-    """The arms worth drawing in the size panels: those measured at more than one size.
+    """The arms to draw in the size panels, with how many sizes each one covers.
 
     Args:
         c: the full cache dict.
     Returns:
-        list of (arm, short label, colour) in ARMS order.
+        list of (arm, short label, colour, n sizes) in ARMS order. An arm present at a SINGLE size
+        is kept and reported as such: dropping it would hide a measured arm, and drawing it as a
+        line of one point hides it just as well.
     """
     out = []
+    tr = restrict(c)
     for arm, short, _, col in ARMS:
-        n_sizes = len({int(v) for v in c["N"][c["arm"] == arm]})
-        if n_sizes > 1:
-            out.append((arm, short, col))
+        # ⚠️ COUNT SIZES UNDER THE FIGURE'S OWN TASK RESTRICTION. Counting them on the raw cache
+        # pools all three tasks, and the gate then disagrees with `_size_series`, which restricts
+        # to TASK_MAIN. `both` has one size on the flip-flop and three on DMTS, so it passed a
+        # ">1 size" gate on DMTS rows and was then drawn as a single flip-flop point - which reads
+        # as missing data rather than as the one cell it is.
+        n_sizes = len({int(v) for v in tr["N"][tr["arm"] == arm]})
+        if n_sizes:
+            out.append((arm, short, col, n_sizes))
     return out
+
+
+def _size_marker(n_sizes):
+    """Plot args for a size series: a line of dots, or one larger marker for a single-size arm.
+
+    Args:
+        n_sizes: how many sizes the arm covers.
+    Returns:
+        (fmt, markersize): a 3 pt line-and-dot series, or a 5.5 pt diamond standing alone, which is
+        legible next to five full series where a lone 3 pt dot is not.
+    """
+    return ("-o", 3.0) if n_sizes > 1 else ("D", 5.5)
 
 
 def panel_f(ax, c):
@@ -657,11 +773,12 @@ def panel_f(ax, c):
     ax.plot(ns_all, ns_all, lw=0.7, ls=":", color=ps.FAINT, zorder=1)
     ax.annotate("every unit active", (ns_all[-1], ns_all[-1]), textcoords="offset points",
                 xytext=(-2, 3), ha="right", va="bottom", fontsize=5.2, color=ps.MUTED)
-    for arm, short, col in _size_arms(c):
+    for arm, short, col, n_sizes in _size_arms(c):
         sizes, mu, sd, ns = _size_series(c, arm, "n_active")
         if not len(sizes):
             continue
-        ax.plot(sizes, mu, "-o", lw=1.1, ms=3.0, color=col, mec="white", mew=0.5, zorder=4,
+        fmt, ms = _size_marker(n_sizes)
+        ax.plot(sizes, mu, fmt, ms=ms, lw=1.1, color=col, mec="white", mew=0.6, zorder=4,
                 label=short)
         for n_units, v, k in zip(sizes, mu, ns):
             out.setdefault(int(n_units), {})[arm] = (float(v), int(k))
@@ -686,11 +803,12 @@ def panel_g(ax, c):
         dict {N: {arm: mean}}.
     """
     out = {}
-    for arm, short, col in _size_arms(c):
+    for arm, short, col, n_sizes in _size_arms(c):
         sizes, mu, sd, ns = _size_series(c, arm, R2_KEY)
         if not len(sizes):
             continue
-        ax.plot(sizes, mu, "-o", lw=1.1, ms=3.0, color=col, mec="white", mew=0.5, zorder=4,
+        fmt, ms = _size_marker(n_sizes)
+        ax.plot(sizes, mu, fmt, ms=ms, lw=1.1, color=col, mec="white", mew=0.6, zorder=4,
                 label=short)
         for n_units, v in zip(sizes, mu):
             out.setdefault(int(n_units), {})[arm] = float(v)

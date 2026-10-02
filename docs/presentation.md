@@ -358,26 +358,40 @@ The draw gives every unit two numbers: `c`, what it sends, and `s`, whether it r
 
 `mute` can only pressure read-out redundancy. `dead` reaches the recurrent wiring as well.
 
-### 24. A higher rate, and a sharper aim, keep more units alive
-<p align="center"><img src="../img/internal_figures/slide_24_dropout_rate_units.svg" width="760"></p>
+### 24. Every dropout run: what the extra units cost
+<p align="center"><img src="../img/internal_figures/slide_24_dropout_tradeoff.svg" width="760"></p>
 
-Four rates by three exponents by two kinds, three seeds each. 3-bit flip-flop, N = 1000, no
-penalty, 40,000 iterations, against the no-dropout cell of the same launcher.
+All 72 runs on one panel: active units on x, R-squared on y, so whether a setting's extra units are
+paid for is read directly rather than assembled from two panels of cell means. The sweep's three
+knobs ride on the marker — shape is the targeting exponent (circle 1, diamond 2, filled plus 4),
+viridis fill is the drop rate, and an enclosing ring is `dead` against bare for `mute`. The dose
+trend is read from colour, not from a line: paths through each (kind, beta) were drawn once and
+removed, because six polylines through 72 points buried the comparison the panel is for. Four
+rates by three exponents by two kinds, three seeds each. 3-bit flip-flop, N = 1000, no penalty, 40,000 iterations, against the no-dropout cell of the
+same launcher. R-squared is the trainer's noise-free, dropout-off probe, so a dropout net is scored
+on the full network exactly as the control is.
 
-Two settings are left out of the claim: `dead` at beta = 1 does not rise with the rate, and
-`mute` at rho = 0.05 rises by 25 units inside a 59-unit seed spread.
+**`dead`'s cost is not a function of the units it buys.** At rho = 0.25 the sharpest targeting buys
+963 units at R-squared 0.809, while beta = 2 buys 655 at 0.714 — more units and less cost at once.
+Split across a units panel and a cost panel, those are two points on two different curves and
+nothing connects them.
 
-An earlier version of this sweep found the rate irrelevant. That sampler scored |h|, which a
-silent unit scores as highly as a busy one, so half of every dose landed where dropping does
-nothing.
+**The control's own seed spread is wide enough to swallow the `mute` effect.** Its three seeds score
+0.932, 0.814 and 0.834, an sd of 0.063, because two of them blow up transiently (slide 23c). Only
+1 of 12 `mute` cells clears that band, against 4 of 12 for `dead`. "mute recruits units for free" is
+in part a statement about a noisy control, which is why the band is drawn rather than described.
 
-### 24b. mute recruits units for free; dead pays for them
-<p align="center"><img src="../img/internal_figures/slide_24b_dropout_rate_cost.svg" width="760"></p>
+Rate and targeting still move the count — that was the old slide 24 — with two settings outside the
+claim: `dead` at beta = 1 does not rise with the rate, and `mute` at rho = 0.05 rises by 25 units
+inside a 59-unit seed spread. An earlier version of this sweep found the rate irrelevant; that
+sampler scored |h|, which a silent unit scores as highly as a busy one, so half of every dose landed
+where dropping does nothing.
 
-The loss is the trainer's noise-free, dropout-off probe on a fresh batch, so every arm is scored on
-the full network. Put the training noise back and the picture softens: `mute` then gives up two
-points of R-squared, 0.945 to 0.922. `dead` is not in that cache, so its cost is quoted noise-free
-only.
+⚠️ **The instrument matters more than it looks.** Put the training noise back and the arms compress:
+`mute` then gives up two points of R-squared, 0.945 to 0.922, and `dead` is not in that cache at all.
+The prune-and-duplicate arm shows the same split far more violently — matched under the noise it
+trained in, 0.15 to 0.20 of R-squared worse without it — so neither number should be quoted without
+naming the evaluation.
 
 ### 24c. Dropout slows the silencing; it does not stop it
 <p align="center"><img src="../img/internal_figures/slide_24c_dropout_along_training.svg" width="760"></p>
@@ -444,24 +458,18 @@ and what rws contributes is the temporal quality of frm's units, not their numbe
 ### 32. The selectivity configuration
 <p align="center"><img src="../img/internal_figures/slide_32_selectivity.svg" width="760"></p>
 Every active unit as a point in the top three principal components of its own response — the static
-form of the selectivity movie. The control's 260 units collapse into a tight clump; both penalised
-conditions open into **three arms**.
+form of the selectivity movie. The control's units sit in a tight clump; both penalised conditions
+open into four limbs.
 
-**Three, not four**, and this was checked rather than eyeballed. Clustering the outer units'
-directions, the within-cluster inertia drops 19-fold from k = 2 to k = 3 (292 → 15.7 for frm) and
-then stalls: k = 4 barely improves it for frm + rws (22.69 → 22.49) and produces a 17-unit cluster
-only 7° from its neighbour — an arm split in half, not a fourth arm. The three are balanced
-(164/166/170 units) at 110–113°, and coplanar: the plane's normal is essentially the PC2 axis, with
-PC0/PC1 carrying 27%/25% of the variance against PC2's 11%.
+These are the **30,000-iteration** networks (`CDDM_std_g0`), not the 200,000-iteration penalty sweep
+slides 28–31 read. By 200k the configuration has collapsed to three coplanar arms. At 30k the
+four-way form is there in every seed: PC variance 0.29/0.16/0.15/0.15 for frm + rws — three
+near-equal components after the first, which is what a four-point structure gives — against
+0.30/0.25/0.10/0.06 at 200k. The 30k sweep is also the one carrying the selectivity movies.
 
-CDDM's four sensory channels do not make four arms here, because `motion_r + motion_l = 1` and
-`color_r + color_l = 1` — the four channels carry two signed coherences, not four free inputs. In
-tuning space (regression on motion, colour and context) the structure is two opposed groups at
-176–179°, dominated by choice. Four arms belong to the condition-trajectory plot, which shows
-2 contexts × 2 choices; this panel plots units, not conditions.
-
-The viewing angle is set from the fitted plane, not by eye: at other azimuths one arm hides behind
-another, which is why the original is an animation.
+Seed 3 is drawn, the median of five by four-cluster balance (0.53; seed 0 is the outlier at 0.13,
+seed 1 the most balanced at 0.72). The viewing angle maximises the clusters' on-screen separation
+over a grid of angles — at most views one limb hides behind another.
 
 ---
 

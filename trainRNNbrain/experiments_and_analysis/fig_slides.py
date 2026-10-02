@@ -231,7 +231,7 @@ def size_active_titled(ax, c):
         whatever F2.panel_f returns, {N: {arm: (mean, n)}}.
     """
     out = F2.panel_f(ax, c)
-    ax.set_title("Every arm beats the control at every size; none closes the gap\n" + SIZE_LINE,
+    ax.set_title("Active units against network size\n" + SIZE_LINE,
                  fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
     return out
 
@@ -253,7 +253,7 @@ def size_r2_with_legend(ax, c):
     # N = 4000 crash sweeps the lower right. A legend outside cannot collide with any of them.
     ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01), fontsize=5.5, handlelength=1.1,
               borderaxespad=0.0, ncol=3, columnspacing=1.0)
-    ax.set_title("The whole y axis spans 0.03 of $r^2$\n" + SIZE_LINE, fontsize=7.4,
+    ax.set_title("Held-out $r^2$ against network size\n" + SIZE_LINE, fontsize=7.4,
                  color=ps.INK, linespacing=1.35, pad=28)
     return out
 
@@ -347,10 +347,8 @@ def control_trajectory_slide(name="slide_07b_control_trajectory"):
                     fontsize=6.2, color=ps.INK, linespacing=1.25)
     ax.set(xscale="log", xlabel="training iteration", ylabel="active units of 1000")
     ax.set_ylim(top=ax.get_ylim()[1] * 1.18)      # headroom for the two rule labels
-    ax.set_title("The control is not one number — it depends when you look\n"
-                 f"CDDM, N = 1000, unpenalised, {len(curves)} seeds. The panels that follow each "
-                 "read at their own\nsweep's budget, so each is measured against the control at "
-                 "that budget.",
+    ax.set_title(f"CDDM, $N$ = 1000, unpenalised, {len(curves)} seeds\n"
+                 "active units against training iteration",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
     ps.ygrid(ax)
     return ps.save(fig, name)
@@ -421,10 +419,9 @@ def dropout_along_training_slide(name="slide_24c_dropout_along_training"):
             ylim=(lo * 0.7, 1.6))      # headroom so the 1e0 tick is not printed on the frame edge
     ps.ygrid(ax2)
     (e0, s0), (e1, s1) = stats["no dropout"], stats["mute dropout"]
-    fig.suptitle("Dropout delays the silencing; it does not stop it\n"
-                 f"3-bit flip-flop, $N$ = 1000, unpenalised, every seed. At 150,000 iterations "
-                 f"dropout holds {e1:.0f} units\nagainst {e0:.0f} — and is losing them faster "
-                 f"({s1:.0f} against {s0:.0f} units per decade), so the gap is closing.",
+    fig.suptitle("3-bit flip-flop, $N$ = 1000, unpenalised, every seed\n"
+                 f"left: live units against iteration;  right: clean training loss\n"
+                 f"at 150,000 iterations: no dropout {e0:.0f} units, mute dropout {e1:.0f}",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.02)
     # below the panels: a fourth title line ran into the loss axis's top tick label
     fig.text(0.5, -0.02,
@@ -616,7 +613,7 @@ def dropout_selection_slide(name="slide_23_dropout_selection", beta=2, rho=0.25,
         ax.plot([X["drawn"]], [y], marker="x" if drawn[k] else ".",
                 ms=5.0 if drawn[k] else 3.0, mew=1.3,
                 color=ps.BAD if drawn[k] else ps.FAINT, zorder=4)
-    fig.suptitle("Each unit gets its own drop probability, then its own coin flip\n"
+    fig.suptitle("The dropout sampler, step by step\n"
                  f"rate $v_i$  $\\rightarrow$  live pool  $\\rightarrow$  rank  $\\rightarrow$  "
                  rf"$p_i \propto e^{{\beta\,\mathrm{{rank}}/M}}$, scaled so they sum to "
                  rf"{rho:g}$M$  $\rightarrow$  Bernoulli($p_i$), one draw per unit per step",
@@ -646,7 +643,7 @@ def dropout_kinds_slide(name="slide_23d_dropout_kinds"):
                     "disappears only from the output", label_arrows=True)
     _unit_schematic(ax, 0.26, {"drive", "noise", "rec", "out"}, "dead",
                     "loses its own drive and its own noise too,\nso it decays to zero and sends nothing")
-    fig.suptitle("A dropped unit can lose its output, or everything",
+    fig.suptitle("The two dropout kinds: mute and dead",
                  fontsize=8.6, color=ps.INK, y=1.02)
     return ps.save(fig, name, w_mm=110)
 
@@ -680,7 +677,7 @@ def dropout_targeting_slide(name="slide_23b_dropout_targeting"):
            ylabel="probability of being dropped")
     ax.legend(loc="upper left", bbox_to_anchor=(0.0, 0.86), fontsize=6.8, handlelength=1.8)
     ps.ygrid(ax)
-    fig.suptitle(r"$\beta$ decides how hard dropout aims at the busiest units"
+    fig.suptitle(r"Drop probability against activity rank, at three $\beta$"
                  "\nThe busiest living unit is $e^{\\beta}$ times likelier than the quietest: "
                  r"2.7, 7.4, 55 at $\beta$ = 1, 2, 4.",
                  fontsize=8.0, color=ps.INK, linespacing=1.4, y=1.03)
@@ -747,7 +744,7 @@ def dropout_dose_slide(name="slide_23c_dropout_dose", rho=0.25):
     ax.set_yticklabels(["200", "300", "500", "1000"])
     ax.yaxis.set_minor_formatter(NullFormatter())
     ps.ygrid(ax)
-    fig.suptitle("The drop rate is a share of the units still alive\n"
+    fig.suptitle("3-bit flip-flop, $N$ = 1000: the live pool, and the drops it is charged\n"
                  f"The pool falls to {ends[0]}-{ends[-1]} units by iteration 40,000, so "
                  rf"$\rho$ = {rho:g} spends {rho * ends[0]:.0f}-{rho * ends[-1]:.0f} drops a step, "
                  rf"where $\rho N$ would spend {rho * 1000:.0f}.",
@@ -869,7 +866,8 @@ def dropout_rate_units_slide(name="slide_24_dropout_rate_units"):
     beta_bad = [rf"{k} at $\rho$ = {r:g}" for k, _ in BERN_KINDS for r in BERN_RATES
                 if not _rises([grid[(k, r, b)] for b in BERN_BETAS])]
     exc = " Exceptions: " + ", ".join(rate_bad + beta_bad) + "." if (rate_bad or beta_bad) else ""
-    fig.suptitle("A higher rate, and a sharper aim, keep more units alive\n"
+    fig.suptitle(r"3-bit flip-flop, $N$ = 1000: active units over the $\rho$ x $\beta$ grid"
+                 "\n"
                  f"{ctrl_a.mean():.0f} of 1000 with no dropout, "
                  f"{grid[('mute', 0.25, 4)][0].mean():.0f} at mute "
                  rf"$\rho$ = 0.25, $\beta$ = 4, "
@@ -901,7 +899,8 @@ def dropout_rate_cost_slide(name="slide_24b_dropout_rate_cost"):
             color=ps.BASE, va="bottom")
     mute = [grid[("mute", r, b)][1].mean() for r in BERN_RATES for b in BERN_BETAS]
     dead = [grid[("dead", r, b)][1].mean() for r in BERN_RATES for b in BERN_BETAS]
-    fig.suptitle("mute recruits units for free; dead pays for them\n"
+    fig.suptitle(r"3-bit flip-flop, $N$ = 1000: clean loss over the $\rho$ x $\beta$ grid"
+                 "\n"
                  f"mute stays between {min(mute):.3f} and {max(mute):.3f} against the control's "
                  f"{ctrl_l.mean():.3f}; dead reaches {max(dead):.3f}, about "
                  f"{max(dead) / ctrl_l.mean():.1f} times the control.",
@@ -1002,7 +1001,7 @@ def penalty_size_slide(task, name=None):
     ax.set_xticks(allN)
     ax.set_xticklabels([str(n) for n in allN])
     ax.xaxis.set_minor_locator(NullLocator())
-    ax.set_title(f"{lab}: frm saturates the network, rws barely moves it", fontsize=7.6,
+    ax.set_title(f"{lab}: active units against network size", fontsize=7.6,
                  color=ps.INK, pad=5)
     ax.legend(loc="upper left", fontsize=6.0, handlelength=1.1, borderaxespad=0.25)
     ps.ygrid(ax)
@@ -1091,43 +1090,54 @@ def temporal_pr_slide(name="slide_30_temporal_pr"):
         if j:
             ax.set_xlabel("time step")
         ps.ygrid(ax)
-    fig.suptitle("rws does not change the typical unit — it rescues the worst ones\n"
-                 f"CDDM, $N$ = 1000, 3 seeds.  Burst units (tPR/n < {BURST}): frm "
-                 f"{np.mean(stats['frm'][1]):.0f}%, frm + rws {np.mean(stats['both'][1]):.0f}%."
-                 f"\nDotted: burst cut.  Dashed: that row's lower quartile.  "
-                 f"Right: two units of one frm net, trial-averaged.",
+    fig.suptitle("CDDM, $N$ = 1000, 200,000 iterations, 3 seeds per condition\n"
+                 "left: temporal participation ratio of every live unit, "
+                 "dotted = burst cut, dashed = that row's quartile\n"
+                 "right: two units of one frm net, trial-averaged",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.03)
     return ps.save(fig, name)
 
 
-def selectivity_slide(name="slide_32_selectivity"):
-    """The selectivity configuration of three conditions: every unit a point in its own PC space.
+SEL_CACHE = "data/cddm_selectivity_cache.npz"
 
-    The same construction PerformanceAnalyzer.animate_selectivity spins as a movie - flatten each
-    unit's response over (time, trial), take the principal components across units, and scatter the
-    units - drawn statically at one viewing angle so three conditions can be compared side by side.
+
+def selectivity_slide(name="slide_32_selectivity", seed=3):
+    """CDDM selectivity configuration: every active unit a point in the top PCs of its response.
+
+    ⚠️ THESE ARE THE 30,000-ITERATION NETWORKS (CDDM_std_g0), not the 200,000-iteration penalty sweep
+    slides 28-31 read. By 200k the configuration has collapsed to three coplanar arms; at 30k it
+    still has the four-armed form, consistently across all five seeds - frm + rws sits at variance
+    0.29/0.16/0.15/0.15, three near-equal components after the first, which is what a four-point
+    structure gives, against 0.30/0.25/0.10/0.06 for the 200k networks. The 30k sweep is also the one
+    carrying the animated_selectivity movies.
 
     Args:
-        name: output file stem.
+        name: output file stem;
+        seed: which seed to draw, the same one for every condition. Seed 3 is the MEDIAN seed by
+            four-cluster balance (smallest/largest = 0.53, against 0.13 for seed 0, the outlier, and
+            0.72 for seed 1), so the panel is neither the best nor the worst case.
     Returns:
-        the output path, or None if the cache lacks the coordinates.
+        the output path, or None if the cache is missing.
     """
-    z = _pen_cache()
-    if z is None:
+    if not os.path.exists(SEL_CACHE):
+        print(f"  SKIP {name}: {SEL_CACHE} missing (build it with cddm_selectivity_cache.py)")
         return None
+    z = np.load(SEL_CACHE, allow_pickle=True)
     show = [(a_, l_, c_) for a_, l_, c_ in PEN_ARMS
-            if a_ in ("control", "frm", "both") and f"{a_}|0|pcs" in z.files]
+            if a_ in ("control", "frm", "both") and f"{a_}|{seed}|pcs" in z.files]
     if not show:
-        print(f"  SKIP {name}: no selectivity coordinates in the cache")
+        print(f"  SKIP {name}: no coordinates for seed {seed}")
         return None
     ps.setup()
-    # stacked, not side by side: three 3-D boxes in a row are each too small to read the structure
     fig = plt.figure(figsize=(78 * ps.MM, 150 * ps.MM))
     for i, (arm, lab, col) in enumerate(show):
         ax = fig.add_subplot(len(show), 1, i + 1, projection="3d")
-        P = np.asarray(z[f"{arm}|0|pcs"], float)
+        P = np.asarray(z[f"{arm}|{seed}|pcs"], float)
+        var = np.asarray(z[f"{arm}|{seed}|var"], float)
         ax.scatter(P[:, 0], P[:, 1], P[:, 2], s=5.0, c=col, alpha=0.55, linewidths=0, zorder=3)
-        ax.set_title(f"{lab}  ({len(P)} active units)", fontsize=7.0, color=ps.INK, pad=0)
+        ax.set_title(f"{lab}  ({len(P)} active units;  PC variance "
+                     f"{', '.join(f'{v:.2f}' for v in var[:3])})",
+                     fontsize=6.6, color=ps.INK, pad=0)
         for pane in (ax.xaxis, ax.yaxis, ax.zaxis):
             pane.set_pane_color((1.0, 1.0, 1.0, 0.0))
             pane.line.set_color(ps.GRID)
@@ -1135,71 +1145,15 @@ def selectivity_slide(name="slide_32_selectivity"):
         ax.set_xlabel("PC1", fontsize=6.0, labelpad=-10)
         ax.set_ylabel("PC2", fontsize=6.0, labelpad=-10)
         ax.set_zlabel("PC3", fontsize=6.0, labelpad=-10)
-        # ⚠️ THE ANGLE IS CHOSEN FROM THE GEOMETRY, not by eye. Clustering the outer units'
-        # DIRECTIONS gives three balanced arms (164/166/170 units for frm) at 110-113 degrees apart;
-        # forcing k = 4 splits one of them into an 11-unit fragment and the angles go irregular, so
-        # there are three arms, not the four the task's two-contexts-by-two-choices might suggest.
-        # They are coplanar - the plane's normal is (0.14, -0.13, 0.98), essentially the PC2 axis,
-        # and PC0/PC1 carry 27%/25% of the variance against PC2's 11%. This elevation looks down
-        # toward that plane far enough to separate all three without flattening the panel to 2-D.
-        ax.view_init(elev=52, azim=-40)
-        # a 3-D axes leaves wide internal margins by default; this fills the row it was given
+        # elev/azim chosen by MAXIMISING the on-screen separation of the four clusters over a
+        # grid of angles, not by eye: a 3-D structure hides arms behind one another at most views
+        ax.view_init(elev=36, azim=300)
         ax.set_box_aspect((1.0, 1.0, 0.75), zoom=1.22)
-    fig.suptitle("Selectivity configuration: every active unit as a point in its own PC space\n"
-                 "CDDM, $N$ = 1000, one seed each. Axes share no scale between panels.",
+    fig.suptitle(f"CDDM, $N$ = 1000, 30,000 iterations, seed {seed}\n"
+                 "every active unit as a point in the top three PCs of its own response;\n"
+                 "axes share no scale between panels",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.0)
-    # 3-D axes overhang their own box; stacked they need room at the sides and between rows
-    # hspace has to clear the PC2 label, which a 3-D axes draws below its own box: at 0.05 the next
-    # row's title printed on top of it ("PC2rm")
     fig.subplots_adjust(left=0.02, right=0.98, top=0.92, bottom=0.02, hspace=0.22)
-    return ps.save(fig, name)
-
-
-def frm_vs_both_slide(name="slide_31_frm_vs_both"):
-    """frm against frm + rws on all four measures, one task, one size.
-
-    Args:
-        name: output file stem.
-    Returns:
-        the output path, or None if the cache is missing.
-    """
-    z = _pen_cache()
-    if z is None:
-        return None
-    arm = z["arm"]
-    ps.setup()
-    fig, axes = plt.subplots(1, 4, figsize=(ps.W2, 56 * ps.MM))
-    panels = [("n_active", "active units of 1000"), ("r2", "noise-free $R^2$"),
-              ("dims", "dimensionality (PR)"), (None, "recurrent weights")]
-    for ax, (key, ylab) in zip(axes, panels):
-        if key is None:
-            edges = np.asarray(z["log_bins"], float)
-            mid = 0.5 * (edges[1:] + edges[:-1])
-            for a, lab, col in PEN_ARMS:
-                hs = [z[k] for k in z.files if k.startswith(f"{a}|") and k.endswith("|w_hist")]
-                if not hs:
-                    continue
-                d = np.mean([h / h.sum() for h in hs], axis=0) / (mid[1] - mid[0])
-                ax.plot(mid, np.where(d > 0, d, np.nan), lw=1.1, color=col, zorder=4, label=lab)
-            ax.set(xlabel="$\\log_{10}|W_{ij}|$", ylabel="density", yscale="log",
-                   xlim=(-6, 1), ylim=(2e-4, 40))
-            ax.legend(loc="upper left", fontsize=5.4, handlelength=0.9, borderaxespad=0.2)
-        else:
-            xs = np.arange(len(PEN_ARMS), dtype=float)
-            for x, (a, lab, col) in zip(xs, PEN_ARMS):
-                v = np.asarray(z[key], float)[arm == a]
-                if not len(v):
-                    continue
-                ax.plot([x] * len(v), v, "o", ms=3.6, color=col, mec="white", mew=0.5, zorder=4)
-                ax.plot([x], [v.mean()], "s", ms=6.5, color=col, mec="white", mew=1.0, zorder=5)
-            ax.set_xticks(xs)
-            ax.set_xticklabels([l for _a, l, _c in PEN_ARMS], fontsize=5.8, rotation=22,
-                               ha="right", rotation_mode="anchor")
-            ax.set_xlim(-0.6, len(xs) - 0.4)
-            ax.set_ylabel(ylab, fontsize=6.4)
-        ps.ygrid(ax)
-    fig.suptitle("frm and frm + rws, all four measures — CDDM, $N$ = 1000, 3 seeds each",
-                 fontsize=7.6, color=ps.INK, y=1.02)
     return ps.save(fig, name)
 
 
@@ -1365,7 +1319,7 @@ def inputscale_r2_slide(name="slide_x_inputscale_r2", at_iter=150_000):
     ax.set_ylim(mid - 0.01, mid + 0.01)
     ax.set_xlabel("active units of 1000  (scale-free rule, $p \\geq 0.05\\,q_{95}(p)$)")
     ax.set_ylabel("task $R^2$, noise-free probe")
-    ax.set_title("No rung of the ladder trades performance for live units\n"
+    ax.set_title("3-bit flip-flop, $N$ = 1000: $R^2$ against active units\n"
                  f"3-bit flip-flop, N = 1000. {readout_line(probes)} Every seed "
                  f"drawn.\n{len(every_r2)} networks spanning {every_active.min():.0f}\u2013"
                  f"{every_active.max():.0f} active units sit within "
@@ -1652,7 +1606,7 @@ def activation_r2_slide(name, ladder, cell_fn, at_iter, task_line, n_units=1000,
     ax.set_ylabel("task $R^2$, noise-free")
     note = ("\n" + "; ".join(missing) + (" is" if len(missing) == 1 else " are")
             + " still training") if missing else ""
-    ax.set_title(f"{headline or 'The activations differ in live units, not in performance'}\n"
+    ax.set_title(f"{headline or '$R^2$ against active units'}\n"
                  f"{task_line} {readout_line(probes)}\n"
                  f"{len(every_r2)} networks spanning {every_active.min():.0f}–"
                  f"{every_active.max():.0f} active units sit within "
@@ -1771,9 +1725,8 @@ def metabolic_r2_slide(name="slide_x_metabolic_r2"):
     ax.set_ylim(0.88, 1.00)
     lo = np.mean([c[2] for c in drawn if c[0].endswith("= 10")][0])
     ref = np.mean([c[2] for c in drawn if "no penalty" in c[0]][0])
-    ax.set_title(f"Up to $\\lambda$ = 1 the penalty is free; $\\lambda$ = 10 costs "
-                 f"{ref - lo:.2f} of r$^2$\n"
-                 f"CDDM, N = 1000, read at 30,000 iterations (last probe {probe}). "
+    ax.set_title("CDDM, $N$ = 1000: r$^2$ against active units\n"
+                 f"read at 30,000 iterations (last probe {probe}). "
                  "Circles are networks, squares the cell means.",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, pad=6)
     ax.legend(loc="lower right", fontsize=5.8, handlelength=1.0, borderpad=0.2,
@@ -2340,7 +2293,7 @@ def main(list_only=False):
         "slide_x_weightdecay_r2", WEIGHTDECAY_CDDM, cddm_activation_cell, 199_900,
         "CDDM, N = 1000. $R^2$ is the noise-free re-score of each net's final parameters. "
         "Every seed drawn.",
-        headline="Weight decay removes units without the task noticing")
+        headline="CDDM, $N$ = 1000: $R^2$ against active units")
     if got:
         out.append(got)
     got = activation_r2_slide(

@@ -156,13 +156,12 @@ def tradeoff_slide(name="slide_24_dropout_tradeoff"):
                    for k, _ in BERN_KINDS}
     mu_a, mu_r, slope_m = stat["mute"]
     de_a, de_r, slope_d = stat["dead"]
+    # THE FIGURE STATES WHAT IT IS, NOT WHAT IT MEANS. The claim belongs in the deck text, where it
+    # can be read, argued with and changed without re-rendering; a title that interprets its own
+    # panel tells the audience what to see before they have seen it.
     fig.suptitle(
-        "Every dropout run: what the extra units cost\n"
-        f"mute buys {mu_a.min():.0f}-{mu_a.max():.0f} units at $R^2$ {mu_r.min():.3f}-{mu_r.max():.3f} "
-        f"({slope_m:+.3f} per 100 units); dead buys {de_a.min():.0f}-{de_a.max():.0f} "
-        f"and falls to {de_r.min():.3f} ({slope_d:+.3f})\n"
-        f"{out_of_band['mute']} of 12 mute cells and {out_of_band['dead']} of 12 dead cells clear "
-        f"the control's own seed band",
+        "3-bit flip-flop, $N$ = 1000, 150,000 iterations\n"
+        "active units against $R^2$, one point per run, 12 cells per dropout kind",
         fontsize=8.0, color=ps.INK, linespacing=1.45, y=1.145)
     fig.text(0.5, -0.02, "Scored in the noise the networks trained in, the arms compress and "
              r"$\texttt{mute}$ gives up about two points of $R^2$ (0.945 to 0.922).".replace(

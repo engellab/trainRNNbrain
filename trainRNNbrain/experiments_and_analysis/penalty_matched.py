@@ -86,9 +86,18 @@ def clean_loss(folder, mask, train, heldout):
         return None
     d = np.load(pf[0], allow_pickle=True)
     params = {k: d[k] for k in d.files}
-    params["activation_name"] = "relu"
-    params.pop("activation_args", None)
-    rnn = RNN_numpy(**filter_kwargs(RNN_numpy, params), seed=0)
+    # ⚠️ Both of these come from the run's CONFIG, and neither can be left to a default.
+    #   - equation_type is NOT saved in the npz at all, and RNN_numpy defaults it to "s" while every
+    #     net in this project is "h". Simulating the wrong one scores a good net near zero.
+    #   - the activation was previously forced to ReLU here: `activation_name` is not a RNN_numpy
+    #     parameter, so filter_kwargs dropped it, and popping `activation_args` left the constructor
+    #     on its own ReLU default. That was right by accident while every net in these two sweeps was
+    #     a ReLU net, and silently wrong the moment one is not - the activation sweeps now have
+    #     softplus, leaky-ReLU and sigmoid nets, which this would have scored as ReLU without error.
+    cfg = OmegaConf.load(glob.glob(os.path.join(folder, "*_config.yaml"))[0])
+    params["activation_args"] = OmegaConf.to_container(cfg.model.activation_args, resolve=True)
+    rnn = RNN_numpy(**filter_kwargs(RNN_numpy, params),
+                    equation_type=str(cfg.model.equation_type), seed=0)
 
     out = []
     for inputs, target in (train, heldout):
