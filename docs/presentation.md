@@ -307,10 +307,40 @@ the next cache rebuild.
 
 ## PER-INTERVENTION DETAIL
 
-### 23. A dropped unit can lose its output, or everything
-<p align="center"><img src="../img/internal_figures/slide_23_dropout_kinds.svg" width="760"></p>
+### 23. Each unit gets its own drop probability, then its own coin flip
+<p align="center"><img src="../img/internal_figures/slide_23_dropout_selection.svg" width="760"></p>
 
-A draw gives every unit two numbers: `c`, what it sends, and `s`, whether it runs.
+```
+    v_i  = std(r_i) + q_0.9(r_i)                  firing rate, as a running average over iterations
+    L    = { i : v_i >= 0.05 * q_95(v) },  M = |L|        the live pool; the rest are skipped
+    w_i  = softmax( beta * rank_i / (M - 1) )     rank inside L, 0 = quietest
+    p_i  = min( p_max, kappa * w_i ),  kappa set so that  sum over L of p_i = rho * M
+    d_i  ~ Bernoulli(p_i), drawn independently, every unit every iteration
+```
+
+Independent coin flips rather than a fixed top-k draw, so that p_i *is* each unit's marginal drop
+probability. The code also implements two other scores, `uniform` (v = 1) and `output_weights`
+(v_i = sum_o |W_out[o,i]|); neither has been swept. The next two slides are the two knobs in that
+chain.
+
+### 23b. Beta decides how hard dropout aims at the busiest units
+<p align="center"><img src="../img/internal_figures/slide_23b_dropout_targeting.svg" width="760"></p>
+
+Beta tilts w_i, and so p_i, toward the top of the live ranking. Ranks, not raw rates: participation
+grows by more than tenfold over training, so on raw rates beta = 4 ended up drawing the same unit
+every iteration.
+
+### 23c. The drop rate is a share of the units still alive
+<p align="center"><img src="../img/internal_figures/slide_23c_dropout_dose.svg" width="760"></p>
+
+Rho fixes the budget the probabilities are scaled to. It multiplies the live pool M rather than N
+because dropping an already-silent unit moves no other unit's state at all, so a dose spread over
+all N is mostly spent on nothing.
+
+### 23d. A dropped unit can lose its output, or everything
+<p align="center"><img src="../img/internal_figures/slide_23d_dropout_kinds.svg" width="760"></p>
+
+The draw gives every unit two numbers: `c`, what it sends, and `s`, whether it runs.
 
 ```
     mute    dynamics untouched;      y = W_out (c * r)
@@ -321,31 +351,6 @@ A draw gives every unit two numbers: `c`, what it sends, and `s`, whether it run
 ```
 
 `mute` can only pressure read-out redundancy. `dead` reaches the recurrent wiring as well.
-
-### 23b. Beta decides how hard dropout aims at the busiest units
-<p align="center"><img src="../img/internal_figures/slide_23b_dropout_targeting.svg" width="760"></p>
-
-```
-    v_i = std(r_i) + q_0.9(r_i)                a unit's firing rate, kept as a running average
-    w_i = softmax( beta * rank_i / (M - 1) )   rank among the live units, 0 = quietest
-```
-
-Ranks, not raw scores: participation grows by more than tenfold over training, so on raw scores
-beta = 4 ended up drawing the same unit every iteration. The code also implements `uniform`
-(v = 1) and `output_weights` (v_i = sum_o |W_out[o,i]|); neither has been swept.
-
-### 23c. The drop rate is a share of the units still alive
-<p align="center"><img src="../img/internal_figures/slide_23c_dropout_dose.svg" width="760"></p>
-
-```
-    pool    L = { i : v_i >= 0.05 * q_95(v) },   M = |L|
-    p_i     = min( p_max, kappa * w_i ),  kappa set so that  sum over L of p_i = rho * M
-    draw    d_i ~ Bernoulli(p_i), independently
-```
-
-Dropping an already-silent unit moves no other unit's state at all, so sampling over all N only
-dilutes the dose. Independent draws are what make p_i the marginal drop probability, and that is
-what makes the 1 / (1 - p_i) factor exact rather than a guess.
 
 ### 24. A higher rate, and a sharper aim, keep more units alive
 <p align="center"><img src="../img/internal_figures/slide_24_dropout_rate_units.svg" width="760"></p>

@@ -37,6 +37,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
 from matplotlib.ticker import NullFormatter, NullLocator, ScalarFormatter
 from matplotlib import transforms
 
@@ -536,7 +537,99 @@ def _unit_schematic(ax, y0, cut, title, note, label_arrows=False):
         ax.text(0.30, y0 - 0.050, "rate", fontsize=5.8, color=ps.MUTED, ha="center", va="top")
 
 
-def dropout_kinds_slide(name="slide_23_dropout_kinds"):
+def dropout_selection_slide(name="slide_23_dropout_selection", beta=2, rho=0.25, seed=3):
+    """One claim: every unit gets its own drop probability, then its own coin flip.
+
+    23b and 23c each zoom into one step of this chain, so the chain has to be shown first. The
+    numbers are not illustrative: a real control network's final participation vector goes through
+    the production live-pool rule, the production softmax over ranks and the production
+    `drop_probabilities`, and fourteen of its thousand units are printed.
+
+    Args:
+        name: output file stem; beta: targeting exponent to draw; rho: drop rate;
+        seed: generator seed for the one Bernoulli draw shown in the last column.
+    Returns:
+        the output path, or None if the control trace is missing.
+    """
+    ctrl = sorted(glob.glob(os.path.join(DATA_DIR, BERN_CTRL, "*", "")))
+    if not ctrl:
+        print(f"  SKIP {name}: {BERN_CTRL} missing")
+        return None
+    with open(glob.glob(os.path.join(ctrl[0], "*ParticipationTrace.pkl"))[0], "rb") as fh:
+        v = np.asarray(pickle.load(fh)["participation"][-1], float)
+    live = v >= ACTIVE_REL * np.quantile(v, 0.95)
+    M = int(live.sum())
+    vp = torch.tensor(v[live], dtype=torch.float32)
+    order = torch.argsort(vp)
+    rank = torch.empty_like(vp)
+    rank[order] = torch.arange(M, dtype=vp.dtype)
+    w = torch.softmax(beta * rank / max(M - 1, 1), dim=0)
+    p_live = drop_probabilities(w, rho * M, p_max=P_MAX)
+    drawn = (torch.bernoulli(p_live, generator=torch.Generator().manual_seed(seed)) > 0).numpy()
+
+    # fourteen units: four silent ones and ten spanning the live ranks, so the panel shows both the
+    # exclusion and the gradient rather than fourteen units from the same part of the range.
+    idx_live = np.flatnonzero(live)
+    rk = rank.numpy()
+    pick_live = idx_live[np.argsort(rk)][np.linspace(0, M - 1, 10).astype(int)]
+    pick_dead = np.flatnonzero(~live)[np.linspace(0, int((~live).sum()) - 1, 4).astype(int)]
+    rows = sorted(np.concatenate([pick_live, pick_dead]),
+                  key=lambda i: -v[i])
+    pos = {j: k for k, j in enumerate(idx_live)}
+
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, 70 * ps.MM))
+    # a blank table fills its canvas; the default subplot margins would leave a quarter of the
+    # slide empty on the left while the title ran the full width above it.
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.90, bottom=0.02)
+    ps.blank(ax)
+    ax.set(xlim=(0, 1), ylim=(0, 1))
+    X = dict(unit=0.015, v=0.175, live=0.275, rank=0.40, p=0.50, bar=0.56, drawn=0.965)
+    head = [(X["unit"], "unit", "left"), (X["v"], "rate $v_i$", "right"),
+            (X["live"], "live?", "center"), (X["rank"], "rank", "right"),
+            (X["p"], "$p_i$", "right"), (X["bar"] + 0.10, "drop probability", "left"),
+            (X["drawn"], "drawn", "center")]
+    for x, t, ha in head:
+        ax.text(x, 0.955, t, fontsize=6.6, color=ps.MUTED, ha=ha, va="bottom")
+    ax.plot([0, 1], [0.935, 0.935], lw=0.6, color=ps.GRID, zorder=1)
+
+    ys = np.linspace(0.875, 0.055, len(rows))
+    for y, i in zip(ys, rows):
+        on = bool(live[i])
+        col = ps.INK if on else ps.FAINT
+        ax.text(X["unit"], y, f"#{i}", fontsize=6.4, color=col, va="center")
+        ax.text(X["v"], y, f"{v[i]:.2f}" if v[i] >= 0.01 else f"{v[i]:.0e}",
+                fontsize=6.4, color=col, va="center", ha="right")
+        ax.plot([X["live"]], [y], "o", ms=3.4, mew=0.8,
+                color=ps.COND_COL["mute"] if on else "none",
+                mec=ps.COND_COL["mute"] if on else ps.FAINT, zorder=3)
+        if not on:
+            ax.text(X["rank"] + 0.03, y, "never drawn", fontsize=6.2, color=ps.FAINT,
+                    va="center", ha="left", style="italic")
+            continue
+        k = pos[i]
+        pi = float(p_live[k])
+        ax.text(X["rank"], y, f"{int(rk[k]) + 1}", fontsize=6.4, color=col, va="center", ha="right")
+        ax.text(X["p"], y, f"{pi:.2f}", fontsize=6.4, color=col, va="center", ha="right")
+        ax.add_patch(Rectangle((X["bar"], y - 0.016), 0.38 * pi, 0.032, lw=0,
+                               color=ps.COND_COL["mute"], alpha=0.85, zorder=3))
+        ax.plot([X["drawn"]], [y], marker="x" if drawn[k] else ".",
+                ms=5.0 if drawn[k] else 3.0, mew=1.3,
+                color=ps.BAD if drawn[k] else ps.FAINT, zorder=4)
+    fig.suptitle("Each unit gets its own drop probability, then its own coin flip\n"
+                 f"rate $v_i$  $\\rightarrow$  live pool  $\\rightarrow$  rank  $\\rightarrow$  "
+                 rf"$p_i \propto e^{{\beta\,\mathrm{{rank}}/M}}$, scaled so they sum to "
+                 rf"{rho:g}$M$  $\rightarrow$  Bernoulli($p_i$), one draw per unit per step",
+                 fontsize=8.0, color=ps.INK, linespacing=1.5, y=1.035)
+    fig.text(0.5, -0.01,
+             f"A real control network at iteration 40,000: {M} of its 1000 units are live, "
+             rf"so $\rho$ = {rho:g} spends {rho * M:.0f} drops on them. "
+             f"Fourteen units shown, at $\\beta$ = {beta}.",
+             ha="center", va="top", fontsize=6.6, color=ps.MUTED)
+    return ps.save(fig, name, w_mm=110)
+
+
+def dropout_kinds_slide(name="slide_23d_dropout_kinds"):
     """One claim: a dropped unit can lose only its read-out, or everything.
 
     Args:
@@ -582,7 +675,8 @@ def dropout_targeting_slide(name="slide_23b_dropout_targeting"):
     ax.axhline(P_MAX, color=ps.BAD, lw=0.7, ls=(0, (2.2, 1.8)), zorder=2)
     ax.text(0.5, P_MAX + 0.015, r"ceiling $p_{\max}$ = 0.9", fontsize=6.2, color=ps.BAD,
             va="bottom", ha="center")
-    ax.set(xlim=(0, 1), ylim=(0, 1), xlabel="rank among the live units (1 = busiest)",
+    ax.set(xlim=(0, 1), ylim=(0, 1),
+           xlabel="rank among the live units (0 = quietest, 1 = busiest)",
            ylabel="probability of being dropped")
     ax.legend(loc="upper left", bbox_to_anchor=(0.0, 0.86), fontsize=6.8, handlelength=1.8)
     ps.ygrid(ax)
@@ -2192,8 +2286,9 @@ def main(list_only=False):
         got = _fn()
         if got:
             out.append(got)
-    for _fn in (dropout_kinds_slide, dropout_targeting_slide, dropout_dose_slide,
-                dropout_rate_units_slide, dropout_rate_cost_slide, dropout_along_training_slide):
+    for _fn in (dropout_selection_slide, dropout_targeting_slide, dropout_dose_slide,
+                dropout_kinds_slide, dropout_rate_units_slide, dropout_rate_cost_slide,
+                dropout_along_training_slide):
         got = _fn()
         if got:
             out.append(got)
