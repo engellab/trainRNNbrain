@@ -447,11 +447,21 @@ Every active unit as a point in the top three principal components of its own re
 form of the selectivity movie. The control's 260 units collapse into a tight clump; both penalised
 conditions open into **three arms**.
 
-Three, not four. Clustering the outer units' directions gives three balanced arms 110–113° apart
-(164/166/170 units for frm); forcing four splits one into an 11-unit fragment and the angles go
-irregular. The arms are coplanar — the plane's normal is essentially the PC2 axis, and PC0/PC1 carry
-27%/25% of the variance against PC2's 11%. The viewing angle is set from that geometry, not by eye:
-at other azimuths one arm hides behind another, which is why the original is an animation.
+**Three, not four**, and this was checked rather than eyeballed. Clustering the outer units'
+directions, the within-cluster inertia drops 19-fold from k = 2 to k = 3 (292 → 15.7 for frm) and
+then stalls: k = 4 barely improves it for frm + rws (22.69 → 22.49) and produces a 17-unit cluster
+only 7° from its neighbour — an arm split in half, not a fourth arm. The three are balanced
+(164/166/170 units) at 110–113°, and coplanar: the plane's normal is essentially the PC2 axis, with
+PC0/PC1 carrying 27%/25% of the variance against PC2's 11%.
+
+CDDM's four sensory channels do not make four arms here, because `motion_r + motion_l = 1` and
+`color_r + color_l = 1` — the four channels carry two signed coherences, not four free inputs. In
+tuning space (regression on motion, colour and context) the structure is two opposed groups at
+176–179°, dominated by choice. Four arms belong to the condition-trajectory plot, which shows
+2 contexts × 2 choices; this panel plots units, not conditions.
+
+The viewing angle is set from the fitted plane, not by eye: at other azimuths one arm hides behind
+another, which is why the original is an animation.
 
 ---
 
