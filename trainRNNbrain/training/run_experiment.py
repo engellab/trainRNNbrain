@@ -6,6 +6,7 @@ from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.training.training_utils import *
 from trainRNNbrain.utils import jsonify, unjsonify
 import time
+import json
 import pickle
 import hydra
 import matplotlib
@@ -175,15 +176,26 @@ def run_training(cfg: DictConfig) -> None:
         # under the SAME penalty, where it removes a restart transient instead of adding a bias.
         init_from = cfg.paths.get("init_from", None) if "paths" in cfg else None
         if init_from:
-            src = sorted(Path(init_from).glob("*LastParams*.np[zy]"))
+            # BOTH SAVE FORMATS. `light_outputs: true` writes LastParams as .npz; the ordinary path
+            # writes the same parameters as .json. The experiment lines that need topping up to the
+            # 75k standard (silent_units_std, silent_units_N1000) are on the json path, so a loader
+            # that read only .npz could not warm-start its own sweeps.
+            src = (sorted(Path(init_from).glob("*LastParams*.np[zy]"))
+                   or sorted(Path(init_from).glob("*LastParams*.json")))
             if not src:
-                raise FileNotFoundError(f"warm start: no *LastParams*.npz in {init_from}")
-            loaded = np.load(src[0], allow_pickle=True)
+                raise FileNotFoundError(f"warm start: no *LastParams*.npz or *LastParams*.json "
+                                        f"in {init_from}")
+            if src[0].suffix == ".json":
+                with open(src[0]) as fh:
+                    loaded = {k: np.asarray(v) for k, v in unjsonify(json.load(fh)).items()}
+            else:
+                z = np.load(src[0], allow_pickle=True)
+                loaded = {k: z[k] for k in z.files}
             with torch.no_grad():
                 for nm, prm in rnn_torch.named_parameters():
-                    if nm not in loaded.files:
+                    if nm not in loaded:
                         raise KeyError(f"warm start: '{nm}' missing from {src[0].name}; "
-                                       f"file has {sorted(loaded.files)}")
+                                       f"file has {sorted(loaded)}")
                     arr = np.asarray(loaded[nm], dtype=np.float32)
                     if tuple(arr.shape) != tuple(prm.shape):
                         raise ValueError(f"warm start: '{nm}' is {arr.shape} in the checkpoint but "
@@ -192,7 +204,7 @@ def run_training(cfg: DictConfig) -> None:
             # y_init is NOT a Parameter (it is the initial state, set from the seed at
             # construction) so the loop above skips it, yet it is saved and it changes the
             # dynamics. Restore it explicitly.
-            if "y_init" in loaded.files and getattr(rnn_torch, "y_init", None) is not None:
+            if "y_init" in loaded and getattr(rnn_torch, "y_init", None) is not None:
                 with torch.no_grad():
                     yi = torch.from_numpy(np.asarray(loaded["y_init"], dtype=np.float32))
                     rnn_torch.y_init.copy_(yi.to(rnn_torch.y_init.device, rnn_torch.y_init.dtype))
@@ -200,13 +212,13 @@ def run_training(cfg: DictConfig) -> None:
             # Anything array-valued in the checkpoint that was NOT restored is a silent divergence
             # between the source net and this one. Masks are rebuilt from config by construction and
             # are expected here; anything else is not, so say so rather than dropping it quietly.
-            skipped = sorted(k for k in loaded.files
+            skipped = sorted(k for k in loaded
                              if k not in done and np.asarray(loaded[k]).ndim > 0
                              and not k.endswith("_mask"))
             if skipped:
                 print(f"WARNING: warm start did not restore array(s) {skipped} — "
                       f"they come from this run's config instead")
-            print(f"warm start: loaded {sorted(done & set(loaded.files))} from {src[0]}")
+            print(f"warm start: loaded {sorted(done & set(loaded))} from {src[0]}")
             if cfg.paths.get("init_adam", False):
                 ast = sorted(Path(init_from).glob("*AdamState*.pt"))
                 if not ast:
