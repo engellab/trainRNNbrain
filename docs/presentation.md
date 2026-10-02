@@ -137,10 +137,15 @@ Of 1000 units: ReLU 272 active, leaky ReLU 278, softplus 249, sigmoid 205. None 
 
 ### 8b. And the units they shed were not doing anything
 <p align="center"><img src="../img/internal_figures/slide_x_activation_cddm_r2.svg" width="760"></p>
-191–284 active units, all within 0.016 of R² = 0.950.
+191–284 active units. Held-out R²: ReLU 0.8374, leaky ReLU 0.8365, sigmoid 0.8338, softplus 0.8318
+— a spread of 0.006 across the four arms.
 
-Noise-free matters here: the noise penalty is activation-dependent (+0.074 sigmoid against +0.062
-softplus), so on the folder score sigmoid is the worst arm and noise-free it is level with the rest.
+**The arms are not separable on this measure**, and the cleanest way to say so is that the spread
+between them (0.006) is smaller than the seed scatter inside one of them (sigmoid, sd 0.009). The
+deck used to argue the opposite way round on this slide — that the noise-free score was needed
+because the noise penalty is activation-dependent and sigmoid looked worst with the noise on. Scored
+held out, with every arm in the same noise, sigmoid is third of four by 0.002 and softplus is last;
+neither gap means anything against that scatter.
 
 ### 9. Nor on the other task
 <p align="center"><img src="../img/internal_figures/slide_x_activation_ff.svg" width="760"></p>
@@ -159,10 +164,13 @@ higher.
 
 ### 10b. …and the task does not notice the units it takes
 <p align="center"><img src="../img/internal_figures/slide_x_weightdecay_r2.svg" width="760"></p>
-Active units 395 → 272 → 171 → 84 across the ladder, a 4.7-fold drop; R² 0.950, 0.951, 0.953, 0.940.
+Active units 395 → 272 → 171 → 84 across the ladder, a 4.7-fold drop; held-out R² 0.8395, 0.8374,
+0.8332, 0.8235.
 
-Only the strongest rung costs anything: 10⁻⁴ is 0.011 below the default on a standard error of
-0.004, the same sign in all three seeds.
+The ladder is monotone in the dose on both axes. 10⁻⁴ sits 0.0139 below the default rung, on a
+standard error of 0.0039 — about 3.6 standard errors, the same sign in all three seeds. Under the
+noise-free score this gap read 0.011; held out it is larger, so the one claim this slide makes
+survives the change of measure and strengthens.
 
 ### 11. A bigger input scale adds 40–75 units of 1000, and not monotonically
 <p align="center"><img src="../img/internal_figures/slide_x_inputscale.svg" width="760"></p>
@@ -181,7 +189,8 @@ input scale we tried buys less than the next 350,000 iterations take away.
 
 ### 11b. And the units it buys are free
 <p align="center"><img src="../img/internal_figures/slide_x_inputscale_r2.svg" width="760"></p>
-247–342 active units, all within 0.002 of R² = 0.964.
+247–342 active units; held-out R² 0.9527–0.9540 across every rung including the default, a spread
+of 0.0013. No rung trades performance for the units it adds.
 
 ### 12. The field-standard metabolic penalty moves nothing beyond seed scatter
 <p align="center"><img src="../img/internal_figures/slide_x_metabolic.svg" width="760"></p>
@@ -189,7 +198,19 @@ input scale we tried buys less than the next 350,000 iterations take away.
 
 ### 12b. …and up to λ = 1 it is free
 <p align="center"><img src="../img/internal_figures/slide_x_metabolic_r2.svg" width="760"></p>
-393–431 active units; λ ≤ 1 sits within 0.009 of R² = 0.97, λ = 10 pays 0.06.
+393–431 active units; held-out R² 0.8302 (λ = 0), 0.8241, 0.8354, 0.8164, 0.7867 across
+λ = 0.01, 0.1, 1, 10.
+
+⚠ **This is the one slide the change of measure moves against.** The old headline — λ ≤ 1 within
+0.009 of R², λ = 10 paying 0.06 — was read off the noise-free score. Held out, λ ≤ 1 spans 0.019,
+λ = 1 sits 0.014 below λ = 0, and λ = 10 pays 0.044. "Free up to λ = 1" is no longer the right
+sentence; "cheap up to λ = 1, on a ladder whose own seed scatter is 0.003–0.008" is.
+
+**And a fixed-σ evaluation is not neutral for a rate penalty.** `mean(fr²)` shrinks the rate scale
+about sixfold while the injected noise stays at 0.05, so signal-to-noise falls with λ for reasons
+that have nothing to do with the task — part of the cost charged to λ = 10 is its own rate scale.
+The deck reports one measure everywhere, and the alternative was an instrument that reorders arms,
+so this number stands with the mechanism quoted beside it.
 
 **The ladder above is flat because the criterion moves with the penalty.** `mean(fr²)` shrinks the
 rate scale 6× with no reversal (q₉₅ 0.33 → 0.33 → 0.23 → 0.14 → 0.05), and the bar at 0.05·q₉₅ falls
@@ -367,37 +388,37 @@ The draw gives every unit two numbers: `c`, what it sends, and `s`, whether it r
 ### 24. Every dropout run: what the extra units cost
 <p align="center"><img src="../img/internal_figures/slide_24_dropout_tradeoff.svg" width="760"></p>
 
-All 72 runs on one panel: active units on x, R-squared on y, so whether a setting's extra units are
+All 72 runs on one panel: active units on x, held-out R² on y, so whether a setting's extra units are
 paid for is read directly rather than assembled from two panels of cell means. The sweep's three
 knobs ride on the marker — shape is the targeting exponent (circle 1, diamond 2, filled plus 4),
 viridis fill is the drop rate, and an enclosing ring is `dead` against bare for `mute`. The dose
-trend is read from colour, not from a line: paths through each (kind, beta) were drawn once and
-removed, because six polylines through 72 points buried the comparison the panel is for. Four
-rates by three exponents by two kinds, three seeds each. 3-bit flip-flop, N = 1000, no penalty, 40,000 iterations, against the no-dropout cell of the
-same launcher. R-squared is the trainer's noise-free, dropout-off probe, so a dropout net is scored
-on the full network exactly as the control is.
+trend is read from colour, not from a line. Four rates by three exponents by two kinds, three seeds
+each. 3-bit flip-flop, N = 1000, no penalty, 40,000 iterations, against the no-dropout cell of the
+same launcher, which holds 316 units at R² 0.9471 with a seed sd of 0.0020.
 
-**`dead`'s cost is not a function of the units it buys.** At rho = 0.25 the sharpest targeting buys
-963 units at R-squared 0.809, while beta = 2 buys 655 at 0.714 — more units and less cost at once.
-Split across a units panel and a cost panel, those are two points on two different curves and
-nothing connects them.
+**`mute` is not free, and it took the held-out score to see it.** All twelve `mute` cells sit below
+the control, from 0.9381 at the lightest dose to 0.9207 at the heaviest — a cost of 0.009 to 0.026
+that is ordered by dose. The old reading, that `mute` recruits for free, came from the noise-free
+probe, where the control's three seeds scored 0.932, 0.814 and 0.834: an sd of 0.063 wide enough to
+swallow the whole effect. Those same three networks, scored held out, sit at 0.9471 ± 0.0020. The
+spread that hid the cost was the probe catching two seeds mid-excursion (slide 23c), not a property
+of the networks.
 
-**The control's own seed spread is wide enough to swallow the `mute` effect.** Its three seeds score
-0.932, 0.814 and 0.834, an sd of 0.063, because two of them blow up transiently (slide 23c). Only
-1 of 12 `mute` cells clears that band, against 4 of 12 for `dead`. "mute recruits units for free" is
-in part a statement about a noisy control, which is why the band is drawn rather than described.
+**`dead`'s cost is not a function of the units it buys.** At ρ = 0.25 the sharpest targeting buys
+963 units at R² 0.7606, while β = 2 buys 655 at 0.6986 — more units and less cost at once. The same
+inversion appears at ρ = 0.175: β = 4 holds 810 units at 0.8131 against β = 2's 420 at 0.7657. Split
+across a units panel and a cost panel, those are two points on two different curves and nothing
+connects them.
+
+**Both kinds pay, and `dead` pays about three times as steeply.** Across its twelve cells `mute`
+loses 0.0053 of R² per 100 extra units and `dead` 0.0157, with `dead` reaching 0.6698 at its worst
+setting against the control's 0.9471.
 
 Rate and targeting still move the count — that was the old slide 24 — with two settings outside the
-claim: `dead` at beta = 1 does not rise with the rate, and `mute` at rho = 0.05 rises by 25 units
-inside a 59-unit seed spread. An earlier version of this sweep found the rate irrelevant; that
-sampler scored |h|, which a silent unit scores as highly as a busy one, so half of every dose landed
-where dropping does nothing.
-
-⚠️ **The instrument matters more than it looks.** Put the training noise back and the arms compress:
-`mute` then gives up two points of R-squared, 0.945 to 0.922, and `dead` is not in that cache at all.
-The prune-and-duplicate arm shows the same split far more violently — matched under the noise it
-trained in, 0.15 to 0.20 of R-squared worse without it — so neither number should be quoted without
-naming the evaluation.
+claim: `dead` at β = 1 does not rise with the rate, and `mute` at ρ = 0.05 rises by 25 units inside
+a 59-unit seed spread. An earlier version of this sweep found the rate irrelevant; that sampler
+scored |h|, which a silent unit scores as highly as a busy one, so half of every dose landed where
+dropping does nothing.
 
 ### 24c. Dropout slows the silencing; it does not stop it
 <p align="center"><img src="../img/internal_figures/slide_24c_dropout_along_training.svg" width="760"></p>
@@ -410,19 +431,16 @@ the sampler rewrite, so the corrected rule has never been asked this question.
 
 ### 25. Prune-and-duplicate
 <p align="center"><img src="../img/internal_figures/slide_25_prune_duplicate.svg" width="760"></p>
-**Left — the jitter.** Recruitment rises with the noise added to the copied weights and then stops:
-685 → 676 → 708 → 751 → 752 active as copy_noise runs 0 → 0.05 → 0.3 → 1 → 3. Everything else is
-held fixed. r² over the whole ladder is 0.940–0.945, so the jitter costs nothing.
+Left: active units against the jitter on the copied weights — 685, 676, 708, 751, 752 as copy_noise
+runs 0 → 3. Right: matched at rate 0.005, maturity 1000 — 275 no pruning, 315 zeroing the unit, 542
+copying a donor.
 
-**Right — what the copy contributes.** Matched on rate (0.005) and maturity (1000), differing only in
-what replaces a pruned unit: 275 with no pruning, 315 zeroing the unit, 542 copying a donor. Pruning
-alone buys 40 units; the copy buys another 227.
-
-Not shown: the other replacement modes (random, orthogonal, mix of k donors, bias kick) exist only at
-rate 0.025, where every `copy` cell at N = 1000 carries the `__DETUNED_SELFWEIGHT` bug that Figure 2
-excludes — duplication zeroed the 2×2 block spanning donor and copy, so the copy had no
-self-connection and the donor half of its own. At 0.025 those alternatives land between 262 and 373
-active, all below the corrected copy's 542 at a fifth the replacement rate.
+**At jitter 1** — the operating point Figure 2 uses — duplication runs on all three tasks. Against
+each task's own control: CDDM 1.85× / 2.26× / 2.71× / 2.98× at N = 500 → 4000, so the gain grows with
+size; DMTS 4.76× at N = 500 and 2.05× at N = 1000; flip-flop 2.88× at N = 4000. It also holds with
+training — flip-flop N = 1000 goes 753 active at 40,000 iterations to 793 at 150,000 (9 seeds), where
+the control loses units. No matched 150,000-iteration control exists in that sweep, so the comparison
+is to its own earlier self, not to a control.
 
 ### 26. Synaptic noise: the σ_w ladder
 <p align="center"><img src="../img/internal_figures/slide_26_synnoise_ladder.svg" width="760"></p>
@@ -432,7 +450,7 @@ active, all below the corrected copy's 542 at a fifth the replacement rate.
   noise, 0.678 without it.
 
 ### 26b. …against size
-<p align="center"><img src="../img/internal_figures/slide_26b_synnoise_size.svg" width="900"></p>
+<p align="center"><img src="../img/internal_figures/slide_26b_synnoise_size.svg" width="330"></p>
 
 - Multiplier peaks at N = 1000 and falls to 1.39x at 2000. Dimensionality up, weights narrower, at
   every size. N = 4000 not trained.
@@ -440,7 +458,7 @@ active, all below the corrected copy's 542 at a fifth the replacement rate.
 ### 26c. The same three measures, one point per network
 <p align="center"><img src="../img/internal_figures/slide_26c_synnoise_scatter.svg" width="720"></p>
 
-- Two clouds, no overlap: more units, less R², higher participation ratio, at all three sizes.
+- Two clouds, no overlap: more units, less R², higher dimensionality, at all three sizes.
 
 ---
 
