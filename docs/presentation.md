@@ -16,7 +16,7 @@ word that differs — nothing deviates silently.
 
 Audited by `trainRNNbrain/experiments_and_analysis/standard_audit.py`, which reads each sweep's own
 saved configs rather than trusting the launcher. `dale`, `io_nonnegativity` and `γ` conform
-everywhere; the live deviations are a trainable bias on the older CDDM and flip-flop sweeps and
+everywhere; the live deviations are a trainable bias on the older CDDM and flip-flop sweeps andV
 self-connections off on the recurrent-noise sweep. Those are being re-run.
 
 Every figure is centred at one fixed width (760 px) so the deck reads at a constant scale — add new
@@ -458,20 +458,17 @@ and what rws contributes is the temporal quality of frm's units, not their numbe
 ### 32. The selectivity configuration
 <p align="center"><img src="../img/internal_figures/slide_32_selectivity.svg" width="760"></p>
 Every active unit as a point in the top three principal components of its own response — the static
-form of the selectivity movie. The control's units sit in a tight clump; both penalised conditions
-open into four limbs.
+form of the selectivity movie. **No penalty: a clump. frm: three arms. frm + rws: four.**
 
-These are the **30,000-iteration** networks (`CDDM_std_g0`), not the 200,000-iteration penalty sweep
-slides 28–31 read. By 200k the configuration has collapsed to three coplanar arms. At 30k the
-four-way form is there in every seed: PC variance 0.29/0.16/0.15/0.15 for frm + rws — three
-near-equal components after the first, which is what a four-point structure gives — against
-0.30/0.25/0.10/0.06 at 200k. The 30k sweep is also the one carrying the selectivity movies.
+The arm counts are measured, not read off the picture. frm's three-cluster split is even
+(129/133/138 units) while its four-cluster split degenerates — one seed produces a 1-unit cluster,
+median balance 0.07. frm + rws is the reverse: four-cluster balance 0.48–0.72 across seeds. So rws
+does not just rescue frm's burst units (slide 30) — it opens a fourth arm.
 
-Seed 3 is drawn, the median of five by four-cluster balance (0.53; seed 0 is the outlier at 0.13,
-seed 1 the most balanced at 0.72). The viewing angle maximises the clusters' on-screen separation
-over a grid of angles — at most views one limb hides behind another.
-
----
+These are the **30,000-iteration** networks (`CDDM_std_g0`). By 200,000 the configuration collapses
+to three coplanar arms even with rws, which is why the sweep slides 28–31 read is the wrong one to
+draw this from. Each panel is its own PCA, so no scale or orientation is shared; each gets the median
+seed by its own cluster balance and the viewing angle that maximises its own clusters' separation.
 
 ## Open
 

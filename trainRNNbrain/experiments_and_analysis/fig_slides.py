@@ -1099,23 +1099,32 @@ def temporal_pr_slide(name="slide_30_temporal_pr"):
 
 
 SEL_CACHE = "data/cddm_selectivity_cache.npz"
+# Per condition: how many arms its configuration has, which seed to draw, and the viewing angle.
+# ALL THREE ARE MEASURED, NOT CHOSEN BY EYE. The arm count is where the k-means clusters stay
+# balanced - frm's four-cluster split degenerates (one seed produces a 1-unit cluster, median balance
+# 0.07) while its three-cluster split is even (129/133/138), and frm+rws is the reverse (four-cluster
+# balance 0.48-0.72). The seed is the MEDIAN of five by that balance, so no panel is a best case. The
+# angle maximises the clusters' on-screen separation over a grid, because a 3-D structure hides arms
+# behind one another at most views - which is why the original is an animation.
+# (arms, seed, elev, azim). Elevation is capped at 60: above that a 3-D axes puts its z label
+# where the panel title goes.
+SEL_VIEW = {"control": (3, 4, 60, 76), "frm": (3, 1, 36, 124), "both": (4, 3, 36, 300)}
 
 
-def selectivity_slide(name="slide_32_selectivity", seed=3):
+def selectivity_slide(name="slide_32_selectivity"):
     """CDDM selectivity configuration: every active unit a point in the top PCs of its response.
 
     ⚠️ THESE ARE THE 30,000-ITERATION NETWORKS (CDDM_std_g0), not the 200,000-iteration penalty sweep
-    slides 28-31 read. By 200k the configuration has collapsed to three coplanar arms; at 30k it
-    still has the four-armed form, consistently across all five seeds - frm + rws sits at variance
-    0.29/0.16/0.15/0.15, three near-equal components after the first, which is what a four-point
-    structure gives, against 0.30/0.25/0.10/0.06 for the 200k networks. The 30k sweep is also the one
-    carrying the animated_selectivity movies.
+    slides 28-31 read. By 200k the configuration has collapsed; at 30k it still has its full form,
+    and that sweep is also the one carrying the animated_selectivity movies.
+
+    Each panel is its own PCA, so PC1 of one condition has nothing to do with PC1 of another and the
+    panels share neither scale nor orientation. Each therefore gets the seed and the angle measured
+    for ITSELF (see SEL_VIEW); forcing one angle on all three hid arms in the two it was not fitted
+    on.
 
     Args:
-        name: output file stem;
-        seed: which seed to draw, the same one for every condition. Seed 3 is the MEDIAN seed by
-            four-cluster balance (smallest/largest = 0.53, against 0.13 for seed 0, the outlier, and
-            0.72 for seed 1), so the panel is neither the best nor the worst case.
+        name: output file stem.
     Returns:
         the output path, or None if the cache is missing.
     """
@@ -1123,21 +1132,22 @@ def selectivity_slide(name="slide_32_selectivity", seed=3):
         print(f"  SKIP {name}: {SEL_CACHE} missing (build it with cddm_selectivity_cache.py)")
         return None
     z = np.load(SEL_CACHE, allow_pickle=True)
-    show = [(a_, l_, c_) for a_, l_, c_ in PEN_ARMS
-            if a_ in ("control", "frm", "both") and f"{a_}|{seed}|pcs" in z.files]
+    show = [(a_, l_, c_) for a_, l_, c_ in PEN_ARMS if a_ in SEL_VIEW
+            and f"{a_}|{SEL_VIEW[a_][1]}|pcs" in z.files]
     if not show:
-        print(f"  SKIP {name}: no coordinates for seed {seed}")
+        print(f"  SKIP {name}: no coordinates")
         return None
     ps.setup()
     fig = plt.figure(figsize=(78 * ps.MM, 150 * ps.MM))
     for i, (arm, lab, col) in enumerate(show):
+        k, seed, elev, azim = SEL_VIEW[arm]
         ax = fig.add_subplot(len(show), 1, i + 1, projection="3d")
         P = np.asarray(z[f"{arm}|{seed}|pcs"], float)
         var = np.asarray(z[f"{arm}|{seed}|var"], float)
         ax.scatter(P[:, 0], P[:, 1], P[:, 2], s=5.0, c=col, alpha=0.55, linewidths=0, zorder=3)
-        ax.set_title(f"{lab}  ({len(P)} active units;  PC variance "
-                     f"{', '.join(f'{v:.2f}' for v in var[:3])})",
-                     fontsize=6.6, color=ps.INK, pad=0)
+        ax.set_title(f"{lab}  ·  seed {seed}  ·  {len(P)} active units  ·  "
+                     f"PC variance {', '.join(f'{v:.2f}' for v in var[:3])}",
+                     fontsize=6.4, color=ps.INK, pad=0)
         for pane in (ax.xaxis, ax.yaxis, ax.zaxis):
             pane.set_pane_color((1.0, 1.0, 1.0, 0.0))
             pane.line.set_color(ps.GRID)
@@ -1145,13 +1155,11 @@ def selectivity_slide(name="slide_32_selectivity", seed=3):
         ax.set_xlabel("PC1", fontsize=6.0, labelpad=-10)
         ax.set_ylabel("PC2", fontsize=6.0, labelpad=-10)
         ax.set_zlabel("PC3", fontsize=6.0, labelpad=-10)
-        # elev/azim chosen by MAXIMISING the on-screen separation of the four clusters over a
-        # grid of angles, not by eye: a 3-D structure hides arms behind one another at most views
-        ax.view_init(elev=36, azim=300)
+        ax.view_init(elev=elev, azim=azim)
         ax.set_box_aspect((1.0, 1.0, 0.75), zoom=1.22)
-    fig.suptitle(f"CDDM, $N$ = 1000, 30,000 iterations, seed {seed}\n"
+    fig.suptitle("CDDM, $N$ = 1000, 30,000 iterations\n"
                  "every active unit as a point in the top three PCs of its own response;\n"
-                 "axes share no scale between panels",
+                 "each panel its own PCA, so no scale or orientation is shared",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.0)
     fig.subplots_adjust(left=0.02, right=0.98, top=0.92, bottom=0.02, hspace=0.22)
     return ps.save(fig, name)
