@@ -53,6 +53,7 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments, get_tr
 from trainRNNbrain.utils import filter_kwargs
 
 import paperstyle as ps
+import common_r2 as common_r2_mod
 import fig_paper_F1 as F1
 import pr_matrix as PR
 import fig_paper_F2 as F2
@@ -467,19 +468,27 @@ def bern_cell(kind, rate, beta):
 
 
 def bern_read(path):
-    """Per-seed active count and clean loss at the end of training, from the participation traces.
+    """Per-seed active count and held-out R^2 in the common noise condition, at end of training.
 
-    One read-out for every arm of the grid, including `dead`, which the Figure 2 cache does not
-    hold. Both quantities come from the trace's own noise-free, dropout-OFF probe, so a dropout net
-    is scored on the full network exactly as the control is - the comparison the dropout-pass loss
-    cannot make.
+    ⚠️ THE PERFORMANCE MEASURE IS NO LONGER THE NOISE-FREE PROBE. This returned the trace's
+    dropout-off, noise-OFF loss, which is not a condition any of these networks ever operates in,
+    and the project found that instrument reverses the ranking of arms: measured without noise
+    frm+rws is the best arm and measured with it the worst. Every performance number now comes from
+    common_r2 - a held-out batch, sigma_rec and sigma_inp at the values the network trained with,
+    sigma_w = 0, averaged over nine draws - so arms differ in their inputs and in nothing else.
+    Dropout is off in that evaluation, so a dropout net is still scored on its full network.
+
+    The ACTIVE COUNT is unchanged and stays noise-free: a count of units above a participation
+    threshold is not a performance measure, and rectified recurrent noise lifts every unit onto a
+    floor that makes the count meaningless (see f2_remedies_cache.analyse).
 
     Args:
         path: cell folder holding one subfolder per network.
     Returns:
-        (active, loss) float arrays, one entry per seed; both empty if the cell is absent.
+        (active, r2) float arrays, one entry per seed; both empty if the cell is absent.
     """
-    act, loss = [], []
+    act, r2 = [], []
+    cache = common_r2_mod.load_cache()
     for d in sorted(glob.glob(os.path.join(path, "*", ""))):
         f = glob.glob(os.path.join(d, "*ParticipationTrace.pkl"))
         if not f:
@@ -487,8 +496,9 @@ def bern_read(path):
         with open(f[0], "rb") as fh:
             tr = pickle.load(fh)
         act.append(active_count(np.asarray(tr["participation"][-1], float), "scalefree"))
-        loss.append(float(np.asarray(tr["metrics"]["loss_clean_train"], float)[-1]))
-    return np.asarray(act, float), np.asarray(loss, float)
+        r2.append(common_r2_mod.common_r2(d.rstrip(os.sep), cache=cache))
+    common_r2_mod.save_cache(cache)
+    return np.asarray(act, float), np.asarray(r2, float)
 
 
 def _unit_schematic(ax, y0, cut, title, note, label_arrows=False):
@@ -960,8 +970,10 @@ def _pen_cell_stats(pattern):
             ratios.append(float(q50 / max(q95, 1e-12)))
     if not vals:
         return None
+    # the PER-RUN values come back too: these panels draw every network, like every other panel in
+    # the deck, rather than a mean with an error bar that hides how many runs there were
     return (float(np.mean(vals)), float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0,
-            len(vals), float(np.mean(ratios)))
+            len(vals), float(np.mean(ratios)), np.asarray(vals, float))
 
 
 def penalty_size_slide(task, name=None):
@@ -987,14 +999,30 @@ def penalty_size_slide(task, name=None):
     ax.annotate("every unit active", (allN[-1], allN[-1]), textcoords="offset points",
                 xytext=(-3, 4), ha="right", fontsize=5.8, color=ps.MUTED)
     sat = []
+    # ARMS ARE OFFSET TOO, not just runs within an arm. frm and frm + rws give identical counts
+    # wherever both saturate (500/1000/2000 on CDDM), so one line sits exactly under the other and
+    # the hidden one reads as missing data.
+    drawn_kinds = [k for k, _l, _c in PEN_KINDS if rows.get(k)]
     for kind, klab, col in PEN_KINDS:
         r = rows.get(kind)
         if not r:
             continue
+        arm_i = drawn_kinds.index(kind) - (len(drawn_kinds) - 1) / 2.0
         Ns = sorted(r)
-        ax.errorbar(Ns, [r[n][0] for n in Ns], yerr=[r[n][1] for n in Ns], fmt="o-", ms=3.8,
-                    lw=1.2, color=col, mec="white", mew=0.6, capsize=1.8, zorder=4,
-                    label=f"{klab} ({r[Ns[0]][2]})")
+        # EVERY RUN IS DRAWN, FANNED OUT. Where the count saturates the seeds are identical - frm
+        # is 500/500/500 at N = 500 and 1000/1000/1000 at N = 1000 - so three markers land on the
+        # same pixel and the panel looks like it has one run per size. A small multiplicative offset
+        # in N (the axis is logarithmic) separates them without moving them off their own size.
+        for n in Ns:
+            v = r[n][4]
+            base = n * 1.075 ** arm_i
+            off = base * 1.028 ** (np.arange(len(v)) - (len(v) - 1) / 2.0)
+            ax.plot(off, v, "o", ms=3.2, color=col, alpha=0.9, mec="none", zorder=5)
+        xs = [n * 1.075 ** arm_i for n in Ns]
+        ax.plot(xs, [r[n][0] for n in Ns], "-", lw=1.1, color=col, zorder=3)
+        # the mean is HOLLOW so the runs underneath it stay visible
+        ax.plot(xs, [r[n][0] for n in Ns], "s", ms=6.5, mfc="none", mec=col, mew=1.2, zorder=6,
+                label=f"{klab} ({r[Ns[0]][2]} runs)")
         if any(r[n][3] > 0.05 for n in Ns):
             sat.append(klab)
     ax.set(xscale="log", yscale="log", xlabel="network size $N$", ylabel="active units")
@@ -1006,7 +1034,9 @@ def penalty_size_slide(task, name=None):
     ax.legend(loc="upper left", fontsize=6.0, handlelength=1.1, borderaxespad=0.25)
     ps.ygrid(ax)
     if sat:
-        fig.text(0.5, -0.02, ", ".join(sat) + " sit on the diagonal: there the participation "
+        fig.text(0.5, -0.02, "circles are runs, squares their mean; both are offset sideways so "
+                 "identical values stay visible.  "
+                 + ", ".join(sat) + " sit on the diagonal: there the participation "
                  "distribution is unimodal, so the count is a floor.",
                  ha="center", va="top", fontsize=6.2, color=ps.MUTED)
     return ps.save(fig, name)
@@ -2183,6 +2213,135 @@ def drift_slides():
                        r"$\|W(t)-W(t-L)\|_F/\|W(t)\|_F$, " + f"$L$ = {lag:,}")
     axes[0].legend(loc="lower left", fontsize=5.6, handlelength=1.1, borderaxespad=0.2)
     return [ps.save(fig, "slide_04_drift_trajectories")]
+
+
+# ---- synaptic noise: the sigma_w ladder ---------------------------------------------------------
+# Read from the Figure 2 cache rather than from the folder names, because the folder name is each
+# net's score in ITS OWN noise and the claim here is the difference between that and a common
+# condition. The rungs are DISCOVERED from the cache (any cell whose name carries sw=...), so a new
+# rung joins this slide by finishing, not by being remembered.
+SW_RE = re.compile(r"sw=([0-9.]+)")
+
+
+def _synnoise_ladder(task="NBitFlipFlop", n_units=1000):
+    """The sigma_w ladder at one task and size, control first.
+
+    Args:
+        task: task name as the cache records it; n_units: network size to restrict to.
+    Returns:
+        (rungs, keys) where rungs is [(label, {field: per-seed array}), ...] ordered
+        sigma_w = 0 first then ascending, and keys is the list of fields carried. Empty list if the
+        cache holds no synaptic-noise cell at this task and size.
+    """
+    c = F2.load()
+    keys = ["n_active", "r2", "r2_common", "r2_clean", "dims"]
+    sel = (c["task"] == task) & (c["N"] == n_units)
+    def grab(mask):
+        return {k: np.asarray(c[k][mask], float) for k in keys}
+    sw = {}
+    for i in np.flatnonzero(sel & (c["arm"] == "synnoise")):
+        m = SW_RE.search(str(c["cell"][i]))
+        if m:
+            sw.setdefault(float(m.group(1)), []).append(i)
+    if not sw:
+        return [], keys
+    ctrl = sel & (c["arm"] == "control")
+    rungs = [("0", grab(ctrl))]
+    for v in sorted(sw):
+        idx = np.zeros(len(c["cell"]), bool)
+        idx[sw[v]] = True
+        rungs.append((f"{v:g}", grab(idx)))
+    return rungs, keys
+
+
+def synnoise_ladder_slide(name="slide_26_synnoise_ladder", task="NBitFlipFlop", n_units=1000):
+    """One claim: the ladder buys units all the way up, and past sigma_w = 1 the net keeps them only
+    while its synapses are still jittering.
+
+    TWO R-SQUARED SERIES, NOT ONE. `r2` is each net scored in the condition it trained in, synaptic
+    noise included -- flat at 0.92-0.95 across the whole ladder, which is why the sweep looked free
+    from the folder names alone. `r2_common` is the project's single comparison read-out: sigma_w =
+    0 with the recurrent and input noise every arm shares, nine draws averaged. The two agree up to
+    sigma_w = 1 and separate above it, so the gap between the curves IS the dependence on the noise.
+
+    Active units are counted on the noise-free pass under the scale-free rule, so the extra units
+    are not units lit up by the injected noise at scoring time.
+
+    Args:
+        name: output file stem; task: task name as the cache records it; n_units: network size.
+    Returns:
+        the output path, or None if the cache holds no synaptic-noise cell at this task and size.
+    """
+    rungs, _ = _synnoise_ladder(task, n_units)
+    if not rungs:
+        print(f"  SKIP {name}: no synnoise cells at {task}, N = {n_units}")
+        return None
+    col = ps.COND_COL["synnoise"]
+    xs = np.arange(len(rungs), dtype=float)
+    cols = [ps.BASE] + [col] * (len(rungs) - 1)
+
+    ps.setup()
+    fig = plt.figure(figsize=(W, 92 * ps.MM))
+    gs = GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.0], hspace=0.17,
+                  left=0.13, right=0.80, top=0.86, bottom=0.11)
+    ax_u = fig.add_subplot(gs[0])
+    ax_r = fig.add_subplot(gs[1], sharex=ax_u)
+
+    # ---- (a) active units ----------------------------------------------------------------------
+    ctrl_a = rungs[0][1]["n_active"]
+    ax_u.axhspan(ctrl_a.mean() - ctrl_a.std(ddof=1), ctrl_a.mean() + ctrl_a.std(ddof=1),
+                 color=ps.BASE, alpha=0.13, lw=0, zorder=1)
+    act = ps.strip(ax_u, xs, [r[1]["n_active"] for r in rungs], cols,
+                   rng=np.random.default_rng(0))
+    ax_u.plot(xs, [a[0] for a in act], "-", lw=1.0, color=col, alpha=0.55, zorder=2)
+    ax_u.set_ylabel(f"active units of {n_units}")
+    ax_u.text(xs[-1], ctrl_a.mean(), f"  no synaptic noise, {ctrl_a.mean():.0f}", fontsize=6.4,
+              color=ps.BASE, va="center", ha="left")
+    ax_u.tick_params(labelbottom=False)
+    ps.ygrid(ax_u)
+    ps.despine(ax_u)
+
+    # ---- (b) the two read-outs -----------------------------------------------------------------
+    series = [("r2_common", f"scored at $\\sigma_w$ = 0\n(every arm's condition)", col, "o"),
+              ("r2", "scored in the noise\nit trained in", ps.MUTED, "s")]
+    means = {}
+    for key, _, c_, mk in series:
+        for x, (_, v) in zip(xs, rungs):
+            g = v[key]
+            ax_r.plot(x + np.random.default_rng(1).normal(0, 0.055, len(g)), g, mk, ms=2.8,
+                      color=c_, alpha=0.8, mec="none", zorder=3, clip_on=False)
+        means[key] = np.array([v[key].mean() for _, v in rungs])
+        ax_r.plot(xs, means[key], "-", lw=1.3, color=c_, zorder=4)
+    # the gap IS the claim, so it is filled rather than left for the eye to measure
+    ax_r.fill_between(xs, means["r2"], means["r2_common"], color=col, alpha=0.14, lw=0, zorder=2)
+    ax_r.set_ylabel("$R^2$ on a held-out batch")
+    ax_r.set_xlabel("relative synaptic noise  $\\sigma_w$")
+    ax_r.set_xticks(xs)
+    ax_r.set_xticklabels([l for l, _ in rungs])
+    ps.ygrid(ax_r)
+    ps.despine(ax_r)
+    _right_labels(ax_r, [(means[k][-1], lab, c_) for k, lab, c_, _ in series], gap=0.12)
+
+    gap = means["r2"] - means["r2_common"]
+    top = rungs[int(np.argmax([r[1]["n_active"].mean() for r in rungs]))]
+    opens = [l for (l, _), gg in zip(rungs, gap) if gg > 0.05]
+    fig.suptitle(
+        f"3-bit flip-flop, $N$ = {n_units}, "
+        f"{min(len(r[1]['n_active']) for r in rungs)}-{max(len(r[1]['n_active']) for r in rungs)}"
+        " seeds per rung, every seed drawn\n"
+        f"active units {ctrl_a.mean():.0f} at $\\sigma_w$ = 0 rising to "
+        f"{top[1]['n_active'].mean():.0f} at $\\sigma_w$ = {top[0]}\n"
+        f"$R^2$ at $\\sigma_w$ = 0 falls {means['r2_common'][0]:.3f} to "
+        f"{means['r2_common'][-1]:.3f}; each net's score in its own noise holds "
+        f"{means['r2'].min():.3f}-{means['r2'].max():.3f}",
+        fontsize=7.6, color=ps.INK, linespacing=1.4, y=1.055)
+    fig.text(0.5, 0.012,
+             "Active units counted on the noise-free pass, scale-free rule "
+             "$p_i \\geq 0.05\\,q_{95}(p)$. "
+             + (f"The two $R^2$ curves separate by more than 0.05 at $\\sigma_w$ = "
+                + ", ".join(opens) + "." if opens else "The two curves never separate."),
+             ha="center", va="top", fontsize=6.4, color=ps.MUTED)
+    return ps.save(fig, name, w_mm=110)
 
 
 def main(list_only=False):

@@ -419,6 +419,8 @@ Needs its own figure: the σ_w ladder, active units and clean r² against noise 
 
 ### 28. CDDM: frm saturates the network, rws barely moves it
 <p align="center"><img src="../img/internal_figures/slide_22b_penalty_cddm.svg" width="760"></p>
+Every run is drawn. Where the count saturates the seeds are identical — frm is 500/500/500 at
+N = 500 — so runs and arms are offset sideways to keep coincident values visible.
 Control 201 → 272 → 311 → 629 across N = 500 → 5000. frm and frm + rws sit on the diagonal at every
 size — 500, 1000, 2000, 4999 — and coincide, so only one line is visible. rws alone is **below** the
 control at all four sizes: 142, 181, 279, 440.
@@ -428,6 +430,8 @@ not a count. Budgets: control 200k/200k/300k/100k, penalties 200k/200k/150k/120k
 
 ### 29. DMTS: the same, on the other task
 <p align="center"><img src="../img/internal_figures/slide_22b_penalty_dmts.svg" width="760"></p>
+Every run is drawn. The control scatters widely at N = 2000 (221, 211, 437, 391, 469 across five
+seeds), which a mean and an error bar hid.
 Control 132 → 180 → 346 across N = 500 → 2000; frm 500, 996, 1952; frm + rws 500, 1000, 1844. rws
 sits just above the control (161, 255, 406) rather than below it as on CDDM.
 
