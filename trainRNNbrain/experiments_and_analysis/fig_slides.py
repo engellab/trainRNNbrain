@@ -1306,6 +1306,101 @@ def prune_duplicate_slide(name="slide_25_prune_duplicate"):
     return ps.save(fig, name)
 
 
+# Prune-and-duplicate at the Figure 2 operating point (copy_noise = 1), everywhere it was run.
+# The flip-flop's CONTROLS below N = 4000 are in ff_revive, not paper_grid, at the same 40,000
+# iterations; CDDM and DMTS carry both arms in their own paper grids.
+PD_FAIL = 0.5     # a DMTS run that never learned scores about 0.427; nothing solved lands near it
+PD_ALL = [
+    ("3-bit flip-flop", 40_000, ps.SLOTS[0], {
+        "control": {500: f"{DATA_DIR}/NBitFlipFlop_ff_revive/EqType=h_k=3_N=500_pen=none_arm=none",
+                    1000: f"{DATA_DIR}/NBitFlipFlop_ff_revive/EqType=h_k=3_N=1000_pen=none_arm=none",
+                    2000: f"{DATA_DIR}/NBitFlipFlop_ff_revive/EqType=h_k=3_N=2000_pen=none_arm=none",
+                    4000: f"{DATA_DIR}/NBitFlipFlop_paper_grid/EqType=h_N=4000_arm=control"},
+        "duplicate": {n: f"{DATA_DIR}/NBitFlipFlop_paper_grid/EqType=h_N={n}_arm=duplication"
+                      for n in (500, 1000, 2000, 4000)}}),
+    ("CDDM", 100_000, ps.SLOTS[1], {
+        "control": {n: f"{DATA_DIR}/CDDM_paper_grid/EqType=h_N={n}_arm=control"
+                    for n in (500, 1000, 2000, 4000)},
+        "duplicate": {n: f"{DATA_DIR}/CDDM_paper_grid/EqType=h_N={n}_arm=duplication"
+                      for n in (500, 1000, 2000, 4000)}}),
+    ("DMTS, 7$\\tau$", 150_000, ps.SLOTS[2], {
+        "control": {n: f"{DATA_DIR}/DMTS_paper_grid/EqType=h_N={n}_arm=control"
+                    for n in (500, 1000, 2000)},
+        "duplicate": {n: f"{DATA_DIR}/DMTS_paper_grid/EqType=h_N={n}_arm=duplication"
+                      for n in (500, 1000, 2000)}}),
+]
+
+
+def prune_duplicate_all_slide(name="slide_25b_prune_duplicate_all"):
+    """Prune-and-duplicate against its control, every task and size, units and performance.
+
+    Active units come from each run's participation trace, which the Trainer logs noise-free.
+    r2 is the validation score in the folder name - one forward pass with the network's own noise, on
+    a batch regenerated after training.
+
+    Args:
+        name: output file stem.
+    Returns:
+        the output path, or None if nothing is on disk.
+    """
+    ps.setup()
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(ps.W2, 64 * ps.MM))
+    drew = False
+    for task, iters, col, arms in PD_ALL:
+        for arm, style in (("control", dict(ls=":", mfc="none")), ("duplicate", dict(ls="-"))):
+            Ns, act, r2 = [], [], []
+            for n, cell in sorted(arms.get(arm, {}).items()):
+                a, r = _pd_cell(cell)
+                if a:
+                    # ⚠️ A MEAN OVER SOLVED AND FAILED RUNS IS NOT A PERFORMANCE. On DMTS a run that
+                    # never learned scores 0.427 - three of them at N = 1000 and three at N = 2000 -
+                    # and averaging those with runs at 0.999 produces a number no network achieved.
+                    # The mean r2 is therefore plotted only where EVERY run in the cell solved the
+                    # task; the runs themselves are always drawn.
+                    solved = [v for v in r if v > PD_FAIL]
+                    Ns.append(n)
+                    act.append(np.mean(a))
+                    r2.append(np.mean(r) if r and len(solved) == len(r) else np.nan)
+                    for v in a:
+                        ax.plot([n], [v], "o", ms=2.6, color=col, alpha=0.5, mec="none", zorder=3)
+                    for v in r:
+                        ax2.plot([n], [v], "o", ms=3.4, color=col, alpha=0.75, mec="none", zorder=4)
+                    if r and len(solved) < len(r):
+                        ax2.annotate(f"{len(solved)}/{len(r)}", (n, min(r)), fontsize=5.6,
+                                     color=col, textcoords="offset points", xytext=(5, -2))
+            if not Ns:
+                continue
+            drew = True
+            lab = f"{task} {arm}" if arm == "duplicate" else f"{task} control"
+            ax.plot(Ns, act, "o" + style["ls"], ms=4.4, color=col, mew=1.1,
+                    mfc=style.get("mfc", col), lw=1.2, zorder=5, label=lab)
+            ax2.plot(Ns, r2, "o" + style["ls"], ms=4.4, color=col, mew=1.1,
+                     mfc=style.get("mfc", col), lw=1.2, zorder=5)
+    if not drew:
+        plt.close(fig)
+        print(f"  SKIP {name}: no cells on disk")
+        return None
+    allN = [500, 1000, 2000, 4000]
+    for a_ in (ax, ax2):
+        a_.set(xscale="log", xlabel="network size $N$")
+        a_.set_xticks(allN); a_.set_xticklabels([str(n) for n in allN])
+        a_.xaxis.set_minor_locator(NullLocator())
+        ps.ygrid(a_)
+    ax.set(yscale="log", ylabel="active units")
+    ax2.axhline(0.427, color=ps.MUTED, lw=0.7, ls=(0, (3, 2)), zorder=2)
+    ax2.annotate("DMTS failure floor", (4000, 0.427), fontsize=5.6, color=ps.MUTED, ha="right",
+                 textcoords="offset points", xytext=(0, 4))
+    ax2.set_ylabel("validation $r^2$")
+    ax.legend(loc="upper left", fontsize=5.2, handlelength=1.4, borderaxespad=0.2, ncol=1)
+    fig.suptitle("Prune-and-duplicate at copy_noise = 1, against each task's own control\n"
+                 "3-bit flip-flop 40,000 iterations, CDDM 100,000, DMTS 150,000;  "
+                 "open markers and dotted lines are controls\n"
+                 "every run drawn; the mean is joined only where all runs solved, "
+                 "and k/n marks the cells where they did not",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.04)
+    return ps.save(fig, name)
+
+
 def readout_line(iters, recorded=None):
     """The 'read at ...' sentence a panel carries, from where its cells were actually read.
 
@@ -2434,7 +2529,7 @@ def synnoise_ladder_slide(name="slide_26_synnoise_ladder", task="NBitFlipFlop", 
 # point at the right edge invites an extrapolation the data do not carry.
 SW_MEASURES = [("n_active", "active units", True),
                ("r2_common", "$R^2$ at $\\sigma_w$ = 0", False),
-               ("dims", "participation ratio", False),
+               ("dims", "dimensionality\n$(\\sum_i\\lambda_i)^2 / \\sum_i\\lambda_i^2$", False),
                ("w_sigma_log", "sd of $\\ln|W_{rec}|$", False)]
 
 
@@ -2465,13 +2560,13 @@ def synnoise_size_slide(name="slide_26b_synnoise_size", sigma_w=1.0, task="NBitF
         return np.asarray(c[key][m], float)
 
     ps.setup()
-    fig = plt.figure(figsize=(190 * ps.MM, 56 * ps.MM))
-    gs = GridSpec(1, 4, figure=fig, wspace=0.40,
-                  left=0.055, right=0.99, top=0.74, bottom=0.20)
+    fig = plt.figure(figsize=(92 * ps.MM, 168 * ps.MM))
+    gs = GridSpec(4, 1, figure=fig, hspace=0.12,
+                  left=0.21, right=0.97, top=0.92, bottom=0.055)
     rng = np.random.default_rng(0)
-    ratios = []
+    axes, ratios = [], []
     for i, (key, ylab, logy) in enumerate(SW_MEASURES):
-        ax = fig.add_subplot(gs[0, i])
+        ax = fig.add_subplot(gs[i, 0], sharex=axes[0] if axes else None)
         for a, _, c_ in arms:
             mu = []
             for n in sizes:
@@ -2500,18 +2595,22 @@ def synnoise_size_slide(name="slide_26b_synnoise_size", sigma_w=1.0, task="NBitF
                         fontsize=6.6, color=c_)
         ax.yaxis.set_major_formatter(ScalarFormatter())
         ax.set_ylabel(ylab, fontsize=7.0)
-        ax.set_xlabel("$N$")
+        if i == len(SW_MEASURES) - 1:
+            ax.set_xlabel("$N$")
+        else:
+            ax.tick_params(labelbottom=False)
+        axes.append(ax)
         ps.ygrid(ax)
         ps.despine(ax)
     drop = [100.0 * (vals("control", n, "r2_common").mean() - vals("synnoise", n, "r2_common").mean())
             for n in sizes]
     fig.suptitle(
         "3-bit flip-flop, 40,000 iterations, 3-6 seeds per point, every seed drawn\n"
-        f"units {' / '.join(f'{r:.2f}x' for r in ratios)} the control at "
-        f"$N$ = {' / '.join(str(n) for n in sizes)}, "
+        f"units {' / '.join(f'{r:.2f}x' for r in ratios)} the control\n"
+        f"at $N$ = {' / '.join(str(n) for n in sizes)}, "
         f"for {min(drop):.1f}-{max(drop):.1f} points of $R^2$",
-        fontsize=7.4, color=ps.INK, linespacing=1.4, y=1.03)
-    return ps.save(fig, name, w_mm=190)
+        fontsize=7.4, color=ps.INK, linespacing=1.4, y=1.005)
+    return ps.save(fig, name, w_mm=92)
 
 
 def synnoise_scatter_slide(name="slide_26c_synnoise_scatter", sigma_w=1.0, task="NBitFlipFlop",
@@ -2560,13 +2659,12 @@ def synnoise_scatter_slide(name="slide_26c_synnoise_scatter", sigma_w=1.0, task=
             x, y, pr = rows(a, n)
             sc = ax.scatter(x, y, c=pr, cmap="viridis", vmin=pr_range[0], vmax=pr_range[1],
                             marker=mk, s=26, lw=0.5, edgecolors=ps.INK, zorder=3)
-        # a thin path through the per-size means, so the size ordering is readable inside each arm
-        mu = np.array([[rows(a, n)[0].mean(), rows(a, n)[1].mean()] for n in sizes])
-        ax.plot(mu[:, 0], mu[:, 1], "-", lw=0.8, color=ps.MUTED, alpha=0.6, zorder=2)
-        # NO PER-SIZE LABELS IN THE CLOUD. The control's N = 500 and N = 1000 clusters overlap in
-        # x (200-250 against 257-347), so a label at either the cluster mean or its left edge lands
-        # on a marker of the neighbouring size. The size ordering is carried by x instead - active
-        # units rise with N in both arms - and the title says so.
+        # NOTHING JOINS THE POINTS. A path through the per-size means and a per-size label both
+        # went in and both came out: the control's N = 500 and N = 1000 clusters overlap in x
+        # (200-250 against 257-347), so a label sits on a neighbouring size's marker, and a mean
+        # path asserts an ordering across three points that the clouds already show. The size
+        # ordering is carried by x - active units rise with N in both arms - and stated in the
+        # title.
     ax.set_xlabel("active units")
     ax.set_ylabel("$R^2$ at $\\sigma_w$ = 0")
     ps.ygrid(ax)
@@ -2578,15 +2676,15 @@ def synnoise_scatter_slide(name="slide_26c_synnoise_scatter", sigma_w=1.0, task=
 
     cax = fig.add_subplot(gs[0, 1])
     cb = fig.colorbar(sc, cax=cax, extend="both")
-    cb.set_label("participation ratio", fontsize=7.0)
+    cb.set_label("dimensionality\n$(\\sum_i\\lambda_i)^2 / \\sum_i\\lambda_i^2$", fontsize=7.0, linespacing=1.8)
     cb.ax.tick_params(labelsize=6.4)
     cb.outline.set_visible(False)
 
     lab_n = ", ".join(str(n) for n in sizes)
     fig.suptitle(f"3-bit flip-flop, 40,000 iterations, one point per network; "
-                 f"$N$ = {lab_n} left to right along each line\n"
+                 f"$N$ = {lab_n}, rising left to right within each arm\n"
                  f"$\\sigma_w$ = {sigma_w:g} moves every size up in units and down in $R^2$, "
-                 "and raises the participation ratio with it",
+                 "and raises the dimensionality with it",
                  fontsize=7.4, color=ps.INK, linespacing=1.4, y=1.02)
     return ps.save(fig, name, w_mm=118)
 
@@ -2690,7 +2788,8 @@ def main(list_only=False):
         got = _fn()
         if got:
             out.append(got)
-    for _fn in (prune_duplicate_slide, temporal_pr_slide, frm_vs_both_slide,
+    for _fn in (prune_duplicate_slide, prune_duplicate_all_slide, temporal_pr_slide,
+                frm_vs_both_slide,
                 selectivity_slide):
         got = _fn()
         if got:

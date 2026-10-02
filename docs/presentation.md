@@ -98,6 +98,13 @@ within 2% of one another. The floors being that close is the point: what separat
 when they get there, not where they stop. Drawn from iteration 100, since CDDM's loss is logged from
 iteration 0 where an untrained network sits near 10³.
 
+**The loss on these axes is a clock, not a score.** It is the trainer's noise-free probe, the only
+quantity recorded often enough during training to say *when* a run settles, and slides 3, 5 and 6 use
+it for that and nothing else. No R² is read from it anywhere in this deck: every performance number
+is the held-out score defined above, taken from the saved network. The two cannot be merged, because
+nothing logs a held-out score during training and adding one would cost nine forward passes per
+check.
+
 ---
 
 ## THE SCALING
@@ -435,12 +442,19 @@ Left: active units against the jitter on the copied weights — 685, 676, 708, 7
 runs 0 → 3. Right: matched at rate 0.005, maturity 1000 — 275 no pruning, 315 zeroing the unit, 542
 copying a donor.
 
-**At jitter 1** — the operating point Figure 2 uses — duplication runs on all three tasks. Against
-each task's own control: CDDM 1.85× / 2.26× / 2.71× / 2.98× at N = 500 → 4000, so the gain grows with
-size; DMTS 4.76× at N = 500 and 2.05× at N = 1000; flip-flop 2.88× at N = 4000. It also holds with
-training — flip-flop N = 1000 goes 753 active at 40,000 iterations to 793 at 150,000 (9 seeds), where
-the control loses units. No matched 150,000-iteration control exists in that sweep, so the comparison
-is to its own earlier self, not to a control.
+### 25b. Every task, every size, units and performance
+<p align="center"><img src="../img/internal_figures/slide_25b_prune_duplicate_all.svg" width="760"></p>
+At copy_noise = 1, the Figure 2 operating point. Active units, duplication against each task's own
+control: flip-flop 431 → 753 → 1167 → 1791 (control 221 → 272 → 457 → 622); CDDM 412 → 714 → 1121 →
+1698 (control 223 → 316 → 414 → 570). r² is unchanged on both — the solid and dotted lines overlap.
+
+**DMTS is different and the right panel says so.** Its duplication runs sit on the failure floor:
+0 of 3 seeds solve at N = 1000 and 0 of 3 at N = 2000 (r² ≈ 0.427 against the control's 0.999). So
+the DMTS recruitment on the left — 419, 491, 564 — is counted in networks that never learned the
+task, and is not evidence of anything. This is the 7τ delay; the 5τ re-runs replace it.
+
+Also at jitter 1: flip-flop N = 1000 goes 753 active at 40,000 iterations to 793 at 150,000 (9 seeds),
+compared with its own earlier self — that sweep holds no 150,000-iteration control.
 
 ### 26. Synaptic noise: the σ_w ladder
 <p align="center"><img src="../img/internal_figures/slide_26_synnoise_ladder.svg" width="760"></p>
