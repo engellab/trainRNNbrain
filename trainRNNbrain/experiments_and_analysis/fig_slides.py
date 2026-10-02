@@ -53,7 +53,7 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments, get_tr
 from trainRNNbrain.utils import filter_kwargs
 
 import paperstyle as ps
-import common_r2 as common_r2_mod
+import heldout_r2 as heldout
 import fig_paper_F1 as F1
 import pr_matrix as PR
 import fig_paper_F2 as F2
@@ -468,13 +468,13 @@ def bern_cell(kind, rate, beta):
 
 
 def bern_read(path):
-    """Per-seed active count and held-out R^2 in the common noise condition, at end of training.
+    """Per-seed active count and held-out R^2, at end of training.
 
     ⚠️ THE PERFORMANCE MEASURE IS NO LONGER THE NOISE-FREE PROBE. This returned the trace's
     dropout-off, noise-OFF loss, which is not a condition any of these networks ever operates in,
     and the project found that instrument reverses the ranking of arms: measured without noise
     frm+rws is the best arm and measured with it the worst. Every performance number now comes from
-    common_r2 - a held-out batch, sigma_rec and sigma_inp at the values the network trained with,
+    heldout_r2 - a held-out batch, sigma_rec and sigma_inp at the values the network trained with,
     sigma_w = 0, averaged over nine draws - so arms differ in their inputs and in nothing else.
     Dropout is off in that evaluation, so a dropout net is still scored on its full network.
 
@@ -488,7 +488,7 @@ def bern_read(path):
         (active, r2) float arrays, one entry per seed; both empty if the cell is absent.
     """
     act, r2 = [], []
-    cache = common_r2_mod.load_cache()
+    cache = heldout.load_cache()
     for d in sorted(glob.glob(os.path.join(path, "*", ""))):
         f = glob.glob(os.path.join(d, "*ParticipationTrace.pkl"))
         if not f:
@@ -496,8 +496,8 @@ def bern_read(path):
         with open(f[0], "rb") as fh:
             tr = pickle.load(fh)
         act.append(active_count(np.asarray(tr["participation"][-1], float), "scalefree"))
-        r2.append(common_r2_mod.common_r2(d.rstrip(os.sep), cache=cache))
-    common_r2_mod.save_cache(cache)
+        r2.append(heldout.heldout_r2(d.rstrip(os.sep), cache=cache))
+    heldout.save_cache(cache)
     return np.asarray(act, float), np.asarray(r2, float)
 
 
@@ -907,7 +907,7 @@ def dropout_rate_cost_slide(name="slide_24b_dropout_rate_cost"):
     ps.setup()
     fig, ax = plt.subplots(figsize=(W, 64 * ps.MM))
     _sweep_panel(ax, grid, ctrl_l, 1, np.random.default_rng(0))
-    ax.set_ylabel("held-out $R^2$, common noise condition")
+    ax.set_ylabel("held-out $R^2$")
     ax.text(0.036, ctrl_l.mean() - 0.004, f"no dropout, {ctrl_l.mean():.3f}", fontsize=6.6,
             color=ps.BASE, va="top")
     mute = [grid[("mute", r, b)][1].mean() for r in BERN_RATES for b in BERN_BETAS]
@@ -1193,6 +1193,119 @@ def selectivity_slide(name="slide_32_selectivity"):
     return ps.save(fig, name)
 
 
+# Prune-and-duplicate: the two knobs the sweeps actually vary.
+# JITTER: NBitFlipFlop_copy_perturb walks copy_noise 0 -> 3 at N = 1000, everything else fixed.
+# MODE: NBitFlipFlop_replace_variants swaps what a pruned unit is replaced WITH. The alternatives
+# exist only at max_replace_frac = 0.025 and maturity = 1000, so the comparison is made there -
+# copy also has cells at other rates, and using them would compare the rate, not the mode.
+PD_JITTER = f"{DATA_DIR}/NBitFlipFlop_copy_perturb"
+PD_MODES = f"{DATA_DIR}/NBitFlipFlop_replace_variants"
+# ⚠️ THE MATCHED CELL IS rate = 0.005, NOT 0.025. The other reinit modes exist only at 0.025, but
+# every `copy` cell at 0.025 and N = 1000 carries the __DETUNED_SELFWEIGHT bug - duplication zeroed
+# the 2x2 block spanning donor and copy, so the copy had no self-connection and the donor half of its
+# own - and Figure 2 excludes those by name. The corrected copy at N = 1000 exists at rate 0.001 and
+# 0.005 only. At 0.005 with maturity 1000 there is a control, a zero_out cell and a corrected copy
+# cell, which is the comparison that isolates what the COPY contributes over merely pruning.
+PD_MATCHED = [
+    ("no pruning", f"{DATA_DIR}/NBitFlipFlop_ff_revive/EqType=h_k=3_N=1000_pen=none_arm=none"),
+    ("prune, zero the unit",
+     f"{DATA_DIR}/NBitFlipFlop_replace_variants/EqType=h_k=3_N=1000_mode=zero_out_rate=0.005_mat=1000"),
+    ("prune, copy a donor",
+     f"{DATA_DIR}/NBitFlipFlop_replace_variants_fix/EqType=h_k=3_N=1000_mode=copy_rate=0.005_mat=1000"),
+]
+
+
+def _pd_cell(cell):
+    """Active units and folder r2 per seed for one cell.
+
+    Args:
+        cell: a cell directory, or a glob matching one.
+    Returns:
+        (active list, r2 list), both empty if the cell has no usable traces.
+    """
+    act, r2 = [], []
+    for base in sorted(glob.glob(cell)):
+        for d in sorted(glob.glob(os.path.join(base, "*/"))):
+            head = os.path.basename(d.rstrip("/")).split("_")[0]
+            if head == "nan":
+                continue
+            tp = glob.glob(os.path.join(d, "*ParticipationTrace.pkl"))
+            if not tp:
+                continue
+            try:
+                tr = pickle.load(open(tp[0], "rb"))
+            except Exception:
+                continue
+            P = np.asarray(tr.get("participation", []), float)
+            if P.ndim == 2 and len(P):
+                act.append(active_count(P[-1], "scalefree"))
+                try:
+                    r2.append(float(head))
+                except ValueError:
+                    pass
+    return act, r2
+
+
+def prune_duplicate_slide(name="slide_25_prune_duplicate"):
+    """Prune-and-duplicate: recruitment against the jitter, and against what replaces the unit.
+
+    Args:
+        name: output file stem.
+    Returns:
+        the output path, or None if neither sweep is on disk.
+    """
+    jit = []
+    for cell in sorted(glob.glob(os.path.join(PD_JITTER, "*"))):
+        cfgs = glob.glob(os.path.join(cell, "*", "*_config.yaml"))
+        if not os.path.isdir(cell) or not cfgs:
+            continue
+        pa = OmegaConf.load(cfgs[0]).trainer.prune_args
+        if bool(pa.get("copy_iid", False)) or bool(pa.get("copy_permute", False)):
+            continue                      # those are separate controls, not rungs of this ladder
+        a, r = _pd_cell(cell)
+        if a:
+            jit.append((float(pa.copy_noise), a, r))
+    jit.sort()
+    modes = []
+    for lab, cell in PD_MATCHED:
+        a, r = _pd_cell(cell)
+        if a:
+            modes.append((lab, a, r))
+    if not jit and not modes:
+        print(f"  SKIP {name}: no prune-and-duplicate cells on disk")
+        return None
+    ps.setup()
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(ps.W2, 62 * ps.MM))
+    xs = np.arange(len(jit), dtype=float)
+    for x, (noise, a, r) in zip(xs, jit):
+        ax.plot([x] * len(a), a, "o", ms=3.4, color=ps.SLOTS[0], alpha=0.85, mec="none", zorder=4)
+        ax.plot([x], [np.mean(a)], "s", ms=6.5, mfc="none", mec=ps.SLOTS[0], mew=1.2, zorder=5)
+    ax.plot(xs, [np.mean(a) for _n, a, _r in jit], "-", lw=1.1, color=ps.SLOTS[0], zorder=3)
+    ax.set_xticks(xs)
+    ax.set_xticklabels([f"{n:g}" for n, _a, _r in jit], fontsize=6.4)
+    ax.set(xlabel="jitter on the copied weights (copy_noise)", ylabel="active units of 1000")
+    ax.set_xlim(-0.5, len(xs) - 0.5)
+    ps.ygrid(ax)
+    xs2 = np.arange(len(modes), dtype=float)
+    for x, (lab, a, r) in zip(xs2, modes):
+        col = ps.SLOTS[1] if "copy" in lab else ps.BASE
+        ax2.plot([x] * len(a), a, "o", ms=3.4, color=col, alpha=0.85, mec="none", zorder=4)
+        ax2.plot([x], [np.mean(a)], "s", ms=6.5, mfc="none", mec=col, mew=1.2, zorder=5)
+    ax2.set_xticks(xs2)
+    ax2.set_xticklabels([l for l, _a, _r in modes], fontsize=6.2, rotation=24, ha="right",
+                        rotation_mode="anchor")
+    ax2.set_xlim(-0.5, len(xs2) - 0.5)
+    ax2.set(ylabel="active units of 1000")
+    ps.ygrid(ax2)
+    r2all = [v for _n, _a, r in jit for v in r] + [v for _l, _a, r in modes for v in r]
+    fig.suptitle("3-bit flip-flop, $N$ = 1000, 3 seeds per cell, 40,000 iterations\n"
+                 "left: jitter on the copied weights;  right: what replaces a pruned unit, at "
+                 "max_replace_frac = 0.005, maturity = 1000\n"
+                 f"$r^2$ over every cell shown: {min(r2all):.3f}–{max(r2all):.3f}",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.04)
+    return ps.save(fig, name)
+
+
 def readout_line(iters, recorded=None):
     """The 'read at ...' sentence a panel carries, from where its cells were actually read.
 
@@ -1275,9 +1388,9 @@ INPUTSCALE_LADDER = [
 
 
 def winp_cell(pattern, at_iter):
-    """Held-out R^2 in the common noise condition, and active-unit count, for one input-scale rung.
+    """Held-out R^2, and active-unit count, for one input-scale rung.
 
-    ⚠️ R^2 IS NO LONGER THE NOISE-FREE PROBE AT `at_iter`. It is common_r2 on the run's saved
+    ⚠️ R^2 IS NO LONGER THE NOISE-FREE PROBE AT `at_iter`. It is heldout_r2 on the run's saved
     parameters: a held-out batch at the sigma_rec and sigma_inp the network trained with,
     sigma_w = 0, nine draws. That is the project's one performance measure, so this panel can be set
     beside any other. The consequence worth knowing is that R^2 is now read at the END of training
@@ -1304,7 +1417,7 @@ def winp_cell(pattern, at_iter):
         p = np.asarray(d["participation"], float)[j]
         probes.add(int(pit[j]))
         active.append(active_count(p, "scalefree"))
-        r2.append(common_r2_mod.common_r2(os.path.dirname(f)))
+        r2.append(heldout.heldout_r2(os.path.dirname(f)))
     return np.array(r2, float), np.array(active, float), probes
 
 
@@ -1349,7 +1462,7 @@ def inputscale_r2_slide(name="slide_x_inputscale_r2", at_iter=150_000):
     mid = 0.5 * (every_r2.min() + every_r2.max())
     ax.set_ylim(mid - 0.01, mid + 0.01)
     ax.set_xlabel("active units of 1000  (scale-free rule, $p \\geq 0.05\\,q_{95}(p)$)")
-    ax.set_ylabel("task $R^2$, noise-free probe")
+    ax.set_ylabel("held-out task $R^2$")
     ax.set_title("3-bit flip-flop, $N$ = 1000: $R^2$ against active units\n"
                  f"3-bit flip-flop, N = 1000. {readout_line(probes)} Every seed "
                  f"drawn.\n{len(every_r2)} networks spanning {every_active.min():.0f}\u2013"
@@ -1527,9 +1640,9 @@ def cddm_batch_and_mask(folder):
 
 
 def cddm_activation_cell(pattern, at_iter):
-    """Held-out R^2 in the common noise condition, and active-unit count, for one CDDM arm.
+    """Held-out R^2, and active-unit count, for one CDDM arm.
 
-    R^2 is common_r2 on each net's saved parameters - a held-out batch (coherences interleaved with
+    R^2 is heldout_r2 on each net's saved parameters - a held-out batch (coherences interleaved with
     the trained grid), sigma_rec and sigma_inp as trained, sigma_w = 0, nine draws. It replaces an
     offline NOISE-FREE re-score, which mattered here more than anywhere: the noise penalty on CDDM
     is activation-dependent, so the two instruments do not merely shift this ladder, they reorder
@@ -1559,7 +1672,7 @@ def cddm_activation_cell(pattern, at_iter):
         p = np.asarray(d["participation"], float)[j]
         probes.add(int(pit[j]))
         active.append(active_count(p, "scalefree"))
-        r2.append(common_r2_mod.common_r2(folder.rstrip(os.sep)))
+        r2.append(heldout.heldout_r2(folder.rstrip(os.sep)))
     return np.array(r2, float), np.array(active, float), probes
 
 
@@ -1611,7 +1724,7 @@ def activation_r2_slide(name, ladder, cell_fn, at_iter, task_line, n_units=1000,
     lo, hi = mid - half, min(mid + half, 1.0)
     ax.set_ylim(min(lo, hi - 2 * half), hi)
     ax.set_xlabel(f"active units of {n_units}  (scale-free rule, $p \\geq 0.05\\,q_{{95}}(p)$)")
-    ax.set_ylabel("task $R^2$, noise-free")
+    ax.set_ylabel("held-out task $R^2$")
     note = ("\n" + "; ".join(missing) + (" is" if len(missing) == 1 else " are")
             + " still training") if missing else ""
     ax.set_title(f"{headline or '$R^2$ against active units'}\n"
@@ -1652,9 +1765,9 @@ MET_LADDER = [
 
 
 def met_cell(cell_dir, lam):
-    """Held-out R^2 in the common noise condition, and active-unit count, for one metabolic cell.
+    """Held-out R^2, and active-unit count, for one metabolic cell.
 
-    R^2 is common_r2: a held-out batch at the sigma_rec and sigma_inp the network trained with,
+    R^2 is heldout_r2: a held-out batch at the sigma_rec and sigma_inp the network trained with,
     sigma_w = 0, nine draws. It replaces a noise-free cache (`metabolic_clean_r2.npz`), which is no
     longer read.
 
@@ -1690,7 +1803,7 @@ def met_cell(cell_dir, lam):
         except Exception:
             continue
         active.append(active_count(np.asarray(d["participation"], float)[-1], "scalefree"))
-        r2.append(common_r2_mod.common_r2(os.path.dirname(f)))
+        r2.append(heldout.heldout_r2(os.path.dirname(f)))
         last = int(np.asarray(d["iters"])[-1])
     return np.asarray(r2, float), np.array(active, float), last
 
@@ -1725,12 +1838,14 @@ def metabolic_r2_slide(name="slide_x_metabolic_r2"):
         ax.plot(active.mean(), r2.mean(), "s", ms=7.0, color=col, mec="white", mew=1.1, zorder=4)
 
     ax.set_xlabel("active units of 1000  (scale-free rule, $p \\geq 0.05\\,q_{95}(p)$)")
-    ax.set_ylabel("task $r^2$, noise-free probe")
+    ax.set_ylabel("held-out task $r^2$")
     every_r2 = np.concatenate([c[2] for c in drawn])
     probe = f"{sorted(probes)[0]:,}" if len(probes) == 1 else "the last probe"
-    # The axis runs to r2 = 1 so the reader can see how close to perfect these all are; cropping
-    # to the data would turn a 0.07 spread into the whole canvas.
-    ax.set_ylim(0.88, 1.00)
+    # The axis keeps a fixed window ABOVE the data rather than cropping to it, so a 0.05 spread
+    # does not fill the canvas and read as a catastrophe. It is anchored to the data, not typed: the
+    # old hard-coded (0.88, 1.00) silently emptied this panel the moment the measure changed from the
+    # noise-free probe to the held-out score, which sits ~0.12 lower on CDDM.
+    ax.set_ylim(min(every_r2.min() - 0.01, every_r2.max() - 0.12), every_r2.max() + 0.015)
     lo = np.mean([c[2] for c in drawn if c[0].endswith("= 10")][0])
     ref = np.mean([c[2] for c in drawn if "no penalty" in c[0]][0])
     ax.set_title("CDDM, $N$ = 1000: r$^2$ against active units\n"
@@ -2314,6 +2429,168 @@ def synnoise_ladder_slide(name="slide_26_synnoise_ladder", task="NBitFlipFlop", 
     return ps.save(fig, name, w_mm=110)
 
 
+# Four measures against size for one rung of the ladder. Sizes where only ONE arm exists are
+# dropped: the control has an N = 4000 cell and the synaptic-noise arm does not, and a lone control
+# point at the right edge invites an extrapolation the data do not carry.
+SW_MEASURES = [("n_active", "active units", True),
+               ("r2_common", "$R^2$ at $\\sigma_w$ = 0", False),
+               ("dims", "participation ratio", False),
+               ("w_sigma_log", "sd of $\\ln|W_{rec}|$", False)]
+
+
+def synnoise_size_slide(name="slide_26b_synnoise_size", sigma_w=1.0, task="NBitFlipFlop"):
+    """One claim: at sigma_w = 1 every measure moves the same way at every size, and the unit
+    multiplier is largest in the middle.
+
+    Args:
+        name: output file stem; sigma_w: the rung to follow; task: task name as the cache records it.
+    Returns:
+        the output path, or None if fewer than two sizes carry both arms.
+    """
+    c = F2.load()
+    tag = f"sw={sigma_w:g}"
+    is_sw = np.array([tag in str(x) for x in c["cell"]])
+    base = c["task"] == task
+    sizes = sorted(set(c["N"][base & (c["arm"] == "synnoise") & is_sw].tolist())
+                   & set(c["N"][base & (c["arm"] == "control")].tolist()))
+    if len(sizes) < 2:
+        print(f"  SKIP {name}: {len(sizes)} sizes carry both arms")
+        return None
+    col = ps.COND_COL["synnoise"]
+    arms = [("control", f"no synaptic noise", ps.BASE),
+            ("synnoise", rf"$\sigma_w$ = {sigma_w:g}", col)]
+
+    def vals(a, n, key):
+        m = base & (c["N"] == n) & (c["arm"] == a) & (is_sw if a == "synnoise" else True)
+        return np.asarray(c[key][m], float)
+
+    ps.setup()
+    fig = plt.figure(figsize=(190 * ps.MM, 56 * ps.MM))
+    gs = GridSpec(1, 4, figure=fig, wspace=0.40,
+                  left=0.055, right=0.99, top=0.74, bottom=0.20)
+    rng = np.random.default_rng(0)
+    ratios = []
+    for i, (key, ylab, logy) in enumerate(SW_MEASURES):
+        ax = fig.add_subplot(gs[0, i])
+        for a, _, c_ in arms:
+            mu = []
+            for n in sizes:
+                g = vals(a, n, key)
+                mu.append(g.mean())
+                ax.plot(n * np.exp(rng.normal(0, 0.012, len(g))), g, "o", ms=2.8, color=c_,
+                        alpha=0.8, mec="none", zorder=3, clip_on=False)
+            ax.plot(sizes, mu, "-", lw=1.3, color=c_, zorder=4)
+        ax.set_xscale("log")
+        if logy:
+            ax.set_yscale("log")
+            ratios = [vals("synnoise", n, key).mean() / vals("control", n, key).mean()
+                      for n in sizes]
+            for n, r in zip(sizes, ratios):
+                ax.annotate(f"{r:.2f}x", (n, vals("synnoise", n, key).mean()),
+                            textcoords="offset points", xytext=(0, 6), ha="center",
+                            fontsize=6.2, color=col)
+        ax.set_xticks(sizes)
+        ax.set_xticklabels([f"{n}" for n in sizes])
+        ax.xaxis.set_minor_locator(NullLocator())
+        if logy:
+            ax.set_yticks([200, 300, 400, 600])
+            ax.yaxis.set_minor_locator(NullLocator())
+            for (_, lab, c_), yl in zip(arms, (0.16, 0.05)):
+                ax.text(0.98, yl, lab, transform=ax.transAxes, ha="right", va="bottom",
+                        fontsize=6.6, color=c_)
+        ax.yaxis.set_major_formatter(ScalarFormatter())
+        ax.set_ylabel(ylab, fontsize=7.0)
+        ax.set_xlabel("$N$")
+        ps.ygrid(ax)
+        ps.despine(ax)
+    drop = [100.0 * (vals("control", n, "r2_common").mean() - vals("synnoise", n, "r2_common").mean())
+            for n in sizes]
+    fig.suptitle(
+        "3-bit flip-flop, 40,000 iterations, 3-6 seeds per point, every seed drawn\n"
+        f"units {' / '.join(f'{r:.2f}x' for r in ratios)} the control at "
+        f"$N$ = {' / '.join(str(n) for n in sizes)}, "
+        f"for {min(drop):.1f}-{max(drop):.1f} points of $R^2$",
+        fontsize=7.4, color=ps.INK, linespacing=1.4, y=1.03)
+    return ps.save(fig, name, w_mm=190)
+
+
+def synnoise_scatter_slide(name="slide_26c_synnoise_scatter", sigma_w=1.0, task="NBitFlipFlop",
+                           pr_range=(4.0, 7.0)):
+    """One claim: synaptic noise moves every network up and to the right of its own control, at
+    every size, and the colour says the extra units are spread over more directions.
+
+    One point per network: active units on x, the common-condition R-squared on y, participation
+    ratio as colour, arm as marker shape. Three measures in one picture, which the four panels of
+    26b cannot do - there the same network appears four times and the reader has to re-pair it.
+
+    The colour scale is CLIPPED to pr_range rather than fitted to the data: two networks fall below
+    4 and one above 7, and letting them set the ends compresses the range the other 25 live in. The
+    colourbar is drawn with both ends extended so the clipping is visible rather than silent.
+
+    Args:
+        name: output file stem; sigma_w: the rung to draw; task: task name as the cache records it;
+        pr_range: (vmin, vmax) for the participation-ratio colour scale.
+    Returns:
+        the output path, or None if fewer than two sizes carry both arms.
+    """
+    c = F2.load()
+    tag = f"sw={sigma_w:g}"
+    is_sw = np.array([tag in str(x) for x in c["cell"]])
+    base = c["task"] == task
+    sizes = sorted(set(c["N"][base & (c["arm"] == "synnoise") & is_sw].tolist())
+                   & set(c["N"][base & (c["arm"] == "control")].tolist()))
+    if len(sizes) < 2:
+        print(f"  SKIP {name}: {len(sizes)} sizes carry both arms")
+        return None
+    arms = [("control", "no synaptic noise", "o"), ("synnoise", rf"$\sigma_w$ = {sigma_w:g}", "s")]
+
+    def rows(a, n):
+        m = base & (c["N"] == n) & (c["arm"] == a) & (is_sw if a == "synnoise" else True)
+        return (np.asarray(c["n_active"][m], float), np.asarray(c["r2_common"][m], float),
+                np.asarray(c["dims"][m], float))
+
+    ps.setup()
+    fig = plt.figure(figsize=(118 * ps.MM, 78 * ps.MM))
+    gs = GridSpec(1, 2, figure=fig, width_ratios=[1.0, 0.035], wspace=0.06,
+                  left=0.11, right=0.90, top=0.84, bottom=0.12)
+    ax = fig.add_subplot(gs[0, 0])
+    sc = None
+    for a, _, mk in arms:
+        for n in sizes:
+            x, y, pr = rows(a, n)
+            sc = ax.scatter(x, y, c=pr, cmap="viridis", vmin=pr_range[0], vmax=pr_range[1],
+                            marker=mk, s=26, lw=0.5, edgecolors=ps.INK, zorder=3)
+        # a thin path through the per-size means, so the size ordering is readable inside each arm
+        mu = np.array([[rows(a, n)[0].mean(), rows(a, n)[1].mean()] for n in sizes])
+        ax.plot(mu[:, 0], mu[:, 1], "-", lw=0.8, color=ps.MUTED, alpha=0.6, zorder=2)
+        # NO PER-SIZE LABELS IN THE CLOUD. The control's N = 500 and N = 1000 clusters overlap in
+        # x (200-250 against 257-347), so a label at either the cluster mean or its left edge lands
+        # on a marker of the neighbouring size. The size ordering is carried by x instead - active
+        # units rise with N in both arms - and the title says so.
+    ax.set_xlabel("active units")
+    ax.set_ylabel("$R^2$ at $\\sigma_w$ = 0")
+    ps.ygrid(ax)
+    ps.despine(ax)
+    ax.legend(handles=[Line2D([], [], ls="none", marker=mk, ms=4.5, mfc=ps.FAINT, mec=ps.INK,
+                              mew=0.5, label=lab) for _, lab, mk in arms],
+              loc="lower left", fontsize=6.6, frameon=False, handletextpad=0.5,
+              borderaxespad=0.2, labelcolor=ps.INK)
+
+    cax = fig.add_subplot(gs[0, 1])
+    cb = fig.colorbar(sc, cax=cax, extend="both")
+    cb.set_label("participation ratio", fontsize=7.0)
+    cb.ax.tick_params(labelsize=6.4)
+    cb.outline.set_visible(False)
+
+    lab_n = ", ".join(str(n) for n in sizes)
+    fig.suptitle(f"3-bit flip-flop, 40,000 iterations, one point per network; "
+                 f"$N$ = {lab_n} left to right along each line\n"
+                 f"$\\sigma_w$ = {sigma_w:g} moves every size up in units and down in $R^2$, "
+                 "and raises the participation ratio with it",
+                 fontsize=7.4, color=ps.INK, linespacing=1.4, y=1.02)
+    return ps.save(fig, name, w_mm=118)
+
+
 def main(list_only=False):
     """Write every slide. Returns the list of output paths."""
     if list_only:
@@ -2408,10 +2685,13 @@ def main(list_only=False):
         got = penalty_size_slide(_t)
         if got:
             out.append(got)
-    got = synnoise_ladder_slide()
-    if got:
-        out.append(got)
-    for _fn in (temporal_pr_slide, frm_vs_both_slide, selectivity_slide):
+    for _fn in (synnoise_ladder_slide, synnoise_size_slide,
+                synnoise_scatter_slide):
+        got = _fn()
+        if got:
+            out.append(got)
+    for _fn in (prune_duplicate_slide, temporal_pr_slide, frm_vs_both_slide,
+                selectivity_slide):
         got = _fn()
         if got:
             out.append(got)
@@ -2426,13 +2706,16 @@ def main(list_only=False):
         out.append(got)
     got = activation_r2_slide(
         "slide_x_activation_cddm_r2", ACTIVATION_CDDM, cddm_activation_cell, 199_900,
-        "CDDM, N = 1000. $R^2$ is the noise-free offline re-score. Every seed drawn.")
+        r"CDDM, N = 1000. $R^2$ is held out: a batch never trained on (coherences interleaved "
+        r"with the trained grid), at the $\sigma_{rec}$ and $\sigma_{inp}$ these nets "
+        r"trained with, $\sigma_w = 0$, nine draws. Every seed drawn.")
     if got:
         out.append(got)
     got = activation_r2_slide(
         "slide_x_weightdecay_r2", WEIGHTDECAY_CDDM, cddm_activation_cell, 199_900,
-        "CDDM, N = 1000. $R^2$ is the noise-free re-score of each net's final parameters. "
-        "Every seed drawn.",
+        r"CDDM, N = 1000. $R^2$ is held out: a batch never trained on (coherences interleaved "
+        r"with the trained grid), at the $\sigma_{rec}$ and $\sigma_{inp}$ these nets "
+        r"trained with, $\sigma_w = 0$, nine draws. Every seed drawn.",
         headline="CDDM, $N$ = 1000: $R^2$ against active units")
     if got:
         out.append(got)

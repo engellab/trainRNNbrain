@@ -112,9 +112,15 @@ task's convergence bar, not at a fixed iteration.
 
 ## WHAT DOES NOT WORK — one knob at a time
 
-Throughout: R² is the **noise-free** score, re-simulated offline from each net's saved
-parameters, never the folder-name score (one forward pass with the noise on). Active units
-are the scale-free rule, p ≥ 0.05·q₉₅(p). N = 1000. Every seed drawn.
+Throughout: R² is the **held-out** score — a batch no network trained on, run at the σ_rec and
+σ_inp that network trained with, σ_w = 0, averaged over nine noise draws. Held out means the inputs
+differ, not the noise: on CDDM the coherences are the midpoints of the trained grid, on the 3-bit
+flip-flop the input streams are freshly drawn. Every arm is therefore compared in one noise
+condition and differs only in what it is shown. This replaces the noise-free score the deck used to
+report, which measured a condition none of these networks operates in and which did not merely shift
+the arms but reordered them. Active units are the scale-free rule, p ≥ 0.05·q₉₅(p), and stay
+noise-free — a count of units above a threshold is not a performance measure, and injected noise
+lifts every unit onto a floor that makes the count meaningless. N = 1000. Every seed drawn.
 
 ### 7b. The control is not one number — it depends when you look
 <p align="center"><img src="../img/internal_figures/slide_07b_control_trajectory.svg" width="760"></p>
@@ -402,36 +408,39 @@ against -161 per decade, so the gap is closing.
 **Deviation.** These are the only dropout networks trained past 40,000 iterations and they predate
 the sampler rewrite, so the corrected rule has never been asked this question.
 
-### 25. Prune-and-duplicate ⚠
-Needs its own figure: recruitment against jitter, and the output unchanged at the moment of surgery.
+### 25. Prune-and-duplicate
+<p align="center"><img src="../img/internal_figures/slide_25_prune_duplicate.svg" width="760"></p>
+**Left — the jitter.** Recruitment rises with the noise added to the copied weights and then stops:
+685 → 676 → 708 → 751 → 752 active as copy_noise runs 0 → 0.05 → 0.3 → 1 → 3. Everything else is
+held fixed. r² over the whole ladder is 0.940–0.945, so the jitter costs nothing.
 
-### 26. Synaptic noise: units all the way up, a dependence past σ_w = 1
+**Right — what the copy contributes.** Matched on rate (0.005) and maturity (1000), differing only in
+what replaces a pruned unit: 275 with no pruning, 315 zeroing the unit, 542 copying a donor. Pruning
+alone buys 40 units; the copy buys another 227.
+
+Not shown: the other replacement modes (random, orthogonal, mix of k donors, bias kick) exist only at
+rate 0.025, where every `copy` cell at N = 1000 carries the `__DETUNED_SELFWEIGHT` bug that Figure 2
+excludes — duplication zeroed the 2×2 block spanning donor and copy, so the copy had no
+self-connection and the donor half of its own. At 0.025 those alternatives land between 262 and 373
+active, all below the corrected copy's 542 at a fifth the replacement rate.
+
+### 26. Synaptic noise: the σ_w ladder
 <p align="center"><img src="../img/internal_figures/slide_26_synnoise_ladder.svg" width="760"></p>
 
-Every rung buys units, including the smallest: σ_w = 0.1 gives 368 against the control's 298 at an
-R² of 0.947 against 0.944, and its three seeds sit above all six control seeds.
+- σ_w = 1 — 566 units of 1000 against 298, for 1.7 points of R².
+- Past σ_w = 1 the net works only while its synapses jitter: at σ_w = 3, R² 0.925 in its own
+  noise, 0.678 without it.
 
-**σ_w = 1 is the operating point Figure 2 uses** — 566 units of 1000 for 1.7 points of R², 0.944 to
-0.927, with the two seed ranges disjoint (0.9417–0.9493 against 0.9225–0.9332).
+### 26b. …against size
+<p align="center"><img src="../img/internal_figures/slide_26b_synnoise_size.svg" width="900"></p>
 
-**Above it the network keeps the units only while its synapses jitter.** At σ_w = 3 the same network
-scores 0.925 in the noise it trained in and 0.678 with that noise switched off. The gap is 0.00 at
-σ_w ≤ 1 and 0.12 / 0.25 at σ_w = 2 / 3, so the folder names — which record the noisy score — read
-0.92–0.93 the whole way up and say nothing about it.
+- Multiplier peaks at N = 1000 and falls to 1.39x at 2000. Dimensionality up, weights narrower, at
+  every size. N = 4000 not trained.
 
-**It does not scale.** At σ_w = 1 the multiplier over the control is 1.73x at N = 500 (381 against
-220), 1.90x at N = 1000 (566 against 298) and **1.39x** at N = 2000 (633 against 457). Falling at the
-largest size is the pre-registered falsification for this arm. N = 4000 is not trained.
+### 26c. The same three measures, one point per network
+<p align="center"><img src="../img/internal_figures/slide_26c_synnoise_scatter.svg" width="720"></p>
 
-**On the other task, once.** CDDM at N = 1000, 100,000 iterations: 301 active against 210, R² 0.856
-against 0.849 — free, but on 1 net of the 3 trained. ⚠ The other two do not survive the cache's
-rebuild gate and the reason is not established.
-
-**What else moves.** Participation ratio 5.4 → 6.7, PCs for 99% of the variance 33 → 49, stable rank
-3.05 → **4.27** — the highest of any arm except the penalty pair, so the directions it adds carry
-real variance rather than near-duplicates. The weight distribution is left alone: width 0.91x the
-control's and 1.8x its distance from lognormal, against 2.0–2.3x and 4.7–7.8x for rescale and the
-penalties.
+- Two clouds, no overlap: more units, less R², higher participation ratio, at all three sizes.
 
 ---
 
