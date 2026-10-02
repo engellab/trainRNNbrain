@@ -17,7 +17,9 @@ python trainRNNbrain/experiments_and_analysis/fig_supp_tasks.py       # the thre
 
 Figures are centred at one width, so the deck reads at a constant scale — add new ones as
 `<p align="center"><img src="..." width="760"></p>`, not as Markdown image syntax, which cannot be
-centred. `check_presentation.py` checks this file: every linked figure exists, no slide points at
+centred. **The links are PNG, written by `deck_pngs.py` from each panel's PDF.** The PDFs and SVGs
+are the talk's own assets and stay on disk; GitHub's blob view returns 503 on this file when its
+images are 35 resolvable SVGs, and a PNG is a tenth the bytes for the dense loss-trace panels. `check_presentation.py` checks this file: every linked figure exists, no slide points at
 another by number, no code identifier reaches the screen, no slide runs past 55 words, and every
 figure on disk is either shown or accounted for below.
 
@@ -36,31 +38,31 @@ committing those files is what makes the claim "generated directly with code" tr
 flip-flop, 200,000 on CDDM. The results sections later read a different sweep at 40,000.
 
 ### A trained RNN is read the way a recorded population is read
-<p align="center"><img src="../img/internal_figures/slide_m1_model_organism.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_m1_model_organism.png" width="760"></p>
 
 ### What the networks are asked to do
-<p align="center"><img src="../img/internal_figures/fig_supp_tasks.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/fig_supp_tasks.png" width="760"></p>
 Left, what the network is asked to do; right, the real input and target channels. τ is a unit's own
 time constant and a trial is 30 of them. The match-to-sample row draws a redesign still in training;
 its results later come from an earlier, longer-delay version, the least reliable of the three tasks.
 
 ### Train one, and three of four units never fire
-<p align="center"><img src="../img/internal_figures/slide_01_schematic.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_01_schematic.png" width="760"></p>
 
 ### Training empties the network: 539 of 1000 fire untrained, 262 after 150,000 iterations
-<p align="center"><img src="../img/internal_figures/slide_m2_training_empties.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_m2_training_empties.png" width="760"></p>
 **Untrained means zero gradient steps**, not an early checkpoint: five fresh draws of the same
 architecture, 339 of whose units sit at exactly zero. The units training takes are not switched off
 — they fire thousands of times less than a working one. No weight draw produces that middle group.
 
 ### Deep learning's own dormancy test counts the same units
-<p align="center"><img src="../img/internal_figures/slide_m3_two_criteria.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_m3_two_criteria.png" width="760"></p>
 Sokar et al.'s rule and this project's share no term and land within 60 units of 1000 of each other.
 Machine learning calls the phenomenon loss of plasticity: Dohare et al. (Nature 2024) report Adam
 leaving about 60% of units dead across a task sequence, and Adam is the optimiser here.
 
 ### Can a network reach the same score with every unit working?
-<p align="center"><img src="../img/internal_figures/slide_m4_the_question.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_m4_the_question.png" width="760"></p>
 The control here is the one every later result is measured against: the 3-bit flip-flop at
 N = 1000, read at 40,000 iterations. That is why it holds 297 units and not the 262 two slides back.
 
@@ -73,29 +75,29 @@ settles, so the same task at the same size reads a different control number on d
 Every panel carries its own control; read the gap, not the absolute number.
 
 ### Every task splits its units in two: a working few and a quiet crowd
-<p align="center"><img src="../img/internal_figures/slide_02_participation_by_task_matched.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_02_participation_by_task_matched.png" width="760"></p>
 **One unit, one number: how much its rate moves over a trial plus how high it gets.** A unit works
 when that number clears 5% of the network's own 95th percentile — a bar with no absolute scale, so a
 count means the same at any size. Every count here uses it.
 
 ### Every activation we tried ends with 200 to 300 units of 1000 working
-<p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.png" width="760"></p>
 Leaky ReLU and softplus keep a nonzero gradient everywhere and silence anyway. Bounded sigmoid parks
 its quiet units at the lower asymptote rather than saturating them high, and leaves 67 fewer units
 working than ReLU.
 
 ### Units keep going silent long after the loss has stopped moving
-<p align="center"><img src="../img/internal_figures/slide_03_silencing_vs_training.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_03_silencing_vs_training.png" width="760"></p>
 Vanilla networks: no dropout, no penalty, no augmentation. Every seed whose loss was recorded is
 kept. Dashed rule: where the loss first comes within 7% of its final value.
 
 ### All four sizes settle at the same loss and differ only in when they get there
-<p align="center"><img src="../img/internal_figures/slide_06_readout_rule.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_06_readout_rule.png" width="760"></p>
 The four sizes reach floors within 3% of one another, so what separates them is when they arrive
 rather than where they stop.
 
 ### Bigger networks are emptier: every task falls from 52–65% of units working to 13–19%
-<p align="center"><img src="../img/internal_figures/slide_06_scaling_fraction.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_06_scaling_fraction.png" width="760"></p>
 The band is the seed range. The absolute counts still rise — CDDM goes from 327 to 945 units active
 — which is why this panel plots the share and not the count.
 
@@ -104,12 +106,12 @@ The band is the seed range. The absolute counts still rise — CDDM goes from 32
 # WHY IT IS HARD
 
 ### A silent ReLU unit has exactly zero gradient on every weight into it and out of it
-<p align="center"><img src="../img/internal_figures/slide_wh_zero_gradient.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_wh_zero_gradient.png" width="760"></p>
 So no term added to the loss can revive one. Every rule that works below acts on the weights
 directly.
 
 ### Turn one back on and the network turns it off again
-<p align="center"><img src="../img/internal_figures/slide_wh_treadmill.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_wh_treadmill.png" width="760"></p>
 A redraw gives a unit that has been silent too long a fresh set of random weights. It fires 26,000
 times and buys four working units. Escaping the frozen state is not enough: a revived unit survives
 only if the task finds a use for it.
@@ -122,14 +124,14 @@ Settings a modeller already has. Two of them move the count a long way, and both
 Throughout: N = 1000, every seed drawn, each arm against the control beside it.
 
 ### Turn weight decay off and 395 units work; run it at a hundred times the default and 84 do
-<p align="center"><img src="../img/internal_figures/slide_x_weightdecay.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_x_weightdecay.png" width="760"></p>
 The strongest single lever found here, and it is a hyperparameter usually set without thought.
 
 ### Removing recurrent noise costs almost three times the active count
-<p align="center"><img src="../img/internal_figures/slide_x_recnoise.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_x_recnoise.png" width="760"></p>
 
 ### The metabolic penalty looks neutral because the bar shrinks with the rates it charges for
-<p align="center"><img src="../img/internal_figures/slide_x_metabolic_ruler.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_x_metabolic_ruler.png" width="760"></p>
 The penalty shrinks the rate scale sixfold, and the bar, being a fraction of each network's own 95th
 percentile, shrinks with it. Hold the bar at the control's value and the same networks fall from 413
 to 119. The units are turned down, not killed.
@@ -142,34 +144,34 @@ to 119. The units are turned down, not killed.
 iterations,** unless its own title says otherwise. One dot is one network.
 
 ### Four rules change the weights by hand; the fifth changes the loss
-<p align="center"><img src="../img/internal_figures/slide_rules.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_rules.png" width="760"></p>
 The two penalty terms: `frm` charges a unit for missing a firing-rate target, `rws` for spreading
 its input over too many partners. Every later slide calls them **rate** and **sparsity**, with the
 code name in brackets where it appears at all.
 
 ### Every rule raises the count, from 297 of 1000 to between 453 and 939
-<p align="center"><img src="../img/internal_figures/slide_f2_active.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_f2_active.png" width="760"></p>
 3-bit flip-flop, N = 1000, 40,000 iterations, one dot per network.
 
 ### Duplication adds 438 units for a thousandth of the score; the others pay ten times more for fewer
-<p align="center"><img src="../img/internal_figures/slide_f2_r2_vs_active.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_f2_r2_vs_active.png" width="760"></p>
 The same networks, now joined. The arms do not lie on one trade-off curve: duplication recruits 438
 units more than the control and pays a ninth to a twelfth of what dropout, rescaling and synaptic
 noise each pay for fewer. Six control networks, three or four per arm.
 
 ### Only the penalty pair adds directions; the other four recruit copies
-<p align="center"><img src="../img/internal_figures/slide_f2_dims.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_f2_dims.png" width="760"></p>
 A soft count of the directions the population's activity uses: exactly *n* for *n* equally loaded
 directions, falling toward 1 when one dominates. Measured over active units, since a silent unit adds
 no variance.
 
 ### Every rule beats the untouched network at all four sizes, and none reaches the diagonal
-<p align="center"><img src="../img/internal_figures/slide_f2_size_active.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_f2_size_active.png" width="760"></p>
 Every arm beats the control at every size, and none closes the gap to the diagonal. The penalty pair
 exists at one size only.
 
 ### Duplication is the cheapest rule at N = 1000 and the dearest at 4000
-<p align="center"><img src="../img/internal_figures/slide_f2_size_r2.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_f2_size_r2.png" width="760"></p>
 The bar on the right is the whole score range, so the frame holds about three points of it.
 
 ---
@@ -181,64 +183,64 @@ additions to training. **Still the 3-bit flip-flop at N = 1000, read at 40,000 i
 where a panel's own title says otherwise.
 
 ### A bigger input scale lifts 263 units to 339, at no measurable cost
-<p align="center"><img src="../img/internal_figures/slide_x_inputscale.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_x_inputscale.png" width="760"></p>
 The knob sets each input row's length at initialisation, over a 400-fold range, and nothing holds it
 there afterwards. For scale: training the reference 350,000 iterations further loses 74 units, about
 what the best rung buys.
 
 ### Rescaling revives a unit without adding one synapse: the row's total is held while its balance tilts
-<p align="center"><img src="../img/internal_figures/slide_mech_rescale.svg" width="900"></p>
+<p align="center"><img src="../img/internal_figures/slide_mech_rescale.png" width="900"></p>
 The unit keeps every synapse it has, and nothing is added: the row's total length is held while its
 balance tilts. Only synapses from units that are currently firing move — a synapse from a silent
 source delivers nothing however large it is made.
 
 ### Any release target works: 384 to 450 units from 2.5 to 30, against 258 with none
-<p align="center"><img src="../img/internal_figures/slide_27c_rescale_target.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_27c_rescale_target.png" width="760"></p>
 Without a target the unit revives, the boost stops, and the gradient it now has puts it back. Every
 rung costs the same 0.013 of the held-out score, so the price is for having a target at all, not for
 setting it high.
 
 ### Dropout aims at the units that are working
-<p align="center"><img src="../img/internal_figures/slide_mech_dropout.svg" width="900"></p>
+<p align="center"><img src="../img/internal_figures/slide_mech_dropout.png" width="900"></p>
 A silent unit is never drawn: masking a unit that emits nothing moves no other unit's state at all.
 
 ### Hiding a unit from the read-out costs a third of what switching it off costs
-<p align="center"><img src="../img/internal_figures/slide_24_dropout_tradeoff.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_24_dropout_tradeoff.png" width="760"></p>
 
 ### A second kind of noise: on every synapse, scaling with its weight, rather than at the cell body
-<p align="center"><img src="../img/internal_figures/slide_mech_synnoise.svg" width="900"></p>
+<p align="center"><img src="../img/internal_figures/slide_mech_synnoise.png" width="900"></p>
 Every network here already runs with noise injected at the cell body. Synaptic noise is a different
 perturbation: it rides the weights the task is learning, so it reaches a unit through its wiring
 rather than past it. The stored weights stay clean.
 
 ### Past a jitter of 1 the network needs the jitter to work
-<p align="center"><img src="../img/internal_figures/slide_26_synnoise_ladder.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_26_synnoise_ladder.png" width="760"></p>
 The gap between the two scoring conditions is the dependence.
 
 ### Copy a working unit's inputs, split its output in two, and the network's behaviour is unchanged
-<p align="center"><img src="../img/internal_figures/slide_mech_duplicate.svg" width="900"></p>
+<p align="center"><img src="../img/internal_figures/slide_mech_duplicate.png" width="900"></p>
 The population never changes size: one row and one column of the same matrix are overwritten in
 place. Splitting the donor's outgoing weight is what keeps the network's output the same at the
 moment of the copy.
 
 ### The donor's output targets buy a third of the recruitment; the sizes of its inputs buy most of the rest
-<p align="center"><img src="../img/internal_figures/slide_wh_decomposition.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_wh_decomposition.png" width="760"></p>
 Each step hands the dead unit one more thing the donor has: where it projects, then incoming weights
 of the donor's magnitudes in scrambled positions, then those magnitudes on the donor's own sources.
 All three together are the full copy.
 
 ### The rate term is a target, not a floor: it drags the loud units down as well as the quiet ones up
-<p align="center"><img src="../img/internal_figures/slide_mech_penalty.svg" width="900"></p>
+<p align="center"><img src="../img/internal_figures/slide_mech_penalty.png" width="900"></p>
 The only arm that changes the loss rather than the network. The rate term is a target and not a
 floor, so it drags the busy units down as well as the quiet ones up — which is how it flattens the
 population.
 
 ### The rate term buys the units and the directions; the sparsity term costs 90 of them
-<p align="center"><img src="../img/internal_figures/slide_31_frm_vs_both.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_31_frm_vs_both.png" width="760"></p>
 The pair also scores worst of the four. What the second term buys is not on these axes.
 
 ### The sparsity term lifts the units that fire only in a brief transient
-<p align="center"><img src="../img/internal_figures/slide_30_temporal_pr.svg" width="760"></p>
+<p align="center"><img src="../img/internal_figures/slide_30_temporal_pr.png" width="760"></p>
 CDDM at N = 1000 and 200,000 iterations — the penalty pair's own sweep, not the 40,000 grid above.
 The effect is in the lower tail. The median barely moves; the quietest quarter goes from firing
 through 2.8% of the trial to 6.0%, and every seed with both terms is above every seed with one.
@@ -248,7 +250,7 @@ through 2.8% of the trial to 6.0%, and every seed with both terms is above every
 # BOTTOM LINE
 
 ### What works, what does not
-<p align="center"><img src="../img/internal_figures/slide_33_bottom_line.svg" width="880"></p>
+<p align="center"><img src="../img/internal_figures/slide_33_bottom_line.png" width="880"></p>
 ---
 
 # APPENDIX — shown only if asked

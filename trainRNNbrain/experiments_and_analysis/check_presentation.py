@@ -7,7 +7,7 @@ claim, the prose names the task and stops, nothing points at a slide the audienc
 code identifier reaches the screen. Each of those is one grep, so they are one script, and the
 script runs in a second -- which is the difference between a standard and an intention.
 
-  1. every figure the deck links exists on disk
+  1. every figure the deck links exists on disk (the links are PNG, written by deck_pngs.py)
   2. the TALK BODY (everything before the appendix) contains no cross-reference of the form
      "slide 12" -- an audience cannot flip back, so a pointer is a dead end
   3. the talk body contains no code identifier, folder name or config key
@@ -97,7 +97,7 @@ def check(path=DECK):
     # RULE 5. A figure that is on disk and in neither place was dropped by accident rather than by
     # decision, which is how the previous deck came to carry panels nobody could account for.
     appendix = text.split(APPENDIX)[1] if APPENDIX in text else ""
-    shown = set(re.findall(r'src="\.\./img/internal_figures/([^"]+)\.svg"', body))
+    shown = set(re.findall(r'src="\.\./img/internal_figures/([^"]+)\.(?:png|svg)"', body))
     named = set(re.findall(r"`(slide_[a-z0-9_]+)`", appendix))
     for path in sorted(glob.glob("img/internal_figures/slide_*.svg")):
         stem = os.path.basename(path)[:-4]
@@ -125,7 +125,7 @@ def check(path=DECK):
         n = len(prose.split())
         if n > MAX_WORDS:
             fails.append(f"{n} words of prose (limit {MAX_WORDS}) under: {head[:62]}")
-        stems = re.findall(r"internal_figures/([^\"]+)\.svg", b)
+        stems = re.findall(r"internal_figures/([^\"]+)\.(?:png|svg)", b)
         if stems and stems[0] not in SCHEMATIC:
             svg = f"img/internal_figures/{stems[0]}.svg"
             inside = (open(svg, encoding="utf-8", errors="ignore").read()
