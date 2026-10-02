@@ -13,8 +13,9 @@ then ride on the marker instead of on a second panel:
     fill colour  drop rate rho on viridis, a sequential map because rho is a positive dose
     ring         enclosed = `dead` (the unit stops running), bare = `mute` (it stops being heard)
 
-Every seed is drawn. The faint grey paths join the three-seed means of one (kind, beta) in rising
-rho, which is the trajectory the old slide 24 drew as its own panel.
+Every seed is drawn, and nothing joins them: paths through each (kind, beta) in rising rho were
+drawn once and removed, because 6 polylines through 72 points obscured the thing the panel is for.
+The rate is already on the colour axis, so the dose trend is read from colour, not from a line.
 
 FILLED PLUS, NOT A BARE "+": an unfilled marker takes the rate colour on its strokes rather than its
 face, so beta = 4 would read as a different colour family from beta = 1 and 2 at the same rho.
@@ -101,18 +102,6 @@ def tradeoff_slide(name="slide_24_dropout_tradeoff"):
     # The control is named in the legend, not annotated in the axes: every empty patch of this panel
     # is empty for only one of the two kinds, so floating text lands on somebody's cluster.
 
-    # the dose trajectory of each (kind, beta), through the three-seed means in rising rho
-    for kind, _ in BERN_KINDS:
-        for beta in BERN_BETAS:
-            path = [(np.mean([p["active"] for p in pts if (p["kind"], p["rate"], p["beta"]) == (kind, r, beta)]),
-                     np.mean([p["r2"] for p in pts if (p["kind"], p["rate"], p["beta"]) == (kind, r, beta)]))
-                    for r in BERN_RATES
-                    if any((p["kind"], p["rate"], p["beta"]) == (kind, r, beta) for p in pts)]
-            if len(path) > 1:
-                xs, ys = zip(*path)
-                ax.plot(xs, ys, color=ps.FAINT, lw=0.8, zorder=2,
-                        ls="-" if kind == "mute" else (0, (2.4, 1.6)))
-
     for p in pts:
         col = CMAP(NORM(p["rate"]))
         if p["kind"] == "dead":          # enclosed: the unit stops running, not just being heard
@@ -130,17 +119,21 @@ def tradeoff_slide(name="slide_24_dropout_tradeoff"):
     cb.ax.set_yticklabels([f"{r:g}" for r in BERN_RATES])
     cb.outline.set_visible(False)
 
-    keys = [Line2D([], [], ls="none", marker=SHAPE[b], ms=4.6, color=ps.MUTED,
-                   label=rf"$\beta$ = {b}") for b in BERN_BETAS]
-    keys += [Line2D([], [], ls="none", marker="o", ms=4.2, mfc="none", mec=ps.INK, mew=0.7,
+    # A legend fills COLUMN-wise, so the handles are interleaved to land as two readable rows:
+    # the three shapes on top, the two kinds and the control underneath.
+    shapes = [Line2D([], [], ls="none", marker=SHAPE[b], ms=4.6, color=ps.MUTED,
+                     label=rf"$\beta$ = {b}") for b in BERN_BETAS]
+    kinds = [Line2D([], [], ls="none", marker="o", ms=4.2, mfc="none", mec=ps.INK, mew=0.7,
                     label="dead (ringed)"),
              Line2D([], [], ls="none", marker="o", ms=4.2, color=ps.MUTED, label="mute (bare)"),
              Line2D([], [], ls="none", marker="x", ms=4.6, mew=1.3, color=ps.BASE,
-                    label=f"no dropout: {ca.mean():.0f} units, $R^2$ {cr.mean():.3f}"),
-             Line2D([], [], ls="none", marker="s", ms=5.0, color=ps.BASE, alpha=0.3,
-                    label=f"its seed spread (sd {cr.std(ddof=1):.3f})")]
-    ax.legend(handles=keys, loc="lower left", fontsize=6.8, ncol=2, frameon=False,
-              handletextpad=0.4, columnspacing=1.1, borderpad=0.2)
+                    label=f"no dropout: {ca.mean():.0f} units, $R^2$ {cr.mean():.3f} "
+                          f"(band = seed sd {cr.std(ddof=1):.3f})")]
+    keys = [h for pair in zip(shapes, kinds) for h in pair]
+
+    ax.legend(handles=keys, loc="lower center", bbox_to_anchor=(0.5, 1.005), ncol=3,
+              fontsize=6.8, frameon=False, handletextpad=0.4, columnspacing=1.6,
+              borderpad=0.2, labelspacing=0.5)
 
     # THE CLAIM IS COMPUTED. Each kind's own slope of R^2 on active units, over its 36 runs, with the
     # control's seed spread as the scale that slope has to beat to mean anything.
@@ -170,7 +163,7 @@ def tradeoff_slide(name="slide_24_dropout_tradeoff"):
         f"and falls to {de_r.min():.3f} ({slope_d:+.3f})\n"
         f"{out_of_band['mute']} of 12 mute cells and {out_of_band['dead']} of 12 dead cells clear "
         f"the control's own seed band",
-        fontsize=8.0, color=ps.INK, linespacing=1.45, y=1.015)
+        fontsize=8.0, color=ps.INK, linespacing=1.45, y=1.145)
     fig.text(0.5, -0.02, "Scored in the noise the networks trained in, the arms compress and "
              r"$\texttt{mute}$ gives up about two points of $R^2$ (0.945 to 0.922).".replace(
                  r"\texttt{mute}", "mute"),
