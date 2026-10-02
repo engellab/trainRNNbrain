@@ -991,11 +991,12 @@ def selectivity_slide(name="slide_32_selectivity"):
         print(f"  SKIP {name}: no selectivity coordinates in the cache")
         return None
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 64 * ps.MM))
+    # stacked, not side by side: three 3-D boxes in a row are each too small to read the structure
+    fig = plt.figure(figsize=(78 * ps.MM, 150 * ps.MM))
     for i, (arm, lab, col) in enumerate(show):
-        ax = fig.add_subplot(1, len(show), i + 1, projection="3d")
+        ax = fig.add_subplot(len(show), 1, i + 1, projection="3d")
         P = np.asarray(z[f"{arm}|0|pcs"], float)
-        ax.scatter(P[:, 0], P[:, 1], P[:, 2], s=2.2, c=col, alpha=0.5, linewidths=0, zorder=3)
+        ax.scatter(P[:, 0], P[:, 1], P[:, 2], s=5.0, c=col, alpha=0.55, linewidths=0, zorder=3)
         ax.set_title(f"{lab}  ({len(P)} active units)", fontsize=7.0, color=ps.INK, pad=0)
         for pane in (ax.xaxis, ax.yaxis, ax.zaxis):
             pane.set_pane_color((1.0, 1.0, 1.0, 0.0))
@@ -1005,11 +1006,15 @@ def selectivity_slide(name="slide_32_selectivity"):
         ax.set_ylabel("PC2", fontsize=6.0, labelpad=-10)
         ax.set_zlabel("PC3", fontsize=6.0, labelpad=-10)
         ax.view_init(elev=18, azim=35)
+        # a 3-D axes leaves wide internal margins by default; this fills the row it was given
+        ax.set_box_aspect((1.0, 1.0, 0.75), zoom=1.22)
     fig.suptitle("Selectivity configuration: every active unit as a point in its own PC space\n"
                  "CDDM, $N$ = 1000, one seed each. Axes share no scale between panels.",
                  fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.0)
-    # 3-D axes overhang their own box, so the leftmost z label was clipped at the figure edge
-    fig.subplots_adjust(left=0.06, right=0.98)
+    # 3-D axes overhang their own box; stacked they need room at the sides and between rows
+    # hspace has to clear the PC2 label, which a 3-D axes draws below its own box: at 0.05 the next
+    # row's title printed on top of it ("PC2rm")
+    fig.subplots_adjust(left=0.02, right=0.98, top=0.92, bottom=0.02, hspace=0.22)
     return ps.save(fig, name)
 
 
