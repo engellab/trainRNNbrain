@@ -163,8 +163,12 @@ still training.
 
 ### 9b. Nor does it cost anything here
 <p align="center"><img src="../img/internal_figures/slide_x_activation_ff_r2.svg" width="760"></p>
-226–282 active units within 0.005 of R² = 0.967. Sigmoid holds 23 fewer units than ReLU and scores
-higher.
+226–282 active units.
+
+⚠ **Stale: this slide still carries the noise-free numbers** (within 0.005 of R² = 0.967, sigmoid
+scoring higher than ReLU). Two of its four arms are being retrained right now — the leaky ReLU and
+softplus cells at N = 1000 — so the panel cannot be rebuilt on the held-out score until that lands
+and is synced across. Do not quote the R² on this slide.
 
 ### 10. Weight decay makes it monotonically worse
 <p align="center"><img src="../img/internal_figures/slide_x_weightdecay.svg" width="760"></p>
@@ -395,38 +399,15 @@ The draw gives every unit two numbers: `c`, what it sends, and `s`, whether it r
 
 ### 24. Every dropout run: what the extra units cost
 <p align="center"><img src="../img/internal_figures/slide_24_dropout_tradeoff.svg" width="760"></p>
+All 72 runs: active units against held-out R². Marker shape is the targeting exponent β (circle 1,
+diamond 2, plus 4), fill is the drop rate, a ring means `dead` and bare means `mute`. Control: 316
+units at R² 0.9471 ± 0.0020.
 
-All 72 runs on one panel: active units on x, held-out R² on y, so whether a setting's extra units are
-paid for is read directly rather than assembled from two panels of cell means. The sweep's three
-knobs ride on the marker — shape is the targeting exponent (circle 1, diamond 2, filled plus 4),
-viridis fill is the drop rate, and an enclosing ring is `dead` against bare for `mute`. The dose
-trend is read from colour, not from a line. Four rates by three exponents by two kinds, three seeds
-each. 3-bit flip-flop, N = 1000, no penalty, 40,000 iterations, against the no-dropout cell of the
-same launcher, which holds 316 units at R² 0.9471 with a seed sd of 0.0020.
+All twelve `mute` cells sit below the control, 0.9381 down to 0.9207, ordered by dose. `dead` falls
+to 0.6698 at its worst. Per 100 extra units, `mute` costs 0.0053 of R² and `dead` 0.0157.
 
-**`mute` is not free, and it took the held-out score to see it.** All twelve `mute` cells sit below
-the control, from 0.9381 at the lightest dose to 0.9207 at the heaviest — a cost of 0.009 to 0.026
-that is ordered by dose. The old reading, that `mute` recruits for free, came from the noise-free
-probe, where the control's three seeds scored 0.932, 0.814 and 0.834: an sd of 0.063 wide enough to
-swallow the whole effect. Those same three networks, scored held out, sit at 0.9471 ± 0.0020. The
-spread that hid the cost was the probe catching two seeds mid-excursion (slide 23c), not a property
-of the networks.
-
-**`dead`'s cost is not a function of the units it buys.** At ρ = 0.25 the sharpest targeting buys
-963 units at R² 0.7606, while β = 2 buys 655 at 0.6986 — more units and less cost at once. The same
-inversion appears at ρ = 0.175: β = 4 holds 810 units at 0.8131 against β = 2's 420 at 0.7657. Split
-across a units panel and a cost panel, those are two points on two different curves and nothing
-connects them.
-
-**Both kinds pay, and `dead` pays about three times as steeply.** Across its twelve cells `mute`
-loses 0.0053 of R² per 100 extra units and `dead` 0.0157, with `dead` reaching 0.6698 at its worst
-setting against the control's 0.9471.
-
-Rate and targeting still move the count — that was the old slide 24 — with two settings outside the
-claim: `dead` at β = 1 does not rise with the rate, and `mute` at ρ = 0.05 rises by 25 units inside
-a 59-unit seed spread. An earlier version of this sweep found the rate irrelevant; that sampler
-scored |h|, which a silent unit scores as highly as a busy one, so half of every dose landed where
-dropping does nothing.
+`dead`'s cost does not track the units it buys: at ρ = 0.25, β = 4 buys 963 units at 0.7606 while
+β = 2 buys 655 at 0.6986 — more units and less cost at once.
 
 ### 24c. Dropout slows the silencing; it does not stop it
 <p align="center"><img src="../img/internal_figures/slide_24c_dropout_along_training.svg" width="760"></p>
@@ -525,8 +506,19 @@ and is silent the rest of the trial; the highest (0.417) steps up and holds.
 ### 31. frm against frm + rws, all four measures
 <p align="center"><img src="../img/internal_figures/slide_31_frm_vs_both.svg" width="760"></p>
 CDDM, N = 1000, 3 seeds. Active units 272 → 1000 → 182 → 1000 (control, frm, rws, frm + rws);
-R² 0.951 → 0.954 → 0.956 → 0.958; dimensionality 2.2 → 6.6 → 2.2 → 6.3. The weight distribution is
-where the two penalised arms part: frm pushes the bulk to larger magnitudes, frm + rws less so.
+held-out R² 0.8374 → 0.8356 → 0.8381 → 0.8267; dimensionality 2.2 → 6.6 → 2.2 → 6.3. The weight
+distribution is where the two penalised arms part: frm pushes the bulk to larger magnitudes,
+frm + rws less so.
+
+⚠ **The R² ordering inverted when the measure changed.** These used to read 0.951 → 0.954 → 0.956 →
+0.958, which made frm + rws the best arm and the penalties look free or better than free. Held out,
+control, frm and rws are level inside their seed scatter (sd 0.005–0.009) and frm + rws is the worst
+of the four, 0.011 below the control. Nothing about the unit or dimensionality counts changes.
+
+⚠ **The panel above still shows the old numbers.** Its generating code is not in the repository —
+grepping the whole tree for its output stem finds nothing — so the figure cannot be rebuilt on the
+held-out score. Only the text here has been recomputed; the two will disagree until the builder
+turns up.
 
 So frm buys the units and the dimensions, rws buys neither — rws alone leaves both at control level —
 and what rws contributes is the temporal quality of frm's units, not their number.
