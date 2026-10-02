@@ -1331,74 +1331,77 @@ PD_ALL = [
 ]
 
 
-def prune_duplicate_all_slide(name="slide_25b_prune_duplicate_all"):
-    """Prune-and-duplicate against its control, every task and size, units and performance.
+def prune_duplicate_all_slide():
+    """One figure per task: prune-and-duplicate against its control, in units and in performance.
 
-    Active units come from each run's participation trace, which the Trainer logs noise-free.
-    r2 is the validation score in the folder name - one forward pass with the network's own noise, on
-    a batch regenerated after training.
+    ONE TASK PER FIGURE. Three tasks on one pair of axes puts six series on each panel and the eye
+    has nowhere to rest; the tasks also differ in budget and in whether their runs solve at all, so
+    they are not really comparable within a panel anyway.
 
-    Args:
-        name: output file stem.
+    Active units come from each run's participation trace, which the Trainer logs noise-free. r2 is
+    the held-out score in the folder name: one forward pass with the network's own noise, on a batch
+    regenerated after training.
+
     Returns:
-        the output path, or None if nothing is on disk.
+        list of output paths, one per task with data.
     """
-    ps.setup()
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(ps.W2, 64 * ps.MM))
-    drew = False
+    out = []
     for task, iters, col, arms in PD_ALL:
-        for arm, style in (("control", dict(ls=":", mfc="none")), ("duplicate", dict(ls="-"))):
+        stem = "slide_25b_prune_duplicate_" + (task.split(",")[0].replace("-", "")
+                                               .replace(" ", "").lower())
+        ps.setup()
+        fig, (ax, ax2) = plt.subplots(1, 2, figsize=(ps.W2, 62 * ps.MM))
+        drew = False
+        # the two arms get two COLOURS, not one colour and two line styles: the r2 panel draws
+        # individual runs as dots, where a line style says nothing
+        for arm, lab, acol, style in (("control", "no pruning", ps.BASE, dict(ls=":")),
+                                      ("duplicate", "prune + duplicate", col, dict(ls="-"))):
             Ns, act, r2 = [], [], []
             for n, cell in sorted(arms.get(arm, {}).items()):
-                a, r = _pd_cell(cell)
-                if a:
-                    # ⚠️ A MEAN OVER SOLVED AND FAILED RUNS IS NOT A PERFORMANCE. On DMTS a run that
-                    # never learned scores 0.427 - three of them at N = 1000 and three at N = 2000 -
-                    # and averaging those with runs at 0.999 produces a number no network achieved.
-                    # The mean r2 is therefore plotted only where EVERY run in the cell solved the
-                    # task; the runs themselves are always drawn.
-                    solved = [v for v in r if v > PD_FAIL]
-                    Ns.append(n)
-                    act.append(np.mean(a))
-                    r2.append(np.mean(r) if r and len(solved) == len(r) else np.nan)
-                    for v in a:
-                        ax.plot([n], [v], "o", ms=2.6, color=col, alpha=0.5, mec="none", zorder=3)
-                    for v in r:
-                        ax2.plot([n], [v], "o", ms=3.4, color=col, alpha=0.75, mec="none", zorder=4)
-                    if r and len(solved) < len(r):
-                        ax2.annotate(f"{len(solved)}/{len(r)}", (n, min(r)), fontsize=5.6,
-                                     color=col, textcoords="offset points", xytext=(5, -2))
-            if not Ns:
-                continue
-            drew = True
-            lab = f"{task} {arm}" if arm == "duplicate" else f"{task} control"
-            ax.plot(Ns, act, "o" + style["ls"], ms=4.4, color=col, mew=1.1,
-                    mfc=style.get("mfc", col), lw=1.2, zorder=5, label=lab)
-            ax2.plot(Ns, r2, "o" + style["ls"], ms=4.4, color=col, mew=1.1,
-                     mfc=style.get("mfc", col), lw=1.2, zorder=5)
-    if not drew:
-        plt.close(fig)
-        print(f"  SKIP {name}: no cells on disk")
-        return None
-    allN = [500, 1000, 2000, 4000]
-    for a_ in (ax, ax2):
-        a_.set(xscale="log", xlabel="network size $N$")
-        a_.set_xticks(allN); a_.set_xticklabels([str(n) for n in allN])
-        a_.xaxis.set_minor_locator(NullLocator())
-        ps.ygrid(a_)
-    ax.set(yscale="log", ylabel="active units")
-    ax2.axhline(0.427, color=ps.MUTED, lw=0.7, ls=(0, (3, 2)), zorder=2)
-    ax2.annotate("DMTS failure floor", (4000, 0.427), fontsize=5.6, color=ps.MUTED, ha="right",
-                 textcoords="offset points", xytext=(0, 4))
-    ax2.set_ylabel("validation $r^2$")
-    ax.legend(loc="upper left", fontsize=5.2, handlelength=1.4, borderaxespad=0.2, ncol=1)
-    fig.suptitle("Prune-and-duplicate at copy_noise = 1, against each task's own control\n"
-                 "3-bit flip-flop 40,000 iterations, CDDM 100,000, DMTS 150,000;  "
-                 "open markers and dotted lines are controls\n"
-                 "every run drawn; the mean is joined only where all runs solved, "
-                 "and k/n marks the cells where they did not",
-                 fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.04)
-    return ps.save(fig, name)
+                a_, r = _pd_cell(cell)
+                if not a_:
+                    continue
+                drew = True
+                solved = [v for v in r if v > PD_FAIL]
+                Ns.append(n)
+                act.append(np.mean(a_))
+                # a mean over solved and failed runs is not a performance; see PD_FAIL
+                r2.append(np.mean(r) if r and len(solved) == len(r) else np.nan)
+                for v in a_:
+                    ax.plot([n], [v], "o", ms=3.0, color=acol, alpha=0.55, mec="none", zorder=3)
+                for v in r:
+                    ax2.plot([n], [v], "o", ms=3.6, color=acol, alpha=0.8, mec="none", zorder=4)
+                if r and len(solved) < len(r):
+                    # the two arms' marks are offset sideways so they do not land on each other
+                    dx = -11 if arm == "control" else 11
+                    ax2.annotate(f"{len(solved)}/{len(r)}", (n, float(np.min(r))), fontsize=5.8,
+                                 color=acol, ha="center", textcoords="offset points",
+                                 xytext=(dx, 5))
+            if Ns:
+                ax.plot(Ns, act, "s" + style["ls"], ms=5.2, color=acol, mew=1.2,
+                        mfc="none", lw=1.3, zorder=6, label=lab)
+                ax2.plot(Ns, r2, "s" + style["ls"], ms=5.2, color=acol, mew=1.2,
+                         mfc="none", lw=1.3, zorder=6)
+        if not drew:
+            plt.close(fig)
+            continue
+        Ns_all = sorted({n for d in arms.values() for n in d})
+        for a_ in (ax, ax2):
+            a_.set(xscale="log", xlabel="network size $N$")
+            a_.set_xticks(Ns_all)
+            a_.set_xticklabels([str(n) for n in Ns_all])
+            a_.xaxis.set_minor_locator(NullLocator())
+            ps.ygrid(a_)
+        ax.set(yscale="log", ylabel="active units")
+        ax2.set_ylabel("held-out $r^2$")
+        ax2.margins(y=0.12)        # room under the lowest runs for the k/n marks
+        ax.legend(loc="upper left", fontsize=6.0, handlelength=1.5, borderaxespad=0.25)
+        fig.suptitle(f"{task}, {iters:,} iterations, copy_noise = 1\n"
+                     "left: active units;  right: held-out $r^2$;  every run drawn, "
+                     "k/n = seeds that solved",
+                     fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.04)
+        out.append(ps.save(fig, stem))
+    return out
 
 
 def readout_line(iters, recorded=None):
@@ -2788,12 +2791,11 @@ def main(list_only=False):
         got = _fn()
         if got:
             out.append(got)
-    for _fn in (prune_duplicate_slide, prune_duplicate_all_slide, temporal_pr_slide,
-                frm_vs_both_slide,
-                selectivity_slide):
+    for _fn in (prune_duplicate_slide, temporal_pr_slide, frm_vs_both_slide, selectivity_slide):
         got = _fn()
         if got:
             out.append(got)
+    out += prune_duplicate_all_slide() or []
     for _fn in (dropout_selection_slide, dropout_targeting_slide, dropout_dose_slide,
                 dropout_kinds_slide, dropout_rate_units_slide, dropout_rate_cost_slide,
                 dropout_along_training_slide):

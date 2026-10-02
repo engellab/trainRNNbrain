@@ -145,7 +145,8 @@ Of 1000 units: ReLU 272 active, leaky ReLU 278, softplus 249, sigmoid 205. None 
 ### 8b. And the units they shed were not doing anything
 <p align="center"><img src="../img/internal_figures/slide_x_activation_cddm_r2.svg" width="760"></p>
 191–284 active units. Held-out R²: ReLU 0.8374, leaky ReLU 0.8365, sigmoid 0.8338, softplus 0.8318
-— a spread of 0.006 across the four arms.
+— a spread of 0.006 across the four arm means, and 0.017 across all twelve networks (the number on
+the panel).
 
 **The arms are not separable on this measure**, and the cleanest way to say so is that the spread
 between them (0.006) is smaller than the seed scatter inside one of them (sigmoid, sd 0.009). The
@@ -442,19 +443,24 @@ Left: active units against the jitter on the copied weights — 685, 676, 708, 7
 runs 0 → 3. Right: matched at rate 0.005, maturity 1000 — 275 no pruning, 315 zeroing the unit, 542
 copying a donor.
 
-### 25b. Every task, every size, units and performance
-<p align="center"><img src="../img/internal_figures/slide_25b_prune_duplicate_all.svg" width="760"></p>
-At copy_noise = 1, the Figure 2 operating point. Active units, duplication against each task's own
-control: flip-flop 431 → 753 → 1167 → 1791 (control 221 → 272 → 457 → 622); CDDM 412 → 714 → 1121 →
-1698 (control 223 → 316 → 414 → 570). r² is unchanged on both — the solid and dotted lines overlap.
+### 25b. 3-bit flip-flop
+<p align="center"><img src="../img/internal_figures/slide_25b_prune_duplicate_3bitflipflop.svg" width="760"></p>
+Active units 431 → 753 → 1167 → 1791 against the control's 221 → 272 → 457 → 622. But r² falls with
+size — 0.946, 0.943, 0.940, 0.918 — while the control holds at 0.946. The units cost 0.028 of r² by
+N = 4000.
 
-**DMTS is different and the right panel says so.** Its duplication runs sit on the failure floor:
-0 of 3 seeds solve at N = 1000 and 0 of 3 at N = 2000 (r² ≈ 0.427 against the control's 0.999). So
-the DMTS recruitment on the left — 419, 491, 564 — is counted in networks that never learned the
-task, and is not evidence of anything. This is the 7τ delay; the 5τ re-runs replace it.
+### 25c. CDDM
+<p align="center"><img src="../img/internal_figures/slide_25b_prune_duplicate_cddm.svg" width="760"></p>
+Active units 412 → 714 → 1121 → 1698 against 223 → 316 → 414 → 570. r² tracks the control within the
+seed scatter: 0.878 against 0.888 at N = 500, 0.857 against 0.876 at N = 4000, where only two
+duplication seeds finished.
 
-Also at jitter 1: flip-flop N = 1000 goes 753 active at 40,000 iterations to 793 at 150,000 (9 seeds),
-compared with its own earlier self — that sweep holds no 150,000-iteration control.
+### 25d. DMTS, 7τ
+<p align="center"><img src="../img/internal_figures/slide_25b_prune_duplicate_dmts.svg" width="760"></p>
+**The runs do not solve the task.** 0 of 3 seeds at N = 1000 and 0 of 3 at N = 2000 sit at the
+failure value r² ≈ 0.427, against the control's 0.999. The recruitment on the left is counted in
+networks that never learned, so it means nothing. The control is thin too — 1 of 2 solved at N = 500,
+and its N = 2000 cell is empty on disk. This is the 7τ delay the 5τ re-runs replace.
 
 ### 26. Synaptic noise: the σ_w ladder
 <p align="center"><img src="../img/internal_figures/slide_26_synnoise_ladder.svg" width="760"></p>
