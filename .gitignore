@@ -64,3 +64,6 @@ jupyter/Analyzing single RNN.ipynb
 /dead_ReLU_data/
 cluster_logs/
 data/fig_paper_F1_coverage.pkl
+
+# build product of docs/presentation.md: a self-contained read-anywhere copy (deck_html.py)
+docs/presentation.html
