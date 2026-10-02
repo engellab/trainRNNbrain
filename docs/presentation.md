@@ -405,11 +405,33 @@ the sampler rewrite, so the corrected rule has never been asked this question.
 ### 25. Prune-and-duplicate ⚠
 Needs its own figure: recruitment against jitter, and the output unchanged at the moment of surgery.
 
-### 26. Synaptic noise ⚠
-Needs its own figure: the σ_w ladder, active units and clean r² against noise level.
+### 26. Synaptic noise: units all the way up, a dependence past σ_w = 1
+<p align="center"><img src="../img/internal_figures/slide_26_synnoise_ladder.svg" width="760"></p>
 
-### 27. The penalty pair ⚠
-`fig_paper_F3.pdf` exists but will not render in Markdown — needs an SVG export.
+Every rung buys units, including the smallest: σ_w = 0.1 gives 368 against the control's 298 at an
+R² of 0.947 against 0.944, and its three seeds sit above all six control seeds.
+
+**σ_w = 1 is the operating point Figure 2 uses** — 566 units of 1000 for 1.7 points of R², 0.944 to
+0.927, with the two seed ranges disjoint (0.9417–0.9493 against 0.9225–0.9332).
+
+**Above it the network keeps the units only while its synapses jitter.** At σ_w = 3 the same network
+scores 0.925 in the noise it trained in and 0.678 with that noise switched off. The gap is 0.00 at
+σ_w ≤ 1 and 0.12 / 0.25 at σ_w = 2 / 3, so the folder names — which record the noisy score — read
+0.92–0.93 the whole way up and say nothing about it.
+
+**It does not scale.** At σ_w = 1 the multiplier over the control is 1.73x at N = 500 (381 against
+220), 1.90x at N = 1000 (566 against 298) and **1.39x** at N = 2000 (633 against 457). Falling at the
+largest size is the pre-registered falsification for this arm. N = 4000 is not trained.
+
+**On the other task, once.** CDDM at N = 1000, 100,000 iterations: 301 active against 210, R² 0.856
+against 0.849 — free, but on 1 net of the 3 trained. ⚠ The other two do not survive the cache's
+rebuild gate and the reason is not established.
+
+**What else moves.** Participation ratio 5.4 → 6.7, PCs for 99% of the variance 33 → 49, stable rank
+3.05 → **4.27** — the highest of any arm except the penalty pair, so the directions it adds carry
+real variance rather than near-duplicates. The weight distribution is left alone: width 0.91x the
+control's and 1.8x its distance from lognormal, against 2.0–2.3x and 4.7–7.8x for rescale and the
+penalties.
 
 ---
 
@@ -419,8 +441,10 @@ Needs its own figure: the σ_w ladder, active units and clean r² against noise 
 
 ### 28. CDDM: frm saturates the network, rws barely moves it
 <p align="center"><img src="../img/internal_figures/slide_22b_penalty_cddm.svg" width="760"></p>
-Every run is drawn. Where the count saturates the seeds are identical — frm is 500/500/500 at
-N = 500 — so runs and arms are offset sideways to keep coincident values visible.
+Circles are runs, hollow squares their mean; both are offset sideways because where the count
+saturates the seeds are identical (frm is 500/500/500 at N = 500) and frm and frm + rws give the same
+counts, so coincident values would otherwise read as missing data. Dotted line: every unit active.
+Where a curve sits on it the participation distribution is unimodal, so the count is a floor.
 Control 201 → 272 → 311 → 629 across N = 500 → 5000. frm and frm + rws sit on the diagonal at every
 size — 500, 1000, 2000, 4999 — and coincide, so only one line is visible. rws alone is **below** the
 control at all four sizes: 142, 181, 279, 440.
@@ -430,8 +454,9 @@ not a count. Budgets: control 200k/200k/300k/100k, penalties 200k/200k/150k/120k
 
 ### 29. DMTS: the same, on the other task
 <p align="center"><img src="../img/internal_figures/slide_22b_penalty_dmts.svg" width="760"></p>
-Every run is drawn. The control scatters widely at N = 2000 (221, 211, 437, 391, 469 across five
-seeds), which a mean and an error bar hid.
+Circles are runs, hollow squares their mean, offset sideways as on slide 28. The control scatters
+widely at N = 2000 — 221, 211, 437, 391, 469 across five seeds — a factor of two that a mean and an
+error bar hid.
 Control 132 → 180 → 346 across N = 500 → 2000; frm 500, 996, 1952; frm + rws 500, 1000, 1844. rws
 sits just above the control (161, 255, 406) rather than below it as on CDDM.
 

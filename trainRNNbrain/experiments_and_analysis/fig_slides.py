@@ -889,8 +889,11 @@ def dropout_rate_units_slide(name="slide_24_dropout_rate_units"):
 def dropout_rate_cost_slide(name="slide_24b_dropout_rate_cost"):
     """One claim: mute recruits units for free, dead pays for them.
 
-    The loss is the trainer's own noise-free, dropout-off probe on a fresh batch, so a dropout net
-    is scored on the full network exactly as the control is.
+    Performance is the project's single measure: a held-out batch at the sigma_rec and sigma_inp the
+    network trained with, sigma_w = 0, nine draws, dropout off - so a dropout net is scored on its
+    full network exactly as the control is, under the noise both of them operate in. The noise-free
+    probe this used to plot measured a condition none of these networks runs in, and it reversed the
+    ranking of arms rather than shifting it.
 
     Args:
         name: output file stem.
@@ -904,21 +907,17 @@ def dropout_rate_cost_slide(name="slide_24b_dropout_rate_cost"):
     ps.setup()
     fig, ax = plt.subplots(figsize=(W, 64 * ps.MM))
     _sweep_panel(ax, grid, ctrl_l, 1, np.random.default_rng(0))
-    ax.set_ylabel("task loss, noise-free, dropout off")
-    ax.text(0.036, ctrl_l.mean() + 0.008, f"no dropout, {ctrl_l.mean():.3f}", fontsize=6.6,
-            color=ps.BASE, va="bottom")
+    ax.set_ylabel("held-out $R^2$, common noise condition")
+    ax.text(0.036, ctrl_l.mean() - 0.004, f"no dropout, {ctrl_l.mean():.3f}", fontsize=6.6,
+            color=ps.BASE, va="top")
     mute = [grid[("mute", r, b)][1].mean() for r in BERN_RATES for b in BERN_BETAS]
     dead = [grid[("dead", r, b)][1].mean() for r in BERN_RATES for b in BERN_BETAS]
-    fig.suptitle(r"3-bit flip-flop, $N$ = 1000: clean loss over the $\rho$ x $\beta$ grid"
+    fig.suptitle(r"3-bit flip-flop, $N$ = 1000: held-out $R^2$ over the $\rho$ x $\beta$ grid"
                  "\n"
-                 f"mute stays between {min(mute):.3f} and {max(mute):.3f} against the control's "
-                 f"{ctrl_l.mean():.3f}; dead reaches {max(dead):.3f}, about "
-                 f"{max(dead) / ctrl_l.mean():.1f} times the control.",
+                 f"mute holds {min(mute):.3f}-{max(mute):.3f} against the control's "
+                 f"{ctrl_l.mean():.3f}; dead falls to {min(dead):.3f}, "
+                 f"{ctrl_l.mean() - min(dead):.3f} below it.",
                  fontsize=8.0, color=ps.INK, linespacing=1.4, y=1.035)
-    fig.text(0.5, -0.015,
-             "Scored with the training noise switched back on, mute instead gives up 2 points of "
-             "$R^2$ (0.945 to 0.922).",
-             ha="center", va="top", fontsize=6.6, color=ps.MUTED)
     return ps.save(fig, name, w_mm=110)
 
 
@@ -993,7 +992,7 @@ def penalty_size_slide(task, name=None):
         print(f"  SKIP {name}: no cells for {task}")
         return None
     ps.setup()
-    fig, ax = plt.subplots(figsize=(W, H))
+    fig, ax = plt.subplots(figsize=(ps.W2, 74 * ps.MM))
     allN = sorted({n for r in rows.values() for n in r})
     ax.plot(allN, allN, lw=0.8, ls=":", color=ps.MUTED, zorder=6)
     ax.annotate("every unit active", (allN[-1], allN[-1]), textcoords="offset points",
@@ -1034,11 +1033,10 @@ def penalty_size_slide(task, name=None):
     ax.legend(loc="upper left", fontsize=6.0, handlelength=1.1, borderaxespad=0.25)
     ps.ygrid(ax)
     if sat:
-        fig.text(0.5, -0.02, "circles are runs, squares their mean; both are offset sideways so "
-                 "identical values stay visible.  "
-                 + ", ".join(sat) + " sit on the diagonal: there the participation "
-                 "distribution is unimodal, so the count is a floor.",
-                 ha="center", va="top", fontsize=6.2, color=ps.MUTED)
+        # NO CAPTION UNDER THE PANEL. It was one long line, and ps.save trims to a tight
+        # bounding box, so the caption set the saved width and left the axes occupying about
+        # half of it. What the markers mean, and which arms saturate, is in the deck text.
+        pass
     return ps.save(fig, name)
 
 
@@ -1248,14 +1246,6 @@ INTERVENTIONS = [
 ]
 
 
-# ---- slide 11's companion: are the units the input scale keeps paid for? -----------------------
-#
-# R^2 denominator for the 3-bit flip-flop: mean((t - mean t)^2) over the masked target, which is what
-# Trainer.r2_score divides by. Measured over six independent 1024-trial batches of the task as the
-# runs' own configs instantiate it - 0.7158, 0.7206, 0.7232, 0.7184, 0.7265, 0.7221 - so 0.721 +-
-# 0.003. One shared constant rather than each net's own batch variance, which moves R^2 in the 4th
-# decimal.
-VAR_TARGET_FF = 0.721
 
 # WHY THIS PANEL DOES NOT USE THE FOLDER-NAME SCORE, the way met_cell above does. The input-scale
 # reference is the ksweep cell, which has a 500,000-iteration budget while the four rungs stop at
@@ -1285,11 +1275,16 @@ INPUTSCALE_LADDER = [
 
 
 def winp_cell(pattern, at_iter):
-    """Noise-free R^2 and active-unit count, per seed, for one rung of the input-scale ladder.
+    """Held-out R^2 in the common noise condition, and active-unit count, for one input-scale rung.
 
-    Both are read at the same iteration, each on its own probe grid: the participation vector is
-    stored every 100 iterations and the clean loss every 10. Diverged runs (`nan_` prefix) are
-    dropped, as everywhere else in this project.
+    ⚠️ R^2 IS NO LONGER THE NOISE-FREE PROBE AT `at_iter`. It is common_r2 on the run's saved
+    parameters: a held-out batch at the sigma_rec and sigma_inp the network trained with,
+    sigma_w = 0, nine draws. That is the project's one performance measure, so this panel can be set
+    beside any other. The consequence worth knowing is that R^2 is now read at the END of training
+    while the count is still read at `at_iter`; on this ladder the two coincide, since every rung
+    runs to the same budget. The active count stays noise-free, as every count here does.
+
+    Diverged runs (`nan_` prefix) are dropped, as everywhere else in this project.
 
     Args:
         pattern: glob matching the rung's run folders; at_iter: int, the iteration to read at.
@@ -1308,10 +1303,8 @@ def winp_cell(pattern, at_iter):
         j = int(np.argmin(np.abs(pit - at_iter)))
         p = np.asarray(d["participation"], float)[j]
         probes.add(int(pit[j]))
-        it = np.asarray(d["iters"], float)
-        L = np.asarray(d["metrics"]["loss_clean_train"], float)
         active.append(active_count(p, "scalefree"))
-        r2.append(1.0 - L[int(np.argmin(np.abs(it - at_iter)))] / VAR_TARGET_FF)
+        r2.append(common_r2_mod.common_r2(os.path.dirname(f)))
     return np.array(r2, float), np.array(active, float), probes
 
 
@@ -1533,37 +1526,15 @@ def cddm_batch_and_mask(folder):
             float(np.mean((tm - tm.mean()) ** 2)))
 
 
-def offline_clean_r2(folder, inputs, target, mask, var):
-    """Noise-free R^2 of one net's final parameters, rebuilt and simulated offline.
-
-    Args:
-        folder: net folder holding `*LastParams*.npz` and `*_config.yaml`;
-        inputs: (n_inp, T, B) input batch; target: (n_out, T, B); mask: scoring timepoint indices;
-        var: the R^2 denominator.
-    Returns:
-        float R^2 = 1 - masked MSE / var.
-    """
-    d = np.load(glob.glob(os.path.join(folder, "*LastParams*.npz"))[0], allow_pickle=True)
-    p = {k: d[k] for k in d.files}
-    # The activation and the equation form both come from the CONFIG, for every arm alike. The npz
-    # cannot supply either: the drift sweep predates storable_ and stored activation_args as the
-    # dict's KEYS, and equation_type was never saved at all while RNN_numpy defaults it to "s" -
-    # these nets are "h", and simulating the wrong one scores a good net near zero.
-    cfg = OmegaConf.load(glob.glob(os.path.join(folder, "*_config.yaml"))[0])
-    p["activation_args"] = OmegaConf.to_container(cfg.model.activation_args, resolve=True)
-    rnn = RNN_numpy(**filter_kwargs(RNN_numpy, p), equation_type=str(cfg.model.equation_type), seed=0)
-    rnn.clear_history()
-    rnn.y = rnn.y_init
-    rnn.run(input_timeseries=inputs, sigma_rec=0.0, sigma_inp=0.0)
-    o = rnn.get_output()
-    return 1.0 - float(((o[:, mask, :] - target[:, mask, :]) ** 2).mean()) / var
-
-
 def cddm_activation_cell(pattern, at_iter):
-    """Noise-free R^2 and active-unit count, per seed, for one CDDM activation arm.
+    """Held-out R^2 in the common noise condition, and active-unit count, for one CDDM arm.
 
-    R^2 is the offline re-score of each net's final parameters; the count is the scale-free rule at
-    the participation probe nearest `at_iter`. Diverged runs (`nan_` prefix) are dropped.
+    R^2 is common_r2 on each net's saved parameters - a held-out batch (coherences interleaved with
+    the trained grid), sigma_rec and sigma_inp as trained, sigma_w = 0, nine draws. It replaces an
+    offline NOISE-FREE re-score, which mattered here more than anywhere: the noise penalty on CDDM
+    is activation-dependent, so the two instruments do not merely shift this ladder, they reorder
+    it. The count is the scale-free rule at the participation probe nearest `at_iter`, noise-free as
+    always. Diverged runs (`nan_` prefix) are dropped.
 
     Args:
         pattern: glob matching the arm's run folders; at_iter: iteration to read the count at.
@@ -1576,7 +1547,6 @@ def cddm_activation_cell(pattern, at_iter):
                if os.path.basename(f.rstrip("/")).split("_")[0] != "nan"]
     if not folders:
         return np.array([]), np.array([]), set()
-    inputs, target, mask, var = cddm_batch_and_mask(folders[0])
     r2, active, probes = [], [], set()
     for folder in folders:
         tf = glob.glob(os.path.join(folder, "*ParticipationTrace.pkl"))
@@ -1589,7 +1559,7 @@ def cddm_activation_cell(pattern, at_iter):
         p = np.asarray(d["participation"], float)[j]
         probes.add(int(pit[j]))
         active.append(active_count(p, "scalefree"))
-        r2.append(offline_clean_r2(folder, inputs, target, mask, var))
+        r2.append(common_r2_mod.common_r2(folder.rstrip(os.sep)))
     return np.array(r2, float), np.array(active, float), probes
 
 
@@ -1671,7 +1641,6 @@ def activation_r2_slide(name, ladder, cell_fn, at_iter, task_line, n_units=1000,
 # baseline is not a series. Categorical hues carry no order, and the lambda ordering is left to the
 # legend rather than drawn: see metabolic_r2_slide for why a line through the means was removed.
 MET_CELL = f"{DATA_DIR}/CDDM_std_g0_metabolic/EqType=h_N=1000_LmbdMet={{lam}}"
-MET_R2_CACHE = f"{DATA_DIR}/metabolic_clean_r2.npz"
 MET_LADDER = [
     ("$\\lambda$ = 0 (no penalty)", f"{DATA_DIR}/CDDM_std_g0/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
      ps.BASE, "0"),
@@ -1683,16 +1652,19 @@ MET_LADDER = [
 
 
 def met_cell(cell_dir, lam):
-    """Noise-free task r2 and active-unit count, per seed, for one cell of the metabolic sweep.
+    """Held-out R^2 in the common noise condition, and active-unit count, for one metabolic cell.
 
-    ⚠️ R2 IS THE NOISE-FREE PROBE, NOT THE FOLDER'S SCORE PREFIX. That prefix is
-    `get_validation_score(...)` run at sigma_rec = sigma_inp = 0.05, i.e. r2_noisy. It is the wrong
-    probe for a rate penalty: the penalty shrinks the rate scale ~6x while the injected noise stays
-    at a fixed 0.05, so signal-to-noise falls with lambda for reasons unrelated to the task. Using
-    it understated lambda = 10 by less than the truth and inflated the apparent tie between the
-    other rungs. The clean values come from `metabolic_clean_r2.py`, which MUST run in a worktree
-    pinned at 223c550f - RNN_torch's constructor has changed since, including the default of
-    `self_connections`. Slide 8b hit the same defect independently on the activation arms.
+    R^2 is common_r2: a held-out batch at the sigma_rec and sigma_inp the network trained with,
+    sigma_w = 0, nine draws. It replaces a noise-free cache (`metabolic_clean_r2.npz`), which is no
+    longer read.
+
+    ⚠️ THE CAVEAT THE NOISE-FREE CACHE EXISTED FOR HAS NOT GONE AWAY, so read this ladder with it in
+    mind: a metabolic penalty shrinks the rate scale about sixfold while the injected noise stays at
+    a fixed 0.05, so signal-to-noise falls with lambda for reasons that have nothing to do with the
+    task. A fixed-sigma evaluation therefore charges the high-lambda rungs for their own rate scale.
+    The project reports one measure everywhere and this is it; the alternative was an instrument
+    that reorders arms, which is worse. Where the lambda = 10 rung is quoted, quote this mechanism
+    with it.
 
     The active count still comes from the saved trace, whose final row the Trainer already wrote
     from a w_noise=False pass. Diverged runs (`nan_` prefix) are dropped, as everywhere else.
@@ -1708,9 +1680,7 @@ def met_cell(cell_dir, lam):
         (r2, active, iteration): r2 and active are (n_seeds,) float arrays, empty where the cell is
         missing; iteration is the last probe the cell was read at, or None if it is empty.
     """
-    cache = np.load(MET_R2_CACHE)
-    clean = cache["clean"][cache["lam"] == lam]
-    active, last = [], None
+    r2, active, last = [], [], None
     for f in sorted(glob.glob(os.path.join(cell_dir, "*", "*ParticipationTrace.pkl"))):
         head = os.path.basename(os.path.dirname(f)).split("_")[0]
         if head == "nan":
@@ -1720,9 +1690,9 @@ def met_cell(cell_dir, lam):
         except Exception:
             continue
         active.append(active_count(np.asarray(d["participation"], float)[-1], "scalefree"))
+        r2.append(common_r2_mod.common_r2(os.path.dirname(f)))
         last = int(np.asarray(d["iters"])[-1])
-    assert len(clean) == len(active), f"{cell_dir}: {len(clean)} cached r2 vs {len(active)} nets"
-    return np.asarray(clean, float), np.array(active, float), last
+    return np.asarray(r2, float), np.array(active, float), last
 
 
 def metabolic_r2_slide(name="slide_x_metabolic_r2"):
@@ -2337,7 +2307,7 @@ def synnoise_ladder_slide(name="slide_26_synnoise_ladder", task="NBitFlipFlop", 
         fontsize=7.6, color=ps.INK, linespacing=1.4, y=1.055)
     fig.text(0.5, 0.012,
              "Active units counted on the noise-free pass, scale-free rule "
-             "$p_i \\geq 0.05\\,q_{95}(p)$. "
+             "$p_i \\geq 0.05\\,q_{95}(p)$.\n"
              + (f"The two $R^2$ curves separate by more than 0.05 at $\\sigma_w$ = "
                 + ", ".join(opens) + "." if opens else "The two curves never separate."),
              ha="center", va="top", fontsize=6.4, color=ps.MUTED)
@@ -2438,6 +2408,9 @@ def main(list_only=False):
         got = penalty_size_slide(_t)
         if got:
             out.append(got)
+    got = synnoise_ladder_slide()
+    if got:
+        out.append(got)
     for _fn in (temporal_pr_slide, frm_vs_both_slide, selectivity_slide):
         got = _fn()
         if got:
