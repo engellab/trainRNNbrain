@@ -433,8 +433,14 @@ and what rws contributes is the temporal quality of frm's units, not their numbe
 ### 32. The selectivity configuration
 <p align="center"><img src="../img/internal_figures/slide_32_selectivity.svg" width="760"></p>
 Every active unit as a point in the top three principal components of its own response — the static
-form of the selectivity movie. The control's 260 units collapse into a tight clump; frm's 1000 spread
-along a curved one-dimensional arc; frm + rws fills a broader volume.
+form of the selectivity movie. The control's 260 units collapse into a tight clump; both penalised
+conditions open into **three arms**.
+
+Three, not four. Clustering the outer units' directions gives three balanced arms 110–113° apart
+(164/166/170 units for frm); forcing four splits one into an 11-unit fragment and the angles go
+irregular. The arms are coplanar — the plane's normal is essentially the PC2 axis, and PC0/PC1 carry
+27%/25% of the variance against PC2's 11%. The viewing angle is set from that geometry, not by eye:
+at other azimuths one arm hides behind another, which is why the original is an animation.
 
 ---
 

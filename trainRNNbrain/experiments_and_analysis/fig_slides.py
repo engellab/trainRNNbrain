@@ -1005,7 +1005,14 @@ def selectivity_slide(name="slide_32_selectivity"):
         ax.set_xlabel("PC1", fontsize=6.0, labelpad=-10)
         ax.set_ylabel("PC2", fontsize=6.0, labelpad=-10)
         ax.set_zlabel("PC3", fontsize=6.0, labelpad=-10)
-        ax.view_init(elev=18, azim=35)
+        # ⚠️ THE ANGLE IS CHOSEN FROM THE GEOMETRY, not by eye. Clustering the outer units'
+        # DIRECTIONS gives three balanced arms (164/166/170 units for frm) at 110-113 degrees apart;
+        # forcing k = 4 splits one of them into an 11-unit fragment and the angles go irregular, so
+        # there are three arms, not the four the task's two-contexts-by-two-choices might suggest.
+        # They are coplanar - the plane's normal is (0.14, -0.13, 0.98), essentially the PC2 axis,
+        # and PC0/PC1 carry 27%/25% of the variance against PC2's 11%. This elevation looks down
+        # toward that plane far enough to separate all three without flattening the panel to 2-D.
+        ax.view_init(elev=52, azim=-40)
         # a 3-D axes leaves wide internal margins by default; this fills the row it was given
         ax.set_box_aspect((1.0, 1.0, 0.75), zoom=1.22)
     fig.suptitle("Selectivity configuration: every active unit as a point in its own PC space\n"
