@@ -355,7 +355,7 @@ def control_trajectory_slide(name="slide_07b_control_trajectory"):
     return ps.save(fig, name)
 
 
-def dropout_along_training_slide(name="slide_24b_dropout_along_training"):
+def dropout_along_training_slide(name="slide_24c_dropout_along_training"):
     """Does dropout hold units open, or only delay the same silencing? Two panels, one condition.
 
     THE FIGURE THIS REPLACES DREW TWELVE PANELS and answered the question in one of them. Four
@@ -536,18 +536,65 @@ def _unit_schematic(ax, y0, cut, title, note, label_arrows=False):
         ax.text(0.30, y0 - 0.050, "rate", fontsize=5.8, color=ps.MUTED, ha="center", va="top")
 
 
-def dropout_variants_slide(name="slide_23_dropout_variants"):
-    """The four choices a dropout rule makes, and what two of them look like numerically.
+def dropout_kinds_slide(name="slide_23_dropout_kinds"):
+    """One claim: a dropped unit can lose only its read-out, or everything.
 
-    A talk that says "we tried dropout" has said almost nothing: the rule has four independent
-    settings and this project's first sweep was null because three of them were wrong, not because
-    the intervention fails. The panels take them in the order the code applies them: WHAT is removed
-    (a), WHO is chosen (b), HOW MANY are chosen (c). The fourth, whether survivors are rescaled,
-    has no picture - it is the factor in the slide's text.
+    Args:
+        name: output file stem.
+    Returns:
+        the output path.
+    """
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, 54 * ps.MM))
+    ps.blank(ax)
+    ax.set(xlim=(0, 1), ylim=(0, 1))
+    _unit_schematic(ax, 0.76, {"out"}, "mute",
+                    "keeps running, keeps driving its neighbours,\n"
+                    "disappears only from the output", label_arrows=True)
+    _unit_schematic(ax, 0.26, {"drive", "noise", "rec", "out"}, "dead",
+                    "loses its own drive and its own noise too,\nso it decays to zero and sends nothing")
+    fig.suptitle("A dropped unit can lose its output, or everything",
+                 fontsize=8.6, color=ps.INK, y=1.02)
+    return ps.save(fig, name, w_mm=110)
 
-    Panel (b) is not a sketch. It calls the production `drop_probabilities` on the production weight
-    vector, so the curve drawn is the one the sampler uses. Panel (c) reads the live count off a
-    real control trace.
+
+def dropout_targeting_slide(name="slide_23b_dropout_targeting"):
+    """One claim: beta sets how hard the sampler aims at the busiest living units.
+
+    The curves come from the production `drop_probabilities` on the production weight vector, so
+    the panel cannot drift away from the sampler training actually uses.
+
+    Args:
+        name: output file stem.
+    Returns:
+        the output path.
+    """
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, 62 * ps.MM))
+    M = 400
+    rank = torch.arange(M, dtype=torch.float32)
+    for beta, lw in zip((0, 1, 2, 4), (0.9, 1.1, 1.5, 2.0)):
+        w = torch.softmax(beta * rank / (M - 1), dim=0)
+        p = drop_probabilities(w, 0.25 * M, p_max=P_MAX).numpy()
+        ax.plot(np.arange(M) / (M - 1), p, lw=lw, zorder=3,
+                color=ps.MUTED if beta == 0 else ps.COND_COL["mute"],
+                label=r"$\beta$ = " + (f"{beta}" if beta else "0  (uniform)"))
+    ax.axhline(P_MAX, color=ps.BAD, lw=0.7, ls=(0, (2.2, 1.8)), zorder=2)
+    ax.text(0.5, P_MAX + 0.015, r"ceiling $p_{\max}$ = 0.9", fontsize=6.2, color=ps.BAD,
+            va="bottom", ha="center")
+    ax.set(xlim=(0, 1), ylim=(0, 1), xlabel="rank among the live units (1 = busiest)",
+           ylabel="probability of being dropped")
+    ax.legend(loc="upper left", bbox_to_anchor=(0.0, 0.86), fontsize=6.8, handlelength=1.8)
+    ps.ygrid(ax)
+    fig.suptitle(r"$\beta$ decides how hard dropout aims at the busiest units"
+                 "\nThe busiest living unit is $e^{\\beta}$ times likelier than the quietest: "
+                 r"2.7, 7.4, 55 at $\beta$ = 1, 2, 4.",
+                 fontsize=8.0, color=ps.INK, linespacing=1.4, y=1.03)
+    return ps.save(fig, name, w_mm=110)
+
+
+def dropout_dose_slide(name="slide_23c_dropout_dose"):
+    """One claim: the rate is a share of the units still alive, not of N.
 
     Args:
         name: output file stem.
@@ -558,87 +605,39 @@ def dropout_variants_slide(name="slide_23_dropout_variants"):
     if not ctrl:
         print(f"  SKIP {name}: {BERN_CTRL} missing")
         return None
-    f = glob.glob(os.path.join(ctrl[0], "*ParticipationTrace.pkl"))
-    with open(f[0], "rb") as fh:
+    with open(glob.glob(os.path.join(ctrl[0], "*ParticipationTrace.pkl"))[0], "rb") as fh:
         tr = pickle.load(fh)
     it = np.asarray(tr["participation_iters"], float)
     live = np.array([active_count(np.asarray(p, float), "scalefree") for p in tr["participation"]],
                     float)
-
-    ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 56 * ps.MM))
-    gs = GridSpec(1, 3, figure=fig, width_ratios=[1.30, 1.0, 1.0], wspace=0.30,
-                  left=0.015, right=0.995, top=0.745, bottom=0.14)
-    axa, axb, axc = (fig.add_subplot(gs[0, i]) for i in range(3))
-
-    # (a) what is removed
-    ps.blank(axa)
-    axa.set(xlim=(0, 1), ylim=(0, 1))
-    _unit_schematic(axa, 0.77, {"out"}, "mute",
-                    "the unit runs and still drives its neighbours;\nonly its read-out column is zeroed",
-                    label_arrows=True)
-    _unit_schematic(axa, 0.29, {"drive", "noise", "rec", "out"}, "dead",
-                    "its own drive and noise are cut too, so it\ndecays to zero and sends nothing")
-    axa.set_title("(a) what a dropped unit loses", fontsize=7.2, color=ps.INK, pad=4, loc="left")
-
-    # (b) who is chosen: the production sampler, at the grid's weakest and strongest settings
-    M = 400
-    rank = torch.arange(M, dtype=torch.float32)
-    for beta, ls, lw in zip((0, 1, 2, 4), ("-", "-", "-", "-"), (0.9, 1.1, 1.4, 1.8)):
-        w = torch.softmax(beta * rank / (M - 1), dim=0)
-        p = drop_probabilities(w, 0.25 * M, p_max=P_MAX).numpy()
-        c = ps.MUTED if beta == 0 else ps.COND_COL["mute"]
-        axb.plot(np.arange(M) / (M - 1), p, color=c, lw=lw, ls=ls, zorder=3,
-                 label=r"$\beta$ = " + (f"{beta}" if beta else "0  (uniform)"))
-    axb.axhline(P_MAX, color=ps.BAD, lw=0.7, ls=(0, (2.2, 1.8)), zorder=2)
-    axb.text(0.56, P_MAX + 0.015, r"$p_{\max}$ = 0.9, the one cell of the grid where it binds",
-             fontsize=5.9, color=ps.BAD, va="bottom", ha="center")
-    axb.set(xlim=(0, 1.0), ylim=(0, 1.0),
-            xlabel="rank within the live pool (1 = busiest)", ylabel="drop probability $p_i$")
-    axb.set_title(r"(b) who is chosen, at $\rho$ = 0.25", fontsize=7.2, color=ps.INK, pad=4,
-                  loc="left")
-    axb.legend(loc="upper left", bbox_to_anchor=(0.0, 0.86), fontsize=6.2, handlelength=1.6,
-               labelspacing=0.22)
-    ps.ygrid(axb)
-
-    # (c) how many: the dose is a fraction of the LIVE pool, which shrinks as training proceeds
     pos = it > 0
-    axc.plot(it[pos], live[pos], color=ps.BASE, lw=1.3, zorder=4)
-    axc.plot(it[pos], 0.25 * live[pos], color=ps.COND_COL["mute"], lw=1.3, zorder=4)
-    axc.axhline(0.25 * 1000, color=ps.BAD, lw=1.1, ls=(0, (2.4, 1.8)), zorder=3)
-    axc.text(115, live[pos][0] * 1.10, "live units $M$", fontsize=6.2, color=ps.BASE, va="bottom")
-    axc.text(115, 262, r"$\rho N$ = 250, a share of $N$", fontsize=6.0,
-             color=ps.BAD, va="bottom")
-    axc.text(115, 0.25 * live[pos][0] * 0.78, r"$\rho M$, a share of the living",
-             fontsize=6.0, color=ps.COND_COL["mute"], va="top")
-    axc.set(xscale="log", yscale="log", xlim=(100, 5e4), ylim=(40, 1800),
-            xlabel="training iteration", ylabel="units")
-    axc.set_title(r"(c) how many, at $\rho$ = 0.25", fontsize=7.2, color=ps.INK, pad=4, loc="left")
-    ps.ygrid(axc)
-
-    fig.suptitle("Dropout is four choices, not one knob",
-                 fontsize=8.6, color=ps.INK, y=0.985, x=0.015, ha="left")
-    fig.text(0.015, 0.895,
-             "What is removed, who is chosen and how sharply, how many — and, with no picture, "
-             "whether the survivors are scaled by $1/(1-p_i)$ to stand in for the ones that went.",
-             fontsize=6.6, color=ps.MUTED, ha="left", va="top")
-    fig.text(0.5, 0.005,
-             "Panel (b) calls the production sampler, so the curves are the ones training uses: the "
-             "busiest living unit is $e^{\\beta}$ times likelier than the quietest (2.7, 7.4, 55), "
-             "except where the ceiling binds.\nPanel (c) is one control seed's own live count. A "
-             "dose fixed as a share of $N$ would be 90% of the units that one seed still has alive at "
-             "iteration 40,000, which is why the code takes a share of $M$.",
-             ha="center", va="top", fontsize=6.2, color=ps.MUTED)
-    return ps.save(fig, name)
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, 62 * ps.MM))
+    ax.plot(it[pos], live[pos], color=ps.BASE, lw=1.4, zorder=4)
+    ax.plot(it[pos], 0.25 * live[pos], color=ps.COND_COL["mute"], lw=1.4, zorder=4)
+    ax.axhline(250, color=ps.BAD, lw=1.1, ls=(0, (2.4, 1.8)), zorder=3)
+    ax.text(115, live[pos][0] * 1.10, "units still alive", fontsize=6.8, color=ps.BASE, va="bottom")
+    ax.text(115, 264, r"$\rho N$ = 250, a share of the whole net", fontsize=6.8, color=ps.BAD,
+            va="bottom")
+    ax.text(115, 0.25 * live[pos][0] * 0.82, r"$\rho M$, a share of the living",
+            fontsize=6.8, color=ps.COND_COL["mute"], va="top")
+    ax.set(xscale="log", yscale="log", xlim=(100, 5e4), ylim=(40, 2000),
+           xlabel="training iteration", ylabel="units")
+    ps.ygrid(ax)
+    fig.suptitle(r"The drop rate is a share of the units still alive"
+                 f"\nTaking $\\rho$ = 0.25 of $N$ instead would ablate 250 of the "
+                 f"{live[-1]:.0f} survivors at iteration 40,000.",
+                 fontsize=8.0, color=ps.INK, linespacing=1.4, y=1.03)
+    return ps.save(fig, name, w_mm=110)
 
 
 def _right_labels(ax, items, gap=0.050, x=1.012):
     """Label curves at the right edge of an axes, pushed apart so no two overlap.
 
-    Six curves end within a few units of each other in both panels of the drop-rate sweep, so the
-    labels printed at their true heights sit on top of one another. They are converted to axes
-    coordinates, separated by a minimum gap and drawn there; the displacement is at most a few per
-    cent of the axis and each label keeps its curve's colour, so nothing is misattributed.
+    Six curves end within a few units of each other, so labels printed at their true heights sit on
+    top of one another. They are converted to axes coordinates, separated by a minimum gap and
+    drawn there; the displacement is at most a few per cent of the axis and each label keeps its
+    curve's colour, so nothing is misattributed.
 
     Args:
         ax: a LINEARLY scaled axes; items: (y in data units, text, colour) per label;
@@ -651,107 +650,137 @@ def _right_labels(ax, items, gap=0.050, x=1.012):
     for i in range(1, len(ys)):
         ys[i] = max(ys[i], ys[i - 1] + gap)
     for (_, txt, col), ya in zip(items, ys):
-        ax.text(x, ya, txt, transform=ax.transAxes, fontsize=5.8, color=col,
+        ax.text(x, ya, txt, transform=ax.transAxes, fontsize=6.2, color=col,
                 va="center", ha="left")
 
 
-def dropout_rate_sweep_slide(name="slide_24_dropout_rate_sweep"):
-    """The drop rate and the targeting exponent, swept together, after the sampler was fixed.
+def _sweep_panel(ax, grid, ref, j, rng):
+    """Draw the rate x targeting grid of one measure: six curves, every seed, a control band.
 
-    THIS REPLACES A WITHDRAWN RESULT. The first drop-rate ladder found the rate irrelevant over an
-    eightfold range and sharper targeting worse than useless. Both arms of that conclusion were
-    artefacts: the sampler scored |h| rather than firing rate, so about half the drops landed on
-    units that were already silent, and raising beta silently cut the DOSE because probability mass
-    above the cap was discarded rather than redistributed. With all three defects fixed the same
-    two knobs are monotone and strong, which is the opposite conclusion from the same experiment.
+    Args:
+        ax: axes; grid: {(kind, rate, beta): (active, loss)}; ref: the control's per-seed values of
+        the measure; j: 0 for active units, 1 for clean loss; rng: generator for the dot jitter.
+    Returns:
+        None.
+    """
+    ax.axhspan(ref.mean() - ref.std(ddof=1), ref.mean() + ref.std(ddof=1),
+               color=ps.BASE, alpha=0.16, lw=0, zorder=1)
+    ax.axhline(ref.mean(), color=ps.BASE, lw=1.1, zorder=2)
+    ends = []
+    for kind, col in BERN_KINDS:
+        for beta, lw in zip(BERN_BETAS, (0.9, 1.4, 2.0)):
+            m = np.array([grid[(kind, r, beta)][j].mean() for r in BERN_RATES])
+            ax.plot(BERN_RATES, m, color=col, lw=lw, zorder=4,
+                    ls="-" if kind == "mute" else (0, (2.6, 1.4)),
+                    marker="o" if kind == "mute" else "s", ms=2.8, mec="none")
+            for r in BERN_RATES:
+                v = grid[(kind, r, beta)][j]
+                ax.plot(r + rng.normal(0, 0.004, len(v)), v, ".", ms=2.0, color=col,
+                        alpha=0.40, mec="none", zorder=3)
+            ends.append((m[-1], rf"$\beta$ = {beta}", col))
+    ax.set(xlim=(0.03, 0.27), xticks=BERN_RATES, xticklabels=[f"{r:g}" for r in BERN_RATES],
+           xlabel=r"drop rate $\rho$")
+    ps.ygrid(ax)
+    _right_labels(ax, ends)
+    ax.legend(handles=[Line2D([], [], color=c, lw=1.6,
+                              ls="-" if k == "mute" else (0, (2.6, 1.4)),
+                              marker="o" if k == "mute" else "s", ms=3.2, mec="none", label=k)
+                       for k, c in BERN_KINDS],
+              loc="upper left", fontsize=6.8, handlelength=2.4)
+
+
+def bern_grid():
+    """The post-fix dropout grid and its control, or (None, None, None) if a cell is missing.
+
+    Returns:
+        (control active, control loss, {(kind, rate, beta): (active, loss)}).
+    """
+    ca, cl = bern_read(os.path.join(DATA_DIR, BERN_CTRL))
+    g = {(k, r, b): bern_read(bern_cell(k, r, b))
+         for k, _ in BERN_KINDS for r in BERN_RATES for b in BERN_BETAS}
+    if not len(ca) or any(not len(v[0]) for v in g.values()):
+        return None, None, None
+    return ca, cl, g
+
+
+def dropout_rate_units_slide(name="slide_24_dropout_rate_units"):
+    """One claim: a higher rate, and a sharper aim, keep more units alive.
+
+    THE HEADLINE IS COMPUTED AND TESTED AGAINST THE SEED SCATTER, not typed. "Monotone in both
+    knobs" is false for `dead` at beta = 1. "Sharper targeting adds units at every setting" then
+    passed a monotonicity test but failed a cross-check: the Figure 2 cache, which rebuilds each
+    network from its saved parameters instead of reading the trace, has mute at rho = 0.05 going
+    386 -> 384 -> 406. The two counts differ by at most 17 units of 1000 and agree on every other
+    ordering, so a 25-unit rise against a 59-unit seed sd was never resolvable. A series counts only
+    if it rises at every step AND rises by more than its seeds scatter.
 
     Args:
         name: output file stem.
     Returns:
-        the output path, or None if the grid is missing.
+        the output path, or None if the grid is incomplete.
     """
-    ctrl_a, ctrl_l = bern_read(os.path.join(DATA_DIR, BERN_CTRL))
-    grid = {(k, r, b): bern_read(bern_cell(k, r, b))
-            for k, _ in BERN_KINDS for r in BERN_RATES for b in BERN_BETAS}
-    if not len(ctrl_a) or any(not len(v[0]) for v in grid.values()):
+    ctrl_a, _, grid = bern_grid()
+    if grid is None:
         print(f"  SKIP {name}: dropout grid incomplete")
         return None
-
     ps.setup()
-    # the right-edge beta labels of the left panel need a wider gutter than the default, or they
-    # land on the right panel's y-axis label.
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(ps.W2, 62 * ps.MM),
-                                  gridspec_kw={"wspace": 0.34})
-    rng = np.random.default_rng(0)
-    for axis, j, ylab in ((ax, 0, "active units of 1000"),
-                          (ax2, 1, "clean loss (dropout off, noise-free)")):
-        ends = []
-        ref = (ctrl_a if j == 0 else ctrl_l)
-        axis.axhspan(ref.mean() - ref.std(ddof=1), ref.mean() + ref.std(ddof=1),
-                     color=ps.BASE, alpha=0.16, lw=0, zorder=1)
-        axis.axhline(ref.mean(), color=ps.BASE, lw=1.1, zorder=2)
-        for kind, col in BERN_KINDS:
-            for beta, lw in zip(BERN_BETAS, (0.9, 1.3, 1.9)):
-                m = np.array([grid[(kind, r, beta)][j].mean() for r in BERN_RATES])
-                axis.plot(BERN_RATES, m, color=col, lw=lw, zorder=4,
-                          ls="-" if kind == "mute" else (0, (2.6, 1.4)),
-                          marker="o" if kind == "mute" else "s", ms=2.6, mec="none")
-                for r in BERN_RATES:
-                    v = grid[(kind, r, beta)][j]
-                    axis.plot(r + rng.normal(0, 0.004, len(v)), v, ".", ms=2.0, color=col,
-                              alpha=0.40, mec="none", zorder=3)
-                ends.append((m[-1], rf"$\beta$ = {beta}", col))
-        axis.set(xlim=(0.03, 0.27), xticks=BERN_RATES,
-                 xticklabels=[f"{r:g}" for r in BERN_RATES],
-                 xlabel=r"drop rate $\rho$ (fraction of the live pool)", ylabel=ylab)
-        ps.ygrid(axis)
-        _right_labels(axis, ends)
-    ax.text(0.036, ctrl_a.mean() - 14, f"no dropout, {ctrl_a.mean():.0f}", fontsize=6.0,
+    fig, ax = plt.subplots(figsize=(W, 64 * ps.MM))
+    _sweep_panel(ax, grid, ctrl_a, 0, np.random.default_rng(0))
+    ax.set_ylabel("active units of 1000")
+    ax.text(0.036, ctrl_a.mean() - 14, f"no dropout, {ctrl_a.mean():.0f}", fontsize=6.6,
             color=ps.BASE, va="top")
-    ax2.text(0.036, ctrl_l.mean() + 0.0075, f"no dropout, {ctrl_l.mean():.3f}", fontsize=6.0,
-             color=ps.BASE, va="bottom")
-    ax.legend(handles=[Line2D([], [], color=c, lw=1.5,
-                              ls="-" if k == "mute" else (0, (2.6, 1.4)),
-                              marker="o" if k == "mute" else "s", ms=3.0, mec="none", label=k)
-                       for k, c in BERN_KINDS],
-              loc="upper left", fontsize=6.4, handlelength=2.2)
-    best = grid[("dead", 0.25, 4)][0].mean()
-    mute_best = grid[("mute", 0.25, 4)][0].mean()
-    # THE HEADLINE IS COMPUTED, NOT TYPED, AND IT IS TESTED AGAINST THE SEED SCATTER. Two earlier
-    # versions of this sentence were wrong. "Rises monotonically in both knobs" is false for dead at
-    # beta = 1, which dips at rho = 0.10 and is flat to rho = 0.175. "Sharper targeting adds units
-    # at every setting" then survived a monotonicity test but not a cross-check: on the Figure 2
-    # cache's own count, which rebuilds each net from its saved parameters instead of reading the
-    # trace, mute at rho = 0.05 goes 386 -> 384 -> 406 and the first step is DOWN. The two read-outs
-    # differ by at most 17 units everywhere and agree on every ordering that matters, so the right
-    # conclusion is that a 25-unit rise against a 59-unit seed sd was never resolvable. A series
-    # therefore counts only if it rises at every step AND rises by more than the seeds scatter.
-    def _rises(key_series):
-        means = [v[0].mean() for v in key_series]
-        sd = float(np.sqrt(np.mean([v[0].var(ddof=1) for v in key_series])))
+
+    def _rises(series):
+        means = [v[0].mean() for v in series]
+        sd = float(np.sqrt(np.mean([v[0].var(ddof=1) for v in series])))
         return bool(np.all(np.diff(means) > 0) and means[-1] - means[0] > sd)
     rate_bad = [rf"{k} at $\beta$ = {b}" for k, _ in BERN_KINDS for b in BERN_BETAS
                 if not _rises([grid[(k, r, b)] for r in BERN_RATES])]
     beta_bad = [rf"{k} at $\rho$ = {r:g}" for k, _ in BERN_KINDS for r in BERN_RATES
                 if not _rises([grid[(k, r, b)] for b in BERN_BETAS])]
-    rate_txt = ("a higher rate does too, with no exception" if not rate_bad else
-                "a higher rate does too, except for " + " and ".join(rate_bad))
-    beta_txt = ("Sharper targeting adds units at every setting" if not beta_bad else
-                "Sharper targeting adds units at every setting but " + " and ".join(beta_bad))
-    fig.suptitle("Both dropout knobs work, once the sampler can see firing\n"
-                 f"3-bit flip-flop, $N$ = 1000, unpenalised, 40,000 iterations, 3 seeds a cell. "
-                 f"{beta_txt};\n{rate_txt}. "
-                 f"{ctrl_a.mean():.0f} active with no dropout, {mute_best:.0f} at mute "
-                 rf"$\rho$ = 0.25, $\beta$ = 4, {best:.0f} at dead.",
-                 fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.055)
-    fig.text(0.5, -0.02,
-             "Loss is the noise-free, dropout-off probe on a fresh batch, so every arm is scored "
-             "on the full network as the control is; the bands are the control's own three seeds.\n"
-             "mute sits below the control's mean at every setting, dead pays up to twice it — but under "
-             "the re-score that keeps the training noise the mute arm instead gives up "
-             "2 points of $R^2$ (0.945 to 0.922).",
-             ha="center", va="top", fontsize=6.4, color=ps.MUTED, linespacing=1.35)
-    return ps.save(fig, name)
+    exc = " Exceptions: " + ", ".join(rate_bad + beta_bad) + "." if (rate_bad or beta_bad) else ""
+    fig.suptitle("A higher rate, and a sharper aim, keep more units alive\n"
+                 f"{ctrl_a.mean():.0f} of 1000 with no dropout, "
+                 f"{grid[('mute', 0.25, 4)][0].mean():.0f} at mute "
+                 rf"$\rho$ = 0.25, $\beta$ = 4, "
+                 f"{grid[('dead', 0.25, 4)][0].mean():.0f} at dead.{exc}",
+                 fontsize=8.0, color=ps.INK, linespacing=1.4, y=1.035)
+    return ps.save(fig, name, w_mm=110)
+
+
+def dropout_rate_cost_slide(name="slide_24b_dropout_rate_cost"):
+    """One claim: mute recruits units for free, dead pays for them.
+
+    The loss is the trainer's own noise-free, dropout-off probe on a fresh batch, so a dropout net
+    is scored on the full network exactly as the control is.
+
+    Args:
+        name: output file stem.
+    Returns:
+        the output path, or None if the grid is incomplete.
+    """
+    _, ctrl_l, grid = bern_grid()
+    if grid is None:
+        print(f"  SKIP {name}: dropout grid incomplete")
+        return None
+    ps.setup()
+    fig, ax = plt.subplots(figsize=(W, 64 * ps.MM))
+    _sweep_panel(ax, grid, ctrl_l, 1, np.random.default_rng(0))
+    ax.set_ylabel("task loss, noise-free, dropout off")
+    ax.text(0.036, ctrl_l.mean() + 0.008, f"no dropout, {ctrl_l.mean():.3f}", fontsize=6.6,
+            color=ps.BASE, va="bottom")
+    mute = [grid[("mute", r, b)][1].mean() for r in BERN_RATES for b in BERN_BETAS]
+    dead = [grid[("dead", r, b)][1].mean() for r in BERN_RATES for b in BERN_BETAS]
+    fig.suptitle("mute recruits units for free; dead pays for them\n"
+                 f"mute stays between {min(mute):.3f} and {max(mute):.3f} against the control's "
+                 f"{ctrl_l.mean():.3f}; dead reaches {max(dead):.3f}, about "
+                 f"{max(dead) / ctrl_l.mean():.1f} times the control.",
+                 fontsize=8.0, color=ps.INK, linespacing=1.4, y=1.035)
+    fig.text(0.5, -0.015,
+             "Scored with the training noise switched back on, mute instead gives up 2 points of "
+             "$R^2$ (0.945 to 0.922).",
+             ha="center", va="top", fontsize=6.6, color=ps.MUTED)
+    return ps.save(fig, name, w_mm=110)
 
 
 # The penalty arms, one figure per task. The 3-bit flip-flop panels cannot carry them as a series:
@@ -869,15 +898,18 @@ def _pen_cache():
 
 
 def temporal_pr_slide(name="slide_30_temporal_pr"):
-    """What frm's extra units are doing with their time, and what rws changes about it.
+    """What frm's extra units do with their time, and what rws changes about it.
 
     frm puts every unit over the silence bar, so the active-unit count saturates and cannot tell a
     unit that fires throughout the trial from one that fires in a brief transient. tPR/n does: 1 for
-    a unit at a constant rate, near 0 for a burst unit.
+    a constant rate, near 0 for a burst.
 
-    THE EFFECT IS IN THE LOWER TAIL, NOT THE MEDIAN. Adding rws to frm moves the median from 0.123 to
-    0.125 and the bottom quartile from 0.028 to 0.060. The panel therefore draws the distribution and
-    marks the quartile, rather than plotting means that would show nothing.
+    FOUR STACKED ROWS, NOT FOUR OVERLAID CURVES. The distributions sit on top of one another when
+    drawn in one axes and the lower tail - the only place the two penalised arms differ - is exactly
+    where they overlap most. A shared x axis keeps them comparable.
+
+    THE EFFECT IS IN THE LOWER TAIL. Adding rws to frm moves the median from 0.123 to 0.125 and the
+    bottom quartile from 0.028 to 0.060, so the quartile is marked on every row.
 
     Args:
         name: output file stem.
@@ -887,46 +919,97 @@ def temporal_pr_slide(name="slide_30_temporal_pr"):
     z = _pen_cache()
     if z is None:
         return None
+    rows = [(a_, l_, c_) for a_, l_, c_ in PEN_ARMS
+            if any(k.startswith(f"{a_}|") and k.endswith("|tpr") for k in z.files)]
     ps.setup()
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(ps.W2, 62 * ps.MM))
+    fig = plt.figure(figsize=(ps.W2, 74 * ps.MM))
+    gs = GridSpec(len(rows), 2, figure=fig, width_ratios=[1.0, 0.85], hspace=0.22, wspace=0.3)
     bins = np.linspace(0, 0.4, 61)
+    axes = []
     stats = {}
-    for arm, lab, col in PEN_ARMS:
-        vals = [z[k] for k in z.files if k.startswith(f"{arm}|") and k.endswith("|tpr")]
-        if not vals:
-            continue
-        v = np.concatenate(vals)
-        ax.hist(v, bins=bins, histtype="step", lw=1.2, color=col, density=True,
-                label=f"{lab} ({len(v)} units)", zorder=4)
-        q25 = [float(np.quantile(x, 0.25)) for x in vals]
-        burst = [100.0 * float(np.mean(x < BURST)) for x in vals]
-        stats[arm] = (q25, burst)
-    ax.axvline(BURST, color=ps.MUTED, lw=0.7, ls=(0, (3, 2)), zorder=2)
-    ax.annotate("burst", (BURST, ax.get_ylim()[1]), textcoords="offset points", xytext=(3, -8),
-                fontsize=6.0, color=ps.MUTED)
-    ax.set(xlabel="temporal participation ratio, tPR / n", ylabel="density")
-    ax.legend(loc="center right", fontsize=5.8, handlelength=1.1, borderaxespad=0.3,
-              framealpha=0.9)
-    ps.ygrid(ax)
-    # the quartile per seed, which is where the two penalised arms actually separate
-    xs = np.arange(len(stats), dtype=float)
-    for x, (arm, lab, col) in zip(xs, [a for a in PEN_ARMS if a[0] in stats]):
-        q25, _b = stats[arm]
-        ax2.plot([x] * len(q25), q25, "o", ms=4.0, color=col, mec="white", mew=0.6, zorder=4)
-        ax2.plot([x], [np.mean(q25)], "s", ms=7.0, color=col, mec="white", mew=1.0, zorder=5)
-    ax2.set_xticks(xs)
-    ax2.set_xticklabels([l for a, l, _c in PEN_ARMS if a in stats], fontsize=6.4, rotation=18,
-                        ha="right", rotation_mode="anchor")
-    ax2.set_xlim(-0.6, len(xs) - 0.4)
-    ax2.set_ylabel("lower quartile of tPR / n")
-    ps.ygrid(ax2)
-    f25, b25 = np.mean(stats["frm"][0]), np.mean(stats["both"][0])
-    fb, bb = np.mean(stats["frm"][1]), np.mean(stats["both"][1])
+    for i, (arm, lab, col) in enumerate(rows):
+        ax = fig.add_subplot(gs[i, 0], sharex=axes[0] if axes else None)
+        axes.append(ax)
+        per_seed = [z[k] for k in z.files if k.startswith(f"{arm}|") and k.endswith("|tpr")]
+        v = np.concatenate(per_seed)
+        ax.hist(v, bins=bins, color=col, alpha=0.85, density=True, zorder=3)
+        q25 = float(np.quantile(v, 0.25))
+        ax.axvline(q25, color=ps.INK, lw=0.9, ls=(0, (3, 2)), zorder=5)
+        ax.axvline(BURST, color=ps.MUTED, lw=0.7, ls=":", zorder=4)
+        ax.annotate(f"{lab}   q25 = {q25:.3f}", (0.97, 0.78), xycoords="axes fraction",
+                    ha="right", fontsize=6.2, color=ps.INK)
+        stats[arm] = ([float(np.quantile(x, 0.25)) for x in per_seed],
+                      [100.0 * float(np.mean(x < BURST)) for x in per_seed])
+        ps.ygrid(ax)
+        ax.set_yticks([])
+        if i < len(rows) - 1:
+            ax.tick_params(labelbottom=False)
+    # the parenthetical ran off the left edge as an x label; it belongs in the title
+    axes[-1].set_xlabel("temporal participation ratio, tPR / n")
+    axes[len(rows) // 2].set_ylabel("density")
+
+    # ---- what a burst unit and a sustained unit actually look like --------------------------------
+    ex_arm = "frm" if f"frm|0|ex" in z.files else rows[0][0]
+    ex = np.asarray(z[f"{ex_arm}|0|ex"], float)
+    ex_tpr = np.asarray(z[f"{ex_arm}|0|ex_tpr"], float)
+    for j, (ttl, col) in enumerate([("lowest tPR/n in this net", ps.SLOTS[1]),
+                                    ("highest tPR/n", ps.SLOTS[2])]):
+        ax = fig.add_subplot(gs[j * (len(rows) // 2) if len(rows) > 2 else j, 1])
+        ax.plot(ex[j], lw=1.2, color=col, zorder=4)
+        ax.set_title(f"{ttl}:  tPR/n = {ex_tpr[j]:.3f}", fontsize=6.6, color=ps.INK, pad=3)
+        ax.set_ylabel("rate", fontsize=6.2)
+        if j:
+            ax.set_xlabel("time step")
+        ps.ygrid(ax)
     fig.suptitle("rws does not change the typical unit — it rescues the worst ones\n"
-                 f"CDDM, $N$ = 1000, 3 seeds. Lower quartile of tPR/n: frm {f25:.3f}, "
-                 f"frm + rws {b25:.3f}.\nBurst units (tPR/n < {BURST}): "
-                 f"{fb:.0f}% against {bb:.0f}%. Circles are seeds, squares their mean.",
-                 fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.12)
+                 f"CDDM, $N$ = 1000, 3 seeds.  Burst units (tPR/n < {BURST}): frm "
+                 f"{np.mean(stats['frm'][1]):.0f}%, frm + rws {np.mean(stats['both'][1]):.0f}%."
+                 f"\nDotted: burst cut.  Dashed: that row's lower quartile.  "
+                 f"Right: two units of one frm net, trial-averaged.",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.03)
+    return ps.save(fig, name)
+
+
+def selectivity_slide(name="slide_32_selectivity"):
+    """The selectivity configuration of three conditions: every unit a point in its own PC space.
+
+    The same construction PerformanceAnalyzer.animate_selectivity spins as a movie - flatten each
+    unit's response over (time, trial), take the principal components across units, and scatter the
+    units - drawn statically at one viewing angle so three conditions can be compared side by side.
+
+    Args:
+        name: output file stem.
+    Returns:
+        the output path, or None if the cache lacks the coordinates.
+    """
+    z = _pen_cache()
+    if z is None:
+        return None
+    show = [(a_, l_, c_) for a_, l_, c_ in PEN_ARMS
+            if a_ in ("control", "frm", "both") and f"{a_}|0|pcs" in z.files]
+    if not show:
+        print(f"  SKIP {name}: no selectivity coordinates in the cache")
+        return None
+    ps.setup()
+    fig = plt.figure(figsize=(ps.W2, 64 * ps.MM))
+    for i, (arm, lab, col) in enumerate(show):
+        ax = fig.add_subplot(1, len(show), i + 1, projection="3d")
+        P = np.asarray(z[f"{arm}|0|pcs"], float)
+        ax.scatter(P[:, 0], P[:, 1], P[:, 2], s=2.2, c=col, alpha=0.5, linewidths=0, zorder=3)
+        ax.set_title(f"{lab}  ({len(P)} active units)", fontsize=7.0, color=ps.INK, pad=0)
+        for pane in (ax.xaxis, ax.yaxis, ax.zaxis):
+            pane.set_pane_color((1.0, 1.0, 1.0, 0.0))
+            pane.line.set_color(ps.GRID)
+        ax.set_xticklabels([]); ax.set_yticklabels([]); ax.set_zticklabels([])
+        ax.set_xlabel("PC1", fontsize=6.0, labelpad=-10)
+        ax.set_ylabel("PC2", fontsize=6.0, labelpad=-10)
+        ax.set_zlabel("PC3", fontsize=6.0, labelpad=-10)
+        ax.view_init(elev=18, azim=35)
+    fig.suptitle("Selectivity configuration: every active unit as a point in its own PC space\n"
+                 "CDDM, $N$ = 1000, one seed each. Axes share no scale between panels.",
+                 fontsize=7.4, color=ps.INK, linespacing=1.35, y=1.0)
+    # 3-D axes overhang their own box, so the leftmost z label was clipped at the figure edge
+    fig.subplots_adjust(left=0.06, right=0.98)
     return ps.save(fig, name)
 
 
@@ -2093,19 +2176,15 @@ def main(list_only=False):
         got = penalty_size_slide(_t)
         if got:
             out.append(got)
-    for _fn in (temporal_pr_slide, frm_vs_both_slide):
+    for _fn in (temporal_pr_slide, frm_vs_both_slide, selectivity_slide):
         got = _fn()
         if got:
             out.append(got)
-    got = dropout_variants_slide()
-    if got:
-        out.append(got)
-    got = dropout_rate_sweep_slide()
-    if got:
-        out.append(got)
-    got = dropout_along_training_slide()
-    if got:
-        out.append(got)
+    for _fn in (dropout_kinds_slide, dropout_targeting_slide, dropout_dose_slide,
+                dropout_rate_units_slide, dropout_rate_cost_slide, dropout_along_training_slide):
+        got = _fn()
+        if got:
+            out.append(got)
     got = control_trajectory_slide()
     if got:
         out.append(got)

@@ -135,7 +135,22 @@ def measure(net_dir):
     W = np.asarray(rnn.W_rec.detach().numpy(), dtype=np.float64)
     a = np.abs(W[np.abs(W) > ZERO_TOL])
     hist, _ = np.histogram(np.log10(a), bins=LOG_BINS)
-    return dict(n_active=int(live.sum()), r2=r2,
+    # ---- extras for the closing slides, kept per network so the figures share one measurement ----
+    # SELECTIVITY CONFIGURATION: each unit as a point in the top PCs of its flattened response, the
+    # same construction PerformanceAnalyzer.animate_selectivity spins (F = rates.reshape(N, -1),
+    # PCA over units, scatter in PC space). Stored as coordinates so the slide need not re-simulate.
+    X = flat[live].astype(np.float64)
+    Xc = X - X.mean(axis=0, keepdims=True)
+    _u, _sv, vt = np.linalg.svd(Xc, full_matrices=False)
+    pcs = (Xc @ vt[:3].T).astype(np.float32)                 # (n_live, 3)
+    # EXAMPLE UNITS: the live units with the lowest and highest temporal PR, as rate traces averaged
+    # over trials - what "burst" and "sustained" actually look like.
+    tpr_live = tpr[live] / n_samples
+    idx_live = np.flatnonzero(live)
+    lo_i, hi_i = idx_live[int(np.argmin(tpr_live))], idx_live[int(np.argmax(tpr_live))]
+    ex = np.stack([rates[lo_i].mean(axis=1), rates[hi_i].mean(axis=1)]).astype(np.float32)
+    return dict(n_active=int(live.sum()), r2=r2, pcs=pcs, ex=ex,
+                ex_tpr=np.array([float(tpr_live.min()), float(tpr_live.max())], dtype=np.float32),
                 dims=float(participation_ratio(flat[live])) if live.sum() > 1 else float("nan"),
                 tpr=np.asarray(tpr[live] / n_samples, dtype=np.float32),
                 w_hist=hist.astype(np.float64), q50_q95=float(np.quantile(p, 0.5) /
@@ -159,6 +174,10 @@ def main(refresh=False):
             key = f"{arm}|{i}"
             store[f"{key}|tpr"] = r["tpr"]
             store[f"{key}|w_hist"] = r["w_hist"]
+            if i == 0:                      # one seed per arm is enough for the example panels
+                store[f"{key}|pcs"] = r["pcs"]
+                store[f"{key}|ex"] = r["ex"]
+                store[f"{key}|ex_tpr"] = r["ex_tpr"]
             rows.append((arm, r["n_active"], r["r2"], r["dims"], r["q50_q95"], i))
             print(f"  {arm:8s} seed {i}: active {r['n_active']:4d}  r2 {r['r2']:.4f}  "
                   f"dims {r['dims']:6.2f}  median tPR/n {np.median(r['tpr']):.3f}", flush=True)

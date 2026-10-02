@@ -307,137 +307,75 @@ the next cache rebuild.
 
 ## PER-INTERVENTION DETAIL
 
-### 23. Dropout is four choices, not one knob
-<p align="center"><img src="../img/internal_figures/slide_23_dropout_variants.svg" width="760"></p>
-"We tried dropout" names almost nothing. The rule has four independent settings, and this project's
-first dropout sweep came back null because of three defects in who it chose and how many, not
-because the intervention fails. Here is the whole rule, as the code runs it:
+### 23. A dropped unit can lose its output, or everything
+<p align="center"><img src="../img/internal_figures/slide_23_dropout_kinds.svg" width="760"></p>
+
+A draw gives every unit two numbers: `c`, what it sends, and `s`, whether it runs.
 
 ```
-    tau dx/dt = -x + W_rec r + W_inp u + b + eta,    r = ReLU(x),    y = W_out r
+    mute    dynamics untouched;      y = W_out (c * r)
+    dead    dx_i/dt = -x_i + s_i [ (W_rec (c * r))_i + (W_inp u)_i + b_i + eta_i ]
 
-    one draw produces two vectors over the N units:
-        c_i   what unit i SENDS    0 if dropped; else 1, or 1/(1 - p_i) with rescaling on
-        s_i   whether it RUNS      0 if dropped; else 1 - never rescaled
-
- 1. WHAT IS REMOVED
-        mute   dynamics untouched;          y = W_out (c * r)
-        dead   dx_i/dt = -x_i + s_i [ (W_rec (c * r))_i + (W_inp u)_i + b_i + eta_i ]
-                                            y = W_out (c * r)
-
- 2. WHO IS CHOSEN
-        v_i = std(r_i) + q_0.9(r_i), pooled over time and trials, kept as a running average
-              (sampling_method: uniform -> v = 1; output_weights -> v_i = sum_o |W_out[o,i]|)
-        live pool   L = { i : v_i >= 0.05 * q_95(v) },   M = |L|
-        w_i = softmax( beta * rank_i / (M - 1) ),  rank taken inside L, 0 = quietest
-
- 3. HOW MANY
-        p_i = min( p_max, kappa * w_i ),  kappa solved so that  sum over L of p_i = rho * M
-        d_i ~ Bernoulli(p_i), drawn independently
-
- 4. WHAT HAPPENS TO EACH UNIT
-        dropped, d_i = 1:   c_i = s_i = 0
-        kept,    d_i = 0:   s_i = 1,  and  c_i = 1 / (1 - p_i)   (rescale: true, as shipped)
-                                           c_i = 1               (rescale: false)
-
-    and the task loss is scored on the DROPOUT pass; the penalties on the full pass.
+    dropped   c_i = s_i = 0
+    kept      s_i = 1,   c_i = 1 / (1 - p_i)   so the kept steps stand in for the dropped ones
 ```
 
-**What is removed.** `mute` leaves the recurrent dynamics completely alone and zeros one column of
-`W_out`. The unit keeps running and keeps driving its neighbours; it disappears only from the
-output, so the only redundancy `mute` pressures is read-out redundancy. `dead` also cuts the unit's
-own drive and its own noise, so it decays to zero and sends nothing, and the pressure reaches the
-recurrent wiring.
+`mute` can only pressure read-out redundancy. `dead` reaches the recurrent wiring as well.
 
-**Who is chosen.** `uniform` is textbook dropout. `output_weights` ranks units by the size of their
-read-out column. `participation`, which every run in this deck uses, ranks them by firing rate
-(held as an exponential moving average over iterations, so one unlucky batch cannot reorder it), and
-`beta` says how sharply to prefer the busy ones: the busiest living unit is e^beta times likelier
-than the quietest, 2.7 at beta = 1 and 55 at beta = 4. Panel (b) is drawn by calling the production
-sampler, not by sketching it. Ranks rather than raw scores, because participation grows by more
-than an order of magnitude over training — on raw scores beta = 4 drew the same unit at every
-iteration by the end.
+### 23b. Beta decides how hard dropout aims at the busiest units
+<p align="center"><img src="../img/internal_figures/slide_23b_dropout_targeting.svg" width="760"></p>
 
-**How many.** `rho` is a fraction of the LIVE pool, not of N, and the pool uses the project's own
-silence rule. Two reasons, both in panel (c): dropping an already-silent unit changes no other
-unit's state by any amount (measured, max |dh| = 0 exactly, for both kinds), so sampling over all N
-only dilutes the dose; and the population collapses as training runs, so a dose fixed at rho * N
-= 250 would be 90% of the 279 units the seed in panel (c) still has alive at iteration 40,000, and
-79% of the three-seed mean of 316.
+```
+    v_i = std(r_i) + q_0.9(r_i)                a unit's firing rate, kept as a running average
+    w_i = softmax( beta * rank_i / (M - 1) )   rank among the live units, 0 = quietest
+```
 
-**The survivors.** Without the 1/(1 - p_i) factor the task loss is scored on a network missing part
-of its live population while every measurement is taken on the full network, and nothing reconciles
-the two. Independent Bernoulli draws are what make the factor exact: p_i is then the marginal drop
-probability. Drawing exactly k units without replacement, which this code used for one revision,
-makes that marginal intractable — the exact value sums over every size-k subset containing the unit
-— so the correction would have to be a uniform guess for every unit.
+Ranks, not raw scores: participation grows by more than tenfold over training, so on raw scores
+beta = 4 ended up drawing the same unit every iteration. The code also implements `uniform`
+(v = 1) and `output_weights` (v_i = sum_o |W_out[o,i]|); neither has been swept.
 
----
+### 23c. The drop rate is a share of the units still alive
+<p align="center"><img src="../img/internal_figures/slide_23c_dropout_dose.svg" width="760"></p>
 
-### 24. Sweeping the drop rate: both knobs work, once the sampler can see firing
-<p align="center"><img src="../img/internal_figures/slide_24_dropout_rate_sweep.svg" width="760"></p>
-Four drop rates by three targeting exponents by two kinds, three seeds each, against the no-dropout
-cell of the same launcher. Sharper targeting adds units at seven of the eight (kind, rate) settings;
-at the weakest, `mute` at rho = 0.05, the 25-unit rise sits inside a 59-unit seed spread and is not
-a result. A higher rate adds units in every series but `dead` at beta = 1, which is flat
-(344, 330, 343) until rho = 0.175 and then climbs to 416.
+```
+    pool    L = { i : v_i >= 0.05 * q_95(v) },   M = |L|
+    p_i     = min( p_max, kappa * w_i ),  kappa set so that  sum over L of p_i = rho * M
+    draw    d_i ~ Bernoulli(p_i), independently
+```
 
-**Active units of 1000, at the corners.** No dropout 316. `mute` runs 388 at rho = 0.05, beta = 1
-to 636 at rho = 0.25, beta = 4. `dead` runs 344 to 963 of 1000, its three seeds within 6 units of
-each other — a ceiling the count is about to run into.
+Dropping an already-silent unit moves no other unit's state at all, so sampling over all N only
+dilutes the dose. Independent draws are what make p_i the marginal drop probability, and that is
+what makes the 1 / (1 - p_i) factor exact rather than a guess.
 
-**What it costs depends on how you score it.** On the noise-free, dropout-off probe drawn in the
-right panel, `mute` sits below the no-dropout mean of 0.101 at every setting (0.052 to 0.086) and
-`dead` reaches 0.207, about twice the control. Under the re-score that keeps the recurrent and
-input noise the networks trained with, `mute` instead gives up about 2 points of R-squared, 0.945
-to 0.922 at the strongest setting. Both read-outs are in `data/fig_paper_F2_cache.npz`; the noisy
-one is the manuscript's. `dead` has no entry in that cache, so its cost is quoted here only on the
-noise-free probe.
+### 24. A higher rate, and a sharper aim, keep more units alive
+<p align="center"><img src="../img/internal_figures/slide_24_dropout_rate_units.svg" width="760"></p>
 
-**Two read-outs, checked against each other.** The panels read each network's active count off its
-participation trace, taken at iteration 39,900 from the probe the trainer runs with the noise and
-the dropout switched off. `data/fig_paper_F2_cache.npz` computes the same count a different way,
-by rebuilding each network from its saved parameters and re-running it offline. Across the twelve
-`mute` cells they never differ by more than 17 units of 1000, and they agree on every ordering but
-one: at rho = 0.05 the cache has mute going 386, 384, 406 as beta rises, so its first step is down
-where the trace has it up. Two units against a 59-unit seed spread, which is why the claim above
-stops at seven settings.
+Four rates by three exponents by two kinds, three seeds each. 3-bit flip-flop, N = 1000, no
+penalty, 40,000 iterations, against the no-dropout cell of the same launcher.
 
-**This replaces a withdrawn result.** The first drop-rate ladder reported the rate irrelevant over
-an eightfold range (387 units with no dropout against 487, 498, 471, 511 across rho = 0.05 to 0.40)
-and sharper targeting worse than useless. Both halves were artefacts of the sampler, not findings
-about dropout, and slide 24c is the measurement that shows why.
+Two settings are left out of the claim: `dead` at beta = 1 does not rise with the rate, and
+`mute` at rho = 0.05 rises by 25 units inside a 59-unit seed spread.
 
-### 24b. Dropout delays the silencing; it does not stop it
-<p align="center"><img src="../img/internal_figures/slide_24b_dropout_along_training.svg" width="760"></p>
-At 150,000 iterations dropout holds 373 live units against 263 — but it is losing them faster, -216
-against -161 units per decade, so the gap is closing rather than holding. Both arms end at the same
-loss.
+An earlier version of this sweep found the rate irrelevant. That sampler scored |h|, which a
+silent unit scores as highly as a busy one, so half of every dose landed where dropping does
+nothing.
 
-**Deviation.** These are the ONLY dropout networks trained past 40,000 iterations, and they predate
-the sampler rewrite: rho = 0.05, beta = 1, no live-pool restriction and no rescaling. The question
-the panel answers — does dropout halt the silencing or only slow it — has not been re-asked of the
-corrected rule, because the corrected sweep stops at 40,000 iterations.
+### 24b. mute recruits units for free; dead pays for them
+<p align="center"><img src="../img/internal_figures/slide_24b_dropout_rate_cost.svg" width="760"></p>
 
-### 24c. Why the first sweep said nothing: the sampler could not see firing
-<p align="center"><img src="../img/internal_figures/dropout_sampler_blindness.png" width="760"></p>
-The shipped sampler scored q_0.9(|h|) + std(|h|) on the raw states. For `equation_type: h` those
-are pre-activations, and the expression depends on h only through |h| — so a unit pinned at
-h = -c, silent, scored exactly like one pinned at h = +c, maximally active. Measured on the trained
-networks: 51 +- 4% of the drop mass landed on units that were already silent, where dropping
-changes nothing. Among the units still alive the ordering started informative and decayed to
-nothing: the Spearman rank correlation between the sampler's ordering and the units' true firing
-order went from 0.63 early to -0.04 by 150,000 iterations.
+The loss is the trainer's noise-free, dropout-off probe on a fresh batch, so every arm is scored on
+the full network. Put the training noise back and the picture softens: `mute` then gives up two
+points of R-squared, 0.945 to 0.922. `dead` is not in that cache, so its cost is quoted noise-free
+only.
 
-Raising beta did not sharpen that ordering either, it cut the dose: probability mass above the cap
-was discarded rather than redistributed, so a nominal 50 drops per iteration became 7.9 at beta = 4.
+### 24c. Dropout slows the silencing; it does not stop it
+<p align="center"><img src="../img/internal_figures/slide_24c_dropout_along_training.svg" width="760"></p>
 
-**One limit holds whatever the sampler does.** 41% of the whole 0 to 150,000 die-off happens in the
-first 100 iterations, before any firing-rate statistic has had time to mean anything.
+At 150,000 iterations dropout holds 373 live units against 263, but is losing them faster, -216
+against -161 per decade, so the gap is closing.
 
-**Not from `fig_slides.py`.** This is the one figure in the deck that script does not write, and
-the one raster panel. It came out of the instrumented re-run that found the defect, and that
-instrumentation was not kept.
+**Deviation.** These are the only dropout networks trained past 40,000 iterations and they predate
+the sampler rewrite, so the corrected rule has never been asked this question.
 
 ### 25. Prune-and-duplicate ⚠
 Needs its own figure: recruitment against jitter, and the output unchanged at the moment of surgery.
@@ -476,9 +414,12 @@ frm puts every unit over the silence bar, so the count saturates and cannot tell
 throughout the trial from one that fires in a brief transient. tPR/n does — 1 for a constant rate,
 near 0 for a burst.
 
-The effect is in the lower tail. Median tPR/n barely moves (frm 0.123, frm + rws 0.125), but the
-lower quartile goes 0.028 → 0.060 and burst units (tPR/n < 0.05) fall from 28% to 24%. Every
-frm + rws seed is above every frm seed on both.
+Four rows, shared x. The effect is in the lower tail: the median barely moves (frm 0.123, frm + rws
+0.125), but the lower quartile goes 0.028 → 0.060 and burst units (tPR/n < 0.05) fall from 28% to
+24%. Every frm + rws seed is above every frm seed on both.
+
+Right: the two extreme units of one frm network. The lowest (tPR/n = 0.013) fires one transient bump
+and is silent the rest of the trial; the highest (0.417) steps up and holds.
 
 ### 31. frm against frm + rws, all four measures
 <p align="center"><img src="../img/internal_figures/slide_31_frm_vs_both.svg" width="760"></p>
@@ -488,6 +429,12 @@ where the two penalised arms part: frm pushes the bulk to larger magnitudes, frm
 
 So frm buys the units and the dimensions, rws buys neither — rws alone leaves both at control level —
 and what rws contributes is the temporal quality of frm's units, not their number.
+
+### 32. The selectivity configuration
+<p align="center"><img src="../img/internal_figures/slide_32_selectivity.svg" width="760"></p>
+Every active unit as a point in the top three principal components of its own response — the static
+form of the selectivity movie. The control's 260 units collapse into a tight clump; frm's 1000 spread
+along a curved one-dimensional arc; frm + rws fills a broader volume.
 
 ---
 
