@@ -22,8 +22,14 @@ producing something that looks like GitHub and is not.
 The output is NOT committed: it is a build product of docs/presentation.md and the PNGs, both of
 which are in the repository, and it would otherwise be a third copy of the deck to keep in step.
 
-Usage:  python trainRNNbrain/experiments_and_analysis/deck_html.py [-o docs/presentation.html]
-        (run from the repository root)
+Usage:  python trainRNNbrain/experiments_and_analysis/deck_html.py [DECK] [-o OUT]
+        (run from the repository root; DECK defaults to docs/presentation.md, and OUT to the
+        deck's own name with an .html suffix)
+
+        Any Markdown deck works, which is the point: the archived docs/presentation_backup.md
+        renders the same way. Note that it links the figure set as it was when it was archived,
+        and those files have since been overwritten by later rebuilds -- the render shows its text
+        beside today's panels, not the ones it was written against.
 """
 
 import argparse
@@ -84,6 +90,11 @@ def render_markdown(deck=DECK):
 def inline_images(html, base="docs"):
     """Replace every relative <img src> with a base64 data URI of the file it names.
 
+    PREFERS A PNG BESIDE THE NAMED FILE. A deck that links `.svg` still renders, but an SVG of one
+    of this project's dense loss-trace panels is a megabyte against a PNG's hundred kilobytes, and
+    for reading on screen the two are indistinguishable. So when `<stem>.png` sits beside the file
+    the Markdown names, the PNG goes in. `deck_pngs.py --deck <that deck>` writes the ones missing.
+
     Args:
         html: rendered HTML whose image sources are relative to `base`;
         base: the directory the Markdown file lives in, which its relative paths resolve against.
@@ -98,6 +109,9 @@ def inline_images(html, base="docs"):
         if src.startswith(("http://", "https://", "data:")):
             return m.group(0)
         path = os.path.normpath(os.path.join(base, src))
+        png = os.path.splitext(path)[0] + ".png"
+        if os.path.exists(png):
+            path = png
         if not os.path.exists(path):
             missing.append(src)
             return m.group(0)
@@ -109,15 +123,18 @@ def inline_images(html, base="docs"):
     return re.sub(r'(<img\b[^>]*?\bsrc=")([^"]+)"', sub, html), done, missing
 
 
-def main(out=OUT):
+def main(out=None, deck=DECK):
     """Write the self-contained HTML. Returns 0 on success, 1 if it could not be built."""
-    body = render_markdown()
+    out = out or os.path.splitext(deck)[0] + ".html"
+    body = render_markdown(deck)
     if body is None:
         print("could not render: `gh` is missing or the /markdown call failed. "
               "Run `gh auth status`.")
         return 1
-    body, n, missing = inline_images(body)
-    title = "Dormant units in trained ReLU RNNs — talk track"
+    body, n, missing = inline_images(body, base=os.path.dirname(deck) or ".")
+    # the deck's own first heading, so an archived copy is not mislabelled as the current one
+    first = re.search(r"^#\s+(.+)$", open(deck).read(), re.M)
+    title = first.group(1).strip() if first else os.path.basename(deck)
     page = (f"<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
             f"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
             f"<title>{title}</title>\n<style>{CSS}</style>\n</head>\n<body>\n{body}\n"
@@ -132,5 +149,7 @@ def main(out=OUT):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("-o", "--out", default=OUT, help="output HTML path")
-    sys.exit(main(ap.parse_args().out))
+    ap.add_argument("deck", nargs="?", default=DECK, help="the Markdown deck to render")
+    ap.add_argument("-o", "--out", default=None, help="output HTML path")
+    a = ap.parse_args()
+    sys.exit(main(a.out, a.deck))

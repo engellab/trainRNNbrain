@@ -19,8 +19,10 @@ is about the manuscript's panels and still holds.
 The source is each panel's PDF rather than its SVG, because the PDF is the asset the project treats
 as authoritative and `pdftoppm` renders it without a browser or an SVG library.
 
-Usage:  python trainRNNbrain/experiments_and_analysis/deck_pngs.py [--dpi 200] [--check]
+Usage:  python trainRNNbrain/experiments_and_analysis/deck_pngs.py [--deck PATH] [--dpi 200] [--check]
         (run from the repository root)
+        --deck  rasterise the figures some OTHER Markdown deck links, e.g. the archived
+                docs/presentation_backup.md, whose figure set is larger and partly different.
         --check reports what is missing or stale and writes nothing.
 """
 
@@ -63,12 +65,12 @@ def rasterise(stem, dpi=DPI):
     return png
 
 
-def main(dpi=DPI, check_only=False):
-    """Rasterise or check every linked figure. Returns the number of problems found."""
+def main(dpi=DPI, check_only=False, deck=DECK):
+    """Rasterise or check every figure one deck links. Returns the number of problems found."""
     if not check_only and shutil.which("pdftoppm") is None:
         print("pdftoppm not found: install poppler (brew install poppler)")
         return 1
-    stems = linked_stems()
+    stems = linked_stems(deck)
     missing, stale, total = [], [], 0
     for stem in stems:
         pdf = os.path.join(FIG_DIR, f"{stem}.pdf")
@@ -100,5 +102,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--dpi", type=int, default=DPI, help="raster resolution")
     ap.add_argument("--check", action="store_true", help="report only, write nothing")
+    ap.add_argument("--deck", default=DECK, help="the Markdown deck whose figures to rasterise")
     a = ap.parse_args()
-    sys.exit(1 if main(a.dpi, a.check) else 0)
+    sys.exit(1 if main(a.dpi, a.check, a.deck) else 0)
