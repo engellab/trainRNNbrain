@@ -1,0 +1,35 @@
+# @package model
+# THE STANDARD RNN WITH A TANH ACTIVATION — rnn_relu_standard.yaml with one line changed.
+# dx/dt = -x + W_rec*tanh(x) + W_inp*u, alpha = dt/tau = 0.1, bias fixed at 0.
+# Every constraint OFF (dale, io_nonnegativity, cubic term), self-connections ON — identical to
+# rnn_relu_standard so that an activation comparison varies the activation and nothing else.
+#
+# A tanh unit has TWO ways of being useless and the ReLU has one: it can sit near 0 (silent, as
+# ReLU units do) or be pinned at +/-1 (saturated, zero gradient, no ReLU analogue). Participation
+# std(r) + q90(|r|) scores a pinned unit as ACTIVE (q90 ~ 1) and a near-zero unit as silent, so the
+# saturated fraction has to be read separately from the trained parameters; the active count the
+# participation trace logs is the silent-unit measure only.
+_target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
+RNN_tag: ""
+activation_args: {"name": "tanh", "slope": 1.0}
+equation_type: "h"
+N: 100
+dt: 1
+tau: 10
+exc2inhR: 4.0                  # ignored when dale: false
+gamma: 0                       # cubic term OFF
+dale: false
+io_nonnegativity: false
+self_connections: true
+weight_boundary: "sticky"      # inert with dale/io_nonnegativity off
+weight_boundary_eps: 1.0e-12
+connectivity_density_rec: 1.0
+spectral_rad: 1.2
+sigma_rec: .05
+sigma_inp: .05
+sigma_out: .03
+sigma_w: 0.0
+bias_range: [0.0, 0.0]         # degenerate -> fixed, non-trainable bias = 0
+bias_init: "zeros"
+input_row_norm: null
+inp_weight_cap: null
