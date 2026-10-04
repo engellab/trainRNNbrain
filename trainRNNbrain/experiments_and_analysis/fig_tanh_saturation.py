@@ -100,8 +100,10 @@ def slide(name="slide_k_tanh_saturation"):
         print(f"  SKIP {name}: tanh or ReLU cell unreadable")
         return None
 
+    # STACKED, NOT SIDE BY SIDE: both panels run over the same training axis, so putting them in a
+    # column lines up every iteration between them and the reader compares down rather than across.
     ps.setup()
-    fig, axes = plt.subplots(1, 2, figsize=(7.4, 3.0))
+    fig, axes = plt.subplots(2, 1, figsize=(5.0, 5.4), sharex=True)
 
     ax = axes[0]
     col = ps.SLOTS[1]
@@ -116,9 +118,8 @@ def slide(name="slide_k_tanh_saturation"):
     ax.annotate("passes gradient at least half the time", (110, P_RESPONSIVE),
                 textcoords="offset points", xytext=(0, -9), fontsize=6.0, color=ps.INK)
     ax.set_xscale("log")
-    ax.set_xlim(100, 1.6e5)
+    ax.set_xlim(100, 2.2e5)
     ax.set_ylim(0, 2.25)
-    ax.set_xlabel("training iteration")
     ax.set_ylabel("saturation of a tanh unit")
     ax.set_title("every tanh unit saturates, together", fontsize=7.2, color=ps.INK, pad=4)
 
@@ -138,17 +139,17 @@ def slide(name="slide_k_tanh_saturation"):
     ax.annotate(f"all {N_TOTAL:,}", (110, N_TOTAL), textcoords="offset points", xytext=(0, 3),
                 fontsize=6.0, color=ps.MUTED)
     ax.set_xscale("log")
-    ax.set_xlim(100, 2.6e5)
+    ax.set_xlim(100, 2.2e5)
     ax.set_ylim(0, N_TOTAL * 1.1)
     ax.set_xlabel("training iteration")
     ax.set_ylabel(f"units of {N_TOTAL:,} counted active")
     ax.set_title("and the standard rule counts them all", fontsize=7.2, color=ps.INK, pad=4)
     ax.legend(frameon=False, fontsize=6.6, loc="center left")
 
-    fig.suptitle("CDDM, $N$ = 1000, 150,000 iterations \u2014 tanh against its own matched ReLU control",
-                 fontsize=7.6, color=ps.INK, y=1.0)
-    fig.subplots_adjust(left=0.085, right=0.975, top=0.78, bottom=0.17, wspace=0.30)
-    return ps.save(fig, name, w_mm=180)
+    fig.suptitle("CDDM, $N$ = 1000, 150,000 iterations\ntanh against its own matched ReLU control",
+                 fontsize=7.6, color=ps.INK, y=0.995)
+    fig.subplots_adjust(left=0.16, right=0.975, top=0.90, bottom=0.085, hspace=0.22)
+    return ps.save(fig, name, w_mm=116)
 
 
 def _smooth(v, w=11):

@@ -186,11 +186,14 @@ def wh1_zero_gradient(name="slide_wh_zero_gradient"):
     scale = max(g["firing_in"], g["firing_out"])
 
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 68 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[1.0, 0.44], hspace=0.26, wspace=0.26,
-                  left=0.10, right=0.985, top=0.95, bottom=0.15)
+    # ONE COLUMN. The wiring schematic is a single drawing, but the two activation panels under it
+    # were a pair of axes side by side; stacked, the silent unit's operating point sits directly
+    # above the firing unit's and the only difference between them is where the dot is.
+    fig = plt.figure(figsize=(118 * ps.MM, 118 * ps.MM))
+    gs = GridSpec(3, 1, figure=fig, height_ratios=[1.0, 0.40, 0.40], hspace=0.34,
+                  left=0.10, right=0.985, top=0.95, bottom=0.08)
 
-    ax = ps.blank(fig.add_subplot(gs[0, :]))
+    ax = ps.blank(fig.add_subplot(gs[0, 0]))
     ax.set(xlim=(-0.46, 2.30), ylim=(0.12, 1.02))
     fig.canvas.draw()                                   # square_pitch needs a laid-out axes
     ax.text(-0.44, 0.866, "weight change", ha="left", va="center", fontsize=6.6, color=ps.MUTED)
@@ -206,7 +209,7 @@ def wh1_zero_gradient(name="slide_wh_zero_gradient"):
     h = np.linspace(-1.6, 1.6, 400)
     ax0 = None
     for j, (hstar, col) in enumerate(((-0.95, ps.MUTED), (0.55, FIRING))):
-        a = fig.add_subplot(gs[1, j], sharey=ax0)
+        a = fig.add_subplot(gs[1 + j, 0], sharey=ax0)
         ax0 = ax0 or a
         a.plot(h, np.maximum(h, 0.0), "-", lw=1.2, color=ps.INK, zorder=3)
         a.plot([hstar], [max(hstar, 0.0)], "o", ms=6.5, color=col, mec=ps.PAPER, mew=0.8, zorder=5)
@@ -214,8 +217,11 @@ def wh1_zero_gradient(name="slide_wh_zero_gradient"):
         a.set(xlim=(-1.6, 1.6), ylim=(-0.12, 1.25), xticks=[0], yticks=[])
         a.set_xticklabels(["0"])
         ps.despine(a, keep=("bottom",))
-        if j == 0:
+        # stacked, so the axis label belongs to the LOWER panel; the panel letter and the y label
+        # stay on the upper one, where the pair starts
+        if j == 1:
             a.set_xlabel("input", labelpad=1.0)
+        if j == 0:
             a.text(-0.055, 0.5, "rate", transform=a.transAxes, rotation=90, ha="center",
                    va="center", fontsize=7.0, color=ps.INK)
             ps.panel_letter(a, "b", dx=-0.055, dy=1.02)

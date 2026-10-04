@@ -191,10 +191,14 @@ def ladder_slide(spec, n_total=1000):
                ("end", "at the end of training")] if usable
               else [("end", "at the end of training")])
 
+    # PANELS STACK, THEY DO NOT SIT SIDE BY SIDE. Two panels in a row are read as one wide picture
+    # and the eye compares left-to-right within a panel instead of top-to-bottom between them. Here
+    # the two panels share the RUNG axis and differ only in when the count was read, so stacking
+    # puts the two readings of each rung directly above each other, which is the comparison.
     ps.setup()
-    fig, axes = plt.subplots(1, len(panels), figsize=(W if usable else W * 0.55, H),
-                             sharey=True, squeeze=False)
-    axes = axes[0]
+    fig, axes = plt.subplots(len(panels), 1, figsize=(W * 0.62, H * len(panels) * 0.92),
+                             sharex=True, squeeze=False)
+    axes = axes[:, 0]
     cols = [ps.BASE if i == spec["ref"] else ps.SLOTS[0] for i in range(len(reads))]
     xs = np.arange(len(reads), dtype=float)
 
@@ -216,7 +220,8 @@ def ladder_slide(spec, n_total=1000):
             if n:
                 ax.annotate(f"{m:.0f}", (x, m), textcoords="offset points", xytext=(0, 7),
                             ha="center", fontsize=6.2, color=ps.INK)
-    axes[0].set_ylabel(f"active units of {n_total:,}")
+    for ax in axes:
+        ax.set_ylabel(f"active units of {n_total:,}")
     axes[0].annotate(f"all {n_total:,}", (axes[0].get_xlim()[0], n_total),
                      textcoords="offset points", xytext=(4, 3), fontsize=6.0, color=ps.MUTED)
     # on its OWN line: a one-line title longer than the axes widens the saved canvas, and the
@@ -226,11 +231,11 @@ def ladder_slide(spec, n_total=1000):
            f"{np.nanmean([r['rise'] for _, r in reads]):.1f}$\\times$ after its minimum)")
     fig.suptitle(f"{spec['knob']} — {spec['task']}{sub}", fontsize=7.6, color=ps.INK,
                  y=1.02 if usable else 1.06)
-    fig.subplots_adjust(left=0.085 if usable else 0.15, right=0.985, top=0.80,
-                        bottom=0.17, wspace=0.07)
+    fig.subplots_adjust(left=0.145, right=0.985, top=0.90 if usable else 0.80,
+                        bottom=0.13 if usable else 0.17, hspace=0.30)
     # a one-panel figure printed at the two-panel width is a panel with an empty half beside
     # it, which reads as a missing panel rather than as a deliberate one
-    return ps.save(fig, spec["stem"], w_mm=180 if usable else 104)
+    return ps.save(fig, spec["stem"], w_mm=112)
 
 
 def knob_ratio_spans():

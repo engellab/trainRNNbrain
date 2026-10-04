@@ -221,8 +221,11 @@ def m2_training_empties(name="slide_m2_training_empties", task="3-bit flip-flop"
     read_at = float(np.asarray(z[f"{task}|read_at"], float)[0])
 
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 80 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[1.0, 0.82], hspace=0.30, wspace=0.22)
+    # ONE COLUMN. Two pictograms side by side read as one picture and the eye compares within each
+    # rather than between them; untrained above trained puts the same 1,000 dots in the same place
+    # twice, so the change is the only thing that moves.
+    fig = plt.figure(figsize=(96 * ps.MM, 150 * ps.MM))
+    gs = GridSpec(4, 1, figure=fig, height_ratios=[1.0, 1.0, 0.86, 0.86], hspace=0.42)
 
     # ⚠️ THE LABELS NAME THE BUDGET, NOT "BEFORE" AND "AFTER". The deck reads 40,000 iterations on
     # the next slide and in every results section, so "after training" on its own invited exactly
@@ -232,7 +235,7 @@ def m2_training_empties(name="slide_m2_training_empties", task="3-bit flip-flop"
     # gradient steps, not an early checkpoint of a trained run.
     for j, (vals, col, lab) in enumerate(((init_a, MID, "untrained"),
                                           (tr_a, DARK, f"after {read_at:,.0f} iterations"))):
-        _grid_panel(fig.add_subplot(gs[0, j]), 100.0 * vals.mean() / n, col,
+        _grid_panel(fig.add_subplot(gs[j, 0]), 100.0 * vals.mean() / n, col,
                     lab, f"{vals.mean():.0f} of {n:.0f} fire")
 
     # The distributions under the pictograms, on one shared log axis. The untrained network holds
@@ -243,7 +246,7 @@ def m2_training_empties(name="slide_m2_training_empties", task="3-bit flip-flop"
     ax0 = None
     for j, (key, col) in enumerate(((f"{task}|p_init", MID),
                                     (f"{task}|p_trained", DARK))):
-        ax = fig.add_subplot(gs[1, j], sharex=ax0, sharey=ax0)
+        ax = fig.add_subplot(gs[2 + j, 0], sharex=ax0, sharey=ax0)
         ax0 = ax0 or ax
         p = np.asarray(z[key], float)
         n_zero = int((p <= 0).sum())
@@ -256,14 +259,14 @@ def m2_training_empties(name="slide_m2_training_empties", task="3-bit flip-flop"
         ax.set_xticks([-6.4, -4, -2, 0])
         ax.set_xticklabels(["0", "$10^{-4}$", "$10^{-2}$", "1"])
         ax.set_xlabel("how much one unit fires")
-        if j == 0:
-            ax.set_ylabel("units")
+        ax.set_ylabel("units")
         ps.ygrid(ax)
     fig.suptitle(f"{task}, $N$ = {n:.0f}, one architecture, one measurement\n"
-                 f"left: {len(init_a)} fresh weight draws, no training at all.   "
-                 f"right: {len(tr_a)} trained networks",
-                 fontsize=7.2, color=ps.INK, linespacing=1.3, y=1.04)
-    return ps.save(fig, name)
+                 f"{len(init_a)} fresh weight draws with no training, "
+                 f"against {len(tr_a)} trained networks",
+                 fontsize=7.2, color=ps.INK, linespacing=1.3, y=1.005)
+    fig.subplots_adjust(left=0.165, right=0.975, top=0.92, bottom=0.055)
+    return ps.save(fig, name, w_mm=96)
 
 
 # -------------------------------------------------------------------------------------------------
@@ -291,15 +294,17 @@ def m3_two_criteria(name="slide_m3_two_criteria"):
         return None
     tasks = [t for t in TASKS if f"{t}|trained_active" in z]
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 84 * ps.MM))
-    gs = GridSpec(len(tasks), 2, figure=fig, hspace=0.34, wspace=0.14)
+    # ONE COLUMN, so the two rules for a task sit one above the other and the comparison is read
+    # vertically; side by side they were read as two separate pictures of two separate things.
+    fig = plt.figure(figsize=(92 * ps.MM, 46 * len(tasks) * ps.MM))
+    gs = GridSpec(2 * len(tasks), 1, figure=fig, hspace=0.46)
     # THE RULE NAMES ARE COLUMN HEADERS, printed once each. Repeating them under all four
     # pictograms spent eight words saying the same thing twice and pushed the figure's text past
     # what the brief allows.
     for i, task in enumerate(tasks):
         ours, theirs, n = dormancy_counts(z, task)
         for j, pct in enumerate((ours, theirs)):
-            ax = fig.add_subplot(gs[i, j])
+            ax = fig.add_subplot(gs[2 * i + j, 0])
             _grid_panel(ax, pct, DARK if j == 0 else MID, task if j == 0 else "",
                         f"{pct * n / 100:.0f} of {n:.0f}")
             if i == 0:
