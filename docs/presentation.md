@@ -138,9 +138,10 @@ At the crossing all four sit between 482 and 580 of 1000. Training on to 200,000
 ### Recurrent noise keeps units alive: removing it costs 90 of 340
 <p align="center"><img src="../img/internal_figures/slide_k_recnoise.png" width="760"></p>
 
-### The metabolic penalty raises the count, from 266 to between 356 and 417
+### The metabolic penalty adds at most 50 units of 1000, and its strongest dose adds none
 <p align="center"><img src="../img/internal_figures/slide_k_metabolic.png" width="760"></p>
-Charging for firing rates leaves more units firing than charging for nothing.
+325 of 1000 with no penalty, 375 at $\lambda$ = 1, back to 330 at $\lambda$ = 10. Control and arms
+are all read at 75,000 iterations.
 
 ---
 
@@ -356,12 +357,24 @@ fixed at 0, and every panel reads the same networks twice.
 
 - **The knob section was switched to the standard network, all five ladders together.** The
   trainable-bias runs are gone from the talk. Active units at the end of training: weight decay
-  412 / 266 / 166 / 86, recurrent noise 250 / 264 / 340 / 386, metabolic 266 / 372 / 383 / 417 /
-  356, activations 266 / 276 / 250 / 188, input scale 206 / 231 / 298 / 302 / 329.
-- **Two knob claims changed sign or size when the bias was fixed at 0.** Recurrent noise: removing
-  it used to be called a threefold cost and is 250 against the default's 340, a factor of 1.4. The
-  metabolic penalty used to be called neutral and now raises the count from 266 to between 356 and
-  417, so the "moving ruler" panel that explained the old null result is cut rather than restated.
+  412 / 266 / 166 / 86, recurrent noise 250 / 264 / 340 / 386, metabolic 325 / 337 / 351 / 375 /
+  330, activations 266 / 276 / 250 / 188, input scale 206 / 231 / 298 / 302 / 329.
+- **One knob claim changed size when the bias was fixed at 0.** Recurrent noise: removing it used
+  to be called a threefold cost and is 250 against the default's 340, a factor of 1.4.
+- **A metabolic claim made on 2026-10-04 was wrong and is withdrawn.** It read "raises the count
+  from 266 to between 356 and 417", a factor of 1.57. That ladder compared a control trained for
+  200,000 iterations against arms trained for 50,000, and the active count falls steadily with
+  training, so the control had four times as long to shed units and most of the gap was the budget.
+  Every rung now reads at 75,000 — the arms through their `_c75000` continuations, the control
+  through the penalty grid's own unpenalised cell, which matches the arms on learning rate, weight
+  decay, size, both noise terms, equation form and Dale, and differs only in carrying no penalty.
+  Matched, the penalty gives 325 with none, 337 / 351 / 375 at $\lambda$ = 0.01 / 0.1 / 1, and 330
+  at $\lambda$ = 10: at most 50 units of 1000, non-monotone, and nothing at the strongest dose. The
+  old "looks neutral" reading was closer than the one that replaced it.
+- **Every rung of every ladder is now read at the same budget as its own control**, checked by
+  scanning the `iter_offset + max_iter` of all 363 cells on disk: weight decay and activations at
+  200,000, recurrent noise at 75,000, metabolic at 75,000, input scale at 150,000. The flip-flop
+  sections after WHAT WORKS still read at 40,000, which those sections state.
 - **Read at 1.07x their own loss floor, the knobs do almost nothing.** Weight decay spans 482 to
   580 of 1000 at the crossing against 86 to 412 at the end. At the crossing the smoothed loss is
   already 0.93 to 1.00 of its final value, so these networks reach their final performance after

@@ -81,13 +81,20 @@ LADDERS = [
                 ("0.01", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0.01"),
                 ("default\n0.05", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0.05"),
                 ("0.1", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0.1")]),
+    # ⚠️ EVERY RUNG AT 75,000, CONTROL INCLUDED. The first version of this ladder put the drift
+    # control at 200,000 against arms at 50,000 and reported that the metabolic penalty raises the
+    # count from 266 to 356-417. The count falls steadily with training, so a control given four
+    # times as long to shed units manufactures most of that gap. The control here is the penalty
+    # grid's own unpenalised cell, which matches the arms on lr, weight decay, N, both noise terms,
+    # equation type and Dale, and differs only in carrying no penalty; and both sides read the
+    # _c75000 continuations, whose traces are joined and run 0 to 74,900.
     dict(stem="slide_k_metabolic", knob="metabolic penalty", ref=0,
-         task="CDDM, $N$ = 1000, 50,000 iterations",
-         rungs=[("none\n$\\lambda$ = 0", f"{DATA_DIR}/CDDM_std_g0_drift_bias0/EqType=h_N=1000_iters=200000"),
-                ("0.01", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01"),
-                ("0.1", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1"),
-                ("1.0", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1.0"),
-                ("10.0", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10.0")]),
+         task="CDDM, $N$ = 1000, 75,000 iterations",
+         rungs=[("none\n$\\lambda$ = 0", f"{DATA_DIR}/CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0"),
+                ("0.01", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0_c75000/EqType=h_N=1000_LmbdMet=0.01"),
+                ("0.1", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0_c75000/EqType=h_N=1000_LmbdMet=0.1"),
+                ("1.0", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0_c75000/EqType=h_N=1000_LmbdMet=1.0"),
+                ("10.0", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0_c75000/EqType=h_N=1000_LmbdMet=10.0")]),
     dict(stem="slide_k_activation", knob="activation function", ref=0,
          task="CDDM, $N$ = 1000, 200,000 iterations",
          rungs=[("ReLU\n(default)", f"{DATA_DIR}/CDDM_std_g0_drift_bias0/EqType=h_N=1000_iters=200000"),
