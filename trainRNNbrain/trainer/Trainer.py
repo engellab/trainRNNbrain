@@ -390,6 +390,7 @@ class Trainer():
         # "participation": the per-unit matrix, on its own coarser cadence. Nothing about the
         # weights is ever written to disk — everything is reduced to scalars during training.
         self.participation_monitor = ({"iters": [], "participation": [], "temporal_pr": [],
+                                       "gain": [],
                                        "participation_iters": [],
                                        "metrics": defaultdict(list)}
                                       if track_participation else None)
@@ -1525,6 +1526,45 @@ class Trainer():
                                 + torch.quantile(blk.abs(), q, dim=1))
         return out
 
+    def relative_gain_(self, states):
+        """Per-unit gain: how much a unit's output moves when its input drive moves, 0 to 1.
+
+        WHY THIS AND NOT A SILENCE COUNT. "Active" is defined by a rate threshold, and a rate
+        threshold is specific to an activation whose dead state is 0. A dead ReLU unit sits at 0; a
+        dead tanh unit sits at -1 or +1 and scores as loud. What the two share is that neither
+        passes gradient, so the activation's SLOPE at the unit's operating point measures both, and
+        measures them on one scale: g_i = mean_t,trials f'(h_i), divided by max_x f'(x) so a unit
+        in the responsive part of its curve scores 1 and a unit at either dead end scores 0. ReLU
+        then reads "the fraction of the time the unit is above threshold", tanh reads "how far from
+        the asymptotes", sigmoid the same, and the three are directly comparable.
+
+        f' IS TAKEN BY AUTOGRAD, not written per activation. The project has six activations and
+        the derivative of each is one more place for a typo that nothing would catch; one call
+        differentiates whatever `self.RNN.activation` happens to be. The normaliser is the slope's
+        maximum over a dense grid, which is exact for every monotone saturating activation here and
+        needs no per-activation constant either.
+
+        Args:
+            states: (N, T, B) tensor of hidden drives from the noise-free probe. For
+                equation_type != "h" these are already rates, and the drive is recovered by
+                inverting nothing - the slope is then taken at the stored value, which is what the
+                dynamics use.
+        Returns:
+            (N,) tensor of mean relative gain in [0, 1].
+        """
+        h = states.detach()
+        with torch.enable_grad():
+            x = h.clone().requires_grad_(True)
+            y = self.RNN.activation(x)
+            g = torch.autograd.grad(y.sum(), x)[0]
+            # the activation's steepest slope anywhere, so the measure is a FRACTION of the best
+            # this unit's activation could do, and is comparable across activations
+            probe = torch.linspace(-20.0, 20.0, 4001, device=h.device, dtype=h.dtype)
+            probe.requires_grad_(True)
+            gmax = torch.autograd.grad(self.RNN.activation(probe).sum(), probe)[0].abs().max()
+        gmax = torch.clamp(gmax.detach(), min=1e-12)
+        return (g.detach().abs().reshape(g.size(0), -1).mean(dim=1) / gmax)
+
     def track_participation_(self, input_batch, iter, target_batch=None, mask=None):
         """
         Probe the network and record training diagnostics, reducing everything to scalars on the fly.
@@ -1615,6 +1655,7 @@ class Trainer():
                 tpr = torch.where(den > 0, num / den.clamp_min(1e-300),
                                   torch.zeros_like(den))       # 0 for an all-silent unit
             mon["temporal_pr"].append(tpr.cpu().numpy().astype("float32"))
+            mon["gain"].append(self.relative_gain_(states).cpu().numpy().astype("float32"))
             mon["participation_iters"].append(int(iter) + self.iter_offset)
 
         nan = float("nan")
