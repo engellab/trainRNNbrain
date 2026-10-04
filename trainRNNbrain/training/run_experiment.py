@@ -1,5 +1,6 @@
 import os
 os.environ['OMP_NUM_THREADS'] = '1'  # prevent OpenBLAS/sklearn KMeans segfault on macOS
+import glob
 from trainRNNbrain.datasaver.DataSaver import DataSaver
 from trainRNNbrain.analyzers.PerformanceAnalyzer import PerformanceAnalyzer
 from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
@@ -48,6 +49,83 @@ def storable_(v):
     if isinstance(v, Mapping):
         return np.array(dict(v), dtype=object)
     return np.asarray(v)
+
+
+def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done):
+    """Write a resumable snapshot of a run in progress, in the layout a FINISHED run uses.
+
+    WHY. Every file a run produces is written after the training loop returns, so a job killed by
+    its wall clock leaves an empty folder. On 2026-10-02 three jobs died at 96,595 of 100,000, at
+    ~147,000 of 150,000 and at 144,479 of 300,000 iterations and salvaged nothing between them --
+    about 228 GPU-hours, two of the three over 97% complete.
+
+    This writes the three files the warm-start path already reads (`paths.init_from`): LastParams,
+    AdamState, and a config whose `trainer.max_iter` is the iterations ACTUALLY completed. A killed
+    run is therefore resumed by existing machinery with no new restart code, `warm_start_offset`
+    dates the continuation's trace correctly, and `slurm/topup_budget.py` computes the remaining
+    budget from it unchanged.
+
+    ⚠️ CHECKPOINTS MUST NOT LAND INSIDE A CELL DIRECTORY. Every inventory and every top-up launcher
+    finds runs by globbing a cell for subfolders holding *LastParams*, so a checkpoint folder beside
+    the real runs would be counted as a finished run -- inflating counts and shifting which parent a
+    top-up task continues. The caller keeps them in a separate tree (see `paths.checkpoint_to`).
+
+    Each file goes to a temporary name and is renamed into place, so a job killed DURING a
+    checkpoint leaves the previous complete snapshot rather than a truncated one.
+
+    Args:
+        folder: str, directory to write into; created if absent.
+        cfg: the resolved run config. Copied, not mutated; the copy's trainer.max_iter is stamped
+            with iters_done.
+        params: the RNN's current parameters, as RNN.get_params() returns them (dict or DictConfig).
+        opt: the torch optimizer whose moment estimates to save.
+        taskname: str, used in the filenames the warm-start globs match.
+        seed: int, this run's resolved seed, for the file stem.
+        iters_done: int, iterations completed at this checkpoint.
+    Returns:
+        None. Failures are reported and swallowed: a diagnostic must never kill a live run.
+    """
+    try:
+        os.makedirs(folder, exist_ok=True)
+        stem = f"ckpt_s{seed}"
+
+        src = params if isinstance(params, dict) else OmegaConf.to_container(params, resolve=True)
+        arrs = {k: storable_(v) for k, v in src.items()
+                if v is not None and not isinstance(v, (str, bool))}
+
+        def savez(t):
+            # a FILE OBJECT, not a path: np.savez appends ".npz" to a path that lacks it, which
+            # would write "<name>.npz.tmp.npz" and leave the rename pointing at nothing.
+            with open(t, "wb") as fh:
+                np.savez(fh, **arrs)
+
+        # EVERY FILE IS WRITTEN BEFORE ANY IS PUBLISHED, and the config is renamed LAST. Writing
+        # the config first would let a kill mid-write leave a config claiming 200 iterations beside
+        # parameters from 100, and a resume would then date its trace 100 iterations too late. This
+        # way a kill during the slow part changes nothing, and a kill between the renames leaves a
+        # config OLDER than the parameters -- which under-counts the budget, the safe direction.
+        snap = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
+        snap.trainer.max_iter = int(iters_done)
+        plan = [(f"{stem}_LastParams_{taskname}.npz", savez),
+                (f"{stem}_AdamState_{taskname}.pt", lambda t: torch.save(opt.state_dict(), t)),
+                (f"{stem}_config.yaml", lambda t: OmegaConf.save(snap, t))]
+        staged = []
+        for name, write in plan:
+            final = os.path.join(folder, name)
+            tmp = final + ".tmp"
+            write(tmp)
+            staged.append((tmp, final))
+        for tmp, final in staged:
+            os.replace(tmp, final)
+        print(f"  checkpoint: {iters_done} iterations -> {folder}")
+    except Exception as e:
+        # leave no half-written staging files behind to be mistaken for a snapshot
+        for stale in glob.glob(os.path.join(folder, f"ckpt_s{seed}_*.tmp")):
+            try:
+                os.remove(stale)
+            except OSError:
+                pass
+        print(f"WARNING: checkpoint at {iters_done} iterations failed: {e}")
 
 
 def warm_start_offset(init_from):
@@ -273,6 +351,19 @@ def run_training(cfg: DictConfig) -> None:
         data_save_path = os.path.join(cfg.paths.save_to, f"{taskname}_{folder_tag}")
         os.makedirs(data_save_path, exist_ok=True)
         mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
+
+        # PERIODIC CHECKPOINT. `trainer.checkpoint_every` = 0 switches it off. The snapshots go to
+        # their OWN tree, never into data_save_path: that is a cell directory, and everything which
+        # inventories cells counts any subfolder holding *LastParams* as a finished run.
+        ckpt_every = int(cfg.trainer.get("checkpoint_every", 0) or 0)
+        if ckpt_every:
+            ckpt_root = (cfg.paths.get("checkpoint_to", None)
+                         or str(cfg.paths.save_to).rstrip("/") + "_checkpoints")
+            ckpt_folder = os.path.join(ckpt_root, f"{taskname}_{folder_tag}", f"s{seed}")
+            trainer.checkpoint_fn = (
+                lambda iters_done, params: write_checkpoint(
+                    ckpt_folder, cfg, params, opt, taskname, seed, iters_done))
+            print(f"checkpointing every {ckpt_every} iterations -> {ckpt_folder}")
 
         ############################### RUN TRAINING #############################
 

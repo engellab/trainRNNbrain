@@ -241,6 +241,7 @@ class Trainer():
                  track_participation=False,
                  track_every=10,
                  iter_offset=0,
+                 checkpoint_every=0,
                  store_participation_every=None,
                  log_silent_every=None,
                  track_drift=False,
@@ -379,6 +380,12 @@ class Trainer():
         # segment as if it were a fresh 0-25k run. Set from the parent's cumulative budget in
         # run_experiment, so what lands in the trace is the absolute iteration.
         self.iter_offset = int(iter_offset)
+        # PERIODIC CHECKPOINT, iterations between snapshots; 0 disables it. The Trainer only
+        # decides WHEN: `checkpoint_fn` is set from outside to a callable fn(iters_done, params),
+        # so nothing about paths, file formats or configs enters this class. Left None when
+        # nothing supplies one, which is every caller that does not want checkpoints.
+        self.checkpoint_every = int(checkpoint_every or 0)
+        self.checkpoint_fn = None
         # "metrics": scalar series aligned to "iters" (NaN where a lag was not due this probe).
         # "participation": the per-unit matrix, on its own coarser cadence. Nothing about the
         # weights is ever written to disk — everything is reduced to scalars during training.
@@ -1874,6 +1881,13 @@ class Trainer():
             if train_loss <= min_train_loss:
                 min_train_loss = train_loss
                 best_net_params = deepcopy(self.RNN.get_params())
+
+            # Snapshot, so a run killed by its wall clock is resumable instead of lost. Skipped on
+            # the final iteration, whose state the caller saves anyway.
+            if (self.checkpoint_fn is not None and self.checkpoint_every
+                    and (iter + 1) % self.checkpoint_every == 0
+                    and (iter + 1) < self.max_iter):
+                self.checkpoint_fn(iter + 1, self.RNN.get_params())
         last_net_params = deepcopy(self.RNN.get_params())
         self.RNN.set_params(last_net_params) # assuming that the more training it went through - the better.
         return self.RNN, train_losses, val_losses, best_net_params, last_net_params
