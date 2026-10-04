@@ -390,7 +390,7 @@ class Trainer():
         # "participation": the per-unit matrix, on its own coarser cadence. Nothing about the
         # weights is ever written to disk — everything is reduced to scalars during training.
         self.participation_monitor = ({"iters": [], "participation": [], "temporal_pr": [],
-                                       "gain": [],
+                                       "gain": [], "w_rec_row": [], "w_inp_row": [],
                                        "participation_iters": [],
                                        "metrics": defaultdict(list)}
                                       if track_participation else None)
@@ -1565,6 +1565,32 @@ class Trainer():
         gmax = torch.clamp(gmax.detach(), min=1e-12)
         return (g.detach().abs().reshape(g.size(0), -1).mean(dim=1) / gmax)
 
+    def incoming_norms_(self):
+        """Per-unit L2 norm of each unit's incoming recurrent row and incoming input row.
+
+        WHY THESE ARE TRACKED BESIDE THE GAIN. `relative_gain_` measures the activation's slope at a
+        unit's operating point, which answers "if I inject current into this unit, how much does its
+        rate move". It does NOT answer "if an upstream unit fires harder, how much does this one
+        move" -- that is the slope TIMES the synapse carrying the change, f'(h_i) * W_rec[i, j].
+
+        The distinction decides whether a result is real or an artefact of the measure. A leaky
+        ReLU's slope never falls below its leak, so a slope-only gain bottoms out at 0.01 for a unit
+        that is doing nothing, and leaky ReLU would read as "keeps its units alive" purely because
+        the activation cannot report zero. Its incoming row CAN decay to nothing, and in this
+        project's unpenalised networks silent units' rows end at ~0.003 against live rows at ~5.4.
+
+        Stored as the two raw factors rather than as a product, so a fall can be attributed: slope
+        collapsing, weights decaying, or both, and separately per activation. Costs two reductions
+        over matrices already in memory.
+
+        Returns:
+            (w_rec_row, w_inp_row): two (N,) tensors of L2 norms over each unit's incoming row.
+        """
+        with torch.no_grad():
+            wr = self.RNN.W_rec.detach().norm(dim=1)
+            wi = self.RNN.W_inp.detach().norm(dim=1)
+        return wr, wi
+
     def track_participation_(self, input_batch, iter, target_batch=None, mask=None):
         """
         Probe the network and record training diagnostics, reducing everything to scalars on the fly.
@@ -1656,6 +1682,9 @@ class Trainer():
                                   torch.zeros_like(den))       # 0 for an all-silent unit
             mon["temporal_pr"].append(tpr.cpu().numpy().astype("float32"))
             mon["gain"].append(self.relative_gain_(states).cpu().numpy().astype("float32"))
+            wr, wi = self.incoming_norms_()
+            mon["w_rec_row"].append(wr.cpu().numpy().astype("float32"))
+            mon["w_inp_row"].append(wi.cpu().numpy().astype("float32"))
             mon["participation_iters"].append(int(iter) + self.iter_offset)
 
         nan = float("nan")
