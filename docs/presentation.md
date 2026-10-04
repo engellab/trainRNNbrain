@@ -86,6 +86,12 @@ Leaky ReLU and softplus keep a nonzero gradient everywhere and silence anyway. A
 and leaky ReLU have 571 and 578 working and then shed about 300 each; softplus and sigmoid start
 from 331 and 292 and shed 81 and 104.
 
+### tanh shows no silent units at all, because its units die at $\pm$1 instead of at 0
+<p align="center"><img src="../img/internal_figures/slide_k_tanh_saturation.png" width="760"></p>
+The rule looks for units at 0 and tanh has none, so it counts all 1000 from the first probe to the
+last. They are sliding to the asymptotes, where the slope is under 0.2 and almost no gradient
+passes. Same task score as its ReLU control.
+
 ### Units keep going silent long after the loss has stopped moving
 <p align="center"><img src="../img/internal_figures/slide_03_silencing_vs_training.png" width="760"></p>
 Vanilla networks: no dropout, no penalty, no augmentation. Every seed whose loss was recorded is
@@ -370,6 +376,21 @@ fixed at 0, and every panel reads the same networks twice.
   out of GPU memory at 44 GiB on Spock, and it needs a larger card.
 - **Rescaling and synaptic noise reached N = 4000:** 1108 of 4000 and 846 of 4000, against the
   untouched control's 17% of 4000.
+- **tanh breaks the silence criterion rather than the result.** The rule counts a unit active when
+  std(r) + q₀.₉(|r|) reaches 5% of the population's 95th percentile, and it was built for an
+  activation whose dead state is exactly 0. tanh's dead states are ±1, so every unit clears the bar
+  and the count reads 1000 of 1000 at every probe of training, in all three seeds, while its
+  matched ReLU control falls from 775 to 289 at the same task score. Measured on the rates instead,
+  30% of the tanh network's samples sit at |r| > 0.9, where the slope of tanh is 0.19, and the
+  active population spans 2.7 dimensions against the control's 2.1 — 3.4 times the units for 1.3
+  times the dimensionality.
+- **The tanh panel reports a distribution, not a count, and that was forced.** A ReLU population is
+  bimodal, so counting the working units is stable: three seeds give 288, 288 and 290. A tanh
+  population is unimodal and tight — at iteration 60,000 it spans p = 1.52 to 1.71 between the 10th
+  and 90th percentiles — so any threshold inside that band is a knife edge and the count of units
+  past it swings between 0 and 1000 between consecutive probes. **Three seeds, one task, one size.**
+  The direction is the same in all three; the endpoint saturation is not (median p 1.45, 1.60,
+  1.88), and more seeds are needed before any tanh number is quoted.
 - **The DMTS delay change did not rescue the arms** — see the Open section.
 - **Still training:** CDDM dropout at N = 4000. DMTS dropout at N = 2000 was abandoned: all three
   runs reached r² 0.41 at 98% of their budget, so the cell would record a failure already visible
