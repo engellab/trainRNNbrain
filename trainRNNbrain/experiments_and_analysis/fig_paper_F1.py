@@ -79,6 +79,8 @@ from matplotlib.path import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
+import heldout_r2 as heldout
+from pr_matrix import fit_floor_at, excess_time_at
 from common import DATA_DIR, SILENT_REL, participation
 from flipflop_diversity import rates_and_targets
 from flipflop_fixedpoints import load_net
@@ -531,6 +533,47 @@ def runs_with_loss(pattern, min_r2=None):
     return out
 
 
+def at_own_floor(cells, delta=CONV_MARGIN - 1.0):
+    """Active units per size, read where each run's own loss first reaches (1+delta) x its OWN floor.
+
+    The alternative read-out to matched_after_convergence, and the one slides 5 and 6 of the talk
+    use: each run's floor is fitted over its own trace with the same stretched exponential
+    `pr_matrix` fits, and the count is taken AT the crossing rather than a matched interval after a
+    shared bar.
+
+    ⚠️ THE TWO RULES DISAGREE ON PURPOSE, and matched_after_convergence documents why it rejects
+    this one: a per-run floor is backward-looking, so a network that ends at a higher loss gets a
+    looser bar and crosses earlier, and training the same network longer moves its bar and so its
+    crossing. Both are computed and printed, because the exponent is the output of this panel and
+    the reader is entitled to see whether it depends on the choice.
+
+    A run whose floor fit fails, or whose loss never reaches the threshold, is DROPPED and counted
+    in the return, rather than being clamped to its last probe.
+
+    Args:
+        cells: dict N -> list of run dicts from runs_with_loss;
+        delta: the excess margin, 0.07 by default so the rule matches CONV_MARGIN.
+    Returns:
+        (dict N -> (counts array, mean crossing), n_dropped).
+    """
+    out, dropped = {}, 0
+    for N, v in cells.items():
+        counts, crossings = [], []
+        for r in v:
+            it_l = np.asarray(r["it_loss"], float)
+            L = np.asarray(r["loss"], float)
+            floor = fit_floor_at(L, it_l, float(it_l[-1]))
+            T = excess_time_at(L, it_l, floor, delta)
+            if floor is None or not np.isfinite(T):
+                dropped += 1
+                continue
+            counts.append(r["active"][int(np.argmin(np.abs(np.asarray(r["it_act"], float) - T)))])
+            crossings.append(T)
+        if counts:
+            out[N] = (np.array(counts, float), float(np.mean(crossings)))
+    return out, dropped
+
+
 def matched_after_convergence(cells):
     """Active units per size, read the same number of iterations after each network CONVERGED.
 
@@ -897,14 +940,17 @@ def panel_b(ax, p):
 
 
 def panel_c(ax):
-    """Panel (c): active units vs network size, read a matched time AFTER each network converged.
+    """Panel (c): active units vs network size, read at 1.07x each run's own fitted loss floor.
 
     Not at a fixed iteration. See matched_after_convergence for why: on DMTS the crossing moves
     from 650 to 83,040 iterations between N = 500 and N = 2000, so a fixed read-out compares
     networks that have spent very different amounts of time in the phase where units go silent,
-    and reported that task at N^0.87 against N^0.31-0.47 for every other one. Under the matched
-    read-out all four lie between 0.32 and 0.45 (3-bit flip-flop 0.45, 6-bit 0.32, CDDM 0.43,
-    DMTS 0.37), and they move by at most 0.003 if CONV_MARGIN is changed from 1.07 to 1.10.
+    and reported that task at N^0.87, above the square root, where every other task sat well below
+    it. The claim this panel carries is that the growth is SUB-SQUARE-ROOT: every exponent is below
+    0.5 under either read-out, which is what makes the active FRACTION fall with size. The
+    individual exponents are not stable enough to quote as a range - DMTS moves from 0.37 under the
+    shared bar to 0.15 under the own-floor rule, while the other three move by at most 0.04 - so the
+    panel states the inequality and prints both rules' exponents rather than pinning a band.
 
     Returns:
         dict task -> (b, A, N_needed_for_1000, n_sizes, largest N) of the fit.
@@ -924,10 +970,26 @@ def panel_c(ax):
         if len(cells) < 2:
             print(f"  !! {task}: {len(cells)} size(s) with a usable clean loss - series omitted")
             continue
-        read, bar, K = matched_after_convergence(cells)
-        print(f"  .. {task}: converged bar {bar:.5f}, read {K:,.0f} iterations after each "
-              f"network crossed it; mean crossing per size "
+        # THE PANEL IS DRAWN ON THE OWN-FLOOR RULE, the one slides 5 and 6 use: each run read where
+        # its own loss first reaches 1.07x its own fitted floor. The shared-bar rule is computed too
+        # and its exponent printed beside, because the exponent is this panel's output and it should
+        # be visible whether the choice of rule moves it.
+        read, n_dropped = at_own_floor(cells)
+        if len(read) < 2:
+            print(f"  !! {task}: own-floor read-out usable at {len(read)} size(s) - series omitted")
+            continue
+        if n_dropped:
+            print(f"  .. {task}: {n_dropped} run(s) dropped - floor fit failed or the loss never "
+                  f"reached 1.07x it")
+        print(f"  .. {task}: read AT 1.07x each run's own fitted floor; mean crossing per size "
               + ", ".join(f"N={N}:{read[N][1]:,.0f}" for N in sorted(read)))
+        alt, bar, K = matched_after_convergence(cells)
+        if len(alt) >= 2 and task not in NO_FIT:
+            ax_, ay_ = (np.array([N for N in sorted(alt)], float),
+                        np.array([alt[N][0].mean() for N in sorted(alt)], float))
+            b_alt = np.polyfit(np.log(ax_), np.log(ay_), 1)[0]
+            print(f"  .. {task}: shared-bar rule (bar {bar:.5f}, read {K:,.0f} after crossing) "
+                  f"would give N^{b_alt:.3f}")
         xs, ys, sds = [], [], []
         for N in sorted(read):
             c = read[N][0]
@@ -970,7 +1032,7 @@ def panel_c(ax):
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
     ax.text(3.4e2, 1045, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N",
-           ylabel="active units\n(read a matched time\nafter convergence)",
+           ylabel="active units\n(read at 1.07$\\times$ each\nrun's own loss floor)",
            xlim=(3.2e2, 2.7e4), ylim=(100, 2.3e3))
     # Lower right is the only corner the guides, the data and the extrapolations all leave empty.
     # It used to be held inboard of the right edge, away from panel d's longest row labels across
@@ -1048,9 +1110,12 @@ def trajectory(run_dir):
         return None
     P, it_P = np.asarray(t["participation"]), np.asarray(t["participation_iters"], float)
     live = np.array([(p >= SILENT_REL * np.quantile(p, 0.95)).sum() for p in P], float)
-    m = re.match(r"(-?[0-9.]+)_", os.path.basename(run_dir))
+    # ⚠️ R2 IS THE HELD-OUT SCORE, NOT THE FOLDER-NAME PREFIX. That prefix is one forward pass, one
+    # noise draw, on the TRAINING batch, and panel (e) prints it in every sub-panel title. The score
+    # this project reports is a held-out batch at the sigma_rec and sigma_inp the network trained
+    # with, sigma_w = 0, averaged over nine draws.
     return dict(it_loss=it_L, loss=L, it_act=it_P, silent=P.shape[1] - live, N=P.shape[1],
-                r2=float(m.group(1)) if m else float("nan"),
+                r2=heldout.heldout_r2(run_dir),
                 plateau=float(it_L[int(np.argmax(L <= L[-1] * (1.0 + PLATEAU_TOL)))]))
 
 

@@ -68,7 +68,12 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments, get_tr
 D = os.environ.get("F2_DATA", "/home/pt1290/trainRNNbrain/data/trained_RNNs")
 R2_TOL = 0.03
 R2_KEY_GATE = "r2_common"   # the field TASK_MIN_R2 is applied to
-COMMON_DRAWS = 8             # noise draws averaged for the common test condition
+COMMON_DRAWS = 9             # noise draws averaged for the common test condition. This is the
+                             # ONLY performance measure this project reports: a held-out batch
+                             # (fresh coherences on CDDM, fresh input streams on the flip-flop)
+                             # run at the sigma_rec and sigma_inp the network trained with and
+                             # sigma_w = 0, so every arm is compared in one noise condition and
+                             # differs only in its inputs.
 TRIALS = 128                 # cap on the trials kept for the RATE matrices: 300 timesteps x 128
                              # trials = 38400 samples against at most 1000 units, far above what a
                              # covariance needs, and 256 trials holds two 1000x76800 rate matrices at
@@ -95,6 +100,33 @@ LOG_BINS = np.linspace(-12.0, 4.0, 321)
 # joins the figure by finishing, not by being remembered.
 SWEEP_GLOB = ("NBitFlipFlop_*", "CDDM_*", "DMTS_*")
 SIZES = (500, 1000, 2000, 4000)
+
+# ⚠️ TWO DMTS GRIDS NOW SIT ON DISK AND THEY ARE DIFFERENT TASKS. `DMTS_paper_grid_d5` holds a 5 tau
+# sample-to-test delay and the older `DMTS_paper_grid` / `DMTS_d7_pen` hold 7 tau. Both save
+# `taskname: DMTS` and both run 150,000 iterations, so every filter below passes them equally and
+# the cache would pool them -- the same failure as the one that pooled three tasks at N = 1000 and
+# changed every Figure-2 number when it was fixed. The delay is not in the config as a number; it is
+# the gap between the sample going off and the test coming on, in units of tau, so it is computed.
+# 5 tau is the grid that replaces the other: at 7 tau the task is not reliably solvable and the
+# unpenalised control fails it as often as the arms do.
+DMTS_DELAY_TAU = 5.0
+DELAY_TOL = 0.25            # configs store integer timesteps, so allow a step either way
+
+
+def dmts_delay_tau(cfg):
+    """The sample-to-test delay of a DMTS config, in units of the unit time constant.
+
+    Args:
+        cfg: a saved run config (OmegaConf) whose task is DMTS.
+    Returns:
+        float delay in tau, or nan if the config does not carry the two epoch boundaries.
+    """
+    t = cfg.task
+    try:
+        steps = float(t.T_stim_on_match) - float(t.T_stim_off_sample)
+    except Exception:
+        return float("nan")
+    return steps * float(cfg.model.dt) / float(cfg.model.tau)
 
 # EACH TASK HAS ITS OWN BUDGET and they are not interchangeable: DMTS needs 150,000 iterations to be
 # solved at all (at 40,000 the unpenalised network does not escape) and CDDM 100,000. Matching
@@ -182,6 +214,9 @@ def discover(root):
         if int(t.max_iter) != ITERS[task] or int(m.N) not in SIZES:
             continue
         if task == "NBitFlipFlop" and int(cfg.task.n_inputs) != 3:
+            continue
+        # one DMTS delay only, so the 5 tau grid and the superseded 7 tau one cannot be pooled
+        if task == "DMTS" and abs(dmts_delay_tau(cfg) - DMTS_DELAY_TAU) > DELAY_TOL:
             continue
         arm = classify(cfg)
         if arm is not None:

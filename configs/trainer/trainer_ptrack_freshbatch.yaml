@@ -19,6 +19,15 @@ max_iter: 3000
 # run_experiment and written back, so a warm-started run's trace is dated absolutely and its saved
 # config records the window it covers.
 iter_offset: auto
+# PERIODIC CHECKPOINT, iterations between resumable snapshots; 0 switches it off. A run writes
+# every one of its files only after the training loop returns, so before this existed a job killed
+# by its wall clock left an empty folder: on 2026-10-02 three jobs died at 97%, 98% and 48% of
+# their budgets and salvaged nothing, about 228 GPU-hours. A snapshot holds LastParams, the Adam
+# moments and a config stamped with the iterations actually done, which is exactly what
+# paths.init_from already reads -- so resuming one needs no new code. Cost at 2000: one write per
+# ~24 min at the slowest measured rate (CDDM N=4000, ~0.7 s/iteration), ~200 MB rewritten in place
+# at N=4000 and a few MB at N=500.
+checkpoint_every: 2000
 anneal_noise: False
 lr: 0.001
 weight_decay: 1e-6

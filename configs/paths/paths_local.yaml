@@ -9,3 +9,9 @@ init_from: null
 # objective across a penalty SWITCH imports the old search direction and confounds the very effect
 # being measured. Turn on only when continuing under the SAME penalty.
 init_adam: false
+
+# Where periodic checkpoints go. null puts them in "<save_to>_checkpoints".
+# ⚠️ NEVER POINT THIS INSIDE save_to. Cells are inventoried by globbing for subfolders that hold
+# *LastParams*, so a checkpoint folder sitting among the real runs would be counted as a finished
+# run -- inflating every count and shifting which parent a top-up task continues.
+checkpoint_to: null

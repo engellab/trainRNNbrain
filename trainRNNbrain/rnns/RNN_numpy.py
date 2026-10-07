@@ -62,7 +62,13 @@ class RNN_numpy():
         elif activation_name == 'softplus':
             beta = activation_args.get("beta", 1.0)
             slope = activation_args.get("slope", 1.0)
-            return lambda x: np.log(1 + np.exp(beta * (slope * x))) / beta
+            # Stable form, matching torch.nn.Softplus (which is what actually ran during training).
+            # The naive log(1 + exp(beta*z))/beta OVERFLOWS np.exp once beta*z > ~709 and returns
+            # inf, which the next matmul turns into NaN for the whole run - at beta = 25 that is any
+            # unit above z ~ 28, which trained networks reach. Above beta*z = 20 softplus equals z
+            # to within exp(-20)/beta < 1e-10, so the linear branch is exact at plotting precision.
+            return lambda x: np.where(beta * (slope * x) > 20.0, slope * x,
+                                      np.log1p(np.exp(np.minimum(beta * (slope * x), 20.0))) / beta)
         elif activation_name == 'leaky_relu':
             slope = activation_args.get("slope", 1.0)
             leak_slope = activation_args.get("leak_slope", 0.01)

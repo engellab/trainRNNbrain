@@ -196,14 +196,16 @@ def m2_training_empties(name="slide_m2_training_empties", task="3-bit flip-flop"
     """M2: the same architecture, before and after training, by the same measurement.
 
     THE UNTRAINED TWIN IS THE CONTROL THIS CLAIM NEEDS. "Most units never fire" on its own invites
-    the reply that a random ReLU network has half its units below threshold anyway -- which is
-    true, and measured here: about 54 of 100. Training takes it to 26. Showing only the trained
-    network would leave the audience unable to tell the architecture's doing from training's.
+    the reply that a random ReLU network has half its units below threshold anyway. On these
+    configs it does not: bias_init = "zeros" starts every bias at exactly 0, and 94 units in 100
+    fire at initialisation on the flip-flop, with none at exactly zero. Training takes it to 26.
+    Showing only the trained network would leave the audience unable to tell the architecture's
+    doing from training's.
 
     THE HISTOGRAMS ARE THE SECOND HALF OF THE CLAIM. The counts alone could be a threshold moving;
     the distributions show that training does something a threshold cannot fake -- it opens a gap.
-    At initialisation the live units form one mode; after training there are two, three orders of
-    magnitude apart, with the majority in the lower one.
+    At initialisation every unit sits in one narrow mode; after training there are two, three
+    orders of magnitude apart, with the majority in the lower one.
 
     Args:
         name: output file stem; task: which cached task to draw.
@@ -219,8 +221,10 @@ def m2_training_empties(name="slide_m2_training_empties", task="3-bit flip-flop"
     read_at = float(np.asarray(z[f"{task}|read_at"], float)[0])
 
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 80 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[1.0, 0.82], hspace=0.30, wspace=0.22)
+    # ONE COLUMN: the untrained block (pictogram, then its histogram) above the trained block, so
+    # the two histograms share an x axis read straight down the page
+    fig = plt.figure(figsize=(ps.W2 * 0.55, 150 * ps.MM))
+    gs = GridSpec(4, 1, figure=fig, height_ratios=[1.0, 0.82, 1.0, 0.82], hspace=0.45)
 
     # ⚠️ THE LABELS NAME THE BUDGET, NOT "BEFORE" AND "AFTER". The deck reads 40,000 iterations on
     # the next slide and in every results section, so "after training" on its own invited exactly
@@ -230,7 +234,7 @@ def m2_training_empties(name="slide_m2_training_empties", task="3-bit flip-flop"
     # gradient steps, not an early checkpoint of a trained run.
     for j, (vals, col, lab) in enumerate(((init_a, MID, "untrained"),
                                           (tr_a, DARK, f"after {read_at:,.0f} iterations"))):
-        _grid_panel(fig.add_subplot(gs[0, j]), 100.0 * vals.mean() / n, col,
+        _grid_panel(fig.add_subplot(gs[2 * j, 0]), 100.0 * vals.mean() / n, col,
                     lab, f"{vals.mean():.0f} of {n:.0f} fire")
 
     # The distributions under the pictograms, on one shared log axis. The untrained network holds
@@ -241,7 +245,7 @@ def m2_training_empties(name="slide_m2_training_empties", task="3-bit flip-flop"
     ax0 = None
     for j, (key, col) in enumerate(((f"{task}|p_init", MID),
                                     (f"{task}|p_trained", DARK))):
-        ax = fig.add_subplot(gs[1, j], sharex=ax0, sharey=ax0)
+        ax = fig.add_subplot(gs[2 * j + 1, 0], sharex=ax0, sharey=ax0)
         ax0 = ax0 or ax
         p = np.asarray(z[key], float)
         n_zero = int((p <= 0).sum())
@@ -254,13 +258,12 @@ def m2_training_empties(name="slide_m2_training_empties", task="3-bit flip-flop"
         ax.set_xticks([-6.4, -4, -2, 0])
         ax.set_xticklabels(["0", "$10^{-4}$", "$10^{-2}$", "1"])
         ax.set_xlabel("how much one unit fires")
-        if j == 0:
-            ax.set_ylabel("units")
+        ax.set_ylabel("units")
         ps.ygrid(ax)
     fig.suptitle(f"{task}, $N$ = {n:.0f}, one architecture, one measurement\n"
-                 f"left: {len(init_a)} fresh weight draws, no training at all.   "
-                 f"right: {len(tr_a)} trained networks",
-                 fontsize=7.2, color=ps.INK, linespacing=1.3, y=1.04)
+                 f"top: {len(init_a)} fresh weight draws, no training at all\n"
+                 f"bottom: {len(tr_a)} trained networks",
+                 fontsize=7.2, color=ps.INK, linespacing=1.3, y=1.02)
     return ps.save(fig, name)
 
 

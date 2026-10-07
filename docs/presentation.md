@@ -49,10 +49,10 @@ its results later come from an earlier, longer-delay version, the least reliable
 ### Train one, and three of four units never fire
 <p align="center"><img src="../img/internal_figures/slide_01_schematic.png" width="760"></p>
 
-### Training empties the network: 539 of 1000 fire untrained, 262 after 150,000 iterations
+### Training empties the network: 940 of 1000 fire untrained, 262 after 150,000 iterations
 <p align="center"><img src="../img/internal_figures/slide_m2_training_empties.png" width="760"></p>
 **Untrained means zero gradient steps**, not an early checkpoint: five fresh draws of the same
-architecture, 339 of whose units sit at exactly zero. The units training takes are not switched off
+architecture, every unit of which fires. The units training takes are not switched off
 — they fire thousands of times less than a working one. No weight draw produces that middle group.
 
 ### Deep learning's own dormancy test counts the same units
@@ -80,11 +80,22 @@ Every panel carries its own control; read the gap, not the absolute number.
 when that number clears 5% of the network's own 95th percentile — a bar with no absolute scale, so a
 count means the same at any size. Every count here uses it.
 
-### Every activation we tried ends with 200 to 300 units of 1000 working
-<p align="center"><img src="../img/internal_figures/slide_x_activation_cddm.png" width="760"></p>
-Leaky ReLU and softplus keep a nonzero gradient everywhere and silence anyway. Bounded sigmoid parks
-its quiet units at the lower asymptote rather than saturating them high, and leaves 67 fewer units
-working than ReLU.
+### Every activation ends between 188 and 276 of 1000, and ReLU gets there by losing the most
+<p align="center"><img src="../img/internal_figures/slide_k_activation.png" width="760"></p>
+Leaky ReLU and softplus keep a nonzero gradient everywhere and silence anyway. At the crossing ReLU
+and leaky ReLU have 571 and 578 working and then shed about 300 each; softplus and sigmoid start
+from 331 and 292 and shed 81 and 104.
+
+### tanh units do not go silent, but the gradient reaching them collapses
+<p align="center"><img src="../img/internal_figures/slide_k_unit_gradient.png" width="600"></p>
+**gᵢ = RMS over time and trials of ∂L/∂hᵢ(t), divided by √L**: how hard the loss pulls on
+unit i, per unit of error. ReLU splits in two; tanh shifts down as one. Bar: 5% of the untrained
+network's 95th percentile. Outline: the same network untrained.
+
+### Changing a tanh unit's inputs barely moves the output: 25 to 147 of 1000 still matter
+<p align="center"><img src="../img/internal_figures/slide_k_unit_sensitivity_in.png" width="600"></p>
+**Sᵢ = RMS over trials of ‖∂y/∂Wᵢ‖**, Wᵢ = unit i's incoming weights, y = the scored outputs. No
+loss involved: how far the output would move if unit i's inputs changed. ReLU: 277 to 293.
 
 ### Units keep going silent long after the loss has stopped moving
 <p align="center"><img src="../img/internal_figures/slide_03_silencing_vs_training.png" width="760"></p>
@@ -110,31 +121,37 @@ The band is the seed range. The absolute counts still rise — CDDM goes from 32
 So no term added to the loss can revive one. Every rule that works below acts on the weights
 directly.
 
-### Turn one back on and the network turns it off again
-<p align="center"><img src="../img/internal_figures/slide_wh_treadmill.png" width="760"></p>
-A redraw gives a unit that has been silent too long a fresh set of random weights. It fires 26,000
-times and buys four working units. Escaping the frozen state is not enough: a revived unit survives
-only if the task finds a use for it.
-
 ---
 
 # ONE KNOB AT A TIME
 
-Settings a modeller already has. Two of them move the count a long way, and both point down.
-Throughout: N = 1000, every seed drawn, each arm against the control beside it.
+Settings a modeller already has, on the standard network with the bias fixed at 0. N = 1000, every
+seed drawn. Each panel reads the same networks twice: where the loss first reaches 1.07x its own
+fitted floor, and at the end of the budget.
 
-### Turn weight decay off and 395 units work; run it at a hundred times the default and 84 do
-<p align="center"><img src="../img/internal_figures/slide_x_weightdecay.png" width="760"></p>
-The strongest single lever found here, and it is a hyperparameter usually set without thought.
+### Every weight-decay setting ends up equally good, and they differ only in what they shed getting there
+<p align="center"><img src="../img/internal_figures/slide_k_weightdecay.png" width="760"></p>
+At the crossing all four sit between 482 and 580 of 1000. Training on to 200,000 takes them to 412,
+266, 166 and 86 while the loss does not improve. Without weight decay the count is still falling at
+300,000: from 433 at 100,000 to 390, about 12 units per 100,000 at the end.
 
-### Removing recurrent noise costs almost three times the active count
-<p align="center"><img src="../img/internal_figures/slide_x_recnoise.png" width="760"></p>
+### Recurrent noise keeps units alive: removing it costs 90 of 340
+<p align="center"><img src="../img/internal_figures/slide_k_recnoise.png" width="760"></p>
 
-### The metabolic penalty looks neutral because the bar shrinks with the rates it charges for
-<p align="center"><img src="../img/internal_figures/slide_x_metabolic_ruler.png" width="760"></p>
-The penalty shrinks the rate scale sixfold, and the bar, being a fraction of each network's own 95th
-percentile, shrinks with it. Hold the bar at the control's value and the same networks fall from 413
-to 119. The units are turned down, not killed.
+### The metabolic penalty raises the count, from 266 to between 356 and 417
+<p align="center"><img src="../img/internal_figures/slide_k_metabolic.png" width="760"></p>
+Charging for firing rates leaves more units firing than charging for nothing.
+
+### A cap on recurrent weights raises the count from 340 to 440, at no cost in score
+<p align="center"><img src="../img/internal_figures/slide_k_rwm.png" width="760"></p>
+A soft penalty on the size of each recurrent weight. Both strengths land within 10 units of each
+other, and every run scores r² 0.87 to 0.88, the same as the control.
+
+### Starting with weaker or stronger recurrence moves the count by 50 units, the opposite way to the guess
+<p align="center"><img src="../img/internal_figures/slide_k_recgain.png" width="760"></p>
+The guess was that a larger initial gain wakes more units. It does the reverse: 361, 340 and 312
+units from spectral radius 0.5 to 2.0, two seeds each and no overlap. Silence is not just weak
+recurrence.
 
 ---
 
@@ -182,11 +199,11 @@ In order of how many units each one recruits. The first is a setting; the five a
 additions to training. **Still the 3-bit flip-flop at N = 1000, read at 40,000 iterations**, except
 where a panel's own title says otherwise.
 
-### A bigger input scale lifts 263 units to 339, at no measurable cost
-<p align="center"><img src="../img/internal_figures/slide_x_inputscale.png" width="760"></p>
-The knob sets each input row's length at initialisation, over a 400-fold range, and nothing holds it
-there afterwards. For scale: training the reference 350,000 iterations further loses 74 units, about
-what the best rung buys.
+### A bigger input scale lifts 206 units to 329, at no measurable cost
+<p align="center"><img src="../img/internal_figures/slide_k_inputscale.png" width="760"></p>
+The knob sets each input row's length at initialisation, over a 40-fold range, and nothing holds it
+there afterwards. Read at the end of training: this task's loss rises after its minimum, so it has
+no usable floor crossing.
 
 ### Rescaling revives a unit without adding one synapse: the row's total is held while its balance tilts
 <p align="center"><img src="../img/internal_figures/slide_mech_rescale.png" width="900"></p>
@@ -304,13 +321,14 @@ Each of these was in an earlier version. The reason for cutting is given, not im
 | `slide_05_readout_time`, `slide_05a_floor_fit`, `slide_07b_control_trajectory` | bookkeeping that reconciles control numbers across sweeps; the fix is "compare each arm with the control beside it" |
 | `slide_x_activation_cddm_r2`, `slide_x_activation_ff_r2`, `slide_x_weightdecay_r2`, `slide_x_inputscale_r2`, `slide_x_metabolic_r2` | five companion scatters for one null result: the units cost nothing. That is the y axis of the payoff slide |
 | `slide_x_activation_ff` | the same four-arm activation ladder on the flip-flop. One task makes the point, and the CDDM runs are the longer ones |
-| `slide_x_metabolic` | the metabolic ladder on the moving bar alone. Replaced by `slide_x_metabolic_ruler`, which draws both bars and the ruler |
+| `slide_x_metabolic` | the metabolic ladder on the trainable-bias networks at one fixed iteration. Replaced by `slide_k_metabolic` |
 | `slide_02_participation` | one network's participation histogram; the three-task version replaces it |
 | `slide_06_scaling` | the same data as the share panel, as absolute counts, with the fitted exponents. It is the manuscript's panel and it was in the talk until 2026-10-02, when it was misread the way its design invites: its red rule at 1,000 is an absolute milestone, every other panel in the deck draws a rule at 1,000 to mean the ceiling, and the CDDM series rises to meet it while falling to 19% of N |
 | `slide_22b_penalty_by_task` | the two penalty-against-size panels on one figure, before they were split per task |
 | `slide_24_dropout_rate_units`, `slide_24b_dropout_rate_cost` | the dropout grid split into two panels; `slide_24_dropout_tradeoff` carries both |
 | `slide_f2_weights`, `slide_f2_weight_shape`, `slide_f2_weights_by_task` | the recurrent weight distributions per arm. Two arms widen it and fail differently, which is a paper result rather than a talk one |
 | `slide_x_architecture` | equation form and trainable bias sit inside seed scatter |
+| `slide_x_weightdecay`, `slide_x_recnoise`, `slide_x_activation_cddm`, `slide_x_inputscale`, `slide_x_metabolic_ruler` | the same five ladders on the trainable-bias networks, each read at one fixed iteration. Replaced on 2026-10-04 by the `slide_k_*` panels: the standard network with the bias fixed at 0, and every ladder read both at its own loss floor and at the end of its budget |
 | `slide_f2_r2` | a subset of the payoff scatter, which carries every r² value it does |
 | `slide_f2_srank_vs_pc99` | three dimensionality measures agree, pairwise r = +0.82 to +0.93. A robustness check |
 | `slide_20_rate_dist`, `slide_20b_rate_shape` | weight-magnitude lognormality, with no cortical number to compare against |
@@ -323,13 +341,21 @@ Each of these was in an earlier version. The reason for cutting is given, not im
 | `slide_27_rescale_rule`, `slide_27b_rescale_deficit`, `slide_27d_rescale_cost` | replaced by the mechanism diagram; the weight-deficit scatter is its inset |
 | `slide_22b_penalty_cddm`, `slide_22b_penalty_dmts` | penalty against size. The DMTS version is the 7τ delay, where most seeds of most arms never solve |
 | `slide_31b_penalty_rate_dist` | the rate distribution under each penalty |
+| `slide_k_tanh_saturation` | tanh's participation spread over training, and the standard rule counting all 1000. The rule is built for units at 0, so its blindness on tanh is expected; the gradient panel shows what happens instead |
+| `slide_wh_treadmill` | redrawing a silent unit's weights: 26,000 redraws buy four working units. Removed 2026-10-05 as unclear on a slide |
+| `slide_k_unit_slope` | the mean slope of the activation per unit. tanh shifts from 0.93 to about 0.1 but every unit stays above the bar, so it does not show what the sensitivity panel shows |
 | `slide_32_selectivity` | three 3-D scatters, each its own basis and its own viewing angle, at 30,000 iterations — a configuration that is gone by 200,000 |
 
 ## Two details the opening leaves out
 
-- **Which units are dormant at initialisation is a property of the weight draw.** About 343 of 1000
-  sit at exactly zero in an untrained network because their drive never goes positive for any input;
-  a different seed picks a different 343. After training, dormancy is a property of the solution.
+- **No unit is dormant at initialisation on the flip-flop.** Every bias starts at exactly 0, so all
+  1000 units cross threshold on some input of some trial. The untrained count of 940 is the
+  scale-free rule calling about 60 units quiet, not silent. CDDM is the one exception: about 49 of
+  1000 never fire at init, because CDDM's input channels are all non-negative and on for the whole
+  trial, so a unit whose input row sums negative never crosses threshold. The flip-flop's inputs
+  are sign-flipping pulses that average to zero, which leaves no unit with a standing negative
+  drive.
+  After training, dormancy is a property of the solution.
 - **The agreement between the two dormancy rules holds across the whole threshold range Sokar et al.
   report,** not only at the value the figure draws. Over thresholds from 0.01 to 0.1 their count
   stays between 267 and 322 on the flip-flop and between 268 and 280 on CDDM, against this project's
@@ -337,24 +363,52 @@ Each of these was in an earlier version. The reason for cutting is given, not im
   flip-flop's quiet units sit near 10⁻³ rather than at 0, so "exactly zero" counts almost nobody
   there. That is the argument for a relative rule.
 
-## What the overnight re-runs settled, and what they did not
+## What the re-runs settled, and what they did not
 
-Checked 2026-10-02, after the jobs that finished on 2026-10-01 were synced from both clusters.
+Checked 2026-10-04. Every ladder in ONE KNOB AT A TIME is now the standard network with the bias
+fixed at 0, and every panel reads the same networks twice.
 
-- **The trainable-bias caveat is harmless on the activation ladder.** The four activations were
-  re-run with the bias fixed at 0, which is the standard network. Active units go 266 / 276 / 250 /
-  188 against the trainable-bias runs' 272 / 278 / 249 / 205 for ReLU, leaky ReLU, softplus and
-  sigmoid — the same narrow band, the same ordering, and sigmoid still lowest. The deck still draws
-  the trainable-bias runs, because the weight-decay, metabolic, input-scale and recurrent-noise
-  re-runs have not finished and a half-converted section would put one ladder on the standard
-  network and three beside it on something else. Switch all four together.
+- **The knob section was switched to the standard network, all five ladders together.** The
+  trainable-bias runs are gone from the talk. Active units at the end of training: weight decay
+  412 / 266 / 166 / 86, recurrent noise 250 / 264 / 340 / 386, metabolic 266 / 372 / 383 / 417 /
+  356, activations 266 / 276 / 250 / 188, input scale 206 / 231 / 298 / 302 / 329.
+- **Two knob claims changed sign or size when the bias was fixed at 0.** Recurrent noise: removing
+  it used to be called a threefold cost and is 250 against the default's 340, a factor of 1.4. The
+  metabolic penalty used to be called neutral and now raises the count from 266 to between 356 and
+  417, so the "moving ruler" panel that explained the old null result is cut rather than restated.
+- **Read at 1.07x their own loss floor, the knobs do almost nothing.** Weight decay spans 482 to
+  580 of 1000 at the crossing against 86 to 412 at the end. At the crossing the smoothed loss is
+  already 0.93 to 1.00 of its final value, so these networks reach their final performance after
+  about 7,000 of 200,000 iterations with roughly half their units working, and shed the rest while
+  the loss does not improve. What a knob sets is the shedding rate, not the converged network.
+- **The flip-flop has no usable floor crossing.** Its smoothed loss falls to 0.034-0.058 and then
+  rises to 0.139, so the fitted floor is the late plateau and the loss first touches 1.07x it at
+  iteration 107 to 307 of 150,000, before training has done anything. The input-scale ladder is
+  therefore reported at the end of training only.
 - **The penalty pair now exists at three sizes, not one.** 471 of 500, 937 of 1000 and 1841 of 2000
-  units active — 92 to 94% at every size. The N = 4000 cell is still training.
+  units active — 92 to 94% at every size. The N = 4000 cell has never finished: both attempts ran
+  out of GPU memory at 44 GiB on Spock, and it needs a larger card.
 - **Rescaling and synaptic noise reached N = 4000:** 1108 of 4000 and 846 of 4000, against the
   untouched control's 17% of 4000.
+- **tanh breaks the silence criterion rather than the result.** The rule counts a unit active when
+  std(r) + q₀.₉(|r|) reaches 5% of the population's 95th percentile, and it was built for an
+  activation whose dead state is exactly 0. tanh's dead states are ±1, so every unit clears the bar
+  and the count reads 1000 of 1000 at every probe of training, in all three seeds, while its
+  matched ReLU control falls from 775 to 289 at the same task score. Measured on the rates instead,
+  30% of the tanh network's samples sit at |r| > 0.9, where the slope of tanh is 0.19, and the
+  active population spans 2.7 dimensions against the control's 2.1 — 3.4 times the units for 1.3
+  times the dimensionality.
+- **The tanh panel reports a distribution, not a count, and that was forced.** A ReLU population is
+  bimodal, so counting the working units is stable: three seeds give 288, 288 and 290. A tanh
+  population is unimodal and tight — at iteration 60,000 it spans p = 1.52 to 1.71 between the 10th
+  and 90th percentiles — so any threshold inside that band is a knife edge and the count of units
+  past it swings between 0 and 1000 between consecutive probes. **Three seeds, one task, one size.**
+  The direction is the same in all three; the endpoint saturation is not (median p 1.45, 1.60,
+  1.88), and more seeds are needed before any tanh number is quoted.
 - **The DMTS delay change did not rescue the arms** — see the Open section.
-- **Still training:** weight decay at bias 0 (1 to 2 seeds of 3 so far), the metabolic, input-scale
-  and recurrent-noise bias-0 ladders, the penalty pair at N = 4000, and DMTS dropout at N = 2000.
+- **Still training:** CDDM dropout at N = 4000. DMTS dropout at N = 2000 was abandoned: all three
+  runs reached r² 0.41 at 98% of their budget, so the cell would record a failure already visible
+  in the traces.
 
 ## Known limitations of the figures themselves
 
@@ -415,6 +469,10 @@ Anyone who saw an earlier version of this talk heard some of these.
   3 of 3 at N = 500 and 1000 and 2 of 3 at N = 2000, against 2 of 3, 3 of 3 and 1 of 3 at 7τ — so
   the control is now reliable. Prune-and-duplicate solves 3 of 3 at N = 500, where it recruits 405
   units of 500 against the control's 137, and then fails outright: 0 of 3 at N = 1000 and 0 of 3 at
-  N = 2000. Dropout fails 0 of 3 at every size, as it did at 7τ. So the column still cannot compare
-  arms above N = 500, and the earlier note that the 5τ re-runs "replace the column" was optimistic.
-  The N = 2000 dropout cell has not finished.
+  N = 2000. Dropout fails 0 of 3 at N = 500 and N = 1000, as it did at 7τ. At N = 2000 there is no
+  dropout cell to read at all: all three runs hit a 24-hour wall clock at about 147,000 of 150,000
+  iterations and were killed before writing anything, so the folder is empty. Their last logged
+  scores were r² 0.41 on all three, against a control that solves the task, so the cell that is
+  missing would almost certainly have been a fourth failure rather than a result. So the column
+  still cannot compare arms above N = 500, and the earlier note that the 5τ re-runs "replace the
+  column" was optimistic.

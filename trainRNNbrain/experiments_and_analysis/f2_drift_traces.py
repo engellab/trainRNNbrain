@@ -13,9 +13,15 @@ moving, just not going anywhere new. The (N, k) heat maps this replaces reported
 lag-scaling EXPONENT, which answers a different question and only for the flip-flop.
 
 ONE CELL PER TASK, unpenalised, N = 1000, every seed. The budgets differ because the tasks do:
-DMTS needs 150,000 iterations to be solved and CDDM 100,000. The flip-flop's long runs (150k and
-400k) were deleted before drift logging existed, so 40,000 is the longest flip-flop trace that
-carries these metrics - the panel says so rather than implying the task was only ever run that far.
+DMTS needs 150,000 iterations to be solved and CDDM 100,000, and the flip-flop's k-sweep runs to
+500,000.
+
+⚠️ THE FLIP-FLOP CELL CHANGED on 2026-10-01 and the old one is why slide 2b had nothing to show.
+It read `NBitFlipFlop_ff_revive`, which stops at 40,000 - the same iteration slide 2 reads - so the
+"and they diverge as training continues" panel drew the identical histogram twice. The k-sweep cell
+runs to 500,000 WITH drift metrics and participation probes throughout (the note that the long
+flip-flop runs predate drift logging was stale; these carry every metric the 40,000 cell does). It
+costs one deviation from the standard network, a trainable bias, which the slides state.
 
 The participation vector is the first seed's, at its last probe: the distribution panel shows one
 real network per task rather than a pooled histogram, which would blur the bimodality that is the
@@ -39,7 +45,7 @@ LAG = 10_000                 # the longest logged lag: the least noisy read of "
 # (task key, nice label, cell). Unpenalised, N = 1000, the longest drift-logged run each task has.
 CELLS = [
     ("CDDM", "CDDM", "CDDM_paper_grid/EqType=h_N=1000_arm=control"),
-    ("NBitFlipFlop", "3-bit flip-flop", "NBitFlipFlop_ff_revive/EqType=h_k=3_N=1000_pen=none_arm=none"),
+    ("NBitFlipFlop", "3-bit flip-flop", "NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=500000"),
     ("DMTS", "DMTS, 7 tau delay", "DMTS_d7_pen/EqType=h_N=1000_pen=none"),
 ]
 

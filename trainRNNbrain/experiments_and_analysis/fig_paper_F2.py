@@ -405,35 +405,56 @@ def panel_a(ax):
         elif kind == "both":
             # the only arm that changes the LOSS. Nothing is done to any unit: silence simply stops
             # being free, and the sparsity term stops the rate term being paid off with transients.
+            # ⚠️ THE BOX NAMES THE TWO TERMS. It used to read "loss + penalty", which says nothing -
+            # every penalised loss is a loss plus a penalty. These are the two terms as the Trainer
+            # computes them: `fr_magnitude_penalty` is the squared miss from a per-size rate target,
+            # and `rec_weights_sparsity_penalty` charges a row of W_rec whose effective in-degree
+            # (|w|_1^2 / |w|_2^2) runs over 20.
             _units(ax, [left, mid, right], y, ["live", "live", "silent"], col)
-            ry = 0.40
-            ps.box(ax, x0 + 0.50 - 0.19, ry, 0.38, 0.085, "loss + penalty", col=col,
-                   face="#f2f1ec", lw=0.7, fs=5.4)
+            ry, rh = 0.30, 0.185
+            ps.box(ax, x0 + 0.50 - 0.39, ry, 0.78, rh, None, col=col, face="#f2f1ec", lw=0.7)
+            ax.text(x0 + 0.50, ry + 0.133, r"frm:  $(r_i - r^{*})^{2}$  per unit",
+                    ha="center", va="center", fontsize=5.1, color=ps.INK)
+            ax.text(x0 + 0.50, ry + 0.052, "rws:  keep each row sparse,\n"
+                    r"effective in-degree $\leq$ 20",
+                    ha="center", va="center", fontsize=5.1, color=ps.INK, linespacing=1.3)
             for xi in (left, mid, right):
-                ps.arrow(ax, (xi, y - 0.055), (x0 + 0.50 + (xi - mid) * 0.55, ry + 0.085),
+                ps.arrow(ax, (xi, y - 0.055), (x0 + 0.50 + (xi - mid) * 0.42, ry + rh),
                          col=ps.MUTED, lw=0.75)
-            ax.text(x0 + 0.50, y_op, "make silence expensive", ha="center", va="center",
-                    fontsize=5.6, color=col)
-            ax.text(right, y_unit, "silent unit,\nnow costly", ha="center", va="top",
-                    fontsize=5.3, color=ps.MUTED, linespacing=1.3)
+            ax.text(x0 + 0.50, y_op, "silence and dense rows both cost", ha="center",
+                    va="center", fontsize=5.5, color=col)
+            # no per-unit label: the box now occupies that row, and all three units feed it
             ax.text(x0 + 0.50, y_foot, "the loss changes, not the\n"
                     "units; transients cannot pay", ha="center", va="top",
                     fontsize=5.1, color=ps.INK, linespacing=1.35)
 
         else:
-            # no unit is selected and no weight is rewritten: the whole matrix is redrawn around its
-            # mean on every timestep, which is drawn as several arcs where the others draw one
-            _units(ax, [left, mid, right], y, ["live", "live", "silent"], col)
-            for k, (rad, alpha) in enumerate(((-0.40, 0.30), (-0.26, 0.55), (-0.12, 0.95))):
-                p = ps.arrow(ax, (left, y), (right, y), col=col, lw=0.9, rad=rad, shrink=7.0,
-                             mutation_scale=6)
-                p.set_alpha(alpha)
-            ax.text(x0 + 0.50, y_op, "redraw every weight, every step", ha="center", va="center",
-                    fontsize=5.6, color=col)
-            ax.text(right, y_unit, "silent unit,\nnot targeted", ha="center", va="top",
-                    fontsize=5.3, color=ps.MUTED, linespacing=1.3)
-            ax.text(x0 + 0.50, y_foot, "no unit is singled out; the\n"
-                    "dynamics are noisy, not the rule", ha="center", va="top",
+            # ⚠️ NO SILENT UNIT HERE, AND THE SPREAD IS DRAWN RATHER THAN IMPLIED. This rule selects
+            # nobody, so the earlier version's dotted silent unit labelled "not targeted" invited
+            # the reader to look for a target that does not exist. One live unit to another, with
+            # the distribution the weight is drawn from sitting on the connection: the noise is
+            # MULTIPLICATIVE and relative, W * (1 + sigma_w * eps), which the label states rather
+            # than leaving as the additive N(0, sigma_w) a bare bell curve would suggest.
+            _units(ax, [left, mid, right], y, ["live", "live", "live"], col)
+            ps.arrow(ax, (left, y), (right, y), col=col, lw=1.0, rad=-0.30, shrink=7.0,
+                     mutation_scale=7)
+            # the bell sits on the connection, below the two units, where the arc leaves it room.
+            # Drawn above the arc it collided with both the operation line and the arc's own apex.
+            gx = np.linspace(-1.0, 1.0, 81)
+            gy = np.exp(-0.5 * (gx * 2.4) ** 2)
+            bx, by = x0 + 0.50, 0.455
+            ax.plot(bx + gx * 0.17, by + gy * 0.105, lw=0.9, color=col, zorder=6)
+            ax.plot([bx - 0.17, bx + 0.17], [by] * 2, lw=0.6, color=ps.FAINT, zorder=5)
+            # two lines, not one: at 5.3 pt the single-line form overran the column and printed
+            # into the penalty schematic's operation line
+            ax.text(bx, y_op + 0.028, r"$w \rightarrow w\,(1 + \sigma_w \epsilon)$",
+                    ha="center", va="center", fontsize=5.5, color=col)
+            ax.text(bx, y_op - 0.048, r"$\epsilon \sim \mathcal{N}(0,1)$, every timestep",
+                    ha="center", va="center", fontsize=5.2, color=ps.MUTED)
+            ax.text(bx, y_unit, "every synapse:\nno unit is selected",
+                    ha="center", va="top", fontsize=5.3, color=ps.MUTED, linespacing=1.3)
+            ax.text(x0 + 0.50, y_foot, "the dynamics are noisy,\n"
+                    "not the rule", ha="center", va="top",
                     fontsize=5.1, color=ps.INK, linespacing=1.35)
 
 

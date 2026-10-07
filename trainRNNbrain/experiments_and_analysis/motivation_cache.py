@@ -100,6 +100,14 @@ def untrained_twin(cfg, seed):
     Every constructor argument is taken from the trained run's own saved config, so the comparison
     is training against no training and not one architecture against another.
 
+    ⚠️ BIAS_INIT IS PART OF THE INITIAL CONDITION, NOT A DETAIL. These configs set
+    bias_range = [-1, 1] with bias_init = "zeros", so every bias starts at exactly 0 and every
+    unit crosses threshold at init. Omitting bias_init here let RNN_torch fall back to its own
+    default, "uniform", which draws each bias from U(-1, 1); a unit with a negative bias then sits
+    below threshold for the whole trial and never fires. That reported 539 of 1000 units firing at
+    init on the flip-flop when the real init fires 940, and 342 units at exactly zero when the
+    real init has none. Pass bias_init from the config.
+
     Args:
         cfg: the OmegaConf config saved beside a trained run; seed: the weight draw's seed.
     Returns:
@@ -110,6 +118,7 @@ def untrained_twin(cfg, seed):
                      equation_type=str(m.equation_type), dale=bool(m.dale),
                      io_nonnegativity=bool(m.io_nonnegativity),
                      self_connections=bool(m.self_connections), bias_range=list(m.bias_range),
+                     bias_init=str(m.get("bias_init", "uniform")),
                      gamma=float(m.gamma), dt=float(m.dt), tau=float(m.tau),
                      sigma_rec=0.0, sigma_inp=0.0, sigma_out=0.0,
                      n_inputs=int(cfg.task.n_inputs), n_outputs=int(cfg.task.n_outputs),

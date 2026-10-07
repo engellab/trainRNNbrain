@@ -241,6 +241,7 @@ class Trainer():
                  track_participation=False,
                  track_every=10,
                  iter_offset=0,
+                 checkpoint_every=0,
                  store_participation_every=None,
                  log_silent_every=None,
                  track_drift=False,
@@ -379,10 +380,17 @@ class Trainer():
         # segment as if it were a fresh 0-25k run. Set from the parent's cumulative budget in
         # run_experiment, so what lands in the trace is the absolute iteration.
         self.iter_offset = int(iter_offset)
+        # PERIODIC CHECKPOINT, iterations between snapshots; 0 disables it. The Trainer only
+        # decides WHEN: `checkpoint_fn` is set from outside to a callable fn(iters_done, params),
+        # so nothing about paths, file formats or configs enters this class. Left None when
+        # nothing supplies one, which is every caller that does not want checkpoints.
+        self.checkpoint_every = int(checkpoint_every or 0)
+        self.checkpoint_fn = None
         # "metrics": scalar series aligned to "iters" (NaN where a lag was not due this probe).
         # "participation": the per-unit matrix, on its own coarser cadence. Nothing about the
         # weights is ever written to disk — everything is reduced to scalars during training.
         self.participation_monitor = ({"iters": [], "participation": [], "temporal_pr": [],
+                                       "gain": [], "w_rec_row": [], "w_inp_row": [],
                                        "participation_iters": [],
                                        "metrics": defaultdict(list)}
                                       if track_participation else None)
@@ -1518,6 +1526,71 @@ class Trainer():
                                 + torch.quantile(blk.abs(), q, dim=1))
         return out
 
+    def relative_gain_(self, states):
+        """Per-unit gain: how much a unit's output moves when its input drive moves, 0 to 1.
+
+        WHY THIS AND NOT A SILENCE COUNT. "Active" is defined by a rate threshold, and a rate
+        threshold is specific to an activation whose dead state is 0. A dead ReLU unit sits at 0; a
+        dead tanh unit sits at -1 or +1 and scores as loud. What the two share is that neither
+        passes gradient, so the activation's SLOPE at the unit's operating point measures both, and
+        measures them on one scale: g_i = mean_t,trials f'(h_i), divided by max_x f'(x) so a unit
+        in the responsive part of its curve scores 1 and a unit at either dead end scores 0. ReLU
+        then reads "the fraction of the time the unit is above threshold", tanh reads "how far from
+        the asymptotes", sigmoid the same, and the three are directly comparable.
+
+        f' IS TAKEN BY AUTOGRAD, not written per activation. The project has six activations and
+        the derivative of each is one more place for a typo that nothing would catch; one call
+        differentiates whatever `self.RNN.activation` happens to be. The normaliser is the slope's
+        maximum over a dense grid, which is exact for every monotone saturating activation here and
+        needs no per-activation constant either.
+
+        Args:
+            states: (N, T, B) tensor of hidden drives from the noise-free probe. For
+                equation_type != "h" these are already rates, and the drive is recovered by
+                inverting nothing - the slope is then taken at the stored value, which is what the
+                dynamics use.
+        Returns:
+            (N,) tensor of mean relative gain in [0, 1].
+        """
+        h = states.detach()
+        with torch.enable_grad():
+            x = h.clone().requires_grad_(True)
+            y = self.RNN.activation(x)
+            g = torch.autograd.grad(y.sum(), x)[0]
+            # the activation's steepest slope anywhere, so the measure is a FRACTION of the best
+            # this unit's activation could do, and is comparable across activations
+            probe = torch.linspace(-20.0, 20.0, 4001, device=h.device, dtype=h.dtype)
+            probe.requires_grad_(True)
+            gmax = torch.autograd.grad(self.RNN.activation(probe).sum(), probe)[0].abs().max()
+        gmax = torch.clamp(gmax.detach(), min=1e-12)
+        return (g.detach().abs().reshape(g.size(0), -1).mean(dim=1) / gmax)
+
+    def incoming_norms_(self):
+        """Per-unit L2 norm of each unit's incoming recurrent row and incoming input row.
+
+        WHY THESE ARE TRACKED BESIDE THE GAIN. `relative_gain_` measures the activation's slope at a
+        unit's operating point, which answers "if I inject current into this unit, how much does its
+        rate move". It does NOT answer "if an upstream unit fires harder, how much does this one
+        move" -- that is the slope TIMES the synapse carrying the change, f'(h_i) * W_rec[i, j].
+
+        The distinction decides whether a result is real or an artefact of the measure. A leaky
+        ReLU's slope never falls below its leak, so a slope-only gain bottoms out at 0.01 for a unit
+        that is doing nothing, and leaky ReLU would read as "keeps its units alive" purely because
+        the activation cannot report zero. Its incoming row CAN decay to nothing, and in this
+        project's unpenalised networks silent units' rows end at ~0.003 against live rows at ~5.4.
+
+        Stored as the two raw factors rather than as a product, so a fall can be attributed: slope
+        collapsing, weights decaying, or both, and separately per activation. Costs two reductions
+        over matrices already in memory.
+
+        Returns:
+            (w_rec_row, w_inp_row): two (N,) tensors of L2 norms over each unit's incoming row.
+        """
+        with torch.no_grad():
+            wr = self.RNN.W_rec.detach().norm(dim=1)
+            wi = self.RNN.W_inp.detach().norm(dim=1)
+        return wr, wi
+
     def track_participation_(self, input_batch, iter, target_batch=None, mask=None):
         """
         Probe the network and record training diagnostics, reducing everything to scalars on the fly.
@@ -1608,6 +1681,10 @@ class Trainer():
                 tpr = torch.where(den > 0, num / den.clamp_min(1e-300),
                                   torch.zeros_like(den))       # 0 for an all-silent unit
             mon["temporal_pr"].append(tpr.cpu().numpy().astype("float32"))
+            mon["gain"].append(self.relative_gain_(states).cpu().numpy().astype("float32"))
+            wr, wi = self.incoming_norms_()
+            mon["w_rec_row"].append(wr.cpu().numpy().astype("float32"))
+            mon["w_inp_row"].append(wi.cpu().numpy().astype("float32"))
             mon["participation_iters"].append(int(iter) + self.iter_offset)
 
         nan = float("nan")
@@ -1874,6 +1951,13 @@ class Trainer():
             if train_loss <= min_train_loss:
                 min_train_loss = train_loss
                 best_net_params = deepcopy(self.RNN.get_params())
+
+            # Snapshot, so a run killed by its wall clock is resumable instead of lost. Skipped on
+            # the final iteration, whose state the caller saves anyway.
+            if (self.checkpoint_fn is not None and self.checkpoint_every
+                    and (iter + 1) % self.checkpoint_every == 0
+                    and (iter + 1) < self.max_iter):
+                self.checkpoint_fn(iter + 1, self.RNN.get_params())
         last_net_params = deepcopy(self.RNN.get_params())
         self.RNN.set_params(last_net_params) # assuming that the more training it went through - the better.
         return self.RNN, train_losses, val_losses, best_net_params, last_net_params
