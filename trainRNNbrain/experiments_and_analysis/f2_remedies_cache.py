@@ -132,7 +132,22 @@ def dmts_delay_tau(cfg):
 # solved at all (at 40,000 the unpenalised network does not escape) and CDDM 100,000. Matching
 # iterations ACROSS tasks would compare a converged flip-flop with an unconverged DMTS, so the
 # budget is per task and every comparison in the figure stays inside one task.
-ITERS = {"NBitFlipFlop": 40000, "CDDM": 100000, "DMTS": 150000}
+ITERS = {"NBitFlipFlop": int(os.environ.get("F2_FF_ITERS", 40000)), "CDDM": 100000, "DMTS": 150000}
+# F2_FF_ITERS=75000 reads the flip-flop at the project standard instead. Those networks are
+# continuations of the 40,000-iteration ones (<root>_c75000), saved with max_iter = 35000 and
+# iter_offset = 40000, so a run's budget is offset + max_iter, never max_iter alone.
+# F2_TASKS restricts the tasks (comma-separated), F2_SHARD="k/n" scores every n-th cell starting
+# at k so the work splits across an array, and F2_PARENT=1 also scores each network's parent_40k
+# subfolder under a p40_ prefix, which pairs every 75,000 read-out with its own 40,000 one.
+TASKS = tuple(os.environ.get("F2_TASKS", ",".join(ITERS)).split(","))
+SHARD = tuple(int(x) for x in os.environ.get("F2_SHARD", "0/1").split("/"))
+PARENT = os.environ.get("F2_PARENT", "0") == "1"
+
+
+def total_iters(t):
+    """A run's whole training budget: its own max_iter plus any iter_offset it continued from."""
+    off = t.get("iter_offset", 0)
+    return (int(off) if isinstance(off, (int, float)) else 0) + int(t.max_iter)
 
 # ⚠️ DMTS AT A 7 TAU DELAY IS NOT ALWAYS SOLVED. An unpenalised network either escapes to r2 ~ 0.999
 # or sits at ~0.42 forever, and an unsolved network's active-unit count is not comparable with a
@@ -209,9 +224,9 @@ def discover(root):
             continue
         m, t = cfg.model, cfg.trainer
         task = str(cfg.task.get("taskname", ""))
-        if task not in ITERS or str(m.equation_type) != "h" or float(m.gamma) != 0.0:
+        if task not in TASKS or str(m.equation_type) != "h" or float(m.gamma) != 0.0:
             continue
-        if int(t.max_iter) != ITERS[task] or int(m.N) not in SIZES:
+        if total_iters(t) != ITERS[task] or int(m.N) not in SIZES:
             continue
         if task == "NBitFlipFlop" and int(cfg.task.n_inputs) != 3:
             continue
@@ -345,7 +360,11 @@ def load_net(net_dir):
             rnn.bias.copy_(torch.tensor(np.asarray(d["bias"], dtype=np.float32)))
     task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
     mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
-    stored = float(re.match(r"(-?[0-9.]+|nan)_", os.path.basename(net_dir)).group(1))
+    name = os.path.basename(net_dir)
+    if name == "parent_40k":   # a nested parent carries its original folder name in a text file
+        with open(os.path.join(net_dir, "PARENT_SOURCE.txt")) as f:
+            name = os.path.basename(f.read().strip().rstrip("/"))
+    stored = float(re.match(r"(-?[0-9.]+|nan)_", name).group(1))
     return rnn, task, mask, stored, d
 
 
@@ -445,6 +464,8 @@ def main(out_path):
             per_n = {n: sum(1 for a2, t2, m, _ in cells if a2 == arm and t2 == task and m == n)
                      for n in SIZES}
             print(f"    {arm:>10s}: " + ", ".join(f"N={n}: {k}" for n, k in per_n.items() if k))
+    cells = cells[SHARD[0]::SHARD[1]]
+    print(f"shard {SHARD[0]}/{SHARD[1]}: {len(cells)} cells")
     recs, fields = [], None
     for arm, task, n_units, pat in cells:
         for nd in sorted(glob.glob(os.path.join(D, pat, "*"))):
@@ -452,6 +473,15 @@ def main(out_path):
                 continue
             try:
                 r = analyse(nd)
+                r["net"] = os.path.basename(nd)
+                if PARENT:
+                    # the 40,000-iteration network this one continued; NaN where there is none,
+                    # so the field set stays the same for every record
+                    pd = os.path.join(nd, "parent_40k")
+                    rp = analyse(pd) if os.path.isdir(pd) else None
+                    for k in ("stored", "r2", "r2_common", "r2_clean", "n_active", "dims",
+                              "dims95", "w_sigma_log", "wact_sigma_log", "w_inp_sigma"):
+                        r["p40_" + k] = float("nan") if rp is None else float(rp[k])
             except Exception as e:
                 print(f"  SKIP {arm:>10s} {os.path.basename(nd)[:12]}: {type(e).__name__}: {e}",
                       flush=True)
