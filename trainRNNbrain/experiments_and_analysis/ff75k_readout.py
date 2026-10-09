@@ -127,6 +127,30 @@ def main(shard_dir, old=None):
         print(f"   {arm:9s} n={m.sum():3d}  mean change {d[m].mean():+6.1f}  "
               f"as a fraction of the 40k count {np.mean(d[m] / cc['p40_n_active'][m]):+.1%}")
 
+    # 6. the deck's convention: each arm against the control at the SAME size and read-out. The
+    # control keeps silencing between 40k and 75k while most arms hold, so an absolute count can
+    # be steady while the multiplier the deck quotes moves. "apart" says whether every arm network
+    # clears every control network (or sits below all of them), not just the means.
+    print("\n== multiplier over the control, same N and same read-out: active ratio / r2 cost, 40k -> 75k")
+    for N in F.SIZES:
+        at = F.restrict(view(cc, "75"), n_units=N)
+        ctrl = (cc["arm"] == "control") & (cc["N"] == N)
+        if not ctrl.any():
+            continue
+        print(f"  N = {N}  (control n={ctrl.sum()})")
+        for arm, _, _, _ in F.ARMS[1:]:
+            if not (at["arm"] == arm).any():
+                continue
+            cell = F.pick_cell(at, arm)[0]
+            m = (cc["arm"] == arm) & (cc["N"] == N) & (cc["cell"] == cell)
+            row = []
+            for pre in ("p40_", ""):
+                a, b = cc[pre + "n_active"][m], cc[pre + "n_active"][ctrl]
+                apart = "yes" if a.min() > b.max() or a.max() < b.min() else "no"
+                cost = cc[pre + "r2_common"][m].mean() / cc[pre + "r2_common"][ctrl].mean() - 1
+                row.append(f"{a.mean() / b.mean():5.2f}x {cost:+6.1%} apart={apart:3s}")
+            print(f"    {arm:9s} n={m.sum():2d}  40k {row[0]}  ->  75k {row[1]}")
+
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)
