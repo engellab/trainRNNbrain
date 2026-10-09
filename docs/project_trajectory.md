@@ -14857,3 +14857,30 @@ whole window. So the control has not stopped at 75k at any size. The 75k multipl
 point on a curve that is still rising slowly, not a converged value. Of the arms, only rescale
 (N = 500: −37 from 60k to 75k; N = 4000: −37, 4 of 6 falling) and frm + rws at N = 1000 (−30) lose
 units over the last 15k. Mute and synaptic noise are flat or rising at every size.
+
+### Correction to the entry above, the same day — the "diverged" networks did not diverge, and the table is the wrong read-out
+
+**The three dropped continuations are not divergences.** Their typical clean loss stays normal to the
+end: frm + rws N = 500 has a median of 0.073 at 70–75k, and rescale `size_series` `rescale_tgt10` N = 2000
+about 0.11. What they show are brief spikes, up to 33 and 2.6e14. The rescale N = 2000 net was already
+spiking at 30–40k (max 5.8e5) before its continuation started. The cache scores `LastParams`, so a
+network whose last save lands inside an episode scores −1876 or −14,869. Only one of the 245 has its
+last trace sample inside a spike (that rescale net, ~5e3 over its final 60 iterations). The third,
+rescale_active `f_a=1.002…act=true` (−45.5), was broken before the top-up (parent −20.7 at 40k).
+Spikes (> 10x the run's median clean loss) are confined to the rule-based arms and were as common
+before 40k as after: target_ladder 24/24 before vs 22/24 after, recgrow 11/12 vs 10/12, norm_mode 10/12 vs 9/12,
+ff_both40k 5/10 vs 8/10. After 40k there are none in std_bernoulli (36), dropout_sizes (12), synnoise (21) or the
+controls. This is the same thing the DMTS read-out recorded (item 4 of the 2026-09 DMTS penalty entry):
+"the last network is a lottery ticket". 75k simply gave two more networks the chance to be saved mid-episode.
+
+**The multiplier table above is read at fixed budgets, and the project's rule is 1.07x each network's
+own fitted floor** (Pavel). `ff75k_atfloor.py` applies that rule with `fig_knobs_at_floor`'s guards, and
+on these sweeps **it is not usable on the noise-free probe.** The control's smoothed `loss_clean_train`
+falls to ~0.075 by 5–10k, then rises 2–3x and settles at 0.13–0.18. Duplicate does the same; synaptic noise
+does not (0.053–0.056 at 75k, final / min 1.00–1.12). The late-rise guard (final > 1.5x min) therefore
+drops all 6 controls at N = 500 and 1000, 2 of 3 at N = 2000 and all 3 at N = 4000. Without the guard,
+the first crossing falls on the initial descent, before the silencing. Meanwhile r2_common, scored
+under the shared noise, IMPROVES 0.946 → 0.952 over the same window. So the noise-free loss and the
+deck's score disagree on these networks. This is the same failure `fig_knobs_at_floor` documents for
+the flip-flop input-scale ladder. No at-floor multiplier is reported until a loss series is chosen.
+The fixed-budget table stands only as an end-of-training read-out.
