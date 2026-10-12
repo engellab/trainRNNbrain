@@ -322,8 +322,8 @@ def aicc(rss, n, k):
 # A TASK THAT STALLS (DMTS sits at the constant-output solution for 200 to 155,000 iterations
 # before it escapes) is fitted from its escape, not from iteration 0: a stretched exponential
 # cannot describe a plateau followed by a drop. The escape is where the running median first
-# falls below half the starting level; for the flip-flop and CDDM that is within the first few
-# hundred iterations, and the fit is unchanged.
+# falls below half the level of the first 50 iterations; for the flip-flop and CDDM that is within
+# the first few hundred iterations, and the fit is unchanged.
 
 NOISY_SMOOTH = 2001     # iterations in the running median the read-out is taken on
 FLOOR_DELTA = 0.05      # read at 1.05x the fitted floor (1.07x before 2026-10-12)
@@ -405,7 +405,10 @@ def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
         return out
     rm = median_filter(L, size=smooth, mode="nearest")
     out["smoothed"] = rm
-    start = np.median(L[100:400])
+    # the starting level is the first 50 iterations: CDDM halves its loss within ~100, so a later
+    # window already sits near the bottom and the escape is never found; DMTS's stall (~0.07) is
+    # still above half of its first-50 level (~0.09), so its escape is caught where it happens
+    start = np.median(L[:50])
     esc = np.flatnonzero(rm < 0.5 * start)
     if not len(esc):
         out["reason"] = "never leaves its starting level"
