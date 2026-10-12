@@ -28,20 +28,13 @@ METHOD, one network at a time:
 
 TWO READ-OUTS.
   end    the run's own end state (LastParams). Every standard control on disk has this.
-  floor  the weights where the network's loss first reaches 1.05x its own fitted floor - the
-         project's read-out. Only runs trained with `+trainer.checkpoint_keep=true` have weights
-         there (slurm/SilentReLU_c1_snapshots_della.slurm). The floor is fitted, with
-         pr_matrix.fit_floor_at / excess_time_at at delta = 0.05, on TWO series, and the snapshot
-         nearest each usable crossing is ablated separately (readout floor_clean / floor_heldout):
-           clean    the trace's noise-free training-batch loss, the project's standard series;
-           heldout  the held-out loss of every kept snapshot under the training noise, with the
-                    same seeded draws - the objective these networks actually minimise.
-         A crossing is unusable when the fit sits on the 1e-6 bound, the loss never reaches the
-         bar, or the smoothed loss ends more than 1.5x above its minimum. Measured on the existing
-         standard controls (2026-10-12): on CDDM both series are usable, the noisy one crossing
-         later (25-32k against 8-32k); on the flip-flop the clean loss climbs 3-4x after its
-         minimum and the noisy one is still falling at 75k (no crossing in 9 of 16 runs); on DMTS
-         both climb back in most runs.
+  floor  the weights where the network's NOISY loss - the loss it is trained on - first reaches
+         1.05x its own fitted floor (common.noisy_floor: running median over 2,001 iterations,
+         fitted from the escape for a task that stalls; the rule since 2026-10-12). Only runs
+         trained with `+trainer.checkpoint_keep=true` have weights there
+         (slurm/SilentReLU_c1_snapshots_della.slurm). The kept snapshots are collected along the
+         run's whole warm-start chain, so a continuation to 200k is read anywhere from 0 to 200k,
+         and the snapshot nearest the crossing is ablated.
 
 GATES, written into every result and printed: the unablated network's score with its own noise on a
 training-distribution batch against the score in its folder name (end read-out, +-0.03), and the
@@ -49,10 +42,10 @@ offline active count against the trace's count at the nearest stored probe.
 
 Usage (on a GPU node; the Mac has no environment):
   python ablate_silent_units.py end   <run_dir>              [--out DIR]
-  python ablate_silent_units.py floor <run_dir> <snap_dir>   [--out DIR]
+  python ablate_silent_units.py floor <run_dir>              [--out DIR] [--snap-root DIR]
+  python ablate_silent_units.py retrain <run_dir>            [--out DIR]   (prune, then fine-tune)
   python ablate_silent_units.py summary                      [--out DIR]   (one row per cell)
     run_dir   a finished run folder (holds *_config.yaml, *LastParams*, *ParticipationTrace.pkl)
-    snap_dir  its kept-snapshot folder: <checkpoint_to>/<Task>_<tag>/s<seed>/ holding it<iters>/
 Output: one JSON per network and read-out in --out (default /scratch/gpfs/TENGEL/pt1290/c1_ablation).
 """
 
@@ -76,12 +69,12 @@ import heldout_r2 as H                                    # noqa: E402  (also pu
 from trainRNNbrain.training.training_utils import prepare_task_arguments, get_training_mask  # noqa: E402
 from trainRNNbrain.trainer.Trainer import Trainer, scored_  # noqa: E402
 from trainRNNbrain.utils import import_any, filter_kwargs  # noqa: E402
+from common import warm_start_chain, noisy_loss_series, noisy_floor  # noqa: E402
 
 DRAWS = 9                    # noise draws per score, as heldout_r2.DRAWS
 RANDOM_ORDERS = 5            # independent random removal orders per network
 SILENT_REL = 0.05            # active = p >= SILENT_REL * q95(p), the project's scale-free rule
 FLOOR_DELTA = 0.05           # read at 1.05x the fitted floor (tightened from 0.07 on 2026-10-12)
-MAX_LATE_RISE = 1.5          # smoothed end / smoothed minimum above this: no usable floor
 NOISE_SEED = 1000            # draw d of every score uses generator seed NOISE_SEED + d
 BATCH_SEED = 20261012        # seeds the held-out and ordering batches
 OUT = "/scratch/gpfs/TENGEL/pt1290/c1_ablation"
@@ -315,73 +308,121 @@ def snapshot_series(snap_dir):
     return np.asarray(its), files
 
 
-def crossing(L, it, smooth_w):
-    """The 1.05x own-floor read-out of one loss series, with the project's guards.
+SNAP_ROOT = "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots"
+
+
+def chain_snapshots(run_dir, snap_root=SNAP_ROOT):
+    """Every weight state along a run's warm-start chain: kept snapshots and each segment's end.
+
+    A run's kept snapshots live in <snap_root>/<taskname>_<experiment_tag>/s<seed>/it<iteration>/,
+    named by absolute iteration; each segment's end state is its LastParams.
 
     Args:
-        L, it: the loss series and its iterations.
-        smooth_w: samples in the box mean used for the late-rise guard.
+        run_dir: a finished run (possibly a continuation); snap_root: where kept snapshots live.
     Returns:
-        dict: floor, t_star, late_rise, degenerate, usable. `usable` needs a fitted floor above the
-        1e-6 bound, a crossing, and a smoothed end no more than MAX_LATE_RISE x the smoothed minimum
-        (a loss that climbs back after its minimum has a fitted floor on its late plateau, and its
-        first crossing then lands on the initial descent).
+        (iterations, parameter files), sorted by iteration, one file per iteration.
     """
-    from pr_matrix import fit_floor_at, excess_time_at
-    ok = np.isfinite(L)
-    L, it = np.asarray(L, float)[ok], np.asarray(it, float)[ok]
-    floor = fit_floor_at(L, it, it[-1])
-    t_star = excess_time_at(L, it, floor, FLOOR_DELTA) if floor is not None else float("nan")
-    w = min(smooth_w, len(L))
-    sm = np.convolve(L, np.ones(w) / w, mode="valid")
-    out = dict(floor=floor, t_star=float(t_star), late_rise=float(sm[-1] / sm.min()),
-               degenerate=bool(floor is not None and floor <= 1.01e-6))
-    out["usable"] = bool(floor is not None and not out["degenerate"] and np.isfinite(t_star)
-                         and out["late_rise"] <= MAX_LATE_RISE)
-    return out
+    found = {}
+    for d in warm_start_chain(run_dir):
+        cfg = OmegaConf.load(sorted(glob.glob(os.path.join(d, "*_config.yaml")))[0])
+        sd = os.path.join(snap_root, f"{cfg.task.taskname}_{cfg.experiment_tag}", f"s{cfg.seed}")
+        for it, f in zip(*snapshot_series(sd)):
+            found[int(it)] = f
+        last = sorted(glob.glob(os.path.join(d, "*LastParams*.np[zy]"))
+                      or glob.glob(os.path.join(d, "*LastParams*.json")))
+        off = cfg.trainer.get("iter_offset", 0)
+        if last:
+            found[(int(off) if isinstance(off, (int, float)) else 0) + int(cfg.trainer.max_iter)] = last[0]
+    its = sorted(found)
+    return np.asarray(its), [found[i] for i in its]
 
 
-def floor_points(run_dir, snap_dir, batches_for):
-    """The run's 1.05x-floor crossings on two loss series, and the kept snapshot nearest each.
+RETRAIN_ITERS = 3000         # fine-tuning budget after a removal (~3% of a training run)
+RETRAIN_EVERY = 250          # held-out score recorded every this many fine-tuning iterations
 
-    "clean"    the trace's noise-free loss on the training batch (`loss_clean_train`, every 10
-               iterations) - the project's standard series.
-    "heldout"  the held-out loss under the training noise, scored on every kept snapshot with the
-               same seeded draws - the training objective, which these networks actually minimise.
-    On CDDM both are usable; on the flip-flop and DMTS the clean loss climbs back after its minimum
-    and fails the late-rise guard, which is why the second series exists.
+
+def retrain_curve(cfg, rnn, params, removed, batches, iters=RETRAIN_ITERS):
+    """Remove `removed` and fine-tune what is left as the network was trained; score along the way.
+
+    Separates "the silent units compute something" from "removing them perturbs a tuned system":
+    if the pruned network recovers its score within a short fine-tune while held without those units,
+    the task never needed them. Training matches run_experiment: Adam at the N-scaled learning rate
+    with the run's weight decay, the masked task MSE under the training noise, gradient clipping at
+    max_grad_norm, fresh training batches. The removed units' outgoing weights are re-zeroed after
+    every step, so they stay out.
 
     Args:
-        run_dir: the finished run (its LastParams is the series' last point).
-        snap_dir: its kept-snapshot folder.
-        batches_for: callable(cfg, device) -> seeded batches.
+        cfg, rnn: the run's config and its built network; params: the trained tensors to start from;
+        removed: unit indices held out (empty = intact control); batches: seeded_batches output.
     Returns:
-        dict with the held-out series and, per series, the crossing dict plus the chosen snapshot.
+        list of (iteration, held-out r2) pairs, iteration 0 being straight after removal.
     """
-    its, files = snapshot_series(snap_dir)
-    last = sorted(glob.glob(os.path.join(run_dir, "*LastParams*.np[zy]"))
-                  or glob.glob(os.path.join(run_dir, "*LastParams*.json")))[0]
-    cfg = OmegaConf.load(sorted(glob.glob(os.path.join(run_dir, "*_config.yaml")))[0])
-    its = np.r_[its, int(cfg.trainer.max_iter)]
-    files = files + [last]
-    cfg, rnn = build(run_dir, load_params(files[0]))
-    batches = batches_for(cfg, rnn.device)
-    mse = []
-    for f in files:
-        set_params(rnn, load_params(f))
-        mse.append(Scorer(rnn, batches["ho"])()[1])
-    out = dict(series_iters=its.tolist(), series_heldout_mse=mse)
-    out["heldout"] = crossing(np.asarray(mse), its, smooth_w=5)
-    tr = trace_of(run_dir)
-    if tr is not None and "loss_clean_train" in tr.get("metrics", {}):
-        out["clean"] = crossing(np.asarray(tr["metrics"]["loss_clean_train"], float),
-                                np.asarray(tr["iters"], float), smooth_w=201)
-    for kind in ("clean", "heldout"):
-        c = out.get(kind)
-        if c is not None and np.isfinite(c["t_star"]):
-            j = int(np.argmin(np.abs(its - c["t_star"])))
-            c["snapshot_iter"], c["snapshot_file"] = int(its[j]), files[j]
-    return out
+    set_params(rnn, params)
+    idx = torch.as_tensor(np.ascontiguousarray(removed, dtype=np.int64), device=rnn.device)
+    task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
+    mask = torch.as_tensor(np.asarray(get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)),
+                           device=rnn.device)
+    lr = float(cfg.trainer.lr) * (100.0 / float(cfg.model.N)) ** float(cfg.trainer.lr_scale_exp)
+    prms = [q for q in rnn.parameters() if q.requires_grad]
+    opt = torch.optim.Adam(prms, lr=lr, weight_decay=float(cfg.trainer.weight_decay))
+    bi_ho, bt_ho, m_ho = batches["ho"]
+
+    def hold_out():
+        if idx.numel():
+            with torch.no_grad():
+                rnn.W_rec[:, idx] = 0.0
+                rnn.W_out[:, idx] = 0.0
+
+    def score():
+        with torch.no_grad():
+            vals = []
+            for d in range(DRAWS):
+                rnn.random_generator.manual_seed(NOISE_SEED + d)
+                vals.append(Trainer.r2_score(rnn(bi_ho, w_noise=True)[1], bt_ho, m_ho))
+        return float(np.mean(vals))
+
+    hold_out()
+    curve = [(0, score())]
+    rnn.random_generator.manual_seed(BATCH_SEED)
+    for it in range(1, iters + 1):
+        bi, bt, _ = task.get_batch()
+        bi = torch.as_tensor(np.asarray(bi), dtype=torch.float32, device=rnn.device)
+        bt = torch.as_tensor(np.asarray(bt), dtype=torch.float32, device=rnn.device)
+        out = rnn(bi, w_noise=True)[1]
+        loss = ((scored_(out, mask) - scored_(bt, mask)) ** 2).mean()
+        opt.zero_grad(set_to_none=True)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(prms, max_norm=float(cfg.trainer.max_grad_norm))
+        opt.step()
+        hold_out()
+        if it % RETRAIN_EVERY == 0:
+            curve.append((it, score()))
+    return curve
+
+
+def retrain_test(run_dir, out_dir, label, extra):
+    """Prune the silent units, or as many at random, and fine-tune; intact network fine-tuned as control."""
+    params_file = sorted(glob.glob(os.path.join(run_dir, "*LastParams*.np[zy]"))
+                         or glob.glob(os.path.join(run_dir, "*LastParams*.json")))[0]
+    params = load_params(params_file)
+    cfg, rnn = build(run_dir, params)
+    batches = seeded_batches(cfg, rnn.device)
+    with torch.no_grad():
+        states = rnn(batches["tr"][0], w_noise=False)[0]
+        p = participation(states).cpu().numpy()
+        del states
+    N = len(p)
+    silent = np.where(p < SILENT_REL * np.quantile(p, 0.95))[0]
+    rnd = np.random.default_rng(zlib.crc32(label.encode())).permutation(N)[:len(silent)]
+    res = dict(extra, label=label, N=N, n_silent=int(len(silent)), params_file=params_file,
+               retrain_iters=RETRAIN_ITERS)
+    for name, removed in (("intact", []), ("silent_removed", silent), ("random_removed", rnd)):
+        res[name] = retrain_curve(cfg, rnn, params, removed, batches)
+        c = res[name]
+        print(f"  {label} {name:15s}: r2 {c[0][1]:.4f} after removal -> {c[-1][1]:.4f} after "
+              f"{RETRAIN_ITERS} fine-tuning iterations")
+    with open(os.path.join(out_dir, label + ".json"), "w") as fh:
+        json.dump(res, fh)
 
 
 def summary(out_dir):
@@ -415,9 +456,9 @@ def summary(out_dir):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("readout", choices=["end", "floor", "summary"])
+    ap.add_argument("readout", choices=["end", "floor", "retrain", "summary"])
     ap.add_argument("run_dir", nargs="?")
-    ap.add_argument("snap_dir", nargs="?")
+    ap.add_argument("--snap-root", default=SNAP_ROOT, help="where kept snapshots live")
     ap.add_argument("--out", default=OUT)
     ap.add_argument("--quick", action="store_true",
                     help="smoke test: one noise draw, one random order, three removal counts")
@@ -436,6 +477,9 @@ def main():
     label = f"{sweep}__{cell}__s{seed.group(1) if seed else 'na'}__{a.readout}"
     extra = dict(run_dir=run_dir, sweep=sweep, cell=cell, readout=a.readout)
 
+    if a.readout == "retrain":
+        retrain_test(run_dir, a.out, label, extra)
+        return
     if a.readout == "end":
         params_file = sorted(glob.glob(os.path.join(run_dir, "*LastParams*.np[zy]"))
                              or glob.glob(os.path.join(run_dir, "*LastParams*.json")))[0]
@@ -447,28 +491,23 @@ def main():
         batches = seeded_batches(cfg, rnn.device)
         extra["gates"] = gates(rnn, batches, run_dir, iteration, check_name_r2=True)
     else:
-        if not a.snap_dir:
-            raise SystemExit("floor read-out needs the run's kept-snapshot folder")
-        fp = floor_points(run_dir, a.snap_dir, seeded_batches)
-        with open(os.path.join(a.out, label + "_points.json"), "w") as fh:
-            json.dump(dict(extra, floor_points=fp), fh)
-        for kind in ("clean", "heldout"):
-            c = fp.get(kind) or {}
-            tag = f"{label}_{kind}"
-            print(f"  {tag}: floor {c.get('floor')}, T* {c.get('t_star')}, "
-                  f"late rise {c.get('late_rise', float('nan')):.2f}, usable {c.get('usable')}")
-            if not c.get("usable"):
-                continue
-            cfg, rnn = build(run_dir, load_params(c["snapshot_file"]))
-            batches = seeded_batches(cfg, rnn.device)
-            ex = dict(extra, readout=f"floor_{kind}", iteration=c["snapshot_iter"],
-                      params_file=c["snapshot_file"], floor_point=c,
-                      gates=gates(rnn, batches, run_dir, c["snapshot_iter"], check_name_r2=False))
-            print(f"  gates: {ex['gates']}")
-            res = ablate(rnn, batches, tag, ex)
-            with open(os.path.join(a.out, tag + ".json"), "w") as fh:
-                json.dump(res, fh)
-        return
+        it, L = noisy_loss_series(run_dir)
+        fl = noisy_floor(it, L) if L is not None else dict(reason="no noisy loss", t_star=np.nan)
+        fl.pop("smoothed", None)
+        extra["floor_read"] = fl
+        if fl["reason"] is not None:
+            print(f"  {label}: no floor read-out - {fl['reason']}")
+            with open(os.path.join(a.out, label + "_noread.json"), "w") as fh:
+                json.dump(extra, fh)
+            return
+        its, files = chain_snapshots(run_dir, a.snap_root)
+        j = int(np.argmin(np.abs(its - fl["t_star"])))
+        print(f"  {label}: floor {fl['floor']:.3e}, escape {fl['escape']:,.0f}, crossing "
+              f"{fl['t_star']:,.0f}; nearest weights at {its[j]:,} ({len(its)} states on the chain)")
+        cfg, rnn = build(run_dir, load_params(files[j]))
+        extra.update(iteration=int(its[j]), params_file=files[j])
+        batches = seeded_batches(cfg, rnn.device)
+        extra["gates"] = gates(rnn, batches, run_dir, int(its[j]), check_name_r2=False)
     print(f"  gates: {extra['gates']}")
     res = ablate(rnn, batches, label, extra)
     with open(os.path.join(a.out, label + ".json"), "w") as fh:

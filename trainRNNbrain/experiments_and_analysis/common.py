@@ -304,6 +304,146 @@ def aicc(rss, n, k):
 
 
 # --------------------------------------------------------------------------------------------
+# THE READ-OUT: where a run's NOISY loss first reaches 1.05x its own fitted floor
+# --------------------------------------------------------------------------------------------
+#
+# The rule since 2026-10-12 (Pavel): performance and convergence are read on the loss the network
+# was trained on - the masked MSE under its training noise - never on the noise-free probe. On the
+# standard (bias-0) flip-flop the noise-free loss bottoms out near 10k iterations and climbs back
+# 2-4x while the noisy loss keeps falling; these networks come to depend on their noise, so the
+# noise-free loss is the wrong yardstick.
+#
+# THE SERIES COSTS NOTHING EXTRA. The trainer computes the noisy loss at every step, on a fresh
+# batch with fresh noise, and saves it (TrainLosses.json). A running median over NOISY_SMOOTH
+# iterations is an average over that many noise draws and batches, so no evaluation is added to
+# training. A median rather than a mean, because DMTS spikes back to chance for brief episodes
+# (1,300-3,900 spiking iterations per run) and a mean is dragged up by them.
+#
+# A TASK THAT STALLS (DMTS sits at the constant-output solution for 200 to 155,000 iterations
+# before it escapes) is fitted from its escape, not from iteration 0: a stretched exponential
+# cannot describe a plateau followed by a drop. The escape is where the running median first
+# falls below half the starting level; for the flip-flop and CDDM that is within the first few
+# hundred iterations, and the fit is unchanged.
+
+NOISY_SMOOTH = 2001     # iterations in the running median the read-out is taken on
+FLOOR_DELTA = 0.05      # read at 1.05x the fitted floor (1.07x before 2026-10-12)
+MAX_LATE_RISE = 1.5     # smoothed end over smoothed minimum after the escape; above it, no read-out
+FIT_START = 2000        # the floor is fitted from this iteration, or 200 after the escape if later
+FLOOR_BOUND = 1e-6      # the fit's lower bound on the floor; a fit pinned there is no floor
+
+
+def warm_start_chain(run_dir):
+    """A run and every run it was warm-started from, oldest first.
+
+    Follows `paths.init_from` in each saved config. A parent that is not at its recorded path (a
+    local copy) is looked for as a nested `parent_*` folder, the way the top-up sync stores it.
+
+    Args:
+        run_dir: a trained-network folder.
+    Returns:
+        list of run folders, the original run first and `run_dir` last.
+    """
+    from omegaconf import OmegaConf
+    chain, d = [], run_dir.rstrip("/")
+    while d and d not in chain:
+        chain.append(d)
+        cfgs = sorted(glob.glob(os.path.join(d, "*_config.yaml")))
+        parent = None
+        if cfgs:
+            paths = OmegaConf.load(cfgs[0]).get("paths", {}) or {}
+            parent = paths.get("init_from", None)
+        if parent and not os.path.isdir(parent):
+            nested = sorted(glob.glob(os.path.join(d, "parent_*", "")))
+            parent = nested[0].rstrip("/") if nested else None
+        d = parent.rstrip("/") if parent else None
+    return chain[::-1]
+
+
+def noisy_loss_series(run_dir):
+    """The per-iteration noisy training loss of a run, its whole warm-start chain joined.
+
+    Args:
+        run_dir: a trained-network folder.
+    Returns:
+        (iterations, loss) float arrays, iterations absolute (1-based), or (None, None).
+    """
+    its, Ls = [], []
+    done = 0
+    for d in warm_start_chain(run_dir):
+        tl = sorted(glob.glob(os.path.join(d, "*TrainLosses.json")))
+        if not tl:
+            return None, None
+        with open(tl[0]) as fh:
+            L = np.asarray(json.load(fh).get("train_losses", []), float)
+        its.append(done + np.arange(1, len(L) + 1, dtype=float))
+        Ls.append(L)
+        done += len(L)
+    if not Ls:
+        return None, None
+    return np.concatenate(its), np.concatenate(Ls)
+
+
+def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
+    """Where a run's noisy loss first reaches (1+delta) x its own fitted floor.
+
+    Args:
+        it, L: the per-iteration noisy loss and its iterations (noisy_loss_series).
+        delta: the margin; smooth: running-median window, in samples.
+    Returns:
+        dict: t_star (nan when there is no read-out), floor, escape, late_rise, reason (None when
+        the read-out is usable), and `smoothed` (the running median the crossing is read on).
+    """
+    from scipy.ndimage import median_filter
+    from scipy.optimize import least_squares
+    it, L = np.asarray(it, float), np.asarray(L, float)
+    ok = np.isfinite(L)
+    it, L = it[ok], L[ok]
+    out = dict(t_star=float("nan"), floor=None, escape=float("nan"), late_rise=float("nan"),
+               reason=None)
+    if len(L) < 4 * smooth:
+        out["reason"] = "series too short"
+        return out
+    rm = median_filter(L, size=smooth, mode="nearest")
+    out["smoothed"] = rm
+    start = np.median(L[100:400])
+    esc = np.flatnonzero(rm < 0.5 * start)
+    if not len(esc):
+        out["reason"] = "never leaves its starting level"
+        return out
+    t0 = float(it[esc[0]])
+    out["escape"] = t0
+    m = it >= max(FIT_START, t0 + 200)
+    tb, yb = logbin(it[m] - t0, L[m])
+    if len(tb) < 8:
+        out["reason"] = "too little training after the escape"
+        return out
+    lo, hi = [FLOOR_BOUND, 1e-6, 1e2, .05], [1., 1e3, 1e9, 3.]
+    p0 = np.clip([yb.min() * .9, float(yb.max()), 2e4, .4], np.array(lo) * 1.01, np.array(hi) * .99)
+    try:
+        fit = least_squares(lambda p: np.log(np.clip(stretched(tb, *p), 1e-12, None)) - np.log(yb),
+                            p0, bounds=(lo, hi), max_nfev=20000).x
+    except Exception:
+        out["reason"] = "floor fit failed"
+        return out
+    floor = float(fit[0])
+    out["floor"], out["fit"] = floor, [float(v) for v in fit]
+    after = it >= t0 + 200
+    out["late_rise"] = float(rm[-1] / rm[after].min())
+    if floor <= FLOOR_BOUND * 1.01:
+        out["reason"] = "fit pinned at its lower bound"
+        return out
+    if out["late_rise"] > MAX_LATE_RISE:
+        out["reason"] = f"loss climbs back {out['late_rise']:.1f}x after its minimum"
+        return out
+    hit = np.flatnonzero(m & (rm <= (1.0 + delta) * floor))
+    if not len(hit):
+        out["reason"] = "never reaches the bar"
+        return out
+    out["t_star"] = float(it[hit[0]])
+    return out
+
+
+# --------------------------------------------------------------------------------------------
 # sweep loading
 # --------------------------------------------------------------------------------------------
 

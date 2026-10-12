@@ -3,8 +3,8 @@
 #
 # One array task per line of $LIST. Each line is
 #   end   <run_dir>               ablate the run's end state (LastParams)
-#   floor <run_dir> <snap_dir>    fit the held-out loss floor over its kept snapshots and ablate the
-#                                 snapshot where the loss first reaches 1.05x that floor
+#   floor <run_dir>               ablate the kept snapshot nearest where the run's noisy loss first
+#                                 reaches 1.05x its fitted floor
 # See trainRNNbrain/experiments_and_analysis/ablate_silent_units.py for the method.
 #
 # Per network at N = 1000, ~2,500 forward passes (9 noise draws x ~40 removal counts x 3 orders
@@ -43,27 +43,25 @@ echo "code: $REPO @ $(git -C "$REPO" rev-parse --short HEAD 2>/dev/null)"
 cd /scratch/gpfs/TENGEL/pt1290
 ABL="$REPO/trainRNNbrain/experiments_and_analysis/ablate_silent_units.py"
 
-# SNAPSHOT=<Task> instead of LIST: the runs of slurm/SilentReLU_c1_snapshots_della.slurm for that task
-# (CDDM, NBitFlipFlop or DMTS), found on disk when the task starts, so this array can be queued
-# behind the training array with --dependency. Each run is read at its floor (both loss series)
-# and at its end, so the same network is compared across the two read-outs.
+# SNAPSHOT=<Task> instead of LIST: the runs of the claim-1 snapshot sweep for that task (CDDM,
+# NBitFlipFlop or DMTS), found on disk when the task starts, so this array can be queued behind the
+# training array with --dependency. SWEEP overrides the folder (the flip-flop is read from its 200k
+# continuations, NBitFlipFlop_c1_snapshots_c200000). Each run is read at its noisy-loss floor -
+# the kept snapshots are collected along its warm-start chain - and at its end.
 #   SNAPSHOT=CDDM sbatch --dependency=afterany:<training job> --array=1-3 slurm/SilentReLU_c1_ablation_della.slurm
 if [ -n "${SNAPSHOT:-}" ]; then
   DATA="${DATA:-$HOME/trainRNNbrain/data/trained_RNNs}"
-  SNAP_TO="${SNAP_TO:-/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots}"
-  mapfile -t RUNS < <(ls -d "$DATA/${SNAPSHOT}_c1_snapshots"/EqType=*/*/ 2>/dev/null | sort)
+  SWEEP="${SWEEP:-${SNAPSHOT}_c1_snapshots}"
+  mapfile -t RUNS < <(ls -d "$DATA/$SWEEP"/EqType=*/*/ 2>/dev/null | sort)
   RUN_DIR="${RUNS[$((SLURM_ARRAY_TASK_ID - 1))]%/}"
-  [ -n "$RUN_DIR" ] || { echo "FATAL: no run $SLURM_ARRAY_TASK_ID for $SNAPSHOT" >&2; exit 1; }
-  SEED=$(basename "$RUN_DIR" | sed -n 's/.*seed=\([0-9]*\).*/\1/p')
-  SNAP_DIR="$SNAP_TO/${SNAPSHOT}_c1_snapshots/$(basename "$(dirname "$RUN_DIR")")/s$SEED"
+  [ -n "$RUN_DIR" ] || { echo "FATAL: no run $SLURM_ARRAY_TASK_ID in $SWEEP" >&2; exit 1; }
   echo "Task ${SLURM_ARRAY_TASK_ID}: $RUN_DIR"
-  echo "  snapshots: $SNAP_DIR ($(ls -d "$SNAP_DIR"/it* 2>/dev/null | wc -l) kept)"
-  python "$ABL" floor "$RUN_DIR" "$SNAP_DIR" --out "$OUT"
+  python "$ABL" floor "$RUN_DIR" --out "$OUT"
   python "$ABL" end "$RUN_DIR" --out "$OUT"
   exit 0
 fi
 
 LINE=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$LIST")
-read -r READOUT RUN_DIR SNAP_DIR <<< "$LINE"
-echo "Task ${SLURM_ARRAY_TASK_ID}: $READOUT $RUN_DIR ${SNAP_DIR:-}"
-python "$ABL" "$READOUT" "$RUN_DIR" ${SNAP_DIR:+"$SNAP_DIR"} --out "$OUT"
+read -r READOUT RUN_DIR <<< "$LINE"
+echo "Task ${SLURM_ARRAY_TASK_ID}: $READOUT $RUN_DIR"
+python "$ABL" "$READOUT" "$RUN_DIR" --out "$OUT"

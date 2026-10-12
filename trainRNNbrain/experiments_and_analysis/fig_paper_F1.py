@@ -1,58 +1,52 @@
 #!/usr/bin/env python3
 """
-Manuscript Figure 1 - THE PROBLEM. Most units of a trained ReLU RNN never fire; the bigger the
-network the worse it gets; it happens on every task; and no standard knob fixes it.
+Manuscript Figure 1 - THE PHENOMENON. Most units of a trained ReLU RNN never fire, the ones that do
+not fire do no work, the bigger the network the larger the silent share, and the silencing goes on
+after the loss has settled. Nothing about remedies: what fails is Figure 2, what works is Figure 3.
 
-This is the motivation figure, so it has to do four things in one display item, and the first row
-has to explain the measurement before the second and third rows quantify it:
+RESTRUCTURED 2026-10-12. Panel (d) used to be "no knob fixes it" - every standard knob as a change
+from its own reference. That is a remedy result and moves to Figure 2; its builder is kept here as
+`panel_knobs` (fig_slides imports this module's helpers). Panel (d) is now the ablation that makes
+"silent" mean "does no work". Every panel reads STANDARD networks (ReLU, bias fixed at 0,
+self-connections on, no Dale, gamma 0): the trainable-bias sweeps the old version drew are gone from
+both clusters.
 
-  (a) THE PROBLEM, AND ONLY THAT       the trained network as a circuit - inputs, a bounded
-                                       recurrent pool with three quarters of it dead, outputs -
-                                       beside eight units drawn at RANDOM out of that same network
-                                       on one trial, on a shared rate scale. Real simulated traces,
-                                       not cartoons. The task is NAMED and not explained: its trial
-                                       structure is the supplementary task figure
-                                       (`fig_supp_tasks.py`), because a panel that explains a task
-                                       and a pathology at once explains neither.
-                                       The arrows inside the pool are a SAMPLE of the connectivity,
-                                       not the connectivity: these networks are dense. Only pairs
-                                       with an empty corridor between them are joined, so no arrow
-                                       crosses a unit. Red arrowheads are excitatory connections and
-                                       blue bars inhibitory ones, in the proportion MEASURED in this
-                                       network's recurrent weights - these networks are not
-                                       sign-constrained, so that is a property of connections, not
-                                       of units.
+  (a) THE PROBLEM, AND ONLY THAT       the trained network as a circuit - inputs, a recurrent pool
+                                       filled to its measured live fraction, outputs - beside eight
+                                       units drawn at RANDOM out of that same network on one trial,
+                                       on a shared rate scale. Real simulated traces, not cartoons.
+                                       The arrows inside the pool are a SAMPLE of the connectivity:
+                                       only pairs with an empty corridor between them are joined, so
+                                       no arrow crosses a unit. Red arrowheads are excitatory and
+                                       blue bars inhibitory connections, in the proportion MEASURED
+                                       in this network's recurrent weights - these networks are not
+                                       sign-constrained, so that is a property of connections.
   (b) WHY "SILENT" IS NOT A JUDGEMENT  the participation distribution of that same network on a log
-                                       axis. It is bimodal with four orders of magnitude of empty
-                                       valley between the modes, so the threshold is read off the
-                                       data rather than chosen; the pictogram states the answer.
-  (c) SIZE MAKES IT WORSE,             active units vs N on all four tasks with participation
-      AND IT IS NOT ONE TASK           traces at more than one size: the 3-bit and 6-bit
-                                       flip-flops, CDDM, and DMTS at a delay of 7 tau. The count
-                                       grows as roughly N^0.46 on three of them, so the FRACTION
-                                       falls: 41% of a 500-unit network, 13% of a 4,000-unit one.
-                                       Extrapolating, 1,000 active units would need N ~ 14,000.
-                                       DMTS is the exception at N^0.87, from three sizes -- its
-                                       projection is marked in the caption output and must not be
-                                       quoted on its own.
-                                       NOT HERE, and why: MemoryAntiAngle was run before
-                                       participation tracking existed and has no traces at all,
-                                       and the Walsh flip-flop has one seed per cell.
-  (d) NO KNOB FIXES IT                 every intervention we tried, as a change from its OWN matched
-                                       reference. The best moves the count by ~120 units; several
-                                       make it worse; weight decay is a monotone poison. For scale,
-                                       the rate penalty of Figure 3 moves it by ~710.
+                                       axis: bimodal with orders of magnitude of empty valley between
+                                       the modes, so the threshold is read off the data.
+  (c) SIZE MAKES IT WORSE              active units vs N on the three tasks, each run read where its
+                                       own loss first reaches 1.05x its own fitted floor. The count
+                                       grows far slower than N, so the active FRACTION falls.
+  (d) THE SILENT UNITS DO NO WORK      held-out r2 as units are removed, quietest first, busiest
+                                       first, and in random order (ablate_silent_units.py). Removing
+                                       every silent unit leaves the score where it was; removing the
+                                       same number at random, or the working few, destroys it.
+  (e) IT DOES NOT STOP                 the loss and the silent count over training, every seed, one
+                                       sub-panel per task, with each run's own 1.05x-floor crossing.
 
 CRITERION. Everything here is the scale-free participation criterion (a unit is silent below 5% of
-its own network's 95th-percentile participation), which is the only criterion that travels across
-tasks and activation functions - the absolute thresholds are calibrated per task and comparing
-across them is how this project once reported a rescue that was not there. Panel (b) shows why the
-scale-free rule lands in the valley rather than on a mode.
+its own network's 95th-percentile participation), the only criterion that travels across tasks and
+activation functions. Panel (b) shows why it lands in the valley rather than on a mode.
 
-READ-OUT DISCIPLINE. Every cell is read at the largest iteration EVERY seed in that cell reaches
-(matched compute), never at each run's own endpoint - reading a slow big network at its end and a
-fast small one at its end confounds size with convergence depth, which is how the k-exponent in an
-earlier version of this project came out positive.
+READ-OUT. 1.05x each run's OWN fitted floor of its NOISY training loss - the loss it was trained on,
+under its training noise - smoothed by a running median over 2,001 iterations (common.noisy_floor;
+the rule since 2026-10-12). The noise-free loss is not used: on the standard flip-flop it bottoms
+out near 10k and climbs back 2-4x while the noisy loss keeps falling. A run with no usable crossing
+(fit on its bound, loss never reaching the bar, loss climbing back > 1.5x) is dropped and counted.
+The learning rate falls with size (lr = 1e-3 (100/N)^(1/3)); reading each network at its own floor
+is how panel (c) handles that confound. ⚠️ The flip-flop's noisy loss is still falling at 75k in
+every control; until its continuations to 200k land, a task with no floor read-out at two or more
+sizes is drawn at the end of its budget, with open markers, and the legend says so.
 
 Usage:  python fig_paper_F1.py [--refresh]      (--refresh re-simulates the example network)
 Output: img/internal_figures/fig_paper_F1.pdf (+ .svg; vector only - see paperstyle.save)
@@ -74,23 +68,25 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Patch
 from matplotlib.path import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 import heldout_r2 as heldout
 from pr_matrix import fit_floor_at, excess_time_at
-from common import DATA_DIR, SILENT_REL, participation
+from common import (DATA_DIR, SILENT_REL, participation, logbin, noisy_loss_series,
+                    noisy_floor, FLOOR_DELTA)
 from flipflop_diversity import rates_and_targets
 from flipflop_fixedpoints import load_net
 
 CACHE = "data/fig_paper_F1_cache.npz"
-# The example network is one of the 150,000-iteration unpenalised runs, NOT one of the 500,000-
-# iteration k-sweep runs, so that the live count shown in panel (a) is the same quantity panel (d)
-# reports for this task (~263/1000). The longer runs sit at ~195 and would contradict the panel
-# below them for no reason other than the budget they happened to be trained for.
-EXAMPLE_NET = "data/trained_RNNs/NBitFlipFlop_std_dropout/EqType=h_k=3_N=1000_pen=none_do=none"
+# The example network is a STANDARD unpenalised 3-bit flip-flop control at N = 1000, read at the end
+# of its 75,000-iteration budget (40k + a 35k top-up, one continuous trace). The flip-flop has no
+# usable floor read-out (its noise-free loss climbs back after its minimum), so the end of budget is
+# the read-out this task has; the count shown is the one panel (c) draws for this task at N = 1000.
+# Until 2026-10-12 this was a trainable-bias network (NBitFlipFlop_std_dropout).
+EXAMPLE_NET = f"{DATA_DIR}/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N=1000_pen=none_arm=none"
 N_TRIALS = 24
 N_UNITS = 1000            # every intervention family is measured at this size
 
@@ -116,66 +112,44 @@ SILENT_GREY = "#c9c8c0"   # one grey for "silent", in the drawing and in the tra
 ACTIVE_COL = ps.SLOTS[1]  # red: active units, their traces, and their count
 EXC_COL, INH_COL = ps.SLOTS[1], ps.SLOTS[0]   # excitatory / inhibitory connections
 
-# A series listed here is drawn, with every seed, but NOT fitted. The exponent would be quoted, and
-# an exponent one seed can move by 0.3 is not a measurement. 8-bit at N = 2000: two seeds sit at
-# 403/440 active at the 100k read-out and the third at 1051, because it silences on a much slower
-# schedule - by the end of training the three agree (297/306/387) and the series gives N^0.45, in
-# the same band as every other task. At 100k it gives N^0.65. The read-out rule is not changed for
-# one series, so the points are shown and the line is not.
+# A series listed here is drawn, with every seed, but NOT fitted (task -> reason). The exponent
+# would be quoted, and an exponent one seed can move by 0.3 is not a measurement. None at present.
 NO_FIT = {}
 
-# (label, glob, read-out cap). The cap is the iteration the manuscript reads that family at; the
-# actual read-out is min(cap, the last iteration every seed reaches), reported on the panel.
-FF = f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N={{N}}_iters=*"
-# k = 6, not 8. The k-sweep runs to k = 8, but the 8-bit N = 2000 cell reads 403 / 440 / 1051 at the
-# matched read-out - one seed silences on a much slower schedule and moves the exponent from 0.45 to
-# 0.65 on its own. k = 6 is the same demand in kind (64 stable states against 8) with the tightest
-# cells in the sweep: the worst coefficient of variation over its three sizes is 0.076, against
-# 0.576 at k = 8, so it can be fitted like the others.
-FF6 = f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=6_N={{N}}_iters=*"
+# (label, {N: glob}, budget, colour). STANDARD controls only, re-sourced 2026-10-12: the trainable-bias
+# k-sweep, big-N and drift sweeps this panel used are on neither cluster any more. Each series is one
+# experiment at every size - same task, same model, same trainer, only N (and the N-scaled learning
+# rate) differ:
+#   3-bit flip-flop  the unpenalised control of the remedy grid, 40k + a 35k top-up = 75k
+#                    (NBitFlipFlop_ff_revive_c75000 arm=none at N <= 2000; the paper grid's control at
+#                    N = 4000, the same configuration).
+#   CDDM             the paper grid's control, 100k.
+#   DMTS             the paper grid's control at a 5 tau delay, 150k. At 7 tau the unpenalised
+#                    network solved 2 of 3 seeds at two sizes; at 5 tau it solves 8 of 9.
+# The 6-bit flip-flop series is gone: it was never re-run on the standard network.
+FF75 = f"{DATA_DIR}/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N={{N}}_pen=none_arm=none"
+DMTS_LABEL = "DMTS, 5$\\tau$ delay"
 SCALING = {
     "3-bit flip-flop": ([500, 1000, 2000, 4000], {
-        500:  FF.format(N=500),
-        1000: FF.format(N=1000),
-        2000: FF.format(N=2000),
-        4000: f"{DATA_DIR}/NBitFlipFlop_std_bigN/EqType=h_k=3_N=4000_pen=none_iters=*",
-    }, 100_000, ps.SLOTS[0]),
-    # N=4000 comes from the big-N sweep rather than the k-sweep, exactly as the k=3 series does.
-    # Verified from the two cells' own saved configs that they are the same experiment: task
-    # (T, mu, n_flip_steps, batch_size, k), model (equation type, gamma, spectral radius, all three
-    # noise levels, bias range) and trainer (lr rule, weight decay, anneal_noise, every lambda,
-    # dropout) are identical; only N differs.
-    "6-bit flip-flop": ([500, 1000, 2000, 4000], {
-        500:  FF6.format(N=500),
-        1000: FF6.format(N=1000),
-        2000: FF6.format(N=2000),
-        4000: f"{DATA_DIR}/NBitFlipFlop_std_bigN/EqType=h_k=6_N=4000_pen=none_iters=*",
-    }, 100_000, ps.SLOTS[3]),
-    "CDDM": ([500, 1000, 2000, 5000], {
-        N: f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N={N}_iters=*" for N in (500, 1000, 2000, 5000)
+        500:  FF75.format(N=500),
+        1000: FF75.format(N=1000),
+        2000: FF75.format(N=2000),
+        4000: f"{DATA_DIR}/NBitFlipFlop_paper_grid_c75000/EqType=h_N=4000_arm=control",
+    }, 75_000, ps.SLOTS[0]),
+    "CDDM": ([500, 1000, 2000, 4000], {
+        N: f"{DATA_DIR}/CDDM_paper_grid/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000, 4000)
     }, 100_000, ps.SLOTS[1]),
-    # DMTS_d7_pen, at a delay of exactly 7 tau (70 steps of dt = 1 with tau = 10, from the sample
-    # going off at t = 40 to the match arriving at t = 110). The series named DMTS_v2_pen that this
-    # entry used to point at is on no disk we have; the panel silently dropped DMTS for as long as
-    # that reference stood, which is why the dangling glob is recorded here rather than deleted.
-    # No N = 4000 cell was ever run: at 150,000 iterations it needs ~45 h per seed.
-    "DMTS, 7$\\tau$ delay": ([500, 1000, 2000], {
-        N: f"{DATA_DIR}/DMTS_d7_pen/EqType=h_N={N}_pen=none" for N in (500, 1000, 2000)
+    DMTS_LABEL: ([500, 1000, 2000], {
+        N: f"{DATA_DIR}/DMTS_paper_grid_d5/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000)
     }, 150_000, ps.SLOTS[2]),
 }
 
 # ⚠️ A NETWORK THAT NEVER LEARNED THE TASK IS NOT EVIDENCE ABOUT HOW MANY UNITS THE TASK NEEDS.
-# Unpenalised DMTS at this delay is bimodal per seed: it either solves the task or sits at the
-# constant-output solution. Of the nine seeds, two land at r2 = 0.4275 and 0.4278 -- the same
-# number to three decimals, which is what a constant output scores -- and the other seven at
-# 0.9837 to 0.9995. Nothing lies between 0.43 and 0.98, so the cut is read off an empty valley
-# rather than chosen; 0.8 is stated here because it sits in that valley, and it was set after
-# seeing the split, not before. The excluded seeds are N = 500 (one of three) and N = 2000 (one
-# of three), leaving those two cells at n = 2.
-#
-# No other series needs this. The flip-flop and CDDM sweeps have no chance-level runs, and
-# diverged runs are already dropped by name in traces_of.
-TASK_MIN_R2 = {"DMTS, 7$\\tau$ delay": 0.8}
+# Unpenalised DMTS is bimodal per seed: it either solves the task or sits at the constant-output
+# solution, which scores r2 ~ 0.42-0.43. At 5 tau one seed of nine does (N = 2000, 0.418) and every
+# other lands at 0.994-0.9995, so 0.8 sits in an empty valley. The flip-flop and CDDM have no
+# chance-level runs; diverged runs are dropped by name in traces_of.
+TASK_MIN_R2 = {DMTS_LABEL: 0.8}
 
 # Every intervention we ran, grouped into families that share a task, an architecture, a read-out
 # iteration AND a silence criterion. The panel plots a CHANGE from each family's OWN reference,
@@ -293,7 +267,7 @@ SCALING_EXCLUSIONS = {
     ("CDDM", 10000): "only reaches 80,000 iterations, so it cannot join a 100,000-iteration "
                      "matched-compute read-out; quoted separately in Methods",
 }
-COVERAGE_CACHE = "data/fig_paper_F1_coverage.pkl"
+COVERAGE_CACHE = "data/fig_paper_F1_coverage_v2.pkl"   # v2: the signature gained T, bias, remedies
 
 
 def _signature(cfg):
@@ -307,12 +281,17 @@ def _signature(cfg):
     Returns:
         a hashable tuple, or None if the config is missing a field we need.
     """
+    # The trial length, the bias range and the remedy switches are part of the identity: without
+    # them a trainable-bias 30k sweep, and DMTS at a 7 tau delay, were reported as missing sizes of
+    # the standard series (2026-10-12).
     try:
         t, m, tr = cfg.task, cfg.model, cfg.trainer
-        return (str(t.taskname), int(t.n_inputs), int(t.n_outputs), str(m.equation_type),
-                str(m.activation_args.name), bool(m.dale), float(m.gamma), float(m.spectral_rad),
+        return (str(t.taskname), int(t.n_inputs), int(t.n_outputs), int(t.T),
+                str(m.equation_type), str(m.activation_args.name), bool(m.dale), float(m.gamma),
+                float(m.spectral_rad), tuple(float(b) for b in m.bias_range),
                 float(tr.lambda_frm), float(tr.lambda_rws), float(tr.lambda_met),
-                bool(tr.dropout))
+                bool(tr.dropout), bool(tr.get("prune_reinit", False)),
+                bool(tr.get("synaptic_scaling", False)), float(m.get("sigma_w", 0.0) or 0.0))
     except Exception:
         return None
 
@@ -461,8 +440,7 @@ def live_matched(pattern, cap=None, min_r2=None):
 
 
 PENALTY_KEYS = ("lambda_frm", "lambda_rws", "lambda_met", "lambda_orth")
-CONV_MARGIN = 1.07   # "converged" = clean loss within this factor of the task's absolute bar
-                     # (7%, matching pr_matrix.EXCESS_DELTA; see the note there)
+CONV_MARGIN = 1.0 + FLOOR_DELTA   # 1.05: read where the noisy loss first reaches this x its floor
 
 
 def clean_loss_series(run_dir, trace):
@@ -494,7 +472,7 @@ def clean_loss_series(run_dir, trace):
 
 
 def runs_with_loss(pattern, min_r2=None):
-    """Every non-diverged run under a glob, with its loss series and active-unit series.
+    """Every non-diverged run under a glob, with its NOISY loss series and active-unit series.
 
     Args:
         pattern: glob matching run folders; min_r2: drop runs scoring below this, or None.
@@ -521,7 +499,7 @@ def runs_with_loss(pattern, min_r2=None):
             tr = pickle.load(open(tp[0], "rb"))
         except Exception:
             continue
-        it_l, L = clean_loss_series(d, tr)
+        it_l, L = noisy_loss_series(d)
         if L is None or not len(L):
             continue
         P = np.asarray(tr["participation"])
@@ -533,26 +511,30 @@ def runs_with_loss(pattern, min_r2=None):
     return out
 
 
-def at_own_floor(cells, delta=CONV_MARGIN - 1.0):
+def floor_crossing(it_l, L, delta=None):
+    """Where one run's noisy loss first reaches (1+delta) x its OWN fitted floor (common.noisy_floor).
+
+    Args:
+        it_l, L: the run's per-iteration noisy loss; delta: margin, FLOOR_DELTA when None.
+    Returns:
+        (crossing iteration or nan, reason string or None when the crossing is usable).
+    """
+    r = noisy_floor(it_l, L, FLOOR_DELTA if delta is None else delta)
+    return r["t_star"], r["reason"]
+
+
+def at_own_floor(cells, delta=None, why=None):
     """Active units per size, read where each run's own loss first reaches (1+delta) x its OWN floor.
 
-    The alternative read-out to matched_after_convergence, and the one slides 5 and 6 of the talk
-    use: each run's floor is fitted over its own trace with the same stretched exponential
-    `pr_matrix` fits, and the count is taken AT the crossing rather than a matched interval after a
-    shared bar.
-
-    ⚠️ THE TWO RULES DISAGREE ON PURPOSE, and matched_after_convergence documents why it rejects
-    this one: a per-run floor is backward-looking, so a network that ends at a higher loss gets a
-    looser bar and crosses earlier, and training the same network longer moves its bar and so its
-    crossing. Both are computed and printed, because the exponent is the output of this panel and
-    the reader is entitled to see whether it depends on the choice.
-
-    A run whose floor fit fails, or whose loss never reaches the threshold, is DROPPED and counted
-    in the return, rather than being clamped to its last probe.
+    The project's read-out (common.noisy_floor): each run's floor is fitted on its own noisy loss
+    and the count is taken AT the crossing. A run with no usable crossing - fit failed or pinned at
+    its bound, loss never reaching the bar, or a loss that climbs back more than 1.5x after its
+    minimum - is DROPPED and counted, never clamped to its last probe.
 
     Args:
         cells: dict N -> list of run dicts from runs_with_loss;
-        delta: the excess margin, 0.07 by default so the rule matches CONV_MARGIN.
+        delta: the excess margin, FLOOR_DELTA (0.05) when None;
+        why: optional list; (N, run name, reason) is appended for every dropped run.
     Returns:
         (dict N -> (counts array, mean crossing), n_dropped).
     """
@@ -560,18 +542,32 @@ def at_own_floor(cells, delta=CONV_MARGIN - 1.0):
     for N, v in cells.items():
         counts, crossings = [], []
         for r in v:
-            it_l = np.asarray(r["it_loss"], float)
-            L = np.asarray(r["loss"], float)
-            floor = fit_floor_at(L, it_l, float(it_l[-1]))
-            T = excess_time_at(L, it_l, floor, delta)
-            if floor is None or not np.isfinite(T):
+            T, reason = floor_crossing(r["it_loss"], r["loss"], delta)
+            if reason is not None:
                 dropped += 1
+                if why is not None:
+                    why.append((N, r["name"], reason))
                 continue
             counts.append(r["active"][int(np.argmin(np.abs(np.asarray(r["it_act"], float) - T)))])
             crossings.append(T)
         if counts:
             out[N] = (np.array(counts, float), float(np.mean(crossings)))
     return out, dropped
+
+
+def at_end_of_budget(cells):
+    """Active units per size at each run's last stored probe - the secondary, end-of-training read-out.
+
+    Every size of a series shares one budget, so this is matched compute; it is used only for a task
+    that has no usable floor read-out, and is labelled as such wherever it is drawn.
+
+    Args:
+        cells: dict N -> list of run dicts from runs_with_loss.
+    Returns:
+        dict N -> (counts array, last iteration).
+    """
+    return {N: (np.array([r["active"][-1] for r in v], float),
+                float(np.mean([r["it_act"][-1] for r in v]))) for N, v in cells.items() if v}
 
 
 def matched_after_convergence(cells):
@@ -940,20 +936,19 @@ def panel_b(ax, p):
 
 
 def panel_c(ax):
-    """Panel (c): active units vs network size, read at 1.07x each run's own fitted loss floor.
+    """Panel (c): active units vs network size, each run read at 1.05x its own fitted loss floor.
 
-    Not at a fixed iteration. See matched_after_convergence for why: on DMTS the crossing moves
-    from 650 to 83,040 iterations between N = 500 and N = 2000, so a fixed read-out compares
-    networks that have spent very different amounts of time in the phase where units go silent,
-    and reported that task at N^0.87, above the square root, where every other task sat well below
-    it. The claim this panel carries is that the growth is SUB-SQUARE-ROOT: every exponent is below
-    0.5 under either read-out, which is what makes the active FRACTION fall with size. The
-    individual exponents are not stable enough to quote as a range - DMTS moves from 0.37 under the
-    shared bar to 0.15 under the own-floor rule, while the other three move by at most 0.04 - so the
-    panel states the inequality and prints both rules' exponents rather than pinning a band.
+    Not at a fixed iteration: the learning rate falls with N (lr = 1e-3 (100/N)^(1/3)), so a fixed
+    iteration compares networks at different depths of convergence. Reading each one where its own
+    loss settles is how this panel handles that confound. The claim it carries is that the count
+    grows far slower than N, which is what makes the active FRACTION fall with size.
+
+    A task whose runs have no usable floor read-out at two or more sizes (see floor_crossing) is
+    drawn at the end of its budget instead - open markers, dashed line, and the legend says so -
+    rather than dropped, because the reader is entitled to see the data the rule could not read.
 
     Returns:
-        dict task -> (b, A, N_needed_for_1000, n_sizes, largest N) of the fit.
+        dict task -> (b, A, N_needed_for_1000, n_sizes, largest N, read-out) of the fit.
     """
     fits, handles = {}, []
     for task, (Ns, pats, cap, col) in SCALING.items():
@@ -970,42 +965,41 @@ def panel_c(ax):
         if len(cells) < 2:
             print(f"  !! {task}: {len(cells)} size(s) with a usable clean loss - series omitted")
             continue
-        # THE PANEL IS DRAWN ON THE OWN-FLOOR RULE, the one slides 5 and 6 use: each run read where
-        # its own loss first reaches 1.07x its own fitted floor. The shared-bar rule is computed too
-        # and its exponent printed beside, because the exponent is this panel's output and it should
-        # be visible whether the choice of rule moves it.
-        read, n_dropped = at_own_floor(cells)
+        why = []
+        read, n_dropped = at_own_floor(cells, why=why)
+        for N, name, reason in why:
+            print(f"  .. {task} N={N} {name[:12]}: no floor read-out - {reason}")
+        readout = "floor"
         if len(read) < 2:
-            print(f"  !! {task}: own-floor read-out usable at {len(read)} size(s) - series omitted")
-            continue
-        if n_dropped:
-            print(f"  .. {task}: {n_dropped} run(s) dropped - floor fit failed or the loss never "
-                  f"reached 1.07x it")
-        print(f"  .. {task}: read AT 1.07x each run's own fitted floor; mean crossing per size "
-              + ", ".join(f"N={N}:{read[N][1]:,.0f}" for N in sorted(read)))
-        alt, bar, K = matched_after_convergence(cells)
-        if len(alt) >= 2 and task not in NO_FIT:
-            ax_, ay_ = (np.array([N for N in sorted(alt)], float),
-                        np.array([alt[N][0].mean() for N in sorted(alt)], float))
-            b_alt = np.polyfit(np.log(ax_), np.log(ay_), 1)[0]
-            print(f"  .. {task}: shared-bar rule (bar {bar:.5f}, read {K:,.0f} after crossing) "
-                  f"would give N^{b_alt:.3f}")
+            read = at_end_of_budget(cells)
+            readout = "end"
+            print(f"  !! {task}: own-floor read-out usable at fewer than 2 sizes - drawn at the END "
+                  f"of its budget instead")
+        else:
+            print(f"  .. {task}: read AT {CONV_MARGIN:.2f}x each run's own fitted floor "
+                  f"({n_dropped} run(s) without one); mean crossing per size "
+                  + ", ".join(f"N={N}:{read[N][1]:,.0f}" for N in sorted(read)))
         xs, ys, sds = [], [], []
+        mfc = col if readout == "floor" else "none"
         for N in sorted(read):
             c = read[N][0]
             xs.append(N)
             ys.append(c.mean())
             sds.append(c.std(ddof=1) if len(c) > 1 else 0.0)
-            ax.plot([N] * len(c), c, "o", ms=2.4, color=col, alpha=0.55, mec="none", zorder=4)
+            ax.plot([N] * len(c), c, "o", ms=2.4, color=col, mfc=mfc, alpha=0.55,
+                    mec=col if readout == "end" else "none", mew=0.5, zorder=4)
         xs, ys, sds = np.array(xs, float), np.array(ys, float), np.array(sds, float)
-        ax.errorbar(xs, ys, yerr=sds, fmt="o-", color=col, ms=3.4, lw=1.1, zorder=5, capsize=1.6)
+        ax.errorbar(xs, ys, yerr=sds, fmt="o-" if readout == "floor" else "o--", color=col,
+                    mfc=mfc, ms=3.4, lw=1.1, zorder=5, capsize=1.6)
+        tag = "" if readout == "floor" else ", end of training"
         if task in NO_FIT:
             print(f"  !! {task}: not fitted - {NO_FIT[task]}")
-            handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=1.1, label=task))
+            handles.append(Line2D([], [], color=col, marker="o", mfc=mfc, ms=3.0, lw=1.1,
+                                  label=task + tag))
             continue
         b, loga = np.polyfit(np.log(xs), np.log(ys), 1)
         fits[task] = (b, np.exp(loga), np.exp((np.log(1000) - loga) / b), len(xs),
-                      float(xs.max()))
+                      float(xs.max()), readout)
         # extrapolate only the tasks with four sizes; a three-size fit with a wide seed spread is
         # not something to project a decade beyond the data
         hi = 2.4e4 if len(xs) >= 4 else xs.max() * 1.25
@@ -1013,8 +1007,9 @@ def panel_c(ax):
         ax.plot(xf, np.exp(loga) * xf ** b, ls=":", lw=0.8, color=col, zorder=3)
         # built by hand: an errorbar's legend handle is a container, and letting matplotlib collect
         # handles here silently produced two entries for the same task
-        handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=1.1,
-                              label=f"{task}  $\\propto N^{{{b:.2f}}}$"))
+        handles.append(Line2D([], [], color=col, marker="o", mfc=mfc, ms=3.0, lw=1.1,
+                              ls="-" if readout == "floor" else "--",
+                              label=f"{task}{tag}  $\\propto N^{{{b:.2f}}}$"))
 
     # The y axis stops just above the 1,000-unit line rather than at the top of the "every unit
     # active" diagonal: three of the four decades the full diagonal spans hold no data at all and
@@ -1024,21 +1019,21 @@ def panel_c(ax):
     # without any warning that they had been.
     nn = np.array([3e2, 2.6e4])
     ax.plot(nn, nn, "-", lw=0.7, color=ps.MUTED, zorder=2)
-    ax.text(1.55e3, 1.72e3, "every unit active", fontsize=5.5, color=ps.MUTED, ha="left",
-            va="center")
-    for frac, lab, xl in [(0.5, "50% active", 3.6e3), (0.1, "10% active", 1.75e4)]:
+    for frac, lab, xl in [(0.5, "50% active", 3.0e3), (0.1, "10% active", 1.2e4)]:
         ax.plot(nn, frac * nn, ls=(0, (4, 3)), lw=0.55, color=ps.FAINT, zorder=1)
         ax.text(xl, frac * xl * 1.12, lab, fontsize=5.2, color=ps.FAINT, ha="center", va="bottom")
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
     ax.text(3.4e2, 1045, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N",
-           ylabel="active units\n(read at 1.07$\\times$ each\nrun's own loss floor)",
-           xlim=(3.2e2, 2.7e4), ylim=(100, 2.3e3))
-    # Lower right is the only corner the guides, the data and the extrapolations all leave empty.
-    # It used to be held inboard of the right edge, away from panel d's longest row labels across
-    # the gutter; panel d now sits BELOW this panel, so the corner is free and the legend goes
-    # flush - held inboard in a panel this narrow it sat on top of the curves it was labelling.
-    ax.legend(handles=handles, loc="lower right", fontsize=5.9)
+           ylabel="active units", xlim=(3.2e2, 2.7e4), ylim=(40, 2.3e3))
+    # the diagonal is labelled ALONG itself, below the 1,000 line and clear of the 50% guide's
+    # label at the top; its on-screen slope is read once the limits are set
+    (x0, y0), (x1, y1) = ax.transData.transform([(450, 450), (900, 900)])
+    ax.text(560, 520, "every unit active", fontsize=5.5, color=ps.MUTED, ha="left",
+            va="top", rotation=np.degrees(np.arctan2(y1 - y0, x1 - x0)), rotation_mode="anchor")
+    # The y floor sits at 40, below every series, so the lower right is empty for the legend. The
+    # legend, not the axis label, says how each series was read: floor or end of training.
+    ax.legend(handles=handles, loc="lower right", fontsize=5.6, handlelength=2.2)
     ps.ygrid(ax)
     return fits
 
@@ -1049,17 +1044,16 @@ def panel_c(ax):
 # TrainLosses.json for runs that predate that metric. The second is only used for a run with
 # dropout off and every penalty at zero, where the training-pass loss IS the clean loss; the
 # loader checks that against the run's own config rather than assuming it.
+# STANDARD controls at N = 1000, re-sourced 2026-10-12. CDDM is the 200,000-iteration drift run, the
+# longest standard CDDM control, because the point of the panel is what happens long after the floor.
 TRAJ = [
-    ("3-bit flip-flop", f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=500000",
-     ps.SLOTS[0], 1000),
-    ("CDDM", f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=200000", ps.SLOTS[1], 1000),
-    ("DMTS, 7$\\tau$ delay", f"{DATA_DIR}/DMTS_d7_pen/EqType=h_N=1000_pen=none", ps.SLOTS[2], 1000),
+    ("3-bit flip-flop", FF75.format(N=1000), ps.SLOTS[0], 1000),
+    ("CDDM", f"{DATA_DIR}/CDDM_std_g0_drift_bias0/EqType=h_N=1000_iters=200000", ps.SLOTS[1], 1000),
+    (DMTS_LABEL, f"{DATA_DIR}/DMTS_paper_grid_d5/EqType=h_N=1000_arm=control", ps.SLOTS[2], 1000),
 ]
 # how far left of the e stack the panel letter of that column sits, as a fraction of the stack's
 # width; panel a's letter is placed to match it
 E_LETTER_DX = 0.13
-PLATEAU_TOL = 0.07        # "performance has plateaued" = clean loss within this of its final
-                          # value (7%, matching pr_matrix.EXCESS_DELTA)
 PENALTY_KEYS = ("lambda_frm", "lambda_rws", "lambda_met", "lambda_orth")
 
 
@@ -1092,20 +1086,20 @@ def clean_loss(run_dir, trace):
 
 
 def trajectory(run_dir):
-    """Silent-unit count and clean training loss over training, for one run.
+    """Silent-unit count and NOISY training loss over training, for one run.
 
     Args:
         run_dir: path to one trained-network folder.
     Returns:
-        dict with the loss series, the silent-unit series, the network size, the final r2 from the
-        folder name, and the iteration at which the loss first comes within PLATEAU_TOL of its
-        final value; or None if the run carries no usable clean loss.
+        dict with the loss series, the silent-unit series, the network size, the held-out r2, and
+        the run's own 1.05x-floor crossing (nan when floor_crossing finds none, with the reason);
+        or None if the run carries no noisy loss.
     """
     tp = glob.glob(os.path.join(run_dir, "*ParticipationTrace.pkl"))
     if not tp:
         return None
     t = pickle.load(open(tp[0], "rb"))
-    it_L, L = clean_loss(run_dir, t)
+    it_L, L = noisy_loss_series(run_dir)
     if L is None or not len(L):
         return None
     P, it_P = np.asarray(t["participation"]), np.asarray(t["participation_iters"], float)
@@ -1114,9 +1108,9 @@ def trajectory(run_dir):
     # noise draw, on the TRAINING batch, and panel (e) prints it in every sub-panel title. The score
     # this project reports is a held-out batch at the sigma_rec and sigma_inp the network trained
     # with, sigma_w = 0, averaged over nine draws.
+    T, reason = floor_crossing(it_L, L)
     return dict(it_loss=it_L, loss=L, it_act=it_P, silent=P.shape[1] - live, N=P.shape[1],
-                r2=heldout.heldout_r2(run_dir),
-                plateau=float(it_L[int(np.argmax(L <= L[-1] * (1.0 + PLATEAU_TOL)))]))
+                r2=heldout.heldout_r2(run_dir), plateau=T, no_floor=reason)
 
 
 def running_median(y, frac=0.03, w_max=401):
@@ -1153,11 +1147,12 @@ def running_median(y, frac=0.03, w_max=401):
 def panel_e(axes):
     """Panel (e): every task trains to a good solution, and units keep going silent afterwards.
 
-    One sub-panel per task, each showing EVERY seed rather than a mean. Left axis, dark: the
-    dropout-off training loss, which is what "trained to a good level" has to be read off. Right
+    One sub-panel per task, each showing EVERY seed rather than a mean. Left axis, dark: the noisy
+    training loss - the loss the network is trained on - as log-binned medians, which is what
+    "trained to a good level" has to be read off. Right
     axis, in the task's colour from panel c: the number of silent units, which keeps climbing after
-    the loss has stopped moving. The vertical rule marks where the loss first comes within 10% of
-    its final value.
+    the loss has stopped moving. The vertical rule marks the mean of the runs' own 1.05x-floor
+    crossings; a task whose loss climbs back after its minimum has no such crossing and no rule.
 
     The sub-panels are stacked vertically, so they share one x range and one x label.
 
@@ -1171,32 +1166,30 @@ def panel_e(axes):
         runs = [trajectory(d) for d in sorted(glob.glob(os.path.join(pat, "*"))) if os.path.isdir(d)]
         runs = [r for r in runs if r]
         if not runs:
-            print(f"  !! {label}: no run carries a usable clean loss - sub-panel left empty")
+            print(f"  !! {label}: no run carries a noisy loss - sub-panel left empty")
             continue
         axr = ax.twinx()
         for r in runs:
-            # the loss is drawn RELATIVE TO ITS OWN START so all three sub-panels share one axis.
-            # The three tasks finish 0.026, 0.022 and 1e-4, so on an absolute axis each sub-panel
-            # would need its own range and a left label that only one of them carries would be
-            # telling the reader something untrue about the other two.
-            # normalised by the RAW first loss, so the drawn drop is the true one; the growing
-            # window leaves the first samples essentially unsmoothed, so the curve still starts at 1
-            # THE RAW SERIES GOES UNDERNEATH. The smoothed line removes 99.6% of the step-to-step
-            # wiggle (measured: 2.1% of the mean per step raw, 0.4% smoothed), so on its own it
-            # shows a clean descent and hides that the loss is in fact very jagged. No setting of
-            # the window fixes that - a wider one smooths more, an uncapped one smooths more still.
-            # Drawing both is the only honest version: the trend is readable and the noise is there.
-            ax.plot(r["it_loss"][1:], (np.asarray(r["loss"], float) / r["loss"][0])[1:], "-",
-                    lw=0.35, color=ps.INK, alpha=0.16, zorder=3)
-            ax.plot(r["it_loss"][1:], (running_median(r["loss"]) / r["loss"][0])[1:], "-",
-                    lw=0.85, color=ps.INK, alpha=0.75, zorder=4)
+            # the loss is drawn RELATIVE TO ITS OWN START so all three sub-panels share one axis:
+            # the three tasks finish near 0.035, 0.022 and 1e-4. It is the per-iteration noisy loss
+            # reduced to log-binned medians - 120 bins over the run, each the median of every step
+            # in it - so a 200,000-step series becomes a curve without a per-sample smoother, and
+            # DMTS's brief spikes back to chance do not drag it.
+            tb, yb = logbin(r["it_loss"], r["loss"], nbins=120)
+            ax.plot(tb, yb / yb[0], "-", lw=0.85, color=ps.INK, alpha=0.75, zorder=4)
             axr.plot(r["it_act"][1:], r["silent"][1:], "-", lw=0.9, color=col, alpha=0.85, zorder=5)
-        plateau = float(np.mean([r["plateau"] for r in runs]))
-        s_plat = float(np.mean([r["silent"][np.argmin(np.abs(r["it_act"] - plateau))] for r in runs]))
-        s_end = float(np.mean([r["silent"][-1] for r in runs]))
+        at_floor = [r for r in runs if np.isfinite(r["plateau"])]
+        for r in runs:
+            if r["no_floor"]:
+                print(f"  .. panel e, {label}: a run has no floor crossing - {r['no_floor']}")
+        plateau = float(np.mean([r["plateau"] for r in at_floor])) if at_floor else float("nan")
+        s_plat = (float(np.mean([r["silent"][np.argmin(np.abs(r["it_act"] - r["plateau"]))]
+                                 for r in at_floor])) if at_floor else float("nan"))
+        s_end = float(np.mean([r["silent"][-1] for r in at_floor or runs]))
         r2 = float(np.mean([r["r2"] for r in runs]))
         N = runs[0]["N"]
-        ax.axvline(plateau, color=ps.MUTED, lw=0.7, ls=(0, (3, 2)), zorder=2)
+        if at_floor:
+            ax.axvline(plateau, color=ps.MUTED, lw=0.7, ls=(0, (3, 2)), zorder=2)
 
         # x starts at 8, not 90: most of the loss drop happens inside the first hundred iterations
         # and a panel that begins at 90 shows a curve already a third of the way down while its
@@ -1227,8 +1220,113 @@ def panel_e(axes):
     drawn[-1].set_xlabel("training iteration")
     # the axis labels sit on the middle sub-panel, where each one labels all three
     mid = len(drawn) // 2
-    drawn[mid].set_ylabel("clean loss, relative to its start")
+    drawn[mid].set_ylabel("training loss (under noise),\nrelative to its start")
     twins[mid].set_ylabel("silent units")
+    return rows
+
+
+# Panel (d). Ablation results written by ablate_silent_units.py, one JSON per network and read-out,
+# in ABLATION_DIR on Della. (label, file glob, colour), top to bottom in the order of panel (e).
+ABLATION_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_ablation"
+ABLATION_READOUT = "end"
+ABLATION = [
+    ("3-bit flip-flop", "NBitFlipFlop_ff_revive_c75000__EqType=h_k=3_N=1000_pen=none_arm=none__*",
+     ps.SLOTS[0]),
+    ("CDDM", "CDDM_paper_grid__EqType=h_N=1000_arm=control__*", ps.SLOTS[1]),
+    (DMTS_LABEL, "DMTS_paper_grid_d5__EqType=h_N=1000_arm=control__*", ps.SLOTS[2]),
+]
+ABL_GRID = np.linspace(0.0, 1.0, 201)        # fraction of units removed, the common x of every curve
+
+
+def ablation_results(pattern, readout=None):
+    """Every ablation result for one cell and read-out, as loaded dicts.
+
+    Args:
+        pattern: file-name glob under ABLATION_DIR, without the read-out suffix;
+        readout: "end", "floor_clean" or "floor_heldout"; ABLATION_READOUT when None.
+    Returns:
+        list of dicts (see ablate_silent_units.ablate for the keys).
+    """
+    readout = ABLATION_READOUT if readout is None else readout
+    out = []
+    for f in sorted(glob.glob(os.path.join(ABLATION_DIR, f"{pattern}__{readout}.json"))):
+        with open(f) as fh:
+            out.append(json.load(fh))
+    return out
+
+
+def _on_grid(res, key):
+    """One result's curve(s) under `key`, interpolated onto ABL_GRID (fraction removed)."""
+    x = np.asarray(res["ks"], float) / res["N"]
+    y = np.asarray(res[key], float)
+    return (np.interp(ABL_GRID, x, y) if y.ndim == 1
+            else np.array([np.interp(ABL_GRID, x, yy) for yy in y]))
+
+
+def panel_d(axes):
+    """Panel (d): the silent units do no work - held-out r2 as units are removed.
+
+    One sub-panel per task, every seed. Units are removed by zeroing their outgoing weights and the
+    network is scored on held-out inputs under its training noise (ablate_silent_units.py). Three
+    orders: quietest first (solid, the task's colour), random (dashed, mean over five orders and
+    the seeds), and busiest first (dotted). The shaded band is the silent share of the network.
+    Quietest-first holds the score across the whole band and collapses only when the first working
+    unit goes; the same number removed at random, or the working few, take the score to chance.
+
+    Scores below 0 (worse than predicting the mean) are drawn at the axis floor.
+
+    Args:
+        axes: one Axes per entry of ABLATION, top to bottom.
+    Returns:
+        list of (task, n nets, silent, r2 intact, r2 all silent removed, r2 same number random,
+        r2 all active removed, read-out, iteration) rows, means over nets.
+    """
+    rows = []
+    for ax, (label, pat, col) in zip(axes, ABLATION):
+        res = ablation_results(pat)
+        floor_r2 = TASK_MIN_R2.get(label)
+        if floor_r2 is not None:
+            res = [r for r in res if r["r2_full"] >= floor_r2]
+        if not res:
+            print(f"  !! panel d, {label}: no ablation results for read-out {ABLATION_READOUT}")
+            continue
+        x = 100 * ABL_GRID
+        silent = np.array([r["n_silent"] / r["N"] for r in res])
+        ax.axvspan(0, 100 * silent.mean(), color=ps.GRID, alpha=0.9, lw=0, zorder=0)
+        quiet = np.array([_on_grid(r, "quiet_first") for r in res])
+        busy = np.array([_on_grid(r, "busy_first") for r in res])
+        rand = np.concatenate([_on_grid(r, "random") for r in res])
+        for q in quiet:
+            ax.plot(x, q, "-", lw=0.5, color=col, alpha=0.35, zorder=3)
+        ax.plot(x, quiet.mean(0), "-", lw=1.2, color=col, zorder=5)
+        ax.fill_between(x, rand.min(0), rand.max(0), color=col, alpha=0.12, lw=0, zorder=2)
+        ax.plot(x, rand.mean(0), "--", lw=0.9, color=col, alpha=0.8, zorder=4)
+        ax.plot(x, busy.mean(0), ":", lw=1.0, color=ps.INK, alpha=0.8, zorder=4)
+        top = max(1.0, float(np.max([r["r2_full"] for r in res]))) * 1.04
+        ax.set(xlim=(0, 100), ylim=(0, top))
+        ps.ygrid(ax)
+        n = len(res)
+        ax.set_title(f"{label},  $N = {res[0]['N']}$,  {n} networks", fontsize=5.8, color=ps.INK,
+                     pad=3)
+        rows.append((label, n, float(np.mean([r["n_silent"] for r in res])),
+                     float(np.mean([r["r2_full"] for r in res])),
+                     float(np.mean([r["r2_no_silent"] for r in res])),
+                     float(np.mean([np.mean(r["r2_random_same_count"]) for r in res])),
+                     float(np.mean([r["r2_no_active"] for r in res])),
+                     res[0]["readout"], int(np.mean([r["iteration"] for r in res]))))
+    drawn = [ax for ax in axes if ax.has_data()]
+    if not drawn:
+        return rows
+    for ax in drawn[:-1]:
+        ax.tick_params(labelbottom=False)
+    drawn[-1].set_xlabel("units removed (% of the network)")
+    drawn[len(drawn) // 2].set_ylabel("held-out $r^2$")
+    drawn[0].legend(handles=[
+        Line2D([], [], color=ps.INK, lw=1.2, label="quietest first"),
+        Line2D([], [], color=ps.INK, lw=0.9, ls="--", label="random order"),
+        Line2D([], [], color=ps.INK, lw=1.0, ls=":", label="busiest first"),
+        Patch(color=ps.GRID, label="silent units")],
+        loc="lower left", fontsize=5.4, ncol=2, handlelength=2.0, columnspacing=1.0)
     return rows
 
 
@@ -1313,7 +1411,7 @@ def noise_counts(sigma):
     return []
 
 
-def panel_d(ax):
+def panel_knobs(ax):
     """Panel (d): every intervention we ran, as a change from its own family's reference.
 
     Four families, each internally consistent in task, architecture, read-out iteration and
@@ -1450,24 +1548,22 @@ def main():
     # give up the height they no longer need once they share one x axis and one x label.
     # The side margins are set explicitly rather than left at the matplotlib default of
     # 0.125/0.90, which spent 25 mm of the canvas on blank edges that the tight-bbox export then
-    # trimmed away: the panels were paying for whitespace nobody ever saw. Reclaiming it buys the
-    # gutter its real job - panel d's row labels reach 34 mm left of d's own axis and the e stack's
-    # silent-units ticks reach 11 mm right of its axis, and the two were overlapping by 11 mm.
+    # trimmed away. The gutter between the columns holds the e stack's right-hand silent-unit ticks
+    # (~11 mm) and panel d's r2 ticks; it was 0.52 while panel d carried the knob panel's long row
+    # labels, and shrank when the ablation replaced it (2026-10-12).
     fig = plt.figure(figsize=(ps.W2, 205 * ps.MM))
     # Panel a sits in the left column, the same width as the e stack under it, and panel b in the
     # right column, the same width as c and d under it - so every panel edge lines up with the one
-    # above or below it. The left column is narrower than the right because panel d's row labels
-    # hang off the right column's left edge and c has a legend to fit.
-    LEFT, RIGHT, W_RATIO, GUTTER = 0.06, 0.975, 0.86, 0.52
+    # above or below it. The left column is a little narrower than the right because c has a legend
+    # to fit.
+    LEFT, RIGHT, W_RATIO, GUTTER = 0.06, 0.975, 0.95, 0.44
     A_RATIOS, A_WSPACE = (1.25, 1.0), 0.02
     gs = GridSpec(2, 2, figure=fig, height_ratios=[0.62, 2.50],
                   width_ratios=[W_RATIO, 1.0], hspace=0.26, wspace=GUTTER,
                   left=LEFT, right=RIGHT)
 
-    # The top row is split on its own rather than inheriting the columns below it. The wide gutter
-    # the bottom row needs is there to hold panel d's row labels, and nothing in the top row has
-    # labels to put in it - inherited, it was 42 mm of blank paper between the traces and panel b.
-    # The split is chosen so that b still starts exactly where c and d start, at 0.660.
+    # The top row is split on its own rather than inheriting the columns below it, so the traces
+    # of panel a can run up to the gutter while b still starts exactly where c and d start.
     gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=list(A_RATIOS),
                                    wspace=A_WSPACE)
     ax_net = fig.add_subplot(gs_a[0, 0])
@@ -1492,10 +1588,12 @@ def main():
     fits = panel_c(ax_c)
     ps.panel_letter(ax_c, "c")
 
-    ax_d = fig.add_subplot(gs_cd[1:3, 0])
-    rows_d = panel_d(ax_d)
+    # d stacks one sub-panel per task in the two rows below c, in the order of the e stack
+    gs_d = GridSpecFromSubplotSpec(len(ABLATION), 1, subplot_spec=gs_cd[1:3, 0], hspace=0.38)
+    axes_d = [fig.add_subplot(gs_d[i, 0]) for i in range(len(ABLATION))]
+    rows_d = panel_d(axes_d)
     # the same offset b and c use, so the three letters of the right column sit on one vertical
-    ps.panel_letter(ax_d, "d")
+    ps.panel_letter(axes_d[0], "d")
 
     gs_e = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[1, 0], hspace=0.30)
     axes_e = [fig.add_subplot(gs_e[i, 0]) for i in range(3)]
@@ -1507,28 +1605,24 @@ def main():
     print("\n--- numbers quoted in the caption ---")
     print(f"  panel a: {n_live} of {N_UNITS} units active; {n_shown_live} of {N_SHOWN} randomly "
           f"drawn units active; {n_conn} connections drawn over {N_GLYPH} glyphs")
-    for task, (b, A, need, n_sizes, n_max) in fits.items():
+    for task, (b, A, need, n_sizes, n_max, readout) in fits.items():
         # A series measured at three sizes is fitted but its projection is not quotable on its own:
-        # the DMTS exponent of 0.87 puts 1,000 active units at N = 6,022, which is 3x beyond the
-        # largest network the series contains. Panel c already stops such a series' dotted line at
-        # 1.25x its largest N; the caption has to carry the same warning, or the number reads as a
-        # measurement.
+        # panel c already stops such a series' dotted line at 1.25x its largest N; the caption has
+        # to carry the same warning, or the number reads as a measurement.
         note = ("" if n_sizes >= 4 else
                 f"   [{n_sizes} sizes, {need / n_max:.1f}x beyond N = {n_max:,.0f} - "
                 f"do not quote alone]")
-        print(f"  {task:18} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at N = {need:,.0f}{note}")
+        print(f"  panel c: {task:18} read at {readout:5} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at "
+              f"N = {need:,.0f}{note}")
+    for task, n, sil, r2f, r2s, r2r, r2a, readout, it in rows_d:
+        print(f"  panel d: {task:20} {n} nets, read-out {readout} (iteration {it:,}): "
+              f"{sil:.0f} silent; held-out r2 {r2f:.3f} intact, {r2s:.3f} with every silent unit "
+              f"removed, {r2r:.3f} with as many removed at random, {r2a:.3f} with the active ones "
+              f"removed")
     for task, N, plateau, s_plat, s_end, r2 in rows_e:
-        print(f"  panel e: {task:20} N={N}, final r2 {r2:.3f}; loss within {PLATEAU_TOL:.0%} of "
-              f"final at iter {plateau:,.0f} with {s_plat:.0f} silent, {s_end:.0f} at the end "
-              f"-> {s_end - s_plat:.0f} MORE units silenced after performance plateaued")
-    for fam, label, d, se, n in rows_d:
-        print(f"  {fam:30} {label:24} {d:+7.1f} +- {1.96 * se:5.1f} (n={n})")
-    print("\n  TRIED but with no read-out that fits this axis (weights survive, traces do not):")
-    for what, where in TRIED_NOT_PLOTTED:
-        print(f"    {what:42s} {where}")
-    print("\n  NEVER SWEPT, so the panel must not be read as covering them:")
-    for what in NEVER_SWEPT:
-        print(f"    {what}")
+        print(f"  panel e: {task:20} N={N}, held-out r2 {r2:.3f}; own {CONV_MARGIN:.2f}x-floor "
+              f"crossing at iter {plateau:,.0f} with {s_plat:.0f} silent, {s_end:.0f} at the end "
+              f"-> {s_end - s_plat:.0f} MORE units silenced after it")
     return out
 
 
