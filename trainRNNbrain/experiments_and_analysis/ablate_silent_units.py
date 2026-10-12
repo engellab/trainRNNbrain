@@ -30,13 +30,18 @@ TWO READ-OUTS.
   end    the run's own end state (LastParams). Every standard control on disk has this.
   floor  the weights where the network's loss first reaches 1.05x its own fitted floor - the
          project's read-out. Only runs trained with `+trainer.checkpoint_keep=true` have weights
-         there (slurm/SilentReLU_c1_snapshots_della.slurm). The floor is fitted on the HELD-OUT
-         loss of each kept snapshot (masked MSE, training noise on, the same seeded draws), with
-         pr_matrix.fit_floor_at / excess_time_at at delta = 0.05. That series is used rather than
-         the trace's noise-free loss because on the flip-flop and DMTS the noise-free loss rises
-         after its minimum (these networks use their noise), which puts the crossing on the initial
-         descent; the held-out loss under the training noise is the score the paper reports. The
-         trace's noise-free crossing is computed too and written beside it.
+         there (slurm/SilentReLU_c1_snapshots_della.slurm). The floor is fitted, with
+         pr_matrix.fit_floor_at / excess_time_at at delta = 0.05, on TWO series, and the snapshot
+         nearest each usable crossing is ablated separately (readout floor_clean / floor_heldout):
+           clean    the trace's noise-free training-batch loss, the project's standard series;
+           heldout  the held-out loss of every kept snapshot under the training noise, with the
+                    same seeded draws - the objective these networks actually minimise.
+         A crossing is unusable when the fit sits on the 1e-6 bound, the loss never reaches the
+         bar, or the smoothed loss ends more than 1.5x above its minimum. Measured on the existing
+         standard controls (2026-10-12): on CDDM both series are usable, the noisy one crossing
+         later (25-32k against 8-32k); on the flip-flop the clean loss climbs 3-4x after its
+         minimum and the noisy one is still falling at 75k (no crossing in 9 of 16 runs); on DMTS
+         both climb back in most runs.
 
 GATES, written into every result and printed: the unablated network's score with its own noise on a
 training-distribution batch against the score in its folder name (end read-out, +-0.03), and the
@@ -75,6 +80,7 @@ DRAWS = 9                    # noise draws per score, as heldout_r2.DRAWS
 RANDOM_ORDERS = 5            # independent random removal orders per network
 SILENT_REL = 0.05            # active = p >= SILENT_REL * q95(p), the project's scale-free rule
 FLOOR_DELTA = 0.05           # read at 1.05x the fitted floor (tightened from 0.07 on 2026-10-12)
+MAX_LATE_RISE = 1.5          # smoothed end / smoothed minimum above this: no usable floor
 NOISE_SEED = 1000            # draw d of every score uses generator seed NOISE_SEED + d
 BATCH_SEED = 20261012        # seeds the held-out and ordering batches
 OUT = "/scratch/gpfs/TENGEL/pt1290/c1_ablation"
@@ -308,18 +314,49 @@ def snapshot_series(snap_dir):
     return np.asarray(its), files
 
 
-def floor_point(run_dir, snap_dir, batches_for):
-    """Where the held-out loss first reaches 1.05x its fitted floor, and the snapshot nearest it.
+def crossing(L, it, smooth_w):
+    """The 1.05x own-floor read-out of one loss series, with the project's guards.
+
+    Args:
+        L, it: the loss series and its iterations.
+        smooth_w: samples in the box mean used for the late-rise guard.
+    Returns:
+        dict: floor, t_star, late_rise, degenerate, usable. `usable` needs a fitted floor above the
+        1e-6 bound, a crossing, and a smoothed end no more than MAX_LATE_RISE x the smoothed minimum
+        (a loss that climbs back after its minimum has a fitted floor on its late plateau, and its
+        first crossing then lands on the initial descent).
+    """
+    from pr_matrix import fit_floor_at, excess_time_at
+    ok = np.isfinite(L)
+    L, it = np.asarray(L, float)[ok], np.asarray(it, float)[ok]
+    floor = fit_floor_at(L, it, it[-1])
+    t_star = excess_time_at(L, it, floor, FLOOR_DELTA) if floor is not None else float("nan")
+    w = min(smooth_w, len(L))
+    sm = np.convolve(L, np.ones(w) / w, mode="valid")
+    out = dict(floor=floor, t_star=float(t_star), late_rise=float(sm[-1] / sm.min()),
+               degenerate=bool(floor is not None and floor <= 1.01e-6))
+    out["usable"] = bool(floor is not None and not out["degenerate"] and np.isfinite(t_star)
+                         and out["late_rise"] <= MAX_LATE_RISE)
+    return out
+
+
+def floor_points(run_dir, snap_dir, batches_for):
+    """The run's 1.05x-floor crossings on two loss series, and the kept snapshot nearest each.
+
+    "clean"    the trace's noise-free loss on the training batch (`loss_clean_train`, every 10
+               iterations) - the project's standard series.
+    "heldout"  the held-out loss under the training noise, scored on every kept snapshot with the
+               same seeded draws - the training objective, which these networks actually minimise.
+    On CDDM both are usable; on the flip-flop and DMTS the clean loss climbs back after its minimum
+    and fails the late-rise guard, which is why the second series exists.
 
     Args:
         run_dir: the finished run (its LastParams is the series' last point).
         snap_dir: its kept-snapshot folder.
         batches_for: callable(cfg, device) -> seeded batches.
     Returns:
-        dict with the held-out loss series, the fitted floor, the crossing T*, the chosen snapshot,
-        the guards, and the trace's noise-free crossing for comparison.
+        dict with the held-out series and, per series, the crossing dict plus the chosen snapshot.
     """
-    from pr_matrix import fit_floor_at, excess_time_at
     its, files = snapshot_series(snap_dir)
     last = sorted(glob.glob(os.path.join(run_dir, "*LastParams*.np[zy]"))
                   or glob.glob(os.path.join(run_dir, "*LastParams*.json")))[0]
@@ -332,27 +369,17 @@ def floor_point(run_dir, snap_dir, batches_for):
     for f in files:
         set_params(rnn, load_params(f))
         mse.append(Scorer(rnn, batches["ho"])()[1])
-    mse = np.asarray(mse)
-    floor = fit_floor_at(mse, its, its[-1])
-    t_star = excess_time_at(mse, its, floor, FLOOR_DELTA) if floor is not None else float("nan")
-    out = dict(series_iters=its.tolist(), series_heldout_mse=mse.tolist(), floor=floor,
-               t_star=t_star, degenerate=bool(floor is not None and floor <= 1.01e-6))
-    # late rise: smoothed end over smoothed minimum, the fig_knobs_at_floor guard
-    w = 5
-    sm = np.convolve(mse, np.ones(w) / w, mode="valid") if len(mse) > w else mse
-    out["late_rise"] = float(sm[-1] / sm.min())
-    if np.isfinite(t_star):
-        j = int(np.argmin(np.abs(its - t_star)))
-        out["snapshot_iter"], out["snapshot_file"] = int(its[j]), files[j]
+    out = dict(series_iters=its.tolist(), series_heldout_mse=mse)
+    out["heldout"] = crossing(np.asarray(mse), its, smooth_w=5)
     tr = trace_of(run_dir)
     if tr is not None and "loss_clean_train" in tr.get("metrics", {}):
-        L = np.asarray(tr["metrics"]["loss_clean_train"], dtype=float)
-        it_l = np.asarray(tr["iters"], dtype=float)
-        ok = np.isfinite(L)
-        fl = fit_floor_at(L[ok], it_l[ok], it_l[ok][-1])
-        out["trace_floor"] = fl
-        out["trace_t_star"] = (excess_time_at(L[ok], it_l[ok], fl, FLOOR_DELTA)
-                               if fl is not None else float("nan"))
+        out["clean"] = crossing(np.asarray(tr["metrics"]["loss_clean_train"], float),
+                                np.asarray(tr["iters"], float), smooth_w=201)
+    for kind in ("clean", "heldout"):
+        c = out.get(kind)
+        if c is not None and np.isfinite(c["t_star"]):
+            j = int(np.argmin(np.abs(its - c["t_star"])))
+            c["snapshot_iter"], c["snapshot_file"] = int(its[j]), files[j]
     return out
 
 
@@ -391,18 +418,26 @@ def main():
     else:
         if not a.snap_dir:
             raise SystemExit("floor read-out needs the run's kept-snapshot folder")
-        fp = floor_point(run_dir, a.snap_dir, seeded_batches)
-        extra["floor_point"] = fp
-        if "snapshot_file" not in fp:
-            print(f"  {label}: no 1.05x crossing (floor {fp['floor']}); nothing ablated")
-            with open(os.path.join(a.out, label + ".json"), "w") as fh:
-                json.dump(extra, fh)
-            return
-        cfg, rnn = build(run_dir, load_params(fp["snapshot_file"]))
-        iteration = fp["snapshot_iter"]
-        extra.update(iteration=iteration, params_file=fp["snapshot_file"])
-        batches = seeded_batches(cfg, rnn.device)
-        extra["gates"] = gates(rnn, batches, run_dir, iteration, check_name_r2=False)
+        fp = floor_points(run_dir, a.snap_dir, seeded_batches)
+        with open(os.path.join(a.out, label + "_points.json"), "w") as fh:
+            json.dump(dict(extra, floor_points=fp), fh)
+        for kind in ("clean", "heldout"):
+            c = fp.get(kind) or {}
+            tag = f"{label}_{kind}"
+            print(f"  {tag}: floor {c.get('floor')}, T* {c.get('t_star')}, "
+                  f"late rise {c.get('late_rise', float('nan')):.2f}, usable {c.get('usable')}")
+            if not c.get("usable"):
+                continue
+            cfg, rnn = build(run_dir, load_params(c["snapshot_file"]))
+            batches = seeded_batches(cfg, rnn.device)
+            ex = dict(extra, readout=f"floor_{kind}", iteration=c["snapshot_iter"],
+                      params_file=c["snapshot_file"], floor_point=c,
+                      gates=gates(rnn, batches, run_dir, c["snapshot_iter"], check_name_r2=False))
+            print(f"  gates: {ex['gates']}")
+            res = ablate(rnn, batches, tag, ex)
+            with open(os.path.join(a.out, tag + ".json"), "w") as fh:
+                json.dump(res, fh)
+        return
     print(f"  gates: {extra['gates']}")
     res = ablate(rnn, batches, label, extra)
     with open(os.path.join(a.out, label + ".json"), "w") as fh:
