@@ -371,9 +371,12 @@ def run_training(cfg: DictConfig) -> None:
             ckpt_root = (cfg.paths.get("checkpoint_to", None)
                          or str(cfg.paths.save_to).rstrip("/") + "_checkpoints")
             ckpt_folder = os.path.join(ckpt_root, f"{taskname}_{folder_tag}", f"s{seed}")
+            # a kept snapshot's folder carries the ABSOLUTE iteration (iter_offset + iterations done
+            # here), so the snapshots of a warm-started continuation sort after its parent's
             trainer.checkpoint_fn = (
                 lambda iters_done, params: write_checkpoint(
-                    os.path.join(ckpt_folder, f"it{iters_done:07d}") if ckpt_keep else ckpt_folder,
+                    os.path.join(ckpt_folder, f"it{int(cfg.trainer.iter_offset) + iters_done:07d}")
+                    if ckpt_keep else ckpt_folder,
                     cfg, params, None if ckpt_keep else opt, taskname, seed, iters_done))
             print(f"checkpointing every {ckpt_every} iterations -> {ckpt_folder}"
                   f"{' (every snapshot kept)' if ckpt_keep else ''}")
