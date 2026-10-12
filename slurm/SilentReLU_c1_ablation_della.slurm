@@ -40,9 +40,30 @@ OUT="${OUT:-/scratch/gpfs/TENGEL/pt1290/c1_ablation}"
 export PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}"
 echo "code: $REPO @ $(git -C "$REPO" rev-parse --short HEAD 2>/dev/null)"
 
+cd /scratch/gpfs/TENGEL/pt1290
+ABL="$REPO/trainRNNbrain/experiments_and_analysis/ablate_silent_units.py"
+
+# SNAPSHOT=<Task> instead of LIST: the runs of slurm/SilentReLU_c1_snapshots_della.slurm for that task
+# (CDDM, NBitFlipFlop or DMTS), found on disk when the task starts, so this array can be queued
+# behind the training array with --dependency. Each run is read at its floor (both loss series)
+# and at its end, so the same network is compared across the two read-outs.
+#   SNAPSHOT=CDDM sbatch --dependency=afterany:<training job> --array=1-3 slurm/SilentReLU_c1_ablation_della.slurm
+if [ -n "${SNAPSHOT:-}" ]; then
+  DATA="${DATA:-$HOME/trainRNNbrain/data/trained_RNNs}"
+  SNAP_TO="${SNAP_TO:-/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots}"
+  mapfile -t RUNS < <(ls -d "$DATA/${SNAPSHOT}_c1_snapshots"/EqType=*/*/ 2>/dev/null | sort)
+  RUN_DIR="${RUNS[$((SLURM_ARRAY_TASK_ID - 1))]%/}"
+  [ -n "$RUN_DIR" ] || { echo "FATAL: no run $SLURM_ARRAY_TASK_ID for $SNAPSHOT" >&2; exit 1; }
+  SEED=$(basename "$RUN_DIR" | sed -n 's/.*seed=\([0-9]*\).*/\1/p')
+  SNAP_DIR="$SNAP_TO/${SNAPSHOT}_c1_snapshots/$(basename "$(dirname "$RUN_DIR")")/s$SEED"
+  echo "Task ${SLURM_ARRAY_TASK_ID}: $RUN_DIR"
+  echo "  snapshots: $SNAP_DIR ($(ls -d "$SNAP_DIR"/it* 2>/dev/null | wc -l) kept)"
+  python "$ABL" floor "$RUN_DIR" "$SNAP_DIR" --out "$OUT"
+  python "$ABL" end "$RUN_DIR" --out "$OUT"
+  exit 0
+fi
+
 LINE=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$LIST")
 read -r READOUT RUN_DIR SNAP_DIR <<< "$LINE"
 echo "Task ${SLURM_ARRAY_TASK_ID}: $READOUT $RUN_DIR ${SNAP_DIR:-}"
-cd /scratch/gpfs/TENGEL/pt1290
-python "$REPO/trainRNNbrain/experiments_and_analysis/ablate_silent_units.py" \
-  "$READOUT" "$RUN_DIR" ${SNAP_DIR:+"$SNAP_DIR"} --out "$OUT"
+python "$ABL" "$READOUT" "$RUN_DIR" ${SNAP_DIR:+"$SNAP_DIR"} --out "$OUT"

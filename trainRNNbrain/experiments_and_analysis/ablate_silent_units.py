@@ -50,6 +50,7 @@ offline active count against the trace's count at the nearest stored probe.
 Usage (on a GPU node; the Mac has no environment):
   python ablate_silent_units.py end   <run_dir>              [--out DIR]
   python ablate_silent_units.py floor <run_dir> <snap_dir>   [--out DIR]
+  python ablate_silent_units.py summary                      [--out DIR]   (one row per cell)
     run_dir   a finished run folder (holds *_config.yaml, *LastParams*, *ParticipationTrace.pkl)
     snap_dir  its kept-snapshot folder: <checkpoint_to>/<Task>_<tag>/s<seed>/ holding it<iters>/
 Output: one JSON per network and read-out in --out (default /scratch/gpfs/TENGEL/pt1290/c1_ablation).
@@ -383,12 +384,39 @@ def floor_points(run_dir, snap_dir, batches_for):
     return out
 
 
+def summary(out_dir):
+    """Print one row per cell and read-out: means over networks of the headline contrasts.
+
+    Args:
+        out_dir: the folder of result JSONs.
+    """
+    rows = {}
+    for f in sorted(glob.glob(os.path.join(out_dir, "*.json"))):
+        if f.endswith("_points.json"):
+            continue
+        with open(f) as fh:
+            r = json.load(fh)
+        if "r2_full" not in r:
+            continue
+        rows.setdefault((r["sweep"], r["cell"], r["readout"]), []).append(r)
+    print(f"{'cell':62s} {'read-out':13s} n  {'silent':>11s}  {'r2 intact':>9s}  "
+          f"{'-silent':>8s}  {'-random':>8s}  {'-active':>8s}  iteration")
+    for (sweep, cell, readout), rs in sorted(rows.items()):
+        m = lambda k: float(np.mean([r[k] for r in rs]))
+        rnd = float(np.mean([np.mean(r["r2_random_same_count"]) for r in rs]))
+        sil = np.array([r["n_silent"] / r["N"] for r in rs])
+        print(f"{(sweep + '/' + cell)[:62]:62s} {readout:13s} {len(rs)}  "
+              f"{m('n_silent'):5.0f} ({100 * sil.mean():2.0f}%)  {m('r2_full'):9.4f}  "
+              f"{m('r2_no_silent'):8.4f}  {rnd:8.4f}  {m('r2_no_active'):8.4f}  "
+              f"{int(m('iteration')):,}")
+
+
 # ------------------------------------------------------------------------------------------------
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("readout", choices=["end", "floor"])
-    ap.add_argument("run_dir")
+    ap.add_argument("readout", choices=["end", "floor", "summary"])
+    ap.add_argument("run_dir", nargs="?")
     ap.add_argument("snap_dir", nargs="?")
     ap.add_argument("--out", default=OUT)
     ap.add_argument("--quick", action="store_true",
@@ -397,6 +425,9 @@ def main():
     global DRAWS, RANDOM_ORDERS, QUICK
     if a.quick:
         DRAWS, RANDOM_ORDERS, QUICK = 1, 1, True
+    if a.readout == "summary":
+        summary(a.out)
+        return
     os.makedirs(a.out, exist_ok=True)
     run_dir = a.run_dir.rstrip("/")
     cell = os.path.basename(os.path.dirname(run_dir))
