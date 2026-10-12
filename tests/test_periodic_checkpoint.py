@@ -203,10 +203,39 @@ def test_checkpoints_live_outside_the_data_tree():
     print("5 OK  checkpoints sit outside the data tree and no cell inventory sees them")
 
 
+def test_kept_snapshots_are_a_series_without_optimiser_state():
+    """CONTRACT 8. `checkpoint_keep`: one it<iters>/ folder per snapshot, none overwritten, no AdamState.
+
+    The caller passes a fresh folder per checkpoint and opt=None. The series is what lets a network
+    be read at its own floor crossing, which lands between the saved end states.
+    """
+    rnn = RNN_torch(N=N, activation_args={"name": "relu", "slope": 1.0}, dale=False,
+                    n_inputs=2, n_outputs=1, equation_type="h", seed=0)
+    with tempfile.TemporaryDirectory() as d:
+        root = os.path.join(d, "s7")
+        stamps = []
+        for it in (500, 1000):
+            with torch.no_grad():
+                rnn.W_rec.fill_(float(it))           # make the two snapshots distinguishable
+            write_checkpoint(os.path.join(root, f"it{it:07d}"), _cfg(75000), rnn.get_params(),
+                             None, "CDDM", 7, it)
+            stamps.append(it)
+        assert sorted(os.listdir(root)) == ["it0000500", "it0001000"], os.listdir(root)
+        for it in stamps:
+            folder = os.path.join(root, f"it{it:07d}")
+            files = sorted(os.listdir(folder))
+            assert files == ["ckpt_s7_LastParams_CDDM.npz", "ckpt_s7_config.yaml"], files
+            z = np.load(os.path.join(folder, "ckpt_s7_LastParams_CDDM.npz"))
+            assert np.all(z["W_rec"] == it), f"snapshot {it} holds another snapshot's weights"
+            assert warm_start_offset(folder) == it
+    print("8 OK  kept snapshots form a series, each with its own weights and no optimiser state")
+
+
 if __name__ == "__main__":
     test_off_by_default_never_fires()
     test_cadence_skips_the_final_iteration()
     test_snapshot_is_a_finished_run_as_far_as_the_warm_start_can_tell()
     test_a_killed_write_leaves_a_consistent_snapshot()
     test_checkpoints_live_outside_the_data_tree()
+    test_kept_snapshots_are_a_series_without_optimiser_state()
     print("all periodic-checkpoint contracts hold")

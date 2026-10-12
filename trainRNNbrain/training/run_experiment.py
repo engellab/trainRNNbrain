@@ -73,12 +73,19 @@ def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done):
     Each file goes to a temporary name and is renamed into place, so a job killed DURING a
     checkpoint leaves the previous complete snapshot rather than a truncated one.
 
+    KEPT SNAPSHOTS. With `trainer.checkpoint_keep` the caller passes a fresh folder per checkpoint
+    (`it<iters>/`) and `opt=None`, so a run leaves its weights along training rather than only the
+    latest copy. That series is what lets a network be read where its loss first reaches its own
+    floor: the floor crossing lands at 6-17k iterations on CDDM, far from every weight state a run
+    otherwise saves. Without the optimiser state a kept snapshot is ~half the size and is not a
+    resume point; the rolling snapshot is.
+
     Args:
         folder: str, directory to write into; created if absent.
         cfg: the resolved run config. Copied, not mutated; the copy's trainer.max_iter is stamped
             with iters_done.
         params: the RNN's current parameters, as RNN.get_params() returns them (dict or DictConfig).
-        opt: the torch optimizer whose moment estimates to save.
+        opt: the torch optimizer whose moment estimates to save, or None to write no AdamState.
         taskname: str, used in the filenames the warm-start globs match.
         seed: int, this run's resolved seed, for the file stem.
         iters_done: int, iterations completed at this checkpoint.
@@ -106,9 +113,10 @@ def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done):
         # config OLDER than the parameters -- which under-counts the budget, the safe direction.
         snap = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
         snap.trainer.max_iter = int(iters_done)
-        plan = [(f"{stem}_LastParams_{taskname}.npz", savez),
-                (f"{stem}_AdamState_{taskname}.pt", lambda t: torch.save(opt.state_dict(), t)),
-                (f"{stem}_config.yaml", lambda t: OmegaConf.save(snap, t))]
+        plan = [(f"{stem}_LastParams_{taskname}.npz", savez)]
+        if opt is not None:
+            plan.append((f"{stem}_AdamState_{taskname}.pt", lambda t: torch.save(opt.state_dict(), t)))
+        plan.append((f"{stem}_config.yaml", lambda t: OmegaConf.save(snap, t)))
         staged = []
         for name, write in plan:
             final = os.path.join(folder, name)
@@ -355,15 +363,20 @@ def run_training(cfg: DictConfig) -> None:
         # PERIODIC CHECKPOINT. `trainer.checkpoint_every` = 0 switches it off. The snapshots go to
         # their OWN tree, never into data_save_path: that is a cell directory, and everything which
         # inventories cells counts any subfolder holding *LastParams* as a finished run.
+        # `+trainer.checkpoint_keep=true` keeps EVERY snapshot, each in its own it<iters>/ folder and
+        # without the optimiser state, instead of overwriting one resumable copy.
         ckpt_every = int(cfg.trainer.get("checkpoint_every", 0) or 0)
+        ckpt_keep = bool(cfg.trainer.get("checkpoint_keep", False))
         if ckpt_every:
             ckpt_root = (cfg.paths.get("checkpoint_to", None)
                          or str(cfg.paths.save_to).rstrip("/") + "_checkpoints")
             ckpt_folder = os.path.join(ckpt_root, f"{taskname}_{folder_tag}", f"s{seed}")
             trainer.checkpoint_fn = (
                 lambda iters_done, params: write_checkpoint(
-                    ckpt_folder, cfg, params, opt, taskname, seed, iters_done))
-            print(f"checkpointing every {ckpt_every} iterations -> {ckpt_folder}")
+                    os.path.join(ckpt_folder, f"it{iters_done:07d}") if ckpt_keep else ckpt_folder,
+                    cfg, params, None if ckpt_keep else opt, taskname, seed, iters_done))
+            print(f"checkpointing every {ckpt_every} iterations -> {ckpt_folder}"
+                  f"{' (every snapshot kept)' if ckpt_keep else ''}")
 
         ############################### RUN TRAINING #############################
 
