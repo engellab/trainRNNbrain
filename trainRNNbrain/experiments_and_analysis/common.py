@@ -324,10 +324,21 @@ def aicc(rss, n, k):
 # cannot describe a plateau followed by a drop. The escape is where the running median first
 # falls below half the level of the first 50 iterations; for the flip-flop and CDDM that is within
 # the first few hundred iterations, and the fit is unchanged.
+#
+# THE GUARDS ARE BLIND TO EPISODES (Pavel, 2026-10-12). After reaching its floor DMTS has bursts:
+# the loss climbs 2-10x, sometimes back to chance, for a few thousand iterations, then returns.
+# Judged by its final value, a run was excluded whenever training happened to stop inside one (4 of
+# 6 DMTS controls). So the end of a run is the MEDIAN of its last 10% of iterations, and a run is
+# excluded when that end sits more than 1.5x above its fitted floor - the loss really climbed back
+# and stayed. (A second test, floor against the run's best long-run level, was tried and dropped:
+# DMTS sits flat between bursts at ~7e-5 while its fitted floor, ~1e-4, averages troughs and
+# bursts, so the test rejected 7 of 8 runs that had plainly reached their floor.)
 
 NOISY_SMOOTH = 2001     # iterations in the running median the read-out is taken on
 FLOOR_DELTA = 0.05      # read at 1.05x the fitted floor (1.07x before 2026-10-12)
-MAX_LATE_RISE = 1.5     # smoothed end over smoothed minimum after the escape; above it, no read-out
+MAX_LATE_RISE = 1.5     # end of the run (median of its last 10%) over the fitted floor; above it, no
+                        # read-out
+END_FRAC = 0.10         # the "end of the run" is its last 10% of iterations
 FIT_START = 2000        # the floor is fitted from this iteration, or 200 after the escape if later
 FLOOR_BOUND = 1e-6      # the fit's lower bound on the floor; a fit pinned there is no floor
 
@@ -390,8 +401,9 @@ def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
         it, L: the per-iteration noisy loss and its iterations (noisy_loss_series).
         delta: the margin; smooth: running-median window, in samples.
     Returns:
-        dict: t_star (nan when there is no read-out), floor, escape, late_rise, reason (None when
-        the read-out is usable), and `smoothed` (the running median the crossing is read on).
+        dict: t_star (nan when there is no read-out), floor, escape, late_rise (end-of-run median
+        over the floor), reason (None when the read-out is usable), and `smoothed` (the running
+        median the crossing is read on).
     """
     from scipy.ndimage import median_filter
     from scipy.optimize import least_squares
@@ -430,13 +442,12 @@ def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
         return out
     floor = float(fit[0])
     out["floor"], out["fit"] = floor, [float(v) for v in fit]
-    after = it >= t0 + 200
-    out["late_rise"] = float(rm[-1] / rm[after].min())
+    out["late_rise"] = float(np.median(L[it >= it[-1] - END_FRAC * (it[-1] - it[0])]) / floor)
     if floor <= FLOOR_BOUND * 1.01:
         out["reason"] = "fit pinned at its lower bound"
         return out
     if out["late_rise"] > MAX_LATE_RISE:
-        out["reason"] = f"loss climbs back {out['late_rise']:.1f}x after its minimum"
+        out["reason"] = f"loss ends {out['late_rise']:.1f}x above its floor"
         return out
     hit = np.flatnonzero(m & (rm <= (1.0 + delta) * floor))
     if not len(hit):
