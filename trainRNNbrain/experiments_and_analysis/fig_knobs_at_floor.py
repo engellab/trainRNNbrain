@@ -17,7 +17,8 @@ which made the input-scale ladder unreadable at its floor.
 
 R^2 AT THE FLOOR (`--tradeoff`). Where a run kept weight snapshots (`trainer.checkpoint_keep`), R^2
 is MEASURED: held-out R^2 of the first snapshot at or after the crossing (snapshots every 500
-iterations). Otherwise no weights exist at the crossing, and it is estimated from the end of the run: R2_floor = 1 - (L(t*) / L_end) * (1 - R2_end), with L the
+iterations). Otherwise no weights exist at the crossing, and it is estimated from the end of the
+run: R2_floor = 1 - (L(t*) / L_end) * (1 - R2_end), with L the
 noisy training loss (running median at the crossing, median of the last 10% at the end) and R2_end
 the held-out score of the final weights (heldout_r2.py). Against held-out R^2 measured on weights
 saved at the crossing (nine claim-1 networks, trajectory 2026-10-13): eight within 0.006, one CDDM
