@@ -15,8 +15,17 @@ dropped and counted per rung, with the reason. The previous version read the noi
 at 1.07x through `pr_matrix.fit_floor_at`; that loss climbs back after its minimum on the flip-flop,
 which made the input-scale ladder unreadable at its floor.
 
-Usage:  python trainRNNbrain/experiments_and_analysis/fig_knobs_at_floor.py [--probe]
-        (run from the repository root; --probe prints the table and writes no figures)
+R^2 AT THE FLOOR (`--tradeoff`). No weights were saved at the crossing, so held-out R^2 there is
+estimated from the end of the same run: R2_floor = 1 - (L(t*) / L_end) * (1 - R2_end), with L the
+noisy training loss (running median at the crossing, median of the last 10% at the end) and R2_end
+the held-out score of the final weights (heldout_r2.py). Against held-out R^2 measured on weights
+saved at the crossing (nine claim-1 networks, trajectory 2026-10-13): eight within 0.006, one CDDM
+network off by 0.0115 because two scorers differ by 0.011 on its same final weights. So on CDDM an
+R^2 difference below ~0.01 is scoring noise.
+
+Usage:  python trainRNNbrain/experiments_and_analysis/fig_knobs_at_floor.py [--probe | --tradeoff]
+        (run from the repository root, on a CPU node; --probe prints the table and writes no
+        figures; --tradeoff draws R^2 against active units, both at each run's floor)
 """
 
 import argparse
@@ -30,7 +39,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import fig_paper_F1 as F1
 import paperstyle as ps
-from common import DATA_DIR, noisy_floor
+from common import DATA_DIR, END_FRAC, noisy_floor
+from heldout_r2 import heldout_r2, load_cache, save_cache
 
 W, H = 7.6, 2.9
 
@@ -71,7 +81,7 @@ LADDERS = [
          rungs=[("none\n$\\lambda$ = 0", f"{DATA_DIR}/CDDM_std_g0_recinit/EqType=h_N=1000_sr=1.2_iters=75000"),
                 ("0.05", f"{DATA_DIR}/CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000"),
                 ("0.2", f"{DATA_DIR}/CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000")]),
-    dict(stem="slide_k_activation", knob="activation function", ref=0,
+    dict(stem="slide_k_activation", knob="activation function", ref=0, categorical=True,
          task="CDDM, $N$ = 1000, 200,000 iterations",
          rungs=[("ReLU\n(default)", f"{DATA_DIR}/CDDM_std_g0_drift_bias0/EqType=h_N=1000_iters=200000"),
                 ("leaky ReLU\nleak 0.01", f"{DATA_DIR}/CDDM_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=200000"),
@@ -87,20 +97,36 @@ LADDERS = [
 ]
 
 
-def read_rung(path, end_at=None):
+def floor_r2(run_dir, it, L, f, cache):
+    """Held-out R^2 at a run's floor crossing, estimated from its final weights' score.
+
+    Args:
+        run_dir: the run folder; it, L: its noisy loss series; f: noisy_floor's result for it;
+        cache: an open heldout_r2 cache.
+    Returns:
+        1 - (L(t*) / L_end) * (1 - R2_end), see the module docstring.
+    """
+    L_star = f["smoothed"][np.flatnonzero(it >= f["t_star"])[0]]
+    L_end = np.median(L[it >= it[-1] - END_FRAC * (it[-1] - it[0])])
+    return 1.0 - (L_star / L_end) * (1.0 - heldout_r2(run_dir, cache=cache))
+
+
+def read_rung(path, end_at=None, cache=None):
     """Active-unit counts for one rung, at its own noisy-loss floor and at the end of its budget.
 
     Args:
         path: the cell directory holding one folder per seed.
         end_at: iteration to take the "end" count at, or None for the last probe. Set when a ladder's
             control was trained longer than its arms, so both ends are read at the same budget.
+        cache: an open heldout_r2 cache to also estimate R^2 at the floor, or None to skip it.
     Returns:
         dict with keys `floor` (counts where the noisy loss first reaches 1.05x its fitted floor),
         `end` (counts at the last participation probe), `cross` (crossing iterations), `late`
-        (end-of-run loss over the floor, for the runs read), `n` (runs found) and `dropped` (one
-        reason string per run with no usable crossing).
+        (end-of-run loss over the floor, for the runs read), `r2` (held-out R^2 at the floor, one
+        per `floor` entry; empty without a cache), `n` (runs found) and `dropped` (one reason
+        string per run with no usable crossing).
     """
-    at_floor, at_end, cross, late, dropped = [], [], [], [], []
+    at_floor, at_end, cross, late, r2, dropped = [], [], [], [], [], []
     runs = F1.runs_with_loss(path)
     for r in runs:
         it_a = np.asarray(r["it_act"], float)
@@ -119,9 +145,12 @@ def read_rung(path, end_at=None):
         at_floor.append(r["active"][int(np.argmin(np.abs(it_a - T)))])
         cross.append(T)
         late.append(f["late_rise"])
+        if cache is not None:
+            r2.append(floor_r2(os.path.join(path, r["name"]), np.asarray(r["it_loss"], float),
+                               np.asarray(r["loss"], float), f, cache))
     return dict(floor=np.array(at_floor, float), end=np.array(at_end, float),
-                cross=np.array(cross, float), late=np.array(late, float), n=len(runs),
-                dropped=dropped)
+                cross=np.array(cross, float), late=np.array(late, float),
+                r2=np.array(r2, float), n=len(runs), dropped=dropped)
 
 
 def ladder_slide(spec, n_total=1000):
@@ -232,11 +261,66 @@ def probe():
                   f"{'; '.join(r['dropped'])}")
 
 
-def main(probe_only=False):
-    """Build every ladder, or just print the table. Returns the list of paths written."""
+def tradeoff():
+    """Every ladder as one scatter of held-out R^2 against active units, both at each run's floor.
+
+    One point per run. A dose ladder is coloured along a sequential map in dose order; a categorical
+    ladder (activation functions) uses one marker shape per category. The untouched network is
+    ringed in black. Runs with no floor read-out are left out and the legend says how many (k/n).
+    The six CDDM panels share one R^2 axis so they can be compared by eye.
+
+    Returns:
+        the output path.
+    """
+    cache = load_cache()
+    ps.setup()
+    fig, axes = plt.subplots(2, 4, figsize=(180 * ps.MM, 100 * ps.MM))
+    cddm_axes = []
+    for ax, spec in zip(axes.flat, LADDERS):
+        reads = [(lab.replace("\n", " "), read_rung(p, spec.get("end_at"), cache))
+                 for lab, p in spec["rungs"]]
+        cat = spec.get("categorical", False)
+        seq = plt.get_cmap("viridis")(np.linspace(0.05, 0.85, len(reads)))
+        for i, (lab, r) in enumerate(reads):
+            k = len(r["floor"])
+            ref = i == spec["ref"]
+            ax.scatter(r["floor"], r["r2"], s=22 if ref else 16,
+                       marker="osD^v"[i] if cat else "o",
+                       color=ps.SLOTS[i] if cat else seq[i],
+                       edgecolors="k" if ref else "none", linewidths=0.8, zorder=3,
+                       label=lab + ("" if k == r["n"] else f" ({k}/{r['n']})"))
+        ax.set_xlim(0, 1000)
+        # N is 1000 in every panel and said on the axis label; budgets as "200k" so the two-line
+        # titles fit their own column
+        task = (spec["task"].replace(", $N$ = 1000", "").replace(",000 iterations", "k it")
+                .replace("3-bit flip-flop", "flip-flop"))
+        ax.set_title(f"{spec['knob']}\n{task}", fontsize=6.4, color=ps.INK, pad=3)
+        ax.legend(fontsize=5.2, frameon=False, loc="lower left", handletextpad=0.2,
+                  borderaxespad=0.2, labelspacing=0.25)
+        if spec["task"].startswith("CDDM"):
+            cddm_axes.append(ax)
+    save_cache(cache)
+    lo = min(a.get_ylim()[0] for a in cddm_axes)
+    hi = max(a.get_ylim()[1] for a in cddm_axes)
+    for a in cddm_axes:
+        a.set_ylim(lo, hi)
+    for a in axes[:, 0]:
+        a.set_ylabel("held-out $R^2$ at the floor")
+    for a in axes[-1, :]:
+        a.set_xlabel("active units (of 1000)")
+    for a in axes.flat[len(LADDERS):]:
+        fig.delaxes(a)
+    fig.subplots_adjust(left=0.07, right=0.99, top=0.92, bottom=0.09, wspace=0.32, hspace=0.55)
+    return ps.save(fig, "fig_f2_knob_tradeoff", w_mm=180)
+
+
+def main(probe_only=False, tradeoff_only=False):
+    """Build every ladder, the trade-off scatter, or just print the table. Returns paths written."""
     if probe_only:
         probe()
         return []
+    if tradeoff_only:
+        return [tradeoff()]
     out = []
     for spec in LADDERS:
         got = ladder_slide(spec)
@@ -249,4 +333,6 @@ def main(probe_only=False):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--probe", action="store_true", help="print the table, write nothing")
-    main(ap.parse_args().probe)
+    ap.add_argument("--tradeoff", action="store_true", help="draw R^2 against active units")
+    a = ap.parse_args()
+    main(a.probe, a.tradeoff)
