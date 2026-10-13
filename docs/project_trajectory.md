@@ -15200,3 +15200,18 @@ read-out of every `_c75000`/`_c200000` flip-flop run is broken on Della until th
 knob-ladder sweeps, the claim-1 runs and snapshots, and the ablation results are intact.
 Copies of all 21 deleted sweeps are on the laptop (`~/Documents/GitHub/trainRNNbrain/data/trained_RNNs`,
 ~15 GB). Pavel dropped the threshold lift (bias_kick) from option B. Pending tasks cancelled.
+
+**Restore (Pavel: the deletion was an accident).** The 21 sweeps are being uploaded from the laptop
+with `rsync --ignore-existing` (nothing on Della overwritten). `CDDM_screen3` checked first, against
+criteria set before looking: 0 files differ from the laptop copy (rsync checksum dry run), and the
+end-of-training active counts per run equal this afternoon's reads of the Della originals (none
+412/420/399, cap 416/431/415, prune 421/419/403). Option A resubmitted: 15509858-60.
+
+**C4, gradient reach (A2) started.** `gradient_participation.py` (c74b08e) now takes every
+activation through the network's own definition, with f' by autograd, and reads a run at its floor
+snapshot when it has one (`--at floor`; otherwise the final weights, labelled `end`). Check set
+before running: on a ReLU network the count of units the gradient reaches must be within 10% of the
+active count on the same weights. Smoke test, one CDDM N = 1000 control (end): 414 active; gradient
+reaches 448 by state (8%), 427 by incoming and 425 by outgoing weights. Pass. Job 15509818 runs it
+on 19 cells: the three claim-1 snapshot controls (at the floor), the CDDM / DMTS / flip-flop size
+series (end: no snapshots at N ≠ 1000), the activation ladder and tanh.
