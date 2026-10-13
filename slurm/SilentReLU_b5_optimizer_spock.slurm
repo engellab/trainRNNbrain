@@ -11,9 +11,10 @@
 #   3    adamw      1e-6   1e-3      decoupled decay: w -= lr*wd*w, ~5e-10 per step
 #   4-9  sgd        1e-6   0.03..10  same coupled L2 as the control, no normalisation; the ladder
 #                                    spans 300x because SGD's working rate here is unmeasured
+#   10-15 sgd       0      0.03..10  SGD with no decay at all (added 13 Oct, after 1-27 were queued)
 #
-# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..26): ARM = TID/3, REP = TID%3.
-#   sbatch --array=1-27 SilentReLU_b5_optimizer_spock.slurm      (from the repo, --chdir=$REPO)
+# Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..44): ARM = TID/3, REP = TID%3.
+#   sbatch --array=1-45 SilentReLU_b5_optimizer_spock.slurm      (from the repo, --chdir=$REPO)
 # Output: $SAVE_TO/NBitFlipFlop_b5_optimizer/EqType=h_N=1000_opt=<o>_wd=<wd>_lr=<lr>/
 # Cost: 200k at N = 1000 is ~15 GPU-h (Della paper grid: 2.9 h per 40k); 72 h allows a slow node.
 
@@ -25,7 +26,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=1-27
+#SBATCH --array=1-45
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
@@ -54,7 +55,8 @@ fi
 echo "code: $PKG @ $GITSHA (git)"
 
 ARMS=("adam 1e-6 1e-3" "adam 0 1e-3" "adamw 1e-6 1e-3"
-      "sgd 1e-6 0.03" "sgd 1e-6 0.1" "sgd 1e-6 0.3" "sgd 1e-6 1" "sgd 1e-6 3" "sgd 1e-6 10")
+      "sgd 1e-6 0.03" "sgd 1e-6 0.1" "sgd 1e-6 0.3" "sgd 1e-6 1" "sgd 1e-6 3" "sgd 1e-6 10"
+      "sgd 0 0.03" "sgd 0 0.1" "sgd 0 0.3" "sgd 0 1" "sgd 0 3" "sgd 0 10")
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 read -r OPT WD LR <<< "${ARMS[$((TID / 3))]:?array index out of range}"
 TAG="b5_optimizer/EqType=h_N=1000_opt=${OPT}_wd=${WD}_lr=${LR}"
