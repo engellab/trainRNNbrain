@@ -15,8 +15,9 @@ dropped and counted per rung, with the reason. The previous version read the noi
 at 1.07x through `pr_matrix.fit_floor_at`; that loss climbs back after its minimum on the flip-flop,
 which made the input-scale ladder unreadable at its floor.
 
-R^2 AT THE FLOOR (`--tradeoff`). No weights were saved at the crossing, so held-out R^2 there is
-estimated from the end of the same run: R2_floor = 1 - (L(t*) / L_end) * (1 - R2_end), with L the
+R^2 AT THE FLOOR (`--tradeoff`). Where a run kept weight snapshots (`trainer.checkpoint_keep`), R^2
+is MEASURED: held-out R^2 of the first snapshot at or after the crossing (snapshots every 500
+iterations). Otherwise no weights exist at the crossing, and it is estimated from the end of the run: R2_floor = 1 - (L(t*) / L_end) * (1 - R2_end), with L the
 noisy training loss (running median at the crossing, median of the last 10% at the end) and R2_end
 the held-out score of the final weights (heldout_r2.py). Against held-out R^2 measured on weights
 saved at the crossing (nine claim-1 networks, trajectory 2026-10-13): eight within 0.006, one CDDM
@@ -29,7 +30,9 @@ Usage:  python trainRNNbrain/experiments_and_analysis/fig_knobs_at_floor.py [--p
 """
 
 import argparse
+import glob
 import os
+import re
 import sys
 
 import numpy as np
@@ -43,6 +46,13 @@ from common import DATA_DIR, END_FRAC, noisy_floor
 from heldout_r2 import heldout_r2, load_cache, save_cache
 
 W, H = 7.6, 2.9
+# kept weight snapshots, by <sweep>/<cell>/s<seed>/it<absolute iteration>/
+SNAP_DIR = os.path.join(DATA_DIR, "..", "c1_snapshots")
+SNAP_MAX_LAG = 1000     # a snapshot more than this many iterations after the crossing is not "at" it
+# noise draws per held-out R^2 in this figure. One CDDM draw has an SD of ~0.011, so the project's 9
+# draws leave ~0.004 of noise and two scorers differed by 0.01-0.013 on identical weights; 36 halves it.
+# Same measure (heldout_r2), more draws.
+R2_DRAWS = 36
 
 # One ladder per knob, on the bias-0 cells. The reference rung sits in its DOSE ORDER position, not
 # first: on a dose ladder the default is a rung, and putting it first makes the ladder read out of
@@ -94,21 +104,52 @@ LADDERS = [
                 ("2", f"{DATA_DIR}/NBitFlipFlop_std_winp_bias0/EqType=h_k=3_N=1000_s=2_iters=150000"),
                 ("5", f"{DATA_DIR}/NBitFlipFlop_std_winp_bias0/EqType=h_k=3_N=1000_s=5_iters=150000"),
                 ("20", f"{DATA_DIR}/NBitFlipFlop_std_winp_bias0/EqType=h_k=3_N=1000_s=20_iters=150000")]),
+    # the same ladder on CDDM (2026-10-13), against the claim-1 snapshot controls; same code, same
+    # launcher. The controls ran 100k and the arms 50k, so both ends are read at 50k.
+    dict(stem="slide_k_inputscale_cddm", knob="input weight scale", ref=0, end_at=50000,
+         task="CDDM, $N$ = 1000, 50,000 iterations",
+         rungs=[("default\ndraw", f"{DATA_DIR}/CDDM_c1_snapshots/EqType=h_N=1000_arm=control"),
+                ("0.5", f"{DATA_DIR}/CDDM_c1_snapshots/EqType=h_N=1000_arm=winp0.5"),
+                ("2", f"{DATA_DIR}/CDDM_c1_snapshots/EqType=h_N=1000_arm=winp2"),
+                ("5", f"{DATA_DIR}/CDDM_c1_snapshots/EqType=h_N=1000_arm=winp5"),
+                ("20", f"{DATA_DIR}/CDDM_c1_snapshots/EqType=h_N=1000_arm=winp20")]),
 ]
 
 
+def snapshot_at(run_dir, t):
+    """The kept weight snapshot at or just after iteration t, if the run kept snapshots.
+
+    Args:
+        run_dir: a run folder (its name carries `seed=<seed>`); t: an absolute iteration.
+    Returns:
+        the snapshot folder, or None when there is none within SNAP_MAX_LAG after t.
+    """
+    cell = os.path.dirname(run_dir.rstrip("/"))
+    seed = re.search(r"seed=(\d+)", os.path.basename(run_dir.rstrip("/")))
+    if not seed:
+        return None
+    snaps = glob.glob(os.path.join(SNAP_DIR, os.path.basename(os.path.dirname(cell)),
+                                   os.path.basename(cell), f"s{seed.group(1)}", "it*"))
+    later = sorted((int(os.path.basename(d)[2:]), d) for d in snaps if int(os.path.basename(d)[2:]) >= t)
+    return later[0][1] if later and later[0][0] - t <= SNAP_MAX_LAG else None
+
+
 def floor_r2(run_dir, it, L, f, cache):
-    """Held-out R^2 at a run's floor crossing, estimated from its final weights' score.
+    """Held-out R^2 at a run's floor crossing: measured on a kept snapshot, else estimated.
 
     Args:
         run_dir: the run folder; it, L: its noisy loss series; f: noisy_floor's result for it;
         cache: an open heldout_r2 cache.
     Returns:
-        1 - (L(t*) / L_end) * (1 - R2_end), see the module docstring.
+        (R^2, measured) - held-out R^2 of the snapshot at the crossing and True, or the estimate
+        1 - (L(t*) / L_end) * (1 - R2_end) and False (see the module docstring).
     """
+    snap = snapshot_at(run_dir, f["t_star"])
+    if snap:
+        return heldout_r2(snap, draws=R2_DRAWS, cache=cache), True
     L_star = f["smoothed"][np.flatnonzero(it >= f["t_star"])[0]]
     L_end = np.median(L[it >= it[-1] - END_FRAC * (it[-1] - it[0])])
-    return 1.0 - (L_star / L_end) * (1.0 - heldout_r2(run_dir, cache=cache))
+    return 1.0 - (L_star / L_end) * (1.0 - heldout_r2(run_dir, draws=R2_DRAWS, cache=cache)), False
 
 
 def read_rung(path, end_at=None, cache=None):
@@ -123,10 +164,11 @@ def read_rung(path, end_at=None, cache=None):
         dict with keys `floor` (counts where the noisy loss first reaches 1.05x its fitted floor),
         `end` (counts at the last participation probe), `cross` (crossing iterations), `late`
         (end-of-run loss over the floor, for the runs read), `r2` (held-out R^2 at the floor, one
-        per `floor` entry; empty without a cache), `n` (runs found) and `dropped` (one reason
-        string per run with no usable crossing).
+        per `floor` entry; empty without a cache), `measured` (True where that R^2 was scored on a
+        snapshot rather than estimated), `n` (runs found) and `dropped` (one reason string per run
+        with no usable crossing).
     """
-    at_floor, at_end, cross, late, r2, dropped = [], [], [], [], [], []
+    at_floor, at_end, cross, late, r2, measured, dropped = [], [], [], [], [], [], []
     runs = F1.runs_with_loss(path)
     for r in runs:
         it_a = np.asarray(r["it_act"], float)
@@ -146,11 +188,14 @@ def read_rung(path, end_at=None, cache=None):
         cross.append(T)
         late.append(f["late_rise"])
         if cache is not None:
-            r2.append(floor_r2(os.path.join(path, r["name"]), np.asarray(r["it_loss"], float),
-                               np.asarray(r["loss"], float), f, cache))
+            v, m = floor_r2(os.path.join(path, r["name"]), np.asarray(r["it_loss"], float),
+                            np.asarray(r["loss"], float), f, cache)
+            r2.append(v)
+            measured.append(m)
     return dict(floor=np.array(at_floor, float), end=np.array(at_end, float),
                 cross=np.array(cross, float), late=np.array(late, float),
-                r2=np.array(r2, float), n=len(runs), dropped=dropped)
+                r2=np.array(r2, float), measured=np.array(measured, bool), n=len(runs),
+                dropped=dropped)
 
 
 def ladder_slide(spec, n_total=1000):
@@ -279,6 +324,12 @@ def tradeoff():
     for ax, spec in zip(axes.flat, LADDERS):
         reads = [(lab.replace("\n", " "), read_rung(p, spec.get("end_at"), cache))
                  for lab, p in spec["rungs"]]
+        meas = np.concatenate([r["measured"] for _, r in reads])
+        print(f"{spec['knob']} ({spec['task']}): R^2 measured on snapshots for {meas.sum()} of "
+              f"{len(meas)} runs read, estimated for the rest")
+        for lab, r in reads:
+            print(f"   {lab:<24} active {r['floor'].astype(int).tolist()}  R^2 "
+                  f"{np.round(r['r2'], 4).tolist()}  crossing {r['cross'].astype(int).tolist()}")
         cat = spec.get("categorical", False)
         seq = plt.get_cmap("viridis")(np.linspace(0.05, 0.85, len(reads)))
         for i, (lab, r) in enumerate(reads):
