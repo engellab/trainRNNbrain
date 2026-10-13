@@ -15215,3 +15215,7 @@ active count on the same weights. Smoke test, one CDDM N = 1000 control (end): 4
 reaches 448 by state (8%), 427 by incoming and 425 by outgoing weights. Pass. Job 15509818 runs it
 on 19 cells: the three claim-1 snapshot controls (at the floor), the CDDM / DMTS / flip-flop size
 series (end: no snapshots at N ≠ 1000), the activation ladder and tanh.
+All 21 restored sweeps: 0 files differ from the laptop copies (rsync checksum dry run); flip-flop
+random / zero_out end counts equal this afternoon's reads (261/250/275, 278/312/278); the flip-flop
+chains are whole again (ff_revive_c200000 N = 1000: 3 segments, iterations 1-200,000). Option B
+without bias_kick resubmitted (random, zero_out at 0.025 → 200k, KEEP=1).
