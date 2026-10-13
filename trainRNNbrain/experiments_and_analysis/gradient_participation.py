@@ -23,8 +23,13 @@ THE UNTRAINED TWIN is rebuilt from the saved seed exactly as run_experiment.py b
 merged with the task cfg, seed + (65537**3 % 7309), torch global seed set first). The reconstruction
 is checked against the participation trace's iteration-0 probe and the correlation is printed.
 
+WHERE A RUN IS READ (--at). `end` reads the final weights (LastParams). `floor` reads the kept
+weight snapshot at or just after the run's noisy-loss floor crossing (1.05x, common.noisy_floor),
+and falls back to the final weights, labelled `end`, for a run that kept no snapshots; every record
+says which (`read`, `read_iter`).
+
 Usage (on Della, needs the data and the package):
-  PYTHONPATH=~/trainRNNbrain_recinit python gradient_participation.py CELL [CELL ...] --out DIR
+  PYTHONPATH=<checkout> python gradient_participation.py CELL [CELL ...] --out DIR [--at floor]
 """
 
 import argparse
@@ -33,25 +38,39 @@ import json
 import os
 import pickle
 import re
+import sys
 
 import hydra
 import numpy as np
 import torch
 from omegaconf import OmegaConf
 
+from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.training.training_utils import prepare_task_arguments, get_training_mask
 from trainRNNbrain.utils import filter_kwargs, import_any
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from common import noisy_floor, noisy_loss_series
+from fig_knobs_at_floor import snapshot_at
 
 REL = 0.05
 
 
-def act_fn(name, slope):
-    """The activation and its derivative, as RNN_torch.configure_activation_ defines them."""
-    if name == "relu":
-        return lambda x: torch.clamp(slope * x, min=0.0), lambda x: slope * (x > 0).to(x.dtype)
-    if name == "tanh":
-        return lambda x: torch.tanh(slope * x), lambda x: slope * (1 - torch.tanh(slope * x) ** 2)
-    raise ValueError(name)
+def act_fn(args):
+    """The network's own activation (RNN_torch.configure_activation_) and its derivative.
+
+    Args:
+        args: the saved activation_args dict (name, slope, and leak_slope / shift / beta as used).
+    Returns:
+        (f, f'), both elementwise on tensors; f' by autograd, so every activation shares one path.
+    """
+    f = RNN_torch.configure_activation_(dict(args))
+
+    def fp(x):
+        x = x.detach().requires_grad_(True)
+        with torch.enable_grad():
+            return torch.autograd.grad(f(x).sum(), x)[0]
+    return f, fp
 
 
 def unit_gradients(W, u, target, mask, dev):
@@ -68,8 +87,7 @@ def unit_gradients(W, u, target, mask, dev):
     Wr, Wi, Wo = (t(W[k]).requires_grad_(True) for k in ("W_rec", "W_inp", "W_out"))
     b, y0 = t(W["bias"]).reshape(-1, 1), t(W["y_init"]).reshape(-1, 1)
     alpha = float(W["dt"]) / float(W["tau"])
-    a = W["activation_args"]
-    f, fp = act_fn(a["name"], float(a.get("slope", 1.0)))
+    f, fp = act_fn(W["activation_args"])
     U, Y = t(u), t(target)
     B, T = U.shape[2], U.shape[1]
     xs = [y0.repeat(1, B).requires_grad_(True)]
@@ -115,7 +133,30 @@ def count(g):
     return int((g >= REL * np.quantile(g, 0.95)).sum())
 
 
-def main(cells, out_dir, dev):
+def read_point(d, at):
+    """Which saved weights of run folder d to read, per --at.
+
+    Returns:
+        (path of a *LastParams*.npz, "floor" or "end", the iteration it stands for or None).
+    """
+    end = glob.glob(os.path.join(d, "*LastParams*.npz"))[0]
+    if at != "floor":
+        return end, "end", None
+    it, L = noisy_loss_series(d)
+    f = noisy_floor(it, L) if L is not None else {"reason": "no loss series"}
+    snap = None if f["reason"] else snapshot_at(d, f["t_star"])
+    if snap is None:
+        return end, "end", None
+    return glob.glob(os.path.join(snap, "*LastParams*.npz"))[0], "floor", int(os.path.basename(snap)[2:])
+
+
+def main(cells, out_dir, dev, at="end"):
+    """Per-unit gradients, untrained twin and trained network, for every run of every cell.
+
+    Args:
+        cells: cell folders (one subfolder per run); out_dir: one JSON per run is written here;
+        dev: torch device; at: "end" or "floor" (see the module docstring).
+    """
     os.makedirs(out_dir, exist_ok=True)
     for cell in cells:
         for d in sorted(glob.glob(os.path.join(cell, "*/"))):
@@ -126,7 +167,8 @@ def main(cells, out_dir, dev):
             task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
             u, y, _ = task.get_batch()
             mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
-            z = np.load(glob.glob(os.path.join(d, "*LastParams*.npz"))[0], allow_pickle=True)
+            params, read, read_iter = read_point(d, at)
+            z = np.load(params, allow_pickle=True)
             Wt = {k: z[k] for k in z.files}
             Wt["activation_args"] = Wt["activation_args"].item()
             Wt["bias"] = Wt["bias"] if Wt["bias"].shape else np.zeros(int(Wt["N"]))
@@ -136,20 +178,23 @@ def main(cells, out_dir, dev):
                 W0["bias"] = np.zeros(int(W0["N"]))
             tr = pickle.load(open(glob.glob(os.path.join(d, "*ParticipationTrace.pkl"))[0], "rb"))
             P = np.asarray(tr["participation"], float)
-            rec = {"cell": os.path.basename(cell), "run": name,
+            it_a = np.asarray(tr["participation_iters"], float)
+            k = len(P) - 1 if read_iter is None else int(np.argmin(np.abs(it_a - read_iter)))
+            rec = {"cell": os.path.basename(cell), "run": name, "read": read, "read_iter": read_iter,
                    "r2_saved": float(re.match(r"([0-9.]+)_", name).group(1))}
             for tag, W in (("init", W0), ("trained", Wt)):
                 r = unit_gradients(W, u, y, mask, dev)
                 rec[tag] = {k: (v.tolist() if isinstance(v, np.ndarray) else v) for k, v in r.items()}
             # the reconstruction check: our init participation against the trace's iteration-0 probe
             rec["check_init_corr"] = float(np.corrcoef(rec["init"]["p"], P[0])[0, 1])
-            rec["check_final_corr"] = float(np.corrcoef(rec["trained"]["p"], P[-1])[0, 1])
-            rec["trace_active_end"] = count(P[-1])
-            json.dump(rec, open(os.path.join(out_dir, f"{rec['cell']}__{name[:40]}.json"), "w"))
+            rec["check_final_corr"] = float(np.corrcoef(rec["trained"]["p"], P[k])[0, 1])
+            rec["trace_active"] = count(P[k])
+            sweep = os.path.basename(os.path.dirname(cell.rstrip("/")))
+            json.dump(rec, open(os.path.join(out_dir, f"{sweep}__{rec['cell']}__{name[:40]}__{at}.json"), "w"))
             s = lambda tag, k: count(np.asarray(rec[tag][k]))
-            print(f"{rec['cell'][-35:]:35s} {name[:9]} loss0={rec['init']['loss']:.4f} "
+            print(f"{rec['cell'][-35:]:35s} {name[:9]} {read}@{read_iter} loss0={rec['init']['loss']:.4f} "
                   f"loss={rec['trained']['loss']:.5f} corr0={rec['check_init_corr']:.3f} "
-                  f"corrT={rec['check_final_corr']:.3f} | trace={rec['trace_active_end']} "
+                  f"corrT={rec['check_final_corr']:.3f} | trace={rec['trace_active']} "
                   f"p={s('trained','p')} | INIT st={s('init','g_state')} in={s('init','g_in')} "
                   f"out={s('init','g_out')} | TRAINED st={s('trained','g_state')} "
                   f"in={s('trained','g_in')} out={s('trained','g_out')}", flush=True)
@@ -159,5 +204,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("cells", nargs="+")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--at", choices=["end", "floor"], default="end")
     a = ap.parse_args()
-    main(a.cells, a.out, torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    main(a.cells, a.out, torch.device("cuda" if torch.cuda.is_available() else "cpu"), a.at)
