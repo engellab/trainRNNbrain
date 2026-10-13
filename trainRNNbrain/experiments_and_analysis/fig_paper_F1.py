@@ -76,17 +76,20 @@ import paperstyle as ps
 import heldout_r2 as heldout
 from pr_matrix import fit_floor_at, excess_time_at
 from common import (DATA_DIR, SILENT_REL, participation, logbin, noisy_loss_series,
-                    noisy_floor, FLOOR_DELTA)
+                    noisy_floor, FLOOR_DELTA, warm_start_chain)
 from flipflop_diversity import rates_and_targets
 from flipflop_fixedpoints import load_net
 
-CACHE = "data/fig_paper_F1_cache.npz"
-# The example network is a STANDARD unpenalised 3-bit flip-flop control at N = 1000, read at the end
-# of its 75,000-iteration budget (40k + a 35k top-up, one continuous trace). The flip-flop has no
-# usable floor read-out (its noise-free loss climbs back after its minimum), so the end of budget is
-# the read-out this task has; the count shown is the one panel (c) draws for this task at N = 1000.
-# Until 2026-10-12 this was a trainable-bias network (NBitFlipFlop_std_dropout).
-EXAMPLE_NET = f"{DATA_DIR}/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N=1000_pen=none_arm=none"
+CACHE = "data/fig_paper_F1_cache_v2.npz"   # v2: carries the untrained twin's participation
+# The example network is a STANDARD unpenalised 3-bit flip-flop control at N = 1000, trained for
+# 200,000 iterations (40k + a 35k top-up + a 125k top-up, one continuous chain): the flip-flop's
+# budget since its noisy loss was found still falling at 75k. Panel (b) draws it twice: as it was
+# before its first update - its untrained twin, rebuilt from the chain's first saved seed exactly
+# as run_experiment built it (gradient_participation.initial_params) - and after training, both
+# simulated on the same trials. Until 2026-10-12 this was a trainable-bias network
+# (NBitFlipFlop_std_dropout) and panel (b) showed the trained network only.
+EXAMPLE_NET = f"{DATA_DIR}/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none"
+EXAMPLE_TASK = "3-bit flip-flop"
 N_TRIALS = 24
 N_UNITS = 1000            # every intervention family is measured at this size
 
@@ -613,27 +616,63 @@ def matched_after_convergence(cells):
     return out, bar, K
 
 
-def example_network(refresh=False):
-    """Rates, targets and participation of one trained unpenalised flip-flop network.
+def example_network_pair(refresh=False):
+    """Rates, targets and participation of one trained unpenalised flip-flop network, and its twin.
 
-    Simulated noise-free from the trained weights, then cached, because panels (a) and (b) must show
-    a real network rather than an illustration and the simulation costs ~30 s.
+    Both the trained network and its untrained twin are simulated noise-free on the SAME batch of
+    trials, so the two participation distributions of panel (b) differ only by training. Cached,
+    because panels (a) and (b) must show a real network rather than an illustration.
 
     Args:
         refresh: re-simulate even if the cache exists.
     Returns:
-        (rates, targets, p): (N, T, B) rates, (k, T, B) target bits, (N,) participation.
+        (rates, targets, p, p_init, iterations): trained (N, T, B) rates, (k, T, B) target bits,
+        (N,) participation trained and untrained, and the iterations the network was trained for.
     """
     if os.path.exists(CACHE) and not refresh:
         z = np.load(CACHE)
-        return z["rates"], z["targets"], z["p"]
+        return z["rates"], z["targets"], z["p"], z["p_init"], int(z["iterations"])
+    import hydra
+    from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
+    from trainRNNbrain.training.training_utils import prepare_task_arguments
+    from trainRNNbrain.utils import filter_kwargs
+    from gradient_participation import initial_params
     folder = sorted(glob.glob(os.path.join(EXAMPLE_NET, "*/")))[0]
-    rates, targets = rates_and_targets(folder, n_trials=N_TRIALS)
-    p = participation(rates)
+    cfg = OmegaConf.load(glob.glob(os.path.join(folder, "*_config.yaml"))[0])
+    cfg.task.batch_size = N_TRIALS
+    np.random.seed(TRACE_SEED)
+    task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
+    inputs, targets, _ = task.get_batch()
+
+    def run(net):
+        net.clear_history()
+        net.y = net.y_init
+        net.run(input_timeseries=inputs, sigma_rec=0.0, sigma_inp=0.0)
+        return np.maximum(np.array(net.get_history()), 0.0)
+
+    rates = run(load_net(folder)[0])
+    # the untrained twin is the chain's FIRST run as it stood before its first update; the top-ups
+    # each drew a fresh seed, so only the first config carries the seed the weights were drawn from
+    chain = warm_start_chain(folder)
+    cfgs = [OmegaConf.load(glob.glob(os.path.join(d, "*_config.yaml"))[0]) for d in chain]
+    p0 = dict(initial_params(cfgs[0]))
+    p0["activation_name"] = "relu"
+    p0.pop("activation_args", None)
+    p0.pop("equation_type", None)            # given explicitly below, from the config
+    rates0 = run(RNN_numpy(**filter_kwargs(RNN_numpy, p0),
+                           equation_type=str(cfgs[0].model.equation_type), seed=0))
+    iterations = sum(int(c.trainer.max_iter) for c in cfgs)
+    p, p_init = participation(rates), participation(rates0)
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
     np.savez_compressed(CACHE, rates=rates.astype(np.float32),
-                        targets=np.asarray(targets, np.float32), p=p)
-    return rates.astype(np.float32), np.asarray(targets, np.float32), p
+                        targets=np.asarray(targets, np.float32), p=p, p_init=p_init,
+                        iterations=iterations)
+    return rates.astype(np.float32), np.asarray(targets, np.float32), p, p_init, iterations
+
+
+def example_network(refresh=False):
+    """The trained example network alone - (rates, targets, p) - for the deck's single panels."""
+    return example_network_pair(refresh)[:3]
 
 
 def excitatory_fraction():
@@ -906,13 +945,60 @@ def panel_a(ax_net, ax_tr, rates, p):
     return n_live, n_shown_live, len(conns)
 
 
+def panel_b_pair(axes, p_init, p, iterations):
+    """Panel (b): participation of the example network before and after training, on a log axis.
+
+    Two sub-panels on one x axis: the untrained twin (top) - unimodal, nearly every unit above the
+    criterion - and the same network after training (bottom) - bimodal, the criterion in the empty
+    valley between the modes, so the threshold is read off the data rather than chosen.
+
+    Args:
+        axes: (top, bottom) axes; p_init, p: (N,) participation untrained and trained;
+        iterations: training iterations, for the bottom title.
+    Returns:
+        (active untrained, active trained).
+    """
+    allp = np.maximum(np.r_[p_init, p], 1e-6)
+    bins = np.logspace(np.log10(allp.min() * 0.7), np.log10(allp.max() * 1.4), 46)
+    counts = []
+    for ax, q, title in ((axes[0], p_init, f"{EXAMPLE_TASK}, $N = {len(p)}$: untrained"),
+                         (axes[1], p, f"after {iterations:,} training iterations")):
+        thr = SILENT_REL * np.quantile(q, 0.95)
+        qq = np.maximum(q, 1e-6)
+        live = qq >= thr
+        ax.hist(qq[~live], bins=bins, color=ps.FAINT, edgecolor="none",
+                label=f"silent ({(~live).sum()})")
+        ax.hist(qq[live], bins=bins, color=ACTIVE_COL, edgecolor="none",
+                label=f"active ({live.sum()})")
+        ax.axvline(thr, color=ps.INK, lw=0.9, ls="--", zorder=5)
+        top = ax.get_ylim()[1]
+        ax.set_ylim(0, top * 1.3)
+        ax.set_xscale("log")
+        ax.set_xlim(bins[0], bins[-1])
+        ax.set_title(title, fontsize=5.8, color=ps.INK, pad=2, loc="left")
+        # trained: the silent mode towers at the left, so the legend goes over the empty middle
+        ax.legend(loc="upper left" if q is p_init else "upper center", fontsize=5.4,
+                  handlelength=1.2, borderaxespad=0.2)
+        ax.set_ylabel("units")
+        ps.ygrid(ax)
+        counts.append(int(live.sum()))
+    axes[1].text(SILENT_REL * np.quantile(p, 0.95) * 1.35, axes[1].get_ylim()[1] * 0.88,
+                 "criterion", fontsize=5.6, color=ps.INK, ha="left", va="center")
+    axes[0].tick_params(labelbottom=False)
+    # spelled out, because "p" on its own is the one thing a reader of this figure has to be
+    # told: it is not the firing rate, it is how far the rate moves and how high it gets
+    axes[1].set_xlabel("participation  $p_i=\\mathrm{std}(r_i)+q_{0.9}(|r_i|)$: how much unit "
+                       "$i$'s rate moves\nover a trial, and how high it gets", fontsize=5.8)
+    return counts
+
+
 def panel_b(ax, p):
-    """Panel (b): the participation distribution of the same network, on a log axis.
+    """One participation histogram on a log axis, silent and active units split at the criterion.
+
+    The single-network panel the talk uses (fig_slides); Figure 1 draws panel_b_pair.
 
     Args:
         ax: axes; p: (N,) participation values.
-    Returns:
-        None.
     """
     thr = SILENT_REL * np.quantile(p, 0.95)
     pp = np.maximum(p, 1e-6)
@@ -926,8 +1012,6 @@ def panel_b(ax, p):
     ax.text(thr * 1.35, top * 1.14, "criterion", fontsize=5.8, color=ps.INK, ha="left",
             va="center")
     ax.set_xscale("log")
-    # spelled out, because "p" on its own is the one thing a reader of this figure has to be
-    # told: it is not the firing rate, it is how far the rate moves and how high it gets
     ax.set(xlabel="participation  $p_i=\\mathrm{std}(r_i)+q_{0.9}(|r_i|)$", ylabel="units")
     ax.text(0.5, -0.36, "how much unit $i$'s rate moves over a trial, and how high it gets",
             transform=ax.transAxes, ha="center", va="top", fontsize=5.8, color=ps.MUTED)
@@ -1572,7 +1656,7 @@ def main():
 
     audit_scaling_coverage()
     ps.setup()
-    rates, _, p = example_network(refresh=args.refresh)
+    rates, _, p, p_init, iterations = example_network_pair(refresh=args.refresh)
 
     # The three sub-panels of panel e stack vertically in the left column, under the network
     # schematic; panels c and d stack in the right column beside them. Each e sub-panel keeps the
@@ -1590,7 +1674,7 @@ def main():
     # to fit.
     LEFT, RIGHT, W_RATIO, GUTTER = 0.06, 0.975, 0.95, 0.44
     A_RATIOS, A_WSPACE = (1.25, 1.0), 0.02
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.62, 2.50],
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.80, 2.40],
                   width_ratios=[W_RATIO, 1.0], hspace=0.26, wspace=GUTTER,
                   left=LEFT, right=RIGHT)
 
@@ -1608,9 +1692,11 @@ def main():
     net_frac = A_RATIOS[0] / (sum(A_RATIOS) * (1.0 + A_WSPACE / 2.0))
     ps.panel_letter(ax_net, "a", dx=-E_LETTER_DX / net_frac, dy=1.02)
 
-    ax_b = fig.add_subplot(gs[0, 1])
-    panel_b(ax_b, p)
-    ps.panel_letter(ax_b, "b")
+    gs_b = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[0, 1], hspace=0.55)
+    axes_b = [fig.add_subplot(gs_b[0, 0]), fig.add_subplot(gs_b[1, 0])]
+    axes_b[1].sharex(axes_b[0])
+    n_init, n_trained = panel_b_pair(axes_b, p_init, p, iterations)
+    ps.panel_letter(axes_b[0], "b")
 
     # c and d are laid on the SAME three rows as the e stack beside them, c on the first and d on
     # the other two, so every horizontal edge in this block lines up across the figure: c's top and
@@ -1637,6 +1723,8 @@ def main():
     print("\n--- numbers quoted in the caption ---")
     print(f"  panel a: {n_live} of {N_UNITS} units active; {n_shown_live} of {N_SHOWN} randomly "
           f"drawn units active; {n_conn} connections drawn over {N_GLYPH} glyphs")
+    print(f"  panel b: {n_init} of {N_UNITS} active untrained, {n_trained} after {iterations:,} "
+          f"iterations")
     for task, (b, A, need, n_sizes, n_max, readout) in fits.items():
         # A series measured at three sizes is fitted but its projection is not quotable on its own:
         # panel c already stops such a series' dotted line at 1.25x its largest N; the caption has
