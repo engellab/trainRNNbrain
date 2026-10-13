@@ -1050,8 +1050,11 @@ def panel_c(ax):
 # loader checks that against the run's own config rather than assuming it.
 # STANDARD controls at N = 1000, re-sourced 2026-10-12. CDDM is the 200,000-iteration drift run, the
 # longest standard CDDM control, because the point of the panel is what happens long after the floor.
+# The flip-flop is its controls continued to 200,000 (40k + 35k + 125k, one joined trace): at 75k
+# its noisy loss had not reached its floor.
 TRAJ = [
-    ("3-bit flip-flop", FF75.format(N=1000), ps.SLOTS[0], 1000),
+    ("3-bit flip-flop", f"{DATA_DIR}/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none",
+     ps.SLOTS[0], 1000),
     ("CDDM", f"{DATA_DIR}/CDDM_std_g0_drift_bias0/EqType=h_N=1000_iters=200000", ps.SLOTS[1], 1000),
     (DMTS_LABEL, f"{DATA_DIR}/DMTS_paper_grid_d5/EqType=h_N=1000_arm=control", ps.SLOTS[2], 1000),
 ]

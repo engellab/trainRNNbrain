@@ -15002,6 +15002,11 @@ snapshots (15431471), and the size series N = 500 / 1000 / 2000 / 4000 (15431472
 | as many at random | −0.14 to 0.05 | −0.06 to 0.10 | ≈ −0.1 | ≈ −0.1 |
 | silent removed, then retrained 3,000 iterations | 0.825-0.830 (intact, fine-tuned: 0.824-0.830) | | **0.9987-0.9993** (as many at random: 0.998, 0.999, 0.418) | |
 
+**The flip-flop at its floor** (the claim-1 runs continued to 200k; crossings at 27k, 39k and 69k):
+266-354 active (191-194 at 200k); removing every silent unit takes held-out r2 from 0.94-0.95 to
+0.25-0.48, as many at random to 0.01-0.09; pruning the silent units and retraining 3,000 iterations
+restores 0.937-0.947 (intact, fine-tuned: 0.943-0.950), as many at random only 0.920-0.924.
+
 CDDM: about 430 units work at the floor and the other ~570 can go for nothing; by 100k it has shed
 another ~120 without improving. DMTS escaped late in these three runs (14-40k) and is read 1.6-6k
 after; right after the escape its silent units still carry a little (0.03-0.09), which has almost
@@ -15014,12 +15019,10 @@ Every panel on standard networks. (a, b) example network: the standard flip-flop
 N^0.46, crossings 26-30k; DMTS ∝ N^0.52 from three sizes, crossings 14-40k); the flip-flop drawn at
 the end of its budget (∝ N^0.48), open markers, because at 75k no run at N = 1000 or 4000 reaches
 its floor - a series is read at its floor only when every size has a read-out. (d) the ablation,
-one sub-panel per task, CDDM and DMTS at the floor, the flip-flop at the end of training until its
-200k floor is in, with the prune-and-retrain result as a star.
+one sub-panel per task, every task at its floor, with the prune-and-retrain result as a star.
 (e) the noisy loss and the silent count over training, every seed, each run's crossing marked:
-after its floor CDDM (200k) silences 152 more units and DMTS (150k) 272 more. The old knob panel is `panel_knobs`, kept for Figure 2. The coverage audit's signature now
+after its floor the flip-flop (200k) silences 116 more units, CDDM (200k) 152 and DMTS (150k) 272. The old knob panel is `panel_knobs`, kept for Figure 2. The coverage audit's signature now
 includes trial length, bias range and remedy switches (a trainable-bias 30k sweep and 7 tau DMTS were
 being reported as missing sizes). Supplementary: the end-of-training ablation at every size.
 
-**Open.** The flip-flop at-floor ablation and panel c's flip-flop series wait on the 200k
-continuations.
+**Open.** Panel c's flip-flop series waits on the 200k continuations at N = 2000 and 4000.

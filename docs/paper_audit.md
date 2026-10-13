@@ -23,7 +23,7 @@ tell the older penalty/selectivity story. The full record stays in `project_traj
 |---|---|---|---|---|
 | CDDM, at its floor (~25k) | 57% | no change (0.83 → 0.83) | −0.03 | stays at 0.83, same as the intact network fine-tuned |
 | DMTS, at its floor (17–42k) | 65% | 0.999 → 0.95 | −0.12 | back to **0.999** |
-| Flip-flop, end of 75k (floor pending) | 73% | 0.95 → 0.41 | 0.05 | back to **0.94–0.95** (random: 0.91–0.93) |
+| Flip-flop, at its floor (27–69k, 200k runs) | 68% | 0.95 → 0.38 | 0.05 | back to **0.94** (random: 0.92) |
 
 - **No task needs its silent units.** CDDM's do nothing. The flip-flop's, and DMTS's right after
   its escape, are wired in: removing them costs something, but a short retrain without them restores
@@ -33,9 +33,9 @@ tell the older penalty/selectivity story. The full record stays in `project_traj
 - **Figure 1 is rebuilt** on standard networks, with panel d as the ablation (`fig_paper_F1.py`,
   `fig_supp_ablation.py`).
 
-**New finding: the flip-flop has not converged at 75k.** Its noisy loss is still falling in every
-run. All standard flip-flop controls are being continued to 200k; N = 4000 needs about 3 days. Its
-at-floor ablation and its panel c series wait on those runs. CDDM converges by about 25–30k and DMTS
+**New finding: the flip-flop had not converged at 75k.** Its noisy loss was still falling in every
+run. All standard flip-flop controls are being continued to 200k: at N = 500 and 1000, 8 of 9 runs
+now reach their floor (38–111k). Panel c's flip-flop series waits on N = 2000 and 4000 (~2 days). CDDM converges by about 25–30k and DMTS
 within about 15k of escaping its stall.
 
 ## 1. The paper in one paragraph
