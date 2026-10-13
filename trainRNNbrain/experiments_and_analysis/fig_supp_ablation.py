@@ -81,9 +81,10 @@ def panel_a(ax, data):
                   label="every silent unit removed"),
            Line2D([], [], ls="", marker="o", mfc="none", mec=ps.INK, ms=3.4,
                   label="as many removed at random")]
-    hs += [Line2D([], [], ls="", marker="o", color=ps.MUTED, mec="none", ms=s, label=f"N = {N}")
-           for N, s in SIZES.items()]
-    ax.legend(handles=hs, loc="lower right", fontsize=5.3, ncol=2, columnspacing=0.8)
+    # the empty lower middle of the panel, between the CDDM and flip-flop columns of points; marker
+    # size is named in the legend title rather than given four entries of its own
+    ax.legend(handles=hs, loc="lower left", bbox_to_anchor=(0.30, 0.03), fontsize=5.3, ncol=1,
+              framealpha=0.9, title="size: N = 500 to 4000", title_fontsize=5.0)
 
 
 def panel_b(ax, data):
@@ -94,7 +95,8 @@ def panel_b(ax, data):
             y = np.maximum(np.asarray(r["quiet_first"], float), Y_FLOOR)
             ax.plot(x, y, "-", lw=0.4 + 0.15 * np.log2(r["N"] / 500), color=col, alpha=0.6)
     ax.axvline(1.0, color=ps.INK, lw=0.6, ls=(0, (3, 2)))
-    ax.text(1.03, 0.08, "first working\nunit removed", fontsize=5.4, color=ps.INK, va="bottom")
+    ax.text(0.97, Y_FLOOR + 0.02, "first working\nunit removed", fontsize=5.4, color=ps.INK,
+            va="bottom", ha="right")
     ax.set(xlim=(0, 1.6), ylim=(Y_FLOOR - 0.03, 1.05),
            xlabel="units removed quietest first,\nin units of the network's own silent count",
            ylabel="held-out $r^2$")

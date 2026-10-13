@@ -929,7 +929,7 @@ def panel_b(ax, p):
     # spelled out, because "p" on its own is the one thing a reader of this figure has to be
     # told: it is not the firing rate, it is how far the rate moves and how high it gets
     ax.set(xlabel="participation  $p_i=\\mathrm{std}(r_i)+q_{0.9}(|r_i|)$", ylabel="units")
-    ax.text(0.5, -0.30, "how much unit $i$'s rate moves over a trial, and how high it gets",
+    ax.text(0.5, -0.36, "how much unit $i$'s rate moves over a trial, and how high it gets",
             transform=ax.transAxes, ha="center", va="top", fontsize=5.8, color=ps.MUTED)
     ax.legend(loc="upper left", fontsize=5.8, bbox_to_anchor=(0.0, 1.0))
     ps.ygrid(ax)
@@ -943,9 +943,9 @@ def panel_c(ax):
     loss settles is how this panel handles that confound. The claim it carries is that the count
     grows far slower than N, which is what makes the active FRACTION fall with size.
 
-    A task whose runs have no usable floor read-out at two or more sizes (see floor_crossing) is
-    drawn at the end of its budget instead - open markers, dashed line, and the legend says so -
-    rather than dropped, because the reader is entitled to see the data the rule could not read.
+    A task with a size at which no run has a usable floor read-out (see floor_crossing) is drawn at
+    the end of its budget instead - open markers, dashed line, and the legend says so - rather than
+    dropped, because the reader is entitled to see the data the rule could not read.
 
     Returns:
         dict task -> (b, A, N_needed_for_1000, n_sizes, largest N, read-out) of the fit.
@@ -970,11 +970,15 @@ def panel_c(ax):
         for N, name, reason in why:
             print(f"  .. {task} N={N} {name[:12]}: no floor read-out - {reason}")
         readout = "floor"
-        if len(read) < 2:
+        if len(read) < len(cells):
+            # a series is read at its floor only when EVERY size has a floor read-out; a series
+            # read at its floor at some sizes and not others would compare the sizes at different
+            # depths of convergence, which is what the floor rule exists to prevent
             read = at_end_of_budget(cells)
             readout = "end"
-            print(f"  !! {task}: own-floor read-out usable at fewer than 2 sizes - drawn at the END "
-                  f"of its budget instead")
+            print(f"  !! {task}: no floor read-out at N = "
+                  f"{sorted(set(cells) - set(at_own_floor(cells)[0]))} - the series is drawn at the "
+                  f"END of its budget instead")
         else:
             print(f"  .. {task}: read AT {CONV_MARGIN:.2f}x each run's own fitted floor "
                   f"({n_dropped} run(s) without one); mean crossing per size "
@@ -1226,33 +1230,35 @@ def panel_e(axes):
 
 
 # Panel (d). Ablation results written by ablate_silent_units.py, one JSON per network and read-out,
-# in ABLATION_DIR on Della. (label, file glob, colour), top to bottom in the order of panel (e).
+# in ABLATION_DIR on Della; prune-and-retrain results in RETRAIN_DIR. (label, [(file prefix,
+# read-out), ...] in order of preference, colour), top to bottom in the order of panel (e). The
+# networks are the claim-1 snapshot runs, read where their noisy loss reaches 1.05x its floor; the
+# flip-flop falls back to its end-of-training controls until its 200k continuations have a floor.
 ABLATION_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_ablation"
-ABLATION_READOUT = "end"
+RETRAIN_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_retrain"
 ABLATION = [
-    ("3-bit flip-flop", "NBitFlipFlop_ff_revive_c75000__EqType=h_k=3_N=1000_pen=none_arm=none__*",
-     ps.SLOTS[0]),
-    ("CDDM", "CDDM_paper_grid__EqType=h_N=1000_arm=control__*", ps.SLOTS[1]),
-    (DMTS_LABEL, "DMTS_paper_grid_d5__EqType=h_N=1000_arm=control__*", ps.SLOTS[2]),
+    ("3-bit flip-flop", [("NBitFlipFlop_c1_snapshots_c200000__EqType=h_N=1000_arm=control", "floor"),
+                         ("NBitFlipFlop_ff_revive_c75000__EqType=h_k=3_N=1000_pen=none_arm=none",
+                          "end")], ps.SLOTS[0]),
+    ("CDDM", [("CDDM_c1_snapshots__EqType=h_N=1000_arm=control", "floor")], ps.SLOTS[1]),
+    (DMTS_LABEL, [("DMTS_c1_snapshots__EqType=h_N=1000_arm=control", "floor")], ps.SLOTS[2]),
 ]
+READOUT_TITLE = {"floor": "at its loss floor", "end": "end of training"}
 ABL_GRID = np.linspace(0.0, 1.0, 201)        # fraction of units removed, the common x of every curve
 
 
-def ablation_results(pattern, readout=None):
+def ablation_results(prefix, readout):
     """Every ablation result for one cell and read-out, as loaded dicts.
 
     Args:
-        pattern: file-name glob under ABLATION_DIR, without the read-out suffix;
-        readout: "end", "floor_clean" or "floor_heldout"; ABLATION_READOUT when None.
+        prefix: "<sweep>__<cell>" as ablate_silent_units names its files; readout: "end" or "floor".
     Returns:
-        list of dicts (see ablate_silent_units.ablate for the keys).
+        (ablation dicts, prune-and-retrain dicts) - see ablate_silent_units for the keys.
     """
-    readout = ABLATION_READOUT if readout is None else readout
-    out = []
-    for f in sorted(glob.glob(os.path.join(ABLATION_DIR, f"{pattern}__{readout}.json"))):
-        with open(f) as fh:
-            out.append(json.load(fh))
-    return out
+    load = lambda pat: [json.load(open(f)) for f in sorted(glob.glob(pat))]
+    tag = "retrain_floor" if readout == "floor" else "retrain"
+    return (load(os.path.join(ABLATION_DIR, f"{prefix}__*__{readout}.json")),
+            load(os.path.join(RETRAIN_DIR, f"{prefix}__*__{tag}.json")))
 
 
 def _on_grid(res, key):
@@ -1272,6 +1278,10 @@ def panel_d(axes):
     the seeds), and busiest first (dotted). The shaded band is the silent share of the network.
     Quietest-first holds the score across the whole band and collapses only when the first working
     unit goes; the same number removed at random, or the working few, take the score to chance.
+    Where removing the silent units does cost something (the flip-flop, DMTS right after its
+    escape), the star says whether the network needs them: the silent units pruned and the rest
+    fine-tuned for 3,000 iterations (ablate_silent_units.py retrain), the thin line rising from the
+    score straight after removal.
 
     Scores below 0 (worse than predicting the mean) are drawn at the axis floor.
 
@@ -1279,16 +1289,22 @@ def panel_d(axes):
         axes: one Axes per entry of ABLATION, top to bottom.
     Returns:
         list of (task, n nets, silent, r2 intact, r2 all silent removed, r2 same number random,
-        r2 all active removed, read-out, iteration) rows, means over nets.
+        r2 all active removed, read-out, iteration, r2 after pruning and retraining) rows, means
+        over nets.
     """
     rows = []
-    for ax, (label, pat, col) in zip(axes, ABLATION):
-        res = ablation_results(pat)
+    for ax, (label, sources, col) in zip(axes, ABLATION):
+        res, ret, readout = [], [], None
+        for prefix, ro in sources:                      # the first source that has results
+            res, ret = ablation_results(prefix, ro)
+            if res:
+                readout = ro
+                break
         floor_r2 = TASK_MIN_R2.get(label)
         if floor_r2 is not None:
             res = [r for r in res if r["r2_full"] >= floor_r2]
         if not res:
-            print(f"  !! panel d, {label}: no ablation results for read-out {ABLATION_READOUT}")
+            print(f"  !! panel d, {label}: no ablation results")
             continue
         x = 100 * ABL_GRID
         silent = np.array([r["n_silent"] / r["N"] for r in res])
@@ -1302,18 +1318,33 @@ def panel_d(axes):
         ax.fill_between(x, rand.min(0), rand.max(0), color=col, alpha=0.12, lw=0, zorder=2)
         ax.plot(x, rand.mean(0), "--", lw=0.9, color=col, alpha=0.8, zorder=4)
         ax.plot(x, busy.mean(0), ":", lw=1.0, color=ps.INK, alpha=0.8, zorder=4)
+        # prune-and-retrain: the silent units removed, the rest fine-tuned 3,000 iterations. A thin
+        # line from the score straight after removal to the score after fine-tuning, a star there.
+        # Drawn only where removal COSTS something (more than 0.01): that is the case the test is
+        # for. Where it costs nothing (CDDM) the fine-tune itself is all a star would show - from a
+        # fresh optimiser it costs even the intact CDDM network 0.03-0.07 - so it is printed, not drawn.
+        cost = float(np.mean([r["r2_full"] - r["r2_no_silent"] for r in res]))
+        if cost <= 0.01 and ret:
+            print(f"  .. panel d, {label}: removal costs {cost:.3f}; retrain not drawn (after "
+                  f"fine-tuning {np.mean([t['silent_removed'][-1][1] for t in ret]):.3f})")
+        for t in (ret if cost > 0.01 else []):
+            xs = 100 * t["n_silent"] / t["N"]
+            y0, y1 = t["silent_removed"][0][1], t["silent_removed"][-1][1]
+            ax.plot([xs, xs], [max(y0, 0), y1], "-", lw=0.6, color=col, alpha=0.7, zorder=5)
+            ax.plot(xs, y1, "*", ms=6, color=col, mec="white", mew=0.4, zorder=6)
         top = max(1.0, float(np.max([r["r2_full"] for r in res]))) * 1.04
         ax.set(xlim=(0, 100), ylim=(0, top))
         ps.ygrid(ax)
         n = len(res)
-        ax.set_title(f"{label},  $N = {res[0]['N']}$,  {n} networks", fontsize=5.8, color=ps.INK,
-                     pad=3)
+        ax.set_title(f"{label},  $N = {res[0]['N']}$,  {n} networks, {READOUT_TITLE[readout]}",
+                     fontsize=5.8, color=ps.INK, pad=3)
         rows.append((label, n, float(np.mean([r["n_silent"] for r in res])),
                      float(np.mean([r["r2_full"] for r in res])),
                      float(np.mean([r["r2_no_silent"] for r in res])),
                      float(np.mean([np.mean(r["r2_random_same_count"]) for r in res])),
                      float(np.mean([r["r2_no_active"] for r in res])),
-                     res[0]["readout"], int(np.mean([r["iteration"] for r in res]))))
+                     readout, int(np.mean([r["iteration"] for r in res])),
+                     float(np.mean([t["silent_removed"][-1][1] for t in ret])) if ret else np.nan))
     drawn = [ax for ax in axes if ax.has_data()]
     if not drawn:
         return rows
@@ -1321,12 +1352,16 @@ def panel_d(axes):
         ax.tick_params(labelbottom=False)
     drawn[-1].set_xlabel("units removed (% of the network)")
     drawn[len(drawn) // 2].set_ylabel("held-out $r^2$")
-    drawn[0].legend(handles=[
+    # the legend goes in the bottom sub-panel's empty middle: in the top one it sat on the random
+    # order's band, and DMTS's curves leave 20-55% of the axis clear below the quietest-first line
+    drawn[-1].legend(handles=[
         Line2D([], [], color=ps.INK, lw=1.2, label="quietest first"),
         Line2D([], [], color=ps.INK, lw=0.9, ls="--", label="random order"),
         Line2D([], [], color=ps.INK, lw=1.0, ls=":", label="busiest first"),
-        Patch(color=ps.GRID, label="silent units")],
-        loc="lower left", fontsize=5.4, ncol=2, handlelength=2.0, columnspacing=1.0)
+        Patch(color=ps.GRID, label="silent units"),
+        Line2D([], [], color=ps.INK, marker="*", ls="", ms=6, label="silent removed, then retrained")],
+        loc="lower left", bbox_to_anchor=(0.16, 0.02), fontsize=5.2, ncol=1, handlelength=1.8,
+        columnspacing=0.8, framealpha=0.9)
     return rows
 
 
@@ -1583,19 +1618,19 @@ def main():
     # c and d are laid on the SAME three rows as the e stack beside them, c on the first and d on
     # the other two, so every horizontal edge in this block lines up across the figure: c's top and
     # bottom with the first e sub-panel's, d's top with the second's and d's bottom with the third's.
-    gs_cd = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[1, 1], hspace=0.30)
+    gs_cd = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[1, 1], hspace=0.48)
     ax_c = fig.add_subplot(gs_cd[0, 0])
     fits = panel_c(ax_c)
     ps.panel_letter(ax_c, "c")
 
     # d stacks one sub-panel per task in the two rows below c, in the order of the e stack
-    gs_d = GridSpecFromSubplotSpec(len(ABLATION), 1, subplot_spec=gs_cd[1:3, 0], hspace=0.38)
+    gs_d = GridSpecFromSubplotSpec(len(ABLATION), 1, subplot_spec=gs_cd[1:3, 0], hspace=0.55)
     axes_d = [fig.add_subplot(gs_d[i, 0]) for i in range(len(ABLATION))]
     rows_d = panel_d(axes_d)
     # the same offset b and c use, so the three letters of the right column sit on one vertical
     ps.panel_letter(axes_d[0], "d")
 
-    gs_e = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[1, 0], hspace=0.30)
+    gs_e = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[1, 0], hspace=0.48)
     axes_e = [fig.add_subplot(gs_e[i, 0]) for i in range(3)]
     rows_e = panel_e(axes_e)
     ps.panel_letter(axes_e[0], "e", dx=-E_LETTER_DX)
@@ -1614,11 +1649,11 @@ def main():
                 f"do not quote alone]")
         print(f"  panel c: {task:18} read at {readout:5} M = {A:.2f} N^{b:.3f}   ->  M = 1000 at "
               f"N = {need:,.0f}{note}")
-    for task, n, sil, r2f, r2s, r2r, r2a, readout, it in rows_d:
+    for task, n, sil, r2f, r2s, r2r, r2a, readout, it, r2t in rows_d:
         print(f"  panel d: {task:20} {n} nets, read-out {readout} (iteration {it:,}): "
               f"{sil:.0f} silent; held-out r2 {r2f:.3f} intact, {r2s:.3f} with every silent unit "
               f"removed, {r2r:.3f} with as many removed at random, {r2a:.3f} with the active ones "
-              f"removed")
+              f"removed; {r2t:.3f} after pruning the silent units and retraining")
     for task, N, plateau, s_plat, s_end, r2 in rows_e:
         print(f"  panel e: {task:20} N={N}, held-out r2 {r2:.3f}; own {CONV_MARGIN:.2f}x-floor "
               f"crossing at iter {plateau:,.0f} with {s_plat:.0f} silent, {s_end:.0f} at the end "
