@@ -28,6 +28,11 @@
 # Runtimes measured on the paper grid at N = 1000: ff 2.9 h per 40k, cddm 3.9 h per 100k,
 # dmts 7-9 h per 150k.
 #
+# INPUT_ROW_NORM=<s> (optional) is the one swept knob: it sets model.input_row_norm, the
+# initialisation scale of each unit's input weights, and the arm becomes winp<s>. The flip-flop's
+# input-scale ladder repeated on CDDM, against these same controls as its reference:
+#   TASK=cddm INPUT_ROW_NORM=5 ITERS_OVERRIDE=50000 sbatch --time=04:00:00 --array=1-3 <this>
+#
 # Output: $SAVE_TO/<Task>_c1_snapshots/EqType=h_N=<N>_arm=control/<run>/
 #         $SNAP_TO/<Task>_c1_snapshots/EqType=h_N=<N>_arm=control/s<seed>/it<iters>/
 #
@@ -82,7 +87,10 @@ case "${TASK:-ff}" in
   *) echo "FATAL: TASK must be ff, cddm or dmts; got '${TASK}'" >&2; exit 1 ;;
 esac
 IT=${ITERS_OVERRIDE:-$IT}
-TAG="c1_snapshots/EqType=h_N=${N}_arm=control"
+ARM=control
+KNOB=()
+if [ -n "${INPUT_ROW_NORM:-}" ]; then ARM="winp${INPUT_ROW_NORM}"; KNOB=(model.input_row_norm="$INPUT_ROW_NORM"); fi
+TAG="c1_snapshots/EqType=h_N=${N}_arm=${ARM}"
 mkdir -p "${SAVE_TO}/${PREFIX}_c1_snapshots" "$SNAP_TO"
 echo "Task ${SLURM_ARRAY_TASK_ID}: ${TASK:-ff} N=${N} rep=${REP} iters=${IT}"
 echo "  -> ${SAVE_TO}/${PREFIX}_${TAG}"
@@ -93,7 +101,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   +experiment=silent_units_largeN \
   "${TASK_ARGS[@]}" \
   model=rnn_relu_standard trainer=trainer_ptrack_freshbatch \
-  model.equation_type=h model.N="$N" \
+  model.equation_type=h model.N="$N" "${KNOB[@]}" \
   trainer.max_iter="$IT" \
   trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
   trainer.track_valid=false \
