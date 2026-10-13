@@ -38,6 +38,35 @@ run. All standard flip-flop controls are being continued to 200k: at N = 500 and
 now reach their floor (38–111k). Panel c's flip-flop series waits on N = 2000 and 4000 (~2 days). CDDM converges by about 25–30k and DMTS
 within about 15k of escaping its stall.
 
+## Status board at hand-off (13 October)
+
+The plan below (§1–§8) is round 1's; this board says where each piece stands. Hand-off notes:
+`docs/HANDOFF.md`.
+
+**Rules now in force** (Pavel): read every network where its *noisy* training loss first reaches
+1.05× its own fitted floor (`common.noisy_floor`; fit from the escape for DMTS; excluded if the
+median of the last 10% ends > 1.5× the floor). Performance is held-out r² under the training noise.
+Never the noise-free loss. Standard network only (ReLU, bias fixed at 0, self-connections on, no
+Dale, γ = 0). The 3-bit flip-flop is trained to 200k (it has not converged at 75k).
+
+**Figures:** F1 = the phenomenon (done for claim 1). F2 = what fails (to build). F3 = bird's-eye
+view of what worked (to build).
+
+| Item | Status | What remains |
+|---|---|---|
+| C1 silent, and not needed | **Done.** Figure 1 a, b, d; supplementary ablation; text and Methods in the paper repo | — |
+| C2 size (B1) | **Partly.** CDDM and DMTS read at the noisy floor from the paper-grid controls | The flip-flop series at its floor once its 200k top-ups land (N = 2000 done 13 Oct, N = 4000 ~15 Oct); rebuild panel c; update the numbers in the text. The learning-rate crossover is replaced by the floor read-out (Pavel). |
+| C3 never stops | **Partly.** Panel e on standard runs (flip-flop 200k, CDDM 200k, DMTS 150k) | B5, the optimiser control (AdamW, SGD) |
+| C4 loss of gradient (A2) | Not started | Gradient reach across sizes and activations |
+| C5 knobs → Figure 2 | Not started. Standard-network ladders exist (`*_bias0` sweeps); `fig_knobs_at_floor.py` still reads the noise-free loss at 1.07× | Move it to `common.noisy_floor`; build F2; replace the flagged knob paragraphs (`sec:knobs`) |
+| C6 remedies → Figure 3 | Not started under the new rule. A1 is obsolete. Every flip-flop remedy run stopped at 75k, before convergence | Top them up to 200k (as for the controls); B2 (rate penalty alone); A3 (ablate the recruited units, using `ablate_silent_units.py`) |
+| C7 several drives (B3), plasticity (B4) | Not started | B3, B4 |
+| A4 unread top-ups, A5 demand panel | Not started | — |
+| W1 manuscript | **Partly.** Claim 1 is written; the abstract, intro and discussion still tell the old story | Rewrite to the framing in §1 |
+| W2 not brain-like, W3 bio vs engineering | Not started | — |
+| Decision 1 (read-out) | **Resolved:** noisy loss, 1.05×, the guards above | — |
+| Decisions 2–5 | Open | Ask Pavel |
+
 ## 1. The paper in one paragraph
 
 Neuroscientists train RNNs on tasks animals do, then read the units like a recorded population.
