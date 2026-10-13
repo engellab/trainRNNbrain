@@ -393,13 +393,23 @@ def retrain_curve(cfg, rnn, params, removed, batches, iters=RETRAIN_ITERS):
                 rnn.W_out[:, idx] = 0.0
 
     def score():
+        # ⚠️ THE GENERATOR IS SAVED AND RESTORED AROUND SCORING. It is the one the training passes
+        # draw their noise from, and scoring reseeds it for its fixed draws. Without the restore,
+        # training restarted from the same noise state after every score, so from iteration 251 on
+        # it saw the same 250 noise realisations eleven times; on CDDM's fixed coherence grid every
+        # (trial, noise) sample then recurred, the intact network memorised them by waking silent
+        # units, and its held-out r2 fell 0.836 -> 0.79 (found 2026-10-13; results before the fix
+        # are in /scratch/gpfs/TENGEL/pt1290/c1_retrain_bug_noise_reseed).
+        state = rnn.random_generator.get_state()
         with torch.no_grad():
             vals = []
             for d in range(DRAWS):
                 rnn.random_generator.manual_seed(NOISE_SEED + d)
                 vals.append(Trainer.r2_score(rnn(bi_ho, w_noise=True)[1], bt_ho, m_ho))
+        rnn.random_generator.set_state(state)
         return float(np.mean(vals))
 
+    skipped = [0]
     hold_out()
     curve = [(0, score())]
     rnn.random_generator.manual_seed(BATCH_SEED)
@@ -411,11 +421,17 @@ def retrain_curve(cfg, rnn, params, removed, batches, iters=RETRAIN_ITERS):
         loss = ((scored_(out, mask) - scored_(bt, mask)) ** 2).mean()
         opt.zero_grad(set_to_none=True)
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(prms, max_norm=float(cfg.trainer.max_grad_norm))
-        opt.step()
+        gnorm = torch.nn.utils.clip_grad_norm_(prms, max_norm=float(cfg.trainer.max_grad_norm))
+        if not torch.isfinite(gnorm):            # the Trainer skips a non-finite update; so does this
+            opt.zero_grad(set_to_none=True)
+            skipped[0] += 1
+        else:
+            opt.step()
         hold_out()
         if it % RETRAIN_EVERY == 0:
             curve.append((it, score()))
+    if skipped[0]:
+        print(f"    {skipped[0]} non-finite updates skipped")
     return curve
 
 
