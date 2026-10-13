@@ -58,7 +58,7 @@ view of what worked (to build).
 | C2 size (B1) | **Partly.** CDDM and DMTS read at the noisy floor from the paper-grid controls | The flip-flop series at its floor once its 200k top-ups land (N = 2000 done 13 Oct, N = 4000 ~15 Oct); rebuild panel c; update the numbers in the text. The learning-rate crossover is replaced by the floor read-out (Pavel). |
 | C3 never stops | **Partly.** Panel e on standard runs (flip-flop 200k, CDDM 200k, DMTS 150k) | B5, the optimiser control (AdamW, SGD) |
 | C4 loss of gradient (A2) | Not started | Gradient reach across sizes and activations |
-| C5 knobs → Figure 2 | Not started. Standard-network ladders exist (`*_bias0` sweeps); `fig_knobs_at_floor.py` still reads the noise-free loss at 1.07× | Move it to `common.noisy_floor`; build F2; replace the flagged knob paragraphs (`sec:knobs`) |
+| C5 knobs → Figure 2 | **Partly.** All seven knob ladders read at the noisy floor (`fig_knobs_at_floor.py`, 2026-10-13): at the floor every CDDM knob but sigmoid (245) is within ~120 of the reference's 418; they spread only at the end; flip-flop input scale is the exception (316 → 717 at the floor). The revival screens (`CDDM_screen3`, `NBitFlipFlop_replace_variants`) stopped at 30k/40k and have no floor read-out | Top up the revival screens (ask Pavel: compute); build F2; replace the flagged knob paragraphs (`sec:knobs`) |
 | C6 remedies → Figure 3 | Not started under the new rule. A1 is obsolete. Every flip-flop remedy run stopped at 75k, before convergence | Top them up to 200k (as for the controls); B2 (rate penalty alone); A3 (ablate the recruited units, using `ablate_silent_units.py`) |
 | C7 several drives (B3), plasticity (B4) | Not started | B3, B4 |
 | A4 unread top-ups, A5 demand panel | Not started | — |

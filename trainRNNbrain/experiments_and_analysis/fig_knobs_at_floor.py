@@ -2,43 +2,18 @@
 """The four knob ladders on the standard (bias-0) network, read two ways: at each run's own loss
 floor, and at the end of its budget.
 
-WHY TWO READ-OUTS IN ONE PANEL. Reading a knob ladder at 1.07x each run's own fitted loss floor --
-the rule the size panels use -- says every knob does nothing. On the weight-decay ladder the four
-settings land within 41 units of each other at the crossing and 328 apart at the end of training.
-That is not a broken read-out; it is the talk's own thesis showing up per knob. At the crossing the
-clean loss is already 0.93 to 0.98 of its final value, so these networks reach their final
-performance after a few thousand iterations with roughly half their units working, and then spend
-the remaining ~190,000 iterations shedding units while the loss does not improve. What a knob
-changes is how fast that shedding goes, not the network you would get by stopping at convergence.
+WHY TWO READ-OUTS IN ONE PANEL. The floor read-out asks what network a knob gives you once the loss
+has converged; the end read-out asks what it gives after the rest of the budget, during which the
+loss barely moves and units keep falling silent. A knob can change one and not the other, so both
+are drawn, on the same rungs, one above the other.
 
-So a panel that showed only the floor read-out would say "weight decay is neutral", and a panel
-that showed only the end read-out would say "weight decay is the strongest lever here". Both
-sentences are true of different questions, and the pair of them is the result.
-
-THE RULE DOES NOT APPLY TO A LOSS THAT RISES LATE, AND ON THE FLIP-FLOP IT DOES. `excess_time_at`
-returns the FIRST iteration where the smoothed loss reaches 1.07 x the fitted floor. That is a
-convergence point only while the loss is still falling. The flip-flop input-scale runs reach a
-smoothed minimum of 0.034-0.058 and then rise to 0.139, a factor of 2.5 to 4.1, so the fitted floor
-is the LATE plateau and the loss first touches 1.07 x it on the way DOWN, at iteration 107 to 307
-of 150,000 -- before training has done anything, with 859-935 of 1000 units still active. That
-ladder is therefore reported at the end of training only, and `floor_usable` says so per rung. The
-three CDDM ladders rise by 1.04 to 1.44 after their minimum and are read at the floor as intended.
-
-⚠️ THE CLEAN-LOSS PROBE IS NOISY AND MUST BE SMOOTHED BEFORE ANY TREND IS READ OFF IT.
-`metrics["loss_clean_train"]` is one forward pass per probe, and on CDDM its spread is over 50% of
-its value: a single run gives min 0.00296 against a typical 0.006. Comparing raw min to raw final
-therefore measures the probe's noise, not the trace, and doing exactly that put every CDDM ladder
-in the "loss rises late" class on the first pass here -- wrongly, as the independent per-iteration
-series in TrainLosses.json falls smoothly over the same window. Every trend below is taken from a
-201-sample running median.
-
-DEGENERATE FLOOR FITS ARE EXCLUDED AND COUNTED. `pr_matrix.fit_floor_at` bounds its floor parameter
-below at 1e-6 and returns that bound as a successful fit. On these runs 4 of 40 fits come back
-pinned there, wrong by a factor of 2,000 to 11,000 against the loss the run actually reached;
-`at_own_floor` then drops them, because the loss never gets within 7% of 1e-6. The drop is uneven
-across arms (0 of 12 on the weight-decay ladder, 4 of 15 on the metabolic one), so it is reported
-per rung rather than left to silently reweight a comparison. The fitter itself is NOT changed here:
-every manuscript exponent depends on it, and that is not a change to make inside a slide script.
+THE READ-OUT (2026-10-13). Each run is read where its NOISY training loss -- the per-iteration loss
+it was trained on, joined along its warm-start chain -- first reaches 1.05x its own fitted floor
+(`common.noisy_floor`). Runs with no usable crossing (fit pinned at its
+bound, loss never reaching the bar, or a run whose last 10% ends more than 1.5x above its floor) are
+dropped and counted per rung, with the reason. The previous version read the noise-free probe loss
+at 1.07x through `pr_matrix.fit_floor_at`; that loss climbs back after its minimum on the flip-flop,
+which made the input-scale ladder unreadable at its floor.
 
 Usage:  python trainRNNbrain/experiments_and_analysis/fig_knobs_at_floor.py [--probe]
         (run from the repository root; --probe prints the table and writes no figures)
@@ -55,15 +30,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import fig_paper_F1 as F1
 import paperstyle as ps
-from common import DATA_DIR
+from common import DATA_DIR, noisy_floor
 
 W, H = 7.6, 2.9
-FLOOR_BOUND = 1e-6          # pr_matrix.fit_floor_at's lower bound on the floor parameter
-DELTA = 0.07                # read at 1.07x the floor, the project's convergence margin
-# A smoothed loss that ends more than this times above its own minimum has risen late, so the
-# FIRST crossing of 1.07x the late floor is on the initial descent and is not a convergence
-# point. Fixed before the ladders were read, not tuned to them.
-MAX_LATE_RISE = 1.5
 
 # One ladder per knob, on the bias-0 cells. The reference rung sits in its DOSE ORDER position, not
 # first: on a dose ladder the default is a rung, and putting it first makes the ladder read out of
@@ -76,18 +45,20 @@ LADDERS = [
                 ("10$\\times$\n$10^{-5}$", f"{DATA_DIR}/CDDM_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=1e-5_iters=200000"),
                 ("100$\\times$\n$10^{-4}$", f"{DATA_DIR}/CDDM_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=1e-4_iters=200000")]),
     dict(stem="slide_k_recnoise", knob="recurrent noise", ref=2,
+         task="CDDM, $N$ = 1000, 200,000 iterations",
+         rungs=[("none\n$\\sigma$ = 0", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0_iters=200000"),
+                ("0.01", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0.01_iters=200000"),
+                ("default\n0.05", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0.05_iters=200000"),
+                ("0.1", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0.1_iters=200000")]),
+    # the control ran 200k and the arms 75k; both ends are read at 75k (ba75b05 withdrew a claim that
+    # compared them at different budgets)
+    dict(stem="slide_k_metabolic", knob="metabolic penalty", ref=0, end_at=75000,
          task="CDDM, $N$ = 1000, 75,000 iterations",
-         rungs=[("none\n$\\sigma$ = 0", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0"),
-                ("0.01", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0.01"),
-                ("default\n0.05", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0.05"),
-                ("0.1", f"{DATA_DIR}/CDDM_77fbd9_g0_noise_ptrack/EqType=h_N=1000_sigrec=0.1")]),
-    dict(stem="slide_k_metabolic", knob="metabolic penalty", ref=0,
-         task="CDDM, $N$ = 1000, 50,000 iterations",
          rungs=[("none\n$\\lambda$ = 0", f"{DATA_DIR}/CDDM_std_g0_drift_bias0/EqType=h_N=1000_iters=200000"),
-                ("0.01", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01"),
-                ("0.1", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1"),
-                ("1.0", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1.0"),
-                ("10.0", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10.0")]),
+                ("0.01", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0_c75000/EqType=h_N=1000_LmbdMet=0.01"),
+                ("0.1", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0_c75000/EqType=h_N=1000_LmbdMet=0.1"),
+                ("1.0", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0_c75000/EqType=h_N=1000_LmbdMet=1.0"),
+                ("10.0", f"{DATA_DIR}/CDDM_std_g0_metabolic_bias0_c75000/EqType=h_N=1000_LmbdMet=10.0")]),
     # The recinit array (job 14919348) runs both of the next two ladders with ONE in-sweep control,
     # spectral radius 1.2 and no penalty, so both share it as their reference rung.
     dict(stem="slide_k_recgain", knob="initial recurrent gain (spectral radius)", ref=1,
@@ -116,63 +87,41 @@ LADDERS = [
 ]
 
 
-def running_median(v, w=201):
-    """Running median of a 1-D series, edge-padded, window in SAMPLES.
-
-    The clean-loss probe is a single forward pass per sample and its spread is over half its value,
-    so any min/final comparison on the raw series measures the probe rather than the training.
-
-    Args:
-        v: the series; w: window length in samples, forced odd and shrunk for a short series.
-    Returns:
-        an array the same length as v.
-    """
-    v = np.asarray(v, float)
-    if len(v) < w:
-        w = max(3, (len(v) // 3) * 2 + 1)
-    pad = w // 2
-    vp = np.pad(v, pad, mode="edge")
-    return np.array([np.median(vp[i:i + w]) for i in range(len(v))])
-
-
-def read_rung(path):
-    """Active-unit counts for one rung, at its own loss floor and at the end of its budget.
+def read_rung(path, end_at=None):
+    """Active-unit counts for one rung, at its own noisy-loss floor and at the end of its budget.
 
     Args:
         path: the cell directory holding one folder per seed.
+        end_at: iteration to take the "end" count at, or None for the last probe. Set when a ladder's
+            control was trained longer than its arms, so both ends are read at the same budget.
     Returns:
-        dict with keys `floor` (counts at the 1.07x-floor crossing), `end` (counts at the last
-        participation probe), `cross` (crossing iterations), `n` (runs read), `degenerate` (fits
-        pinned at the fitter's lower bound and so excluded), `unreached` (fits that were fine but
-        whose loss never reached the threshold), and `loss_ratio` (loss at the crossing divided by
-        the final loss, per run -- near 1 means the crossing is a real plateau and not an early
-        point on a still-falling curve).
+        dict with keys `floor` (counts where the noisy loss first reaches 1.05x its fitted floor),
+        `end` (counts at the last participation probe), `cross` (crossing iterations), `late`
+        (end-of-run loss over the floor, for the runs read), `n` (runs found) and `dropped` (one
+        reason string per run with no usable crossing).
     """
+    at_floor, at_end, cross, late, dropped = [], [], [], [], []
     runs = F1.runs_with_loss(path)
-    at_floor, at_end, cross, ratios, rises = [], [], [], [], []
-    degenerate = unreached = 0
     for r in runs:
-        it_l, L = np.asarray(r["it_loss"], float), np.asarray(r["loss"], float)
         it_a = np.asarray(r["it_act"], float)
-        at_end.append(r["active"][-1])
-        sm = running_median(L)
-        rises.append(sm[-1] / sm.min())
-        floor = F1.fit_floor_at(L, it_l, float(it_l[-1]))
-        if floor is None or floor <= FLOOR_BOUND * 1.01:
-            degenerate += 1
+        at_end.append(r["active"][-1] if end_at is None
+                      else r["active"][int(np.argmin(np.abs(it_a - end_at)))])
+        f = noisy_floor(r["it_loss"], r["loss"])
+        if f["reason"]:
+            dropped.append(f["reason"])
             continue
-        T = F1.excess_time_at(L, it_l, floor, DELTA)
-        if not np.isfinite(T):
-            unreached += 1
+        T = f["t_star"]
+        # a top-up whose trace was not joined to its parent's starts late; reading its first probe
+        # as "the floor" would be silently wrong
+        if not it_a[0] <= T <= it_a[-1]:
+            dropped.append("participation trace does not cover the crossing")
             continue
         at_floor.append(r["active"][int(np.argmin(np.abs(it_a - T)))])
         cross.append(T)
-        ratios.append(sm[int(np.argmin(np.abs(it_l - T)))] / sm[-1])
-    rise = float(np.mean(rises)) if rises else float("nan")
+        late.append(f["late_rise"])
     return dict(floor=np.array(at_floor, float), end=np.array(at_end, float),
-                cross=np.array(cross, float), n=len(runs), degenerate=degenerate,
-                unreached=unreached, loss_ratio=np.array(ratios, float),
-                rise=rise, floor_usable=bool(rise <= MAX_LATE_RISE))
+                cross=np.array(cross, float), late=np.array(late, float), n=len(runs),
+                dropped=dropped)
 
 
 def ladder_slide(spec, n_total=1000):
@@ -183,16 +132,14 @@ def ladder_slide(spec, n_total=1000):
     Returns:
         the output path, or None if no rung had readable runs.
     """
-    reads = [(lab, read_rung(p)) for lab, p in spec["rungs"]]
+    reads = [(lab, read_rung(p, spec.get("end_at"))) for lab, p in spec["rungs"]]
     if not any(len(r["end"]) for _, r in reads):
         print(f"  SKIP {spec['stem']}: no runs with a loss+participation trace")
         return None
 
-    # A ladder whose loss rises late has no valid floor crossing (see the module docstring), so its
-    # floor panel is NOT drawn rather than drawn with a caveat: a panel showing 859-935 of 1000
-    # units read at iteration 107 would be believed long before the caveat was read.
-    usable = any(r["floor_usable"] and len(r["floor"]) for _, r in reads)
-    panels = ([("floor", "at 1.07$\\times$ its own loss floor"),
+    # a ladder with no run read at its floor gets no floor panel, rather than an empty one
+    usable = any(len(r["floor"]) for _, r in reads)
+    panels = ([("floor", "at 1.05$\\times$ its own loss floor"),
                ("end", "at the end of training")] if usable
               else [("end", "at the end of training")])
 
@@ -229,9 +176,7 @@ def ladder_slide(spec, n_total=1000):
                      textcoords="offset points", xytext=(4, 3), fontsize=6.0, color=ps.MUTED)
     # on its OWN line: a one-line title longer than the axes widens the saved canvas, and the
     # panel then sits in a half-empty figure
-    sub = ("" if usable else
-           "\n(no valid loss-floor crossing: the loss rises "
-           f"{np.nanmean([r['rise'] for _, r in reads]):.1f}$\\times$ after its minimum)")
+    sub = "" if usable else "\n(no run reaches 1.05$\\times$ its noisy-loss floor)"
     fig.suptitle(f"{spec['knob']}\n{spec['task']}{sub}", fontsize=7.2, color=ps.INK,
                  y=0.995)
     fig.subplots_adjust(left=0.15, right=0.98, top=0.86 if usable else 0.74,
@@ -253,7 +198,8 @@ def knob_ratio_spans():
     """
     out = []
     for spec in LADDERS:
-        reads = [(lab.replace("\n", " "), read_rung(path)) for lab, path in spec["rungs"]]
+        reads = [(lab.replace("\n", " "), read_rung(path, spec.get("end_at")))
+                 for lab, path in spec["rungs"]]
         ref = reads[spec["ref"]][1]["end"]
         if not len(ref):
             continue
@@ -269,27 +215,21 @@ def knob_ratio_spans():
 
 
 def probe():
-    """Print every rung's two read-outs, crossing, loss ratio and exclusions."""
+    """Print every rung's per-run counts at the floor and at the end, crossings, and exclusions."""
     for spec in LADDERS:
         print(f"\n=== {spec['knob']}  ({spec['task']})")
-        print(f"{'rung':<16}{'n':>3}{'at floor':>14}{'at end':>14}{'crossing':>11}"
-              f"{'Lcross/Lend':>13}{'excluded':>14}{'rise':>7}")
+        print(f"{'rung':<18}{'n':>3}  {'active at floor':<20}{'active at end':<20}"
+              f"{'crossing (k it)':<22}{'end/floor':<12}dropped")
         for lab, path in spec["rungs"]:
-            r = read_rung(path)
+            r = read_rung(path, spec.get("end_at"))
             lab1 = lab.replace("\n", " ")
             if not r["n"]:
-                print(f"{lab1:<16}  -  no runs")
+                print(f"{lab1:<18}  -  no runs")
                 continue
-            f_s = (f"{r['floor'].mean():>6.0f} ± {r['floor'].std(ddof=0):<3.0f}"
-                   if len(r["floor"]) else f"{'none read':>12}")
-            e_s = f"{r['end'].mean():>6.0f} ± {r['end'].std(ddof=0):<3.0f}"
-            c_s = f"{r['cross'].mean():>10,.0f}" if len(r["cross"]) else f"{'-':>10}"
-            q_s = f"{r['loss_ratio'].mean():>16.2f}" if len(r["loss_ratio"]) else f"{'-':>16}"
-            ex = r["degenerate"] + r["unreached"]
-            ex_s = f"{ex} ({r['degenerate']} bad fit)" if ex else "0"
-            flag = "" if r["floor_usable"] else "  <- floor read-out invalid"
-            print(f"{lab1:<16}{r['n']:>3}{f_s:>14}{e_s:>14}{c_s}{q_s}{ex_s:>14}"
-                  f"{r['rise']:>7.2f}{flag}")
+            ints = lambda v: " ".join(f"{x:.0f}" for x in v) or "-"
+            print(f"{lab1:<18}{r['n']:>3}  {ints(r['floor']):<20}{ints(r['end']):<20}"
+                  f"{ints(r['cross'] / 1e3):<22}{' '.join(f'{x:.2f}' for x in r['late']) or '-':<12}"
+                  f"{'; '.join(r['dropped'])}")
 
 
 def main(probe_only=False):
