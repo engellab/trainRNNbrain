@@ -15187,3 +15187,16 @@ at b524ac7, the same commit and launcher as the reference (the three CDDM claim-
 Jobs 15502206-09, ~25 GPU-h. Output: `CDDM_c1_snapshots/EqType=h_N=1000_arm=winp<s>/`; snapshots
 under `c1_snapshots/CDDM_c1_snapshots/`. Launcher change 939e4a9 (INPUT_ROW_NORM), smoke-tested
 locally: input rows at norm 5.00 (4.98-5.02) after 10 iterations.
+
+### The revival-screen top-ups failed: their parent sweeps were deleted from Della scratch
+
+All 18 top-up tasks (15499043-48) exited within 5 s: "no parent number N". Between ~15:00 and 16:24
+on 2026-10-13 (the data directory's last change), `CDDM_screen3`, `NBitFlipFlop_replace_variants`
+and the 40k parents of 19 continuation sweeps were removed from
+/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs, by a process outside this session.
+Among them `NBitFlipFlop_ff_revive` and `NBitFlipFlop_paper_grid`, the first 40k of the flip-flop
+size series: `common.noisy_loss_series` joins the loss along the warm-start chain, so the floor
+read-out of every `_c75000`/`_c200000` flip-flop run is broken on Della until they are back. The
+knob-ladder sweeps, the claim-1 runs and snapshots, and the ablation results are intact.
+Copies of all 21 deleted sweeps are on the laptop (`~/Documents/GitHub/trainRNNbrain/data/trained_RNNs`,
+~15 GB). Pavel dropped the threshold lift (bias_kick) from option B. Pending tasks cancelled.
