@@ -43,7 +43,7 @@ offline active count against the trace's count at the nearest stored probe.
 Usage (on a GPU node; the Mac has no environment):
   python ablate_silent_units.py end   <run_dir>              [--out DIR]
   python ablate_silent_units.py floor <run_dir>              [--out DIR] [--snap-root DIR]
-  python ablate_silent_units.py retrain <run_dir>            [--out DIR]   (prune, then fine-tune)
+  python ablate_silent_units.py retrain <run_dir> [--at floor] [--out DIR] (prune, then fine-tune)
   python ablate_silent_units.py summary                      [--out DIR]   (one row per cell)
     run_dir   a finished run folder (holds *_config.yaml, *LastParams*, *ParticipationTrace.pkl)
 Output: one JSON per network and read-out in --out (default /scratch/gpfs/TENGEL/pt1290/c1_ablation).
@@ -337,6 +337,25 @@ def chain_snapshots(run_dir, snap_root=SNAP_ROOT):
     return np.asarray(its), [found[i] for i in its]
 
 
+def floor_snapshot(run_dir, snap_root=SNAP_ROOT):
+    """The run's noisy-loss floor read-out and the weight state nearest its crossing.
+
+    Returns:
+        (floor dict from common.noisy_floor without its smoothed series, iteration, parameter file);
+        the last two are None when the run has no read-out.
+    """
+    it, L = noisy_loss_series(run_dir)
+    fl = noisy_floor(it, L) if L is not None else dict(reason="no noisy loss", t_star=np.nan)
+    fl.pop("smoothed", None)
+    if fl["reason"] is not None:
+        return fl, None, None
+    its, files = chain_snapshots(run_dir, snap_root)
+    j = int(np.argmin(np.abs(its - fl["t_star"])))
+    print(f"  floor {fl['floor']:.3e}, escape {fl['escape']:,.0f}, crossing {fl['t_star']:,.0f}; "
+          f"nearest weights at {its[j]:,} ({len(its)} states on the chain)")
+    return fl, int(its[j]), files[j]
+
+
 RETRAIN_ITERS = 3000         # fine-tuning budget after a removal (~3% of a training run)
 RETRAIN_EVERY = 250          # held-out score recorded every this many fine-tuning iterations
 
@@ -400,10 +419,14 @@ def retrain_curve(cfg, rnn, params, removed, batches, iters=RETRAIN_ITERS):
     return curve
 
 
-def retrain_test(run_dir, out_dir, label, extra):
-    """Prune the silent units, or as many at random, and fine-tune; intact network fine-tuned as control."""
-    params_file = sorted(glob.glob(os.path.join(run_dir, "*LastParams*.np[zy]"))
-                         or glob.glob(os.path.join(run_dir, "*LastParams*.json")))[0]
+def retrain_test(run_dir, out_dir, label, extra, params_file=None):
+    """Prune the silent units, or as many at random, and fine-tune; intact network fine-tuned as control.
+
+    Args:
+        params_file: the weight state to start from; the run's end state (LastParams) when None.
+    """
+    params_file = params_file or sorted(glob.glob(os.path.join(run_dir, "*LastParams*.np[zy]"))
+                                        or glob.glob(os.path.join(run_dir, "*LastParams*.json")))[0]
     params = load_params(params_file)
     cfg, rnn = build(run_dir, params)
     batches = seeded_batches(cfg, rnn.device)
@@ -459,6 +482,8 @@ def main():
     ap.add_argument("readout", choices=["end", "floor", "retrain", "summary"])
     ap.add_argument("run_dir", nargs="?")
     ap.add_argument("--snap-root", default=SNAP_ROOT, help="where kept snapshots live")
+    ap.add_argument("--at", choices=["end", "floor"], default="end",
+                    help="retrain: start from the end state or from the weights at the floor")
     ap.add_argument("--out", default=OUT)
     ap.add_argument("--quick", action="store_true",
                     help="smoke test: one noise draw, one random order, three removal counts")
@@ -478,7 +503,15 @@ def main():
     extra = dict(run_dir=run_dir, sweep=sweep, cell=cell, readout=a.readout)
 
     if a.readout == "retrain":
-        retrain_test(run_dir, a.out, label, extra)
+        pf = None
+        if a.at == "floor":                      # start from the weights at the run's floor
+            fl, it_j, pf = floor_snapshot(run_dir, a.snap_root)
+            if pf is None:
+                print(f"  {label}: no floor read-out - {fl['reason']}")
+                return
+            label = label.replace("__retrain", "__retrain_floor")
+            extra.update(readout="retrain_floor", iteration=it_j, floor_read=fl)
+        retrain_test(run_dir, a.out, label, extra, params_file=pf)
         return
     if a.readout == "end":
         params_file = sorted(glob.glob(os.path.join(run_dir, "*LastParams*.np[zy]"))
@@ -491,23 +524,17 @@ def main():
         batches = seeded_batches(cfg, rnn.device)
         extra["gates"] = gates(rnn, batches, run_dir, iteration, check_name_r2=True)
     else:
-        it, L = noisy_loss_series(run_dir)
-        fl = noisy_floor(it, L) if L is not None else dict(reason="no noisy loss", t_star=np.nan)
-        fl.pop("smoothed", None)
+        fl, it_j, pf = floor_snapshot(run_dir, a.snap_root)
         extra["floor_read"] = fl
-        if fl["reason"] is not None:
+        if pf is None:
             print(f"  {label}: no floor read-out - {fl['reason']}")
             with open(os.path.join(a.out, label + "_noread.json"), "w") as fh:
                 json.dump(extra, fh)
             return
-        its, files = chain_snapshots(run_dir, a.snap_root)
-        j = int(np.argmin(np.abs(its - fl["t_star"])))
-        print(f"  {label}: floor {fl['floor']:.3e}, escape {fl['escape']:,.0f}, crossing "
-              f"{fl['t_star']:,.0f}; nearest weights at {its[j]:,} ({len(its)} states on the chain)")
-        cfg, rnn = build(run_dir, load_params(files[j]))
-        extra.update(iteration=int(its[j]), params_file=files[j])
+        cfg, rnn = build(run_dir, load_params(pf))
+        extra.update(iteration=it_j, params_file=pf)
         batches = seeded_batches(cfg, rnn.device)
-        extra["gates"] = gates(rnn, batches, run_dir, int(its[j]), check_name_r2=False)
+        extra["gates"] = gates(rnn, batches, run_dir, it_j, check_name_r2=False)
     print(f"  gates: {extra['gates']}")
     res = ablate(rnn, batches, label, extra)
     with open(os.path.join(a.out, label + ".json"), "w") as fh:

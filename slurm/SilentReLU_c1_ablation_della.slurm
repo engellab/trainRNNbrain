@@ -13,6 +13,7 @@
 #
 #   LIST=/scratch/gpfs/TENGEL/pt1290/c1_ablation/lists/end.txt \
 #     sbatch --array=1-$(wc -l < $LIST) slurm/SilentReLU_c1_ablation_della.slurm
+# ABL_ARGS is appended to every list-mode call, e.g. ABL_ARGS="--at floor" for `retrain` lines.
 #
 #SBATCH --job-name=C1abl
 #SBATCH --nodes=1
@@ -64,4 +65,4 @@ fi
 LINE=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$LIST")
 read -r READOUT RUN_DIR <<< "$LINE"
 echo "Task ${SLURM_ARRAY_TASK_ID}: $READOUT $RUN_DIR"
-python "$ABL" "$READOUT" "$RUN_DIR" --out "$OUT"
+python "$ABL" "$READOUT" "$RUN_DIR" --out "$OUT" ${ABL_ARGS:-}
