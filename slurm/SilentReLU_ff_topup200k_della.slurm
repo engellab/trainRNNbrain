@@ -14,8 +14,8 @@
 # joined to the parent's, so a 200k continuation reads as one 0 -> 200k run. The TrainLosses of
 # each segment stay in their own folders; common.noisy_loss_series joins them along paths.init_from.
 #
-# THE CONTINUATION LANDS IN ITS OWN ROOT, <root>_c200000 (any _c<N> suffix of the parent's root is
-# replaced), so no cell holds two budgets of the same network.
+# THE CONTINUATION LANDS IN ITS OWN ROOT, <root>_c<TARGET> (any _c<N> suffix of the parent's root is
+# replaced), so no cell holds two budgets of the same network. TARGET defaults to 200000.
 #
 # PARENTS, one per array task, are FOUND WHEN THE TASK STARTS: PARENTS is a glob of run folders,
 # sorted, and task i continues the i-th. So an array can be queued behind the job that writes its
@@ -77,7 +77,7 @@ SRC="${ALL[$((SLURM_ARRAY_TASK_ID - 1))]%/}"
 CFG=$(ls "$SRC"/*_config.yaml | head -1)
 
 # iterations already trained by the parent's chain, and the root/tag of the continuation
-read -r TASKNAME DONE TAG < <(python - "$CFG" "$SRC" <<'EOF'
+read -r TASKNAME DONE TAG < <(python - "$CFG" "$SRC" "$TARGET" <<'EOF'
 import os, re, sys
 from omegaconf import OmegaConf
 cfg = OmegaConf.load(sys.argv[1])
@@ -87,7 +87,7 @@ cell_dir = os.path.dirname(sys.argv[2].rstrip("/"))
 root, cell = os.path.basename(os.path.dirname(cell_dir)), os.path.basename(cell_dir)
 task = str(cfg.task.taskname)
 base = re.sub(r"_c\d+$", "", root[len(task) + 1:] if root.startswith(task + "_") else root)
-print(task, done, f"{base}_c200000/{cell}")
+print(task, done, f"{base}_c{sys.argv[3]}/{cell}")
 EOF
 )
 TOPUP=$((TARGET - DONE))
