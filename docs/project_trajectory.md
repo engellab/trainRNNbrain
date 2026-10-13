@@ -15171,3 +15171,7 @@ shape, the standard network ringed. Reading (standard CDDM: 418 active, R² 0.82
 - The low flip-flop point (334 active, R² 0.931) is the default-input run that crosses at 23k but
   ends at 0.73x its fitted floor; its loss ratio L(t*)/L_end = 1.44 is what drags the estimate down.
   It is not a converged read-out, but the rule admits it and it is drawn.
+
+Panel titles of the trade-off scatter now give the range of floor crossings where each ladder was
+read (10-73k), not the training budget, which read as the read-out point (Pavel). The 227
+`RMtop200` remedy top-ups submitted at 14:56 by another session were approved by Pavel.

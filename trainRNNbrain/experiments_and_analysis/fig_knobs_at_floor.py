@@ -290,11 +290,12 @@ def tradeoff():
                        edgecolors="k" if ref else "none", linewidths=0.8, zorder=3,
                        label=lab + ("" if k == r["n"] else f" ({k}/{r['n']})"))
         ax.set_xlim(0, 1000)
-        # N is 1000 in every panel and said on the axis label; budgets as "200k" so the two-line
-        # titles fit their own column
-        task = (spec["task"].replace(", $N$ = 1000", "").replace(",000 iterations", "k it")
-                .replace("3-bit flip-flop", "flip-flop"))
-        ax.set_title(f"{spec['knob']}\n{task}", fontsize=6.4, color=ps.INK, pad=3)
+        # the title gives WHERE the runs were read - the range of their floor crossings - not the
+        # training budget, which would read as the read-out point (Pavel, 2026-10-13)
+        cross = np.concatenate([r["cross"] for _, r in reads]) / 1e3
+        task = "CDDM" if spec["task"].startswith("CDDM") else "flip-flop"
+        ax.set_title(f"{spec['knob']}\n{task}, floor reached at {cross.min():.0f}-{cross.max():.0f}k it",
+                     fontsize=6.4, color=ps.INK, pad=3)
         ax.legend(fontsize=5.2, frameon=False, loc="lower left", handletextpad=0.2,
                   borderaxespad=0.2, labelspacing=0.25)
         if spec["task"].startswith("CDDM"):
