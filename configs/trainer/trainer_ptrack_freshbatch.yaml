@@ -31,6 +31,8 @@ checkpoint_every: 2000
 anneal_noise: False
 lr: 0.001
 weight_decay: 1e-6
+optimizer: adam   # adam (coupled L2) | adamw (decoupled) | sgd; see run_experiment.py
+momentum: 0.0     # sgd only
 max_grad_norm: 50.0
 # Gradient-spike defences. An update whose gradient norm exceeds spike_factor x a rolling MEDIAN is
 # DROPPED, not clipped (Adam is scale-invariant, so clipping barely limits a spike's effect).
