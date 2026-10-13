@@ -14938,18 +14938,30 @@ Units removable for at most 0.01 of r2: ~300-320 of 1000 on the flip-flop, ~780-
 
 **Prune and retrain** (`retrain`; the silent units removed and held out, the rest fine-tuned 3,000
 iterations as in training; same count removed at random; intact network fine-tuned as control),
-end of training, N = 1000, 3 networks per task:
+end of training, N = 1000, 3 networks per task (re-run 2026-10-13 after the fix below):
 
 | | flip-flop | CDDM | DMTS |
 |---|---|---|---|
-| intact | 0.952-0.953 | 0.836 | 0.999 |
-| silent removed: straight after → after fine-tuning | 0.36-0.48 → **0.949-0.952** | 0.836 → 0.835 | 0.984-0.992 → **0.999** |
-| as many removed at random, after fine-tuning | 0.91-0.93 | 0.83 | **0.42** (back to the constant-output solution) |
+| intact, fine-tuned | 0.951-0.954, flat | 0.835, flat | 0.999, flat |
+| silent removed: straight after → after fine-tuning | 0.37-0.48 → **0.94-0.95** | 0.836 → 0.835-0.837 | 0.98-0.99 → **0.998-0.999** |
+| as many removed at random, after fine-tuning | 0.91-0.93 | 0.83 | **0.42** in all three (back to the constant-output solution) |
 
 So every task does without its silent units: on the flip-flop they are wired in, but not needed.
-⚠️ Fine-tuning the INTACT CDDM network costs it 0.04-0.07 (0.836 → 0.79; also at the floor, 0.83 →
-0.76-0.80) while the pruned one does not move. Not explained. One candidate, untested: a fresh Adam
-with coupled weight decay takes full-size steps on the silent units' weights and wakes some of them.
+
+⚠️ **A bug in the fine-tune loop, found and fixed 2026-10-13** (7608099). The first version reported
+that fine-tuning the INTACT CDDM network cost it 0.04-0.07 while the pruned copy did not move. A
+delegated investigation (/scratch/gpfs/TENGEL/pt1290/c1_finetune_probe, 10 GPU jobs) traced it:
+`retrain_curve`'s scoring reseeded the model's generator for its fixed noise draws, and training
+draws its noise from the same generator, so from iteration 251 the fine-tune saw the same 250 noise
+realisations eleven times. On CDDM's fixed coherence grid every (trial, noise) sample recurred and
+the intact network memorised them - training-sample r2 0.874 → 0.91-0.92 while held-out fell -
+mostly by waking 130-180 silent units; the pruned copy could not. With the generator saved and
+restored around scoring, every arm is flat (fresh or saved Adam, wd 0 or 1e-6, lr or lr/10;
+−0.002 at the end of training). Not the fresh-Adam kick (real, but leaves no trace) and not coupled
+weight decay. **The project's own warm start (`paths.init_from`, used by every top-up) is
+unaffected**: 3,000 iterations from each CDDM control move held-out r2 by < 0.001 with or without
+the saved Adam moments. Results from the buggy loop are kept in
+/scratch/gpfs/TENGEL/pt1290/c1_retrain_bug_noise_reseed.
 
 ### The read-out moves to the noisy loss (Pavel)
 
@@ -14988,7 +15000,7 @@ snapshots (15431471), and the size series N = 500 / 1000 / 2000 / 4000 (15431472
 | r2 intact | 0.829-0.834 | 0.836-0.838 | 0.999 | 0.999 |
 | all silent removed | 0.828-0.833 | 0.836-0.838 | 0.909-0.972 | 0.983-0.994 |
 | as many at random | −0.14 to 0.05 | −0.06 to 0.10 | ≈ −0.1 | ≈ −0.1 |
-| silent removed, then retrained 3,000 iterations | 0.816-0.824 (the fine-tune itself costs CDDM: intact → 0.76-0.80) | | **0.9992-0.9993** (as many at random: 0.991, 0.998, 0.418) | |
+| silent removed, then retrained 3,000 iterations | 0.825-0.830 (intact, fine-tuned: 0.824-0.830) | | **0.9987-0.9993** (as many at random: 0.998, 0.999, 0.418) | |
 
 CDDM: about 430 units work at the floor and the other ~570 can go for nothing; by 100k it has shed
 another ~120 without improving. DMTS escaped late in these three runs (14-40k) and is read 1.6-6k
@@ -15003,11 +15015,11 @@ N^0.46, crossings 26-30k; DMTS ∝ N^0.52 from three sizes, crossings 14-40k); t
 the end of its budget (∝ N^0.48), open markers, because at 75k no run at N = 1000 or 4000 reaches
 its floor - a series is read at its floor only when every size has a read-out. (d) the ablation,
 one sub-panel per task, CDDM and DMTS at the floor, the flip-flop at the end of training until its
-200k floor is in, with the prune-and-retrain result as a star wherever removal costs more than 0.01.
+200k floor is in, with the prune-and-retrain result as a star.
 (e) the noisy loss and the silent count over training, every seed, each run's crossing marked:
 after its floor CDDM (200k) silences 152 more units and DMTS (150k) 272 more. The old knob panel is `panel_knobs`, kept for Figure 2. The coverage audit's signature now
 includes trial length, bias range and remedy switches (a trainable-bias 30k sweep and 7 tau DMTS were
 being reported as missing sizes). Supplementary: the end-of-training ablation at every size.
 
-**Open.** The flip-flop at-floor ablation and panel c's flip-flop and DMTS series wait on the 200k
-continuations. The CDDM intact-fine-tune drop above.
+**Open.** The flip-flop at-floor ablation and panel c's flip-flop series wait on the 200k
+continuations.

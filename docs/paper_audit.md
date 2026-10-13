@@ -21,9 +21,9 @@ tell the older penalty/selectivity story. The full record stays in `project_traj
 
 | N = 1000 | Silent | Remove all silent units | Remove as many at random | Prune silent units, retrain 3k iterations |
 |---|---|---|---|---|
-| CDDM, at its floor (~25k) | 57% | no change (0.83 → 0.83) | −0.03 | — (nothing to recover) |
+| CDDM, at its floor (~25k) | 57% | no change (0.83 → 0.83) | −0.03 | stays at 0.83, same as the intact network fine-tuned |
 | DMTS, at its floor (17–42k) | 65% | 0.999 → 0.95 | −0.12 | back to **0.999** |
-| Flip-flop, end of 75k (floor pending) | 73% | 0.95 → 0.41 | 0.05 | back to **0.95** |
+| Flip-flop, end of 75k (floor pending) | 73% | 0.95 → 0.41 | 0.05 | back to **0.94–0.95** (random: 0.91–0.93) |
 
 - **No task needs its silent units.** CDDM's do nothing. The flip-flop's, and DMTS's right after
   its escape, are wired in: removing them costs something, but a short retrain without them restores

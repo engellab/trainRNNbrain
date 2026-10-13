@@ -1320,14 +1320,8 @@ def panel_d(axes):
         ax.plot(x, busy.mean(0), ":", lw=1.0, color=ps.INK, alpha=0.8, zorder=4)
         # prune-and-retrain: the silent units removed, the rest fine-tuned 3,000 iterations. A thin
         # line from the score straight after removal to the score after fine-tuning, a star there.
-        # Drawn only where removal COSTS something (more than 0.01): that is the case the test is
-        # for. Where it costs nothing (CDDM) the fine-tune itself is all a star would show - from a
-        # fresh optimiser it costs even the intact CDDM network 0.03-0.07 - so it is printed, not drawn.
-        cost = float(np.mean([r["r2_full"] - r["r2_no_silent"] for r in res]))
-        if cost <= 0.01 and ret:
-            print(f"  .. panel d, {label}: removal costs {cost:.3f}; retrain not drawn (after "
-                  f"fine-tuning {np.mean([t['silent_removed'][-1][1] for t in ret]):.3f})")
-        for t in (ret if cost > 0.01 else []):
+        # Drawn for every task: where removal costs nothing (CDDM) the star sits on the intact score.
+        for t in ret:
             xs = 100 * t["n_silent"] / t["N"]
             y0, y1 = t["silent_removed"][0][1], t["silent_removed"][-1][1]
             ax.plot([xs, xs], [max(y0, 0), y1], "-", lw=0.6, color=col, alpha=0.7, zorder=5)
