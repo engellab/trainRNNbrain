@@ -41,7 +41,6 @@ import heldout_r2 as H
 import fig_knobs_at_floor as K
 from common import DATA_DIR, SILENT_REL, participation, warm_start_chain
 from trainRNNbrain.training.training_utils import prepare_task_arguments
-from trainRNNbrain.utils import unjsonify
 
 BASE, TOP = "CDDM_std_g0_bias0", "CDDM_std_g0_bias0_c75000"
 REF_CTRL = os.path.join(DATA_DIR, "CDDM_std_g0_drift_bias0", "EqType=h_N=1000_iters=200000")
@@ -131,21 +130,20 @@ def oracle_active(run_dir):
     applies p >= SILENT_REL * q95(p).
 
     Args:
-        run_dir: a trained-network folder with *LastParams*.json, *_config.yaml, *ParticipationTrace.pkl.
+        run_dir: a trained-network folder with *LastParams* (.json or .npz), *_config.yaml, *ParticipationTrace.pkl.
     Returns:
         dict: n_oracle (active count), n_trace (trace's last stored count), agree (fraction of
         units classified the same way), trace_iter (iteration of that last probe).
     """
     cfg = OmegaConf.load(sorted(glob.glob(os.path.join(run_dir, "*_config.yaml")))[0])
-    with open(sorted(glob.glob(os.path.join(run_dir, "*LastParams*.json")))[0]) as fh:
-        P = {k: (np.asarray(v, float) if v is not None and not isinstance(v, (str, bool, dict)) else v)
-             for k, v in unjsonify(json.load(fh)).items()}
+    P, _ = H._params(run_dir)                                         # .json or .npz LastParams
     task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
     u = np.asarray(task.get_batch()[0], float)                      # (n_inputs, T, B)
-    W_rec, W_inp = P["W_rec"], P["W_inp"]
-    b = np.zeros(W_rec.shape[0]) if P.get("bias") is None else np.ravel(P["bias"])
+    W_rec, W_inp = P["W_rec"].astype(float), P["W_inp"].astype(float)
+    bias = P.get("bias")
+    b = np.zeros(W_rec.shape[0]) if bias is None or bias.dtype == object else np.ravel(bias).astype(float)
     alpha = cfg.model.dt / cfg.model.tau
-    x = np.repeat(np.ravel(P["y_init"])[:, None], u.shape[2], axis=1)
+    x = np.repeat(np.ravel(P["y_init"]).astype(float)[:, None], u.shape[2], axis=1)
     rates = [np.maximum(x, 0)]
     for t in range(1, u.shape[1]):
         x = x + alpha * (-x + W_rec @ np.maximum(x, 0) + W_inp @ u[:, t - 1, :] + b[:, None])
