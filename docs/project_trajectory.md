@@ -15678,3 +15678,11 @@ trainer config now has `checkpoint_every: 1000` and `checkpoint_keep: true`; a l
 `++trainer.checkpoint_keep=false`. Launchers passing `+trainer.checkpoint_keep` now pass `++`.
 Smoke-tested through run_experiment (no flags, and the launcher form): it0001000, it0002000 and
 resume/ written.
+
+**Figure 2 complete with the flip-flop revival screen (panel k).** RVtop200 finished (6 runs, ~10.5 h
+each). Mean active at the floor → at 200k: no intervention 290 → 176; zero-out silent units
+265 → 210; random redraw 232 → 194. At the floor both revival rules have FEWER units than the
+control; by 200k 18-34 more. Neither rescues participation (as on CDDM: re-initialisation 419 → 338
+vs 436 → 335). Legend placement fixed (no legend over data, layout check 0 problems); the figure is
+built on the laptop from the Della cache (`data/fig_paper_F2_fails_cache.pkl`), because Della's
+default font makes three legends too wide to fit. `img/internal_figures/fig_paper_F2_fails.png`.
