@@ -73,3 +73,12 @@ K = 10 (about 0.25), and the step against the unit's distance below threshold.
 ## Results
 
 (filled in below after the runs)
+
+### Added pre-registration (23:49, after the floor results for (a)-(f), before this test ran)
+
+(d') Is the 4-5x larger per-on-sample dL/dh of the flip-flop's silent-reached units a property of
+the units, or of WHEN they are on (93-99% of their on-samples fall within 20 steps of an input
+pulse, where the output error is largest)? Restrict every unit's on-samples to those within 20 steps
+(and, separately, 10 steps) of a pulse and recompute the per-unit RMS dL/dh.
+  Timing explains it if: the silent-reached / active ratio of medians drops below 1.5.
+  The units are more potent per sample if: it stays >= 3.
