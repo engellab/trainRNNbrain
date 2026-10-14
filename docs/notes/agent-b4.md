@@ -167,7 +167,28 @@ guard, the late rise above 1.5×, "never leaves its starting level") is excluded
 
 ## 6. Submitted
 
-*(filled in below at submission)*
+Submitted 14 Oct 00:32 EDT on Spock, from `~/trainRNNbrain_b4` (clean, detached at `c1396ae`),
+partition `all`, 1 GPU (L40S-46G or A100-40G), `--mem=32G`, `--time=48:00:00`, 200,000 iterations,
+kept snapshots every 500.
+
+| Job | Cell | Sources (array task i = i-th in sorted order) |
+|---|---|---|
+| 6929407_[1-3] | `src=control_age=old` | the three 200k runs, sorted by folder name: 2461724787, 4113307577, 1258717025 |
+| 6929408_[1-3] | `src=control_age=young` | snapshots s1542248578/it0052500, s2670297180/it0067500, s2851654641/it0060000 |
+| 6929409_[1-3] | `src=fresh` (`MODE=fresh`) | the same three snapshot configs, no weights |
+
+- Output: Spock `~/trainRNNbrain/data/trained_RNNs/NBitFlipFlopHyper_b4_transfer/EqType=h_N=1000_<cell>/<run>/`
+- Snapshots: `/mnt/cup/labs/tengel/home/tolmach/trainRNNbrain_b4_snapshots/NBitFlipFlopHyper_b4_transfer/EqType=h_N=1000_<cell>/s<seed>/it<iters>/`
+  (the lab share, 23 TB free; ~3.1 GB per run, ~28 GB in all). The first submission (6929404-6929406,
+  00:30) wrote snapshots to the 95 GB home quota, which also holds the B2/B3 outputs; it was
+  cancelled while pending, before any task started, and resubmitted with `SNAP_TO` on the lab share.
+- Logs: Spock `~/trainRNNbrain_logs/B4xfer.<job>_<task>.out`.
+- Cost: 9 runs × ~12 h (0.21 s/it, B5's measured Spock rate) ≈ 110 GPU-h. With the N = 4000 cells
+  still to come (plan: ~525 GPU-h at 100k), B4 stays inside the plan's minimal budget.
+- Queue at submission: every task pending on priority behind 19 B5 tasks (Slurm estimates their
+  start at 17:00-21:30 on 14 Oct) and 24 B2/B3 tasks, all from the same account. Expected start late
+  14 Oct to 15 Oct; finish ~12-14 h after each task starts, so about 15-16 Oct.
+- Check: `squeue -u pt1290 -n B4xfer`; progress `tail -c 300 ~/trainRNNbrain_logs/B4xfer.6929407_1.out`.
 
 ## 7. Not done, and N = 4000
 
