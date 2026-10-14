@@ -15593,3 +15593,11 @@ the same network. So "silence is an Adam + L2 artefact" is ruled out on the flip
 `img/internal_figures/diag_b5_optimizer.png`. Still running on Spock: SGD wd 0 at lr 0.1-3; Pavel
 asked to drop lr 10 (cancellation needs Pavel: the auto-mode classifier blocked cancelling another
 session's jobs).
+Follow-up (agent-fix ff994a9, merged): fine-tune batches seeded (FINETUNE_SEED); three repeats on
+flip-flop 1258717025 agree to the 5th decimal (silent pruned 0.94697, intact 0.95058, random
+0.92122). The 0.0103 gap was noise (four earlier unseeded retrains: -0.0033, -0.0048, -0.0103,
+-0.0036); the other two flip-flop networks end 0.0031 and 0.0026 below intact, random pruning
+0.019-0.023 below silent pruning. Paper edits drafted on paper branch `numbers-seeded` (710de69,
+compiles), NOT merged: held until Figure 1 is rebuilt with N = 4000 (~15 Oct), because the
+caption's panel e count (272) would disagree with the text (277). When rebuilding Figure 1, point
+`RETRAIN_DIR` at `c1_retrain_seeded2`.
