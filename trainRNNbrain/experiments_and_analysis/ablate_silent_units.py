@@ -46,7 +46,7 @@ Usage (on a GPU node; the Mac has no environment):
   python ablate_silent_units.py retrain <run_dir> [--at floor] [--out DIR] (prune, then fine-tune)
   python ablate_silent_units.py summary                      [--out DIR]   (one row per cell)
     run_dir   a finished run folder (holds *_config.yaml, *LastParams*, *ParticipationTrace.pkl)
-Output: one JSON per network and read-out in --out (default /scratch/gpfs/TENGEL/pt1290/c1_ablation).
+Output: one JSON per network and read-out in --out (default /scratch/gpfs/TENGEL/pt1290/c1_ablation_seeded).
 """
 
 import argparse
@@ -75,9 +75,11 @@ DRAWS = 9                    # noise draws per score, as heldout_r2.DRAWS
 RANDOM_ORDERS = 5            # independent random removal orders per network
 SILENT_REL = 0.05            # active = p >= SILENT_REL * q95(p), the project's scale-free rule
 FLOOR_DELTA = 0.05           # read at 1.05x the fitted floor (tightened from 0.07 on 2026-10-12)
-NOISE_SEED = 1000            # draw d of every score uses generator seed NOISE_SEED + d
-BATCH_SEED = 20261012        # seeds the held-out and ordering batches
-OUT = "/scratch/gpfs/TENGEL/pt1290/c1_ablation"
+NOISE_SEED = H.NOISE_SEED    # draw d of every score uses generator seed NOISE_SEED + d, as heldout_r2
+BATCH_SEED = 20261012        # seeds the global generators, and the fine-tune's noise generator
+ORDER_SEED = 20261013        # seeds the task generator of the ordering batch (the held-out batch is
+                             # seeded inside heldout_r2.heldout_batch, with H.HELDOUT_SEED)
+OUT = "/scratch/gpfs/TENGEL/pt1290/c1_ablation_seeded"   # c1_ablation holds the unseeded results
 
 
 # ------------------------------------------------------------------------------------------------
@@ -136,6 +138,11 @@ def set_params(rnn, params):
 def seeded_batches(cfg, device):
     """The held-out batch and a full training-distribution batch, both seeded.
 
+    np.random.seed does not reach a task's own generator (np.random.default_rng), and a sampled task
+    (flip-flop, DMTS) is configured with seed None; before 2026-10-14 both batches were therefore
+    fresh draws on every run. The held-out batch is now seeded in heldout_r2.heldout_batch and the
+    ordering batch here, with a different seed, so the two stay distinct.
+
     Returns:
         dict with 'ho' = (inputs, targets, mask) unseen by the network, and 'tr' = (inputs, targets,
         mask) from the training distribution at its training batch size.
@@ -143,7 +150,9 @@ def seeded_batches(cfg, device):
     np.random.seed(BATCH_SEED)
     torch.manual_seed(BATCH_SEED)
     bi, bt, mask = H.heldout_batch(cfg)
-    task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
+    tcfg = prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt)
+    tcfg.seed = ORDER_SEED
+    task = hydra.utils.instantiate(tcfg)
     ti, tt, _ = task.get_batch()
     mask_t = torch.as_tensor(np.asarray(mask), device=device)
     to = lambda a: torch.as_tensor(np.asarray(a), dtype=torch.float32, device=device)
