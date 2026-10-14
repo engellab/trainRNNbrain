@@ -79,6 +79,7 @@ NOISE_SEED = H.NOISE_SEED    # draw d of every score uses generator seed NOISE_S
 BATCH_SEED = 20261012        # seeds the global generators, and the fine-tune's noise generator
 ORDER_SEED = 20261013        # seeds the task generator of the ordering batch (the held-out batch is
                              # seeded inside heldout_r2.heldout_batch, with H.HELDOUT_SEED)
+FINETUNE_SEED = 20261014     # seeds the task generator of the fine-tune's training batches (retrain)
 OUT = "/scratch/gpfs/TENGEL/pt1290/c1_ablation_seeded"   # c1_ablation holds the unseeded results
 
 
@@ -387,7 +388,9 @@ def retrain_curve(cfg, rnn, params, removed, batches, iters=RETRAIN_ITERS):
     """
     set_params(rnn, params)
     idx = torch.as_tensor(np.ascontiguousarray(removed, dtype=np.int64), device=rnn.device)
-    task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
+    tcfg = prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt)
+    tcfg.seed = FINETUNE_SEED                    # the same batch sequence on every run and in every arm
+    task = hydra.utils.instantiate(tcfg)
     mask = torch.as_tensor(np.asarray(get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)),
                            device=rnn.device)
     lr = float(cfg.trainer.lr) * (100.0 / float(cfg.model.N)) ** float(cfg.trainer.lr_scale_exp)

@@ -266,3 +266,26 @@ The versions they replaced are kept in `/scratch/gpfs/TENGEL/pt1290/agent_fix/fi
   old ones; the old entries are never read by this code. It is written without a lock by every
   checkout that scores, so concurrent writers can drop each other's entries (recomputed, not wrong).
 - DMTS N = 1000 s1167683015's fallback read sits close to the late-rise guard (1.395 against 1.5).
+
+## 5. Follow-up (coordinator, after the merge af0c605)
+
+**Where the test failed.** `tests/test_prune_rescale_mode.py` failed on Della (job 15553598 and
+again 15554886: CPU node, `torch-env` from `anaconda3/2024.10`, `CUDA_VISIBLE_DEVICES=` empty). The
+coordinator reports it passes on the merged tree on the Mac, so the failure depends on the
+environment.
+
+**Seeded fine-tune batches.** `retrain_curve` now seeds the task generator of its training batches
+with `FINETUNE_SEED = 20261014`, so every arm (intact, silent pruned, random pruned) sees the same
+batch sequence and a rerun sees it again. CDDM's training batch is a fixed grid, so CDDM retrains
+are unaffected.
+
+Checks, written before running (output `/scratch/gpfs/TENGEL/pt1290/c1_retrain_seeded2/`):
+- R1. Flip-flop 1258717025 at its floor, three repeats: every endpoint of every arm agrees across
+  repeats within 0.001. If they do, the seeded retrain is repeatable (GPU arithmetic is the only
+  remaining source of difference); if not, something other than the batches still varies.
+- R2. The 0.0103 question. The seeded run gives one draw from the same distribution the unseeded
+  runs sampled. Together with the three unseeded runs (silent pruned minus intact: -0.0033, -0.0048,
+  -0.0103), the gap is noise around the bar if the seeded gap lies inside 0.01 and the four runs
+  spread by more than 0.003; it is real if the seeded gap is also beyond 0.01.
+- R3. The other two flip-flop networks, once each: silent pruned within 0.01 of intact, random
+  pruned at least 0.01 below silent pruned, as in §2.
