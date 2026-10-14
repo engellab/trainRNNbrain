@@ -266,3 +266,50 @@ The versions they replaced are kept in `/scratch/gpfs/TENGEL/pt1290/agent_fix/fi
   old ones; the old entries are never read by this code. It is written without a lock by every
   checkout that scores, so concurrent writers can drop each other's entries (recomputed, not wrong).
 - DMTS N = 1000 s1167683015's fallback read sits close to the late-rise guard (1.395 against 1.5).
+
+## 5. Follow-up (coordinator, after the merge af0c605)
+
+**Where the test failed.** `tests/test_prune_rescale_mode.py` failed on Della (job 15553598 and
+again 15554886: CPU node, `torch-env` from `anaconda3/2024.10`, `CUDA_VISIBLE_DEVICES=` empty). The
+coordinator reports it passes on the merged tree on the Mac, so the failure depends on the
+environment.
+
+**Seeded fine-tune batches.** `retrain_curve` now seeds the task generator of its training batches
+with `FINETUNE_SEED = 20261014`, so every arm (intact, silent pruned, random pruned) sees the same
+batch sequence and a rerun sees it again. CDDM's training batch is a fixed grid, so CDDM retrains
+are unaffected.
+
+Checks, written before running (output `/scratch/gpfs/TENGEL/pt1290/c1_retrain_seeded2/`):
+- R1. Flip-flop 1258717025 at its floor, three repeats: every endpoint of every arm agrees across
+  repeats within 0.001. If they do, the seeded retrain is repeatable (GPU arithmetic is the only
+  remaining source of difference); if not, something other than the batches still varies.
+- R2. The 0.0103 question. The seeded run gives one draw from the same distribution the unseeded
+  runs sampled. Together with the three unseeded runs (silent pruned minus intact: -0.0033, -0.0048,
+  -0.0103), the gap is noise around the bar if the seeded gap lies inside 0.01 and the four runs
+  spread by more than 0.003; it is real if the seeded gap is also beyond 0.01.
+- R3. The other two flip-flop networks, once each: silent pruned within 0.01 of intact, random
+  pruned at least 0.01 below silent pruned, as in §2.
+
+Results (jobs 15559806-10, code ff994a9; `c1_retrain_seeded2/rep1..3`):
+
+| network | silent pruned + retrained | intact fine-tuned | gap | random pruned + retrained |
+|---|---|---|---|---|
+| 1258717025, repeats 1/2/3 | 0.94697 / 0.94697 / 0.94697 | 0.95058 (all three) | -0.0036 | 0.92122 (all three) |
+| 2461724787 | 0.94751 | 0.95057 | -0.0031 | 0.92455 |
+| 4113307577 | 0.94812 | 0.95076 | -0.0026 | 0.92944 |
+
+- R1 PASS: the three repeats agree to the 5th decimal in every arm and at every 250-iteration point.
+- R2: noise around the bar. Four runs of the 1258717025 retrain have now given gaps of -0.0033,
+  -0.0048, -0.0103 (unseeded) and -0.0036 (seeded), a spread of 0.007. The -0.0103 run is the one
+  whose pruned network dipped at 1,750 iterations; the seeded run has no dip (0.9341 at 250, rising
+  to 0.9470).
+- R3 PASS: the other two networks end 0.003 below their intact control, random pruning 0.019-0.023
+  below silent pruning.
+- Claim-1 flip-flop retrain numbers for the paper: silent pruned 0.948 (mean), random pruned
+  0.921-0.929, intact 0.951. Figure 1 panel d still draws its stars from `c1_retrain_seeded` (the
+  unseeded fine-tune); point `RETRAIN_DIR` at the seeded retrains when Figure 1 is rebuilt.
+
+Paper draft: `ptolmachev/dead-relu-paper` branch `numbers-seeded` (710de69, worktree
+`~/Documents/Projects/dead_relu_paper_fix`), not merged to main; compiles with latexmk, no undefined
+references. Figure 1 and its caption are untouched, so the caption's "272" (panel e) now differs from
+the text's 277 until Figure 1 is synced.
