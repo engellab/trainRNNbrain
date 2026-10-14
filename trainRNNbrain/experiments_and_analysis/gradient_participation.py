@@ -56,7 +56,7 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments, get_tr
 from trainRNNbrain.utils import filter_kwargs, import_any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import noisy_floor, noisy_loss_series
+from common import noisy_floor, noisy_loss_series, warm_start_chain
 from fig_knobs_at_floor import snapshot_at
 
 REL = 0.05
@@ -180,7 +180,9 @@ def main(cells, out_dir, dev, at="end"):
             Wt = {k: z[k] for k in z.files}
             Wt["activation_args"] = Wt["activation_args"].item()
             Wt["bias"] = Wt["bias"] if Wt["bias"].shape else np.zeros(int(Wt["N"]))
-            W0 = initial_params(cfg)
+            # the untrained twin is the chain's FIRST run: a continuation's own seed is a fresh draw
+            root = warm_start_chain(d)[0]
+            W0 = initial_params(OmegaConf.load(glob.glob(os.path.join(root, "*_config.yaml"))[0]))
             W0["activation_args"] = dict(W0["activation_args"])
             if W0["bias"] is None:
                 W0["bias"] = np.zeros(int(W0["N"]))

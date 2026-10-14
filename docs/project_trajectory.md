@@ -15279,3 +15279,8 @@ their floor inside the parent, whose snapshots sit under the parent's sweep and 
 back to the end). Not yet fixed: the untrained twin of a warm-started run is rebuilt from the leaf's
 seed, not the chain root's, so INIT counts for the flip-flop 200k runs are for the wrong network
 (corr0 ≈ 0); the trained counts are unaffected.
+Untrained twin fixed (gradient_participation builds it from the warm-start chain's first run): on the
+flip-flop 200k runs its participation now correlates 0.999-1.000 with the trace's iteration-0 probe
+(was ≈ 0). Re-running showed the flip-flop's trained counts move by up to ~15% between runs (one
+network: incoming 408 → 477), because the task draws a fresh random batch on every call; the
+flip-flop ranges in the table above carry that noise. CDDM's batch is a fixed grid.
