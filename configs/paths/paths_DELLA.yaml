@@ -10,6 +10,15 @@ init_from: null
 # being measured. Turn on only when continuing under the SAME penalty.
 init_adam: false
 
+# Transfer to a NEW TASK (B4): folder of a finished run or kept snapshot whose W_rec, W_inp, bias
+# and y_init initialise this one; W_out keeps this run's fresh draw, because the new task has its
+# own read-out. The iteration clock starts at 0, Adam starts fresh (init_adam must be false), and no
+# parent trace is joined. Kept apart from init_from so that common.warm_start_chain, which follows
+# init_from, stops at the transfer run instead of splicing the old task's loss onto the new one.
+# Build the run from the SOURCE's saved config with the task swapped; the parameter file carries
+# no architecture. A continuation of a transfer run sets init_from, and init_from then wins.
+transfer_from: null
+
 # Where periodic checkpoints go. null puts them in "<save_to>_checkpoints".
 # ⚠️ NEVER POINT THIS INSIDE save_to. Cells are inventoried by globbing for subfolders that hold
 # *LastParams*, so a checkpoint folder sitting among the real runs would be counted as a finished
