@@ -15284,3 +15284,25 @@ flip-flop 200k runs its participation now correlates 0.999-1.000 with the trace'
 (was ≈ 0). Re-running showed the flip-flop's trained counts move by up to ~15% between runs (one
 network: incoming 408 → 477), because the task draws a fresh random batch on every call; the
 flip-flop ranges in the table above carry that noise. CDDM's batch is a fixed grid.
+
+### C2: the flip-flop size series at its floor (agent-c2ff, merged)
+
+Read at 1.05x each run's fitted noisy floor on the 200k continuations (`ff_revive_c200000`):
+N = 500: 6 of 6 runs, crossings 38-111k, 201 ± 19 active; N = 1000: 2 of 3 (64-66k; the third never
+reaches the bar), 291 ± 5; N = 2000: 3 of 3 (54-73k), 387 ± 24. Provisional exponent N^0.47 from
+500-2000 (CDDM 0.46, DMTS 0.51); N = 4000 lands ~15 Oct. `fig_paper_F1.SCALING` now points at the
+200k cells, and `panel_c` reads a series at its floor only when every LISTED size has a read-out (it
+used to accept the sizes present on disk, so a missing N = 4000 would have dropped out silently).
+Notes and per-run tables: `docs/notes/agent-c2ff.md`; script `c2_ff_floor.py`.
+
+⚠️ **The floor fit is often degenerate on the flip-flop, and the guards miss it.** In 8 of 11
+size-series runs the loss at 200k ends up to 8% BELOW the fitted floor, and several fits have the
+stretch exponent beta pinned at its upper bound (3). `noisy_floor` rejects a floor pinned at its own
+lower bound but not a fit pinned on beta or tau. Re-reading every run at 1.05x its smoothed minimum
+instead (pre-registered: an exponent shift > 0.1 would mean the result depends on the floor
+definition) gives N^0.45 against 0.47, so panel c is robust. Figure 1 panels d/e are less so: two of
+the three claim-1 flip-flop runs have beta pinned at 3, and their crossings move 27k → 52k (352 → 341
+active) and 39k → 60k (337 → 292); the third is unchanged (69k → 67k, 266). Decision for Pavel:
+reject fits pinned on any bound, or read at 1.05x the smoothed minimum. The N = 1000 straggler sits
+at 1.055-1.06x its floor from 125k to 175k and rises to 1.09x; continuing it to 300k ≈ 6.7 GPU-h, a
+crossing not assured.
