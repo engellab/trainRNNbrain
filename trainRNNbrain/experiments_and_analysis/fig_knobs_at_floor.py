@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import fig_paper_F1 as F1
 import paperstyle as ps
-from common import DATA_DIR, END_FRAC, noisy_floor
+from common import DATA_DIR, END_FRAC, noisy_floor, warm_start_chain
 from heldout_r2 import heldout_r2, load_cache, save_cache
 
 W, H = 7.6, 2.9
@@ -118,19 +118,24 @@ LADDERS = [
 
 
 def snapshot_at(run_dir, t):
-    """The kept weight snapshot at or just after iteration t, if the run kept snapshots.
+    """The kept weight snapshot at or just after iteration t, if the run (or a run it was
+    warm-started from) kept snapshots.
+
+    A continuation's floor can fall inside its parent, whose snapshots sit under the PARENT's
+    sweep, cell and seed, so every run of the warm-start chain is searched.
 
     Args:
         run_dir: a run folder (its name carries `seed=<seed>`); t: an absolute iteration.
     Returns:
         the snapshot folder, or None when there is none within SNAP_MAX_LAG after t.
     """
-    cell = os.path.dirname(run_dir.rstrip("/"))
-    seed = re.search(r"seed=(\d+)", os.path.basename(run_dir.rstrip("/")))
-    if not seed:
-        return None
-    snaps = glob.glob(os.path.join(SNAP_DIR, os.path.basename(os.path.dirname(cell)),
-                                   os.path.basename(cell), f"s{seed.group(1)}", "it*"))
+    snaps = []
+    for d in warm_start_chain(run_dir):
+        cell = os.path.dirname(d.rstrip("/"))
+        seed = re.search(r"seed=(\d+)", os.path.basename(d.rstrip("/")))
+        if seed:
+            snaps += glob.glob(os.path.join(SNAP_DIR, os.path.basename(os.path.dirname(cell)),
+                                            os.path.basename(cell), f"s{seed.group(1)}", "it*"))
     later = sorted((int(os.path.basename(d)[2:]), d) for d in snaps if int(os.path.basename(d)[2:]) >= t)
     return later[0][1] if later and later[0][0] - t <= SNAP_MAX_LAG else None
 

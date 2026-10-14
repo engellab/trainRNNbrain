@@ -19,6 +19,12 @@ THREE PER-UNIT GRADIENTS, because they answer different questions.
 A unit counts as receiving a gradient if its g >= 0.05 x q95(g), the same scale-free bar the
 participation rule uses.
 
+⚠️ READ g_in AND g_out, NOT g_state, FOR ReLU (found 2026-10-13). Every unit starts a trial at h = 0
+exactly, and on the flip-flop stays there until the first input pulse (~36 of 300 steps). The
+network's ReLU (torch.clamp) passes the gradient at exactly 0, so g_state counted every flip-flop
+unit as reached (997-1000 of 1000) through steps on which no weight can learn (all rates and inputs
+are 0). The weight gradients g_in and g_out are untouched by this. `slope` counts only h > 0 for ReLU.
+
 THE UNTRAINED TWIN is rebuilt from the saved seed exactly as run_experiment.py builds it (model cfg
 merged with the task cfg, seed + (65537**3 % 7309), torch global seed set first). The reconstruction
 is checked against the participation trace's iteration-0 probe and the correlation is printed.
@@ -69,7 +75,9 @@ def act_fn(args):
     def fp(x):
         x = x.detach().requires_grad_(True)
         with torch.enable_grad():
-            return torch.autograd.grad(f(x).sum(), x)[0]
+            g = torch.autograd.grad(f(x).sum(), x)[0]
+        # clamp's gradient at exactly 0 is 1; a ReLU unit at h = 0 is not "on"
+        return g * (x > 0) if args["name"] == "relu" else g
     return f, fp
 
 
