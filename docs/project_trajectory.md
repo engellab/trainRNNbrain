@@ -15647,3 +15647,21 @@ snapshots and final parameters (lossless; the constant masks were half of each f
 N = 1000); launchers' kept-snapshot spacing 500 → 1000. New runs only (running jobs keep their
 pinned code). Next: can snapshots be stored as low-rank approximations (W ≈ a·W0 + rank-r ΔW, W0
 regenerated from the seed) without changing the loss and the statistics? Agent dispatched.
+
+### Low-rank snapshot storage: fails at N = 1000; float16 passes (agent-lowrank, merged; notes `docs/notes/agent-lowrank.md`, figure `img/internal_figures/lowrank_storage.png`)
+
+Pass bar committed first (b2c0e07): |ΔR²| ≤ 0.002 (seeded, 36 draws), active count within 1% with
+≥ 99% of units classified the same, noisy loss within 1%, per-unit gradient norms r ≥ 0.99. 18
+snapshots (claim-1 networks × floor/end × 3 tasks, N = 1000); the save-and-score path reproduces the
+originals exactly.
+- **W ≈ a·W0 + rank r fails: training erases the initial matrix.** a = 0.99 at iteration 500 but
+  0.01-0.16 at the floor and 0.00-0.06 at the end, so ΔW is W itself; the W0 scheme passes at the same
+  rank as a plain SVD (17 of 18; one flip-flop floor needs 700 vs 500). 99% of ‖ΔW‖² lies in 160-590
+  directions at the floor and 66-254 at the end (a Gaussian matrix: 772). Smallest passing rank:
+  500 on every task at N = 1000 (4.0 MB, more than the 3.8 MB compressed full matrix). CDDM at the
+  end: rank 300 at N = 1000, 200 at N = 2000 (3.2 MB) and N = 4000 (6.4 MB vs 64 MB) - one network
+  each, end only; no N ≥ 2000 floor snapshots exist to test.
+  Interpretation, untested: Adam's normalised weight-decay step drives the erasure (test: AdamW or
+  wd 0 runs).
+- **Quantisation passes:** float16 (1.9 MB compressed at N = 1000) passes all 18, measures unchanged
+  to 4 decimals; 12-bit with one scale per row (~1.1 MB) passes all 18; 10-bit 14; 8-bit 7.
