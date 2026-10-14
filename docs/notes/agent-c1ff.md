@@ -69,8 +69,45 @@ If neither 300k fit is valid, the flip-flop's at-floor ablation rests on one net
 
 ## 2. Method
 
-(filled in as the work goes)
+- Code: Della `~/trainRNNbrain_c1ff` at this branch. The only change since 7608099 (the commit that
+  produced the existing claim-1 at-floor JSONs) on the ablation path is the beta guard in
+  `common.noisy_floor`. `ablate_silent_units.floor_snapshot` calls `common.noisy_floor` on
+  `common.noisy_loss_series` (joined along `warm_start_chain`) and takes the nearest state from
+  `chain_snapshots`, which collects kept snapshots of every segment
+  (`c1_snapshots/<task>_<experiment_tag>/s<segment seed>/it*`). So the 300k chain is used
+  automatically once the 300k run folders exist; nothing in the code was changed.
+- Floor read-out with independent cross-checks: `/scratch/gpfs/TENGEL/pt1290/c1ff/c1ff_floor_read.py`
+  (not committed; scratch). It walks `paths.init_from` with plain yaml and joins the loss files by
+  hand (compared against the production chain and series), recomputes the 1.05x-smoothed-minimum
+  crossing with a numpy sliding-window median, checks which fit parameters sit on a bound and the
+  0.95 lower bar on late_rise, and looks up the snapshot and the trace's active count.
+  Check on the 200k chain (output `c1ff/read200.json`): production and hand-built chain and series
+  agree for all three runs; 2461724787 and 4113307577 rejected (beta = 3.0, late_rise 0.82 and
+  0.92); 1258717025 valid (floor 0.0338, A 0.113, tau 6.2k, beta 0.57, late_rise 1.006, crossing
+  69,050, snapshot 69,000, 266 active). The 1.05x-minimum crossings come out at 52,159, 59,480 and
+  67,348 (agent-c2ff had 52,159, 59,951, 67,348; the 59k difference is the running-median edge or
+  tie handling, not investigated).
+- Ablation and retrain: the existing launcher `slurm/SilentReLU_c1_ablation_della.slurm` in LIST
+  mode with `REPO=~/trainRNNbrain_c1ff`, one GPU job per network and read-out (the GPU ablation
+  takes ~3 min and the retrain ~35 min; on CPU the 9,000 fine-tuning iterations of N = 1000,
+  T = 300, batch 1024 would take on the order of a day, so GPU). New output folders, nothing
+  overwritten: `/scratch/gpfs/TENGEL/pt1290/c1_ablation_floor300` and `c1_retrain_floor300`.
 
 ## 3. Results
 
 (filled in after the runs)
+
+### Partial results (2026-10-14 06:40; run stopped before the 300k read-out came back)
+
+- P4 FAILED as written, root-caused: re-running the ablation of 1258717025 on the same weights
+  (69,000) gives a different number each time. Four runs: active 266/267/267/267, r2 intact
+  0.948-0.951, all silent removed 0.247 / 0.293 / 0.308 / 0.247, as many at random 0.006-0.014.
+  Cause: the flip-flop config has `task.seed: None`, so `TaskBase` uses an unseeded
+  `np.random.default_rng()`; `np.random.seed(BATCH_SEED)` in `seeded_batches` does not reach it.
+  The held-out batch and the ordering batch are fresh draws on every run; only the noise draws are
+  seeded. So "all silent removed" on the flip-flop carries a run-to-run spread of about 0.06.
+- Retrain of 1258717025 repeated (`c1_retrain_floor300`): intact 0.9502 -> 0.9510, silent
+  pruned 0.2671 -> 0.9462, random 0.0646 -> 0.9212 (existing: 0.9501, 0.9468, 0.9203). The
+  retrain numbers repeat within 0.001.
+- Both FFtop300 runs COMPLETED (300k folders seed 3194339211 <- 2461724787, 3204992658 <-
+  4113307577). Floor read job 15541920 (`c1ff/read300.json`) was still running at hand-back.
