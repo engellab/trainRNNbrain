@@ -235,6 +235,27 @@ def top_mean(X, H, q=0.99):
     return (Xs * sel).sum(1) / sel.sum(1)
 
 
+def adam_step(run_dir, N):
+    """The next step torch.optim.Adam would take, from the run's saved optimizer state.
+
+    Args:
+        run_dir: a run folder holding *AdamState*.pt (saved with the final weights); N: units.
+    Returns:
+        dict W_rec (N,N), W_inp (N,n_in): -lr * m_hat / (sqrt(v_hat) + eps), bias-corrected.
+    """
+    s = torch.load(glob.glob(os.path.join(run_dir, "*AdamState*.pt"))[0], map_location="cpu",
+                   weights_only=False)
+    grp = s["param_groups"][0]
+    b1, b2 = grp["betas"]
+    out = {}
+    for st in s["state"].values():
+        m, v, k = st["exp_avg"].double().numpy(), st["exp_avg_sq"].double().numpy(), float(st["step"])
+        name = "W_rec" if m.shape == (N, N) else "W_inp" if m.shape[0] == N else None
+        if name:
+            out[name] = -grp["lr"] * (m / (1 - b1 ** k)) / (np.sqrt(v / (1 - b2 ** k)) + grp["eps"])
+    return out
+
+
 def run_one(run_dir, out_dir, K, at):
     """All per-unit quantities for one run; writes <out_dir>/<cell>__<seed>.npz.
 
@@ -310,6 +331,16 @@ def run_one(run_dir, out_dir, K, at):
     on = H[1:] > 0
     res["dd_on"] = (DD * on).sum((0, 2)) / np.maximum(on.sum((0, 2)), 1)
     del DD
+    # at the end of a run the optimizer's own moments are saved: the TRUE next Adam step, to check
+    # the K-batch estimate against (per-row cosine) and to repeat the drive test without estimating
+    if read == "end":
+        S_true = adam_step(run_dir, P["W_rec"].shape[0])
+        cos = lambda a, b: (a * b).sum(1) / (np.linalg.norm(a, axis=1) * np.linalg.norm(b, axis=1) + 1e-300)
+        res["cos_rec_row"] = cos(S["W_rec"], S_true["W_rec"])
+        res["cos_inp_row"] = cos(S["W_inp"], S_true["W_inp"])
+        DT = own_drive(S_true["W_rec"], S_true["W_inp"], H, U, P["slope"])
+        res["true_dd_top"] = top_mean(DT, H)
+        del DT
     # full re-run with the stepped weights (network effects included)
     P2 = dict(P)
     P2["W_rec"], P2["W_inp"] = P["W_rec"] + S["W_rec"], P["W_inp"] + S["W_inp"]
