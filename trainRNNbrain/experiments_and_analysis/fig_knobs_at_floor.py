@@ -358,7 +358,7 @@ def tradeoff():
                        color=ps.SLOTS[i] if cat else seq[i],
                        edgecolors="k" if ref else "none", linewidths=0.8, zorder=3,
                        label=lab + ("" if k == r["n"] else f" ({k}/{r['n']})"))
-        ax.set_xlim(0, 1000)
+        ax.set_xlim(0, 1040)       # room for markers at exactly 1000 (the rate penalty)
         # the title gives WHERE the runs were read - the range of their floor crossings - not the
         # training budget, which would read as the read-out point (Pavel, 2026-10-13)
         cross = np.concatenate([r["cross"] for _, r in reads]) / 1e3
