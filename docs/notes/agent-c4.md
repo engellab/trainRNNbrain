@@ -82,3 +82,17 @@ pulse, where the output error is largest)? Restrict every unit's on-samples to t
 (and, separately, 10 steps) of a pulse and recompute the per-unit RMS dL/dh.
   Timing explains it if: the silent-reached / active ratio of medians drops below 1.5.
   The units are more potent per sample if: it stays >= 3.
+
+### Added pre-registration (23:51, after the one-step results, before this test ran)
+
+The one-step Adam test turned out to be uninterpretable (see Results: the K-batch estimate points
+against the saved optimizer's own step, and its sign is shared by active and silent units alike).
+So read what training actually did, from the kept weight snapshots (every 500 iterations):
+compare each unit's incoming weights at the floor snapshot t* with t* + 500 and t* + 5000.
+  (g1) The gradient changes silent-reached units: their median relative incoming-row change
+       ||dW[i,:]|| / ||W[i,:]|| (W_rec and W_inp rows together) is >= 0.5x the active units'.
+       False if < 0.2x.
+  (g2) It revives them: > 20% of silent-reached units are active at t* + 5000, and the real
+       5000-iteration weight change raises their drive at their 1% highest-h samples in > 60%.
+       It does not: < 10% become active, and that drive change is positive in 40-60% or fewer.
+  Baselines reported beside them: the same numbers for silent-unreached and for active units.
