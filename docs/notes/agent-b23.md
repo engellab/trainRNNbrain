@@ -63,6 +63,39 @@ evening of 14 Oct to the morning of 15 Oct; N = 2000 from the evening of 15 Oct 
 ~77 GB for the submitted runs and ~28 GB more for the rate cells. The lab share has 23 TB free.
 The run folders in home are small (tens of MB each).
 
+## 1b. B2 at N = 4000, on Della (added 14 Oct 00:17)
+
+After this record was first written, the coordinator relayed that B2 full is approved and asked
+for the N = 4000 cell on Della's 80 GB cards.
+
+- **Code:** worktree `~/trainRNNbrain_b2della` on Della, detached at `2816d14` = `618fc9e` plus
+  `slurm/SilentReLU_remedy_grid_della.slurm`. `git diff --stat 7739a60 2816d14` shows the two
+  launchers and nothing else. Its training command is the Spock launcher's, line for line; only the
+  header (`--constraint=gpu80`, `--mem-per-gpu=64G`, 6-day limit, Della modules and log path) and
+  the `REPO`/`SNAP_TO` defaults differ. `~/trainRNNbrain_c1top` was not touched and is still clean
+  at 7739a60.
+- **Job 15527679** (`B2frm4k`, tasks 1-3): N = 4000, `frm0.1`, 3 seeds, 200k from scratch in one
+  job, snapshots every 5000, QOS gpu-long, `--time=6-00:00:00`. Pending at 00:17.
+- **Why one job, not two segments:** the plan's measured 2.22 s/it gives ~123 h per 200k, inside
+  gpu-long's 144 h. One job avoids a second queue wait. If a slow node runs out of time, the last
+  kept snapshot (at most 5000 iterations back) can be continued with `paths.init_from`.
+- **Paths:** runs in `~/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=4000_arm=frm0.1/`
+  (a new sweep root on Della); snapshots in
+  `/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=4000_arm=frm0.1/s<seed>/`,
+  ~123 MB each, ~5 GB per run (TENGEL had 1.4 TB free); logs `~/trainRNNbrain_logs/B2frm4k.15527679_<task>.out`.
+- **Cost and finish:** ~370 GPU-h (budget ~375). If the jobs start within a day, they finish around
+  19-20 Oct.
+- **Checks:** a local smoke test of the Della launcher at N = 50, 30 iterations, with the exact
+  overrides (`LAMBDA_FRM=0.1`, `CKPT_EVERY=5000`; a second run at `CKPT_EVERY=10` wrote snapshots).
+  The pass condition was set before the diff: the saved config may differ from the N = 4000
+  control's (`NBitFlipFlop_paper_grid_c75000/EqType=h_N=4000_arm=control`, read from Della) only in
+  the remedy key and bookkeeping. The diff found `trainer.lambda_frm` 0 → 0.1 as the only remedy
+  key. Everything else was bookkeeping or inert: the control's warm-start keys (it is a 40k → 75k
+  continuation: `init_from`, `init_adam`, `iter_offset` 40000), the checkpoint keys, and keys newer
+  than the control that are inert in it (`sigma_w` 0, rescale `prune_args` with `prune_reinit`
+  off). A 30-iteration run on the Della login node through the launcher (`srun` stubbed) trained
+  and wrote snapshots at `2816d14`, and left the worktree clean.
+
 ## 2. B3: the pilot's rule, and what still has to be submitted
 
 **The rule, fixed before any result exists** (the plan's stage 0, with the operational details
@@ -96,7 +129,8 @@ The factorial's "none" cell is the claim-1 control above (Della, same launcher f
 
 ## 3. Decisions made in Pavel's absence
 
-1. **B2 at N = 4000 was not submitted: it cannot run on any Spock GPU at the pinned code.** One
+1. **B2 at N = 4000 was not submitted on Spock: it cannot run on any Spock GPU at the pinned code.**
+   (It now runs on Della, §1b.) One
    (N, T, B) float32 tensor at N = 4000, T = 300, B = 1024 is 4.6 GiB. The forward pass holds about
    five of them (noise, states, the saved ReLU outputs, the stacked trajectory, the rate), and the
    rate penalty's log-sum-exp adds three or four more. Spock job 6111685_22 (9 Sep, commit 79a1063,
@@ -145,8 +179,9 @@ The factorial's "none" cell is the claim-1 control above (Della, same launcher f
 ## 5. What is left for Pavel or the next agent
 
 - Read the pilot by the rule in §2 when 6929384 and 6929385 land, then submit the three rate cells.
-- Decide whether B2 at N = 4000 runs on Della (80 GB cards) and when. On Della at 2.25 s/it it is
-  two 100k segments per seed, ~375 GPU-h (plan §B2).
+  At 00:17 on 14 Oct the pilot had not started and needs ~17 h once it does, so it could not give
+  its answer within the coordinator's 6-hour window; the cells are left with the commands in §2.
+- Watch Della job 15527679 (B2 at N = 4000) for a time-out on a slow node; §1b says how to continue.
 - The controls are on Della and these runs are on Spock; no direct route exists. The relay through
   the Mac in `slurm/sync_b5_spock_to_della.sh` (branch `b5-optimizer`) is the template. The snapshot
   tree is on the lab share, not under `~/trainRNNbrain/data`, so a sync needs both paths.
