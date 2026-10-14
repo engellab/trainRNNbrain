@@ -15665,3 +15665,11 @@ originals exactly.
   wd 0 runs).
 - **Quantisation passes:** float16 (1.9 MB compressed at N = 1000) passes all 18, measures unchanged
   to 4 decimals; 12-bit with one scale per row (~1.1 MB) passes all 18; 10-bit 14; 8-bit 7.
+**Decision (Pavel): kept snapshots in reduced precision.** Implemented (commit above): kept
+snapshots `it<iteration>/` store W_rec as float16 (all other arrays float32), compressed, every 1,000
+iterations; in keep mode an exact resume copy (float32 + Adam state) is overwritten in `resume/` at
+each checkpoint. At N = 1000 a kept snapshot is ~1.9 MB (was 8.1 MB); at N = 4000 ~30 MB (was 128
+MB). Purpose (Pavel): find each run's floor after training and restore the network there, so
+networks can be compared at their own floors. Note: a B4-style transfer from a float16 snapshot is
+no longer bit-exact (metric-equivalent per the validation above); existing snapshots stay float32.
+New sweeps pick this up only if launched from code at or after this commit.
