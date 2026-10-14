@@ -96,7 +96,7 @@ ADAM=false
 ls "$SRC"/*AdamState*.pt >/dev/null 2>&1 && ADAM=true
 
 if [ "${KEEP:-0}" = 1 ]; then
-  CKPT=(++trainer.checkpoint_every=500 ++trainer.checkpoint_keep=true "++paths.checkpoint_to=$SNAP_TO")
+  CKPT=(++trainer.checkpoint_every=1000 ++trainer.checkpoint_keep=true "++paths.checkpoint_to=$SNAP_TO")
 else
   CKPT=(++trainer.checkpoint_every=5000 ++trainer.checkpoint_keep=false)
 fi

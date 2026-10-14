@@ -12,7 +12,7 @@
 #   LAMBDA_FRM=<l>  trainer.lambda_frm=<l>        (default 0; rate penalty)  frm<l>
 #   SIGMA_W=<s>     model.sigma_w=<s>             (default 0; synaptic noise) sw<s>
 #   RESCALE=1       trainer.prune_reinit=true + the rescale-target-10 block   rsc10
-#   CKPT_EVERY=<n>  trainer.checkpoint_every=<n>  (default 500)               -
+#   CKPT_EVERY=<n>  trainer.checkpoint_every=<n>  (default 1000)               -
 #
 # The rescale block is the operating point already on disk (NBitFlipFlop_size_series,
 # NBitFlipFlop_target_ladder ..._tgt=10.0), copied from SilentReLU_size_series_della.slurm.
@@ -75,7 +75,7 @@ N=${N:-1000}
 IT=${ITERS_OVERRIDE:-200000}
 LAMBDA_FRM=${LAMBDA_FRM:-0}
 SIGMA_W=${SIGMA_W:-0}
-CKPT_EVERY=${CKPT_EVERY:-500}
+CKPT_EVERY=${CKPT_EVERY:-1000}
 
 # arm name from the knobs that are on, in a fixed order
 ARM=()

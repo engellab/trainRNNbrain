@@ -139,7 +139,8 @@ def test_snapshot_is_a_finished_run_as_far_as_the_warm_start_can_tell():
 def test_a_killed_write_leaves_a_consistent_snapshot():
     """CONTRACT 6. Kill the run DURING the parameter write; what is left must be self-consistent.
 
-    The kill is injected into np.savez rather than into the parameter values, so it lands while
+    The kill is injected into np.savez_compressed (the call write_checkpoint makes since
+    2026-10-14; np.savez before) rather than into the parameter values, so it lands while
     files are being written -- after the point where the first version of write_checkpoint had
     already published the new config. An earlier version of this test raised from a parameter
     value instead; `storable_` converts the values before any file is opened, so that version
@@ -156,12 +157,12 @@ def test_a_killed_write_leaves_a_consistent_snapshot():
         def boom(*a, **k):
             raise RuntimeError("simulated kill during checkpoint write")
 
-        original = np.savez
-        np.savez = boom
+        original = np.savez_compressed
+        np.savez_compressed = boom
         try:
             write_checkpoint(folder, _cfg(1000), rnn.get_params(), opt, "CDDM", 1, 200)
         finally:
-            np.savez = original
+            np.savez_compressed = original
 
         after = np.load(os.path.join(folder, "ckpt_s1_LastParams_CDDM.npz"))["W_rec"]
         assert np.array_equal(good, after), "a failed write replaced the good parameters"

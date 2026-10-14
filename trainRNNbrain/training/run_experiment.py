@@ -104,7 +104,9 @@ def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done):
             # a FILE OBJECT, not a path: np.savez appends ".npz" to a path that lacks it, which
             # would write "<name>.npz.tmp.npz" and leave the rename pointing at nothing.
             with open(t, "wb") as fh:
-                np.savez(fh, **arrs)
+                # compressed (lossless): the constant connectivity masks are half of an uncompressed
+                # file, 8.1 -> 3.8 MB at N = 1000 (Pavel, 2026-10-14); np.load reads both formats
+                np.savez_compressed(fh, **arrs)
 
         # EVERY FILE IS WRITTEN BEFORE ANY IS PUBLISHED, and the config is renamed LAST. Writing
         # the config first would let a kill mid-write leave a config claiming 200 iterations beside
@@ -534,7 +536,7 @@ def run_training(cfg: DictConfig) -> None:
                 src = prm if isinstance(prm, dict) else OmegaConf.to_container(prm, resolve=True)
                 arrs = {k: storable_(v) for k, v in src.items()
                         if v is not None and not isinstance(v, (str, bool))}
-                np.savez(os.path.join(datasaver.data_folder, f"{stem}_{nm}_{taskname}.npz"), **arrs)
+                np.savez_compressed(os.path.join(datasaver.data_folder, f"{stem}_{nm}_{taskname}.npz"), **arrs)
         else:
             if not (datasaver is None): datasaver.save_data(jsonify(last_net_params), f"{stem}_LastParams_{taskname}.json")
             if not (datasaver is None): datasaver.save_data(jsonify(best_net_params),f"{stem}_BestParams_{taskname}.json")

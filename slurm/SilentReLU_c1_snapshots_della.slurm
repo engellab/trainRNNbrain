@@ -107,7 +107,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   trainer.track_valid=false \
   trainer.lambda_rws=0 trainer.lambda_frm=0 \
   trainer.prune_reinit=false trainer.synaptic_scaling=false trainer.dropout=false \
-  trainer.checkpoint_every=500 +trainer.checkpoint_keep=true \
+  trainer.checkpoint_every=1000 +trainer.checkpoint_keep=true \
   paths.checkpoint_to="$SNAP_TO" \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""
