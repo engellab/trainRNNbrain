@@ -15228,3 +15228,11 @@ metabolic penalty costs R² (0.78 at λ = 10) for nothing; weight decay acts aft
 not touched: `04_ratepenalty.tex` (lines 10, 30, 44) and `06_whyitmatters.tex` (line 10) quote the
 old trainable-bias knob numbers (+123 for removing weight decay, the old activation deltas).
 Della unreachable 18:30-20:20 (laptop off the VPN); jobs there unaffected.
+
+**Queue (21:20).** Della is reachable again. Every GPU job of this session was pending on
+`QOSMaxJobsPerUserLimit`: the approved `RMtop200` batch holds all 44 of the account's running
+slots, with 77 more of its tasks queued first. `scontrol top` is disabled for users. Pavel chose to
+deprioritise the batch: `nice=10000` on its 67 pending array jobs (running tasks untouched), so the
+CDDM input-scale ladder, the CDDM screen top-ups and the random/zero-out top-ups (~110 GPU-h) take
+the next free slots. Those come as the running tasks end (14 h and 24 h limits, started ~16:50), so
+from late tonight. The gradient-reach run was moved to a CPU node (15521043), outside that cap.
