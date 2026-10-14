@@ -15397,3 +15397,8 @@ Output `~/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_remedy_grid/` on Spock; s
 share `/mnt/cup/labs/tengel/home/tolmach/trainRNNbrain_b23_snapshots`. B3's rate-containing cells wait
 for the pilot (selection rule written in the notes before any result). B2 at N = 4000 cannot fit on
 any Spock GPU (out of memory at 41.8 GB); passed to the agent to run on Della's 80 GB cards.
+B2 at N = 4000 queued on Della (15527679, 3 seeds, 200k from scratch, λ 0.1, gpu80 on the 6-day
+gpu-long queue, ~370 GPU-h; code 2816d14 = 618fc9e + a Della launcher; snapshots every 5,000 under
+c1_snapshots/NBitFlipFlop_remedy_grid; smoke-tested locally and on a Della login node, config differs
+from the N = 4000 control only in lambda_frm). B3's rate-containing cells wait for the pilot (~17 h
+once it starts); commands and the selection rule are in agent-b23's notes §2.
