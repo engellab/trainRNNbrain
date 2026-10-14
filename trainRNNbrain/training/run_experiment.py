@@ -161,6 +161,89 @@ def warm_start_offset(init_from):
     return (int(off) if isinstance(off, (int, float)) else 0) + int(pcfg.trainer.max_iter)
 
 
+def load_warm_start(rnn_torch, folder, keep_fresh=()):
+    """Copy a finished run's (or kept snapshot's) learned tensors into a freshly built network.
+
+    The network must already be built from the right config: the parameter file carries no
+    architecture, only arrays. Every trainable parameter of `rnn_torch` is copied from the file and
+    its shape is checked, except the names in `keep_fresh`, which keep this network's own seeded
+    initialisation and are not shape-checked. `y_init` (a buffer, not a Parameter) is restored too.
+
+    `keep_fresh=()` is the ordinary warm start (`paths.init_from`). The transfer to a new task
+    (`paths.transfer_from`) passes `("W_out",)`: the new task has its own read-out, so the source's
+    read-out is discarded and the run's fresh draw of the new shape is kept.
+
+    Args:
+        rnn_torch: RNN_torch, built from this run's config (its W_out has this run's shape).
+        folder: str, a run folder or kept-snapshot folder holding *LastParams*.npz/.npy/.json.
+        keep_fresh: tuple of str, parameter names to leave at this network's own initialisation.
+            Every name must be a parameter of `rnn_torch`, so a misspelt name fails instead of
+            silently copying everything.
+    Returns:
+        pathlib.Path: the parameter file that was read.
+    Raises:
+        FileNotFoundError: no parameter file in `folder`.
+        KeyError: a parameter to copy is missing from the file, or `keep_fresh` names no parameter.
+        ValueError: a copied parameter's shape differs between the file and the model.
+    """
+    names = {nm for nm, _ in rnn_torch.named_parameters()}
+    unknown = sorted(set(keep_fresh) - names)
+    if unknown:
+        raise KeyError(f"warm start: keep_fresh names {unknown}, which are not parameters of this "
+                       f"model ({sorted(names)})")
+    # BOTH SAVE FORMATS. `light_outputs: true` writes LastParams as .npz; the ordinary path
+    # writes the same parameters as .json. The experiment lines that need topping up to the
+    # 75k standard (silent_units_std, silent_units_N1000) are on the json path, so a loader
+    # that read only .npz could not warm-start its own sweeps.
+    src = (sorted(Path(folder).glob("*LastParams*.np[zy]"))
+           or sorted(Path(folder).glob("*LastParams*.json")))
+    if not src:
+        raise FileNotFoundError(f"warm start: no *LastParams*.npz or *LastParams*.json "
+                                f"in {folder}")
+    if src[0].suffix == ".json":
+        with open(src[0]) as fh:
+            loaded = {k: np.asarray(v) for k, v in unjsonify(json.load(fh)).items()}
+    else:
+        z = np.load(src[0], allow_pickle=True)
+        loaded = {k: z[k] for k in z.files}
+    with torch.no_grad():
+        for nm, prm in rnn_torch.named_parameters():
+            if nm in keep_fresh:
+                continue
+            if nm not in loaded:
+                raise KeyError(f"warm start: '{nm}' missing from {src[0].name}; "
+                               f"file has {sorted(loaded)}")
+            arr = np.asarray(loaded[nm], dtype=np.float32)
+            if tuple(arr.shape) != tuple(prm.shape):
+                raise ValueError(f"warm start: '{nm}' is {arr.shape} in the checkpoint but "
+                                 f"{tuple(prm.shape)} in this model — N/k mismatch?")
+            prm.copy_(torch.from_numpy(arr).to(prm.device, prm.dtype))
+    # y_init is NOT a Parameter (it is the initial state, set from the seed at
+    # construction) so the loop above skips it, yet it is saved and it changes the
+    # dynamics. Restore it explicitly.
+    if "y_init" in loaded and getattr(rnn_torch, "y_init", None) is not None:
+        with torch.no_grad():
+            yi = torch.from_numpy(np.asarray(loaded["y_init"], dtype=np.float32))
+            rnn_torch.y_init.copy_(yi.to(rnn_torch.y_init.device, rnn_torch.y_init.dtype))
+    done = (names - set(keep_fresh)) | {"y_init"}
+    # Anything array-valued in the checkpoint that was NOT restored is a silent divergence
+    # between the source net and this one. Masks are rebuilt from config by construction and
+    # are expected here, and a keep_fresh name is dropped on purpose; anything else is not, so
+    # say so rather than dropping it quietly.
+    skipped = sorted(k for k in loaded
+                     if k not in done and k not in keep_fresh and np.asarray(loaded[k]).ndim > 0
+                     and not k.endswith("_mask"))
+    if skipped:
+        print(f"WARNING: warm start did not restore array(s) {skipped} — "
+              f"they come from this run's config instead")
+    print(f"warm start: loaded {sorted(done & set(loaded))} from {src[0]}")
+    for nm in keep_fresh:
+        print(f"warm start: '{nm}' kept at this run's own initialisation "
+              f"{tuple(dict(rnn_torch.named_parameters())[nm].shape)}; the file's "
+              f"{tuple(np.shape(loaded[nm])) if nm in loaded else 'absent'} is discarded")
+    return src[0]
+
+
 def join_parent_trace(mon, init_from):
     """Prepend the parent run's samples so a continuation writes ONE complete trace.
 
@@ -261,50 +344,30 @@ def run_training(cfg: DictConfig) -> None:
         # which is exactly the confound the switch is meant to isolate. Enable only when continuing
         # under the SAME penalty, where it removes a restart transient instead of adding a bias.
         init_from = cfg.paths.get("init_from", None) if "paths" in cfg else None
+        # TRANSFER TO A NEW TASK. `paths.transfer_from` names a finished run or kept snapshot trained
+        # on ANOTHER task with the same inputs (B4: the 3-bit flip-flop -> NBitFlipFlopHyper, 3 -> 7
+        # outputs). Everything but the read-out is copied; W_out keeps this run's fresh draw of the
+        # new shape; the iteration clock, the Adam moments and the participation trace all start
+        # fresh, because the new task's loss has to be fitted on its own.
+        # ⚠️ A DIFFERENT KEY FROM init_from ON PURPOSE. common.warm_start_chain follows
+        # `paths.init_from` to join losses along a chain; with the source under its own key, the
+        # chain of a transfer run stops at the transfer run, and the old task's loss is never
+        # spliced onto the new one. A run continuing a transfer run (a top-up) sets init_from to it
+        # and inherits transfer_from in its config as a record only: init_from then wins, and the
+        # continuation is an ordinary warm start of the 7-output network.
+        transfer_from = cfg.paths.get("transfer_from", None) if "paths" in cfg else None
+        transfer = bool(transfer_from) and not init_from
+        if transfer:
+            if cfg.paths.get("init_adam", False):
+                raise ValueError("transfer: paths.init_adam must be false - the source's moments "
+                                 "belong to its own read-out and its own task's loss")
+            load_warm_start(rnn_torch, transfer_from, keep_fresh=("W_out",))
+            print(f"transfer: from {transfer_from}; fresh Adam, iteration clock from 0")
+        elif transfer_from:
+            print(f"paths.transfer_from={transfer_from} is a record inherited from a transfer run; "
+                  f"this run continues {init_from}")
         if init_from:
-            # BOTH SAVE FORMATS. `light_outputs: true` writes LastParams as .npz; the ordinary path
-            # writes the same parameters as .json. The experiment lines that need topping up to the
-            # 75k standard (silent_units_std, silent_units_N1000) are on the json path, so a loader
-            # that read only .npz could not warm-start its own sweeps.
-            src = (sorted(Path(init_from).glob("*LastParams*.np[zy]"))
-                   or sorted(Path(init_from).glob("*LastParams*.json")))
-            if not src:
-                raise FileNotFoundError(f"warm start: no *LastParams*.npz or *LastParams*.json "
-                                        f"in {init_from}")
-            if src[0].suffix == ".json":
-                with open(src[0]) as fh:
-                    loaded = {k: np.asarray(v) for k, v in unjsonify(json.load(fh)).items()}
-            else:
-                z = np.load(src[0], allow_pickle=True)
-                loaded = {k: z[k] for k in z.files}
-            with torch.no_grad():
-                for nm, prm in rnn_torch.named_parameters():
-                    if nm not in loaded:
-                        raise KeyError(f"warm start: '{nm}' missing from {src[0].name}; "
-                                       f"file has {sorted(loaded)}")
-                    arr = np.asarray(loaded[nm], dtype=np.float32)
-                    if tuple(arr.shape) != tuple(prm.shape):
-                        raise ValueError(f"warm start: '{nm}' is {arr.shape} in the checkpoint but "
-                                         f"{tuple(prm.shape)} in this model — N/k mismatch?")
-                    prm.copy_(torch.from_numpy(arr).to(prm.device, prm.dtype))
-            # y_init is NOT a Parameter (it is the initial state, set from the seed at
-            # construction) so the loop above skips it, yet it is saved and it changes the
-            # dynamics. Restore it explicitly.
-            if "y_init" in loaded and getattr(rnn_torch, "y_init", None) is not None:
-                with torch.no_grad():
-                    yi = torch.from_numpy(np.asarray(loaded["y_init"], dtype=np.float32))
-                    rnn_torch.y_init.copy_(yi.to(rnn_torch.y_init.device, rnn_torch.y_init.dtype))
-            done = {nm for nm, _ in rnn_torch.named_parameters()} | {"y_init"}
-            # Anything array-valued in the checkpoint that was NOT restored is a silent divergence
-            # between the source net and this one. Masks are rebuilt from config by construction and
-            # are expected here; anything else is not, so say so rather than dropping it quietly.
-            skipped = sorted(k for k in loaded
-                             if k not in done and np.asarray(loaded[k]).ndim > 0
-                             and not k.endswith("_mask"))
-            if skipped:
-                print(f"WARNING: warm start did not restore array(s) {skipped} — "
-                      f"they come from this run's config instead")
-            print(f"warm start: loaded {sorted(done & set(loaded))} from {src[0]}")
+            load_warm_start(rnn_torch, init_from)
             if cfg.paths.get("init_adam", False):
                 ast = sorted(Path(init_from).glob("*AdamState*.pt"))
                 if not ast:
@@ -318,6 +381,12 @@ def run_training(cfg: DictConfig) -> None:
         # the saved config records the absolute iteration window this run covers - the same
         # record-what-was-used treatment the seed gets above.
         off = cfg.trainer.get("iter_offset", "auto")
+        # A transfer built from a CONTINUATION's saved config inherits that run's iter_offset (75000
+        # for the claim-1 200k runs) and would date the new task's trace as if it were iteration
+        # 75000 of the old one. The launcher sets 0 or auto; anything else stops here.
+        if transfer and isinstance(off, (int, float)) and off != 0:
+            raise ValueError(f"transfer: trainer.iter_offset is {off}; a transfer starts the "
+                             f"iteration clock at 0 (set trainer.iter_offset=0 or auto)")
         if not isinstance(off, (int, float)):
             off = warm_start_offset(init_from)
         cfg.trainer.iter_offset = int(off)
