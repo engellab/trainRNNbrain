@@ -51,7 +51,7 @@ def storable_(v):
     return np.asarray(v)
 
 
-def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done):
+def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done, half_w_rec=False):
     """Write a resumable snapshot of a run in progress, in the layout a FINISHED run uses.
 
     WHY. Every file a run produces is written after the training loop returns, so a job killed by
@@ -89,6 +89,11 @@ def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done):
         taskname: str, used in the filenames the warm-start globs match.
         seed: int, this run's resolved seed, for the file stem.
         iters_done: int, iterations completed at this checkpoint.
+        half_w_rec: bool. True stores W_rec as float16 (kept snapshots only; everything else stays
+            float32). Checked before adoption on 20 snapshots of the three tasks (agent-lowrank,
+            2026-10-14): held-out R² moves by < 1e-5, the active set is identical, per-unit gradient
+            norms correlate > 0.9999, the noisy loss moves < 0.3%. Every snapshot reader casts to
+            float32 on load. Never used for a resume point.
     Returns:
         None. Failures are reported and swallowed: a diagnostic must never kill a live run.
     """
@@ -99,6 +104,8 @@ def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done):
         src = params if isinstance(params, dict) else OmegaConf.to_container(params, resolve=True)
         arrs = {k: storable_(v) for k, v in src.items()
                 if v is not None and not isinstance(v, (str, bool))}
+        if half_w_rec:
+            arrs["W_rec"] = np.asarray(arrs["W_rec"]).astype(np.float16)
 
         def savez(t):
             # a FILE OBJECT, not a path: np.savez appends ".npz" to a path that lacks it, which
@@ -444,11 +451,22 @@ def run_training(cfg: DictConfig) -> None:
             ckpt_folder = os.path.join(ckpt_root, f"{taskname}_{folder_tag}", f"s{seed}")
             # a kept snapshot's folder carries the ABSOLUTE iteration (iter_offset + iterations done
             # here), so the snapshots of a warm-started continuation sort after its parent's
-            trainer.checkpoint_fn = (
-                lambda iters_done, params: write_checkpoint(
-                    os.path.join(ckpt_folder, f"it{int(cfg.trainer.iter_offset) + iters_done:07d}")
-                    if ckpt_keep else ckpt_folder,
-                    cfg, params, None if ckpt_keep else opt, taskname, seed, iters_done))
+            def checkpoint_fn(iters_done, params):
+                """One checkpoint: the exact resumable copy, plus a kept snapshot if asked for.
+
+                Args:
+                    iters_done: int, iterations completed in this run; params: the RNN's parameters.
+                """
+                if ckpt_keep:
+                    # the kept series: W_rec in float16, no optimiser state (Pavel, 2026-10-14)
+                    write_checkpoint(
+                        os.path.join(ckpt_folder, f"it{int(cfg.trainer.iter_offset) + iters_done:07d}"),
+                        cfg, params, None, taskname, seed, iters_done, half_w_rec=True)
+                # the resume point stays exact (float32 + Adam state), one copy overwritten in place;
+                # its folder name does not start with "it", so no snapshot lookup ever reads it
+                write_checkpoint(os.path.join(ckpt_folder, "resume") if ckpt_keep else ckpt_folder,
+                                 cfg, params, opt, taskname, seed, iters_done)
+            trainer.checkpoint_fn = checkpoint_fn
             print(f"checkpointing every {ckpt_every} iterations -> {ckpt_folder}"
                   f"{' (every snapshot kept)' if ckpt_keep else ''}")
 

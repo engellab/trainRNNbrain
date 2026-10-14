@@ -232,6 +232,31 @@ def test_kept_snapshots_are_a_series_without_optimiser_state():
     print("8 OK  kept snapshots form a series, each with its own weights and no optimiser state")
 
 
+def test_kept_snapshots_store_w_rec_in_half_precision():
+    """CONTRACT 9. A kept snapshot holds W_rec as float16 and every other array unchanged.
+
+    Reduced precision was adopted only for the kept series (2026-10-14); a resume point stays exact.
+    """
+    rnn = RNN_torch(N=N, activation_args={"name": "relu", "slope": 1.0}, dale=False,
+                    n_inputs=2, n_outputs=1, equation_type="h", seed=0)
+    full = rnn.get_params()
+    with tempfile.TemporaryDirectory() as d:
+        kept, exact = os.path.join(d, "it0000500"), os.path.join(d, "resume")
+        write_checkpoint(kept, _cfg(75000), full, None, "CDDM", 9, 500, half_w_rec=True)
+        opt = torch.optim.Adam(rnn.parameters(), lr=1e-3)
+        write_checkpoint(exact, _cfg(75000), full, opt, "CDDM", 9, 500)
+        zk = np.load(os.path.join(kept, "ckpt_s9_LastParams_CDDM.npz"), allow_pickle=True)
+        ze = np.load(os.path.join(exact, "ckpt_s9_LastParams_CDDM.npz"), allow_pickle=True)
+        assert zk["W_rec"].dtype == np.float16, zk["W_rec"].dtype
+        assert np.array_equal(zk["W_rec"], np.asarray(full["W_rec"]).astype(np.float16))
+        for k in ("W_inp", "W_out", "y_init"):
+            assert np.array_equal(zk[k], ze[k]) and zk[k].dtype == ze[k].dtype, k
+        assert ze["W_rec"].dtype != np.float16 and np.array_equal(ze["W_rec"], np.asarray(full["W_rec"]))
+        assert os.path.exists(os.path.join(exact, "ckpt_s9_AdamState_CDDM.pt"))
+        assert not os.path.exists(os.path.join(kept, "ckpt_s9_AdamState_CDDM.pt"))
+    print("9 OK  kept snapshots hold W_rec in float16; the resume copy is exact and keeps Adam")
+
+
 if __name__ == "__main__":
     test_off_by_default_never_fires()
     test_cadence_skips_the_final_iteration()
@@ -239,4 +264,5 @@ if __name__ == "__main__":
     test_a_killed_write_leaves_a_consistent_snapshot()
     test_checkpoints_live_outside_the_data_tree()
     test_kept_snapshots_are_a_series_without_optimiser_state()
+    test_kept_snapshots_store_w_rec_in_half_precision()
     print("all periodic-checkpoint contracts hold")
