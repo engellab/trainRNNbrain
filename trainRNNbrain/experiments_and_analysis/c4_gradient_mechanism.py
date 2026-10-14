@@ -61,7 +61,7 @@ def load_params(path):
         dict with W_rec (N,N), W_inp (N,n_in), W_out (n_out,N), y0 (N,), b (N,), alpha (float).
     """
     z = np.load(path, allow_pickle=True)
-    assert z["activation_args"].item()["name"] == "relu" and str(z["equation_type"]) == "h"
+    assert z["activation_args"].item()["name"] == "relu"   # equation type is checked from the config
     N = z["W_rec"].shape[0]
     b = z["bias"] if z["bias"].shape else np.zeros(N)
     return dict(W_rec=z["W_rec"].astype(float), W_inp=z["W_inp"].astype(float),
@@ -245,6 +245,7 @@ def run_one(run_dir, out_dir, K, at):
     t0 = time.time()
     cfg = OmegaConf.load(glob.glob(os.path.join(run_dir, "*_config.yaml"))[0])
     path, read, read_iter = read_point(run_dir, at)
+    assert cfg.model.equation_type == "h"
     P = load_params(path)
     sig = (float(cfg.model.sigma_rec), float(cfg.model.sigma_inp), float(cfg.model.sigma_out))
     lr = float(cfg.trainer.lr) * (100.0 / float(cfg.model.N)) ** float(cfg.trainer.lr_scale_exp)
