@@ -307,7 +307,7 @@ def chain(run_dir, ranks, every, out, scratch):
     u, y, _ = hydra.utils.instantiate(tcfg).get_batch()
     mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
     targets = {floor_npz: "floor", snaps[-1][1]: "end"}
-    rec = dict(run=run_dir, task=str(cfg.task.taskname), seed=int(cfg.seed), every=every,
+    rec = dict(run=run_dir, task=str(cfg.task.taskname), N=int(W0.shape[0]), seed=int(cfg.seed), every=every,
                iters=[it for it, _ in snaps], step_norm=[], results=[], err={})
     Wprev = W0
     for it, f in snaps:
@@ -342,111 +342,143 @@ def chain(run_dir, ranks, every, out, scratch):
         json.dump(rec, open(out, "w"))
 
 
-def merge(files):
-    """Group the JSON records by (task, N, seed, read) and pool their results lists.
+def rows_and_spectra(pattern):
+    """Every measured reconstruction as one flat row, and the spectra of each snapshot.
 
     Args:
-        files: JSON paths written by run(); a snapshot split across jobs appears in several.
+        pattern: glob of JSON records written by run() and chain().
     Returns:
-        list of records, one per snapshot, with every scheme's results.
+        (rows, spectra): rows are the compare() dicts with task, N, seed, read added; spectra maps
+        (task, N, seed, read) to that snapshot's run() record (energy_W, energy_dW, energy_rand, a).
     """
-    by = {}
-    for f in files:
-        r = json.load(open(f))
-        k = (r["task"], r["N"], r["seed"], r["read"])
-        if k in by:
-            by[k]["results"] += r["results"]
-        else:
-            by[k] = r
-    return list(by.values())
+    rows, spectra = [], {}
+    for f in sorted(glob.glob(pattern)):
+        rec = json.load(open(f))
+        N = rec.get("N", 1000)          # chain records written before N was recorded are all N = 1000
+        for d in rec["results"]:
+            rows.append(dict(d, task=rec["task"], N=N, seed=rec["seed"], read=d.get("read", rec.get("read"))))
+        if "energy_dW" in rec:
+            spectra[(rec["task"], N, rec["seed"], rec["read"])] = rec
+    return rows, spectra
 
 
-def smallest_passing(recs, scheme, N):
-    """The smallest rank at which every snapshot passes, with every larger tested rank passing too.
+def table(rows):
+    """Per task, N and scheme: snapshots measured, and the smallest passing rank (or pass count).
+
+    The smallest passing rank is the smallest tested rank at which every snapshot of the group
+    passes, with every larger tested rank passing too (docs/notes/agent-lowrank.md).
 
     Args:
-        recs: merged records of one task and one N; scheme: "init" or "svd"; N: network size.
+        rows: from rows_and_spectra.
     Returns:
-        the rank, or None if no tested rank qualifies (every snapshot must have been tested there).
+        list of (task, N, scheme, n_snapshots, smallest passing rank or None, bytes there,
+        number of snapshots passing at full rank schemes).
     """
-    ranks = sorted({d["rank"] for r in recs for d in r["results"] if d["scheme"] == scheme})
-    ok = []
-    for k in ranks:
-        got = [d["pass"] for r in recs for d in r["results"] if d["scheme"] == scheme and d["rank"] == k]
-        ok.append(len(got) == len(recs) and all(got))
-    best = None
-    for k, o in zip(ranks[::-1], ok[::-1]):
-        if not o:
-            break
-        best = k
-    return best
+    out = []
+    for task, N, sch in sorted({(r["task"], r["N"], r["scheme"]) for r in rows}):
+        g = [r for r in rows if (r["task"], r["N"], r["scheme"]) == (task, N, sch)]
+        snaps = {(r["seed"], r["read"]) for r in g}
+        best, nb = None, None
+        for k in sorted({r["rank"] for r in g}, reverse=True):
+            at = [r for r in g if r["rank"] == k]
+            if len(at) < len(snaps) or not all(r["pass"] for r in at):
+                break
+            best, nb = k, at[0]["bytes"]
+        out.append((task, N, sch, len(snaps), best, nb, sum(r["pass"] for r in g if r["rank"] == N)))
+    return out
 
 
 def figure(pattern, fig_dir):
-    """Pass-bar statistics against rank, one line per task, worst snapshot of each; plus spectra.
+    """Pass-bar statistics against rank, the worst snapshot of each task; plus the spectra.
+
+    Low-rank schemes are lines (solid: a W0 + low rank; dashed: plain SVD; dash-dot: delta coding
+    along the snapshot chain, one run per task). Full-rank formats (float16, q8, q6, q4) are
+    markers placed at the rank that costs the same bytes, r/N = bytes / (8 N^2); the top axis gives
+    storage as a fraction of the float32 matrix.
 
     Args:
         pattern: glob of JSON records; fig_dir: where the PDF and SVG are written.
     Returns:
         the PDF path.
     """
-    recs = merge(sorted(glob.glob(pattern)))
+    rows, spectra = rows_and_spectra(pattern)
     ps.setup()
-    groups = {}
-    for r in recs:
-        groups.setdefault((r["task"], r["N"]), []).append(r)
     names = {"CDDM": "CDDM", "DMTS": "DMTS", "NBitFlipFlop": "3-bit flip-flop"}
-    keys = sorted(groups, key=lambda k: (k[1], k[0]))
+    keys = sorted({(r["task"], r["N"]) for r in rows}, key=lambda k: (k[1], k[0]))
     col = {k: ps.SLOTS[i % len(ps.SLOTS)] for i, k in enumerate(keys)}
-    fig, axes = plt.subplots(2, 3, figsize=(180 * ps.MM, 105 * ps.MM))
-    # y = the worst snapshot's deviation; all panels put "worse" up and the bar as a dotted line
+    styles = {"init": "-", "svd": "--", "delta": "-."}
+    marks = {"fp16": "s", "q12": "P", "q10": "X", "q8": "D", "q6": "^", "q4": "v"}
+    fig, axes = plt.subplots(2, 3, figsize=(180 * ps.MM, 128 * ps.MM))
     panels = [("|$\\Delta$ held-out $R^2$|", lambda d: abs(d["d_r2"]), BAR_R2),
               ("|active-count error| (fraction)", lambda d: abs(d["d_active_rel"]), BAR_ACTIVE),
-              ("units relabelled (fraction)", lambda d: 1 - d["agree"], 1 - BAR_AGREE),
+              ("units relabelled (fraction of $N$)", lambda d: 1 - d["agree"], 1 - BAR_AGREE),
               ("|noisy-loss error| (fraction)", lambda d: abs(d["d_loss_rel"]), BAR_LOSS),
-              ("1 $-$ gradient-norm correlation\n(worse of in, out)",
+              ("1 $-$ gradient-norm correlation\n(worse of incoming, outgoing)",
                lambda d: 1 - min(d["corr_gin"], d["corr_gout"]), 1 - BAR_CORR)]
-    FLOOR = 1e-6
+    # an exact 0 sits on the bottom edge (FLOOR); a reconstruction whose dynamics diverge (|dR2| up
+    # to 1e29) is clipped to the top edge (CEIL) so it does not set the scale
+    FLOOR, CEIL = 1e-6, 10.0
+    clip = lambda v: np.clip(v, FLOOR, CEIL)
     for ax, (lab, fn, bar) in zip(axes.flat, panels):
         for k in keys:
-            for sch, ls in (("init", "-"), ("svd", "--")):
-                ranks = sorted({d["rank"] for r in groups[k] for d in r["results"] if d["scheme"] == sch})
-                ys = [max(fn(d) for r in groups[k] for d in r["results"]
-                          if d["scheme"] == sch and d["rank"] == q) for q in ranks]
+            g = [r for r in rows if (r["task"], r["N"]) == k]
+            for sch, ls in styles.items():
+                ranks = sorted({r["rank"] for r in g if r["scheme"] == sch})
+                ys = [max(fn(r) for r in g if r["scheme"] == sch and r["rank"] == q) for q in ranks]
                 if ranks:
-                    ax.plot(np.asarray(ranks) / k[1], np.maximum(ys, FLOOR), ls, color=col[k], lw=1.0,
-                            marker="o", ms=2.2,
-                            label=f"{names[k[0]]}, $N$={k[1]}" if sch == "init" else None)
+                    ax.plot(np.asarray(ranks) / k[1], clip(ys), ls, color=col[k],
+                            lw=0.9 if sch != "delta" else 0.7, marker="o", ms=1.8)
+            for sch, mk in marks.items():
+                at = [r for r in g if r["scheme"] == sch]
+                if at:
+                    ax.plot(at[0]["bytes"] / (8 * k[1] ** 2), clip(max(fn(r) for r in at)), mk,
+                            color=col[k], ms=3.2, mfc="none", mew=0.8)
         ax.axhline(bar, color=ps.INK, lw=0.7, ls=":")
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_ylim(FLOOR * 0.5, None)
+        ax.set_xlim(7e-4, 1.0)
+        ax.set_ylim(FLOOR * 0.5, CEIL * 2)
         ax.set_ylabel(lab, fontsize=6.4)
         ax.set_xlabel("rank $r$ / $N$")
-    axes.flat[0].legend(fontsize=5.4, frameon=False, loc="lower left")
-    axes.flat[0].text(0.98, 0.97, "solid: $a W_0$ + low rank\ndashed: plain SVD\ndotted: pass bar",
-                      transform=axes.flat[0].transAxes, ha="right", va="top", fontsize=5.4, color=ps.MUTED)
+        top = ax.secondary_xaxis("top", functions=(lambda x: 2 * x, lambda x: x / 2))
+        top.set_xlabel("storage / float32 matrix", fontsize=5.6)
+        top.tick_params(labelsize=5.4)
+    hs = [plt.Line2D([], [], color=col[k], lw=1.2, label=f"{names[k[0]]}, $N$ = {k[1]:,}") for k in keys]
+    hs += [plt.Line2D([], [], color=ps.MUTED, ls=ls, lw=0.9, label=lb)
+           for ls, lb in (("-", "$a W_0$ + low rank"), ("--", "plain SVD"), ("-.", "delta coding"))]
+    hs += [plt.Line2D([], [], color=ps.MUTED, ls="", marker=mk, mfc="none", ms=3.2, label=sch)
+           for sch, mk in marks.items()]
+    hs += [plt.Line2D([], [], color=ps.INK, ls=":", lw=0.7, label="pass bar")]
+    fig.legend(handles=hs, fontsize=5.6, frameon=False, loc="upper center", ncol=6,
+               bbox_to_anchor=(0.5, 0.995), handlelength=2.4, columnspacing=1.2, labelspacing=0.3)
+    fig.text(0.5, 0.905, "each point: the worst snapshot (N = 1,000: 3 runs, each at its floor and at its end; "
+             "N = 2,000 and 4,000: one run, end only); bottom edge = exactly 0, top edge = 10 or more",
+             ha="center", fontsize=5.6, color=ps.MUTED)
     ax = axes.flat[5]
-    for k in keys:
-        r0 = groups[k][0]
-        x = np.arange(1, r0["N"] + 1) / r0["N"]
-        for r in groups[k]:
-            ax.plot(x, 1 - np.asarray(r["energy_dW"]), color=col[k], lw=0.7)
-            ax.plot(x, 1 - np.asarray(r["energy_W"]), "--", color=col[k], lw=0.5)
-        ax.plot(x, 1 - np.asarray(r0["energy_rand"]), ":", color=ps.BASE, lw=0.7)
+    for (task, N, seed, read), r in spectra.items():
+        x = np.arange(1, N + 1) / N
+        c = col[(task, N)]
+        ax.plot(x, np.maximum(1 - np.asarray(r["energy_dW"]), 1e-9), color=c, lw=0.6,
+                ls="-" if read == "end" else (0, (1, 1)))
+    k0 = next(iter(spectra.values()))
+    ax.plot(np.arange(1, k0["N"] + 1) / k0["N"], np.maximum(1 - np.asarray(k0["energy_rand"]), 1e-9),
+            color=ps.BASE, lw=1.0, ls="--")
+    ax.text(0.03, 0.04, "solid: end of training; dotted: at the floor\ngrey dashed: Gaussian matrix",
+            transform=ax.transAxes, fontsize=5.0, color=ps.MUTED)
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_ylim(1e-4, 1.2)
+    ax.set_xlim(7e-4, 1.0)
+    ax.set_ylim(1e-5, 1.5)
     ax.set_xlabel("rank $r$ / $N$")
-    ax.set_ylabel("energy left out by rank $r$\n(solid $\\Delta W$, dashed $W$, dotted Gaussian)", fontsize=6.4)
-    fig.subplots_adjust(left=0.08, right=0.99, top=0.97, bottom=0.10, wspace=0.42, hspace=0.38)
+    ax.set_ylabel("fraction of $\\|W - aW_0\\|^2$\nleft out by rank $r$", fontsize=6.4)
+    fig.subplots_adjust(left=0.08, right=0.99, top=0.80, bottom=0.08, wspace=0.42, hspace=0.62)
     os.makedirs(fig_dir, exist_ok=True)
     stem = os.path.join(fig_dir, "lowrank_storage")
     fig.savefig(stem + ".pdf")
     fig.savefig(stem + ".svg")
-    for k in keys:
-        print(f"{names[k[0]]:16s} N={k[1]}: n_snap={len(groups[k])} smallest passing r: "
-              f"init={smallest_passing(groups[k], 'init', k[1])} svd={smallest_passing(groups[k], 'svd', k[1])}")
+    for t in table(rows):
+        print(f"{t[0]:13s} N={t[1]:5d} {t[2]:6s} snapshots={t[3]:2d} smallest passing r={t[4]} "
+              f"({'-' if t[5] is None else f'{t[5] / 1e6:.2f} MB'})  passing at full rank: {t[6]}")
     return stem + ".pdf"
 
 
