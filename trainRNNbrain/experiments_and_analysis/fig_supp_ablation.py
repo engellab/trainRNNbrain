@@ -37,7 +37,7 @@ from matplotlib.lines import Line2D
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 
-ABLATION_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_ablation"
+ABLATION_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_ablation_seeded"   # seeded batches (2026-10-14)
 # (label, sweep-name prefixes of the cells, colour, minimum intact r2 for a run to count as solved)
 TASKS = [("3-bit flip-flop", ("NBitFlipFlop_ff_revive_c75000", "NBitFlipFlop_paper_grid_c75000"),
           ps.SLOTS[0], None),

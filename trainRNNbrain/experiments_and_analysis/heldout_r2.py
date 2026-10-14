@@ -21,8 +21,18 @@ HELD-OUT MEANS WHAT THE TASK CAN WITHHOLD.
                 construction.
   DMTS          a fresh draw, for the same reason.
 
+THE SCORE IS REPEATABLE (since 2026-10-14, Pavel: "it's ok to apply the fix project-wide"). Before,
+two scores of the same weights differed: a sampled task (flip-flop, DMTS) has `task.seed: None`, so its
+generator was unseeded and every call drew a different held-out batch (np.random.seed does not reach
+a np.random.default_rng instance), and the network's noise generator was unseeded too. One flip-flop
+ablation score spread by 0.03 (SD) over four runs on identical weights. Now the task's generator is
+seeded with HELDOUT_SEED, so every scorer (this module, ablate_silent_units, the figure builders) sees
+the same held-out batch for a given task, and noise draw d is seeded with NOISE_SEED + d, as the
+ablation code always did. CDDM's held-out batch is a fixed grid and was already deterministic.
+
 Results are cached in data/heldout_r2_cache.json, keyed by the parameter file's path, size and mtime,
-so rebuilding a figure rescores nothing and retraining a cell invalidates only that cell.
+so rebuilding a figure rescores nothing and retraining a cell invalidates only that cell. The key
+ends with SCHEME, so a value scored before the seeding is never reused.
 
 Usage:  python heldout_r2.py "data/trained_RNNs/NBitFlipFlop_std_dropfix/*/*"   # populate the cache
 """
@@ -44,6 +54,9 @@ from trainRNNbrain.utils import import_any, filter_kwargs, unjsonify
 
 DRAWS = 9
 BATCH = 256                      # trials per draw; the estimate's noise is set by trials x draws
+HELDOUT_SEED = 20261012          # seeds the task's generator, so the held-out batch is fixed per task
+NOISE_SEED = 1000                # noise draw d is seeded with NOISE_SEED + d (as ablate_silent_units)
+SCHEME = "seeded-v1"             # cache-key tag; values from the unseeded scorer carry no tag
 CACHE = os.path.join(REPO, "data", "heldout_r2_cache.json")
 
 
@@ -70,7 +83,10 @@ def _params(net_dir):
 
 
 def heldout_batch(cfg):
-    """Inputs, targets and mask the network never trained on.
+    """Inputs, targets and mask the network never trained on, the same on every call.
+
+    The task's generator is seeded with HELDOUT_SEED, so a sampled task (flip-flop, DMTS) returns
+    the same trials every time; training drew from an unseeded generator, so they are still unseen.
 
     Args:
         cfg: the run's saved config.
@@ -78,6 +94,7 @@ def heldout_batch(cfg):
         (inputs tensor, targets tensor, mask) ready for the model's forward pass.
     """
     tcfg = prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt)
+    tcfg.seed = HELDOUT_SEED                     # a sampled task draws the same held-out trials every call
     if "coherences" in cfg.task:                 # CDDM: the midpoints of the trained grid
         cohs = sorted(float(c) for c in cfg.task.coherences)
         tcfg.coherences = [0.5 * (cohs[i] + cohs[i + 1]) for i in range(len(cohs) - 1)]
@@ -121,7 +138,10 @@ def score_net(net_dir, draws=DRAWS):
         # at the values in this run's own config, which every arm of a comparison shares.
         if hasattr(rnn, "sigma_w"):
             rnn.sigma_w = 0.0
-        vals = [float(Trainer.r2_score(rnn(bi, w_noise=True)[1], bt, mask)) for _ in range(draws)]
+        vals = []
+        for d in range(draws):
+            rnn.random_generator.manual_seed(NOISE_SEED + d)
+            vals.append(float(Trainer.r2_score(rnn(bi, w_noise=True)[1], bt, mask)))
     return float(np.mean(vals))
 
 
@@ -139,7 +159,7 @@ def heldout_r2(net_dir, draws=DRAWS, cache=None):
     _, key = _params(net_dir)
     if key is None:
         return float("nan")
-    key = f"{key}|{draws}"
+    key = f"{key}|{draws}|{SCHEME}"
     if key not in c:
         c[key] = score_net(net_dir, draws)
         if own:
