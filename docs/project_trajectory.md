@@ -15219,3 +15219,12 @@ All 21 restored sweeps: 0 files differ from the laptop copies (rsync checksum dr
 random / zero_out end counts equal this afternoon's reads (261/250/275, 278/312/278); the flip-flop
 chains are whole again (ff_revive_c200000 N = 1000: 3 segments, iterations 1-200,000). Option B
 without bias_kick resubmitted (random, zero_out at 0.025 → 200k, KEEP=1).
+
+**Paper: the knob section redrafted** (paper repo, branch `knobs-at-floor`, 257328a, NOT merged to
+main, so Overleaf is unchanged). `sec:knobs` in `sections/02_problem.tex` rewritten from the floor
+reads above: no setting moves the standard CDDM network's 418 by more than ~120 at its floor; the
+metabolic penalty costs R² (0.78 at λ = 10) for nothing; weight decay acts after the floor
+(412/266/166/86 at 200k); flip-flop input scale recruits at no R² cost. Still stale elsewhere and
+not touched: `04_ratepenalty.tex` (lines 10, 30, 44) and `06_whyitmatters.tex` (line 10) quote the
+old trainable-bias knob numbers (+123 for removing weight decay, the old activation deltas).
+Della unreachable 18:30-20:20 (laptop off the VPN); jobs there unaffected.
