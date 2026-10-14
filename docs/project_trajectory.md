@@ -15387,3 +15387,13 @@ Proposed wording: CDDM "271-322 of 1000 units never cross threshold and receive 
 gradient"; flip-flop "silence is not loss of gradient: silent units fire briefly after pulses,
 their inputs keep learning, and training holds them silent". For claim 1, "silent" on the flip-flop
 means "on for under 10% of the time". DMTS and other N not tested.
+
+**B2/B3 queued on Spock (agent-b23, merged; notes `docs/notes/agent-b23.md`).** 24 runs, 3 seeds each,
+200k, submitted 00:11 on 14 Oct (jobs 6929384-91), ~465 GPU-h: B3 pilot (rate penalty 0.01, 0.03 at
+N = 1000), B3 synaptic noise / rescaling / noise + rescaling at N = 1000, B2 rate penalty 0.1 at
+N = 500 / 1000 / 2000. Code 618fc9e = 7739a60 + one launcher (`SilentReLU_remedy_grid_spock.slurm`),
+smoke-tested on the Mac for every arm (configs differ from the control only in their remedy keys).
+Output `~/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_remedy_grid/` on Spock; snapshots on the lab
+share `/mnt/cup/labs/tengel/home/tolmach/trainRNNbrain_b23_snapshots`. B3's rate-containing cells wait
+for the pilot (selection rule written in the notes before any result). B2 at N = 4000 cannot fit on
+any Spock GPU (out of memory at 41.8 GB); passed to the agent to run on Della's 80 GB cards.
