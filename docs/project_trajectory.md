@@ -15568,3 +15568,28 @@ the flip-flop and not on CDDM.
   from the paper**: panel c now points at the flip-flop's 200k cells and draws the series at the end
   of training (N^0.40, 3 sizes) until N = 4000 lands (~15 Oct 16:00).
 - Paper numbers that change are listed in the notes; edits being drafted on a paper branch.
+
+### B5, optimizer control: no optimizer keeps units without losing performance (read 14 Oct, local copy of Spock data)
+
+`NBitFlipFlop_b5_optimizer` (another session's run, branch b5-optimizer; 3-bit flip-flop, N = 1000,
+200k, 3 seeds), read on the merged code (seeded held-out R², smoothed-minimum fallback). Finished arms:
+
+| arm | active at floor (crossing) | active at 200k | held-out R² |
+|---|---|---|---|
+| Adam, wd 1e-6 (standard) | 237-271 (69-77k) | 169-203 | 0.952-0.953 |
+| Adam, wd 0 | 225, 254 (125-166k; 1 no read) | 208-221 | 0.962 |
+| AdamW, wd 1e-6 | 282, 292 (117-118k; 1 no read) | 203-226 | 0.962 |
+| SGD lr 0.03 | 703-736 (105-112k) | 683-695 | 0.893-0.896 |
+| SGD lr 0.1 | 483-585 | 451-523 | 0.909-0.914 |
+| SGD lr 0.3 | 254-331 | 229-250 | 0.923-0.925 |
+| SGD lr 1 | 249-271 | 212-247 | 0.908-0.917 |
+| SGD lr 3 | 174-175 | 198-260 | 0.30-0.44 (fails) |
+
+SGD keeps more units only where it learns the task worse: at lr 0.03, ~700 active at R² 0.895 against
+Adam's ~250 at 0.952; at its best lr (0.3, R² 0.924) it has as few units as Adam (254-331 at the
+floor, 229-250 at 200k). Adam with coupled weight decay 1e-6 costs 0.01 of R² against Adam wd 0 and
+AdamW (0.952 vs 0.962) and ends with ~20-40 fewer units; decoupling it (AdamW) or removing it gives
+the same network. So "silence is an Adam + L2 artefact" is ruled out on the flip-flop. Figure:
+`img/internal_figures/diag_b5_optimizer.png`. Still running on Spock: SGD wd 0 at lr 0.1-3; Pavel
+asked to drop lr 10 (cancellation needs Pavel: the auto-mode classifier blocked cancelling another
+session's jobs).
