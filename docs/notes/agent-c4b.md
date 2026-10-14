@@ -109,9 +109,110 @@ mean noisy loss, and noise-free loss, at 0, 250, 500, 1000, 2000 iterations. Gai
   reads of T2) is held to the same bars.
 Budget: CPU jobs on Della; each fine-tune is short. No new training run.
 
+Seen after the pre-registration was committed (4bee7bb), before any T4 run: the trajectory's
+2026-10-13 entry reports that intact claim-1 networks fine-tuned for 3,000 iterations (lr or lr/10,
+saved or fresh Adam) are flat in held-out R^2 on all three tasks (flip-flop 0.951-0.954). That is a
+result on R^2, not on the noisy loss, and the bars above are unchanged.
+
 ### Verdict rule (set now)
 
 H explains C4 only if all three hold: the flip-flop is still learning by T1 or T3 (beyond CDDM); its
 silent units' gradient is a consistent signal (T2a); and the reach shrinks as the network converges
 (T4 v or the natural path). If T2a or (v) fails, non-convergence is not why the gradient reaches
 silent flip-flop units, whatever T1 says.
+
+### Scope cut (11:05, coordinator relaying Pavel: report within about an hour)
+
+Dropped before they ran: T2 for DMTS (all), the flip-flop 100k reads of chain C, CDDM 50k; T4's
+control and plain-SGD conditions and DMTS. T4 is now one probe, the anneal (Adam at lr/10, saved
+moments), 600 iterations instead of 2,000, on the flip-flop ends (A 200k, B 300k, C 300k) and the three
+CDDM ends (100k), with K = 0 (the reach re-read only, no signal share). The T4 bars are kept with
+"2000" read as "600" and the late gain as the second half (300 -> 600). T2/T3 reads that had already
+finished before the cut (flip-flop 100k for A and B, flip-flop 200k for B and C, DMTS drift) are reported
+but were not part of the reduced plan. The flip-flop "floor" read is 50k for all three chains (C4's floor
+snapshots were 27k-69.5k, and two of those floor fits are now rejected).
+
+### Deviation found in T2 while reading the first outputs (11:09)
+
+The sign-flip null for the split-half cosine is built wrongly: flipping the signs of UNcentred batch
+gradients leaves a dominant common component as (sum of signs) x mean, so the null cosine is +-1
+whenever the signal dominates (its 95th percentile came out at 0.82-0.99). The cosine c is therefore
+not tested against a valid null and is not used for a verdict. T2a is read on the signal share F
+alone (bar: median F >= 0.05), which needs no null: under a zero-mean gradient its expectation is 0.
+
+### Deviation in T1 (11:25)
+
+The first T1 run used 5,000-iteration block MEANS as pre-registered. Single-iteration loss spikes
+make them meaningless on some runs (flip-flop B's 150-200k window came out at +16,000,000% per 100k,
+DMTS at -90% to +190%). The slope is now taken on block MEDIANS; the mean-based number is printed
+beside it with the largest spike, so the change can be checked. The bars are unchanged.
+
+## Results (2026-10-14 12:20)
+
+Code: `trainRNNbrain/experiments_and_analysis/c4b_convergence.py` (Della CPU jobs; outputs in
+`/scratch/gpfs/TENGEL/pt1290/agent_c4b/out/`). Figure: `img/internal_figures/c4b_convergence.pdf`
+(+ `.svg`, `.pdf.png`) in the main checkout. Chains are named A, B, C (flip-flop) as above.
+
+**Oracle: passed.** The torch gradient matches C4's numpy float64 BPTT on a noisy 128-trial batch,
+per unit: median relative difference of the incoming-row gradient norm 3e-13 (flip-flop) and 2e-15
+(CDDM) in float64, 2e-6 and 2e-7 in the float32 used for every measurement (bar 1e-3).
+
+**T1, loss slope (block medians): falsified.** Percent change of the noisy loss per 100k iterations
+(t-value):
+
+| window | flip-flop A | flip-flop B | flip-flop C | CDDM 1 / 2 / 3 |
+|---|---|---|---|---|
+| 50-100k | -18 (-9) | -3 (-1) | -8 (-3.5) | -3.2 (-7) / -3.2 (-5) / -3.0 (-13) |
+| 150-200k | -2.6 (-9) | +2.8 (+1.7) | +0.2 (+0.5) | |
+| 250-300k | | -0.8 (-1.3) | -0.5 (-2.1) | |
+
+Only chain A still falls at 150-200k (bar: 2 of 3). B and C are flat from 150k on, while CDDM is
+still falling about 3% per 100k at the end of its 100k. DMTS's loss spikes up to 4,000-fold above its
+median and gives no usable slope.
+
+**T3, weight motion: falsified.** Late drift exponent of W_rec: flip-flop 0.39-0.42, CDDM 0.33-0.34
+(H wanted >= 0.7). The silent units' incoming rows move back and forth: median cosine between
+consecutive 10k-iteration displacements -0.41 to -0.47 in every flip-flop late window (bar: <= 0.1
+falsifies), -0.38 to -0.46 for CDDM's silent units. The one directed component is the flip-flop's
+ACTIVE rows at 50-100k (+0.25 to +0.53; CDDM active -0.30 to -0.33), gone by 250-300k (-0.28, -0.29).
+
+**T2, gradient signal versus batch noise: the predicted difference is there, but it does not point
+anywhere.** Network-wide signal share F: flip-flop 0.83-0.99 at every read (50k to 300k, 9 reads);
+CDDM 0.44-0.69 at 25k and 0.22-0.38 at 100k. T2b holds (flip-flop at its end 2.3-4.5x CDDM's).
+T2a holds as worded: the silent-reached rows' median F is >= 0.05 in 8 of 9 flip-flop reads
+(0.34-0.995; 0.03 at C 50k), against 0.10-0.44 at CDDM's 25k and -0.01-0.09 at 100k (6-11 units).
+T2c fails in 2 of 3 chains (A 0.96 -> 0.98, B 0.95 -> 0.34, C 0.03 -> 0.89). But the consistent part
+reverses between reads: the share of silent-reached units whose gradient step consistently LOWERS
+their drive (t < -2) runs A 94% / 54% / 1% (50k / 100k / 200k), B 2% / 96% / 1% / 89% (50k to 300k),
+C 13% / 99% / 100% (50k / 200k / 300k). A batch-consistent gradient whose direction flips between
+reads, on rows that move back and forth (T3), is not a learning direction.
+
+**Natural path (v'): falsified for the flip-flop.** Silent-reached count from 50k to the chain end:
+A 199 -> 174 (-13%), B 155 -> 152 (-2%), C 175 -> 156 (-11%); bar for H a drop >= 30%. On CDDM it falls
+from 40-46 at 25k to 6-11 at 100k.
+
+**T4, anneal (Adam lr/10, saved moments, 300 iterations; A stopped at 150 on a slow node): falsified.**
+Gain on the fixed evaluation set: flip-flop B 0.36%, C 0.61% (A 0.75% at 150); CDDM 0.68%, 1.03%, 0.99%.
+The flip-flop gains less than CDDM (bar for H: >= 2x). The evaluation set wobbles by about 0.3%
+between marks (CDDM rises 250 -> 300), so none of these runs has a clear plateau. Reach after the
+anneal (v): flip-flop B 152 -> 155, C 156 -> 215 (it grew); CDDM 11 -> 13, 8 -> 7, 6 -> 5.
+
+**Verdict by the pre-set rule: H does not explain C4.** The flip-flop is not more "still learning"
+than CDDM by its loss (T1), its weight motion (T3) or annealing (T4), and the number of silent units
+the gradient reaches does not shrink as its loss flattens or after annealing. What does differ in
+trainability is T2: at every read the flip-flop network sits at a point where 83-99% of the per-batch
+gradient power is shared by all batches (CDDM 22-69%), and yet training does not move it anywhere.
+Interpretation, untested: the flip-flop's Adam steps oscillate across stiff directions (a large,
+batch-consistent gradient whose sign flips from point to point; C4's per-row cosine of -0.92 between
+the 10-batch gradient and Adam's saved momentum fits this). Falsifying test, not run: the cosine
+between mean gradients at snapshots 500 iterations apart should be negative on the flip-flop and near
+0 on CDDM, and the top Hessian eigenvalue times the effective step should sit near 2 on the flip-flop.
+
+Recommended C4 wording: "The gradient that reaches silent flip-flop units is not a sign of unfinished
+training. From 150k iterations on, two of three flip-flop networks' noisy loss changes by less than
+1% per 100k iterations (CDDM's still falls by 3% per 100k at 100k), the silent units' incoming weights
+move back and forth rather than travel, as on CDDM, and the gradient reaches 150-175 silent units from
+50k to 300k iterations and after a ten-fold learning-rate drop, while on CDDM that number falls from
+about 40 to under 15. The flip-flop differs in its gradient, not its convergence: at every point read,
+most of the per-batch gradient is shared by all batches (83-99% against 22-69% on CDDM), yet training
+does not follow it."
