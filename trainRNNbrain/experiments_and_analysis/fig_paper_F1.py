@@ -44,9 +44,11 @@ the rule since 2026-10-12). The noise-free loss is not used: on the standard fli
 out near 10k and climbs back 2-4x while the noisy loss keeps falling. A run with no usable crossing
 (fit on its bound, loss never reaching the bar, loss climbing back > 1.5x) is dropped and counted.
 The learning rate falls with size (lr = 1e-3 (100/N)^(1/3)); reading each network at its own floor
-is how panel (c) handles that confound. ⚠️ The flip-flop's noisy loss is still falling at 75k in
-every control; until its continuations to 200k land, a task with no floor read-out at two or more
-sizes is drawn at the end of its budget, with open markers, and the legend says so.
+is how panel (c) handles that confound. The flip-flop's noisy loss is still falling at 75k in
+every control, so its series is read on the controls continued to 200k. A task with a listed size
+that has no floor read-out - including a size with no runs on disk yet, as the flip-flop's N = 4000
+was until its 200k continuation landed - is drawn at the end of its budget, with open markers, and
+the legend says so.
 
 Usage:  python fig_paper_F1.py [--refresh]      (--refresh re-simulates the example network)
 Output: img/internal_figures/fig_paper_F1.pdf (+ .svg; vector only - see paperstyle.save)
@@ -123,22 +125,23 @@ NO_FIT = {}
 # k-sweep, big-N and drift sweeps this panel used are on neither cluster any more. Each series is one
 # experiment at every size - same task, same model, same trainer, only N (and the N-scaled learning
 # rate) differ:
-#   3-bit flip-flop  the unpenalised control of the remedy grid, 40k + a 35k top-up = 75k
-#                    (NBitFlipFlop_ff_revive_c75000 arm=none at N <= 2000; the paper grid's control at
-#                    N = 4000, the same configuration).
+#   3-bit flip-flop  the unpenalised control of the remedy grid, 40k + a 35k top-up + a 125k top-up
+#                    = 200k, one warm-start chain (NBitFlipFlop_ff_revive_c200000 arm=none at
+#                    N <= 2000; the paper grid's control at N = 4000, the same configuration). At 75k
+#                    the noisy loss was still falling in every control.
 #   CDDM             the paper grid's control, 100k.
 #   DMTS             the paper grid's control at a 5 tau delay, 150k. At 7 tau the unpenalised
 #                    network solved 2 of 3 seeds at two sizes; at 5 tau it solves 8 of 9.
 # The 6-bit flip-flop series is gone: it was never re-run on the standard network.
-FF75 = f"{DATA_DIR}/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N={{N}}_pen=none_arm=none"
+FF200 = f"{DATA_DIR}/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N={{N}}_pen=none_arm=none"
 DMTS_LABEL = "DMTS, 5$\\tau$ delay"
 SCALING = {
     "3-bit flip-flop": ([500, 1000, 2000, 4000], {
-        500:  FF75.format(N=500),
-        1000: FF75.format(N=1000),
-        2000: FF75.format(N=2000),
-        4000: f"{DATA_DIR}/NBitFlipFlop_paper_grid_c75000/EqType=h_N=4000_arm=control",
-    }, 75_000, ps.SLOTS[0]),
+        500:  FF200.format(N=500),
+        1000: FF200.format(N=1000),
+        2000: FF200.format(N=2000),
+        4000: f"{DATA_DIR}/NBitFlipFlop_paper_grid_c200000/EqType=h_N=4000_arm=control",
+    }, 200_000, ps.SLOTS[0]),
     "CDDM": ([500, 1000, 2000, 4000], {
         N: f"{DATA_DIR}/CDDM_paper_grid/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000, 4000)
     }, 100_000, ps.SLOTS[1]),
@@ -1054,14 +1057,17 @@ def panel_c(ax):
         for N, name, reason in why:
             print(f"  .. {task} N={N} {name[:12]}: no floor read-out - {reason}")
         readout = "floor"
-        if len(read) < len(cells):
+        missing = sorted(set(Ns) - set(cells))
+        if missing:
+            print(f"  !! {task}: no runs on disk at N = {missing}")
+        if len(read) < len(Ns):
             # a series is read at its floor only when EVERY size has a floor read-out; a series
             # read at its floor at some sizes and not others would compare the sizes at different
             # depths of convergence, which is what the floor rule exists to prevent
             read = at_end_of_budget(cells)
             readout = "end"
             print(f"  !! {task}: no floor read-out at N = "
-                  f"{sorted(set(cells) - set(at_own_floor(cells)[0]))} - the series is drawn at the "
+                  f"{sorted(set(Ns) - set(at_own_floor(cells)[0]))} - the series is drawn at the "
                   f"END of its budget instead")
         else:
             print(f"  .. {task}: read AT {CONV_MARGIN:.2f}x each run's own fitted floor "
