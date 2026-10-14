@@ -197,7 +197,8 @@ def unit_stats(H, U, slope):
         dict of (N,) arrays: p (participation), n_on (samples with h > 0), n_zero (samples with
         h == 0 exactly), n_on_trials (trials with any h > 0), r_max, r_mean_on (mean rate over on
         samples), h_med (median h), h_q99, n_on_near_input (on samples within NEAR_INPUT steps of a
-        nonzero input), plus first_input (B,) the first step any input is nonzero.
+        nonzero input), plus first_input (B,) the first step any input is nonzero, near_share (the
+        share of all samples that are near an input), T and B.
     """
     R = np.maximum(slope * H, 0.0)
     Rn = R.transpose(1, 0, 2).reshape(H.shape[1], -1)            # (N, T*B)
@@ -215,7 +216,8 @@ def unit_stats(H, U, slope):
     return dict(p=p, n_on=n_on, n_zero=(H == 0).sum((0, 2)), n_on_trials=on.any(0).sum(1),
                 r_max=Rn.max(1), r_mean_on=Rn.sum(1) / np.maximum(n_on, 1),
                 h_med=np.median(hT, 1), h_q99=np.quantile(hT, 0.99, axis=1),
-                n_on_near_input=(on & near[:, None, :]).sum((0, 2)), first_input=first_input)
+                n_on_near_input=(on & near[:, None, :]).sum((0, 2)), first_input=first_input,
+                near_share=near.mean(), T=H.shape[0], B=H.shape[2])
 
 
 def top_mean(X, H, q=0.99):
