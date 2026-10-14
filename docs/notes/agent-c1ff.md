@@ -93,11 +93,85 @@ If neither 300k fit is valid, the flip-flop's at-floor ablation rests on one net
   T = 300, batch 1024 would take on the order of a day, so GPU). New output folders, nothing
   overwritten: `/scratch/gpfs/TENGEL/pt1290/c1_ablation_floor300` and `c1_retrain_floor300`.
 
-## 3. Results
+## 3. Results (2026-10-14 06:40)
 
-(filled in after the runs)
+### 3a. The floor read-out on the longest chain
 
-### Partial results (2026-10-14 06:40; run stopped before the 300k read-out came back)
+| run (200k seed) | chain | fit floor, A, tau, beta | late_rise | verdict | crossing | active |
+|---|---|---|---|---|---|---|
+| 2461724787 | 300k (75k + 125k + 100k, 600 states) | 0.0408, 0.776, 4.96k, **3.0** | 0.834 | rejected: beta on its bound; loss ends 17% below the floor | none (1.05x-min: 52,212, 341 active) | - |
+| 4113307577 | 300k (600 states) | 0.0365, 0.250, 12.7k, **3.0** | 0.930 | rejected: beta on its bound; loss ends 7% below the floor | none (1.05x-min: 60,465, 289 active) | - |
+| 1258717025 | 200k (400 states) | 0.0338, 0.113, 6.15k, 0.57 | 1.006 | valid, no parameter on a bound | 69,050 (snapshot 69,000) | 266 |
+
+P1 FAILED: 100k more iterations did not give either run a valid fit. P2 and P3 are moot (no
+crossing). The extra training did not lower the loss: the smoothed minimum is 0.03391 and 0.03386
+on the 300k chain against 0.03392 and 0.03396 on the 200k chain (a change under 0.3%), and the
+1.05x-minimum crossings barely move (52,159 -> 52,212; 59,480 -> 60,465). Both runs have sat at
+about 0.034 since 52-60k, the same level as 1258717025 (0.0340). So these two networks are
+converged; the stretched exponential does not describe their curve (a fast drop, then a flat
+plateau), and with beta pinned at 3 it puts the floor 8-20% above the plateau. The rejection is a
+failure of the fit, not of convergence. Whether to read such runs at 1.05x their smoothed minimum
+is Pavel's call; I did not ablate them, as pre-registered.
+
+### 3b. Ablation and prune-and-retrain at the floor (1258717025 only)
+
+Floor ablation, same weights (69,000), four runs: the existing JSON plus my three
+(`c1_ablation_floor300/`, `rep1/`, `rep2/`):
+
+| run | active | r2 intact | all silent removed | as many at random (mean of 5) |
+|---|---|---|---|---|
+| existing (c1_ablation) | 266 | 0.9506 | 0.2478 | 0.014 |
+| floor300 | 267 | 0.9506 | 0.2933 | 0.006 |
+| rep1 | 267 | 0.9484 | 0.3077 | 0.011 |
+| rep2 | 267 | 0.9513 | 0.2473 | 0.008 |
+
+Prune and retrain 3,000 iterations (`c1_retrain_floor300/`), next to the existing run:
+intact fine-tuned 0.9502 -> 0.9510 (existing 0.9494 -> 0.9501); silent pruned 0.2671 -> 0.9462
+(0.2699 -> 0.9468); random pruned 0.0646 -> 0.9212 (0.0694 -> 0.9203).
+
+Against the pre-registered checks: P5 passes; P6 passes (silent-pruned ends 0.005 below intact
+fine-tuned, inside 0.01; random ends 0.025 below silent-pruned). C-a, C-b and C-c do not fire. The
+numbers sit inside the paper's ranges (removed 0.25-0.48, retrained 0.937-0.947, random
+0.920-0.924, active 266-354).
+
+**Claim 1 on the flip-flop.** The conclusion stands, but under the current rule it rests on one
+network: the other two of the paper's three flip-flop floor read-outs (27k and 39k) were made by
+fits the beta guard now rejects, and 300k did not produce valid fits. The quoted ranges
+0.25-0.48 / 0.937-0.947 / 0.920-0.924 / 266-354 come from those three read-outs and need
+rewriting (one network: removed 0.25-0.31, retrained 0.946-0.947, random 0.920-0.921, 266-267
+active), or the rule needs to change for plateaued runs.
+
+### 3c. The unseeded flip-flop batch: spread and a proposed fix (not applied)
+
+Spread, from the four ablation runs on identical weights: "all silent removed" ranges
+0.247-0.308 (mean 0.274, SD 0.031); r2 intact 0.948-0.951; active 266-267 (one unit at the
+boundary). The retrain endpoints repeat within 0.001 (two runs). So the "removed" number of each
+flip-flop network carries about +-0.03 of batch-sampling noise, and differences between networks
+of that size in the paper's 0.25-0.48 range are not meaningful.
+
+Cause: the flip-flop config has `task.seed: None`. `prepare_task_arguments` passes it through, so
+`TaskBase.__init__` builds `self.rng = np.random.default_rng()` (unseeded), and every batch the
+task draws comes from that generator. `seeded_batches` calls `np.random.seed(BATCH_SEED)` and
+`torch.manual_seed(BATCH_SEED)`, which do not reach a `default_rng()` instance. Both the held-out
+batch (`heldout_r2.heldout_batch`) and the ordering/gate batch (`seeded_batches`) are therefore
+fresh on every run. Only the noise draws (`rnn.random_generator`) are seeded. CDDM and DMTS were not
+checked (CDDM's held-out inputs are a fixed coherence grid, but its trial-level draws may also use
+the task's rng).
+
+Minimal fix I would propose (two lines, ablation only):
+- in `ablate_silent_units.seeded_batches`, give each task its own seeded generator right after
+  instantiating it: for the held-out batch, either pass `tcfg.seed = BATCH_SEED` inside a local copy
+  of `heldout_batch`, or set `task.rng = np.random.default_rng(BATCH_SEED)` before `get_batch()`;
+  for the ordering batch, `task.rng = np.random.default_rng(BATCH_SEED + 1)` (a different seed, so
+  the ordering and held-out batches stay distinct).
+- Do not seed inside `heldout_r2.heldout_batch` itself without deciding it project-wide: every
+  held-out R2 in the paper goes through it, and seeding there changes all of them (by noise-level
+  amounts). Seeding it would also make held-out R2 repeatable everywhere, which is an argument
+  for doing it once, deliberately.
+After the fix, re-running each flip-flop ablation would give one fixed number per network; the
+spread above shows how far each could move (about 0.03).
+
+### Partial results (written at the first hand-back; superseded by §3)
 
 - P4 FAILED as written, root-caused: re-running the ablation of 1258717025 on the same weights
   (69,000) gives a different number each time. Four runs: active 266/267/267/267, r2 intact
