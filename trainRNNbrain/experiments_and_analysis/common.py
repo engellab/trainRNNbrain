@@ -401,17 +401,19 @@ def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
         it, L: the per-iteration noisy loss and its iterations (noisy_loss_series).
         delta: the margin; smooth: running-median window, in samples.
     Returns:
-        dict: t_star (nan when there is no read-out), floor, escape, late_rise (end-of-run median
-        over the floor), reason (None when the read-out is usable), and `smoothed` (the running
-        median the crossing is read on).
+        dict: t_star (nan when there is no read-out), floor, floor_kind ("fit", or "smoothed_min" when
+        the fit's beta sits on its upper bound and the floor falls back to the minimum of the running
+        median), escape, late_rise (end-of-run median over the floor), reason (None when the read-out
+        is usable), and `smoothed` (the running median the crossing is read on). `fit` holds the
+        stretched-exponential parameters in both cases.
     """
     from scipy.ndimage import median_filter
     from scipy.optimize import least_squares
     it, L = np.asarray(it, float), np.asarray(L, float)
     ok = np.isfinite(L)
     it, L = it[ok], L[ok]
-    out = dict(t_star=float("nan"), floor=None, escape=float("nan"), late_rise=float("nan"),
-               reason=None)
+    out = dict(t_star=float("nan"), floor=None, floor_kind=None, escape=float("nan"),
+               late_rise=float("nan"), reason=None)
     if len(L) < 4 * smooth:
         out["reason"] = "series too short"
         return out
@@ -441,20 +443,26 @@ def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
         out["reason"] = "floor fit failed"
         return out
     floor = float(fit[0])
-    out["floor"], out["fit"] = floor, [float(v) for v in fit]
-    out["late_rise"] = float(np.median(L[it >= it[-1] - END_FRAC * (it[-1] - it[0])]) / floor)
+    out["floor"], out["fit"], out["floor_kind"] = floor, [float(v) for v in fit], "fit"
+    end_level = float(np.median(L[it >= it[-1] - END_FRAC * (it[-1] - it[0])]))
+    out["late_rise"] = end_level / floor
     if floor <= FLOOR_BOUND * 1.01:
         out["reason"] = "fit pinned at its lower bound"
         return out
-    # A stretch exponent on its UPPER bound is no floor either (Pavel, 2026-10-13). On the flip-flop
+    # A stretch exponent on its UPPER bound is no fitted floor (Pavel, 2026-10-13). On the flip-flop
     # such a fit puts the "floor" at a level the loss later falls through (it ends at 0.73-0.92x of
-    # it), so the crossing fires early (27k instead of ~52k on one claim-1 run). tau on its LOWER bound
-    # is not checked on purpose: on CDDM and DMTS it only means the fast decay is over before the fit
-    # window opens, and those floors hold (CDDM ends at 1.00-1.01x). Guarding every bound dropped 64
-    # of 123 runs; this guard drops 6, the suspicious ones.
+    # it), so the crossing fired early (27k instead of ~52k on one claim-1 run). These runs have
+    # converged - two claim-1 flip-flop runs sit at ~0.034 from 52-60k to 300k - and it is the fit
+    # that fails on a fast drop followed by a flat plateau. So (Pavel, 2026-10-14) such a run is read
+    # against the MINIMUM of its running median over the fit window instead, and the crossing is
+    # where the running median first reaches 1.05x that minimum; floor_kind records which floor was
+    # used. tau on its LOWER bound is not checked on purpose: on CDDM and DMTS it only means the fast
+    # decay is over before the fit window opens, and those floors hold (CDDM ends at 1.00-1.01x).
+    # Guarding every bound dropped 64 of 123 runs; the beta guard touches 6, the suspicious ones.
     if fit[3] >= hi[3] * 0.99:
-        out["reason"] = "fit pinned at its bound (beta)"
-        return out
+        floor = float(rm[m].min())
+        out["floor"], out["floor_kind"] = floor, "smoothed_min"
+        out["late_rise"] = end_level / floor
     if out["late_rise"] > MAX_LATE_RISE:
         out["reason"] = f"loss ends {out['late_rise']:.1f}x above its floor"
         return out
