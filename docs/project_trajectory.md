@@ -15306,3 +15306,20 @@ active) and 39k → 60k (337 → 292); the third is unchanged (69k → 67k, 266)
 reject fits pinned on any bound, or read at 1.05x the smoothed minimum. The N = 1000 straggler sits
 at 1.055-1.06x its floor from 125k to 175k and rises to 1.09x; continuing it to 300k ≈ 6.7 GPU-h, a
 crossing not assured.
+
+**The floor rule gains a guard (Pavel): a fit with its stretch exponent beta on the upper bound (3)
+is no floor.** First Pavel chose "reject a fit with any parameter on a bound"; measured before
+committing, that dropped 64 of 123 runs read at the floor, almost all healthy CDDM and DMTS fits
+whose tau sits on its LOWER bound (100) only because the fast decay is over before the fit window
+opens at 2,000 iterations (CDDM's loss ends at 1.00-1.01x those floors). The bad fits are the
+beta-on-upper-bound ones (the loss ends at 0.73-0.92x of their "floor"). Pavel then chose the beta
+guard alone. Predicted before running: the two claim-1 flip-flop runs 2461724787 and 4113307577
+dropped, 1258717025 kept. Result: exactly 6 of 123 runs dropped - those two, the flip-flop control
+that crossed at 23k and ended at 0.73x its floor (input-scale ladder reference), the N = 500
+size-series run that crossed early at 38k, one input-scale-20 run and one DMTS N = 1000 run.
+
+Consequences, not yet redone: Figure 1 panel d (ablation at the floor) and e read the flip-flop at
+two crossings that are now invalid (27k, 39k), so the flip-flop has ONE claim-1 run at its floor
+(69k, 266 active); the claim-1 flip-flop at-floor numbers in the 2026-10-12/13 entries rest partly on
+them. Panel c's flip-flop N = 500 keeps 5 of 6 runs. The knob ladders lose one run each in the
+flip-flop default and scale-20 rungs.

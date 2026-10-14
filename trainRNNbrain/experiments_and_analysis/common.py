@@ -446,6 +446,15 @@ def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
     if floor <= FLOOR_BOUND * 1.01:
         out["reason"] = "fit pinned at its lower bound"
         return out
+    # A stretch exponent on its UPPER bound is no floor either (Pavel, 2026-10-13). On the flip-flop
+    # such a fit puts the "floor" at a level the loss later falls through (it ends at 0.73-0.92x of
+    # it), so the crossing fires early (27k instead of ~52k on one claim-1 run). tau on its LOWER bound
+    # is not checked on purpose: on CDDM and DMTS it only means the fast decay is over before the fit
+    # window opens, and those floors hold (CDDM ends at 1.00-1.01x). Guarding every bound dropped 64
+    # of 123 runs; this guard drops 6, the suspicious ones.
+    if fit[3] >= hi[3] * 0.99:
+        out["reason"] = "fit pinned at its bound (beta)"
+        return out
     if out["late_rise"] > MAX_LATE_RISE:
         out["reason"] = f"loss ends {out['late_rise']:.1f}x above its floor"
         return out
