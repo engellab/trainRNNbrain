@@ -27,7 +27,12 @@ iter_offset: auto
 # paths.init_from already reads -- so resuming one needs no new code. Cost at 2000: one write per
 # ~24 min at the slowest measured rate (CDDM N=4000, ~0.7 s/iteration), ~200 MB rewritten in place
 # at N=4000 and a few MB at N=500.
-checkpoint_every: 2000
+checkpoint_every: 1000
+# KEPT SNAPSHOTS BY DEFAULT (Pavel, 2026-10-14): every checkpoint is kept in its own it<iteration>/
+# folder (W_rec in float16, compressed: ~1.9 MB at N=1000, ~30 MB at N=4000), so any run can be
+# read at its own loss floor after training; an exact resumable copy (float32 + Adam) is kept in
+# resume/. A launcher turns it off with ++trainer.checkpoint_keep=false.
+checkpoint_keep: true
 anneal_noise: False
 lr: 0.001
 weight_decay: 1e-6

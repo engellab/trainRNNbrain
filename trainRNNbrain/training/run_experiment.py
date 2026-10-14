@@ -441,7 +441,7 @@ def run_training(cfg: DictConfig) -> None:
         # PERIODIC CHECKPOINT. `trainer.checkpoint_every` = 0 switches it off. The snapshots go to
         # their OWN tree, never into data_save_path: that is a cell directory, and everything which
         # inventories cells counts any subfolder holding *LastParams* as a finished run.
-        # `+trainer.checkpoint_keep=true` keeps EVERY snapshot, each in its own it<iters>/ folder and
+        # `trainer.checkpoint_keep` (default true since 2026-10-14) keeps EVERY snapshot, each in its own it<iters>/ folder and
         # without the optimiser state, instead of overwriting one resumable copy.
         ckpt_every = int(cfg.trainer.get("checkpoint_every", 0) or 0)
         ckpt_keep = bool(cfg.trainer.get("checkpoint_keep", False))

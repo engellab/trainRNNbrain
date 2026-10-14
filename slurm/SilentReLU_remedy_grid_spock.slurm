@@ -113,7 +113,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   trainer.lambda_rws=0 trainer.lambda_frm="$LAMBDA_FRM" \
   "${RESCALE_ARGS[@]}" \
   trainer.synaptic_scaling=false trainer.dropout=false \
-  trainer.checkpoint_every="$CKPT_EVERY" +trainer.checkpoint_keep=true \
+  trainer.checkpoint_every="$CKPT_EVERY" ++trainer.checkpoint_keep=true \
   paths.checkpoint_to="$SNAP_TO" \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""

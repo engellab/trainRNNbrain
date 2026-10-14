@@ -181,7 +181,7 @@ def test_end_to_end():
               "task.n_inputs=3", "task.n_outputs=3", "task.batch_size=16", "model.equation_type=h",
               f"model.N={N}", "trainer.max_iter=30", "trainer.track_every=10",
               "trainer.store_participation_every=10", "trainer.checkpoint_every=10",
-              "+trainer.checkpoint_keep=true", f"paths.checkpoint_to={root}/snaps",
+              "++trainer.checkpoint_keep=true", f"paths.checkpoint_to={root}/snaps",
               f"paths.save_to={root}/data", "++light_outputs=true", "seed=11",
               "trainer.trainer_tag=''", "experiment_tag=src"])
         young = _only(f"{root}/data/NBitFlipFlop_src/*/")
