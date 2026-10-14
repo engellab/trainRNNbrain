@@ -15601,3 +15601,25 @@ flip-flop 1258717025 agree to the 5th decimal (silent pruned 0.94697, intact 0.9
 compiles), NOT merged: held until Figure 1 is rebuilt with N = 4000 (~15 Oct), because the
 caption's panel e count (272) would disagree with the text (277). When rebuilding Figure 1, point
 `RETRAIN_DIR` at `c1_retrain_seeded2`.
+
+**B5 re-read at the floor (Pavel: "you read it at the end - not a fair comparison").** The table above
+mixed a floor active count with end-of-training R². Re-read with BOTH at each run's 1.05x noisy-loss
+floor (R² estimated by the loss ratio - the B5 runs kept only a rolling restart checkpoint, no
+snapshot series; 36 draws, seeded):
+
+| arm | floor crossing | active at floor | R² at floor (est.) |
+|---|---|---|---|
+| Adam, wd 1e-6 (standard) | 69-77k | 237-271 | 0.950-0.951 |
+| Adam, wd 0 | 125, 166k (1 no read) | 225, 254 | 0.960-0.961 |
+| AdamW, wd 1e-6 | 117, 118k* (1 no read) | 282, 292 | 0.961 |
+| SGD lr 0.03 | 105-112k | 718-736 | 0.882-0.884 |
+| SGD lr 0.1 | 97-120k | 483-585 | 0.901-0.905 |
+| SGD lr 0.3 | 51-94k | 254-331 | 0.903-0.911 |
+| SGD lr 1 | 20-87k* | 249-271 | 0.894-0.908 |
+| SGD lr 3 | - | - | fails (0.30-0.44 at 200k) |
+
+(* smoothed-minimum fallback.) The conclusion is the same at the floor: SGD keeps more units only
+where it converges to a worse solution (~720 units at R² 0.883 against Adam's ~250 at 0.951); at
+SGD's best learning rates (0.3-1) it has Adam's count at R² 0.90-0.91. Adam with coupled weight decay
+reaches its floor ~1.6-2x sooner and 0.01 lower in R² than Adam wd 0 / AdamW, with a similar count.
+Figure `diag_b5_optimizer.png` redrawn (left: both at the floor; right: both at 200k).
