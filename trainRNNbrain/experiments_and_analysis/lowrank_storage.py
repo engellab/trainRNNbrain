@@ -24,6 +24,7 @@ MEASURES, each on the original and on the reconstruction, same batch, same seeds
 
 Usage (Della, CPU node):
   python lowrank_storage.py run RUN_DIR --at floor|end --schemes init,svd --out OUT.json --scratch DIR
+  python lowrank_storage.py chain RUN_DIR --ranks 10,50 --every 1000 --out OUT.json
   python lowrank_storage.py figure 'results/*.json' --fig-dir DIR
 """
 
@@ -43,6 +44,7 @@ from omegaconf import OmegaConf
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 from common import warm_start_chain
+from fig_knobs_at_floor import SNAP_DIR
 from gradient_participation import count, initial_params, read_point, unit_gradients
 from heldout_r2 import score_net
 from trainRNNbrain.trainer.Trainer import scored_
@@ -250,6 +252,90 @@ def run(run_dir, at, schemes, ranks, out, scratch):
     json.dump(rec, open(out, "w"))
 
 
+def chain_snapshots(run_dir, every, extra=None):
+    """Every kept snapshot of a run's warm-start chain, every `every` iterations, then its final weights.
+
+    Args:
+        run_dir: a run folder; every: keep snapshots whose iteration is a multiple of this;
+        extra: one more snapshot npz to include whatever its iteration (the floor snapshot).
+    Returns:
+        list of (iteration, npz path), oldest first; the last entry is the run's LastParams.
+    """
+    out = []
+    for d in warm_start_chain(run_dir):
+        cell = os.path.dirname(d.rstrip("/"))
+        seed = OmegaConf.load(sorted(glob.glob(os.path.join(d, "*_config.yaml")))[0]).seed
+        for s in glob.glob(os.path.join(SNAP_DIR, os.path.basename(os.path.dirname(cell)),
+                                        os.path.basename(cell), f"s{seed}", "it*")):
+            it = int(os.path.basename(s)[2:])
+            f = glob.glob(os.path.join(s, "*LastParams*.npz"))[0]
+            if it % every == 0 or f == extra:
+                out.append((it, f))
+    out.sort()
+    end = glob.glob(os.path.join(run_dir.rstrip("/"), "*LastParams*.npz"))[0]
+    return out + [(out[-1][0] + every, end)]
+
+
+def chain(run_dir, ranks, every, out, scratch):
+    """Delta coding along the snapshot series: W_k ~ What_{k-1} + rank-r SVD of (W_k - What_{k-1}).
+
+    The keyframe is the untrained W0, regenerated from the seed, so it costs nothing. Each delta is
+    taken against the previous RECONSTRUCTION, as a decoder holding only the stored factors would
+    rebuild it, so the part of W a step leaves out is still there to be coded at the next step. The
+    snapshots at the run's floor and at its end are then measured against the original weights.
+
+    Args:
+        run_dir: a run folder; ranks: ranks per delta; every: snapshot spacing in iterations;
+        out: JSON path; scratch: parent folder for reconstructed parameter folders.
+    """
+    run_dir = run_dir.rstrip("/")
+    floor_npz = read_point(run_dir, "floor")[0]
+    snaps = chain_snapshots(run_dir, every, extra=floor_npz)
+    root = warm_start_chain(run_dir)[0]
+    W0 = np.asarray(initial_params(OmegaConf.load(sorted(glob.glob(os.path.join(root, "*_config.yaml")))[0]))
+                    ["W_rec"], np.float64)
+    cfg_path = sorted(glob.glob(os.path.join(run_dir, "*_config.yaml")))[0]
+    cfg = OmegaConf.load(cfg_path)
+    tcfg = prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt)
+    tcfg.seed = TRAIN_SEED
+    u, y, _ = hydra.utils.instantiate(tcfg).get_batch()
+    mask = get_training_mask(cfg_task=cfg.task, dt=cfg.model.dt)
+    targets = {floor_npz: "floor", snaps[-1][1]: "end"}
+    rec = dict(run=run_dir, task=str(cfg.task.taskname), seed=int(cfg.seed), every=every,
+               iters=[it for it, _ in snaps], step_norm=[], results=[], err={})
+    Wprev = W0
+    for it, f in snaps:
+        W = np.load(f)["W_rec"].astype(np.float64)
+        if Wprev is not None:
+            rec["step_norm"].append(float(np.linalg.norm(W - Wprev) / np.linalg.norm(W)))
+        Wprev = W
+    refs = {}
+    for f, lab in targets.items():
+        P = load_npz(f)
+        refs[f] = (P, measure(cfg, P, cfg_path, None, u, y, mask, r2_dir=os.path.dirname(f)))
+    for r in ranks:
+        What, errs = W0.copy(), []
+        for it, f in snaps:
+            W = np.load(f)["W_rec"].astype(np.float64)
+            U, s, Vt = np.linalg.svd(W - What)
+            What = What + truncated(U, s, Vt, r)
+            errs.append(float(np.linalg.norm(W - What) / np.linalg.norm(W)))
+            if f in targets:
+                P = dict(refs[f][0])
+                P["W_rec"] = What.astype(np.float32)
+                m = measure(cfg, P, cfg_path, os.path.join(scratch, f"chain_{rec['task']}_s{rec['seed']}",
+                                                            f"{targets[f]}_r{r}"), u, y, mask)
+                d = compare(refs[f][1], m)
+                d.update(scheme="delta", rank=r, read=targets[f], read_iter=it, rel_fro_err=errs[-1],
+                         bytes=4 * (2 * r * W.shape[0] + r))
+                rec["results"].append(d)
+                print(f"  delta r={r:4d} {targets[f]:5s}@{it} err={errs[-1]:.4f} dR2={d['d_r2']:+.4f} "
+                      f"flip={d['n_flip']} dL={d['d_loss_rel']:+.4f} cin={d['corr_gin']:.4f} "
+                      f"cout={d['corr_gout']:.4f} {'PASS' if d['pass'] else 'fail'}", flush=True)
+        rec["err"][str(r)] = errs
+        json.dump(rec, open(out, "w"))
+
+
 def merge(files):
     """Group the JSON records by (task, N, seed, read) and pool their results lists.
 
@@ -360,16 +446,19 @@ def figure(pattern, fig_dir):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("mode", choices=["run", "figure"])
+    ap.add_argument("mode", choices=["run", "chain", "figure"])
     ap.add_argument("target", help="run folder (run) or JSON glob (figure)")
     ap.add_argument("--at", choices=["floor", "end"], default="end")
     ap.add_argument("--schemes", default="exact,fp16,init,svd")
     ap.add_argument("--ranks", default=",".join(map(str, RANKS)))
+    ap.add_argument("--every", type=int, default=1000, help="chain: snapshot spacing in iterations")
     ap.add_argument("--out")
     ap.add_argument("--scratch", default="/scratch/gpfs/TENGEL/pt1290/agent_lowrank/params")
     ap.add_argument("--fig-dir", default=os.path.expanduser("~/Documents/GitHub/trainRNNbrain/img/internal_figures"))
     a = ap.parse_args()
     if a.mode == "run":
         run(a.target, a.at, a.schemes.split(","), [int(v) for v in a.ranks.split(",")], a.out, a.scratch)
+    elif a.mode == "chain":
+        chain(a.target, [int(v) for v in a.ranks.split(",")], a.every, a.out, a.scratch)
     else:
         print(figure(a.target, a.fig_dir))
