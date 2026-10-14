@@ -15502,3 +15502,10 @@ never reaches the task's generator, and the held-out and ordering batches differ
 "all silent removed" score spreads 0.274 ± 0.031 (SD, 4 runs, same weights). Proposed (not applied):
 seed `task.rng` in `seeded_batches` (BATCH_SEED, +1); seeding `heldout_r2.heldout_batch` itself would
 move every held-out R² in the paper - Pavel's call.
+
+**CDDM revival screen at its floor (Figure 2 panel j, all runs landed).** `CDDM_screen3_c75000`, N = 1000,
+3 seeds, mean active at the floor → at 75k: no intervention 436 → 335; input-weight cap 0.3
+462 → 395; re-initialising silent units (the continual-backprop move) 419 → 338. Re-initialisation
+does nothing at the floor or after it, as on the pre-standard 30k screen. Figure 2 redrawn
+(`img/internal_figures/fig_paper_F2_fails.png`); panel k (flip-flop zero-out / random redraw)
+waits for RVtop200 (200k, ~18 h from 03:00).
