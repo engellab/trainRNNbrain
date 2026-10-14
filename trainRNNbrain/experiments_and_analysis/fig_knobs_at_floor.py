@@ -114,6 +114,16 @@ LADDERS = [
                 ("2", f"{DATA_DIR}/CDDM_c1_snapshots/EqType=h_N=1000_arm=winp2"),
                 ("5", f"{DATA_DIR}/CDDM_c1_snapshots/EqType=h_N=1000_arm=winp5"),
                 ("20", f"{DATA_DIR}/CDDM_c1_snapshots/EqType=h_N=1000_arm=winp20")]),
+    # the rate (frm) and recurrent-weight sparsity (rws) penalties on the standard network, with the
+    # sweep's own no-penalty control at the same 75k budget (agent A4, 2026-10-14). The stored loss
+    # of a penalty arm includes its penalty, so its floor is the floor of task + penalty; the rws
+    # arms end 4% BELOW their fitted floor and cross at ~12k against the control's 21-32k.
+    dict(stem="slide_k_frm_rws", knob="rate and sparsity penalties", ref=0, categorical=True,
+         task="CDDM, $N$ = 1000, 75,000 iterations",
+         rungs=[("none", f"{DATA_DIR}/CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0"),
+                ("rate\n$\\lambda$ = 0.2", f"{DATA_DIR}/CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0.2"),
+                ("sparsity\n$\\lambda$ = 0.05", f"{DATA_DIR}/CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0.05_LmbdFR=0"),
+                ("both", f"{DATA_DIR}/CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0.05_LmbdFR=0.2")]),
 ]
 
 
@@ -325,7 +335,9 @@ def tradeoff():
     """
     cache = load_cache()
     ps.setup()
-    fig, axes = plt.subplots(2, 4, figsize=(180 * ps.MM, 100 * ps.MM))
+    # four panels a row; a ninth ladder would otherwise be dropped silently by the zip below
+    rows = -(-len(LADDERS) // 4)
+    fig, axes = plt.subplots(rows, 4, figsize=(180 * ps.MM, 50 * rows * ps.MM))
     cddm_axes = []
     for ax, spec in zip(axes.flat, LADDERS):
         reads = [(lab.replace("\n", " "), read_rung(p, spec.get("end_at"), cache))
