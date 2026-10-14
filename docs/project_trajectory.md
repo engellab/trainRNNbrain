@@ -15673,3 +15673,8 @@ MB). Purpose (Pavel): find each run's floor after training and restore the netwo
 networks can be compared at their own floors. Note: a B4-style transfer from a float16 snapshot is
 no longer bit-exact (metric-equivalent per the validation above); existing snapshots stay float32.
 New sweeps pick this up only if launched from code at or after this commit.
+**Kept snapshots are the default (Pavel: "new runs should keep the snapshots from now on").** Every
+trainer config now has `checkpoint_every: 1000` and `checkpoint_keep: true`; a launcher opts out with
+`++trainer.checkpoint_keep=false`. Launchers passing `+trainer.checkpoint_keep` now pass `++`.
+Smoke-tested through run_experiment (no flags, and the launcher form): it0001000, it0002000 and
+resume/ written.
