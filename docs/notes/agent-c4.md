@@ -70,9 +70,6 @@ dd_i(t) = dW_rec[i,:] r(t-1) + dW_inp[i,:] u(t-1), averaged over the unit's 1% h
 Also reported: gradient signal-to-noise per row, |M|/sqrt(V), against the value for pure noise with
 K = 10 (about 0.25), and the step against the unit's distance below threshold.
 
-## Results
-
-(filled in below after the runs)
 
 ### Added pre-registration (23:49, after the floor results for (a)-(f), before this test ran)
 
@@ -96,3 +93,123 @@ compare each unit's incoming weights at the floor snapshot t* with t* + 500 and 
        5000-iteration weight change raises their drive at their 1% highest-h samples in > 60%.
        It does not: < 10% become active, and that drive change is positive in 40-60% or fewer.
   Baselines reported beside them: the same numbers for silent-unreached and for active units.
+
+## Results (2026-10-14 00:05)
+
+Six networks, N = 1000, read at the floor snapshot: flip-flop seeds 1258717025 / 2461724787 /
+4113307577 (floor at iteration 69,500 / 27,000 / 39,500) and CDDM seeds 1423687489 / 2657899762 /
+2670295995 (26,000 / 25,000 / 25,500). Reference batch: task seed 12345, 1024 flip-flop trials or the
+450-trial CDDM grid, noise-free. "q95" is the 95th percentile over units. Numbers are listed per seed
+in that order.
+
+| | flip-flop | CDDM |
+|---|---|---|
+| active units | 265 / 355 / 333 | 415 / 426 / 434 |
+| reached by g_in | 407 / 624 / 525 | 440 / 428 / 443 |
+| silent but reached | 145 / 273 / 195 | 50 / 46 / 46 |
+| active but not reached | 3 / 4 / 3 | 25 / 44 / 37 |
+| units never above 0 (g_in exactly 0) | 0 / 0 / 0 | 322 / 275 / 271 |
+
+**Oracle: passed.** The numpy float64 hand-written backward pass agrees with the production
+`unit_gradients` (torch float32 autograd) per unit: median relative difference 2e-7 to 9e-7, worst
+unit 1e-4, on all six networks for g_in and g_out; reached counts identical. Before that, the backward
+pass matched autograd to 1e-15 on a toy network with noise.
+
+**(b) exact zeros through the clamp: falsified, as predicted.** g_in with the ReLU derivative set to 0
+at h = 0 equals g_in with it set to 1, bit for bit, on every unit of every network. Every unit sits at
+h = 0 exactly at step 0 (and on the flip-flop until the first pulse), but every weight-gradient term
+from those steps is multiplied by a rate or input that is also exactly 0.
+
+**(a) silent units are briefly on: survived.** Every silent-but-reached flip-flop unit is above
+threshold somewhere: the median one for 2 to 4% of the time steps, but in 874 to 959 of the 1024
+trials. Of their above-threshold samples, 93 to 99% fall within 20 steps after an input pulse, against
+63% of all samples. Across silent units, g_in follows the number of above-threshold samples (Spearman
+rank correlation 0.88 to 0.95). The participation rule cannot see such a unit: a unit on for under
+10% of samples has q90(|r|) = 0, so its p is its standard deviation alone. 96 to 97% of these units are
+on for under 10% of samples. Spot check, seed 2461724787: unit 843 is on in all 1024 trials, for 2% of
+samples, peak rate 0.04, every on-sample within 20 steps of a pulse, g_in 8% of q95.
+On the flip-flop no unit is gradient-starved: all 1000 units cross threshold at some point. On CDDM
+271 to 322 units never cross it and get exactly zero gradient, as a ReLU must.
+
+**(c) the bar: the pre-registered prediction held, but it applies to both counts.** From a bar at 1%
+of q95 to one at 20%, the flip-flop g_in count falls 2.3- to 2.4-fold (CDDM: 1.4- to 1.5-fold). The
+participation count falls 2.1- to 2.2-fold over the same range on both tasks (flip-flop seed
+2461724787: 479 to 254 active; CDDM seed 2657899762: 528 to 243). So the "1.5 to 1.8 times as many"
+figure depends on the bar, and so does the CDDM agreement: at a 20% bar CDDM would show 1.4 times as
+many reached units as active ones. What does not depend on any bar is the shape of panel B: on CDDM
+27 to 32% of the units have g_in exactly 0, while on the flip-flop the silent units' g_in
+distribution runs continuously into the active units' (silent median 10 to 40 times below the active
+median, upper tail overlapping it).
+
+**(d) larger loss sensitivity when a silent unit fires: survived on the flip-flop, not on CDDM.**
+Per above-threshold sample, the RMS of dL/dh is 4.1 / 4.9 / 4.9 times larger for silent-but-reached
+flip-flop units than for active ones (CDDM: 0.8 / 0.9 / 1.1). This sensitivity is what lifts them over
+the bar: they are on 13 to 23 times less often than active units, yet their median g_in is
+0.35 to 0.43 of the active median (rough arithmetic, not a fit).
+(d') timing does not explain it: restricted to above-threshold samples within 10 or 20 steps of a
+pulse, the ratio stays 3.3 to 4.2 (pre-registered bar for "timing explains it": below 1.5). Their
+outgoing weights are smaller, not larger (median ||W_rec[:,i]|| 0.66 to 0.94 against 1.42 to 1.51 for
+active units). Why the loss is more sensitive to them per sample is untested.
+
+**(e) binary gate: undecided by the pre-set bars.** Silent-but-reached flip-flop units peak at 11 / 17 /
+32% of the active units' median peak rate (bars: under 10% true, over 30% false). Their g_out/g_in
+ratio is 2.9 / 6.8 / 8.5 times lower than active units' (CDDM 1.8 to 2.8 times). The gate passes the
+full error to a unit's inputs however weakly it fires, while its outputs learn in proportion to its
+rate; that asymmetry is why g_out tracks the active count (1.1 to 1.3 times) and g_in does not.
+
+**(f) training noise: falsified.** With the run's own noise, g_in reaches 0.79 to 0.84 times as many
+flip-flop units as noise-free (CDDM 0.95 to 1.07). Under noise the training gradient on the flip-flop
+is also 4 to 8 times smaller (ratio of q95 values) than the noise-free one the read-out uses.
+
+**Does the gradient change a silent unit?**
+Size: a silent-but-reached unit's g_in is 0.35 to 0.43 of the active median (CDDM 0.26 to 0.40).
+One estimated Adam step: uninterpretable. At the end of each run the saved optimizer state gives the
+true next step; the per-row cosine between it and the 10-batch estimate has medians from -0.92 to
++0.28, and in all six networks the estimated step moves the drive of active and silent units in the
+same direction, with a sign that flips between seeds. The pre-registered "revive / hold down" test therefore reads a
+network-wide mode, not anything specific to silent units. (Interpretation, untested: an Adam
+oscillation along a stiff direction, whose phase differs between seeds.)
+Real training, read from the snapshots (test g; `c4_snapshot_drift.py`, panel D), over the 5000
+iterations after the floor:
+
+| | flip-flop silent-reached | flip-flop active | CDDM silent-reached | CDDM active |
+|---|---|---|---|---|
+| active 5000 iterations later | 4 / 4 / 2 % | 97 / 99 / 93 % | 24 / 28 / 28 % | 92 / 89 / 89 % |
+| drive at its 1% highest-h samples fell | 72 / 68 / 80 % | 53 / 54 / 47 % | 58 / 78 / 59 % | 58 / 58 / 63 % |
+| incoming row shrank | 72 / 82 / 78 % | 59 / 52 / 46 % | 100 / 100 / 100 % | 96 / 96 / 95 % |
+| relative row change, x active | 1.15 / 1.27 / 1.68 | 1 | 1.30 / 1.16 / 1.20 | 1 |
+
+(g1) true on both tasks: the incoming rows of silent-but-reached units change by 1.2 to 1.7 times the
+active units' relative change. (g2) on the flip-flop: no revival (2 to 4% become active, below the 10%
+bar) and the drive at the moments they fire falls for about three quarters of them, against half of the
+active units. On CDDM the result sits between the bars: about a quarter become active, but the drive
+change is no more often upward than for active units. CDDM's silent-but-reached units are on for 6.5
+to 7.5% of samples, close to the participation rule's 10% edge, and 8 to 11% of active units drop out
+over the same window, so I read the CDDM movement as turnover at the bar rather than revival
+(interpretation).
+
+Figure: `img/internal_figures/c4_gradient_mechanism.pdf` (+ `.svg`, PNG preview `.pdf.png`), in the
+main checkout. Row 1 flip-flop, row 2 CDDM. A: g_in against the share of samples a unit is above
+threshold; B: g_in distributions; C: reached / active as the bar moves; D: the 5000-iteration outcome.
+
+Code (branch agent-c4): `c4_gradient_mechanism.py` (Della CPU jobs, outputs in
+`/scratch/gpfs/TENGEL/pt1290/agent_c4/` and `.../agent_c4/end/`), `c4_snapshot_drift.py` (local, on
+snapshots it*, it*+500, it*+5000 copied from `data/c1_snapshots/<sweep>/<cell>/s<seed>/`; the
+flip-flop floors live under the parent runs s1542248578, s2851654641, s2670297180), and
+`c4_mechanism_report.py` (prints every test, draws the figure).
+
+Not tested: DMTS, sizes other than N = 1000, other training lengths.
+
+## Recommended wording for claim C4
+
+CDDM: "About half of the silent units (271 to 322 of 1000) never cross threshold on the task and
+receive exactly zero gradient on their incoming weights; the other silent units fire briefly and are
+reached." Drop "reached = active" as a count identity: both counts depend on the 5% bar, and the
+reached and active sets differ by 25 to 50 units each way.
+
+Flip-flop: "Silence is not loss of gradient. Every unit crosses threshold; the units the participation
+rule calls silent fire for a few steps after nearly every input pulse, and their incoming weights
+receive gradient and keep changing as much as active units' do. Training keeps them silent anyway:
+over the next 5000 iterations 2 to 4% become active, and for about three quarters of them the drive
+at the moments they fire falls." Also state, for claim 1, that "silent" on the flip-flop means "above
+threshold for under 10% of the time", not "never above threshold".
