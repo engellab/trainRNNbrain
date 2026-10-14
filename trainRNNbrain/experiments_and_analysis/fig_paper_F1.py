@@ -1327,8 +1327,10 @@ def panel_e(axes):
 # read-out), ...] in order of preference, colour), top to bottom in the order of panel (e). The
 # networks are the claim-1 snapshot runs, read where their noisy loss reaches 1.05x its floor; the
 # flip-flop falls back to its end-of-training controls until its 200k continuations have a floor.
-ABLATION_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_ablation"
-RETRAIN_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_retrain"
+# The *_seeded folders hold the re-run of 2026-10-14 with the held-out and ordering batches seeded and
+# the smoothed-minimum floor fallback; the unseeded results stay in c1_ablation and c1_retrain.
+ABLATION_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_ablation_seeded"
+RETRAIN_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_retrain_seeded"
 ABLATION = [
     ("3-bit flip-flop", [("NBitFlipFlop_c1_snapshots_c200000__EqType=h_N=1000_arm=control", "floor"),
                          ("NBitFlipFlop_ff_revive_c75000__EqType=h_k=3_N=1000_pen=none_arm=none",
