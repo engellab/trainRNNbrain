@@ -15623,3 +15623,10 @@ where it converges to a worse solution (~720 units at R² 0.883 against Adam's ~
 SGD's best learning rates (0.3-1) it has Adam's count at R² 0.90-0.91. Adam with coupled weight decay
 reaches its floor ~1.6-2x sooner and 0.01 lower in R² than Adam wd 0 / AdamW, with a similar count.
 Figure `diag_b5_optimizer.png` redrawn (left: both at the floor; right: both at 200k).
+
+**C3 updated (Pavel agreed: "the Adam optimizer is not the issue of silent units - SGD still does the
+same").** Claim wording now in `docs/paper_audit.md` §2 C3: "Silence is not an artefact of the
+optimizer: SGD at its best learning rates leaves as many units silent as Adam, and keeps more only
+when it converges to a worse solution." Nuance kept in the audit: even at its best, SGD reaches R²
+0.90-0.91 against Adam's 0.95, so the comparison is between networks that solve the task to slightly
+different degrees. Status board row C3 rewritten; SGD without weight decay pending on Spock.
