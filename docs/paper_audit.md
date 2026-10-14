@@ -65,7 +65,7 @@ view of what worked (to build).
 | W1 manuscript | **Partly.** Claim 1 is written; the abstract, intro and discussion still tell the old story | Rewrite to the framing in §1 |
 | W2 not brain-like, W3 bio vs engineering | **Drafted** on paper branch `w2-w3-draft` (Discussion + Table 1, 28 verified refs) | Pavel to review; one `% NUMBER NEEDED` |
 | Decision 1 (read-out) | **Resolved:** noisy loss, 1.05×, the guards above | — |
-| Decisions 2–5 | Open | Ask Pavel |
+| Decisions 2–5 | 14 Oct: rate penalty's R² cost is < 1% (p ≈ 0.02, n = 5): treat as negligible; B3/B4 as planned; plateaued fits read at 1.05x the smoothed minimum; held-out batch seeded project-wide | Conclusion wording (decision 3) still open |
 
 ## 1. The paper in one paragraph
 
