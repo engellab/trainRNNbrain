@@ -376,7 +376,9 @@ def tradeoff():
         a.set_ylim(lo, hi)
     for a in axes[:, 0]:
         a.set_ylabel("held-out $R^2$ at the floor")
-    for a in axes[-1, :]:
+    # every drawn panel gets its x label: with an incomplete last row, the panels above the gap are
+    # the bottom of their column
+    for a in axes.flat[:len(LADDERS)]:
         a.set_xlabel("active units (of 1000)")
     for a in axes.flat[len(LADDERS):]:
         fig.delaxes(a)
