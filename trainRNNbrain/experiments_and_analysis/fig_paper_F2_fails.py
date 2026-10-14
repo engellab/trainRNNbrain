@@ -369,66 +369,111 @@ def covered(ax, leg):
     reaches outside its axes counts as covering everything.
 
     Args:
-        ax: a traces axes; leg: its legend.
+        ax: a traces axes, or a tuple of axes for a legend spanning a panel pair (then every axes'
+            data is tested and the outside-the-axes rule does not apply); leg: its legend.
     Returns:
         int.
     """
-    fig = ax.figure
+    axes = ax if isinstance(ax, tuple) else (ax,)
+    fig = axes[0].figure
     fig.canvas.draw()
     bb = leg.get_window_extent(fig.canvas.get_renderer()).padded(2)
-    box = ax.get_window_extent()
-    if bb.x0 < box.x0 - 1 or bb.x1 > box.x1 + 1 or bb.y0 < box.y0 - 1 or bb.y1 > box.y1 + 1:
+    box = axes[0].get_window_extent()
+    if len(axes) == 1 and (bb.x0 < box.x0 - 1 or bb.x1 > box.x1 + 1 or bb.y0 < box.y0 - 1 or bb.y1 > box.y1 + 1):
         return 10 ** 6
-    pts = [ax.transData.transform(ln.get_xydata()) for ln in ax.lines if len(ln.get_xydata()) > 2]
-    pts += [ax.transData.transform(c.get_offsets()) for c in ax.collections]
+    pts = []
+    for a in axes:
+        pts += [a.transData.transform(ln.get_xydata()) for ln in a.lines if len(ln.get_xydata()) > 2]
+        pts += [a.transData.transform(c.get_offsets()) for c in a.collections]
     pts = np.concatenate(pts) if pts else np.zeros((0, 2))
     return int(((pts[:, 0] > bb.x0) & (pts[:, 0] < bb.x1) &
                 (pts[:, 1] > bb.y0) & (pts[:, 1] < bb.y1)).sum())
 
 
-def place_legend(ax, handles):
-    """Put the rung legend inside a traces axes where it covers no data.
+def place_legend(ax, handles, alt=None):
+    """Put the rung legend where it covers no data: inside the traces axes, else inside `alt`.
 
     The legend's size is measured once per column count; candidate positions are then tested
     arithmetically against every drawn vertex and symbol: the four corners first (one column, then
-    two, then three), then a grid over the whole axes. Falls back to the lower-left corner, which
-    `check_layout` then reports.
+    two, then three), then a grid over the whole axes. When the traces axes has no free spot (dense
+    traces), the same search runs on `alt`, the paired R^2 panel, whose points sit in one column.
+    Falls back to the traces axes' lower-left corner, which `check_layout` then reports.
 
     Args:
-        ax: the traces axes; handles: legend handles.
+        ax: the traces axes; handles: legend handles; alt: a second axes to try, or None.
     Returns:
-        the legend.
+        (the axes holding the legend - a tuple (ax, alt) for a legend spanning both - , the legend).
     """
     kw = dict(handles=handles, fontsize=5.0, handlelength=1.6, borderaxespad=0.0,
               labelspacing=0.2, handletextpad=0.4, columnspacing=0.8, loc="lower left")
     fig = ax.figure
-    fig.canvas.draw()
     rend = fig.canvas.get_renderer()
-    pts = [ax.transData.transform(ln.get_xydata()) for ln in ax.lines if len(ln.get_xydata()) > 2]
-    pts += [ax.transData.transform(c.get_offsets()) for c in ax.collections]
-    pts = np.concatenate(pts)
-    box = ax.get_window_extent()
     m = 0.015                                   # margin from the axes edge, in axes fractions
-    for grid in (False, True):
+
+    def search(a):
+        """The legend placed on axes `a` covering no data, or None (no legend left on `a`)."""
+        fig.canvas.draw()
+        pts = [a.transData.transform(ln.get_xydata()) for ln in a.lines if len(ln.get_xydata()) > 2]
+        pts += [a.transData.transform(c.get_offsets()) for c in a.collections]
+        pts = np.concatenate(pts) if pts else np.zeros((0, 2))
+        box = a.get_window_extent()
+        for grid in (False, True):
+            for ncol in (1, 2, 3):
+                leg = a.legend(ncol=ncol, bbox_to_anchor=(0, 0), **kw)
+                fig.canvas.draw()
+                bb = leg.get_window_extent(rend)
+                w, h = (bb.width + 4) / box.width, (bb.height + 4) / box.height
+                if w > 1 - 2 * m or h > 1 - 2 * m:
+                    continue
+                if grid:
+                    cand = [(x, y) for y in np.arange(m, 1 - h - m, 0.025)
+                            for x in np.arange(m, 1 - w - m, 0.025)]
+                else:
+                    cand = [(m, m), (1 - w - m, 1 - h - m), (1 - w - m, m), (m, 1 - h - m)]
+                for x, y in cand:
+                    x0, y0 = box.x0 + x * box.width, box.y0 + y * box.height
+                    x1, y1 = x0 + w * box.width, y0 + h * box.height
+                    hit = ((pts[:, 0] > x0) & (pts[:, 0] < x1) & (pts[:, 1] > y0) & (pts[:, 1] < y1)).any()
+                    if not hit:
+                        return a.legend(ncol=ncol, bbox_to_anchor=(x + 2 / box.width, y + 2 / box.height), **kw)
+        if a.get_legend() is not None:
+            a.get_legend().remove()
+        return None
+
+    for a in (ax, alt):
+        if a is not None:
+            leg = search(a)
+            if leg is not None:
+                return a, leg
+    if alt is not None:
+        # neither panel alone has room (the R^2 panel is narrower than the legend): search the
+        # rectangle spanning both panels, testing the data of both, with the legend in figure units
+        fig.canvas.draw()
+        pts = []
+        for a in (ax, alt):
+            pts += [a.transData.transform(ln.get_xydata()) for ln in a.lines if len(ln.get_xydata()) > 2]
+            pts += [a.transData.transform(c.get_offsets()) for c in a.collections]
+        b1, b2 = alt.get_window_extent(), ax.get_window_extent()
+        # the panels' left and bottom axis lines are obstacles too: a legend must not straddle them
+        for b in (b1, b2):
+            ys = np.linspace(b.y0, b.y1, 200)
+            xs = np.linspace(b.x0, b.x1, 200)
+            pts += [np.c_[np.full_like(ys, b.x0), ys], np.c_[xs, np.full_like(xs, b.y0)]]
+        pts = np.concatenate(pts)
+        X0, X1, Y0, Y1 = min(b1.x0, b2.x0), max(b1.x1, b2.x1), max(b1.y0, b2.y0), min(b1.y1, b2.y1)
+        W, H = fig.bbox.width, fig.bbox.height
         for ncol in (1, 2, 3):
-            leg = ax.legend(ncol=ncol, bbox_to_anchor=(0, 0), **kw)
+            leg = fig.legend(ncol=ncol, bbox_to_anchor=(0, 0), **kw)
             fig.canvas.draw()
             bb = leg.get_window_extent(rend)
-            w, h = (bb.width + 4) / box.width, (bb.height + 4) / box.height
-            if w > 1 - 2 * m or h > 1 - 2 * m:
-                continue
-            if grid:
-                cand = [(x, y) for y in np.arange(m, 1 - h - m, 0.025)
-                        for x in np.arange(m, 1 - w - m, 0.025)]
-            else:
-                cand = [(m, m), (1 - w - m, 1 - h - m), (1 - w - m, m), (m, 1 - h - m)]
-            for x, y in cand:
-                x0, y0 = box.x0 + x * box.width, box.y0 + y * box.height
-                x1, y1 = x0 + w * box.width, y0 + h * box.height
-                hit = ((pts[:, 0] > x0) & (pts[:, 0] < x1) & (pts[:, 1] > y0) & (pts[:, 1] < y1)).any()
-                if not hit:
-                    return ax.legend(ncol=ncol, bbox_to_anchor=(x + 2 / box.width, y + 2 / box.height), **kw)
-    return ax.legend(ncol=1, bbox_to_anchor=(m, m), **kw)
+            w, h = bb.width + 4, bb.height + 4
+            leg.remove()
+            for y0 in np.arange(Y1 - h - 3, Y0 + 3, -0.02 * (Y1 - Y0)):
+                for x0 in np.arange(X0 + 3, X1 - w - 3, 0.02 * (X1 - X0)):
+                    hit = ((pts[:, 0] > x0) & (pts[:, 0] < x0 + w) & (pts[:, 1] > y0) & (pts[:, 1] < y0 + h)).any()
+                    if not hit:
+                        return (ax, alt), fig.legend(ncol=ncol, bbox_to_anchor=((x0 + 2) / W, (y0 + 2) / H), **kw)
+    return ax, ax.legend(ncol=1, bbox_to_anchor=(m, m), **kw)
 
 
 def draw(data):
@@ -507,14 +552,15 @@ def draw(data):
             ax_r2.set_ylabel("active units (of 1000)")
     # legends last, once every axis has its final limits, so the coverage test reads the real layout
     legends = []
-    for _, ax_tr, lad, handles in pairs:
+    for ax_r2, ax_tr, lad, handles in pairs:
         if handles is None:
             continue
         lender = BORROW_LEGEND.get(lad["spec"]["stem"])
         if lender:
             handles = [Line2D([], [], ls="none",
                               label=f"rungs as in {'abcdefghi'[ORDER.index(lender)]}")]
-        legends.append((ax_tr, lad, place_legend(ax_tr, handles)))
+        holder, leg = place_legend(ax_tr, handles, alt=ax_r2)
+        legends.append((holder, lad, leg))
 
     # the bottom line sits where a traces panel would, so its axis lines up with the panels above
     # and its row labels take the place of an R^2 panel
@@ -540,6 +586,8 @@ def drawn_texts(fig):
         list of Text artists.
     """
     out = [t for t in fig.texts if t.get_text().strip()]
+    for leg in fig.legends:                      # legends spanning a panel pair live on the figure
+        out += list(leg.get_texts())
     for ax in fig.axes:
         out += [t for t in ax.texts if t.get_text().strip()]
         out += [t for t in (ax.title, ax.xaxis.label, ax.yaxis.label) if t.get_text().strip()]
