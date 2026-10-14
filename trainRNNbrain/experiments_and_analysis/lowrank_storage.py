@@ -12,6 +12,8 @@ rank-6 factor):
          FIRST run's seed (gradient_participation.initial_params); a = <W, W0> / <W0, W0>.
   svd    W ~ rank-r SVD of W.
   fp16   W rounded to float16 (full rank, half the bytes).
+  q<b>   W quantised to b-bit integers, one float32 scale per row (absmax: the largest |entry| of the
+         row maps to the largest integer), e.g. q8 = N^2 bytes + 4N.
   exact  W itself, written and read back through the same folder path: every difference must be 0.
          This is the check that the write/score path adds nothing.
 
@@ -23,7 +25,7 @@ MEASURES, each on the original and on the reconstruction, same batch, same seeds
   g_in/out  per-unit incoming / outgoing weight-gradient norms from the same noise-free pass
 
 Usage (Della, CPU node):
-  python lowrank_storage.py run RUN_DIR --at floor|end --schemes init,svd --out OUT.json --scratch DIR
+  python lowrank_storage.py run RUN_DIR --at floor|end --schemes init,svd,q8 --out OUT.json --scratch DIR
   python lowrank_storage.py chain RUN_DIR --ranks 10,50 --every 1000 --out OUT.json
   python lowrank_storage.py figure 'results/*.json' --fig-dir DIR
 """
@@ -235,6 +237,10 @@ def run(run_dir, at, schemes, ranks, out, scratch):
             Wr, nbytes = truncated(Us, ss, Vts, r), 4 * (2 * r * N + r)
         elif sch == "fp16":
             Wr, nbytes = Wt["W_rec"].astype(np.float16), 2 * N * N
+        elif sch.startswith("q"):
+            levels = 2 ** (int(sch[1:]) - 1) - 1
+            scale = np.abs(W).max(axis=1, keepdims=True) / levels
+            Wr, nbytes = np.round(W / scale) * scale, N * N * int(sch[1:]) // 8 + 4 * N
         else:
             Wr, nbytes = Wt["W_rec"], 4 * N * N
         P = dict(Wt)
