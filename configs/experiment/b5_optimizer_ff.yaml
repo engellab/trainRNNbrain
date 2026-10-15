@@ -1,0 +1,36 @@
+# @package _global_
+# B5, THE OPTIMISER CONTROL, on the standard 3-bit flip-flop at N = 1000 (paper audit, section 7).
+#
+# QUESTION. Every run in this line used Adam with coupled L2 (torch Adam's weight_decay). For a unit
+# with no task gradient, coupled L2 is the whole gradient, and Adam divides it by its own RMS, so the
+# unit's weights shrink by ~lr per step however small weight_decay is. Is the loss of units after
+# the loss floor a property of that optimiser, or of gradient descent on the task? Arms (set by the
+# launcher, SilentReLU_b5_optimizer_spock.slurm): Adam at wd 1e-6 (the line's default, the control)
+# and at wd 0; AdamW at wd 1e-6; SGD at wd 1e-6 over a learning-rate ladder.
+#
+# Everything else is the standard control of NBitFlipFlop_c1_snapshots / ff_revive: ReLU, equation
+# h, bias 0, self-connections on, no Dale, gamma 0, fresh batch every iteration, 200k iterations
+# (the flip-flop's noisy loss is still falling at 75k). Select with
+#   +experiment=b5_optimizer_ff
+defaults:
+  - override /task: NBitFlipFlop
+  - override /model: rnn_relu_standard
+  - override /trainer: trainer_ptrack_freshbatch
+
+light_outputs: true
+model:
+  equation_type: h
+  N: 1000
+trainer:
+  trainer_tag: ""
+  max_iter: 200000
+  track_drift: true
+  track_every: 10
+  store_participation_every: 100
+  track_valid: false
+  lambda_rws: 0
+  lambda_frm: 0
+  prune_reinit: false
+  synaptic_scaling: false
+  dropout: false
+  checkpoint_every: 5000

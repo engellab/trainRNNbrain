@@ -337,7 +337,21 @@ def run_training(cfg: DictConfig) -> None:
         reference_N = 100.0
         scale = (reference_N / float(rnn_cfg.N)) ** cfg.trainer.lr_scale_exp
         lr = cfg.trainer.lr * scale
-        opt = torch.optim.Adam(rnn_torch.parameters(), lr=lr, weight_decay=cfg.trainer.weight_decay)
+        # OPTIMISER (B5, the optimiser control). `adam` is the line's default and applies weight decay
+        # as COUPLED L2: wd*w is added to the gradient and then divided by sqrt(v), so a unit with no
+        # task gradient has its weights pulled to zero at ~lr per step whatever wd is. `adamw`
+        # decouples it (w -= lr*wd*w); `sgd` adds the same wd*w to the gradient with no
+        # normalisation. Configs written before this key existed ran Adam, hence the default.
+        opt_name = cfg.trainer.get("optimizer", "adam")
+        if opt_name == "adam":
+            opt = torch.optim.Adam(rnn_torch.parameters(), lr=lr, weight_decay=cfg.trainer.weight_decay)
+        elif opt_name == "adamw":
+            opt = torch.optim.AdamW(rnn_torch.parameters(), lr=lr, weight_decay=cfg.trainer.weight_decay)
+        elif opt_name == "sgd":
+            opt = torch.optim.SGD(rnn_torch.parameters(), lr=lr, weight_decay=cfg.trainer.weight_decay,
+                                  momentum=cfg.trainer.momentum)
+        else:
+            raise ValueError(f"trainer.optimizer must be adam, adamw or sgd; got {opt_name!r}")
 
         # WARM START. `paths.init_from` names a finished run's folder; its LastParams are copied into
         # this net and (optionally) its Adam moments into this optimizer, so training CONTINUES from
