@@ -50,7 +50,7 @@ descent on the task is not enough, so participation needs a drive of its own, li
 
 | Thing | Location |
 |---|---|
-| Analysis code | GitHub `engellab/trainRNNbrain`, **branch `restore-oct5`**. It is a shared lab repo: push branches, never force. Locally `~/Documents/GitHub/trainRNNbrain` |
+| Analysis code | GitHub `engellab/trainRNNbrain`, **branch `main`** (the only branch since 15 Oct). It is a shared lab repo: push branches, never force. Locally `~/Documents/GitHub/trainRNNbrain` |
 | Paper | GitHub `ptolmachev/dead-relu-paper`, branch `main`. Overleaf syncs it: *Menu → GitHub → Pull*. Locally `~/Documents/GitHub/dead-relu-paper`, next to the analysis repo (`sync_figures.sh` expects that) |
 | Trained networks | Della `/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs`, also reachable as `~/trainRNNbrain/data/trained_RNNs`. Spock `~/trainRNNbrain/data/trained_RNNs` holds older, pre-standard sweeps |
 | Kept weight snapshots (claim-1 runs) | Della `/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots` |
@@ -67,7 +67,7 @@ descent on the task is not enough, so participation needs a drive of its own, li
 | `~/trainRNNbrain` | another agent's checkout (`dimensionality-analysis`, dirty) | Do not touch |
 | `~/trainRNNbrain_c1abl` | `b524ac7`, clean; trained the claim-1 snapshot runs | Leave clean |
 | `~/trainRNNbrain_c1top` | `7739a60`, clean; the 200k top-ups run from it | **Must stay clean**: the launcher refuses a dirty tree |
-| `~/trainRNNbrain_c1ana` | analysis checkout, detached at `7608099`; holds a `data` symlink to the scratch data, uncommitted copies of `fig_paper_F1.py` equal to the committed `e68a591`, and a scratch `_panel_c_numbers.py` | To update: `git fetch origin restore-oct5 && git checkout -- . && git checkout --detach FETCH_HEAD`. Della can fetch from GitHub; the git bundles used before are no longer needed |
+| `~/trainRNNbrain_c1ana` | analysis checkout, detached at `7608099`; holds a `data` symlink to the scratch data, uncommitted copies of `fig_paper_F1.py` equal to the committed `e68a591`, and a scratch `_panel_c_numbers.py` | To update: `git fetch origin main && git checkout -- . && git checkout --detach FETCH_HEAD`. Della can fetch from GitHub; the git bundles used before are no longer needed |
 
 **Compute:**
 - Everything runs on Della; this laptop has no Python environment with numpy or torch.
