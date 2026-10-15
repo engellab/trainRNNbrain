@@ -25,9 +25,16 @@ So, every time:
 Keep a running note of the paths you touch as you go. At commit time, "which files are mine" has to
 be something you know, not something you reconstruct from `git status`.
 
+## THE LAB NOTEBOOK IS ONE FILE PER ENTRY
+
+`docs/project_trajectory/` holds the record, one markdown file per entry, named
+`YYYY-MM-DD_HHMM_<slug>.md`. Take the time from `date +%Y-%m-%d_%H%M`, never from memory. Write a
+new file for every entry; never append to another entry's file, so two agents cannot collide in
+one. A correction is a new entry that names the file it corrects. Details in its `README.md`.
+
 ### If you find foreign work already inside a commit you made
 
-Say so plainly, in the reply and in `docs/project_trajectory.md`. Do not rewrite history to fix it —
+Say so plainly, in the reply and in a new entry in `docs/project_trajectory/`. Do not rewrite history to fix it —
 another agent may already have branched from it. Name the commit and the paths that were not yours.
 
 ### Commit messages

@@ -1,7 +1,7 @@
 # Paper audit: where the project stands and what is left to publish
 
 *Round 1, 9 October 2026. This document supersedes the abstract and storyline in `paper.md`, which
-tell the older penalty/selectivity story. The full record stays in `project_trajectory.md`.*
+tell the older penalty/selectivity story. The full record stays in `project_trajectory/`.*
 
 ## Round 2 (12 October): decisions taken, and claim 1 on standard networks
 

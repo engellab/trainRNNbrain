@@ -9,7 +9,7 @@
 # k = 2 / 4 / 6 / 8). If active units track task demand at all, they must track THIS.
 #
 # Pre-registered read-out (fixed before any run finishes; entry of 2026-09-11 15:02 in
-# docs/project_trajectory.md):
+# docs/project_trajectory/):
 #   1. M(k) rises steeply with 2^k-1 (exponent on k well above the plain task's 0.16, or clearly
 #      multiplicative in the channel count) -> recruitment DOES track demand once demand is real;
 #      the plain flip-flop's flat M(k) was cheap demand, not pathology.

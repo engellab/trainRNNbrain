@@ -14,7 +14,7 @@ pickled dict:
 
 Participation of unit *i* is `std(fr_i) + 0.9-quantile(|fr_i|)` pooled over (time, trials) — the same
 quantity as the `participation.png` figure and every participation number in
-`docs/project_trajectory.md`. It is measured on a **noise-free** forward pass (`w_noise=False`) of the
+`docs/project_trajectory/`. It is measured on a **noise-free** forward pass (`w_noise=False`) of the
 fixed training batch (`same_batch=True`), so the trace is directly comparable to the offline figures.
 Unit indices are stable across training, so row *i* is the same neuron at every snapshot.
 

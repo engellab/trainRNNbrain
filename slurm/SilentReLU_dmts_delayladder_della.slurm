@@ -25,7 +25,7 @@
 # GRID (9 jobs) = 3 delays x 3 seeds, at N = 1000, pen = none, h equation, bias fixed at 0.
 #   delay in {8, 10, 12} tau. The 16 tau rung is NOT repeated here and its data no longer
 #   exists - DMTS_v2_pen was deleted on 2026-09-22 along with the 36 tau sweep. Its result is
-#   recorded in docs/project_trajectory.md: at N=1000, pen=none solved 0 of 3 with r2 0.452,
+#   recorded in docs/project_trajectory/: at N=1000, pen=none solved 0 of 3 with r2 0.452,
 #   0.452, 0.450 and 151.7 +- 6.7 active units. So 16 tau is a 0/3 rung and this ladder is
 #   looking for the shortest delay that reaches 3/3 below it.
 # Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..8): REP = TID%3; D_IDX = TID/3

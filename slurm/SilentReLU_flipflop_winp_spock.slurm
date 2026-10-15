@@ -21,7 +21,7 @@
 #
 # Read-out (fixed before the data): silent fraction along training (does the early global collapse
 # still happen?), participation Hoyer, 1/HHI, the four axes, against the ksweep ReLU baseline at the
-# same k, N and iteration. Decision rule in docs/project_trajectory.md (entry of 2026-09-11).
+# same k, N and iteration. Decision rule in docs/project_trajectory/ (entry of 2026-09-11).
 #
 # Output: $SAVE_TO/NBitFlipFlop_std_winp/EqType=h_k=3_N=<N>_s=<S>_iters=<IT>/<per-net subfolder>
 

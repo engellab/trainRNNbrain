@@ -21,7 +21,7 @@ unpenalised ReLU networks of the same size and task (ksweep, k=3), on:
 must not be used here. For the h equation the rate is activation(state); the raw history is the
 state (rates_and_targets applies np.maximum, which is only right for ReLU).
 
-Decision rule (pre-registered in project_trajectory.md, 2026-09-10 23:08): participation Hoyer
+Decision rule (pre-registered in project_trajectory/, 2026-09-10 23:08): participation Hoyer
 < 0.3 and unmodulated < 10% at both N with task R2 >= 0.8 → concentration is a ReLU-family property;
 Hoyer >= 0.5 or unmodulated >= 30% → general to positive activations; in between → graded.
 

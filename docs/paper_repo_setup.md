@@ -113,7 +113,7 @@ Everything below is in `~/Documents/GitHub/trainRNNbrain/`.
 | what | path |
 |---|---|
 | **Manuscript draft in prose** — the source to convert | `docs/paper.md` |
-| Full experimental record, including every retraction | `docs/project_trajectory.md` |
+| Full experimental record, including every retraction | `docs/project_trajectory/` |
 | Analysis scripts | `trainRNNbrain/experiments_and_analysis/` |
 | Generated figures | `img/internal_figures/` |
 | Curated dataset (hard links, 63 GB, 5,237 files) | `dead_ReLU_data/` + its `README.md` |
@@ -123,7 +123,7 @@ Everything below is in `~/Documents/GitHub/trainRNNbrain/`.
 numbered, results stated with numbers, and open items marked `⬜`. Converting it is the main job,
 not writing from scratch.
 
-**`docs/project_trajectory.md` is the lab notebook.** Consult it whenever a number needs its
+**`docs/project_trajectory/` is the lab notebook.** Consult it whenever a number needs its
 provenance, and *especially* before reviving any claim — it contains a retraction record listing
 several results that did not survive scrutiny. Do not resurrect them.
 

@@ -11,7 +11,7 @@ four axes; the participation trajectory (silent fraction and Hoyer vs iteration)
 Also reports the FINAL W_inp row norms of live and silent units and ||W_inp||_F per s, since the
 hypothesis is about whether the network keeps or sheds the input weight it was given.
 
-Decision rule (pre-registered, project_trajectory.md 2026-09-11): silence < 20% at any s with task
+Decision rule (pre-registered, project_trajectory/ 2026-09-11): silence < 20% at any s with task
 R2 >= 0.9 -> the init scale is a cause; unchanged (within seed spread of the baseline at matched
 iteration) -> excluded; intermediate -> reported as a dependence on s.
 

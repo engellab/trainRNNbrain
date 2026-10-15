@@ -1,6 +1,6 @@
 # TODO — silent-ReLU / dead-unit project
 
-Pre-publication checks to exclude trivial mechanisms. See `docs/project_trajectory.md` for the full
+Pre-publication checks to exclude trivial mechanisms. See `docs/project_trajectory/` for the full
 record. Status as of the gamma=0 / boundary / activation / noise controls.
 
 ## Done
@@ -10,7 +10,7 @@ record. Status as of the gamma=0 / boundary / activation / noise controls.
   The key test — do non-dead-gradient activations still show the low-activity mode? **Yes:** all three activations
   concentrate ~40–64% of units into a low-activity mode under none/rws (scale-free criterion); softplus-h is 0%
   hard-dead yet 41–64% relatively silent. → NOT a hard-ReLU dead-gradient artifact. fr penalty collapses all to
-  one active mode in every activation. See `docs/project_trajectory.md` (2026-07-01).
+  one active mode in every activation. See `docs/project_trajectory/` (2026-07-01).
 - **Noise control (DONE, `fb2792` re-run):** sigma_rec in {0,0.01,0.05,0.1} `5100399` (40/40). **Silence is NOT
   noise-driven:** adding noise never increases it; for h, sigma=0 is a distinct ~80%-silent regime and any noise
   drops it to ~46% (mild regularisation); for s it is ~55–60% and flat. Persists across all realistic noise.
@@ -18,7 +18,7 @@ record. Status as of the gamma=0 / boundary / activation / noise controls.
   function of the saved config seed (per-net rnn seed = seed + 3508); reconstructed exactly and scored on the same
   batch, per-unit paired. **0% silent at init (both metrics)** across nets → confirms silence emerges in training;
   frm works by **prevention** (init-active units stay active) not resurrection (there are ~no init-silent units to
-  resurrect). See `plot_init_vs_trained.py` + `docs/project_trajectory.md` (2026-07-01).
+  resurrect). See `plot_init_vs_trained.py` + `docs/project_trajectory/` (2026-07-01).
 - Now-checks (tmp/check_now.py, not committed): independent oracle = NOT a bug; 0% silent at init across
   spectral_rad = silence emerges in training; only ~2.5% truly dead, rest is a broad low-activity mode
   (threshold-dependent; principled cut at the dip ~0.05 -> ~49%).
@@ -36,7 +36,7 @@ Remaining, to make the prevention claim airtight against the harder case:
   2 eq × {none, frm} × 5 seeds. **Result: `frm` RESURRECTS** — 100% of dead-at-init S units become active under
   `frm` (both eq), vs ~50–57% under `none`; and under `none` S ends statistically identical to non-S, so the init
   silencing is not durable (fate decided during training). See `plot_silentinit_rescue.py` +
-  `docs/project_trajectory.md` (2026-07-02). (Global inhibitory boost was rejected — dims the homogeneous init
+  `docs/project_trajectory/` (2026-07-02). (Global inhibitory boost was rejected — dims the homogeneous init
   collectively instead of carving a subpopulation.)
 - **Master-inhibitor test (replaces the c-sweep) — SUBMITTED (job `5108070`, `CDDM_731df4_g0_masterinhib`).** The
   c-sweep was dropped: cranking `inhibitory_boost` changes weight magnitude but not init silence (a t=1 transient
@@ -45,7 +45,7 @@ Remaining, to make the prevention claim airtight against the harder case:
   (`model.master_inhib_frac ∈ {0.25,0.5,0.75,1.0}`; `rnn_relu_Dale_masterinhib.yaml`,
   `SilentReLU_masterinhib_gamma0_N1000.slurm`; 48 jobs = 2 eq × 4 frac × {none,frm} × 3 seeds). Clean
   "no gradient → no rescue" test; frac=1.0 = all-but-master dead (predict R²≈0, no rescue). Analyse with
-  `plot_silentinit_rescue.py` machinery. See `docs/project_trajectory.md` (2026-07-02).
+  `plot_silentinit_rescue.py` machinery. See `docs/project_trajectory/` (2026-07-02).
   **RESULT (2026-07-03): prediction wrong — frm rescues 100% at every fraction (incl. 1.0), task solved
   (R²≈0.85).** frm does it *indirectly*: the master is over-cap and active, so frm penalizes and suppresses it
   (peak 1–4.5 → ~0.4), releasing the clamp; the dead targets are never lifted directly. Under `none` the clamp

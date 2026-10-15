@@ -4,7 +4,7 @@
 # SINGLE change vs the original CDDM_4a031e sweep: model.gamma=0, which removes the -gamma*x^3
 # soft-saturation term from the dynamics (RNN_torch.rhs). Everything else is identical, so this
 # isolates whether the built-in cubic magnitude-limiter was confounding the silent-unit / penalty
-# results. (The Dale clamp-to-eps projection and bias=0 are unchanged here — see docs/project_trajectory.md.)
+# results. (The Dale clamp-to-eps projection and bias=0 are unchanged here — see docs/project_trajectory/.)
 #
 # Grid (40 jobs) = 2 eq x 2 lambda_rws x 2 lambda_frm x 5 nets, N=1000:
 #   EQ  in {h, s}            (model.equation_type)

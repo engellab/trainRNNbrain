@@ -1,7 +1,7 @@
 """Many tasks in one network, Yang-style: a rule input says which task the trial is.
 
 Why: a network trained on one task recruits only what that task demands (~10 units per latent
-function, see docs/project_trajectory.md). A cortical circuit is never doing only one task, so its
+function, see docs/project_trajectory/). A cortical circuit is never doing only one task, so its
 recorded population is busy for reasons the task at hand does not explain. This class trains ONE
 network on a list of the repo's tasks, each trial tagged by a one-hot rule input held on for the
 whole trial, so the recruitment on a single task (CDDM) can be read inside a network that also

@@ -198,5 +198,5 @@ This analysis is therefore a prerequisite for the identifiability section, not a
   - (b) A3 vs A4 scatter, per unit, coloured by condition — the two axes of uselessness at once
   - (c) `M_useful` vs N per condition, with the bar-value sweep as an inset
   - (d) B1–B4 table, computed both over non-silent units and over group-A-passing units
-- Result appended to `project_trajectory.md` with the pre-registration date cited, and the
+- Result appended to `project_trajectory/` with the pre-registration date cited, and the
   `paper.md` §1.3 CV claim corrected regardless of outcome.

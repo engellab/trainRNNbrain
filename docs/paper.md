@@ -2,7 +2,7 @@
 
 Restructured 2026-09-10 (the previous structure is in git history before commit `a2541c2`'s
 successor). Working document: the *argument*, what supports each claim, what is missing. The
-experimental record is [`project_trajectory.md`](project_trajectory.md); what is proposed but not
+experimental record is [`project_trajectory/`](project_trajectory/); what is proposed but not
 done, and what is deliberately left out, is [`research_directions.md`](research_directions.md).
 
 **Manuscript figures are vector.** `fig_paper_*.py` and `fig_supp_*.py` write PDF (the submission

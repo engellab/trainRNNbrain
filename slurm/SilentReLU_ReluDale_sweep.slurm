@@ -6,7 +6,7 @@
 # (lambda_rws) and the firing-rate magnitude penalty (lambda_frm) rescue those dead units and
 # prevent silent ReLUs? lambda_rws=0, lambda_frm=0 is the unmodified baseline.
 #
-# Pinned code commit: 4a031e7 (folder hash "4a031e"). See docs/project_trajectory.md for the
+# Pinned code commit: 4a031e7 (folder hash "4a031e"). See docs/project_trajectory/ for the
 # full experimental record / reproduction recipe.
 #
 # Grid (120 jobs) = 2 equation types x 2 lambda_rws x 2 lambda_frm x 3 sizes x 5 nets:

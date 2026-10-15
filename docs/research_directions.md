@@ -1,6 +1,6 @@
 # Research directions — what the paper still needs, and what it does not
 
-Companion to [`paper.md`](paper.md) (the argument) and [`project_trajectory.md`](project_trajectory.md)
+Companion to [`paper.md`](paper.md) (the argument) and [`project_trajectory/`](project_trajectory/)
 (the record). This file exists to keep the paper from becoming a dump of everything that was
 measured. **Rule: a result goes into the main text only if removing it would break a link in the
 storyline of `paper.md`.** Everything else is supplementary or out of scope, and is listed as such

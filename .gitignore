@@ -68,3 +68,6 @@ data/fig_paper_F1_coverage.pkl
 # build product of docs/presentation.md: a self-contained read-anywhere copy (deck_html.py)
 docs/presentation.html
 docs/presentation_backup.html
+
+# The lab notebook is never ignored: entry names are free text, and "*[_-]test*" above swallowed three.
+!/docs/project_trajectory/*

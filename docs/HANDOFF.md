@@ -10,8 +10,8 @@ everything else.*
 > network size and with training. Work methodically toward submission.
 >
 > 1. Read, in order: `CLAUDE.md` (the commit rules: several agents share this tree), this file
->    (`docs/HANDOFF.md`), the status board and plan in `docs/paper_audit.md`, and the last two
->    entries of `docs/project_trajectory.md` (2026-10-12 and 2026-10-13).
+>    (`docs/HANDOFF.md`), the status board and plan in `docs/paper_audit.md`, and the newest
+>    entries in `docs/project_trajectory/` (one file per entry, sorted by date and time).
 > 2. If this is a fresh laptop, restore it with `~/laptop_backup_2026-10-13/README.txt` on Della
 >    (`ssh della`). If `ssh della` asks for a password, ask Pavel to run `ssh -fN della`; you cannot
 >    authenticate yourself.
@@ -21,8 +21,8 @@ everything else.*
 >    costs.
 >
 > Read networks only at 1.05× the floor of their noisy training loss, never at a fixed iteration
-> or on the noise-free loss. Commit only files you changed, by name. Record every result in
-> `docs/project_trajectory.md`, and update the status board in `docs/paper_audit.md` as items
+> or on the noise-free loss. Commit only files you changed, by name. Record every result as a new
+> file in `docs/project_trajectory/`, and update the status board in `docs/paper_audit.md` as items
 > close. Pavel prefers a picture to an explanation, and short answers with few caveats.
 
 ## 1. What the paper says, and where the plan lives
@@ -242,7 +242,7 @@ the N = 1000 straggler, and the compute for the remedy top-ups.
 |---|---|
 | `docs/HANDOFF.md` | this file |
 | `docs/paper_audit.md` | plan and status board |
-| `docs/project_trajectory.md` | the full chronological record |
+| `docs/project_trajectory/` | the full chronological record |
 | `docs/presentation.md` | talk deck |
 | `docs/paper.md` | old paper plan, superseded by the audit |
 | `docs/paper_repo_setup.md` | how the paper repo and Overleaf sync were set up |

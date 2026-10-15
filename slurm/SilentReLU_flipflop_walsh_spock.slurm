@@ -11,7 +11,7 @@
 #   k=8: degree 1 -> 8, 2 -> 36, 4 -> 162, 8 -> 255;  k=6 full -> 63.
 # Everything else (inputs, output, trial statistics, k) is identical across degrees.
 #
-# Pre-registered read-out (docs/project_trajectory.md, 2026-09-13): live count at 150k under both
+# Pre-registered read-out (docs/project_trajectory/, 2026-09-13): live count at 150k under both
 # criteria, r^2, and the RECOVERED WALSH SPECTRUM by order (flipflop_walsh_eval.py) - which latent
 # products each network built, with no unit-level criterion. Predictions: `none` recruits up the
 # degree ladder (8 -> 255 terms) with the same one output; `both` lights every unit as always -

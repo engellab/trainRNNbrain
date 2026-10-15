@@ -1,7 +1,7 @@
 """Confirmation run read-out: does training on 20 tasks recruit more units for CDDM than training
 on CDDM alone? Yang family, N=1000, 30k iterations, 3 seeds per set (job 6209433).
 
-Pre-registered before the run (docs/project_trajectory.md, 2026-09-15 19:05): per SET, the number
+Pre-registered before the run (docs/project_trajectory/, 2026-09-15 19:05): per SET, the number
 of units live on CDDM trials (the union of contextdm1 and contextdm2) as mean +- sd over the three
 seeds under all three criteria, the shared-vs-CDDM-private split of that set in the 20-task nets,
 and per-rule accuracy with "solved" := accuracy >= 0.95.
