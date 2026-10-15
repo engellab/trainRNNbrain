@@ -1323,14 +1323,20 @@ def panel_e(axes):
 
 
 # Panel (d). Ablation results written by ablate_silent_units.py, one JSON per network and read-out,
-# in ABLATION_DIR on Della; prune-and-retrain results in RETRAIN_DIR. (label, [(file prefix,
+# in ABLATION_DIR on Della; prune-and-retrain results in RETRAIN_DIRS. (label, [(file prefix,
 # read-out), ...] in order of preference, colour), top to bottom in the order of panel (e). The
 # networks are the claim-1 snapshot runs, read where their noisy loss reaches 1.05x its floor; the
 # flip-flop falls back to its end-of-training controls until its 200k continuations have a floor.
 # The *_seeded folders hold the re-run of 2026-10-14 with the held-out and ordering batches seeded and
 # the smoothed-minimum floor fallback; the unseeded results stay in c1_ablation and c1_retrain.
 ABLATION_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_ablation_seeded"
-RETRAIN_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_retrain_seeded"
+# Prune-and-retrain folders, searched in order; per cell the first one holding results is used.
+# c1_retrain_seeded2/rep1 is the re-run with the fine-tune's training batches seeded too
+# (FINETUNE_SEED, ff994a9): it holds the three flip-flop networks. CDDM's training batch is a fixed
+# grid, so its retrains in c1_retrain_seeded are already deterministic; DMTS has no seeded-batch
+# re-run and is read from c1_retrain_seeded.
+RETRAIN_DIRS = ("/scratch/gpfs/TENGEL/pt1290/c1_retrain_seeded2/rep1",
+                "/scratch/gpfs/TENGEL/pt1290/c1_retrain_seeded")
 ABLATION = [
     ("3-bit flip-flop", [("NBitFlipFlop_c1_snapshots_c200000__EqType=h_N=1000_arm=control", "floor"),
                          ("NBitFlipFlop_ff_revive_c75000__EqType=h_k=3_N=1000_pen=none_arm=none",
@@ -1352,8 +1358,12 @@ def ablation_results(prefix, readout):
     """
     load = lambda pat: [json.load(open(f)) for f in sorted(glob.glob(pat))]
     tag = "retrain_floor" if readout == "floor" else "retrain"
-    return (load(os.path.join(ABLATION_DIR, f"{prefix}__*__{readout}.json")),
-            load(os.path.join(RETRAIN_DIR, f"{prefix}__*__{tag}.json")))
+    retrain = []
+    for d in RETRAIN_DIRS:
+        retrain = load(os.path.join(d, f"{prefix}__*__{tag}.json"))
+        if retrain:
+            break
+    return load(os.path.join(ABLATION_DIR, f"{prefix}__*__{readout}.json")), retrain
 
 
 def _on_grid(res, key):
