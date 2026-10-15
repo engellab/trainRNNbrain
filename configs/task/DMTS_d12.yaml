@@ -35,7 +35,7 @@
 taskname: "DMTS"
 _target_: trainRNNbrain.tasks.TaskDMTS.TaskDMTS
 T: 260
-seed: null
+seed: ${seed}        # trial generator seeded from the run seed, so a run reproduces exactly (2026-10-15; was null: unseeded)
 T_stim_on_sample: 20
 T_stim_off_sample: 40
 T_stim_on_match: 160

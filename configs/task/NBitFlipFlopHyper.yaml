@@ -10,7 +10,7 @@ _target_: trainRNNbrain.tasks.Task${.taskname}.Task${.taskname}
 # At T=300/mu=4 the hold is 7.5 tau with ~2.2 sign changes per channel per trial. T matches CDDM's
 # 300 exactly, so per-iteration cost and every timescale comparison carry over unchanged.
 T: 300
-seed: null
+seed: ${seed}        # trial generator seeded from the run seed, so a run reproduces exactly (2026-10-15; was null: unseeded)
 n_inputs: 3
 n_outputs: 7      # MUST be 2**n_inputs - 1; the launcher passes both (Hydra cannot compute 2**k)
 mu: 4                # expected pulses per trial per bit
