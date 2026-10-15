@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read the c4_gradient_mechanism.py outputs: the pre-registered tests, per unit, and a figure.
 
-Each test and its pass/fail bar is written in docs/notes/agent-c4.md (pre-registered before the
+Each test and its pass/fail bar is written in git show db10e7c:docs/notes/agent-c4.md (pre-registered before the
 numbers were computed). This script prints, per run, the quantity each test reads, and draws:
   row 1 (flip-flop) and row 2 (CDDM), one column per question:
     A. g_in against the unit's on-fraction, active and silent units coloured (tests a, e)

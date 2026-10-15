@@ -1,7 +1,7 @@
 #!/bin/bash
 # B2 AND B3: REMEDIES ON THE STANDARD 3-BIT FLIP-FLOP, ALONE AND COMBINED, WITH KEPT SNAPSHOTS. (DELLA)
 #
-# The plan is docs/notes/agent-bplan.md (branch restore-oct5). This is that plan's remedy-grid
+# The plan is `git show db10e7c:docs/notes/agent-bplan.md`. This is that plan's remedy-grid
 # launcher; SilentReLU_remedy_grid_spock.slurm is the same command with a Spock header, and this file
 # differs from it only in the header and defaults. It is SilentReLU_c1_snapshots_della.slurm (the
 # claim-1 controls: same task flags, same tracking flags, same snapshot layout, same code 7739a60)

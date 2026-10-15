@@ -37,14 +37,13 @@ sigma_out: .03
 # structural zeros survive and the perturbation scales with synapse strength.
 sigma_w: 0.0
 # NO TRAINABLE BIAS (changed 2026-09-21). A degenerate range makes the bias a fixed zero tensor
-# rather than an nn.Parameter, matching rnn_relu_noDale.yaml and every Dale config. It was trainable
+# rather than an nn.Parameter, as in every Dale config. It was trainable
 # in [-1, 1] for every run up to commit 4f7d73f; those runs are described by their commit hash.
 # The bias was never doing anything: fixing it at 0 moved the active-unit count by +5.0 units
 # (394/387/404/414/420 -> 413/411/405/423/392, n=5), and it cannot rescue a dead unit anyway -
 # a permanently sub-threshold unit has relu'(h) = 0 at every step, so dL/dbias is exactly 0, the
 # same absorbing state that traps its weights (measured, not argued). Trained values bore this out:
-# |bias|max 0.084 against a box of 1.0. The trainable-bias variant remains available as
-# rnn_relu_noDale_trainablebias.yaml.
+# |bias|max 0.084 against a box of 1.0.
 bias_range: [0.0, 0.0]         # degenerate -> fixed, non-trainable bias = 0
 bias_init: "zeros"             # ignored for a degenerate range
 input_row_norm: null

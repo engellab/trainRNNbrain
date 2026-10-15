@@ -1,7 +1,7 @@
 #!/bin/bash
 # B4, THE PLASTICITY TEST: when a trained network learns a new task, do its silent units come back?
-# (DELLA)  Plan: docs/notes/agent-bplan.md section B4; record: docs/notes/agent-b4.md; move from
-# Spock: docs/notes/agent-move.md. This file is SilentReLU_b4_transfer_spock.slurm with a Della
+# (DELLA)  Rules: docs/project_trajectory/2026-10-15_1342_open-rules-and-commands-moved-from-agent-notes.md.
+# This file is SilentReLU_b4_transfer_spock.slurm with a Della
 # header and Della defaults (REPO, SNAP_TO); the training command is the same, line for line.
 #
 # The new task is NBitFlipFlopHyper at k = 3: the 3-bit flip-flop's own 3 input channels, and 7

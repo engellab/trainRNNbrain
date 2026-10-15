@@ -4,7 +4,7 @@
 QUESTION. `gradient_participation.py` finds that g_in (the gradient on a unit's incoming weights)
 reaches 1.5-4.5x as many flip-flop units as the participation rule calls active, while on CDDM the
 two counts agree. The candidate explanations and their pre-registered predictions are in
-docs/notes/agent-c4.md. This script computes the per-unit quantities those tests read.
+git show db10e7c:docs/notes/agent-c4.md. This script computes the per-unit quantities those tests read.
 
 METHOD. An independent numpy float64 forward pass and a hand-written backward pass through time
 (no torch autograd, no `unit_gradients`), derived from the network's update equation

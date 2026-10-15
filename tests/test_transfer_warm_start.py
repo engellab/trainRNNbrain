@@ -1,6 +1,6 @@
 """A transfer to a new task copies the trained network, keeps a fresh read-out, and starts its own clock.
 
-WHY. The plasticity test (B4, docs/notes/agent-bplan.md) moves trained 3-bit flip-flop networks
+WHY. The plasticity test (B4; rules in docs/project_trajectory/2026-10-15_1342_open-rules-and-commands-moved-from-agent-notes.md) moves trained 3-bit flip-flop networks
 to NBitFlipFlopHyper at k = 3: the same 3 inputs, 7 outputs instead of 3. Only the read-out is new,
 so the input and recurrent weights must arrive EXACTLY as the source left them - otherwise "silent
 units came back" could mean "the copy perturbed them". The ordinary warm start (`paths.init_from`)

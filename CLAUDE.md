@@ -1,5 +1,8 @@
 # Working in this repo
 
+Read next: `docs/AGENT_GUIDE.md` (how things are done: paths, clusters, read-out rules, figures),
+then the status board `docs/paper_audit.md`.
+
 ## COMMIT ONLY YOUR OWN CHANGES
 
 **Several agents work in this tree at the same time.** At any moment the working tree holds
@@ -10,8 +13,10 @@ again.
 So, every time:
 
 1. **Never stage everything.** No `git commit -a`, no `git add -A`, no `git add .`, no `git add -u`.
-   Those three flags are how foreign work ends up in your commit.
-2. **Name every path.** `git add path/one.py path/two.md` — the files you edited, written out.
+   Those four commands are how foreign work ends up in your commit.
+2. **Name every path, in `git add` and again in `git commit`.** `git add path/one.py path/two.md`,
+   then `git commit -m "..." -- path/one.py path/two.md`. The index is shared: a bare `git commit`
+   also takes whatever another agent has staged.
 3. **Read the diff of each path before you stage it.** `git diff <path>`. Every hunk must be one you
    recognise as your own. This takes seconds and it is the whole rule: staging a file you did not
    fully read is the same mistake as staging the tree.

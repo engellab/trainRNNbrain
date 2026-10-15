@@ -26,10 +26,7 @@ Usage:  python trainRNNbrain/experiments_and_analysis/deck_html.py [DECK] [-o OU
         (run from the repository root; DECK defaults to docs/presentation.md, and OUT to the
         deck's own name with an .html suffix)
 
-        Any Markdown deck works, which is the point: the archived docs/presentation_backup.md
-        renders the same way. Note that it links the figure set as it was when it was archived,
-        and those files have since been overwritten by later rebuilds -- the render shows its text
-        beside today's panels, not the ones it was written against.
+        Any Markdown deck works.
 """
 
 import argparse
