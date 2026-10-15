@@ -31,9 +31,7 @@ Usage:  python trainRNNbrain/experiments_and_analysis/fig_knobs_at_floor.py [--p
 """
 
 import argparse
-import glob
 import os
-import re
 import sys
 
 import numpy as np
@@ -43,13 +41,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import fig_paper_F1 as F1
 import paperstyle as ps
-from common import DATA_DIR, END_FRAC, noisy_floor, warm_start_chain
-from heldout_r2 import heldout_r2, load_cache, save_cache
+from common import DATA_DIR, END_FRAC, noisy_floor
+from heldout_r2 import heldout_r2, load_cache, save_cache, snapshot_at
 
 W, H = 7.6, 2.9
-# kept weight snapshots, by <sweep>/<cell>/s<seed>/it<absolute iteration>/
-SNAP_DIR = os.path.join(DATA_DIR, "..", "c1_snapshots")
-SNAP_MAX_LAG = 1000     # a snapshot more than this many iterations after the crossing is not "at" it
 # noise draws per held-out R^2 in this figure. One CDDM draw has an SD of ~0.011, so the project's 9
 # draws leave ~0.004 of noise and two scorers differed by 0.01-0.013 on identical weights; 36 halves it.
 # Same measure (heldout_r2), more draws.
@@ -125,29 +120,6 @@ LADDERS = [
                 ("sparsity\n$\\lambda$ = 0.05", f"{DATA_DIR}/CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0.05_LmbdFR=0"),
                 ("both", f"{DATA_DIR}/CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0.05_LmbdFR=0.2")]),
 ]
-
-
-def snapshot_at(run_dir, t):
-    """The kept weight snapshot at or just after iteration t, if the run (or a run it was
-    warm-started from) kept snapshots.
-
-    A continuation's floor can fall inside its parent, whose snapshots sit under the PARENT's
-    sweep, cell and seed, so every run of the warm-start chain is searched.
-
-    Args:
-        run_dir: a run folder (its name carries `seed=<seed>`); t: an absolute iteration.
-    Returns:
-        the snapshot folder, or None when there is none within SNAP_MAX_LAG after t.
-    """
-    snaps = []
-    for d in warm_start_chain(run_dir):
-        cell = os.path.dirname(d.rstrip("/"))
-        seed = re.search(r"seed=(\d+)", os.path.basename(d.rstrip("/")))
-        if seed:
-            snaps += glob.glob(os.path.join(SNAP_DIR, os.path.basename(os.path.dirname(cell)),
-                                            os.path.basename(cell), f"s{seed.group(1)}", "it*"))
-    later = sorted((int(os.path.basename(d)[2:]), d) for d in snaps if int(os.path.basename(d)[2:]) >= t)
-    return later[0][1] if later and later[0][0] - t <= SNAP_MAX_LAG else None
 
 
 def floor_r2(run_dir, it, L, f, cache):

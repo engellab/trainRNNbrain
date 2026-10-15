@@ -39,6 +39,7 @@ Usage:  python heldout_r2.py "data/trained_RNNs/NBitFlipFlop_std_dropfix/*/*"   
 import glob
 import json
 import os
+import re
 import sys
 
 import numpy as np
@@ -51,6 +52,11 @@ sys.path.insert(0, REPO)
 from trainRNNbrain.training.training_utils import prepare_task_arguments, get_training_mask
 from trainRNNbrain.trainer.Trainer import Trainer
 from trainRNNbrain.utils import import_any, filter_kwargs, unjsonify
+from common import DATA_DIR, warm_start_chain
+
+# kept weight snapshots, by <sweep>/<cell>/s<seed>/it<absolute iteration>/
+SNAP_DIR = os.path.join(DATA_DIR, "..", "c1_snapshots")
+SNAP_MAX_LAG = 1000     # a snapshot more than this many iterations after the crossing is not "at" it
 
 DRAWS = 9
 BATCH = 256                      # trials per draw; the estimate's noise is set by trials x draws
@@ -180,6 +186,29 @@ def save_cache(c):
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
     with open(CACHE, "w") as fh:
         json.dump(c, fh, indent=0, sort_keys=True)
+
+
+def snapshot_at(run_dir, t):
+    """The kept weight snapshot at or just after iteration t, if the run (or a run it was
+    warm-started from) kept snapshots.
+
+    A continuation's floor can fall inside its parent, whose snapshots sit under the PARENT's
+    sweep, cell and seed, so every run of the warm-start chain is searched.
+
+    Args:
+        run_dir: a run folder (its name carries `seed=<seed>`); t: an absolute iteration.
+    Returns:
+        the snapshot folder, or None when there is none within SNAP_MAX_LAG after t.
+    """
+    snaps = []
+    for d in warm_start_chain(run_dir):
+        cell = os.path.dirname(d.rstrip("/"))
+        seed = re.search(r"seed=(\d+)", os.path.basename(d.rstrip("/")))
+        if seed:
+            snaps += glob.glob(os.path.join(SNAP_DIR, os.path.basename(os.path.dirname(cell)),
+                                            os.path.basename(cell), f"s{seed.group(1)}", "it*"))
+    later = sorted((int(os.path.basename(d)[2:]), d) for d in snaps if int(os.path.basename(d)[2:]) >= t)
+    return later[0][1] if later and later[0][0] - t <= SNAP_MAX_LAG else None
 
 
 def main(patterns):
