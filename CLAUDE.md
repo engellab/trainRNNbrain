@@ -31,6 +31,9 @@ be something you know, not something you reconstruct from `git status`.
 `YYYY-MM-DD_HHMM_<slug>.md`. Take the time from `date +%Y-%m-%d_%H%M`, never from memory. Write a
 new file for every entry; never append to another entry's file, so two agents cannot collide in
 one. A correction is a new entry that names the file it corrects. Details in its `README.md`.
+Read the whole notebook with `cat docs/project_trajectory/README.md docs/project_trajectory/20*.md`.
+`docs/project_trajectory.md` no longer exists; do not recreate it. A result that changes a claim
+also updates the status board, `docs/paper_audit.md`.
 
 ### If you find foreign work already inside a commit you made
 
