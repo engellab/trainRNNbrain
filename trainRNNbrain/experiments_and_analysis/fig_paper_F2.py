@@ -107,6 +107,7 @@ import os
 import sys
 
 import numpy as np
+from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -289,14 +290,8 @@ def tost(a, b, margin_frac=0.05):
     df = (a.var(ddof=1) / len(a) + b.var(ddof=1) / len(b)) ** 2 / (
         (a.var(ddof=1) / len(a)) ** 2 / (len(a) - 1) + (b.var(ddof=1) / len(b)) ** 2 / (len(b) - 1))
     delta = margin_frac * b.mean()
-    try:
-        from scipy import stats
-        p = max(stats.t.sf((d + delta) / se, df), stats.t.cdf((d - delta) / se, df))
-        crit = stats.t.ppf(0.975, df)
-    except ImportError:
-        from math import erfc, sqrt
-        p = max(erfc((d + delta) / se / sqrt(2)) / 2, erfc(-(d - delta) / se / sqrt(2)) / 2)
-        crit = 1.96
+    p = max(stats.t.sf((d + delta) / se, df), stats.t.cdf((d - delta) / se, df))
+    crit = stats.t.ppf(0.975, df)
     return float(p), d / b.mean(), (d - crit * se) / b.mean(), (d + crit * se) / b.mean()
 
 

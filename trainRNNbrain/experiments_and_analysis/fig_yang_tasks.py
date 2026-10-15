@@ -17,6 +17,7 @@ Output: img/internal_figures/yang_tasks/ and an index of the descriptions.
 Usage: python fig_yang_tasks.py [--structure all|<rule>]
 """
 import os
+import sys
 import textwrap
 
 import matplotlib
@@ -287,7 +288,6 @@ def main():
         plt.close(fig)
     with open(os.path.join(out, "README.md"), "w") as fh:
         fh.write("# Yang task family: example trials\n\n" + "\n".join(f"- **{r}** ([figure]({r}.png)): {DESC[r]}" for r in RULES) + "\n")
-    import sys
     which = sys.argv[sys.argv.index("--structure") + 1] if "--structure" in sys.argv else "all"
     for rule in (RULES if which == "all" else [which]):
         structure(task, rule, os.path.join(out, f"{rule}_structure.png"))

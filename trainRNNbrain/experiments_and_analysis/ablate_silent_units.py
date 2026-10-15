@@ -68,7 +68,7 @@ sys.path.insert(0, HERE)
 import heldout_r2 as H                                    # noqa: E402  (also puts the repo on sys.path)
 from trainRNNbrain.training.training_utils import prepare_task_arguments, get_training_mask  # noqa: E402
 from trainRNNbrain.trainer.Trainer import Trainer, scored_  # noqa: E402
-from trainRNNbrain.utils import import_any, filter_kwargs  # noqa: E402
+from trainRNNbrain.utils import import_any, filter_kwargs, unjsonify  # noqa: E402
 from common import warm_start_chain, noisy_loss_series, noisy_floor  # noqa: E402
 
 DRAWS = 9                    # noise draws per score, as heldout_r2.DRAWS
@@ -90,7 +90,6 @@ OUT = "/scratch/gpfs/TENGEL/pt1290/c1_ablation_seeded"   # c1_ablation holds the
 def load_params(path):
     """Learned tensors from a parameter file (.npz or .json), as a dict of name -> array."""
     if path.endswith(".json"):
-        from trainRNNbrain.utils import unjsonify
         with open(path) as fh:
             return {k: np.asarray(v) for k, v in unjsonify(json.load(fh)).items()}
     z = np.load(path, allow_pickle=True)

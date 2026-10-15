@@ -34,6 +34,7 @@ Run:  python tests/test_periodic_checkpoint.py
 """
 
 import os
+import glob
 import sys
 import tempfile
 import types
@@ -197,9 +198,8 @@ def test_checkpoints_live_outside_the_data_tree():
         os.makedirs(ck, exist_ok=True)
         open(os.path.join(ck, "ckpt_s1_LastParams_CDDM.npz"), "w").close()
 
-        import glob as _g
-        counted = [p for p in _g.glob(os.path.join(cell, "*", ""))
-                   if _g.glob(os.path.join(p, "*LastParams*"))]
+        counted = [p for p in glob.glob(os.path.join(cell, "*", ""))
+                   if glob.glob(os.path.join(p, "*LastParams*"))]
         assert len(counted) == 1, f"cell inventory counted {len(counted)} runs, expected 1"
     print("5 OK  checkpoints sit outside the data tree and no cell inventory sees them")
 

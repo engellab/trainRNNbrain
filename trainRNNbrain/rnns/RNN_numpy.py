@@ -1,5 +1,6 @@
 import numpy as np
 from copy import deepcopy
+from scipy.special import erf
 import jax
 import jax.numpy as jnp
 
@@ -74,7 +75,6 @@ class RNN_numpy():
             leak_slope = activation_args.get("leak_slope", 0.01)
             return lambda x: np.where(x > 0, slope * x, leak_slope * x)
         elif activation_name == 'gelu':
-            from scipy.special import erf
             alpha = activation_args.get("alpha", 1.0)
             return lambda x: x * 0.5 * (1.0 + erf(alpha * x / np.sqrt(2.0)))
         else:

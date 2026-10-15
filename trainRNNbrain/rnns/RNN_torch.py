@@ -1,4 +1,5 @@
 from copy import deepcopy
+import math
 import torch
 import numpy as np
 
@@ -401,7 +402,6 @@ class RNN_torch(torch.nn.Module):
         elif activation_name == 'softplus':
             return lambda x: torch.nn.Softplus(beta=activation_args["beta"])(activation_args["slope"] * x)
         elif activation_name == 'gelu':
-            import math
             alpha = activation_args.get("alpha", 1.0)
             return lambda x: x * 0.5 * (1.0 + torch.erf(alpha * x / math.sqrt(2.0)))
         else:

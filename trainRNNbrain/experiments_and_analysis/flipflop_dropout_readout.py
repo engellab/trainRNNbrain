@@ -40,6 +40,7 @@ import pickle
 import sys
 
 import numpy as np
+from scipy import stats
 
 from trainRNNbrain.experiments_and_analysis.common import DATA_DIR, SILENT_FLIPFLOP, active_count
 
@@ -100,8 +101,7 @@ def collect(*cell_dirs):
 
 
 def welch(a, b):
-    """Welch t-statistic and two-sided p-value for two independent samples, via the normal
-    approximation to the t distribution when scipy is absent.
+    """Welch t-statistic and two-sided p-value for two independent samples.
 
     Args:
         a, b: 1-d arrays, each with >= 2 finite values.
@@ -116,12 +116,7 @@ def welch(a, b):
         return float("nan"), float("nan")
     t = (a.mean() - b.mean()) / np.sqrt(va + vb)
     df = (va + vb) ** 2 / (va ** 2 / (len(a) - 1) + vb ** 2 / (len(b) - 1))
-    try:
-        from scipy import stats
-        return float(t), float(2 * stats.t.sf(abs(t), df))
-    except ImportError:
-        from math import erfc, sqrt
-        return float(t), float(erfc(abs(t) / sqrt(2)))     # normal approximation, df is >= 5 here
+    return float(t), float(2 * stats.t.sf(abs(t), df))
 
 
 def main(root, controls_only=False, N=1000):
