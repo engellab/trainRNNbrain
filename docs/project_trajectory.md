@@ -15686,3 +15686,14 @@ control; by 200k 18-34 more. Neither rescues participation (as on CDDM: re-initi
 vs 436 → 335). Legend placement fixed (no legend over data, layout check 0 problems); the figure is
 built on the laptop from the Della cache (`data/fig_paper_F2_fails_cache.pkl`), because Della's
 default font makes three legends too wide to fit. `img/internal_figures/fig_paper_F2_fails.png`.
+
+**W1 drafted (paper branch `w1-draft`, 47b8d51; not merged).** Abstract, intro and discussion rewritten
+to Pavel's framing with current numbers; `04_ratepenalty` and `06_whyitmatters` brought in line with
+the floor reads (old "+123 units", "~710 units", old activation deltas replaced). Compiles, no new
+references. Markers: PENDING (remedies at the floor, B2, B3, B4, flip-flop N = 4000, B5/revival into
+Results, C4/tanh into Results, A5, Figure 3) and PI TO CHOOSE (title, abstract's last sentence,
+gradient-loss naming, C4 wording, "likely several"). Coordinator's check: the abstract's claim that
+noisy synapses, rescaling, dropout and duplication "each recruit some" rests on the 75k remedy runs
+(before the flip-flop converged) and should be marked pending until RMtop200 is read at the floor.
+Found by the agent, not fixed: `08_methods` line 38 still says biases are trainable; main's Figure 2
+caption is the old dropout figure.
