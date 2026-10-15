@@ -131,7 +131,7 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
   lands.
 - **RMtop200.** 189 remedy top-up tasks to 200k with snapshots, from `~/trainRNNbrain_redo`
   (709c17d); job ids in Della `~/f2_logs/rm_submit_go.txt`.
-- **Redo with snapshots (waiting on Pavel):** retrain the size-series controls with snapshots every
+- **Redo with snapshots (waiting on Pavel; after the initialisation decision):** retrain the size-series controls with snapshots every
   1000 iterations (~800 GPU-h). CDDM regenerates exactly; flip-flop and DMTS give new networks.
 
 **Writing**
@@ -153,7 +153,12 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
   combination beats the rate penalty alone on stability, cost, dimensionality or ablation.
 - **C4 wording:** candidates in the 2026-10-15_1342 entry.
 - **N = 1000 flip-flop straggler s3374117298:** continue to 300k (~7 GPU-h) or leave excluded.
-- **Redo block 1** (above).
+- **Correlated initialisation** (found 15 Oct): every network's W_out is a rescaled copy of its
+  W_inp in draw order, and W_rec's first rows repeat the same draws (`RNN_torch.sparse`; entry
+  2026-10-15_1500). Fix it now (a version boundary for all new runs), and test first whether it
+  changes silencing (N = 1000 controls with independent draws against the current ones)?
+- **Redo with snapshots** (above). It should start after the initialisation decision, so the redo
+  is not run twice.
 - **Merging the paper branches** (above).
 
 ## Decisions taken
