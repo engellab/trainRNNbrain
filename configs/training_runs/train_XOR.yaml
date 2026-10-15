@@ -1,8 +1,0 @@
-# @package _global_
-defaults:
-  - ../task: XOR
-  - ../model: rnn_sigmoid_Dale
-  - ../trainer: trainer_debug
-  - _self_
-display_figures: False
-n_nets: 2
