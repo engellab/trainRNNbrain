@@ -15708,3 +15708,18 @@ with the new default snapshots (every 1,000, float16) under `c1_snapshots/`: B3 
 B3 synaptic noise / rescaling / both (15598515-17); gpu-medium (36 h) or gpu-long (76-84 h). ~540
 GPU-h. All ten launcher commands smoke-tested on the Mac (configs differ from the control only in
 their remedy keys; B4 only in the task swap). B3's rate cells follow the pilot (~14 h of training).
+
+### 2026-10-15 — the remedy top-ups to 200k resubmitted with snapshots (Pavel)
+
+The other session's `RMtop200` batch (flip-flop remedy runs 75k → 200k, the Figure 3 data) had 183
+tasks left at `nice=10000` - behind every job on the cluster; users cannot lower nice. Pavel chose to
+cancel and resubmit. Cancelled (all 183 were pending). Which parents still lack a finished 200k
+continuation was rebuilt from the data (`rm_missing.py`: a `_c75000` parent is done when a `_c200000`
+run names it in `paths.init_from` and has finished weights): 192 = 183 cancelled + 3 that hit the
+batch's 24 h limit (15500305_3, 15500313_2, 15500318_1) + 3 N = 4000 controls already being run by
+FFtop4000 (excluded) + 3 not traced to the batch (included; a few GPU-h). Resubmitted 189 tasks as 70
+arrays named `RMtop200` from `~/trainRNNbrain_redo` (709c17d, trainer identical to 7739a60), KEEP=1
+(snapshots every 1,000, float16), time limits sized from measured speeds (N ≤ 1000: 30 h, 2000: 60 h,
+4000: 5 days on gpu80). Array indices checked against the launcher's own sorted parent list (dry
+run). Job ids and cells: Della `~/f2_logs/rm_submit_go.txt`. By N: 500: 13, 1000: 139, 2000: 19,
+4000: 18. Cost ≈ 3,000 GPU-h; snapshots ≈ 120 GB.
