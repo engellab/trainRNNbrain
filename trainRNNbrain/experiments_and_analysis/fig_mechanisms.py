@@ -483,8 +483,10 @@ def mech_rescale(name="slide_mech_rescale"):
         the output path.
     """
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 112 * ps.MM))
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[1.0, 0.62], width_ratios=[1.30, 1.0],
+    # ONE COLUMN: panels stack rather than sitting in a row, so the slide is read top to
+    # bottom and no two panels compete for the same glance.
+    fig = plt.figure(figsize=(112 * ps.MM, 210 * ps.MM))
+    gs = GridSpec(4, 1, figure=fig, height_ratios=[1.0, 1.0, 0.62, 0.62],
                   left=0.035, right=0.985, top=0.95, bottom=0.04, hspace=0.30, wspace=0.16)
 
     # ---- (a) drive, threshold, output ----------------------------------------------------------
@@ -536,7 +538,7 @@ def mech_rescale(name="slide_mech_rescale"):
              col=RESC, lw=1.3, rad=-0.30, mutation_scale=9, zorder=6)
 
     # ---- (b) the total length is pinned --------------------------------------------------------
-    ax = ps.blank(fig.add_subplot(gs[0, 1]))
+    ax = ps.blank(fig.add_subplot(gs[1, 0]))
     ax.set(xlim=(0, 1), ylim=(0, 1))
     ps.panel_letter(ax, "b", dx=-0.03, dy=0.97)
     bx0, bx1 = 0.18, 0.92
@@ -565,7 +567,7 @@ def mech_rescale(name="slide_mech_rescale"):
             fontsize=7.0, color=ps.MUTED)
 
     # ---- (c) silent sources are skipped --------------------------------------------------------
-    ax = ps.blank(fig.add_subplot(gs[1, 0]))
+    ax = ps.blank(fig.add_subplot(gs[2, 0]))
     ax.set(xlim=(0, 1), ylim=(0, 1))
     ps.panel_letter(ax, "c", dx=-0.02, dy=0.95)
     firing = (True, True, False, True, False, True, True, False, True, True)
@@ -597,7 +599,7 @@ def mech_rescale(name="slide_mech_rescale"):
                                 shrinkA=1.0, shrinkB=4.0))
 
     # ---- (d) it stops ---------------------------------------------------------------------------
-    ax = ps.blank(fig.add_subplot(gs[1, 1]))
+    ax = ps.blank(fig.add_subplot(gs[3, 0]))
     ax.set(xlim=(0, 1), ylim=(0, 1))
     ps.panel_letter(ax, "d", dx=-0.03, dy=0.95)
     ps.box(ax, 0.10, 0.40, 0.34, 0.26, "tilting", col=RESC, lw=0.9, fs=7.4, text_col=RESC)
@@ -670,13 +672,15 @@ def mech_synnoise(name="slide_mech_synnoise"):
         the output path.
     """
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 104 * ps.MM))
+    # ONE COLUMN: panels stack rather than sitting in a row, so the slide is read top to
+    # bottom and no two panels compete for the same glance.
+    fig = plt.figure(figsize=(112 * ps.MM, 180 * ps.MM))
     # panel (b) carries the claim, so it takes the wider column and the taller row
-    gs = GridSpec(2, 2, figure=fig, height_ratios=[0.80, 1.0], width_ratios=[1.55, 1.0],
+    gs = GridSpec(3, 1, figure=fig, height_ratios=[0.80, 1.0, 1.0],
                   left=0.035, right=0.98, top=0.95, bottom=0.05, hspace=0.26, wspace=0.14)
 
     # ---- (a) two injection sites ---------------------------------------------------------------
-    ax = ps.blank(fig.add_subplot(gs[0, :]))
+    ax = ps.blank(fig.add_subplot(gs[0, 0]))
     ax.set(xlim=(0, 1), ylim=(0, 1))
     ps.panel_letter(ax, "a", dx=-0.012, dy=0.99)
     ax.plot([0.495, 0.495], [0.03, 0.99], lw=0.6, color=ps.FAINT, zorder=1)
@@ -749,7 +753,7 @@ def mech_synnoise(name="slide_mech_synnoise"):
                 xytext=(0, -3), ha="center", va="top", fontsize=7.0, color=ps.MUTED)
 
     # ---- (c) a copy is perturbed, the stored matrix is not --------------------------------------
-    ax = ps.blank(fig.add_subplot(gs[1, 1]))
+    ax = ps.blank(fig.add_subplot(gs[2, 0]))
     ax.set(xlim=(0, 1), ylim=(0, 1))
     fig.canvas.draw()                      # the card sizes below are measured off the laid-out axes
     ps.panel_letter(ax, "c", dx=-0.03, dy=0.97)
@@ -867,8 +871,10 @@ def mech_penalty(name="slide_mech_penalty"):
         the output path.
     """
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 76 * ps.MM))
-    gs = GridSpec(1, 3, figure=fig, width_ratios=[1.0, 1.26, 0.82],
+    # ONE COLUMN: panels stack rather than sitting in a row, so the slide is read top to
+    # bottom and no two panels compete for the same glance.
+    fig = plt.figure(figsize=(104 * ps.MM, 180 * ps.MM))
+    gs = GridSpec(3, 1, figure=fig, height_ratios=[1.0, 1.26, 0.82],
                   left=0.055, right=0.985, top=0.92, bottom=0.15, wspace=0.34)
 
     # ---- (a) a two-sided target on activity ----------------------------------------------------
@@ -890,7 +896,7 @@ def mech_penalty(name="slide_mech_penalty"):
     ps.panel_letter(ax, "a")
 
     # ---- (b) how many inputs the unit uses -----------------------------------------------------
-    sub = gs[0, 1].subgridspec(2, 1, height_ratios=[0.62, 1.0], hspace=0.30)
+    sub = gs[1, 0].subgridspec(2, 1, height_ratios=[0.62, 1.0], hspace=0.30)
     axp = ps.blank(fig.add_subplot(sub[0]))
     axp.set(xlim=(0, 1), ylim=(0, 1))
     ps.panel_letter(axp, "b", dx=-0.10, dy=0.92)
@@ -917,7 +923,7 @@ def mech_penalty(name="slide_mech_penalty"):
     ax.set_yticks([])
 
     # ---- (c) the target itself shrinks as the network grows ------------------------------------
-    ax = fig.add_subplot(gs[0, 2])
+    ax = fig.add_subplot(gs[2, 0])
     nn = np.logspace(2, 4, 400)
     ax.plot(nn, frm_target(nn), lw=1.7, color=FRM, zorder=4)
     for nv in (1000, 4000):
