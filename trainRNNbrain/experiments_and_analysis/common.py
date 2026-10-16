@@ -399,6 +399,10 @@ BURST_SPAN = 1.5        # the burst reference at t averages [t/1.5, 1.5t]
 BURST_MEDIAN = 51       # iterations in the short running median, so a lone bad batch is no burst
 BURST_GAP = 200         # bursts closer than this many iterations are one burst
 MAX_BURST_SHARE = 0.5   # more than this share of post-fit-start iterations in bursts: no read-out
+# starts (floor as a fraction of the curve's minimum, tau, beta) tried when the first floor fit lands
+# within 10x of its lower bound
+GRID_STARTS = [(fl, tau, beta) for fl in (0.5, 0.8, 0.9, 0.97) for tau in (3e2, 3e3, 3e4, 3e5)
+               for beta in (0.2, 0.5, 1.0, 2.0)]
 MAX_LATE_RISE = 1.5     # end of the run (median of its last 10%) over the fitted floor; above it, no
                         # read-out
 END_FRAC = 0.10         # the "end of the run" is its last 10% of iterations
@@ -582,10 +586,23 @@ def noisy_floor(it, L, delta=FLOOR_DELTA):
         out["reason"] = "too little training after the escape"
         return out
     lo, hi = [FLOOR_BOUND, 1e-6, 1e2, .05], [1., 1e3, 1e9, 3.]
+    resid = lambda p: np.log(np.clip(stretched(tb, *p), 1e-12, None)) - np.log(yb)
     p0 = np.clip([yb.min() * .9, float(yb.max()), 2e4, .4], np.array(lo) * 1.01, np.array(hi) * .99)
     try:
-        fit = least_squares(lambda p: np.log(np.clip(stretched(tb, *p), 1e-12, None)) - np.log(yb),
-                            p0, bounds=(lo, hi), max_nfev=20000).x
+        best = least_squares(resid, p0, bounds=(lo, hi), max_nfev=20000)
+        # A FLOOR AT ITS LOWER BOUND IS USUALLY A LOCAL MINIMUM (Pavel, 2026-10-16). From the single
+        # start above, the fit can slide to floor ~0, where the stretched exponential bends into a power
+        # law. On 45 of 1,098 runs (mostly CDDM) a grid of starts finds a real floor with up to 30x lower
+        # error, and those runs end at 1.00-1.05x it; on the other 1,053 the single start is already
+        # the best fit. So only a near-bound floor is refitted, from GRID_STARTS, keeping the lowest error.
+        if best.x[0] <= 10 * FLOOR_BOUND:
+            for fl, tau, beta in GRID_STARTS:
+                p = np.clip([fl * yb.min(), max(float(yb.max()) - fl * yb.min(), 1e-5), tau, beta],
+                            np.array(lo) * 1.01, np.array(hi) * .99)
+                r = least_squares(resid, p, bounds=(lo, hi), max_nfev=20000)
+                if r.cost < best.cost:
+                    best = r
+        fit = best.x
     except Exception:
         out["reason"] = "floor fit failed"
         return out
