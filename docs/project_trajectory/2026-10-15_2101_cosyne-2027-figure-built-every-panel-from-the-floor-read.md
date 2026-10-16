@@ -1,4 +1,6 @@
-# Agent cosyne-fig: the one-page COSYNE 2027 figure
+## 2026-10-15 21:01 — COSYNE 2027 figure (`fig_cosyne2027.py`): every panel built, the 3BFF size series at its floor through N = 4000
+
+Merged from branch `cosyne2027-fig` (agent note moved here on merge). Abstract: paper repo branch `cosyne2027`, folder `cosyne2027/`.
 
 Builder: `trainRNNbrain/experiments_and_analysis/fig_cosyne2027.py`. Output:
 `img/internal_figures/fig_cosyne2027.{pdf,svg}` and a `qlmanage` PNG preview. The page is 7.47 x
