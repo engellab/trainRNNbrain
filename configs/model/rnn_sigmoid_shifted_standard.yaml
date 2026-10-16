@@ -32,3 +32,7 @@ bias_range: [0.0, 0.0]         # degenerate -> fixed, non-trainable bias = 0.
                                # carried a trainable bias while its ReLU reference did not -
                                # the comparison would confound activation with bias.
 bias_init: "zeros"             # ignored for a degenerate range
+# Every initial weight matrix from one continuing random stream (2026-10-15). Before, each matrix
+# restarted the same draws, so W_out was a rescaled copy of W_inp. Saved configs without this key
+# rebuild with the old "shared" draws, exactly as they were trained (RNN_torch.sparse).
+init_draws: independent

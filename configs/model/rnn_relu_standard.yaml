@@ -54,3 +54,7 @@ input_row_norm: null
 # under frm+rws that correlation inverts to -0.61 and the row-norm CV falls from 2.28 to 0.74.
 # A cap must sit above the initialisation scale 1/sqrt(N) ~ 0.032 or training cannot start.
 inp_weight_cap: null          # T5 knob: rescale every W_inp row to this norm at init; null = default draw
+# Every initial weight matrix from one continuing random stream (2026-10-15). Before, each matrix
+# restarted the same draws, so W_out was a rescaled copy of W_inp. Saved configs without this key
+# rebuild with the old "shared" draws, exactly as they were trained (RNN_torch.sparse).
+init_draws: independent
