@@ -117,7 +117,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   +experiment=silent_units_std \
   model=rnn_relu_standard trainer=trainer_ptrack_plain \
   model.equation_type=h model.N="$N" \
-  trainer.lambda_met="$LAM" trainer.lambda_rws=0 trainer.lambda_frm=0 \
+  trainer.lambda_met="$LAM" \
   trainer.max_iter="$TOPUP" \
   "paths.init_from='$SRC'" paths.init_adam=$ADAM \
   paths.save_to="$SAVE_TO" \

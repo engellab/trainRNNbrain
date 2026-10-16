@@ -95,7 +95,6 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   model=rnn_relu_standard trainer=trainer_ptrack_plain \
   model.equation_type=h model.N=1000 \
   trainer.max_iter=75000 \
-  trainer.lambda_rws=0 trainer.lambda_frm=0 \
   ${CELL_ARGS} \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""

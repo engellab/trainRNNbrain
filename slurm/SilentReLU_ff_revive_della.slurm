@@ -165,7 +165,6 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   trainer.max_iter="$IT" \
   trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
   trainer.track_valid=false \
-  trainer.lambda_rws=0 trainer.lambda_frm=0 \
   "${ARGS[@]}" \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""

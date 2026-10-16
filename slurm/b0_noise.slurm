@@ -56,6 +56,5 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   model.equation_type="$EQ" model.sigma_rec="$SIG" \
   trainer.max_iter="$IT" \
   trainer.track_every=10 trainer.store_participation_every=100 \
-  trainer.lambda_rws=0 trainer.lambda_frm=0 \
   paths.save_to="$SAVE_TO" \
   experiment_tag="\"${TAG}\""

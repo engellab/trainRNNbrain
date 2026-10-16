@@ -36,10 +36,11 @@
 # Two sizes, not one: the interesting claim is that penalties remove the SIZE DEPENDENCE of silencing,
 # which cannot be shown at a single N.
 #
-# lambda_frm is 0.1, HALF the 0.2 in trainer_ptrack.yaml. A smoke test at 0.2 drove the silent count
-# from 5 to 0 within 150 iterations, i.e. the penalty was saturating: it would demonstrate that frm
-# removes silent units while telling us nothing about how it changes the DYNAMICS, which is the point
-# of this sweep. lambda_rws stays at its configured 0.05.
+# lambda_frm is 0.1, HALF the 0.2 that trainer_ptrack.yaml set by default until 2026-10-15. A smoke
+# test at 0.2 drove the silent count from 5 to 0 within 150 iterations, i.e. the penalty was
+# saturating: it would demonstrate that frm removes silent units while telling us nothing about how
+# it changes the DYNAMICS, which is the point of this sweep. lambda_rws is 0.05, the value those
+# configs set by default at the time.
 #
 # Monitoring (all new-since-the-drift-sweep items marked *):
 #   loss_clean_train *  masked MSE from the noise-free probe, every track_every. FREE - that forward

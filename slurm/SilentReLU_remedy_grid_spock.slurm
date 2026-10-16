@@ -110,7 +110,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   trainer.max_iter="$IT" \
   trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
   trainer.track_valid=false \
-  trainer.lambda_rws=0 trainer.lambda_frm="$LAMBDA_FRM" \
+  trainer.lambda_frm="$LAMBDA_FRM" \
   "${RESCALE_ARGS[@]}" \
   trainer.synaptic_scaling=false trainer.dropout=false \
   trainer.checkpoint_every="$CKPT_EVERY" ++trainer.checkpoint_keep=true \
