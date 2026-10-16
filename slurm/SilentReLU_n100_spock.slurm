@@ -7,6 +7,10 @@
 # 75k), CDDM 100k, DMTS 150k.
 #
 # Index decode (TID = SLURM_ARRAY_TASK_ID-1, 0..8): REP = TID%3; task = (ff, cddm, dmts)[TID/3].
+# Other sizes: N, SWEEP and ONLY (one task) override the defaults. DMTS 5-tau at N = 4000 into the
+# paper-grid cell (Della's queue was full on 15 Oct), on a 46 GB card:
+#   N=4000 SWEEP=paper_grid_d5 ONLY=dmts sbatch --export=ALL --chdir=$HOME/trainRNNbrain_dmts4k \
+#     --gres=gpu:L40S-46G:1 --mem=64G --time=96:00:00 --array=1-3 --job-name=DMd5n4k <this>
 #   sbatch --chdir=$HOME/trainRNNbrain_n100 --array=1-9 slurm/SilentReLU_n100_spock.slurm
 # Output: $SAVE_TO/<Task>_n100/EqType=h_N=100_arm=control/
 
@@ -32,7 +36,7 @@ set -eo pipefail
 export PYTHONUNBUFFERED=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-REPO="${REPO:-$HOME/trainRNNbrain_n100}"
+REPO="${REPO:-$PWD}"
 SAVE_TO="${SAVE_TO:-$HOME/trainRNNbrain/data/trained_RNNs}"
 export PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}"
 PKG=$(python -c "import trainRNNbrain, os; print(os.path.realpath(os.path.dirname(os.path.dirname(trainRNNbrain.__file__))))")
@@ -46,10 +50,11 @@ if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
 fi
 echo "code: $PKG @ $GITSHA (git)"
 
-N=100
+N=${N:-100}
+SWEEP=${SWEEP:-n100}
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3))
-TASKS=(ff cddm dmts)
+read -r -a TASKS <<< "${ONLY:-ff cddm dmts}"
 TASK=${TASKS[$((TID / 3))]:?array index out of range}
 case "$TASK" in
   ff)   TASK_ARGS=(task=NBitFlipFlop task.n_inputs=3 task.n_outputs=3); IT=200000; PREFIX=NBitFlipFlop ;;
@@ -57,8 +62,8 @@ case "$TASK" in
   dmts) TASK_ARGS=(task=DMTS_d5);                                       IT=150000; PREFIX=DMTS ;;
 esac
 IT=${ITERS_OVERRIDE:-$IT}
-TAG="n100/EqType=h_N=${N}_arm=control"
-mkdir -p "${SAVE_TO}/${PREFIX}_n100"
+TAG="${SWEEP}/EqType=h_N=${N}_arm=control"
+mkdir -p "${SAVE_TO}/${PREFIX}_${SWEEP}"
 echo "Task ${SLURM_ARRAY_TASK_ID}: ${TASK} N=${N} rep=${REP} iters=${IT}"
 echo "  -> ${SAVE_TO}/${PREFIX}_${TAG}"
 
