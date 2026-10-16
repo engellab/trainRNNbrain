@@ -36,8 +36,8 @@ bird's-eye view of what works.
 | C1 | Training leaves most units silent, and silent units do no work | **Done** | Rebuild F1 with `RETRAIN_DIR` → `c1_retrain_seeded2` |
 | C2 | Bigger networks keep a smaller share of units active | **Done** (read under the committed rule) | Rebuild F1 panel c (after the cosyne2027-fig merge); re-read if the new read-out rule lands |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
-| C4 | Silence is a loss of participation that the task gradient does not repair | **Tested** | Pavel chooses the wording |
-| C5 | The standard knobs change how many units are lost, not the trend | **Done**, Figure 2 built | Sync Figure 2 into the paper; update old numbers in `04_ratepenalty`, `06_whyitmatters` |
+| C4 | On CDDM a third of the units get no gradient; on 3BFF silent units get gradient yet stay silent | **Tested**; wording rewritten 15 Oct | Pavel approves the wording in entry 2026-10-15_2207, then into `01_intro.tex` |
+| C5 | Hyperparameters shift the active count at the floor by ≤ ~120 units on CDDM; input-weight scale raises it on 3BFF | **Done**, Figure 2 built | Sync Figure 2 into the paper; update old numbers in `04_ratepenalty`, `06_whyitmatters` |
 | C6 | Rules that give participation its own drive recruit units at a small cost | **Running** | Read the remedy top-ups (RMtop200) at the floor; B2; A3; build Figure 3 |
 | C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running** | B3 rate cells after the pilot; B4 N = 4000; read all at the floor |
 
@@ -64,20 +64,20 @@ flat at 200k). **Not the optimizer (B5):** at the floor, Adam (wd 1e-6) keeps 23
 (703-736 active at R² 0.883, lr 0.03) and has Adam's count at its best learning rates. Figure
 `diag_b5_optimizer`.
 
-**C4.** On CDDM, 271-322 of 1000 units never cross threshold and get exactly zero gradient on their
-incoming weights; the other silent units fire briefly and are reached. On the flip-flop every unit
-crosses threshold: silent units fire for a few steps after nearly every pulse, their incoming weights
-get gradient, and training keeps them silent anyway. The flip-flop is converged (its loss changes
-< 1% per 100k from 150k; the gradient keeps reaching 150-175 silent units from 50k to 300k and after a
-ten-fold learning-rate drop). Activations: leaky ReLU, softplus and sigmoid also shed units; tanh
-saturates instead. Candidate wordings: `docs/project_trajectory/2026-10-15_1342_open-rules-and-commands-moved-from-agent-notes.md`.
+**C4.** On CDDM, about 300 of a network's 1,000 units have a negative input current (the summed
+input before the ReLU) on every trial, so gradient descent cannot change the weights onto them. On
+3BFF, silent units have nonzero gradients, and their weights change during training, yet the units
+stay silent. The 3BFF networks are not still learning: in two of three, the loss changes by under 1% per 100k from
+150k. Activations: leaky ReLU, softplus and sigmoid networks also end with silent units; tanh units
+saturate instead. Full text and numbers: entry 2026-10-15_2207.
 
-**C5.** Figure 2 (`fig_paper_F2_fails.py`): nine knob ladders plus the CDDM and flip-flop revival
-screens, each as R² against active units at the floor beside active units over training. No standard
-knob adds more than ~120 units at the floor, except sigmoid, which loses them. CDDM input scale
-reaches its floor sooner, then sheds faster; it does not recruit. The rate penalty keeps all 1000
-CDDM units at < 1% R² (p ≈ 0.02, n = 5; treated as negligible). Re-initialisation, zero-out and random
-redraw of silent units do not rescue participation.
+**C5.** Changing a hyperparameter shifts the active count at the loss floor, but on CDDM by no more
+than about 120 units from the default 418 (sigmoid: 235-255), and the count still falls after the
+floor (weight decay 0: 412 active at 200k; 1e-4: 86). On 3BFF, a 5-fold larger initial input-weight
+scale raises the count from 298-334 to 547-660 at unchanged R². A metabolic penalty lowers R² without
+raising the count. Figure 2 (`fig_paper_F2_fails.py`) shows the nine ladders and the revival screens;
+re-initialising, zeroing or randomly redrawing silent units does not raise the count. Details: entry
+2026-10-15_2207.
 
 **C6.** The flip-flop remedy cells are being continued to 200k with snapshots (RMtop200), so each
 can be read at its floor. Until then the remedy numbers below are end-of-training reads at 75k.
