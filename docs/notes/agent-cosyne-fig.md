@@ -50,20 +50,20 @@ Every count is active units, at N = 1000 unless stated.
 
 **B.** The same network has 945 of 1000 units active untrained and 183 after 200,000 iterations.
 
-**C.** Each run is read at 1.05x its own noisy-loss floor. The flip-flop series is the exception:
-it is drawn at the end of training, with open markers labelled "(end)".
+**C.** Every series is read at 1.05x each run's own noisy-loss floor. The figure was rebuilt after
+`FFtop4000` landed at 15:45 on 15 Oct, so the flip-flop has a floor read-out at every size.
 
-| task | N | runs | active at the floor | at the end of training | fit |
+| task | N | runs read at the floor | active at the floor (mean) | mean crossing | fit |
 |---|---|---|---|---|---|
-| CDDM (`CDDM_paper_grid`, 100k) | 500 / 1000 / 2000 / 4000 | 3 each | 296-302 / 399-425 / 549-573 / 775-796 | | N^0.46 (floor) |
-| DMTS 5τ (`DMTS_paper_grid_d5`, 150k) | 500 / 1000 / 2000 | 3 / 3 / 2 | 200-266 / 225-589 / 454-470 | | N^0.51 (floor) |
-| flip-flop (`ff_revive_c200000`, 200k) | 500 / 1000 / 2000 | 6 / 3 / 3 | 187-237 / 287, 294 (2 of 3) / 363-410 | 130-156 / 170-181 / 250-255 | N^0.40 (end) |
+| flip-flop (200k; `ff_revive_c200000` N ≤ 2000, `paper_grid_c200000` N = 4000) | 500 / 1000 / 2000 / 4000 | 6 of 6 / 2 of 3 / 3 of 3 / 3 of 3 | 187-237 (201) / 287, 294 (290) / 363-410 (387) / 500-594 (544) | 70k / 65k / 64k / 70k | N^0.47 |
+| CDDM (`CDDM_paper_grid`, 100k) | 500 / 1000 / 2000 / 4000 | 3 each | 296-302 / 399-425 / 549-573 / 775-796 | 26k / 27k / 27k / 30k | N^0.46 |
+| DMTS 5τ (`DMTS_paper_grid_d5`, 150k) | 500 / 1000 / 2000 | 3 / 3 / 2 | 200-266 / 225-589 / 454-470 | 14k / 34k / 40k | N^0.51 |
 
+- The fitted flip-flop count is M = 10.8 N^0.472. At N = 4000, 544 of 4000 units are active.
+- The third flip-flop run at N = 1000 (seed 3374117298) never reaches its bar.
 - One DMTS run at N = 2000 never learned the task (R² below 0.8) and was dropped.
-- The flip-flop series is drawn at the end of training because N = 4000 (`FFtop4000`) had not
-  landed at build time. The rule draws a series at its floor only when every size has a floor
-  read-out. When N = 4000 lands, re-run `--collect-della` and then draw.
-- The table's floor column for the flip-flop is shown for reference; the panel does not draw it.
+- Before N = 4000 landed, the series was read at the end of training (N = 500-2000) and fitted
+  N^0.40.
 
 **D.** Ablation at the floor, three networks per task. The figures are means; "random" means the
 same number of units removed at random. The shaded band is the silent share.
@@ -166,8 +166,6 @@ Each check had its pass bar written before its numbers were read.
 
 ## Not done, or open
 
-- **Panel C waits on N = 4000.** The flip-flop series is still read at the end of training until
-  `FFtop4000` lands (121k of 125k at 13:32 on 15 Oct). See the update below.
 - **The remedies have no floor read-out.** The flip-flop remedies (F, G) are the end of 75k. Their R²
   is the 75k cache's unseeded 8-draw score under the training noise, and it is compared only with
   the 75k control scored the same way. The 200k top-ups (`RMtop200`) are still training.
