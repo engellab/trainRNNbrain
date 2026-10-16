@@ -1119,12 +1119,13 @@ def panel_c(ax):
         ax.text(xl, frac * xl * 1.12, lab, fontsize=5.2, color=ps.FAINT, ha="center", va="bottom")
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
     ax.set(xscale="log", yscale="log", xlabel="network size N",
-           ylabel="active units", xlim=(3.2e2, 2.7e4), ylim=(40, 2.3e3))
+           ylabel="active units", xlim=(3.2e2, 2.7e4), ylim=(20, 2.3e3))
     # The 1,000-unit line and the diagonal are named in the legend: written on the panel, both
     # labels were crossed by the diagonal or by the extrapolated fits.
     handles += [Line2D([], [], color=ps.BAD, lw=0.7, ls="-.", label="1,000 active units"),
                 Line2D([], [], color=ps.MUTED, lw=0.7, ls="-", label="every unit active")]
-    # The y floor sits at 40, below every series, so the lower right is empty for the legend. The
+    # The y floor sits at 20, well below every series, so the five-entry legend in the lower right
+    # stays under the N = 4000 points (at 40 its top reached the flip-flop's). The
     # legend, not the axis label, says how each series was read: floor or end of training.
     ax.legend(handles=handles, loc="lower right", fontsize=5.6, handlelength=2.2)
     ps.ygrid(ax)
@@ -1457,10 +1458,10 @@ def panel_d(axes):
         Line2D([], [], color=ps.INK, lw=0.9, ls="--", label="random order"),
         Line2D([], [], color=ps.INK, lw=1.0, ls=":", label="busiest first"),
         Patch(color=ps.GRID, label="silent units"),
-        Line2D([], [], color=ps.INK, marker="*", ls="", ms=6, label="silent pruned, retrained")],
+        Line2D([], [], color=ps.INK, marker="*", ls="", ms=6, label="pruned + retrained")],
         # between the random-order band (ends near 22%) and the drop of the quietest-first traces
         # (from 55%)
-        loc="lower left", bbox_to_anchor=(0.24, 0.02), fontsize=5.2, ncol=1, handlelength=1.8,
+        loc="lower left", bbox_to_anchor=(0.22, 0.02), fontsize=5.2, ncol=1, handlelength=1.8,
         columnspacing=0.8, framealpha=0.9)
     return rows
 
