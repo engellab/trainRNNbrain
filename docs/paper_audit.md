@@ -36,7 +36,7 @@ bird's-eye view of what works.
 | C1 | Training leaves most units silent, and silent units do no work | **Done** | Rebuild F1 with `RETRAIN_DIR` → `c1_retrain_seeded2` |
 | C2 | Bigger networks keep a smaller share of units active | **Done**; Figure 1 synced to the paper 15 Oct | — |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
-| C4 | On CDDM a third of the units get no gradient; on 3BFF silent units get gradient yet stay silent | **Tested**; wording rewritten 15 Oct | Pavel approves the wording in entry 2026-10-15_2207, then into `01_intro.tex` |
+| C4 | On CDDM ~300 of 1,000 units are silent (never fire, so no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Tested**; second draft 16 Oct | Pavel: approve the C4 text, and the active / low-active / silent terms paper-wide |
 | C5 | Hyperparameters shift the active count at the floor by ≤ ~120 units on CDDM; input-weight scale raises it on 3BFF | **Done**, Figure 2 built | Sync Figure 2 into the paper; update old numbers in `04_ratepenalty`, `06_whyitmatters` |
 | C6 | Rules that give participation its own drive recruit units at a small cost | **Running** | Read the remedy top-ups (RMtop200) at the floor; B2; A3; build Figure 3 |
 | C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running** | B3 rate cells after the pilot; B4 N = 4000; read all at the floor |
@@ -65,12 +65,12 @@ flat at 200k). **Not the optimizer (B5):** at the floor, Adam (wd 1e-6) keeps 23
 (703-736 active at R² 0.883, lr 0.03) and has Adam's count at its best learning rates. Figure
 `diag_b5_optimizer`.
 
-**C4.** On CDDM, about 300 of a network's 1,000 units have a negative input current (the summed
-input before the ReLU) on every trial, so gradient descent cannot change the weights onto them. On
-3BFF, silent units have nonzero gradients, and their weights change during training, yet the units
-stay silent. The 3BFF networks are not still learning: in two of three, the loss changes by under 1% per 100k from
-150k. Activations: leaky ReLU, softplus and sigmoid networks also end with silent units; tanh units
-saturate instead. Full text and numbers: entry 2026-10-15_2207.
+**C4.** On CDDM about 300 of a network's 1,000 units are silent: their net input current is
+negative on every time step of every trial, so their rate is always zero and gradient descent cannot
+change their incoming weights. On 3BFF no unit is silent; low-active units (below the activity
+threshold, but positive at least transiently) get gradient and their weights change, yet they stay
+below the threshold. The 3BFF networks are not still learning: in two of three, the loss changes by
+under 1% per 100k from 150k. Text: entry 2026-10-16 (second draft).
 
 **C5.** Changing a hyperparameter shifts the active count at the loss floor, but on CDDM by no more
 than about 120 units from the default 418 (sigmoid: 235-255), and the count still falls after the
