@@ -34,7 +34,7 @@ bird's-eye view of what works.
 | # | Claim | Status | What remains |
 |---|---|---|---|
 | C1 | Training leaves most units silent, and silent units do no work | **Done** | Rebuild F1 with `RETRAIN_DIR` → `c1_retrain_seeded2` |
-| C2 | Bigger networks keep a smaller share of units active | **Done** (read under the committed rule) | Rebuild F1 panel c (after the cosyne2027-fig merge); re-read if the new read-out rule lands |
+| C2 | Bigger networks keep a smaller share of units active | **Done**; Figure 1 synced to the paper 15 Oct | — |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
 | C4 | On CDDM a third of the units get no gradient; on 3BFF silent units get gradient yet stay silent | **Tested**; wording rewritten 15 Oct | Pavel approves the wording in entry 2026-10-15_2207, then into `01_intro.tex` |
 | C5 | Hyperparameters shift the active count at the floor by ≤ ~120 units on CDDM; input-weight scale raises it on 3BFF | **Done**, Figure 2 built | Sync Figure 2 into the paper; update old numbers in `04_ratepenalty`, `06_whyitmatters` |
@@ -50,11 +50,12 @@ pruning as many units at random does not (0.921-0.929). The same holds at every 
 4000 at the end of training (36 networks, supplementary figure). Text, Methods and the seeded numbers
 are in the paper.
 
-**C2.** Flip-flop at its floor on the 200k runs (entry 2026-10-15_2059): N = 500 187-237 active
-(6 of 6 runs), N = 1000 287-294 (2 of 3), N = 2000 363-410 (3 of 3), N = 4000 500-594 (3 of 3).
-The active share falls from about 40% at N = 500 to about 14% at N = 4000; the count grows as
-N^0.47. CDDM and DMTS are read at the floor from the paper-grid controls. The learning-rate
-confound (lr ∝ N^−1/3) is left in and handled by reading each network at its own floor.
+**C2.** Read at 1.05× each run's floor under the new read-out (entry 2026-10-15_2219), the active
+count grows as N^0.47 on the 3-bit flip-flop (42% of 500 units active, 14% of 4000), N^0.44 on CDDM
+(298 of 500, 767 of 4000) and N^0.43 on DMTS (three sizes). The exponents stay between 0.41 and 0.57
+at margins of 1.05×, 1.10× and 1.20×. 1,000 active units would need N ≈ 7,300 on CDDM and ≈ 15,100 on
+the flip-flop. The learning-rate confound (lr ∝ N^−1/3) is left in and handled by reading each
+network at its own floor.
 
 **C3.** CDDM, N = 1000: every weight-decay setting reaches its floor early and keeps losing units to
 200-300k with no gain in loss. Flip-flop: units keep dying while the loss is flat (N = 1000: 22-83
