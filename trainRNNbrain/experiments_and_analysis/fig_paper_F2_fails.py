@@ -532,7 +532,7 @@ def draw(data):
 
     # one R^2 range for every CDDM pair so they compare by eye; the flip-flop gets its own
     drawn = [p for p in pairs if p[3] is not None]
-    for task_ff, ticks in ((False, [0.80, 0.83]), (True, [0.948, 0.952])):
+    for task_ff, ticks in ((False, [0.80, 0.83]), (True, [0.949, 0.951])):  # inside the range: an edge tick ran into the next axis's "2k"
         group = [p for p in drawn if ("flip" in p[2]["spec"]["task"]) == task_ff]
         if not group:
             continue
