@@ -20,3 +20,7 @@ sigma_inp: .05
 sigma_out: .03
 bias_range: [0.0, 0.0]
 
+# Every initial weight matrix from one continuing random stream (2026-10-15). Before, each matrix
+# restarted the same draws, so W_out was a rescaled copy of W_inp. Saved configs without this key
+# rebuild with the old "shared" draws, exactly as they were trained (RNN_torch.sparse).
+init_draws: independent

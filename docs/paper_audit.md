@@ -47,8 +47,8 @@ unit leaves CDDM unchanged (0.83 → 0.83). On DMTS and the flip-flop the silent
 removing them costs R² (flip-flop to 0.22-0.53), but a 3,000-iteration retrain without them
 restores it (flip-flop 0.948 against 0.951 for the intact network fine-tuned the same way), and
 pruning as many units at random does not (0.921-0.929). The same holds at every size from 500 to
-4000 at the end of training (36 networks, supplementary figure). Text and Methods are in the paper;
-the seeded numbers are on paper branch `numbers-seeded`.
+4000 at the end of training (36 networks, supplementary figure). Text, Methods and the seeded numbers
+are in the paper.
 
 **C2.** Flip-flop at its floor on the 200k runs (entry 2026-10-15_2059): N = 500 187-237 active
 (6 of 6 runs), N = 1000 287-294 (2 of 3), N = 2000 363-410 (3 of 3), N = 4000 500-594 (3 of 3).
@@ -136,11 +136,10 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
   1000 iterations (~800 GPU-h). CDDM regenerates exactly; flip-flop and DMTS give new networks.
 
 **Writing**
-- **W1.** Manuscript rewrite to this framing: drafted on paper branch `w1-draft`.
+- **W1.** Manuscript rewrite to this framing: merged into the paper's `main` (15 Oct); the C4
+  passage in `01_intro.tex` still awaits its wording.
 - **W2, W3.** "Not brain-like" pinned to measured properties, and the bio-inspired vs engineering
   criteria: merged into the paper's `main`.
-- Paper branches `numbers-seeded`, `figure2-methods` and `w1-draft` wait for Pavel's approval to
-  merge.
 
 **Should**
 - Published continual backprop and ReDo as baselines on the flip-flop (N = 1000, 4000).
@@ -153,14 +152,10 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
   participating; participation needs a drive of its own". Say "several sources" only if B3 shows a
   combination beats the rate penalty alone on stability, cost, dimensionality or ablation.
 - **C4 wording:** candidates in the 2026-10-15_1342 entry.
-- **N = 1000 flip-flop straggler s3374117298:** continue to 300k (~7 GPU-h) or leave excluded.
-- **Correlated initialisation** (found 15 Oct): every network's W_out is a rescaled copy of its
-  W_inp in draw order, and W_rec's first rows repeat the same draws (`RNN_torch.sparse`; entry
-  2026-10-15_1500). Fix it now (a version boundary for all new runs), and test first whether it
-  changes silencing (N = 1000 controls with independent draws against the current ones)?
+- **Does the old correlated initialisation change silencing?** 3 seeds at N = 1000, CDDM and the
+  flip-flop, independent draws against the current controls (~45 GPU-h); entry 2026-10-15_2206.
 - **Redo with snapshots** (above). It should start after the initialisation decision, so the redo
   is not run twice.
-- **Merging the paper branches** (above).
 
 ## Decisions taken
 
@@ -174,3 +169,6 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
 - B4 is in the paper, in a minimal form (N = 1000 and 4000, one new task, 3 seeds).
 - The rate penalty's R² cost on CDDM (< 1%) is treated as negligible.
 - Held-out scoring is seeded project-wide; new runs keep snapshots every 1000 iterations.
+- Initial weight matrices are drawn independently from 15 Oct (`init_draws: independent`).
+- The paper branches numbers-seeded, figure2-methods and w1-draft are merged (15 Oct).
+- The N = 1000 flip-flop straggler stays excluded; a new seed replaces it (Della 15657728_4).

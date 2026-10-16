@@ -8,7 +8,40 @@ forward pass return 3 arguments instead of 2
 '''
 
 # Connectivity defining methods
-def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
+INIT_DRAWS = ("shared", "independent")
+
+
+def init_stream(generator):
+    """One CPU generator for all of a network's initial weights, seeded from the network's generator.
+
+    Args:
+        generator: the network's torch.Generator, or None (then the stream is seeded at random).
+    Returns:
+        torch.Generator on CPU, to pass to every `sparse` call of one network as `cpu_generator`.
+    """
+    g = torch.Generator(device=torch.device("cpu"))
+    g.manual_seed(int(generator.initial_seed()) if generator is not None else int(np.random.randint(100000)))
+    return g
+
+
+def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None, cpu_generator=None):
+    """A matrix of normal draws with a fraction `sparsity` of each column set to zero.
+
+    WHICH STREAM THE DRAWS COME FROM. With `cpu_generator` given, the draws continue that stream, so
+    successive matrices of one network are independent. Without it (the original behaviour, kept so
+    networks trained before 2026-10-15 rebuild exactly), every call reseeds a fresh CPU generator from
+    `generator.initial_seed()`, so every matrix of a network starts from the SAME draws: W_out was a
+    rescaled copy of W_inp in draw order (correlation 1.0) and W_rec's first rows repeated them.
+
+    Args:
+        tnsr: 2-d tensor giving the shape (its values are ignored).
+        sparsity: float in [0, 1), fraction of entries zeroed per column.
+        mean, std: float, the normal's parameters.
+        generator: the network's torch.Generator (device of the result; column permutations).
+        cpu_generator: torch.Generator on CPU from `init_stream`, or None for the original reseeding.
+    Returns:
+        tensor of tnsr's shape on the generator's device.
+    """
     if tnsr.ndimension() != 2:
         raise ValueError("Only tensors with 2 dimensions are supported")
 
@@ -28,12 +61,15 @@ def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
         m = torch.from_numpy(np.array(mean)).to(device_cpu)
         std = torch.from_numpy(np.array(std)).to(device_cpu)
         (rows, cols) = (torch.tensor(rows).to(device_cpu), torch.tensor(cols).to(device_cpu))
-        # it seems it can only use generator on CPU?
-        generator_cpu = torch.Generator(device=torch.device(device_cpu))
-        if not (generator is None):
-            generator_cpu.manual_seed(int(generator.initial_seed()))
+        if cpu_generator is not None:
+            generator_cpu = cpu_generator
         else:
-            generator_cpu.manual_seed(np.random.randint(100000))
+            # the original behaviour: a fresh generator, reseeded identically on every call
+            generator_cpu = torch.Generator(device=torch.device(device_cpu))
+            if not (generator is None):
+                generator_cpu.manual_seed(int(generator.initial_seed()))
+            else:
+                generator_cpu.manual_seed(np.random.randint(100000))
         # first create tensor on CPU then move it to gpu
         tnsr = torch.normal(m, std, (rows, cols), generator=generator_cpu).to(device)
 
@@ -45,7 +81,10 @@ def sparse(tnsr, sparsity, mean=0.0, std=1.0, generator=None):
 
 
 def get_connectivity_Dale(N, n_inputs, n_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
-                          output_density=1.0, exc2inhR=4, generator=None, self_connections=False):
+                          output_density=1.0, exc2inhR=4, generator=None, self_connections=False,
+                          init_draws="shared"):
+    assert init_draws in INIT_DRAWS, init_draws
+    cpu_gen = init_stream(generator) if init_draws == "independent" else None
     device = generator.device if generator is not None else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
     exc_percentage = exc2inhR / (exc2inhR + 1)
@@ -58,12 +97,12 @@ def get_connectivity_Dale(N, n_inputs, n_outputs, radius=1.5, recurrent_density=
     recurrent_sparsity = 1 - recurrent_density
 
     rowE = torch.cat([
-        torch.abs(sparse(torch.empty(Ne, Ne, device=device), recurrent_sparsity, mu_E, std, generator)),
-        -torch.abs(sparse(torch.empty(Ne, Ni, device=device), recurrent_sparsity, mu_I, std, generator))
+        torch.abs(sparse(torch.empty(Ne, Ne, device=device), recurrent_sparsity, mu_E, std, generator, cpu_gen)),
+        -torch.abs(sparse(torch.empty(Ne, Ni, device=device), recurrent_sparsity, mu_I, std, generator, cpu_gen))
     ], dim=1)
     rowI = torch.cat([
-        torch.abs(sparse(torch.empty(Ni, Ne, device=device), recurrent_sparsity, mu_E, std, generator)),
-        -torch.abs(sparse(torch.empty(Ni, Ni, device=device), recurrent_sparsity, mu_I, std, generator))
+        torch.abs(sparse(torch.empty(Ni, Ne, device=device), recurrent_sparsity, mu_E, std, generator, cpu_gen)),
+        -torch.abs(sparse(torch.empty(Ni, Ni, device=device), recurrent_sparsity, mu_I, std, generator, cpu_gen))
     ], dim=1)
 
     W_rec = torch.cat([rowE, rowI], dim=0)
@@ -76,10 +115,10 @@ def get_connectivity_Dale(N, n_inputs, n_outputs, radius=1.5, recurrent_density=
     W_rec = W_rec.float()
 
     input_sparsity = 1 - input_density
-    W_inp = torch.abs(sparse(torch.zeros(N, n_inputs, device=device), input_sparsity, mu_E, std, generator)).float()
+    W_inp = torch.abs(sparse(torch.zeros(N, n_inputs, device=device), input_sparsity, mu_E, std, generator, cpu_gen)).float()
 
     output_sparsity = 1 - output_density
-    W_out = torch.abs(sparse(torch.zeros(n_outputs, Ne, device=device), output_sparsity, mu_E, std, generator))
+    W_out = torch.abs(sparse(torch.zeros(n_outputs, Ne, device=device), output_sparsity, mu_E, std, generator, cpu_gen))
     W_out = torch.hstack([W_out, torch.zeros(n_outputs, Ni, device=device)]).float()
 
     dale_mask = torch.cat([torch.ones(Ne, device=device), -torch.ones(Ni, device=device)])
@@ -92,7 +131,8 @@ def get_connectivity_Dale(N, n_inputs, n_outputs, radius=1.5, recurrent_density=
 
 
 def get_connectivity_unconstrained(N, n_inputs, n_outputs, radius=1.5, recurrent_density=1.0, input_density=1.0,
-                                   output_density=1.0, generator=None, self_connections=False):
+                                   output_density=1.0, generator=None, self_connections=False,
+                                   init_draws="shared"):
     """
     Unconstrained (non-Dale) connectivity: signed weights, no E/I split, every unit reads out.
 
@@ -107,21 +147,25 @@ def get_connectivity_unconstrained(N, n_inputs, n_outputs, radius=1.5, recurrent
         radius: target spectral radius of W_rec after rescaling.
         recurrent_density, input_density, output_density: fraction of nonzero entries (1.0 = dense).
         generator: torch.Generator seeding every draw.
+        init_draws: "independent" draws every matrix from one continuing stream; "shared" (the
+            original behaviour) restarts the same draws for each matrix (see `sparse`).
     Returns:
         (W_rec, W_inp, W_out, recurrent_mask, dale_mask=None, output_mask, input_mask) — dale_mask is
         None to signal "no sign constraint" to the model and the Trainer.
     """
+    assert init_draws in INIT_DRAWS, init_draws
+    cpu_gen = init_stream(generator) if init_draws == "independent" else None
     device = generator.device if generator is not None else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
     mu, std = 0.0, 1 / np.sqrt(N)
 
-    W_rec = sparse(torch.empty(N, N, device=device), 1 - recurrent_density, mu, std, generator)
+    W_rec = sparse(torch.empty(N, N, device=device), 1 - recurrent_density, mu, std, generator, cpu_gen)
     if not self_connections:
         W_rec = W_rec - torch.diag(torch.diag(W_rec))
     spec_radius = torch.max(torch.abs(torch.linalg.eigvals(W_rec)))
     W_rec = ((radius / (spec_radius + 1e-12)) * W_rec).float()
 
-    W_inp = sparse(torch.zeros(N, n_inputs, device=device), 1 - input_density, mu, std, generator).float()
-    W_out = sparse(torch.zeros(n_outputs, N, device=device), 1 - output_density, mu, std, generator).float()
+    W_inp = sparse(torch.zeros(N, n_inputs, device=device), 1 - input_density, mu, std, generator, cpu_gen).float()
+    W_out = sparse(torch.zeros(n_outputs, N, device=device), 1 - output_density, mu, std, generator, cpu_gen).float()
 
     output_mask = (W_out != 0).float()
     input_mask = (W_inp != 0).float()
@@ -229,7 +273,8 @@ class RNN_torch(torch.nn.Module):
                  n_outputs=2,
                  input_row_norm=None,
                  inp_weight_cap=None,
-                 sigma_w=0.0):
+                 sigma_w=0.0,
+                 init_draws="shared"):
         '''
         :param N: int, number of neural nodes in the RNN
         :param input_row_norm: float or None. None (default) keeps the drawn W_inp (entries at std
@@ -260,6 +305,10 @@ class RNN_torch(torch.nn.Module):
             the initial condition (needed for a one-variable trainable-bias control). Ignored for a
             degenerate bias_range.
         :param gamma: float, coefficient of the cubic nonlinearity in the RNN dynamics
+        :param init_draws: "independent" (every current model config) draws W_rec, W_inp and W_out
+            from one continuing random stream; "shared", the default for configs saved before
+            2026-10-15, restarts the same draws for each matrix, so W_out is a rescaled copy of
+            W_inp in draw order. Kept only so those networks rebuild exactly (see `sparse`).
         :param sigma_w: float >= 0, relative std of MULTIPLICATIVE synaptic noise on W_rec and
             W_inp, resampled at EVERY timestep of the forward pass: the matrices used at step t are
             W * (1 + sigma_w * eps_t). 0 (default) is the historical behaviour and costs nothing.
@@ -336,6 +385,9 @@ class RNN_torch(torch.nn.Module):
         # positivity of W_inp, W_out (io_nonnegativity),
         # W_rec subject to Dale's law (dale) — the two are independent switches
         self.dale = bool(dale)
+        # "shared" when absent: a config saved before 2026-10-15 has no key and must rebuild its
+        # network exactly; every current model config sets "independent" (see `sparse`)
+        self.init_draws = init_draws
         self.io_nonnegativity = bool(io_nonnegativity)
         self.self_connections = bool(self_connections)
         if self.dale:
@@ -345,14 +397,16 @@ class RNN_torch(torch.nn.Module):
                                         exc2inhR=self.exc2inhR,
                                         generator=self.random_generator,
                                         recurrent_density=self.connectivity_density_rec,
-                                        self_connections=self.self_connections)
+                                        self_connections=self.self_connections,
+                                        init_draws=self.init_draws)
         else:
             W_rec, W_inp, W_out, self.recurrent_mask, self.dale_mask, self.output_mask, self.input_mask = \
                 get_connectivity_unconstrained(N=self.N, n_inputs=self.n_inputs, n_outputs=self.n_outputs,
                                         radius=self.spectral_rad,
                                         generator=self.random_generator,
                                         recurrent_density=self.connectivity_density_rec,
-                                        self_connections=self.self_connections)
+                                        self_connections=self.self_connections,
+                                        init_draws=self.init_draws)
 
         # initialisation-scale control: equalise every input row to the requested norm (T5)
         self.input_row_norm = None if input_row_norm is None else float(input_row_norm)
