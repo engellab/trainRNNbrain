@@ -28,6 +28,9 @@ import json
 import glob
 import pickle
 import numpy as np
+from omegaconf import OmegaConf
+from scipy.ndimage import median_filter
+from scipy.optimize import least_squares
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 IMG_DIR = os.path.join(HERE, "../../img/internal_figures")
@@ -314,10 +317,41 @@ def aicc(rss, n, k):
 # noise-free loss is the wrong yardstick.
 #
 # THE SERIES COSTS NOTHING EXTRA. The trainer computes the noisy loss at every step, on a fresh
-# batch with fresh noise, and saves it (TrainLosses.json). A running median over NOISY_SMOOTH
-# iterations is an average over that many noise draws and batches, so no evaluation is added to
-# training. A median rather than a mean, because DMTS spikes back to chance for brief episodes
-# (1,300-3,900 spiking iterations per run) and a mean is dragged up by them.
+# batch with fresh noise, and saves it (TrainLosses.json). Smoothing it averages over noise draws
+# and batches, so no evaluation is added to training.
+#
+# THE SMOOTHER (Pavel, 2026-10-15) is a Hampel-filtered mean over the iterations [t/1.1, 1.1t]:
+# points more than 3 MADs (median absolute deviations) from the window's median are dropped and
+# the rest averaged. Outlier-robust because DMTS spikes back to chance for brief episodes
+# (1,300-3,900 spiking iterations per run) and a plain mean is dragged up by them. The window grows
+# with t so every network gets the same RELATIVE smoothing: the 2,001-iteration running median used
+# until then was a large share of training for a fast run and a sliver of it for a slow one. The
+# floor is fitted to this same curve (it was fitted to log-binned medians), so floor and crossing
+# are one statistic. (A robust soft-L1 fit loss was tried and dropped: from the shared start point it
+# converged to a degenerate floor ~0, beta on its lower bound, on 231 CDDM and flip-flop runs.)
+#
+# THE CROSSING IS SUSTAINED (Pavel, 2026-10-15): the read-out is the first t after which the curve
+# stays at or below (1+delta) x floor through (1+HOLD_FRAC) x t. A first crossing takes the first
+# noise dip under the bar, so the noisier a network's loss the earlier it was read - a bias across
+# sizes and hyperparameters, not just scatter. It is read at every FLOOR_DELTAS margin; 1.05x is the
+# tightest margin every network can be held to (Pavel), the others show whether a comparison depends
+# on where it is read.
+#
+# BURSTS ARE COUNTED, AND MASKED OUT OF THE READ-OUT. A burst is a stretch where the 51-iteration
+# running median of the raw loss sits above BURST_RATIO x a wide reference ([t/1.5, 1.5t] Hampel
+# curve, wide so that a burst of a few thousand iterations cannot pull its own reference up). Its
+# iterations, padded on each side by max(51, half the burst's length) because the 51-iteration median
+# blurs its edges and long bursts ramp, are dropped before the read-out curve is computed:
+# DMTS bursts last thousands of iterations and recur every few thousand, so at t ~ 20-30k they
+# fill a quarter of the [t/1.1, 1.1t] window, the Hampel cut keeps them, and the unmasked floor
+# came out up to 1.6x the between-burst level. How often a training method, size or hyperparameter
+# bursts is a property of it, and is reported per cell (burst_stats.py). A run with more than
+# MAX_BURST_SHARE of its iterations after the fit start inside bursts gets no read-out: there is no
+# stable stretch to read (DMTS, the burstiest task that learns, sits at 9% median, 23% 90th pct).
+#
+# VALIDATED on synthetic traces with a known floor and crossing (trajectory 2026-10-15): floor within
+# 1% and the 1.05x crossing within 6% at bulk CV (SD/mean of the per-iteration loss) 0.03-0.3, with
+# 1% of iterations x10 and planted 3-20x bursts; the old rule read 2-19% early on the same traces.
 #
 # A TASK THAT STALLS (DMTS sits at the constant-output solution for 200 to 155,000 iterations
 # before it escapes) is fitted from its escape, not from iteration 0: a stretched exponential
@@ -334,8 +368,17 @@ def aicc(rss, n, k):
 # DMTS sits flat between bursts at ~7e-5 while its fitted floor, ~1e-4, averages troughs and
 # bursts, so the test rejected 7 of 8 runs that had plainly reached their floor.)
 
-NOISY_SMOOTH = 2001     # iterations in the running median the read-out is taken on
+HAMPEL_SPAN = 1.1       # the read-out curve at t averages the iterations [t/1.1, 1.1t]
+HAMPEL_K = 3.0          # a point more than this many MADs from its window median is dropped
+GRID_RATIO = 1.01       # the curve is computed on t-grid points 1% apart, then interpolated
+HOLD_FRAC = 0.2         # a crossing at t counts once the curve stays under the bar through 1.2t
 FLOOR_DELTA = 0.05      # read at 1.05x the fitted floor (1.07x before 2026-10-12)
+FLOOR_DELTAS = (0.05, 0.10, 0.20)   # every margin the read-out is also taken at
+BURST_RATIO = 2.0       # a burst: the short running median above this x the wide reference
+BURST_SPAN = 1.5        # the burst reference at t averages [t/1.5, 1.5t]
+BURST_MEDIAN = 51       # iterations in the short running median, so a lone bad batch is no burst
+BURST_GAP = 200         # bursts closer than this many iterations are one burst
+MAX_BURST_SHARE = 0.5   # more than this share of post-fit-start iterations in bursts: no read-out
 MAX_LATE_RISE = 1.5     # end of the run (median of its last 10%) over the fitted floor; above it, no
                         # read-out
 END_FRAC = 0.10         # the "end of the run" is its last 10% of iterations
@@ -354,7 +397,6 @@ def warm_start_chain(run_dir):
     Returns:
         list of run folders, the original run first and `run_dir` last.
     """
-    from omegaconf import OmegaConf
     chain, d = [], run_dir.rstrip("/")
     while d and d not in chain:
         chain.append(d)
@@ -394,43 +436,128 @@ def noisy_loss_series(run_dir):
     return np.concatenate(its), np.concatenate(Ls)
 
 
-def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
-    """Where a run's noisy loss first reaches (1+delta) x its own fitted floor.
+def hampel_curve(it, L, span, ratio=GRID_RATIO, k=HAMPEL_K, min_n=11):
+    """Outlier-trimmed mean of L over the iterations [t/span, t*span], on a log-spaced grid of t.
+
+    In each window, points more than k scaled MADs (1.4826 x median absolute deviation, which equals
+    the SD for Gaussian noise) from the window median are dropped and the rest averaged.
+
+    Args:
+        it: (n,) increasing iterations; L: (n,) loss at those iterations;
+        span: window half-width as a ratio (1.1 averages [t/1.1, 1.1t]);
+        ratio: spacing of the grid points; k: the outlier cut, in MADs;
+        min_n: grid points whose window holds fewer samples are skipped.
+    Returns:
+        (tg, yg): grid iterations and the trimmed mean at each, both (m,) float arrays.
+    """
+    tg = np.exp(np.arange(np.log(it[0]), np.log(it[-1]), np.log(ratio)))
+    a = np.searchsorted(it, tg / span, "left")
+    b = np.searchsorted(it, tg * span, "right")
+    keep = b - a >= min_n
+    tg, a, b = tg[keep], a[keep], b[keep]
+    yg = np.empty(len(tg))
+    for j in range(len(tg)):
+        x = L[a[j]:b[j]]
+        med = np.median(x)
+        dev = np.abs(x - med)
+        yg[j] = x[dev <= k * 1.4826 * np.median(dev)].mean()
+    return tg, yg
+
+
+def sustained_crossing(it, y, bar, t_from, hold=HOLD_FRAC):
+    """First iteration t >= t_from after which y stays <= bar through (1+hold) x t.
+
+    Args:
+        it: (n,) increasing iterations; y: (n,) smoothed loss; bar: the threshold;
+        t_from: earliest iteration a crossing may be read at; hold: the hold window as a fraction of t.
+    Returns:
+        the iteration as a float; nan if no crossing holds, or if every hold window runs past the end.
+    """
+    above = y > bar
+    nxt = np.minimum.accumulate(np.where(above, np.arange(len(y)), len(y))[::-1])[::-1]
+    t_next = np.append(it, np.inf)[nxt]          # iteration of the next above-bar sample, or inf
+    ok = (it >= t_from) & ~above & (t_next > (1 + hold) * it) & ((1 + hold) * it <= it[-1])
+    hit = np.flatnonzero(ok)
+    return float(it[hit[0]]) if len(hit) else float("nan")
+
+
+def find_bursts(it, L, ref, t_from):
+    """Stretches where the loss climbs above BURST_RATIO x its reference level.
+
+    Args:
+        it: (n,) increasing iterations; L: (n,) raw noisy loss; ref: (n,) reference level per
+        iteration (the wide Hampel curve); t_from: bursts are only looked for from this iteration.
+    Returns:
+        list of (first iteration, last iteration, peak ratio of short running median to ref).
+    """
+    r = median_filter(L, size=BURST_MEDIAN, mode="nearest") / ref
+    d = np.diff(np.r_[0, ((r > BURST_RATIO) & (it >= t_from)).astype(int), 0])
+    segs = list(zip(np.flatnonzero(d == 1), np.flatnonzero(d == -1)))   # [start, stop) indices
+    merged = []
+    for s, e in segs:
+        if merged and it[s] - it[merged[-1][1] - 1] < BURST_GAP:
+            merged[-1][1] = e
+        else:
+            merged.append([s, e])
+    return [(float(it[s]), float(it[e - 1]), float(r[s:e].max())) for s, e in merged]
+
+
+def noisy_floor(it, L, delta=FLOOR_DELTA):
+    """Where a run's smoothed noisy loss reaches (1+delta) x its own fitted floor and stays there.
 
     Args:
         it, L: the per-iteration noisy loss and its iterations (noisy_loss_series).
-        delta: the margin; smooth: running-median window, in samples.
+        delta: the margin `t_star` is read at; every FLOOR_DELTAS margin is read too.
     Returns:
-        dict: t_star (nan when there is no read-out), floor, floor_kind ("fit", or "smoothed_min" when
-        the fit's beta sits on its upper bound and the floor falls back to the minimum of the running
-        median), escape, late_rise (end-of-run median over the floor), reason (None when the read-out
-        is usable), and `smoothed` (the running median the crossing is read on). `fit` holds the
-        stretched-exponential parameters in both cases.
+        dict: t_star (nan when there is no read-out), t_stars ({margin: crossing} for FLOOR_DELTAS and
+        delta, nan where none holds), floor, floor_kind ("fit", or "smoothed_min" when the fit's beta
+        sits on its upper bound and the floor falls back to the minimum of the smoothed curve),
+        escape, late_rise (median of the smoothed curve over the run's last 10%, over the floor),
+        reason (None when the read-out is usable), `smoothed` (the Hampel curve the crossing is read
+        on, one value per iteration of `it`), `fit` (the stretched-exponential parameters, fitted in
+        t - escape), `bursts` (find_bursts list) and `burst_from` (the iteration bursts are counted
+        from).
     """
-    from scipy.ndimage import median_filter
-    from scipy.optimize import least_squares
     it, L = np.asarray(it, float), np.asarray(L, float)
     ok = np.isfinite(L)
     it, L = it[ok], L[ok]
-    out = dict(t_star=float("nan"), floor=None, floor_kind=None, escape=float("nan"),
-               late_rise=float("nan"), reason=None)
-    if len(L) < 4 * smooth:
+    deltas = sorted(set(FLOOR_DELTAS) | {delta})
+    out = dict(t_star=float("nan"), t_stars={d: float("nan") for d in deltas}, floor=None,
+               floor_kind=None, escape=float("nan"), late_rise=float("nan"), reason=None,
+               bursts=[], burst_from=float("nan"))
+    if len(L) < 2 * FIT_START:
         out["reason"] = "series too short"
         return out
-    rm = median_filter(L, size=smooth, mode="nearest")
-    out["smoothed"] = rm
+    tg, yg = hampel_curve(it, L, HAMPEL_SPAN)
+    sm = np.interp(np.log(it), np.log(tg), yg)
     # the starting level is the first 50 iterations: CDDM halves its loss within ~100, so a later
     # window already sits near the bottom and the escape is never found; DMTS's stall (~0.07) is
     # still above half of its first-50 level (~0.09), so its escape is caught where it happens
     start = np.median(L[:50])
-    esc = np.flatnonzero(rm < 0.5 * start)
+    esc = np.flatnonzero(sm < 0.5 * start)
+    t0 = float(it[esc[0]]) if len(esc) else float("nan")
+    fit_from = max(FIT_START, t0 + 200) if len(esc) else FIT_START
+    tr, yr = hampel_curve(it, L, BURST_SPAN, ratio=1.05)
+    out["bursts"] = find_bursts(it, L, np.interp(np.log(it), np.log(tr), yr), fit_from)
+    out["burst_from"] = float(fit_from)
+    if out["bursts"]:                            # the read-out curve without the burst iterations
+        calm = np.ones(len(it), bool)
+        for b0, b1, _ in out["bursts"]:
+            pad = max(BURST_MEDIAN, 0.5 * (b1 - b0))
+            calm &= (it < b0 - pad) | (it > b1 + pad)
+        tg, yg = hampel_curve(it[calm], L[calm], HAMPEL_SPAN)
+        sm = np.interp(np.log(it), np.log(tg), yg)
+    out["smoothed"] = sm
+    share = sum(b1 - b0 + 1 for b0, b1, _ in out["bursts"]) / max(it[-1] - fit_from + 1, 1)
+    if share > MAX_BURST_SHARE:
+        out["reason"] = f"bursts cover {share:.0%} of training"
+        return out
     if not len(esc):
         out["reason"] = "never leaves its starting level"
         return out
-    t0 = float(it[esc[0]])
     out["escape"] = t0
-    m = it >= max(FIT_START, t0 + 200)
-    tb, yb = logbin(it[m] - t0, L[m])
+    g = tg >= fit_from
+    tb, yb = tg[g] - t0, yg[g]
     if len(tb) < 8:
         out["reason"] = "too little training after the escape"
         return out
@@ -444,7 +571,7 @@ def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
         return out
     floor = float(fit[0])
     out["floor"], out["fit"], out["floor_kind"] = floor, [float(v) for v in fit], "fit"
-    end_level = float(np.median(L[it >= it[-1] - END_FRAC * (it[-1] - it[0])]))
+    end_level = float(np.median(sm[it >= it[-1] - END_FRAC * (it[-1] - it[0])]))
     out["late_rise"] = end_level / floor
     if floor <= FLOOR_BOUND * 1.01:
         out["reason"] = "fit pinned at its lower bound"
@@ -454,23 +581,22 @@ def noisy_floor(it, L, delta=FLOOR_DELTA, smooth=NOISY_SMOOTH):
     # it), so the crossing fired early (27k instead of ~52k on one claim-1 run). These runs have
     # converged - two claim-1 flip-flop runs sit at ~0.034 from 52-60k to 300k - and it is the fit
     # that fails on a fast drop followed by a flat plateau. So (Pavel, 2026-10-14) such a run is read
-    # against the MINIMUM of its running median over the fit window instead, and the crossing is
-    # where the running median first reaches 1.05x that minimum; floor_kind records which floor was
+    # against the MINIMUM of its smoothed curve over the fit window instead, and the crossing is
+    # where the smoothed curve reaches and holds 1.05x that minimum; floor_kind records which floor was
     # used. tau on its LOWER bound is not checked on purpose: on CDDM and DMTS it only means the fast
     # decay is over before the fit window opens, and those floors hold (CDDM ends at 1.00-1.01x).
     # Guarding every bound dropped 64 of 123 runs; the beta guard touches 6, the suspicious ones.
     if fit[3] >= hi[3] * 0.99:
-        floor = float(rm[m].min())
+        floor = float(yb.min())
         out["floor"], out["floor_kind"] = floor, "smoothed_min"
         out["late_rise"] = end_level / floor
     if out["late_rise"] > MAX_LATE_RISE:
         out["reason"] = f"loss ends {out['late_rise']:.1f}x above its floor"
         return out
-    hit = np.flatnonzero(m & (rm <= (1.0 + delta) * floor))
-    if not len(hit):
-        out["reason"] = "never reaches the bar"
-        return out
-    out["t_star"] = float(it[hit[0]])
+    out["t_stars"] = {d: sustained_crossing(it, sm, (1.0 + d) * floor, fit_from) for d in deltas}
+    out["t_star"] = out["t_stars"][delta]
+    if np.isnan(out["t_star"]):
+        out["reason"] = "never stays under the bar"
     return out
 
 
@@ -882,6 +1008,18 @@ def _self_check():
     fake4 = {"iters": it4, "metrics": {f"drift_W_rec_lag{L}": np.full(59, L ** 0.7) for L in LAGS}}
     pw = drift_alpha_pairwise(fake4)
     assert pw and all(abs(np.median(a) - 0.7) < 1e-6 for _, a in pw.values()), pw
+
+    # noisy_floor recovers a known floor and crossing under noise, and finds planted bursts without
+    # letting them move either. Truth: floor 0.01, crossing of 1.05x at tau*ln(A/(0.05 floor))^2.
+    rng5 = np.random.default_rng(5)
+    it5 = np.arange(1, 150_001, dtype=float)
+    L5 = (0.01 + 0.5 * np.exp(-np.sqrt(it5 / 1000))) * rng5.gamma(1 / 0.03**2, 0.03**2, len(it5))
+    for s, w, h in ((80_000, 500, 5.0), (110_000, 3000, 10.0)):
+        L5[s:s + w] *= h
+    f5 = noisy_floor(it5, L5)
+    assert abs(f5["floor"] / 0.01 - 1) < 0.01, f5["floor"]
+    assert abs(f5["t_star"] / (1000 * np.log(1000) ** 2) - 1) < 0.1, f5["t_star"]
+    assert len(f5["bursts"]) == 2, f5["bursts"]
 
     print("common.py self-check passed")
 
