@@ -362,8 +362,8 @@ def panel_C(fig, box):
             # a paper-coloured box so the guide lines do not strike through the text
             t.set_bbox(dict(facecolor=ps.PAPER, edgecolor="none", pad=0.4))
     # plain numbers at the sizes trained (the axis stays logarithmic: the fits are power laws)
-    ax.set_xticks([500, 1000, 2000, 4000])
-    ax.set_xticklabels(["500", "1000", "2000", "4000"])
+    ax.set_xticks([100, 500, 1000, 2000, 4000])
+    ax.set_xticklabels(["100", "500", "1000", "2000", "4000"])
     ax.set_yticks([100, 200, 500, 1000])
     ax.set_yticklabels(["100", "200", "500", "1000"])
     ax.minorticks_off()

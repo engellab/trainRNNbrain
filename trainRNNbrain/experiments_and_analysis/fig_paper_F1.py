@@ -141,18 +141,32 @@ NO_FIT = {}
 # The 6-bit flip-flop series is gone: it was never re-run on the standard network.
 FF200 = f"{DATA_DIR}/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N={{N}}_pen=none_arm=none"
 DMTS_LABEL = "DMTS, 5$\\tau$ delay"
+# N = 100 is drawn but not fitted (FIT_MIN_N): with nearly every unit active there, the count is
+# held against the N ceiling and would flatten the power law. A size may list several globs (runs_in).
+FIT_MIN_N = 500
+N100 = f"{DATA_DIR}/{{task}}_n100/EqType=h_N=100_arm=control"
+# Runs superseded by a continuation listed beside them, keyed by a fragment of the folder name: the
+# continuation is the same network trained further, so the parent must not count a second time.
+SUPERSEDED = {
+    "seed=3374117298;": "3BFF N = 1000 control that never reached 1.05x its floor by 200k; continued "
+                        "to 300k in NBitFlipFlop_ff_revive_c300000 (Della 15658101)",
+}
 SCALING = {
-    "3-bit flip-flop": ([500, 1000, 2000, 4000], {
+    "3-bit flip-flop": ([100, 500, 1000, 2000, 4000], {
+        100:  N100.format(task="NBitFlipFlop"),
         500:  FF200.format(N=500),
-        1000: FF200.format(N=1000),
+        1000: (FF200.format(N=1000),
+               f"{DATA_DIR}/NBitFlipFlop_ff_revive_c300000/EqType=h_k=3_N=1000_pen=none_arm=none"),
         2000: FF200.format(N=2000),
         4000: f"{DATA_DIR}/NBitFlipFlop_paper_grid_c200000/EqType=h_N=4000_arm=control",
     }, 200_000, ps.SLOTS[0]),
-    "CDDM": ([500, 1000, 2000, 4000], {
-        N: f"{DATA_DIR}/CDDM_paper_grid/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000, 4000)
+    "CDDM": ([100, 500, 1000, 2000, 4000], {
+        100: N100.format(task="CDDM"),
+        **{N: f"{DATA_DIR}/CDDM_paper_grid/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000, 4000)}
     }, 100_000, ps.SLOTS[1]),
-    DMTS_LABEL: ([500, 1000, 2000], {
-        N: f"{DATA_DIR}/DMTS_paper_grid_d5/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000)
+    DMTS_LABEL: ([100, 500, 1000, 2000], {
+        100: N100.format(task="DMTS"),
+        **{N: f"{DATA_DIR}/DMTS_paper_grid_d5/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000)}
     }, 150_000, ps.SLOTS[2]),
 }
 
@@ -939,6 +953,23 @@ def panel_b(ax, p):
     ps.ygrid(ax)
 
 
+def runs_in(pats, min_r2=None):
+    """Every run of one size, from one glob or several, with superseded parents dropped.
+
+    runs_with_loss is called once per glob, so a recorder or replay keyed on the glob
+    (fig_cosyne2027) sees the same calls as before. A run whose folder name holds a SUPERSEDED key
+    is dropped: its continuation, listed under another glob of the same size, stands for it.
+
+    Args:
+        pats: a glob of run folders, or a tuple of globs; min_r2: as in runs_with_loss.
+    Returns:
+        list of run dicts (see common.load_run).
+    """
+    pats = (pats,) if isinstance(pats, str) else tuple(pats)
+    runs = [r for p in pats for r in runs_with_loss(p, min_r2=min_r2)]
+    return [r for r in runs if not any(k in r["name"] for k in SUPERSEDED)]
+
+
 def panel_c(ax):
     """Panel (c): active units vs network size, each run read at 1.05x its own fitted loss floor.
 
@@ -959,8 +990,8 @@ def panel_c(ax):
         min_r2 = TASK_MIN_R2.get(task)
         cells = {}
         for N in Ns:
-            rs = runs_with_loss(pats[N], min_r2=min_r2)
-            total = len(runs_with_loss(pats[N]))
+            rs = runs_in(pats[N], min_r2=min_r2)
+            total = len(runs_in(pats[N]))
             if min_r2 is not None and len(rs) < total:
                 print(f"  .. {task} N={N}: {total - len(rs)} of {total} seed(s) below "
                       f"r2 {min_r2} dropped, {len(rs)} kept")
@@ -1008,13 +1039,14 @@ def panel_c(ax):
             handles.append(Line2D([], [], color=col, marker="o", mfc=mfc, ms=3.0, lw=1.1,
                                   label=task + tag))
             continue
-        b, loga = np.polyfit(np.log(xs), np.log(ys), 1)
-        fits[task] = (b, np.exp(loga), np.exp((np.log(1000) - loga) / b), len(xs),
+        fit = xs >= FIT_MIN_N
+        b, loga = np.polyfit(np.log(xs[fit]), np.log(ys[fit]), 1)
+        fits[task] = (b, np.exp(loga), np.exp((np.log(1000) - loga) / b), int(fit.sum()),
                       float(xs.max()), readout)
-        # extrapolate only the tasks with four sizes; a three-size fit with a wide seed spread is
-        # not something to project a decade beyond the data
-        hi = 2.4e4 if len(xs) >= 4 else xs.max() * 1.25
-        xf = np.logspace(np.log10(xs.min() * 0.85), np.log10(hi), 50)
+        # extrapolate only the tasks with four fitted sizes; a three-size fit with a wide seed spread
+        # is not something to project a decade beyond the data
+        hi = 2.4e4 if fit.sum() >= 4 else xs.max() * 1.25
+        xf = np.logspace(np.log10(xs[fit].min() * 0.85), np.log10(hi), 50)
         ax.plot(xf, np.exp(loga) * xf ** b, ls=":", lw=0.8, color=col, zorder=3)
         # built by hand: an errorbar's legend handle is a container, and letting matplotlib collect
         # handles here silently produced two entries for the same task
@@ -1028,7 +1060,7 @@ def panel_c(ax):
     # flip-flop and CDDM series alone -- unpenalised DMTS at N = 500 sits at 114 and 134 active
     # units, and at a floor of 150 both seeds and their whole cell were clipped off the panel
     # without any warning that they had been.
-    nn = np.array([3e2, 2.6e4])
+    nn = np.array([7e1, 2.6e4])
     ax.plot(nn, nn, "-", lw=0.7, color=ps.MUTED, zorder=2)
     # the 10% label sits at the lower left, where no series or extrapolation passes
     for frac, lab, xl in [(0.5, "50% active", 3.0e3), (0.1, "10% active", 7.0e2)]:
@@ -1036,7 +1068,7 @@ def panel_c(ax):
         ax.text(xl, frac * xl * 1.12, lab, fontsize=5.2, color=ps.FAINT, ha="center", va="bottom")
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
     ax.set(xscale="log", yscale="log", xlabel="network size N",
-           ylabel="active units", xlim=(3.2e2, 2.7e4), ylim=(20, 2.3e3))
+           ylabel="active units", xlim=(7.5e1, 2.7e4), ylim=(20, 2.3e3))
     # The 1,000-unit line and the diagonal are named in the legend: written on the panel, both
     # labels were crossed by the diagonal or by the extrapolated fits.
     handles += [Line2D([], [], color=ps.BAD, lw=0.7, ls="-.", label="1,000 active units"),
