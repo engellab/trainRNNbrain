@@ -127,8 +127,8 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
 **Training**
 - **B2.** Rate penalty alone on the standard flip-flop grid, N = 500-2000 on Della (15598509-11),
   N = 4000 (15527679).
-- **B3.** Pilot 15598507-08, then the three rate cells by the pre-registered rule; noise and
-  rescaling cells 15598515-17.
+- **B3.** Pilot read (16 Oct): λ = 0.03 chosen (72% of units active, 2.4× the control). Rate cells
+  submitted 15689235-37; noise and rescaling cells 15598515-17 running.
 - **B4.** N = 1000 on Della (15598512-14); N = 4000 on gpu80 is approved, to submit when FFtop4000
   lands.
 - **RMtop200.** 189 remedy top-up tasks to 200k with snapshots, from `~/trainRNNbrain_redo`
