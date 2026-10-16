@@ -1,4 +1,4 @@
-## 2026-10-15 21:06 — Figure 1 rebuilt: every task's size series at its floor
+## 2026-10-15 21:04 — Figure 1 rebuilt: every task's size series at its floor
 
 Built on Della (job 15655514) from `~/trainRNNbrain_c1ana` at c2af704, after the cosyne2027-fig
 merge; RETRAIN_DIRS = (`c1_retrain_seeded2/rep1`, `c1_retrain_seeded`). Figure
