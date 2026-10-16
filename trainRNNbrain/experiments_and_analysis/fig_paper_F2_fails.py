@@ -68,15 +68,15 @@ CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "fig_paper_F2_fails_cache.
 # flip-flop screen has none, and its config differs from the claim-1 flip-flop control
 # (`ff_revive_c200000`, arm none) only in the prune keys, so that control is its reference.
 REVIVAL = [
-    dict(stem="revival_cddm", knob="reviving silent units", ref=0, categorical=True,
+    dict(stem="revival_cddm", knob="reviving inactive units", ref=0, categorical=True,
          task="CDDM, $N$ = 1000, 75,000 iterations",
          rungs=[("none", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=none"),
                 ("input-weight\ncap 0.3", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=cap"),
-                ("re-initialise\nsilent units", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=prune")]),
-    dict(stem="revival_ff", knob="reviving silent units", ref=0, categorical=True,
+                ("re-initialise\ninactive units", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=prune")]),
+    dict(stem="revival_ff", knob="reviving inactive units", ref=0, categorical=True,
          task="3-bit flip-flop, $N$ = 1000, 200,000 iterations",
          rungs=[("none", f"{DATA_DIR}/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none"),
-                ("zero-out\nsilent units", f"{DATA_DIR}/NBitFlipFlop_replace_variants_c200000/EqType=h_k=3_N=1000_mode=zero_out_rate=0.025_mat=1000"),
+                ("zero-out\ninactive units", f"{DATA_DIR}/NBitFlipFlop_replace_variants_c200000/EqType=h_k=3_N=1000_mode=zero_out_rate=0.025_mat=1000"),
                 ("random\nredraw", f"{DATA_DIR}/NBitFlipFlop_replace_variants_c200000/EqType=h_k=3_N=1000_mode=random_rate=0.025_mat=1000")]),
 ]
 
@@ -106,7 +106,7 @@ def collect_spec(spec, r2cache):
         runs = []
         for r in runs_with_loss(path):
             it_a = np.asarray(r["it_act"], float)
-            f = noisy_floor(r["it_loss"], r["loss"])
+            f = noisy_floor(r["it_loss"], r["loss"], task=r["task"])
             t, why = f["t_star"], f["reason"]
             if why is None and not it_a[0] <= t <= it_a[-1]:
                 t, why = float("nan"), "participation trace does not cover the crossing"

@@ -812,7 +812,7 @@ def panel_a(ax_net, ax_tr, rates, p):
                 color=ACTIVE_COL)
     ax_net.scatter([0.16], [-1.58], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
                    zorder=4, clip_on=False)
-    ax_net.text(0.28, -1.58, f"{N - n_live} silent", ha="left", va="center", fontsize=6.0,
+    ax_net.text(0.28, -1.58, f"{N - n_live} inactive", ha="left", va="center", fontsize=6.0,
                 color=ps.MUTED)
     ps.arrow(ax_net, (-1.70, -1.94), (-1.50, -1.94), col=EXC_COL, lw=0.5, mutation_scale=4.0,
              shrink=0, style="-|>")
@@ -840,7 +840,7 @@ def panel_a(ax_net, ax_tr, rates, p):
 
     n_shown_live = int(live[pick].sum())
     for lo, hi, lab, col in [(N_SHOWN - n_shown_live, N_SHOWN - 1, "active", ACTIVE_COL),
-                             (0, N_SHOWN - n_shown_live - 1, "silent", ps.MUTED)]:
+                             (0, N_SHOWN - n_shown_live - 1, "inactive", ps.MUTED)]:
         if hi < lo:
             continue
         ax_tr.plot([T + 16] * 2, [lo - 0.18, hi + 0.86], lw=0.8, color=col, zorder=4,
@@ -887,7 +887,7 @@ def panel_b_pair(axes, p_init, p, iterations):
         qq = np.maximum(q, 1e-6)
         live = qq >= thr
         ax.hist(qq[~live], bins=bins, color=ps.FAINT, edgecolor="none",
-                label=f"silent ({(~live).sum()})")
+                label=f"inactive ({(~live).sum()})")
         ax.hist(qq[live], bins=bins, color=ACTIVE_COL, edgecolor="none",
                 label=f"active ({live.sum()})")
         ax.axvline(thr, color=ps.INK, lw=0.9, ls="--", zorder=5)
@@ -924,7 +924,7 @@ def panel_b(ax, p):
     pp = np.maximum(p, 1e-6)
     bins = np.logspace(np.log10(pp.min() * 0.7), np.log10(pp.max() * 1.4), 46)
     live = pp >= thr
-    ax.hist(pp[~live], bins=bins, color=ps.FAINT, edgecolor="none", label=f"silent ({(~live).sum()})")
+    ax.hist(pp[~live], bins=bins, color=ps.FAINT, edgecolor="none", label=f"inactive ({(~live).sum()})")
     ax.hist(pp[live], bins=bins, color=ACTIVE_COL, edgecolor="none", label=f"active ({live.sum()})")
     ax.axvline(thr, color=ps.INK, lw=0.9, ls="--", zorder=5)
     top = ax.get_ylim()[1]
@@ -1235,7 +1235,7 @@ def panel_e(axes):
     # the axis labels sit on the middle sub-panel, where each one labels all three
     mid = len(drawn) // 2
     drawn[mid].set_ylabel("training loss (under noise),\nrelative to its start")
-    twins[mid].set_ylabel("silent units")
+    twins[mid].set_ylabel("inactive units")
     return rows
 
 
@@ -1374,7 +1374,7 @@ def panel_d(axes):
         Line2D([], [], color=ps.INK, lw=1.2, label="quietest first"),
         Line2D([], [], color=ps.INK, lw=0.9, ls="--", label="random order"),
         Line2D([], [], color=ps.INK, lw=1.0, ls=":", label="busiest first"),
-        Patch(color=ps.GRID, label="silent units"),
+        Patch(color=ps.GRID, label="inactive units"),
         Line2D([], [], color=ps.INK, marker="*", ls="", ms=6, label="pruned + retrained")],
         # between the random-order band (ends near 22%) and the drop of the quietest-first traces
         # (from 55%)
@@ -1673,12 +1673,12 @@ def main():
               f"N = {need:,.0f}{note}")
     for task, n, sil, r2f, r2s, r2r, r2a, readout, it, r2t in rows_d:
         print(f"  panel d: {task:20} {n} nets, read-out {readout} (iteration {it:,}): "
-              f"{sil:.0f} silent; held-out r2 {r2f:.3f} intact, {r2s:.3f} with every silent unit "
+              f"{sil:.0f} inactive; held-out r2 {r2f:.3f} intact, {r2s:.3f} with every inactive unit "
               f"removed, {r2r:.3f} with as many removed at random, {r2a:.3f} with the active ones "
-              f"removed; {r2t:.3f} after pruning the silent units and retraining")
+              f"removed; {r2t:.3f} after pruning the inactive units and retraining")
     for task, N, plateau, s_plat, s_end, r2 in rows_e:
         print(f"  panel e: {task:20} N={N}, held-out r2 {r2:.3f}; own {CONV_MARGIN:.2f}x-floor "
-              f"crossing at iter {plateau:,.0f} with {s_plat:.0f} silent, {s_end:.0f} at the end "
+              f"crossing at iter {plateau:,.0f} with {s_plat:.0f} inactive, {s_end:.0f} at the end "
               f"-> {s_end - s_plat:.0f} MORE units silenced after it")
     return out
 
