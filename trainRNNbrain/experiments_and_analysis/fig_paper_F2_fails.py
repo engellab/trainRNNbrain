@@ -106,7 +106,7 @@ def collect_spec(spec, r2cache):
         runs = []
         for r in runs_with_loss(path):
             it_a = np.asarray(r["it_act"], float)
-            f = noisy_floor(r["it_loss"], r["loss"], task=r["task"])
+            f = noisy_floor(r["it_loss"], r["loss"])
             t, why = f["t_star"], f["reason"]
             if why is None and not it_a[0] <= t <= it_a[-1]:
                 t, why = float("nan"), "participation trace does not cover the crossing"
