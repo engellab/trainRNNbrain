@@ -119,7 +119,6 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
   +experiment=silent_units_N1000 \
   model=rnn_relu_standard model.equation_type="$EQ" model.sigma_rec="$SIG" \
-  trainer.lambda_rws=0 trainer.lambda_frm=0 \
   trainer.max_iter="$TOPUP" \
   "paths.init_from='$SRC'" paths.init_adam=$ADAM \
   paths.save_to="$SAVE_TO" \

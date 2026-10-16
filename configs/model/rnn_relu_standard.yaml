@@ -8,8 +8,10 @@
 #   gamma: 0                -> no cubic saturation term in the dynamics
 #   bias FIXED AT 0          -> not a Parameter at all (a degenerate bias_range)
 # Remaining non-vanilla choice, stated deliberately: training noise (sigma_rec/inp/out), standard in
-# neuroscience RNNs. Pair with trainer=trainer_ptrack_plain (task_safe_gradients: false) so penalties
-# combine with the task loss in the ordinary way.
+# neuroscience RNNs. No penalties: every trainer config sets lambda_rws = lambda_frm = 0 (since
+# 2026-10-15). A penalised arm sets them on the command line and pairs with trainer_ptrack_plain or
+# trainer_ptrack_freshbatch (task_safe_gradients: false), so they combine with the task loss in the
+# ordinary way.
 _target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
 RNN_tag: ""
 activation_args: {"name": "relu", "slope": 1.0}

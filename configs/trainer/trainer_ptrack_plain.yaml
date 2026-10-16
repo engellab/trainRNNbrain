@@ -60,11 +60,14 @@ orth_args:
   orth_input_only: True
 lambda_met: 0
 met_args: {}
-lambda_rws: 0.05 # sparsity
+lambda_rws: 0    # sparsity. OFF by default since 2026-10-15, so a run with no penalty overrides
+                 # is the standard, unpenalised network; a penalised arm sets it on the launcher
+                 # command line (0.05 in every penalised run so far, the default until then)
 rws_args:
   tg_deg: 20
   eps: 1e-12
-lambda_frm: 0.2 # magnitude of firing rates
+lambda_frm: 0    # magnitude of firing rates. OFF by default since 2026-10-15 (see lambda_rws);
+                 # penalised arms set it on the command line (0.1 or 0.2; 0.2 was the default)
 frm_args:
   cap_fr: 0.3
   tau: 0.1

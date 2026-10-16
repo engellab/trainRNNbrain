@@ -132,7 +132,7 @@ if [ "$TASK" = "NBitFlipFlop" ]; then
     model.equation_type=h model.N="$N" "model.sigma_w=${SW}" \
     trainer.max_iter="$IT" \
     trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
-    trainer.track_valid=false trainer.lambda_rws=0 trainer.lambda_frm=0 \
+    trainer.track_valid=false \
     trainer.prune_reinit=false trainer.synaptic_scaling=false \
     paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\""
 else
@@ -143,7 +143,7 @@ else
     model.equation_type=h model.N="$N" "model.sigma_w=${SW}" \
     trainer.max_iter="$IT" \
     trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
-    trainer.track_valid=false trainer.lambda_rws=0 trainer.lambda_frm=0 \
+    trainer.track_valid=false \
     trainer.prune_reinit=false trainer.synaptic_scaling=false \
     paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\""
 fi

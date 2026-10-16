@@ -120,7 +120,7 @@ if [ "$ARM" = "rescale" ]; then
     model.equation_type=h model.N="$N" \
     trainer.max_iter="$IT" \
     trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
-    trainer.track_valid=false trainer.lambda_rws=0 trainer.lambda_frm=0 \
+    trainer.track_valid=false \
     trainer.prune_reinit=true trainer.synaptic_scaling=false \
     trainer.prune_args.reinit_mode=rescale \
     trainer.prune_args.rescale_norm_mode=self \
@@ -144,7 +144,7 @@ else
     model.equation_type=h model.N="$N" model.sigma_w=1.0 \
     trainer.max_iter="$IT" \
     trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
-    trainer.track_valid=false trainer.lambda_rws=0 trainer.lambda_frm=0 \
+    trainer.track_valid=false \
     trainer.prune_reinit=false trainer.synaptic_scaling=false \
     paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\""
 fi
