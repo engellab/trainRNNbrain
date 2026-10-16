@@ -29,11 +29,13 @@ THREE STAGES, because the data live on two machines:
   --collect-della   on a Della CPU node, from the repository root (data/ links the trained
                     networks): runs the reused F1 panel functions once on a throwaway figure and
                     records every input they read (runs_with_loss, ablation_results, the example
-                    network), plus the panel E trajectories and the 75k cache; writes
+                    network), plus the panel E trajectories, the 75k cache and every Figure 2
+                    ladder run read at 75k (collect_fixed); writes
                     data/fig_cosyne2027_della.pkl.
   --collect-b5      where NBitFlipFlop_b5_optimizer is (the Mac copy): reads every B5 arm with
-                    b5_read.read_arm; writes data/fig_cosyne2027_b5.pkl.
-  (no flag)         draws from the two caches and data/fig_paper_F2_fails_cache.pkl: the F1 panel
+                    b5_read.read_arm, plus each run at 75k (read_fixed); writes
+                    data/fig_cosyne2027_b5.pkl.
+  (no flag)         draws from the two caches: the F1 panel
                     functions are called unchanged, with their data loaders replaced by replays of
                     what the Della stage recorded. Writes img/internal_figures/fig_cosyne2027.{pdf,
                     svg} and prints a layout check and every number drawn.
@@ -58,10 +60,11 @@ import paperstyle as ps
 import fig_paper_F1 as F1
 import fig_paper_F2 as F2
 import fig_paper_F2_fails as F2F
+import fig_knobs_at_floor as K
 import ff75k_readout as FF75
 import b5_read as B5
-from common import DATA_DIR, logbin
-from heldout_r2 import load_cache
+from common import DATA_DIR, logbin, load_run, runs_with_loss, r2_at_floor_estimate
+from heldout_r2 import load_cache, save_cache, heldout_r2
 
 REPO = os.path.normpath(os.path.join(DATA_DIR, "..", ".."))
 DELLA_CACHE = os.path.join(REPO, "data", "fig_cosyne2027_della.pkl")
@@ -115,6 +118,58 @@ def rel(path):
         str.
     """
     return path.split("trained_RNNs/")[-1]
+
+
+# Networks of the SAME size are compared at a fixed iteration (Pavel, 16 Oct): the loss-floor read is
+# needed only across sizes, where the learning rate and the time to converge change with N (panel C).
+FIXED_IT = 75_000
+
+
+def read_fixed(run, r2_end, t=FIXED_IT):
+    """One run read at a fixed iteration: its active units there and its held-out R^2 there.
+
+    R^2 at t is estimated from the end of the run as the floor read does (common.r2_at_floor_estimate):
+    the unexplained variance of the final weights scaled by the ratio of the noisy loss at t (mean
+    over the 2% of iterations before t) to the loss at the end (median of the last 10%). A run that
+    stops before t is read at its last iteration and flagged short.
+
+    Args:
+        run: common.load_run's dict (it_loss, loss, it_act, active); r2_end: held-out R^2 of the
+            run's final weights; t: iteration to read at.
+    Returns:
+        dict(t_read: iteration actually read, short: True if the run ended before t,
+        active: active units at the probe nearest t_read, r2: estimated held-out R^2 at t_read).
+    """
+    it = np.asarray(run["it_loss"], float)
+    L = np.asarray(run["loss"], float)
+    t_read = min(float(t), float(it[-1]))
+    win = (it <= t_read) & (it > t_read - max(0.02 * t_read, 50.0))
+    L_t = float(np.mean(L[win])) if win.any() else float(L[np.argmin(np.abs(it - t_read))])
+    L_end = float(np.median(L[it >= it[-1] - 0.1 * (it[-1] - it[0])]))
+    it_a = np.asarray(run["it_act"], float)
+    k = int(np.argmin(np.abs(it_a - t_read)))
+    return dict(t_read=t_read, short=bool(it[-1] < t), active=float(run["active"][k]),
+                r2=float(r2_at_floor_estimate(L_t, L_end, r2_end)))
+
+
+def collect_fixed(cache):
+    """Every Figure 2 ladder and revival screen run, read at FIXED_IT (read_fixed).
+
+    Args:
+        cache: an open heldout_r2 cache (the final weights' R^2 is scored through it).
+    Returns:
+        list of dict(spec, rungs=[dict(label, path, rows=[dict(name, t_read, short, active, r2)])]).
+    """
+    out = []
+    for spec in list(K.LADDERS) + list(F2F.REVIVAL):
+        rungs = []
+        for lab, path in spec["rungs"]:
+            rows = []
+            for r in (runs_with_loss(path) if os.path.isdir(path) else []):
+                rows.append(dict(name=r["name"], **read_fixed(r, heldout_r2(r["run_dir"], cache=cache))))
+            rungs.append(dict(label=lab, path=path, rows=rows))
+        out.append(dict(spec=spec, rungs=rungs))
+    return out
 
 
 def collect_della():
@@ -179,6 +234,9 @@ def collect_della():
     keep = [k for k in ("task", "arm", "N", "cell", "n_active", "r2_common") if k in c]
     out["ff75k"] = {k: np.asarray(c[k])[~bad] for k in keep}
     out["ff75k_set_aside"] = int(bad.sum())
+    cache = load_cache()
+    out["fixed"] = collect_fixed(cache)
+    save_cache(cache)
 
     with open(DELLA_CACHE, "wb") as fh:
         pickle.dump(out, fh)
@@ -206,7 +264,11 @@ def collect_b5():
         opt, wd, lr = B5.arm_of(os.path.basename(cell.rstrip("/")))
         if opt == "sgd" and lr in B5.SKIP_LR:
             continue
-        arms[(opt, wd, lr)] = B5.read_arm(cell, cache)
+        rows = B5.read_arm(cell, cache)
+        for row in rows:
+            run = load_run(os.path.join(cell, row["name"]))
+            row.update({f"{k}_fix": v for k, v in read_fixed(run, row["r2_end"]).items()})
+        arms[(opt, wd, lr)] = rows
     with open(B5_CACHE, "wb") as fh:
         pickle.dump(arms, fh)
     print(f"wrote {B5_CACHE}")
@@ -494,76 +556,79 @@ def panel_E(fig, traj, box, tasks):
     return rows, pairs
 
 
-def f_points(f2data, b5, ff75):
-    """Every point of panel F, and the control each family is measured against.
+def f_points(fixed, b5, ff75):
+    """Every point of panel F, and the control each family is measured against, all at 75k.
 
+    Networks of one size are compared at one iteration, FIXED_IT (75,000), not at their floors.
     Figure 2 ladders and revival screens: every rung that is not its ladder's reference, one point
-    per run read at its floor, y = its R^2 minus the mean R^2 of the reference rung at its floor.
-    B5: every arm but the standard Adam (wd 1e-6) with a floor read-out, against that arm. The
-    flip-flop remedies: the operating-point cell (fig_paper_F2.pick_cell) at N = 1000, end of 75k,
-    against the 75k control at N = 1000.
+    per run (read_fixed), y = its R^2 minus the mean R^2 of the reference rung read the same way.
+    B5: every arm but the standard Adam (wd 1e-6), against that arm at 75k. The flip-flop
+    remedies: the operating-point cell (fig_paper_F2.pick_cell) at N = 1000 from the 75k cache,
+    against the 75k control at N = 1000. A run that stops before 75k is read at its end and
+    marked "short" (drawn open).
 
     Args:
-        f2data: the Figure 2 cache; b5: the B5 record; ff75: the 75k record.
+        fixed: collect_fixed's record; b5: the B5 record (with the *_fix reads); ff75: the 75k record.
     Returns:
         (points, controls, failed): points a list of dicts (family, task, readout, group, active,
-        dr2); controls a list of dicts (task, readout, name, active, r2, n), one per distinct
-        control; failed the B5 runs left out because they lost the task (R^2 at the floor below
+        dr2) with readout "fixed" or "short"; controls a list of dicts (task, readout, name, active,
+        r2, n); failed the B5 runs left out because they lost the task (R^2 at 75k below
         ff75k_readout.SOLVED), as (arm, active, R^2).
     """
     pts, ctrls, seen = [], [], set()
-    for lad in f2data["ladders"] + f2data["revival"]:
+    for lad in fixed:
         spec = lad["spec"]
         task = "flip-flop" if "flip" in spec["task"] else "CDDM"
         ref = lad["rungs"][spec["ref"]]
-        r2_ref = float(np.mean(ref["read"]["r2"]))
+        if not ref["rows"]:
+            continue
+        r2_ref = float(np.mean([r["r2"] for r in ref["rows"]]))
         key = rel(ref["path"])
         if key not in seen:
             seen.add(key)
-            ctrls.append(dict(task=task, readout="floor", name=f"{spec['stem']}: {key}",
-                              active=float(np.mean(ref["read"]["floor"])), r2=r2_ref,
-                              n=len(ref["read"]["floor"])))
+            ctrls.append(dict(task=task, readout="fixed", name=f"{spec['stem']}: {key}",
+                              active=float(np.mean([r["active"] for r in ref["rows"]])), r2=r2_ref,
+                              n=len(ref["rows"])))
         for i, rg in enumerate(lad["rungs"]):
-            if i == spec["ref"] or rg["read"] is None:
+            if i == spec["ref"]:
                 continue
             lab = rg["label"].replace("\n", " ")
             fam = next((f for (st, pre), f in RUNG_FAMILY.items()
                         if st == spec["stem"] and lab.startswith(pre)), "knob")
-            for a, r2 in zip(rg["read"]["floor"], rg["read"]["r2"]):
-                pts.append(dict(family=fam, task=task, readout="floor",
-                                group=f"{spec['stem']}: {lab}", active=float(a),
-                                dr2=float(r2) - r2_ref))
+            for r in rg["rows"]:
+                pts.append(dict(family=fam, task=task, readout="short" if r["short"] else "fixed",
+                                group=f"{spec['stem']}: {lab}", active=r["active"],
+                                dr2=r["r2"] - r2_ref))
 
-    std = [r for r in b5[B5_STANDARD] if np.isfinite(r["r2_floor"])]
-    r2_std = float(np.mean([r["r2_floor"] for r in std]))
-    ctrls.append(dict(task="flip-flop", readout="floor", name="B5: Adam wd 1e-6",
-                      active=float(np.mean([r["act_floor"] for r in std])), r2=r2_std, n=len(std)))
+    std = b5[B5_STANDARD]
+    r2_std = float(np.mean([r["r2_fix"] for r in std]))
+    ctrls.append(dict(task="flip-flop", readout="fixed", name="B5: Adam wd 1e-6",
+                      active=float(np.mean([r["active_fix"] for r in std])), r2=r2_std, n=len(std)))
     failed = []
     for arm, rows in b5.items():
         if arm == B5_STANDARD:
             continue
         for r in rows:
-            if not np.isfinite(r["r2_floor"]):
+            # lost the task at 75k (SGD lr 3; one lr 1 run), or weights that score NaN: not a
+            # trade-off point
+            if not np.isfinite(r["r2_fix"]) or r["r2_fix"] < FF75.SOLVED:
+                failed.append(("B5: %s wd %s lr %s" % arm, r["active_fix"], r["r2_fix"]))
                 continue
-            if r["r2_floor"] < FF75.SOLVED:      # lost the task (SGD lr 3): not a trade-off point
-                failed.append(("B5: %s wd %s lr %s" % arm, float(r["act_floor"]),
-                               float(r["r2_floor"])))
-                continue
-            pts.append(dict(family="optimizer", task="flip-flop", readout="floor",
-                            group="B5: %s wd %s lr %s" % arm, active=float(r["act_floor"]),
-                            dr2=float(r["r2_floor"]) - r2_std))
+            pts.append(dict(family="optimizer", task="flip-flop", readout="fixed",
+                            group="B5: %s wd %s lr %s" % arm, active=r["active_fix"],
+                            dr2=r["r2_fix"] - r2_std))
 
     at = F2.restrict(ff75, n_units=1000)
     ctrl = at["arm"] == "control"
     r2_c = float(np.mean(at["r2_common"][ctrl].astype(float)))
-    ctrls.append(dict(task="flip-flop", readout="75k", name="75k control, N = 1000",
+    ctrls.append(dict(task="flip-flop", readout="fixed", name="75k control, N = 1000",
                       active=float(np.mean(at["n_active"][ctrl].astype(float))), r2=r2_c,
                       n=int(ctrl.sum())))
     for arm, name in REMEDIES:
         cell, _how = F2.pick_cell(at, arm)
         m = (at["arm"] == arm) & (at["cell"] == cell)
         for a, r2 in zip(at["n_active"][m], at["r2_common"][m]):
-            pts.append(dict(family="drive", task="flip-flop", readout="75k", group=name,
+            pts.append(dict(family="drive", task="flip-flop", readout="fixed", group=name,
                             active=float(a), dr2=float(r2) - r2_c))
     return pts, ctrls, failed
 
@@ -597,20 +662,20 @@ def panel_F(fig, pts, ctrls, box):
         ax.axhline(0, color=ps.MUTED, lw=0.6, zorder=1)
         ax.axvline(1000, color=ps.GRID, lw=0.6, zorder=0)
         for fam in ["knob", "revival", "optimizer", "drive"]:
-            for ro in ("floor", "75k"):
+            for ro in ("fixed", "short"):
                 sel = [p for p in pts if p["family"] == fam and p["task"] == task
                        and p["readout"] == ro]
                 if not sel:
                     continue
                 col = FAM_COL[fam]
                 ax.scatter([p["active"] for p in sel], [p["dr2"] for p in sel], marker=mk, s=14,
-                           facecolors=col if ro == "floor" else "none", edgecolors=col,
+                           facecolors=col if ro == "fixed" else "none", edgecolors=col,
                            linewidths=0.8, alpha=0.85, zorder=3)
         for c in ctrls:
             if c["task"] != task:
                 continue
             ax.scatter([c["active"]], [0], marker=mk, s=26,
-                       facecolors=ps.BASE if c["readout"] == "floor" else "white",
+                       facecolors=ps.BASE,
                        edgecolors="k", linewidths=0.7, zorder=5)
         ax.set_title(title, fontsize=MIN_PT, color=ps.INK, pad=2)
         ps.ygrid(ax)
@@ -686,16 +751,16 @@ def legend_F(fig, box, failed):
     mk = dict(ls="", ms=4.2, mew=0.8)
     h = [Line2D([], [], marker="s", color=FAM_COL[f], label=FAM_LABEL[f], **mk)
          for f in ("knob", "revival", "optimizer", "drive")]
-    h += [Line2D([], [], marker="o", color=ps.INK, label="filled: at the loss floor", **mk),
+    h += [Line2D([], [], marker="o", color=ps.INK, label="all read at 75,000 iterations", **mk),
           Line2D([], [], marker="o", color=ps.INK, mfc="none",
-                 label="open: flip-flop interventions,\nend of 75k (no floor read yet)", **mk),
+                 label="open: run ends earlier,\nread at its end", **mk),
           Line2D([], [], marker="o", mfc=ps.BASE, mec="k", label="its control, at 0", **mk)]
     leg = ax.legend(handles=h, loc="upper left", fontsize=MIN_PT, handlelength=1.0,
                     handletextpad=0.4, borderaxespad=0.0, labelspacing=0.3, frameon=False)
     if failed:
-        r2 = [f[2] for f in failed]
-        span = f"{min(r2):.2f}" if len(r2) == 1 else f"{min(r2):.2f}-{max(r2):.2f}"
-        ax.text(0.0, 0.0, f"not drawn: SGD lr 3, which loses\nthe task ($R^2$ {span} at its floor)",
+        lrs = sorted({f[0].rsplit("lr ", 1)[1] for f in failed}, key=float)
+        ax.text(0.0, 0.0, f"not drawn: {len(failed)} SGD runs (lr {', '.join(lrs)})\n"
+                f"below $R^2$ {FF75.SOLVED} at 75k",
                 transform=ax.transAxes, ha="left", va="bottom", fontsize=MIN_PT, color=ps.MUTED)
     return leg
 
@@ -885,8 +950,6 @@ def draw(g_mode):
         della = pickle.load(fh)
     with open(B5_CACHE, "rb") as fh:
         b5 = pickle.load(fh)
-    with open(F2F.CACHE, "rb") as fh:
-        f2data = pickle.load(fh)
     install_replays(della)
     ex = della["example"]
 
@@ -911,7 +974,7 @@ def draw(g_mode):
     rows_g, ax_g = panel_G(fig, della["ff75k"], (5.92, r2y, 0.70, r2h - 0.28), g_mode)
 
     # row 3: F (+ its key)
-    pts, ctrls, failed = f_points(f2data, b5, della["ff75k"])
+    pts, ctrls, failed = f_points(della["fixed"], b5, della["ff75k"])
     axes_f = panel_F(fig, pts, ctrls, (0.52, 0.32, 4.80, 1.88))
     label_F(axes_f, pts)
     legend_F(fig, (5.45, 0.32, 1.98, 1.88), failed)
