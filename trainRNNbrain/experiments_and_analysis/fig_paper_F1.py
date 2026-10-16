@@ -79,7 +79,7 @@ import heldout_r2 as heldout
 from pr_matrix import fit_floor_at, excess_time_at
 from common import (DATA_DIR, SILENT_REL, participation, logbin, noisy_loss_series,
                     FLOOR_DELTA, warm_start_chain, active_mask, runs_with_loss, floor_crossing,
-                    at_own_floor)
+                    at_own_floor, task_of)
 from flipflop_diversity import rates_and_targets
 from flipflop_fixedpoints import load_net
 import hydra
@@ -1154,7 +1154,7 @@ def trajectory(run_dir):
     # noise draw, on the TRAINING batch, and panel (e) prints it in every sub-panel title. The score
     # this project reports is a held-out batch at the sigma_rec and sigma_inp the network trained
     # with, sigma_w = 0, averaged over nine draws.
-    T, reason = floor_crossing(it_L, L)
+    T, reason = floor_crossing(it_L, L, task=task_of(run_dir))
     return dict(it_loss=it_L, loss=L, it_act=it_P, silent=P.shape[1] - live, N=P.shape[1],
                 r2=heldout.heldout_r2(run_dir), plateau=T, no_floor=reason)
 
