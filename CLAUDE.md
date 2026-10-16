@@ -30,6 +30,15 @@ So, every time:
 Keep a running note of the paths you touch as you go. At commit time, "which files are mine" has to
 be something you know, not something you reconstruct from `git status`.
 
+## CODE RULES
+
+- **All imports at the top of the file. Never inside a function, loop or conditional**, and never
+  the same module twice under two names. `tests/test_no_function_imports.py` enforces it.
+- **Every function gets a docstring** saying what it does, its inputs (types, shapes, units) and what
+  it returns.
+- **Config is the single source of truth.** Only a launcher overrides config values, and only the
+  ones it sweeps; the run script never overrides config in code.
+
 ## THE LAB NOTEBOOK IS ONE FILE PER ENTRY
 
 `docs/project_trajectory/` holds the record, one markdown file per entry, named
