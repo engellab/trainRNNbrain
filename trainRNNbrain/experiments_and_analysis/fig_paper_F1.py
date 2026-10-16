@@ -1113,18 +1113,17 @@ def panel_c(ax):
     # without any warning that they had been.
     nn = np.array([3e2, 2.6e4])
     ax.plot(nn, nn, "-", lw=0.7, color=ps.MUTED, zorder=2)
-    for frac, lab, xl in [(0.5, "50% active", 3.0e3), (0.1, "10% active", 1.2e4)]:
+    # the 10% label sits at the lower left, where no series or extrapolation passes
+    for frac, lab, xl in [(0.5, "50% active", 3.0e3), (0.1, "10% active", 7.0e2)]:
         ax.plot(nn, frac * nn, ls=(0, (4, 3)), lw=0.55, color=ps.FAINT, zorder=1)
         ax.text(xl, frac * xl * 1.12, lab, fontsize=5.2, color=ps.FAINT, ha="center", va="bottom")
     ax.axhline(1000, color=ps.BAD, lw=0.7, ls="-.", zorder=2)
-    ax.text(3.4e2, 1045, "1,000 active units", fontsize=5.9, color=ps.BAD, va="bottom")
     ax.set(xscale="log", yscale="log", xlabel="network size N",
            ylabel="active units", xlim=(3.2e2, 2.7e4), ylim=(40, 2.3e3))
-    # the diagonal is labelled ALONG itself, below the 1,000 line and clear of the 50% guide's
-    # label at the top; its on-screen slope is read once the limits are set
-    (x0, y0), (x1, y1) = ax.transData.transform([(450, 450), (900, 900)])
-    ax.text(560, 520, "every unit active", fontsize=5.5, color=ps.MUTED, ha="left",
-            va="top", rotation=np.degrees(np.arctan2(y1 - y0, x1 - x0)), rotation_mode="anchor")
+    # The 1,000-unit line and the diagonal are named in the legend: written on the panel, both
+    # labels were crossed by the diagonal or by the extrapolated fits.
+    handles += [Line2D([], [], color=ps.BAD, lw=0.7, ls="-.", label="1,000 active units"),
+                Line2D([], [], color=ps.MUTED, lw=0.7, ls="-", label="every unit active")]
     # The y floor sits at 40, below every series, so the lower right is empty for the legend. The
     # legend, not the axis label, says how each series was read: floor or end of training.
     ax.legend(handles=handles, loc="lower right", fontsize=5.6, handlelength=2.2)
@@ -1458,8 +1457,10 @@ def panel_d(axes):
         Line2D([], [], color=ps.INK, lw=0.9, ls="--", label="random order"),
         Line2D([], [], color=ps.INK, lw=1.0, ls=":", label="busiest first"),
         Patch(color=ps.GRID, label="silent units"),
-        Line2D([], [], color=ps.INK, marker="*", ls="", ms=6, label="silent removed, then retrained")],
-        loc="lower left", bbox_to_anchor=(0.16, 0.02), fontsize=5.2, ncol=1, handlelength=1.8,
+        Line2D([], [], color=ps.INK, marker="*", ls="", ms=6, label="silent pruned, retrained")],
+        # between the random-order band (ends near 22%) and the drop of the quietest-first traces
+        # (from 55%)
+        loc="lower left", bbox_to_anchor=(0.24, 0.02), fontsize=5.2, ncol=1, handlelength=1.8,
         columnspacing=0.8, framealpha=0.9)
     return rows
 
