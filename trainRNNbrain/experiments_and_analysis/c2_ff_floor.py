@@ -25,7 +25,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import read_run, runs_with_loss, warm_start_chain, stretched, FLOOR_DELTA
+from common import read_run, runs_with_loss, warm_start_chain, floor_curve, FLOOR_DELTA
 from fig_paper_F1 import SCALING
 
 
@@ -33,16 +33,16 @@ def extrapolated_crossing(res, delta=FLOOR_DELTA, t_max=2e6):
     """Iteration at which a run's FITTED curve would reach (1+delta) x its fitted floor.
 
     Args:
-        res: dict returned by common.noisy_floor, with `fit` = [floor, A, tau, beta] and `escape`.
+        res: dict returned by common.noisy_floor, with `fit` (floor_curve parameters, floor first) and `escape`.
         delta: the margin over the floor; t_max: search horizon, absolute iterations.
     Returns:
         float absolute iteration, or nan if the fit never gets there before t_max.
     """
-    if "fit" not in res:
+    if res.get("fit") is None:
         return float("nan")
-    Li, A, tau, beta = res["fit"]
+    Li = res["fit"][0]
     t = np.logspace(2, np.log10(t_max), 20000)            # time since the escape
-    hit = np.flatnonzero(stretched(t, Li, A, tau, beta) <= (1 + delta) * Li)
+    hit = np.flatnonzero(floor_curve(t, res["fit"]) <= (1 + delta) * Li)
     return float(t[hit[0]] + res["escape"]) if len(hit) else float("nan")
 
 

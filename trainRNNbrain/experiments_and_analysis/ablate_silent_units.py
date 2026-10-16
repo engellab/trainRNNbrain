@@ -69,7 +69,7 @@ import heldout_r2 as H                                    # noqa: E402  (also pu
 from trainRNNbrain.training.training_utils import prepare_task_arguments, get_training_mask  # noqa: E402
 from trainRNNbrain.trainer.Trainer import Trainer, scored_  # noqa: E402
 from trainRNNbrain.utils import import_any, filter_kwargs, unjsonify  # noqa: E402
-from common import active_mask, warm_start_chain, noisy_loss_series, noisy_floor  # noqa: E402
+from common import active_mask, warm_start_chain, noisy_loss_series, noisy_floor, task_of  # noqa: E402
 
 DRAWS = 9                    # noise draws per score, as heldout_r2.DRAWS
 RANDOM_ORDERS = 5            # independent random removal orders per network
@@ -352,7 +352,7 @@ def floor_snapshot(run_dir, snap_root=SNAP_ROOT):
         the last two are None when the run has no read-out.
     """
     it, L = noisy_loss_series(run_dir)
-    fl = noisy_floor(it, L) if L is not None else dict(reason="no noisy loss", t_star=np.nan)
+    fl = noisy_floor(it, L, task=task_of(run_dir)) if L is not None else dict(reason="no noisy loss", t_star=np.nan)
     fl.pop("smoothed", None)
     if fl["reason"] is not None:
         return fl, None, None

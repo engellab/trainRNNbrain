@@ -297,6 +297,11 @@ def stretched(t, Li, A, tau, beta):
     return Li + A * np.exp(-np.power(np.clip(t / tau, 1e-12, None), beta))
 
 
+def floor_curve(t, fit):
+    """The fitted loss curve of a noisy_floor result at iterations t since its escape (fit = its `fit`)."""
+    return stretched(t, *fit)
+
+
 def excess_time(A, tau, beta, frac, t0):
     """Iteration at which the excess over the floor has fallen to `frac` of its value at t0.
 
@@ -399,15 +404,23 @@ BURST_SPAN = 1.5        # the burst reference at t averages [t/1.5, 1.5t]
 BURST_MEDIAN = 51       # iterations in the short running median, so a lone bad batch is no burst
 BURST_GAP = 200         # bursts closer than this many iterations are one burst
 MAX_BURST_SHARE = 0.5   # more than this share of post-fit-start iterations in bursts: no read-out
-# starts (floor as a fraction of the curve's minimum, tau, beta) tried when the first floor fit lands
-# within 10x of its lower bound
-GRID_STARTS = [(fl, tau, beta) for fl in (0.5, 0.8, 0.9, 0.97) for tau in (3e2, 3e3, 3e4, 3e5)
-               for beta in (0.2, 0.5, 1.0, 2.0)]
 MAX_LATE_RISE = 1.5     # end of the run (median of its last 10%) over the fitted floor; above it, no
                         # read-out
 END_FRAC = 0.10         # the "end of the run" is its last 10% of iterations
 FIT_START = 2000        # the floor is fitted from this iteration, or 200 after the escape if later
 FLOOR_BOUND = 1e-6      # the fit's lower bound on the floor; a fit pinned there is no floor
+# The stretched exponential is fitted from every one of these starts - (floor as a fraction of the
+# curve's minimum, tau, beta) - and the lowest-error fit kept: from one start it slid to a floor of ~0
+# on 45 of 1,098 runs. For the tasks in FIT_WEIGHT_EXP its log residuals are weighted by
+# (t / t_end)^exponent, t counted from the escape, so the end of the run outweighs the steep early drop;
+# every other task (CDDM included) is fitted unweighted.
+SE_LO = [FLOOR_BOUND, 1e-6, 1e2, .05]
+SE_HI = [1., 1e3, 1e9, 3.]
+SE_STARTS = [(fl, tau, beta) for fl in (0.8, 0.95) for tau in (3e2, 3e3, 3e4, 3e5) for beta in (0.3, 0.7, 1.5)]
+FIT_WEIGHT_EXP = {"NBitFlipFlop": 1.0, "NBitFlipFlopHyper": 1.0}   # by taskname; absent = 0 (unweighted)
+END_BELOW = 0.98        # a loss that ends below this x its floor proves the floor wrong: no read-out
+LATE_LEVEL_TASKS = ("DMTS",)   # tasks whose floor is the late level of the curve, not a fitted curve
+LATE_LEVEL_FRAC = 0.25  # the late level: median of the read-out curve over the last 25% after escape
 
 
 def warm_start_chain(run_dir):
@@ -434,6 +447,14 @@ def warm_start_chain(run_dir):
             parent = nested[0].rstrip("/") if nested else None
         d = parent.rstrip("/") if parent else None
     return chain[::-1]
+
+
+def task_of(run_dir):
+    """The taskname in a run's saved config (e.g. "CDDM", "DMTS", "NBitFlipFlop"), or None."""
+    cfgs = sorted(glob.glob(os.path.join(run_dir, "*_config.yaml")))
+    if not cfgs:
+        return None
+    return (OmegaConf.load(cfgs[0]).get("task", {}) or {}).get("taskname", None)
 
 
 def noisy_loss_series(run_dir):
@@ -526,21 +547,28 @@ def find_bursts(it, L, ref, t_from):
     return [(float(it[s]), float(it[e - 1]), float(r[s:e].max())) for s, e in merged]
 
 
-def noisy_floor(it, L, delta=FLOOR_DELTA):
-    """Where a run's smoothed noisy loss reaches (1+delta) x its own fitted floor and stays there.
+def noisy_floor(it, L, delta=FLOOR_DELTA, task=None):
+    """Where a run's smoothed noisy loss reaches (1+delta) x its own floor and stays there.
+
+    The floor is the asymptote of a stretched exponential fitted to the read-out curve (for the tasks in
+    FIT_WEIGHT_EXP, its residuals weighted towards the end of the run); for a
+    task in LATE_LEVEL_TASKS (DMTS: a stall, a sudden drop, then a flat level no smooth decay curve
+    follows) it is the median of the read-out curve over the last LATE_LEVEL_FRAC of training after
+    the escape. Either way a loss that ends below END_BELOW x its floor gets no read-out.
 
     Args:
         it, L: the per-iteration noisy loss and its iterations (noisy_loss_series).
         delta: the margin `t_star` is read at; every FLOOR_DELTAS margin is read too.
+        task: the run's taskname (task_of); selects the late-level floor for LATE_LEVEL_TASKS.
     Returns:
         dict: t_star (nan when there is no read-out), t_stars ({margin: crossing} for FLOOR_DELTAS and
-        delta, nan where none holds), floor, floor_kind ("fit", or "smoothed_min" when the fit's beta
-        sits on its upper bound and the floor falls back to the minimum of the smoothed curve),
-        escape, late_rise (median of the smoothed curve over the run's last 10%, over the floor),
-        reason (None when the read-out is usable), `smoothed` (the Hampel curve the crossing is read
-        on, one value per iteration of `it`), `fit` (the stretched-exponential parameters, fitted in
-        t - escape), `bursts` (find_bursts list) and `burst_from` (the iteration bursts are counted
-        from).
+        delta, nan where none holds), floor, floor_kind ("fit" or "late_level"), escape, late_rise
+        (median of the smoothed curve over the run's last 10%, over the floor), end_residual (mean log
+        of fit / curve over the run's last 10%; None for a late-level floor), reason (None when the
+        read-out is usable), `smoothed` (the Hampel curve the crossing is read on, one value per
+        iteration of `it`), `fit` (stretched-exponential parameters [floor, A, tau, beta], fitted in t - escape;
+        None for a late-level floor; evaluate with floor_curve), `bursts` (find_bursts list) and
+        `burst_from` (the iteration bursts are counted from).
     """
     it, L = np.asarray(it, float), np.asarray(L, float)
     ok = np.isfinite(L)
@@ -548,7 +576,7 @@ def noisy_floor(it, L, delta=FLOOR_DELTA):
     deltas = sorted(set(FLOOR_DELTAS) | {delta})
     out = dict(t_star=float("nan"), t_stars={d: float("nan") for d in deltas}, floor=None,
                floor_kind=None, escape=float("nan"), late_rise=float("nan"), reason=None,
-               bursts=[], burst_from=float("nan"))
+               bursts=[], burst_from=float("nan"), fit=None, end_residual=None)
     if len(L) < 2 * FIT_START:
         out["reason"] = "series too short"
         return out
@@ -585,50 +613,65 @@ def noisy_floor(it, L, delta=FLOOR_DELTA):
     if len(tb) < 8:
         out["reason"] = "too little training after the escape"
         return out
-    lo, hi = [FLOOR_BOUND, 1e-6, 1e2, .05], [1., 1e3, 1e9, 3.]
-    resid = lambda p: np.log(np.clip(stretched(tb, *p), 1e-12, None)) - np.log(yb)
-    p0 = np.clip([yb.min() * .9, float(yb.max()), 2e4, .4], np.array(lo) * 1.01, np.array(hi) * .99)
-    try:
-        best = least_squares(resid, p0, bounds=(lo, hi), max_nfev=20000)
-        # A FLOOR AT ITS LOWER BOUND IS USUALLY A LOCAL MINIMUM (Pavel, 2026-10-16). From the single
-        # start above, the fit can slide to floor ~0, where the stretched exponential bends into a power
-        # law. On 45 of 1,098 runs (mostly CDDM) a grid of starts finds a real floor with up to 30x lower
-        # error, and those runs end at 1.00-1.05x it; on the other 1,053 the single start is already
-        # the best fit. So only a near-bound floor is refitted, from GRID_STARTS, keeping the lowest error.
-        if best.x[0] <= 10 * FLOOR_BOUND:
-            for fl, tau, beta in GRID_STARTS:
-                p = np.clip([fl * yb.min(), max(float(yb.max()) - fl * yb.min(), 1e-5), tau, beta],
-                            np.array(lo) * 1.01, np.array(hi) * .99)
-                r = least_squares(resid, p, bounds=(lo, hi), max_nfev=20000)
-                if r.cost < best.cost:
-                    best = r
-        fit = best.x
-    except Exception:
-        out["reason"] = "floor fit failed"
-        return out
-    floor = float(fit[0])
-    out["floor"], out["fit"], out["floor_kind"] = floor, [float(v) for v in fit], "fit"
     end_level = float(np.median(sm[it >= it[-1] - END_FRAC * (it[-1] - it[0])]))
+    if task in LATE_LEVEL_TASKS:
+        # DMTS (Pavel, 2026-10-16): no smooth decay curve has its shape - a stall, a drop, a flat level
+        # with instabilities - and every fitted model left its loss ending below the floor in about
+        # three quarters of 47 runs. Its floor is the level it settles at.
+        floor = float(np.median(sm[it >= it[-1] - LATE_LEVEL_FRAC * (it[-1] - t0)]))
+        out["floor"], out["floor_kind"] = floor, "late_level"
+        # a late level not below half the starting level is the stall, not a floor: a run that escaped
+        # and fell back (DMTS_paper_grid_d5 N=2000 s597040509 ends at its ~0.07 stall level)
+        if floor >= 0.5 * start:
+            out["late_rise"] = end_level / floor
+            out["reason"] = "late level is back at its starting level"
+            return out
+    else:
+        # ON THE FLIP-FLOP THE FIT IS WEIGHTED TOWARDS THE END OF THE RUN (Pavel, 2026-10-16). Fitted with
+        # every log-time point equal, the stretched exponential follows the flip-flop's steep early drop
+        # and flattens too soon: its floor lay above where the loss ends in 31% of 569 runs, so networks
+        # still improving were read. Weighted by t / t_end: 4% (hyper flip-flop 14% -> 0%); the read-out
+        # moves less when a run is cut short (production code, 75% cut, median / 90th pct: 2.4/10.7% ->
+        # 1.1/8.5%) and lands nearer the loss of kept snapshots on fresh batches (median miss 1.2% -> 0.8%).
+        # On CDDM the same weighting made both worse (75% cut 2.7/7.9% -> 3.9/11.8%; snapshot miss 14% ->
+        # 17%, reading several runs 57-77% late), so CDDM stays unweighted. A generalised power law was
+        # tried and rejected: its floor, weakly pinned by a slow tail, moved 2x more under truncation.
+        # Every fit is made from all SE_STARTS, which replaces the earlier fallbacks (the retry for a
+        # floor at its bound, and the smoothed-minimum floor for a stretch exponent on its upper bound).
+        lo, hi = np.array(SE_LO), np.array(SE_HI)
+        w = np.sqrt((tb / tb[-1]) ** FIT_WEIGHT_EXP.get(task, 0.0))   # least_squares squares residuals
+        resid = lambda p: w * (np.log(np.clip(stretched(tb, *p), 1e-12, None)) - np.log(yb))
+        best = None
+        for fl, tau, beta in SE_STARTS:
+            p0 = np.clip([fl * yb.min(), max(float(yb.max()) - fl * yb.min(), 1e-5), tau, beta],
+                         lo * 1.01, hi * .99)
+            try:
+                r = least_squares(resid, p0, bounds=(lo, hi), max_nfev=5000)
+            except Exception:
+                continue
+            if best is None or r.cost < best.cost:
+                best = r
+        if best is None:
+            out["reason"] = "floor fit failed"
+            return out
+        fit = best.x
+        floor = float(fit[0])
+        out["floor"], out["fit"], out["floor_kind"] = floor, [float(v) for v in fit], "fit"
+        last = it >= it[-1] - END_FRAC * (it[-1] - it[0])
+        out["end_residual"] = float(np.mean(np.log(stretched(it[last] - t0, *fit) / sm[last])))
+        if floor <= 10 * FLOOR_BOUND:
+            out["late_rise"] = end_level / floor
+            out["reason"] = "fit pinned at its lower bound"
+            return out
     out["late_rise"] = end_level / floor
-    if floor <= FLOOR_BOUND * 1.01:
-        out["reason"] = "fit pinned at its lower bound"
-        return out
-    # A stretch exponent on its UPPER bound is no fitted floor (Pavel, 2026-10-13). On the flip-flop
-    # such a fit puts the "floor" at a level the loss later falls through (it ends at 0.73-0.92x of
-    # it), so the crossing fired early (27k instead of ~52k on one claim-1 run). These runs have
-    # converged - two claim-1 flip-flop runs sit at ~0.034 from 52-60k to 300k - and it is the fit
-    # that fails on a fast drop followed by a flat plateau. So (Pavel, 2026-10-14) such a run is read
-    # against the MINIMUM of its smoothed curve over the fit window instead, and the crossing is
-    # where the smoothed curve reaches and holds 1.05x that minimum; floor_kind records which floor was
-    # used. tau on its LOWER bound is not checked on purpose: on CDDM and DMTS it only means the fast
-    # decay is over before the fit window opens, and those floors hold (CDDM ends at 1.00-1.01x).
-    # Guarding every bound dropped 64 of 123 runs; the beta guard touches 6, the suspicious ones.
-    if fit[3] >= hi[3] * 0.99:
-        floor = float(yb.min())
-        out["floor"], out["floor_kind"] = floor, "smoothed_min"
-        out["late_rise"] = end_level / floor
     if out["late_rise"] > MAX_LATE_RISE:
         out["reason"] = f"loss ends {out['late_rise']:.1f}x above its floor"
+        return out
+    # A FLOOR ABOVE WHERE THE LOSS ENDS IS WRONG (Pavel, 2026-10-16): an asymptote is approached from
+    # above. Such a run is still falling past its floor estimate, so it is not read; under the top-up
+    # rule it is trained longer.
+    if out["late_rise"] < END_BELOW:
+        out["reason"] = "loss ends below its floor"
         return out
     out["t_stars"] = {d: sustained_crossing(it, sm, (1.0 + d) * floor, fit_from) for d in deltas}
     out["t_star"] = out["t_stars"][delta]
@@ -658,8 +701,8 @@ def load_run(run_dir):
     Args:
         run_dir: a trained-network folder holding *ParticipationTrace.pkl and *TrainLosses.json.
     Returns:
-        dict with run_dir, name (the folder name), it_loss/loss (noisy_loss_series, the warm-start
-        chain joined), it_act (probe iterations) and active (float active count per probe, under
+        dict with run_dir, name (the folder name), task (task_of), it_loss/loss (noisy_loss_series, the
+        warm-start chain joined), it_act (probe iterations) and active (float active count per probe, under
         active_mask); None when the trace is missing or unreadable, the loss is missing or empty, or
         the trace holds no 2-D participation array.
     """
@@ -680,7 +723,7 @@ def load_run(run_dir):
         return None
     act = np.array([active_mask(p).sum() for p in P], float)
     return dict(it_loss=it_l, loss=L, it_act=it_a, active=act, name=os.path.basename(run_dir),
-                run_dir=run_dir)
+                run_dir=run_dir, task=task_of(run_dir))
 
 
 def runs_with_loss(pattern, min_r2=None):
@@ -712,15 +755,16 @@ def runs_with_loss(pattern, min_r2=None):
     return out
 
 
-def floor_crossing(it_l, L, delta=None):
-    """Where one run's noisy loss first reaches (1+delta) x its OWN fitted floor (common.noisy_floor).
+def floor_crossing(it_l, L, delta=None, task=None):
+    """Where one run's noisy loss first reaches (1+delta) x its OWN floor (common.noisy_floor).
 
     Args:
-        it_l, L: the run's per-iteration noisy loss; delta: margin, FLOOR_DELTA when None.
+        it_l, L: the run's per-iteration noisy loss; delta: margin, FLOOR_DELTA when None;
+        task: the run's taskname (task_of), which selects how its floor is set.
     Returns:
         (crossing iteration or nan, reason string or None when the crossing is usable).
     """
-    r = noisy_floor(it_l, L, FLOOR_DELTA if delta is None else delta)
+    r = noisy_floor(it_l, L, FLOOR_DELTA if delta is None else delta, task=task)
     return r["t_star"], r["reason"]
 
 
@@ -743,7 +787,7 @@ def at_own_floor(cells, delta=None, why=None):
     for N, v in cells.items():
         counts, crossings = [], []
         for r in v:
-            T, reason = floor_crossing(r["it_loss"], r["loss"], delta)
+            T, reason = floor_crossing(r["it_loss"], r["loss"], delta, task=r.get("task"))
             if reason is not None:
                 dropped += 1
                 if why is not None:
@@ -826,7 +870,7 @@ def read_run(run_dir, delta=FLOOR_DELTA, run=None):
     rec = run if run is not None else load_run(run_dir)
     it, L = (rec["it_loss"], rec["loss"]) if rec is not None else noisy_loss_series(run_dir)
     if L is not None:
-        out = noisy_floor(it, L, delta)
+        out = noisy_floor(it, L, delta, task=rec["task"] if rec is not None else task_of(run_dir))
     else:
         out = dict(t_star=float("nan"), t_stars={}, floor=None, floor_kind=None, escape=float("nan"),
                    late_rise=float("nan"), reason="no noisy loss", bursts=[], burst_from=float("nan"))
@@ -1266,16 +1310,29 @@ def _self_check():
     assert pw and all(abs(np.median(a) - 0.7) < 1e-6 for _, a in pw.values()), pw
 
     # noisy_floor recovers a known floor and crossing under noise, and finds planted bursts without
-    # letting them move either. Truth: floor 0.01, crossing of 1.05x at tau*ln(A/(0.05 floor))^2.
+    # letting them move either. Truth: a stretched exponential with floor 0.01, trained to ~3x its
+    # 1.05x crossing.
     rng5 = np.random.default_rng(5)
     it5 = np.arange(1, 150_001, dtype=float)
-    L5 = (0.01 + 0.5 * np.exp(-np.sqrt(it5 / 1000))) * rng5.gamma(1 / 0.03**2, 0.03**2, len(it5))
+    truth5 = stretched(it5, 0.01, 0.5, 1000.0, 0.5)
+    L5 = truth5 * rng5.gamma(1 / 0.03**2, 0.03**2, len(it5))
     for s, w, h in ((80_000, 500, 5.0), (110_000, 3000, 10.0)):
         L5[s:s + w] *= h
     f5 = noisy_floor(it5, L5)
+    t_true = it5[np.flatnonzero(truth5 <= 1.05 * 0.01)[0]]
     assert abs(f5["floor"] / 0.01 - 1) < 0.01, f5["floor"]
-    assert abs(f5["t_star"] / (1000 * np.log(1000) ** 2) - 1) < 0.1, f5["t_star"]
+    assert abs(f5["t_star"] / t_true - 1) < 0.1, (f5["t_star"], t_true)
     assert len(f5["bursts"]) == 2, f5["bursts"]
+
+    # a DMTS-shaped loss - a stall at 0.07, an escape at 20k, a flat level of 1e-4 - is read against
+    # its late level, and a loss still falling at the end of training gets no read-out
+    rng6 = np.random.default_rng(6)
+    L6 = np.where(it5 < 20_000, 0.07, 1e-4 * (1 + 0.3 * np.exp(-(it5 - 20_000) / 3000)))
+    f6 = noisy_floor(it5, L6 * rng6.gamma(1 / 0.03**2, 0.03**2, len(it5)), task="DMTS")
+    assert f6["floor_kind"] == "late_level" and abs(f6["floor"] / 1e-4 - 1) < 0.02, f6["floor"]
+    assert f6["reason"] is None and 20_000 < f6["t_star"] < 40_000, (f6["reason"], f6["t_star"])
+    L7 = np.where((it5 > 20_000) & (it5 < 30_000), 1e-4, 0.07) * rng6.gamma(1 / 0.03**2, 0.03**2, len(it5))
+    assert noisy_floor(it5, L7, task="DMTS")["reason"] == "late level is back at its starting level"
 
     print("common.py self-check passed")
 

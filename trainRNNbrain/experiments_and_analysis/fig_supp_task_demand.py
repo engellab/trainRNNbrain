@@ -63,7 +63,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import paperstyle as ps
 from common import (DATA_DIR, END_FRAC, SILENT_FLIPFLOP, active_mask, noisy_floor, noisy_loss_series,
-                    r2_at_floor_estimate)
+                    r2_at_floor_estimate, task_of)
 
 CACHE = os.path.join(DATA_DIR, "..", "task_demand_cache.json")
 
@@ -232,7 +232,7 @@ def read_run(family, sweep, cell, f, run_dir):
     cfg = config_of(run_dir)
     J = joined(run_dir)
     it_l, L, it_p, P = J["it_loss"], J["loss"], J["it_p"], J["P"]
-    fl = noisy_floor(it_l, L)
+    fl = noisy_floor(it_l, L, task=task_of(run_dir))
     head = os.path.basename(run_dir).split("_")[0]
     r2_end = float(head) if head != "nan" else float("nan")
     L_end = float(np.median(L[it_l >= it_l[-1] - END_FRAC * (it_l[-1] - it_l[0])]))

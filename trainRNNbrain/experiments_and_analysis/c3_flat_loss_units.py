@@ -110,7 +110,7 @@ def main(root):
             seen.update(chain)
             it, L = np.asarray(r["it_loss"], float), np.asarray(r["loss"], float)
             ita, act = np.asarray(r["it_act"], float), np.asarray(r["active"], float)
-            f = noisy_floor(it, L)
+            f = noisy_floor(it, L, task=r["task"])
             l0, l1, pct, pct100 = loss_change(it, L)
             lost, se = loss_rate(ita, act)
             rows.append(dict(size=size.split()[0], label=size, seed=r["name"].split("seed=")[1].split(";")[0],

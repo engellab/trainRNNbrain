@@ -25,7 +25,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from common import DATA_DIR, noisy_floor, noisy_loss_series
+from common import DATA_DIR, noisy_floor, noisy_loss_series, task_of
 
 OUT = os.path.join(DATA_DIR, "..", "burst_stats.csv")
 
@@ -44,7 +44,7 @@ def run_bursts(run_dir):
         return None
     with open(sorted(glob.glob(os.path.join(run_dir, "*TrainLosses.json")))[0]) as fh:
         own = len(json.load(fh).get("train_losses", []))
-    f = noisy_floor(it, L)
+    f = noisy_floor(it, L, task=task_of(run_dir))
     t_from = max(it[-1] - own + 1, f["burst_from"])
     return dict(run=run_dir, counted=max(it[-1] - t_from + 1, 0.0),
                 bursts=[b for b in f["bursts"] if b[0] >= t_from])

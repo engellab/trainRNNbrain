@@ -17,8 +17,9 @@ differ). `extract` runs where the data is and writes one small .npz per run; `dr
   draw      one PNG per run under OUT/<sweep>/, and OUT/index.md listing them all.
 
 STATUS of a run (the top-up rule, notebook 2026-10-16):
-  done        1.05x read-out t* exists, trained to >= 2 t*, loss does not end below 0.9x its floor
-  top-up      short of 2 t*; or loss ends below 0.9x its floor; or not yet stayed under the bar
+  done        1.05x read-out t* exists and the run trained to >= 2 t*
+  top-up      short of 2 t*; or its loss ends below its floor (noisy_floor's END_BELOW guard: still
+              falling); or it has not yet stayed under the bar
   unreadable  fit pinned at its bound, loss ends > 1.5x above its floor, bursts over half of training,
               or the loss never leaves its starting level: training longer does not help
 
@@ -118,21 +119,21 @@ def chain_joins(run_dir):
     return joins[:-1]
 
 
-def predicted_crossing(f, delta=0.05):
-    """Iteration where the fitted stretched exponential reaches (1+delta) x floor, or nan."""
+def predicted_crossing(f, delta=0.05, t_max=1e8):
+    """Iteration where the fitted curve (common.floor_curve) reaches (1+delta) x floor, or nan."""
     if f.get("fit") is None or f.get("floor_kind") != "fit":
         return float("nan")
-    Li, A, tau, beta = f["fit"]
-    x = A / (delta * Li)
-    return float(f["escape"] + tau * np.log(x) ** (1 / beta)) if x > 1 else float("nan")
+    t = np.geomspace(1, t_max, 20000)                      # iterations since the escape
+    hit = np.flatnonzero(C.floor_curve(t, f["fit"]) <= (1 + delta) * f["fit"][0])
+    return float(f["escape"] + t[hit[0]]) if len(hit) else float("nan")
 
 
 def status_of(f, end):
     """(status, reason, target budget) of a run under the top-up rule (module docstring)."""
     t, why = f["t_star"], f["reason"]
+    if why == "loss ends below its floor":
+        return "top-up", f"loss ends at {f['late_rise']:.2f}x its floor (still falling)", 2 * end
     if why is None:
-        if f["late_rise"] < 0.9:
-            return "top-up", f"loss ends at {f['late_rise']:.2f}x its floor", 2 * end
         if end < 2 * t:
             return "top-up", f"trained to {end / t:.1f}x t*", 3 * t
         return "done", f"trained to {end / t:.1f}x t*", float("nan")
@@ -161,7 +162,7 @@ def extract_one(args):
     task = cfg["task"]["taskname"]
     ref_path = os.path.join(ref_dir, f"{task}.yaml")
     ref = OmegaConf.to_container(OmegaConf.load(ref_path), resolve=False) if os.path.exists(ref_path) else {}
-    f = C.noisy_floor(it, L)
+    f = C.noisy_floor(it, L, task=cfg["task"]["taskname"])
     end = float(it[-1])
     status, why, target = status_of(f, end)
     # raw loss as percentiles in log-spaced bins
@@ -180,6 +181,7 @@ def extract_one(args):
                 reason=f["reason"], floor=f["floor"], floor_kind=f["floor_kind"], fit=f.get("fit"),
                 escape=f["escape"], t_stars={str(k): v for k, v in f["t_stars"].items()},
                 late_rise=f["late_rise"], burst_from=f["burst_from"], bursts=f["bursts"],
+                end_residual=f.get("end_residual"),
                 joins=chain_joins(run_dir), diff=config_diff(cfg, ref) if ref else ["no reference config"],
                 reference=os.path.basename(ref_path))
     path = os.path.join(out_dir, f"{sweep}__{cell}__s{seed}_{tag}.npz")
@@ -209,8 +211,8 @@ def draw_one(args):
         t0 = m["escape"]
         tf = np.geomspace(max(C.FIT_START, t0 + 200), m["end"], 300)
         tx_ = np.geomspace(m["end"], 3 * m["end"], 60)
-        ax.plot(tf, C.stretched(tf - t0, *m["fit"]), color="tab:green", lw=1.2, label="fitted stretched exponential")
-        ax.plot(tx_, C.stretched(tx_ - t0, *m["fit"]), color="tab:green", lw=1.2, ls=":",
+        ax.plot(tf, C.floor_curve(tf - t0, m["fit"]), color="tab:green", lw=1.2, label="fitted stretched exponential (end-weighted)")
+        ax.plot(tx_, C.floor_curve(tx_ - t0, m["fit"]), color="tab:green", lw=1.2, ls=":",
                 label="fit, extrapolated past the end")
     if m["floor"]:
         ax.axhline(m["floor"], color="tab:green", ls="--", lw=0.8, label=f"floor ({m['floor_kind']})")
@@ -254,7 +256,8 @@ def draw_one(args):
     lines += ["", f"task: {m['task']}    N = {m['N']}    trained {m['end'] / 1e3:.0f}k iterations",
               f"floor {m['floor']:.4g} ({m['floor_kind']})" if m["floor"] else "floor: none",
               f"read-out t*: 1.05x {fmt(ts.get('0.05'))}   1.10x {fmt(ts.get('0.1'))}   1.20x {fmt(ts.get('0.2'))}",
-              f"end of training / floor: {m['late_rise']:.2f}" if np.isfinite(m["late_rise"]) else "",
+              (f"end of training / floor: {m['late_rise']:.3f}" if np.isfinite(m["late_rise"]) else "")
+              + (f"   fit - loss at end: {m['end_residual']:+.1%}" if m.get("end_residual") is not None else ""),
               f"bursts: {len(m['bursts'])}   escape from start level: {fmt(m['escape'])}",
               "", f"NON-STANDARD vs {m['reference']} (reference -> this run):"]
     lines += [f"  {d}" for d in m["diff"]] or ["  none"]
