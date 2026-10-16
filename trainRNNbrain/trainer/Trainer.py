@@ -1911,6 +1911,7 @@ class Trainer():
 
     def run_training(self, train_mask, same_batch=False, shuffle=False):
         train_losses = []
+        self.train_losses = train_losses   # the same list, so a checkpoint can save the losses so far
         val_losses = []
         self.RNN.train()  # puts the RNN into training mode (sets update_grad = True)
         min_train_loss = np.inf

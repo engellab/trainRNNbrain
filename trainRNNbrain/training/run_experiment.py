@@ -51,7 +51,8 @@ def storable_(v):
     return np.asarray(v)
 
 
-def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done, half_w_rec=False):
+def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done, half_w_rec=False,
+                     losses=None, trace=None):
     """Write a resumable snapshot of a run in progress, in the layout a FINISHED run uses.
 
     WHY. Every file a run produces is written after the training loop returns, so a job killed by
@@ -59,11 +60,13 @@ def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done, half_
     ~147,000 of 150,000 and at 144,479 of 300,000 iterations and salvaged nothing between them --
     about 228 GPU-hours, two of the three over 97% complete.
 
-    This writes the three files the warm-start path already reads (`paths.init_from`): LastParams,
-    AdamState, and a config whose `trainer.max_iter` is the iterations ACTUALLY completed. A killed
-    run is therefore resumed by existing machinery with no new restart code, `warm_start_offset`
-    dates the continuation's trace correctly, and `slurm/topup_budget.py` computes the remaining
-    budget from it unchanged.
+    This writes the files the warm-start path reads (`paths.init_from`): LastParams, AdamState, and
+    a config whose `trainer.max_iter` is the iterations ACTUALLY completed. The resume point also
+    gets the losses and the participation trace so far, in a finished run's formats, so a
+    continuation started from it joins its loss curve and trace along the warm-start chain and can be
+    read at its loss floor; without them the chain's losses stop at the kill. A killed run is
+    therefore resumed by existing machinery with no new restart code, `warm_start_offset` dates the
+    continuation's trace correctly, and `slurm/topup_budget.py` computes the remaining budget.
 
     ⚠️ CHECKPOINTS MUST NOT LAND INSIDE A CELL DIRECTORY. Every inventory and every top-up launcher
     finds runs by globbing a cell for subfolders holding *LastParams*, so a checkpoint folder beside
@@ -94,6 +97,10 @@ def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done, half_
             2026-10-14): held-out R² moves by < 1e-5, the active set is identical, per-unit gradient
             norms correlate > 0.9999, the noisy loss moves < 0.3%. Every snapshot reader casts to
             float32 on load. Never used for a resume point.
+        losses: list of float, the training loss of every iteration so far, written as
+            `<stem>_TrainLosses.json`; or None to write none (kept snapshots).
+        trace: dict, the participation monitor so far (as `trace_to_save` builds it), written as
+            `<stem>_ParticipationTrace.pkl`; or None to write none.
     Returns:
         None. Failures are reported and swallowed: a diagnostic must never kill a live run.
     """
@@ -125,6 +132,18 @@ def write_checkpoint(folder, cfg, params, opt, taskname, seed, iters_done, half_
         plan = [(f"{stem}_LastParams_{taskname}.npz", savez)]
         if opt is not None:
             plan.append((f"{stem}_AdamState_{taskname}.pt", lambda t: torch.save(opt.state_dict(), t)))
+        if losses is not None:
+            def dump_losses(t):
+                """Write the losses so far to path t, in a finished run's TrainLosses format."""
+                with open(t, "w") as fh:
+                    json.dump({"train_losses": [float(x) for x in losses], "val_losses": []}, fh)
+            plan.append((f"{stem}_TrainLosses.json", dump_losses))
+        if trace is not None:
+            def dump_trace(t):
+                """Pickle the participation trace so far to path t."""
+                with open(t, "wb") as fh:
+                    pickle.dump(trace, fh)
+            plan.append((f"{stem}_ParticipationTrace.pkl", dump_trace))
         plan.append((f"{stem}_config.yaml", lambda t: OmegaConf.save(snap, t)))
         staged = []
         for name, write in plan:
@@ -251,6 +270,22 @@ def load_warm_start(rnn_torch, folder, keep_fresh=()):
               f"{tuple(dict(rnn_torch.named_parameters())[nm].shape)}; the file's "
               f"{tuple(np.shape(loaded[nm])) if nm in loaded else 'absent'} is discarded")
     return src[0]
+
+
+def trace_to_save(monitor, init_from):
+    """The participation trace as a run saves it: metrics as float32, the parent's samples prepended.
+
+    Used for the finished run and for its resume point alike, so the two files cannot differ.
+
+    Args:
+        monitor: dict, the trainer's `participation_monitor`.
+        init_from: str or None, the parent run's folder when this run is a continuation.
+    Returns:
+        dict, ready to pickle.
+    """
+    mon = dict(monitor)
+    mon["metrics"] = {k: np.asarray(v, dtype="float32") for k, v in mon["metrics"].items()}
+    return join_parent_trace(mon, init_from) if init_from else mon
 
 
 def join_parent_trace(mon, init_from):
@@ -479,7 +514,10 @@ def run_training(cfg: DictConfig) -> None:
                 # the resume point stays exact (float32 + Adam state), one copy overwritten in place;
                 # its folder name does not start with "it", so no snapshot lookup ever reads it
                 write_checkpoint(os.path.join(ckpt_folder, "resume") if ckpt_keep else ckpt_folder,
-                                 cfg, params, opt, taskname, seed, iters_done)
+                                 cfg, params, opt, taskname, seed, iters_done,
+                                 losses=trainer.train_losses,
+                                 trace=(trace_to_save(trainer.participation_monitor, init_from)
+                                        if cfg.trainer.track_participation else None))
             trainer.checkpoint_fn = checkpoint_fn
             print(f"checkpointing every {ckpt_every} iterations -> {ckpt_folder}"
                   f"{' (every snapshot kept)' if ckpt_keep else ''}")
@@ -589,10 +627,7 @@ def run_training(cfg: DictConfig) -> None:
 
         if cfg.trainer.track_participation:
             # pkl, not json: (max_iter/track_every) x N float32 is ~12 MB as a pickle but ~100 MB as indented json
-            mon = dict(trainer.participation_monitor)
-            mon["metrics"] = {k: np.asarray(v, dtype="float32") for k, v in mon["metrics"].items()}
-            if init_from:
-                mon = join_parent_trace(mon, init_from)
+            mon = trace_to_save(trainer.participation_monitor, init_from)
             if not (datasaver is None): datasaver.save_data(mon, f"{stem}_ParticipationTrace.pkl")
 
         # the total loss per iteration, saved regardless of `monitor` (which controls only the

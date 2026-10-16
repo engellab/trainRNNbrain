@@ -34,7 +34,9 @@ Run:  python tests/test_periodic_checkpoint.py
 """
 
 import os
+import json
 import glob
+import pickle
 import sys
 import tempfile
 import types
@@ -257,6 +259,30 @@ def test_kept_snapshots_store_w_rec_in_half_precision():
     print("9 OK  kept snapshots hold W_rec in float16; the resume copy is exact and keeps Adam")
 
 
+def test_resume_point_carries_losses_and_trace():
+    """CONTRACT 10. The resume copy holds the losses and the participation trace so far.
+
+    Without them a run continued from resume/ has a loss curve that stops at the kill, so
+    `common.noisy_loss_series` returns nothing for its whole chain and the run has no floor read-out
+    (found 2026-10-15). Kept snapshots carry neither.
+    """
+    rnn = RNN_torch(N=N, activation_args={"name": "relu", "slope": 1.0}, dale=False,
+                    n_inputs=2, n_outputs=1, equation_type="h", seed=0)
+    losses = [0.5, 0.25, 0.125]
+    trace = {"iters": [0, 10, 20], "metrics": {"m": np.ones(3, dtype="float32")}}
+    with tempfile.TemporaryDirectory() as d:
+        res, kept = os.path.join(d, "resume"), os.path.join(d, "it0000500")
+        write_checkpoint(res, _cfg(75000), rnn.get_params(), torch.optim.Adam(rnn.parameters()),
+                         "CDDM", 3, 30, losses=losses, trace=trace)
+        write_checkpoint(kept, _cfg(75000), rnn.get_params(), None, "CDDM", 3, 30, half_w_rec=True)
+        with open(os.path.join(res, "ckpt_s3_TrainLosses.json")) as fh:
+            assert json.load(fh)["train_losses"] == losses
+        with open(os.path.join(res, "ckpt_s3_ParticipationTrace.pkl"), "rb") as fh:
+            assert pickle.load(fh)["iters"] == [0, 10, 20]
+        assert not glob.glob(os.path.join(kept, "*TrainLosses*")), "a kept snapshot carries losses"
+    print("10 OK the resume copy carries the losses and trace so far; kept snapshots carry neither")
+
+
 if __name__ == "__main__":
     test_off_by_default_never_fires()
     test_cadence_skips_the_final_iteration()
@@ -265,4 +291,5 @@ if __name__ == "__main__":
     test_checkpoints_live_outside_the_data_tree()
     test_kept_snapshots_are_a_series_without_optimiser_state()
     test_kept_snapshots_store_w_rec_in_half_precision()
+    test_resume_point_carries_losses_and_trace()
     print("all periodic-checkpoint contracts hold")
