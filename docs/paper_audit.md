@@ -34,7 +34,7 @@ bird's-eye view of what works.
 | # | Claim | Status | What remains |
 |---|---|---|---|
 | C1 | Training leaves most units silent, and silent units do no work | **Done** | Rebuild F1 with `RETRAIN_DIR` → `c1_retrain_seeded2` |
-| C2 | Bigger networks keep a smaller share of units active | **Partly** | Flip-flop N = 4000 at its floor (FFtop4000), then F1 panel c |
+| C2 | Bigger networks keep a smaller share of units active | **Done** (read under the committed rule) | Rebuild F1 panel c (after the cosyne2027-fig merge); re-read if the new read-out rule lands |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
 | C4 | Silence is a loss of participation that the task gradient does not repair | **Tested** | Pavel chooses the wording |
 | C5 | The standard knobs change how many units are lost, not the trend | **Done**, Figure 2 built | Sync Figure 2 into the paper; update old numbers in `04_ratepenalty`, `06_whyitmatters` |
@@ -50,9 +50,10 @@ pruning as many units at random does not (0.921-0.929). The same holds at every 
 4000 at the end of training (36 networks, supplementary figure). Text and Methods are in the paper;
 the seeded numbers are on paper branch `numbers-seeded`.
 
-**C2.** Flip-flop at its floor on the 200k runs: N = 500 201 ± 19 active (6 of 6 runs), N = 1000
-291 ± 5 (2 of 3), N = 2000 387 ± 24 (3 of 3); provisional exponent N^0.47. N = 4000 lands with
-FFtop4000. CDDM and DMTS are read at the floor from the paper-grid controls. The learning-rate
+**C2.** Flip-flop at its floor on the 200k runs (entry 2026-10-15_2059): N = 500 187-237 active
+(6 of 6 runs), N = 1000 287-294 (2 of 3), N = 2000 363-410 (3 of 3), N = 4000 500-594 (3 of 3).
+The active share falls from about 40% at N = 500 to about 14% at N = 4000; the count grows as
+N^0.47. CDDM and DMTS are read at the floor from the paper-grid controls. The learning-rate
 confound (lr ∝ N^−1/3) is left in and handled by reading each network at its own floor.
 
 **C3.** CDDM, N = 1000: every weight-decay setting reaches its floor early and keeps losing units to
