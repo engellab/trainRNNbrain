@@ -42,7 +42,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import DATA_DIR, SILENT_REL
+from common import DATA_DIR, active_mask
 from f3_penalty_cache import CELL_GLOBS, cell_key
 
 READ_AT = 150_000       # the cap the rest of the project reads penalised cells at
@@ -76,7 +76,7 @@ def cell_counts(cell, cap=READ_AT):
     out = []
     for it, P in tr:
         p = P[int(np.argmin(np.abs(it - read_at)))]
-        out.append(int((p >= SILENT_REL * np.quantile(p, 0.95)).sum()))
+        out.append(int(active_mask(p).sum()))
     return np.array(out), read_at
 
 

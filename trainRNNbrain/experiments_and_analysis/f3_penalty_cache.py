@@ -51,7 +51,7 @@ import torch
 from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import DATA_DIR, SILENT_REL, participation
+from common import DATA_DIR, active_mask, participation
 # ⚠️ `participation_ratio` exists TWICE in this folder under one name and two meanings:
 # common's takes a vector of participation VALUES and returns 1/HHI, the effective number of
 # participating units, while f2_remedies_cache's takes a rate MATRIX and returns the participation
@@ -161,7 +161,7 @@ def analyse(net_dir):
 
     flat = rates.reshape(rnn.N, -1)
     p = participation(rates)
-    live = p >= SILENT_REL * np.quantile(p, 0.95)
+    live = active_mask(p)
     row = dict(stored=stored, r2_noisy=r2_noisy, r2_clean=r2_clean,
                max_iter=int(cfg.trainer.max_iter), n_active=int(live.sum()), N=int(rnn.N),
                dim_pr=float("nan"), dim95=float("nan"))

@@ -78,7 +78,8 @@ import paperstyle as ps
 import heldout_r2 as heldout
 from pr_matrix import fit_floor_at, excess_time_at
 from common import (DATA_DIR, SILENT_REL, participation, logbin, noisy_loss_series,
-                    noisy_floor, FLOOR_DELTA, warm_start_chain)
+                    FLOOR_DELTA, warm_start_chain, active_mask, runs_with_loss, floor_crossing,
+                    at_own_floor)
 from flipflop_diversity import rates_and_targets
 from flipflop_fixedpoints import load_net
 import hydra
@@ -446,7 +447,7 @@ def live_matched(pattern, cap=None, min_r2=None):
     counts = []
     for P, it in tr:
         p = P[int(np.argmin(np.abs(it - it_read)))]
-        counts.append(int((p >= SILENT_REL * np.quantile(p, 0.95)).sum()))
+        counts.append(int(active_mask(p).sum()))
     return np.array(counts), it_read
 
 
@@ -480,90 +481,6 @@ def clean_loss_series(run_dir, trace):
         return None, None
     L = np.asarray(json.load(open(jf[0])).get("train_losses", []), float)
     return (np.arange(len(L), dtype=float), L) if len(L) else (None, None)
-
-
-def runs_with_loss(pattern, min_r2=None):
-    """Every non-diverged run under a glob, with its NOISY loss series and active-unit series.
-
-    Args:
-        pattern: glob matching run folders; min_r2: drop runs scoring below this, or None.
-    Returns:
-        list of dicts with it_loss/loss, it_act/active, and the run's folder name.
-    """
-    out = []
-    for d in sorted(glob.glob(os.path.join(pattern, "*"))):
-        if not os.path.isdir(d):
-            continue
-        head = os.path.basename(d).split("_")[0]
-        if head == "nan":
-            continue
-        if min_r2 is not None:
-            try:
-                if float(head) < min_r2:
-                    continue
-            except ValueError:
-                continue
-        tp = glob.glob(os.path.join(d, "*ParticipationTrace.pkl"))
-        if not tp:
-            continue
-        try:
-            tr = pickle.load(open(tp[0], "rb"))
-        except Exception:
-            continue
-        it_l, L = noisy_loss_series(d)
-        if L is None or not len(L):
-            continue
-        P = np.asarray(tr["participation"])
-        it_a = np.asarray(tr["participation_iters"], float)
-        if P.ndim != 2 or not len(it_a):
-            continue
-        act = np.array([(p >= SILENT_REL * np.quantile(p, 0.95)).sum() for p in P], float)
-        out.append(dict(it_loss=it_l, loss=L, it_act=it_a, active=act, name=os.path.basename(d)))
-    return out
-
-
-def floor_crossing(it_l, L, delta=None):
-    """Where one run's noisy loss first reaches (1+delta) x its OWN fitted floor (common.noisy_floor).
-
-    Args:
-        it_l, L: the run's per-iteration noisy loss; delta: margin, FLOOR_DELTA when None.
-    Returns:
-        (crossing iteration or nan, reason string or None when the crossing is usable).
-    """
-    r = noisy_floor(it_l, L, FLOOR_DELTA if delta is None else delta)
-    return r["t_star"], r["reason"]
-
-
-def at_own_floor(cells, delta=None, why=None):
-    """Active units per size, read where each run's own loss first reaches (1+delta) x its OWN floor.
-
-    The project's read-out (common.noisy_floor): each run's floor is fitted on its own noisy loss
-    and the count is taken AT the crossing. A run with no usable crossing - fit failed or pinned at
-    its bound, loss never reaching the bar, or a loss that climbs back more than 1.5x after its
-    minimum - is DROPPED and counted, never clamped to its last probe.
-
-    Args:
-        cells: dict N -> list of run dicts from runs_with_loss;
-        delta: the excess margin, FLOOR_DELTA (0.05) when None;
-        why: optional list; (N, run name, reason) is appended for every dropped run.
-    Returns:
-        (dict N -> (counts array, mean crossing), n_dropped).
-    """
-    out, dropped = {}, 0
-    for N, v in cells.items():
-        counts, crossings = [], []
-        for r in v:
-            T, reason = floor_crossing(r["it_loss"], r["loss"], delta)
-            if reason is not None:
-                dropped += 1
-                if why is not None:
-                    why.append((N, r["name"], reason))
-                continue
-            counts.append(r["active"][int(np.argmin(np.abs(np.asarray(r["it_act"], float) - T)))])
-            crossings.append(T)
-        if counts:
-            out[N] = (np.array(counts, float), float(np.mean(crossings)))
-    return out, dropped
 
 
 def at_end_of_budget(cells):
@@ -1199,7 +1116,7 @@ def trajectory(run_dir):
     if L is None or not len(L):
         return None
     P, it_P = np.asarray(t["participation"]), np.asarray(t["participation_iters"], float)
-    live = np.array([(p >= SILENT_REL * np.quantile(p, 0.95)).sum() for p in P], float)
+    live = np.array([active_mask(p).sum() for p in P], float)
     # ⚠️ R2 IS THE HELD-OUT SCORE, NOT THE FOLDER-NAME PREFIX. That prefix is one forward pass, one
     # noise draw, on the TRAINING batch, and panel (e) prints it in every sub-panel title. The score
     # this project reports is a held-out batch at the sigma_rec and sigma_inp the network trained

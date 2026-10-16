@@ -57,6 +57,7 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import f2_remedies_cache as FC
 import fig_paper_F2 as F2
+from common import active_mask
 
 OUT = "data/f2_dimensionality_extra.npz"
 N_BATCH = 6            # draws per network: enough that the min-max range is a usable interval
@@ -85,7 +86,7 @@ def spectrum_measures(net_dir, n_batch=N_BATCH):
             states, _ = rnn(torch.tensor(bi[:, :, sub], dtype=torch.float32), w_noise=False)
         r = torch.relu(states).numpy().reshape(rnn.N, -1)
         p = r.std(axis=1) + np.quantile(np.abs(r), 0.9, axis=1)
-        live = p >= FC.SILENT_REL * np.quantile(p, 0.95)
+        live = active_mask(p)
         if live.sum() < 2:
             continue
         ev = np.linalg.eigvalsh(np.cov(np.asarray(r[live], dtype=np.float64)))

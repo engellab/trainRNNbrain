@@ -25,7 +25,9 @@ The q50/q95 health ratio is recorded at every read-out (above 0.05 the relative 
 
 R^2. The end value is the run's folder score (final weights, one held-out batch, training noise
 on, pooled over output channels). At the floor no weights were saved, so R^2 there is ESTIMATED
-from the loss ratio, R2_floor = 1 - (L(t*) / L_end) (1 - R2_end), as in fig_knobs_at_floor.py.
+from the loss ratio, R2_floor = 1 - (L(t*) / L_end) (1 - R2_end) (common.r2_at_floor_estimate).
+⚠️ R2_end here is still the folder score, where heldout_r2.floor_r2 uses held-out R^2 of the final
+weights. Moving this panel to held-out R^2 changes its numbers, so it is left for a change of its own.
 
 ARCHITECTURE. Every network here is PRE-STANDARD: ReLU, h equation, self-connections on, no Dale,
 gamma 0, but a TRAINED bias in [-1, 1] (the standard network fixes it at 0). Read from each
@@ -60,7 +62,8 @@ from omegaconf import OmegaConf
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import paperstyle as ps
-from common import DATA_DIR, END_FRAC, SILENT_FLIPFLOP, SILENT_REL, noisy_floor, noisy_loss_series
+from common import (DATA_DIR, END_FRAC, SILENT_FLIPFLOP, active_mask, noisy_floor, noisy_loss_series,
+                    r2_at_floor_estimate)
 
 CACHE = os.path.join(DATA_DIR, "..", "task_demand_cache.json")
 
@@ -164,7 +167,7 @@ def count(p):
         than half the units pass the relative rule, and the absolute rule shows whether that is real.
     """
     q95 = np.quantile(p, 0.95)
-    return (int((p >= SILENT_REL * q95).sum()), float(np.quantile(p, 0.5) / q95),
+    return (int(active_mask(p).sum()), float(np.quantile(p, 0.5) / q95),
             int((p >= SILENT_FLIPFLOP).sum()))
 
 
@@ -253,7 +256,7 @@ def read_run(family, sweep, cell, f, run_dir):
         rec["it_probe"] = float(it_p[j])
         L_star = float(fl["smoothed"][np.flatnonzero(it_l >= T)[0]])
         rec["L_star"] = L_star
-        rec["r2_floor"] = 1.0 - (L_star / L_end) * (1.0 - r2_end)
+        rec["r2_floor"] = r2_at_floor_estimate(L_star, L_end, r2_end)
     return rec
 
 

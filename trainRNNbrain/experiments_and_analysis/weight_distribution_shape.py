@@ -35,6 +35,8 @@ import sys
 import numpy as np
 from scipy import stats
 
+from common import active_mask
+
 ZERO_TOL = 1e-12      # below this a weight counts as structurally absent, not small
 CAP_TOL = 1e-6        # within this of the cap counts as sitting ON the bound
 PILEUP_BAR = 0.01     # pre-registered: >1% of entries on the bound = pile-up confirmed
@@ -130,7 +132,7 @@ if __name__ == "__main__":
             pileup_report(net["W_inp"], cap)
         if net["participation"] is not None:
             p = net["participation"]
-            n_active = int((p >= 0.05 * np.quantile(p, 0.95)).sum())
+            n_active = int(active_mask(p).sum())
             r = lognormal_report(p, "participation (rates)")
             if r:
                 print(f"  {'active units':26s} {n_active} / {p.size}")

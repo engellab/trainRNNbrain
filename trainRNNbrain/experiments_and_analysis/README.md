@@ -9,8 +9,8 @@ about how the code is written.
 
 | module | role |
 |---|---|
-| [`common.py`](common.py) | shared primitives: participation, the read-out (`noisy_loss_series`, `noisy_floor`, `warm_start_chain`), fitting, sweep loading. No matplotlib, no side effects at import. `python common.py` runs its self-check |
-| [`heldout_r2.py`](heldout_r2.py) | the performance measure (seeded held-out R²; run on CPU) |
+| [`common.py`](common.py) | shared primitives: participation and the active-unit rule (`active_mask`, `active_count`), the read-out (`noisy_loss_series`, `noisy_floor`, `warm_start_chain`; one run at its floor: `read_run`; a cell: `runs_with_loss` + `at_own_floor`; `snapshot_at`, `r2_at_floor_estimate`), fitting, sweep loading. No matplotlib, no side effects at import. `python common.py` runs its self-check |
+| [`heldout_r2.py`](heldout_r2.py) | the performance measure (seeded held-out R²; run on CPU); R² at the floor (`floor_r2`) and a cell read at the floor with it (`read_rung`) |
 | [`ablate_silent_units.py`](ablate_silent_units.py) | claim 1: ablation and retrain at the floor |
 | [`gradient_participation.py`](gradient_participation.py) | claim 4: gradient reach; the untrained twin of a run |
 | [`fig_paper_F1.py`](fig_paper_F1.py) | Figure 1 |
@@ -20,7 +20,9 @@ about how the code is written.
 | [`paperstyle.py`](paperstyle.py) | how manuscript figures look; [`plotstyle.py`](plotstyle.py) is the deck's equivalent |
 | `fig_slides.py`, `deck_pngs.py`, `deck_html.py`, `check_presentation.py` | the talk deck, `docs/presentation.md` |
 
-`common.noisy_floor` is the one read-out rule. Some deck and older paper-figure scripts still carry
+`common.noisy_floor` is the one read-out rule, and `common.read_run` the one way to read a run at
+it (active count at the probe nearest t*, the kept snapshot there, the inputs of the R² estimate).
+`common.active_mask` is the one active-unit rule; do not retype `p >= 0.05 * q95(p)`. Some deck and older paper-figure scripts still carry
 their own read-outs (`pr_matrix.fit_floor_at`, fixed iterations); do not use those for new numbers.
 
 ## The rules

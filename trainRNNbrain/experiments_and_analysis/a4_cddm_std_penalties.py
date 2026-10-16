@@ -12,7 +12,7 @@ WHAT THIS SCRIPT DOES.
   1. Inventory and standardness: every run's saved config against the standard network (ReLU,
      equation h, zero fixed bias, gamma 0, no Dale, signed I/O, self-connections, weight decay 1e-6)
      and against the reference control's config, key by key.
-  2. Floor and end read-outs of each 75k chain through `fig_knobs_at_floor.read_rung`, with held-out
+  2. Floor and end read-outs of each 75k chain through `heldout_r2.read_rung`, with held-out
      R^2 at 36 draws: estimated at the floor (no snapshots exist), measured at 50k (the parent's
      final weights) and at 75k.
   3. An independent check of the active counts: a numpy forward pass of each run's final weights
@@ -38,8 +38,7 @@ from omegaconf import OmegaConf
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import heldout_r2 as H
-import fig_knobs_at_floor as K
-from common import DATA_DIR, SILENT_REL, participation, warm_start_chain
+from common import DATA_DIR, active_mask, participation, warm_start_chain
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 
 BASE, TOP = "CDDM_std_g0_bias0", "CDDM_std_g0_bias0_c75000"
@@ -127,7 +126,7 @@ def oracle_active(run_dir):
 
     Integrates x <- x + (dt/tau)(-x + W_rec relu(x) + W_inp u + b) from y_init, noise-free, on the
     run's training grid of trials, scores p = std(r) + q0.9(|r|) pooled over time and trials, and
-    applies p >= SILENT_REL * q95(p).
+    applies p >= 0.05 q95(p) (common.active_mask).
 
     Args:
         run_dir: a trained-network folder with *LastParams* (.json or .npz), *_config.yaml, *ParticipationTrace.pkl.
@@ -149,11 +148,11 @@ def oracle_active(run_dir):
         x = x + alpha * (-x + W_rec @ np.maximum(x, 0) + W_inp @ u[:, t - 1, :] + b[:, None])
         rates.append(np.maximum(x, 0))
     p = participation(np.stack(rates, axis=1))                       # (N,)
-    on = p >= SILENT_REL * np.quantile(p, 0.95)
+    on = active_mask(p)
     with open(sorted(glob.glob(os.path.join(run_dir, "*ParticipationTrace.pkl")))[0], "rb") as fh:
         tr = pickle.load(fh)
     pt = np.asarray(tr["participation"])[-1]
-    on_t = pt >= SILENT_REL * np.quantile(pt, 0.95)
+    on_t = active_mask(pt)
     return dict(n_oracle=int(on.sum()), n_trace=int(on_t.sum()), agree=float((on == on_t).mean()),
                 trace_iter=int(np.asarray(tr["participation_iters"])[-1]))
 
@@ -167,13 +166,13 @@ def read_cell(path, cache, end_at=None):
         read_rung's dict plus per-run lists: r2_end (final weights), r2_50k (the chain's first run's
         final weights, None when the cell is not a continuation), oracle (oracle_active), names.
     """
-    r = K.read_rung(path, end_at, cache)
+    r = H.read_rung(path, end_at, cache)
     runs = [d for d in sorted(glob.glob(os.path.join(path, "*"))) if os.path.isdir(d)
             and not os.path.basename(d).startswith("nan")]
     r["names"] = [os.path.basename(d) for d in runs]
-    r["r2_end"] = [H.heldout_r2(d, draws=K.R2_DRAWS, cache=cache) for d in runs]
+    r["r2_end"] = [H.heldout_r2(d, draws=H.R2_DRAWS, cache=cache) for d in runs]
     chains = [warm_start_chain(d) for d in runs]
-    r["r2_50k"] = [H.heldout_r2(c[0], draws=K.R2_DRAWS, cache=cache) if len(c) > 1 else None
+    r["r2_50k"] = [H.heldout_r2(c[0], draws=H.R2_DRAWS, cache=cache) if len(c) > 1 else None
                    for c in chains]
     r["oracle"] = [oracle_active(d) for d in runs]
     return r

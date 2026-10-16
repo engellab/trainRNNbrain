@@ -38,9 +38,9 @@ sys.path.insert(0, REPO)
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 from trainRNNbrain.utils import unjsonify
+from common import active_mask
 
 CACHE = os.path.join(REPO, "data", "run_dims_cache.json")
-SILENT_REL = 0.05            # the project's scale-free silence rule
 TRIALS = 128                 # cap on trials kept for the rate matrix, strided (never the first k:
                              # TaskCDDM enumerates its coherence grid in a fixed order, so the
                              # first 128 of 450 are one context out of two)
@@ -120,7 +120,7 @@ def measure(net_dir):
         rates = torch.relu(states).numpy()                    # (N, T, B), noise-free
     flat = rates.reshape(rates.shape[0], -1)
     p = flat.std(axis=1) + np.quantile(np.abs(flat), 0.9, axis=1)
-    live = p >= SILENT_REL * np.quantile(p, 0.95)
+    live = active_mask(p)
     if rates.shape[2] > TRIALS:
         sub = np.arange(0, rates.shape[2], max(1, rates.shape[2] // TRIALS))[:TRIALS]
         flat = rates[:, :, sub].reshape(rates.shape[0], -1)

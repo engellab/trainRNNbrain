@@ -31,7 +31,7 @@ from omegaconf import OmegaConf
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                 "..", "..")))
-from common import DATA_DIR, SILENT_REL
+from common import DATA_DIR, active_mask
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 from trainRNNbrain.utils import filter_kwargs, unjsonify
@@ -105,7 +105,7 @@ def coords(net_dir):
     flat = torch.relu(states).numpy().reshape(int(rnn.N), -1).astype(np.float32)
     del states
     p = flat.std(1) + np.quantile(np.abs(flat), 0.9, axis=1)
-    live = p >= SILENT_REL * np.quantile(p, 0.95)
+    live = active_mask(p)
     X = flat[live].astype(np.float64)
     Xc = X - X.mean(axis=0, keepdims=True)
     _u, sv, vt = np.linalg.svd(Xc, full_matrices=False)

@@ -54,6 +54,7 @@ from scipy.special import logsumexp
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import f2_remedies_cache as C   # the loader, the gate and the arm classification, reused verbatim
+from common import active_mask
 
 import torch
 
@@ -157,7 +158,7 @@ def main(out_path=OUT_DEFAULT):
                 print(f"  SKIP {arm} {os.path.basename(net)[:9]}: {type(exc).__name__}: {exc}",
                       flush=True)
                 continue
-            active = part >= C.SILENT_REL * np.quantile(part, 0.95)
+            active = active_mask(part)
             row = {"cell": pat, "arm": arm, "N": n_units, "stored": stored, "task": task,
                    "n_active": int(active.sum())}
             # the top-K set is taken on the SAME statistic being described, so "the 200 loudest"

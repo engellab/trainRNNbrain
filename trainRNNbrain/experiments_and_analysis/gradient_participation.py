@@ -56,10 +56,7 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments, get_tr
 from trainRNNbrain.utils import filter_kwargs, import_any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import noisy_floor, noisy_loss_series, warm_start_chain
-from heldout_r2 import snapshot_at
-
-REL = 0.05
+from common import active_mask, read_run, warm_start_chain
 
 
 def act_fn(args):
@@ -138,21 +135,29 @@ def initial_params(cfg):
 
 
 def count(g):
-    return int((g >= REL * np.quantile(g, 0.95)).sum())
+    """Units over the scale-free bar, g >= 0.05 x q95(g) (common.active_mask).
+
+    Args:
+        g: (N,) per-unit participation or gradient magnitude.
+    Returns:
+        int count.
+    """
+    return int(active_mask(g).sum())
 
 
 def read_point(d, at):
     """Which saved weights of run folder d to read, per --at.
 
+    Args:
+        d: a run folder; at: "floor" for the kept snapshot at the floor crossing (common.read_run),
+            anything else for the final weights.
     Returns:
         (path of a *LastParams*.npz, "floor" or "end", the iteration it stands for or None).
     """
     end = glob.glob(os.path.join(d, "*LastParams*.npz"))[0]
     if at != "floor":
         return end, "end", None
-    it, L = noisy_loss_series(d)
-    f = noisy_floor(it, L) if L is not None else {"reason": "no loss series"}
-    snap = None if f["reason"] else snapshot_at(d, f["t_star"])
+    snap = read_run(d)["snapshot"]
     if snap is None:
         return end, "end", None
     return glob.glob(os.path.join(snap, "*LastParams*.npz"))[0], "floor", int(os.path.basename(snap)[2:])

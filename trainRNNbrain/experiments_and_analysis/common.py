@@ -91,7 +91,27 @@ def active_count(p, criterion):
         return int((p >= float(criterion)).sum())
     if criterion == "hard":
         return int((p >= SILENT_HARD).sum())
-    return int((p >= SILENT_REL * np.quantile(p, 0.95)).sum())
+    return int(active_mask(p).sum())
+
+
+def active_mask(p, rel=SILENT_REL):
+    """Which units are active under the scale-free rule: p >= rel x q95(p).
+
+    This is the one implementation of the rule; `active_count(p, "scalefree")` counts its True
+    entries. It is computed in p's own dtype (a float32 participation trace stays float32), as every
+    inline copy of the rule it replaced was, so moving a script onto it changes no count.
+    `active_count` casts to float64 first; on 23,700 stored probes of 15 CDDM and flip-flop runs the
+    two dtypes gave the same count at every probe.
+
+    Args:
+        p: (N,) participation values, or any non-negative per-unit measure the scale-free bar is put
+            on (the c4 scripts put it on per-unit gradients);
+        rel: the bar as a fraction of the 95th percentile, SILENT_REL (5%) for the project's rule.
+    Returns:
+        (N,) bool array, True for an active unit.
+    """
+    p = np.asarray(p)
+    return p >= rel * np.quantile(p, 0.95)
 
 
 def hhi(v):
@@ -601,6 +621,219 @@ def noisy_floor(it, L, delta=FLOOR_DELTA):
 
 
 # --------------------------------------------------------------------------------------------
+# READING A RUN AT ITS FLOOR: the active count, the kept weights and the loss there
+# --------------------------------------------------------------------------------------------
+#
+# Every script that reads a network at its floor goes through `read_run` (one run) or
+# `runs_with_loss` + `at_own_floor` (a cell). These lived in fig_paper_F1 (runs_with_loss,
+# floor_crossing, at_own_floor), fig_knobs_at_floor (the R^2 estimate) and heldout_r2
+# (snapshot_at) until 2026-10-15, and other scripts imported them from there. Held-out R^2 itself
+# needs torch and stays in heldout_r2 (`heldout_r2.floor_r2`).
+
+# kept weight snapshots, by <sweep>/<cell>/s<seed>/it<absolute iteration>/
+SNAP_DIR = os.path.join(DATA_DIR, "..", "c1_snapshots")
+SNAP_MAX_LAG = 1000     # a snapshot more than this many iterations after the crossing is not "at" it
+
+
+def load_run(run_dir):
+    """One run's noisy loss series and its active-unit count at every participation probe.
+
+    Args:
+        run_dir: a trained-network folder holding *ParticipationTrace.pkl and *TrainLosses.json.
+    Returns:
+        dict with run_dir, name (the folder name), it_loss/loss (noisy_loss_series, the warm-start
+        chain joined), it_act (probe iterations) and active (float active count per probe, under
+        active_mask); None when the trace is missing or unreadable, the loss is missing or empty, or
+        the trace holds no 2-D participation array.
+    """
+    tp = glob.glob(os.path.join(run_dir, "*ParticipationTrace.pkl"))
+    if not tp:
+        return None
+    try:
+        with open(tp[0], "rb") as fh:
+            tr = pickle.load(fh)
+    except Exception:
+        return None
+    it_l, L = noisy_loss_series(run_dir)
+    if L is None or not len(L):
+        return None
+    P = np.asarray(tr["participation"])
+    it_a = np.asarray(tr["participation_iters"], float)
+    if P.ndim != 2 or not len(it_a):
+        return None
+    act = np.array([active_mask(p).sum() for p in P], float)
+    return dict(it_loss=it_l, loss=L, it_act=it_a, active=act, name=os.path.basename(run_dir),
+                run_dir=run_dir)
+
+
+def runs_with_loss(pattern, min_r2=None):
+    """Every non-diverged run under a glob, with its NOISY loss series and active-unit series.
+
+    Args:
+        pattern: glob matching run folders; min_r2: drop runs scoring below this, or None.
+    Returns:
+        list of load_run dicts (it_loss/loss, it_act/active, name, run_dir), one per run folder
+        whose name does not start with "nan", whose folder-name R^2 is at least min_r2, and which
+        load_run can read.
+    """
+    out = []
+    for d in sorted(glob.glob(os.path.join(pattern, "*"))):
+        if not os.path.isdir(d):
+            continue
+        head = os.path.basename(d).split("_")[0]
+        if head == "nan":
+            continue
+        if min_r2 is not None:
+            try:
+                if float(head) < min_r2:
+                    continue
+            except ValueError:
+                continue
+        r = load_run(d)
+        if r is not None:
+            out.append(r)
+    return out
+
+
+def floor_crossing(it_l, L, delta=None):
+    """Where one run's noisy loss first reaches (1+delta) x its OWN fitted floor (common.noisy_floor).
+
+    Args:
+        it_l, L: the run's per-iteration noisy loss; delta: margin, FLOOR_DELTA when None.
+    Returns:
+        (crossing iteration or nan, reason string or None when the crossing is usable).
+    """
+    r = noisy_floor(it_l, L, FLOOR_DELTA if delta is None else delta)
+    return r["t_star"], r["reason"]
+
+
+def at_own_floor(cells, delta=None, why=None):
+    """Active units per size, read where each run's own loss first reaches (1+delta) x its OWN floor.
+
+    The project's read-out (common.noisy_floor): each run's floor is fitted on its own noisy loss
+    and the count is taken AT the crossing. A run with no usable crossing - fit failed or pinned at
+    its bound, loss never reaching the bar, or a loss that climbs back more than 1.5x after its
+    minimum - is DROPPED and counted, never clamped to its last probe.
+
+    Args:
+        cells: dict N -> list of run dicts from runs_with_loss;
+        delta: the excess margin, FLOOR_DELTA (0.05) when None;
+        why: optional list; (N, run name, reason) is appended for every dropped run.
+    Returns:
+        (dict N -> (counts array, mean crossing), n_dropped).
+    """
+    out, dropped = {}, 0
+    for N, v in cells.items():
+        counts, crossings = [], []
+        for r in v:
+            T, reason = floor_crossing(r["it_loss"], r["loss"], delta)
+            if reason is not None:
+                dropped += 1
+                if why is not None:
+                    why.append((N, r["name"], reason))
+                continue
+            counts.append(r["active"][int(np.argmin(np.abs(np.asarray(r["it_act"], float) - T)))])
+            crossings.append(T)
+        if counts:
+            out[N] = (np.array(counts, float), float(np.mean(crossings)))
+    return out, dropped
+
+
+def snapshot_at(run_dir, t):
+    """The kept weight snapshot at or just after iteration t, if the run (or a run it was
+    warm-started from) kept snapshots.
+
+    A continuation's floor can fall inside its parent, whose snapshots sit under the PARENT's
+    sweep, cell and seed, so every run of the warm-start chain is searched.
+
+    Args:
+        run_dir: a run folder (its name carries `seed=<seed>`); t: an absolute iteration.
+    Returns:
+        the snapshot folder, or None when there is none within SNAP_MAX_LAG after t.
+    """
+    snaps = []
+    for d in warm_start_chain(run_dir):
+        cell = os.path.dirname(d.rstrip("/"))
+        seed = re.search(r"seed=(\d+)", os.path.basename(d.rstrip("/")))
+        if seed:
+            snaps += glob.glob(os.path.join(SNAP_DIR, os.path.basename(os.path.dirname(cell)),
+                                            os.path.basename(cell), f"s{seed.group(1)}", "it*"))
+    later = sorted((int(os.path.basename(d)[2:]), d) for d in snaps if int(os.path.basename(d)[2:]) >= t)
+    return later[0][1] if later and later[0][0] - t <= SNAP_MAX_LAG else None
+
+
+def r2_at_floor_estimate(L_star, L_end, r2_end):
+    """R^2 at the floor crossing, estimated from the end of the run when no weights were kept there.
+
+    R2_floor = 1 - (L(t*) / L_end) (1 - R2_end): the unexplained variance is scaled by the ratio of
+    the noisy loss at the crossing to the loss at the end. Against held-out R^2 measured on weights
+    saved at the crossing (nine claim-1 networks, trajectory 2026-10-13): eight within 0.006, one CDDM
+    network off by 0.0115.
+
+    Args:
+        L_star: smoothed noisy loss at the crossing (read_run's L_star); L_end: the end-of-run loss
+            (read_run's L_end); r2_end: R^2 of the final weights - held-out R^2
+            (heldout_r2.floor_r2) for every number the project reports.
+    Returns:
+        float estimated R^2 at the crossing.
+    """
+    return 1.0 - (L_star / L_end) * (1.0 - r2_end)
+
+
+def read_run(run_dir, delta=FLOOR_DELTA, run=None):
+    """THE read-out of one run: where its noisy loss reaches (1+delta) x its own floor, and what is there.
+
+    Args:
+        run_dir: a trained-network folder;
+        delta: the margin t_star is read at (noisy_floor's `delta`);
+        run: the run's load_run / runs_with_loss dict, to skip reading its trace and loss again;
+            None reads them.
+    Returns:
+        dict holding every key noisy_floor returns (t_star, t_stars, floor, floor_kind, escape,
+        late_rise, reason, bursts, burst_from, and `smoothed` / `fit` where it got that far), plus
+          run_dir, name;
+          it_loss, loss: the noisy loss series (None when the run has none; reason then says so);
+          it_act, active_series: probe iterations and the active count at each (None without a
+              usable participation trace);
+          active, probe_iter: the active count (int) at the probe nearest t_star and that probe's
+              iteration; None when there is no read-out (reason is not None) or no trace;
+          covered: True when the probes span t_star (it_act[0] <= t_star <= it_act[-1]). Where they
+              do not, `active` is an edge probe, not the crossing; callers that need the crossing
+              drop such a run;
+          active_end, it_end: the count at the last probe and its iteration (None without a trace);
+          L_star: the smoothed noisy loss at the first iteration >= t_star, and L_end: the median
+              raw noisy loss over the last END_FRAC of iterations - the inputs of
+              r2_at_floor_estimate (None without a read-out);
+          snapshot: the kept weight snapshot at the crossing (snapshot_at), or None.
+    """
+    rec = run if run is not None else load_run(run_dir)
+    it, L = (rec["it_loss"], rec["loss"]) if rec is not None else noisy_loss_series(run_dir)
+    if L is not None:
+        out = noisy_floor(it, L, delta)
+    else:
+        out = dict(t_star=float("nan"), t_stars={}, floor=None, floor_kind=None, escape=float("nan"),
+                   late_rise=float("nan"), reason="no noisy loss", bursts=[], burst_from=float("nan"))
+    out.update(run_dir=run_dir, name=os.path.basename(run_dir.rstrip("/")), it_loss=it, loss=L,
+               it_act=None, active_series=None, active=None, probe_iter=None, covered=False,
+               active_end=None, it_end=None, L_star=None, L_end=None, snapshot=None)
+    if rec is not None:
+        it_a, act = np.asarray(rec["it_act"], float), np.asarray(rec["active"], float)
+        out.update(it_act=it_a, active_series=act, active_end=int(act[-1]), it_end=float(it_a[-1]))
+    if out["reason"] is not None:
+        return out
+    T = out["t_star"]
+    if rec is not None:
+        j = int(np.argmin(np.abs(it_a - T)))
+        out.update(active=int(act[j]), probe_iter=float(it_a[j]), covered=bool(it_a[0] <= T <= it_a[-1]))
+    # indexed on the series as given, as fig_knobs_at_floor and fig_supp_task_demand did
+    it, L = np.asarray(it, float), np.asarray(L, float)
+    out["L_star"] = float(out["smoothed"][np.flatnonzero(it >= T)[0]])
+    out["L_end"] = float(np.median(L[it >= it[-1] - END_FRAC * (it[-1] - it[0])]))
+    out["snapshot"] = snapshot_at(run_dir, T)
+    return out
+
+
+# --------------------------------------------------------------------------------------------
 # sweep loading
 # --------------------------------------------------------------------------------------------
 
@@ -913,6 +1146,12 @@ def _self_check():
     assert active_count(p, "scalefree") == 3
     # a float criterion is an explicit absolute threshold
     assert active_count(p, 0.75) == 2 and active_count(p, 1e-12) == 4
+    # active_mask is the rule as it was typed inline, in the input's own dtype, at any bar
+    for q in (rng.gamma(0.3, size=500).astype(np.float32), rng.gamma(0.3, size=500)):
+        for rel in (SILENT_REL, 0.01, 0.2):
+            assert np.array_equal(active_mask(q, rel), q >= rel * np.quantile(q, 0.95)), rel
+        assert active_count(q, "scalefree") == active_mask(q.astype(float)).sum()
+    assert r2_at_floor_estimate(0.02, 0.01, 0.99) == 1.0 - 2.0 * (1.0 - 0.99)
 
     # hhi: even -> 1/N, fully concentrated -> 1, degenerate -> nan
     assert abs(hhi(np.ones(4)) - 0.25) < 1e-12

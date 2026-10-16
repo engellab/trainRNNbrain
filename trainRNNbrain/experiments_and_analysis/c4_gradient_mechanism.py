@@ -46,7 +46,6 @@ from trainRNNbrain.training.training_utils import prepare_task_arguments, get_tr
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gradient_participation import read_point, unit_gradients
 
-REL = 0.05            # the scale-free bar used everywhere in the project: g >= REL * q95(g)
 NEAR_INPUT = 20       # steps (2 tau) after any nonzero input that count as "input-driven"
 REF_SEED = 12345      # task seed of the noise-free reference batch
 ADAM_EPS = 1e-8

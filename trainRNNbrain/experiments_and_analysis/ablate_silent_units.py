@@ -69,12 +69,10 @@ import heldout_r2 as H                                    # noqa: E402  (also pu
 from trainRNNbrain.training.training_utils import prepare_task_arguments, get_training_mask  # noqa: E402
 from trainRNNbrain.trainer.Trainer import Trainer, scored_  # noqa: E402
 from trainRNNbrain.utils import import_any, filter_kwargs, unjsonify  # noqa: E402
-from common import warm_start_chain, noisy_loss_series, noisy_floor  # noqa: E402
+from common import active_mask, warm_start_chain, noisy_loss_series, noisy_floor  # noqa: E402
 
 DRAWS = 9                    # noise draws per score, as heldout_r2.DRAWS
 RANDOM_ORDERS = 5            # independent random removal orders per network
-SILENT_REL = 0.05            # active = p >= SILENT_REL * q95(p), the project's scale-free rule
-FLOOR_DELTA = 0.05           # read at 1.05x the fitted floor (tightened from 0.07 on 2026-10-12)
 NOISE_SEED = H.NOISE_SEED    # draw d of every score uses generator seed NOISE_SEED + d, as heldout_r2
 BATCH_SEED = 20261012        # seeds the global generators, and the fine-tune's noise generator
 ORDER_SEED = 20261013        # seeds the task generator of the ordering batch (the held-out batch is
@@ -236,7 +234,7 @@ def ablate(rnn, batches, label, extra):
         p = participation(states).cpu().numpy()
         hmax = states.amax(dim=(1, 2)).cpu().numpy()
         del states
-    n_active = int((p >= SILENT_REL * np.quantile(p, 0.95)).sum())
+    n_active = int(active_mask(p).sum())
     n_silent = N - n_active
     quiet_first = np.lexsort((hmax, p))                 # ascending p, ties by deepest drive
     busy_first = quiet_first[::-1].copy()
@@ -284,7 +282,7 @@ def trace_active_at(trace, it):
     its = np.asarray(trace["participation_iters"])
     j = int(np.argmin(np.abs(its - it)))
     p = np.asarray(trace["participation"][j], dtype=float)
-    return int((p >= SILENT_REL * np.quantile(p, 0.95)).sum()), int(its[j])
+    return int(active_mask(p).sum()), int(its[j])
 
 
 def gates(rnn, batches, run_dir, iteration, check_name_r2):
@@ -462,7 +460,7 @@ def retrain_test(run_dir, out_dir, label, extra, params_file=None):
         p = participation(states).cpu().numpy()
         del states
     N = len(p)
-    silent = np.where(p < SILENT_REL * np.quantile(p, 0.95))[0]
+    silent = np.flatnonzero(~active_mask(p))
     rnd = np.random.default_rng(zlib.crc32(label.encode())).permutation(N)[:len(silent)]
     res = dict(extra, label=label, N=N, n_silent=int(len(silent)), params_file=params_file,
                retrain_iters=RETRAIN_ITERS)

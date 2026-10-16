@@ -27,10 +27,10 @@ activation 200k; metabolic, spectral radius, W_rec penalty, rate/sparsity and th
 screen 75k (the metabolic ladder's 200k control is read at 75k via `end_at`); CDDM input scale 50k
 (its 100k controls read at 50k); flip-flop input scale 150k; flip-flop revival 200k.
 
-Floor counts and R^2 come from `fig_knobs_at_floor.read_rung` unchanged (R^2 measured on kept
+Floor counts and R^2 come from `heldout_r2.read_rung` unchanged (R^2 measured on kept
 snapshots where they exist - only the CDDM input-scale ladder - otherwise estimated from the run's
 end; on CDDM an R^2 difference below ~0.01 is scoring noise). Traces from
-`fig_paper_F1.runs_with_loss`.
+`common.runs_with_loss`.
 
 Usage (repository root):
     python trainRNNbrain/experiments_and_analysis/fig_paper_F2_fails.py --collect   # Della CPU node:
@@ -56,10 +56,9 @@ from matplotlib.patches import Rectangle
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import fig_knobs_at_floor as K
-import fig_paper_F1 as F1
 import paperstyle as ps
-from common import DATA_DIR, logbin, noisy_floor
-from heldout_r2 import load_cache, save_cache
+from common import DATA_DIR, logbin, noisy_floor, runs_with_loss
+from heldout_r2 import load_cache, read_rung, save_cache
 
 CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "fig_paper_F2_fails_cache.pkl"))
 
@@ -85,8 +84,8 @@ REVIVAL = [
 def collect_spec(spec, r2cache):
     """Read one ladder: the floor read-out of every rung, and every run's participation trace.
 
-    The floor counts and R^2 come from `fig_knobs_at_floor.read_rung`, unchanged. The traces come
-    from `fig_paper_F1.runs_with_loss`, and each run's crossing is recomputed with the same
+    The floor counts and R^2 come from `heldout_r2.read_rung`, unchanged. The traces come
+    from `common.runs_with_loss`, and each run's crossing is recomputed with the same
     `common.noisy_floor` call so it can be marked on its own trace; the two must agree, and an
     AssertionError says so if they do not.
 
@@ -103,9 +102,9 @@ def collect_spec(spec, r2cache):
         if not os.path.isdir(path):
             rungs.append(dict(label=lab, path=path, read=None, runs=[]))
             continue
-        read = K.read_rung(path, spec.get("end_at"), r2cache)
+        read = read_rung(path, spec.get("end_at"), r2cache)
         runs = []
-        for r in F1.runs_with_loss(path):
+        for r in runs_with_loss(path):
             it_a = np.asarray(r["it_act"], float)
             f = noisy_floor(r["it_loss"], r["loss"])
             t, why = f["t_star"], f["reason"]

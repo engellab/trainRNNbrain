@@ -48,7 +48,6 @@ import c4_gradient_mechanism as C4
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../data")
 CELL = "EqType=h_N=1000_arm=control"
 REF_SEED = 12345        # reference batch (noise-free), as in C4
-REL = 0.05              # the project's scale-free bar: x >= REL * q95(x)
 TOP_Q = 0.99            # a unit's "closest to firing" samples: its top 1% of h (C4's definition)
 
 # warm-start chains, oldest run first: (sweep, seed)
@@ -249,9 +248,9 @@ def reference_stats(W, u):
     return dict(p=p.numpy().astype(float), n_on=n_on.numpy(), X=X)
 
 
-def over(x, rel=REL):
-    """Boolean mask x >= rel * q95(x)."""
-    return x >= rel * np.quantile(x, 0.95)
+def over(x, rel=common.SILENT_REL):
+    """Boolean mask x >= rel * q95(x) (common.active_mask)."""
+    return common.active_mask(x, rel)
 
 
 def rows(g):
