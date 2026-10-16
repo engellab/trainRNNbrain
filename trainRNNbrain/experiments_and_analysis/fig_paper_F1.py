@@ -81,6 +81,11 @@ from common import (DATA_DIR, SILENT_REL, participation, logbin, noisy_loss_seri
                     noisy_floor, FLOOR_DELTA, warm_start_chain)
 from flipflop_diversity import rates_and_targets
 from flipflop_fixedpoints import load_net
+import hydra
+from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
+from trainRNNbrain.training.training_utils import prepare_task_arguments
+from trainRNNbrain.utils import filter_kwargs
+from gradient_participation import initial_params
 
 CACHE = "data/fig_paper_F1_cache_v2.npz"   # v2: carries the untrained twin's participation
 # The example network is a STANDARD unpenalised 3-bit flip-flop control at N = 1000, trained for
@@ -635,11 +640,6 @@ def example_network_pair(refresh=False):
     if os.path.exists(CACHE) and not refresh:
         z = np.load(CACHE)
         return z["rates"], z["targets"], z["p"], z["p_init"], int(z["iterations"])
-    import hydra
-    from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
-    from trainRNNbrain.training.training_utils import prepare_task_arguments
-    from trainRNNbrain.utils import filter_kwargs
-    from gradient_participation import initial_params
     folder = sorted(glob.glob(os.path.join(EXAMPLE_NET, "*/")))[0]
     cfg = OmegaConf.load(glob.glob(os.path.join(folder, "*_config.yaml"))[0])
     cfg.task.batch_size = N_TRIALS

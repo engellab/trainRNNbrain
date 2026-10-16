@@ -1,7 +1,7 @@
 # @package model
 # THE STANDARD RNN with a softplus(β=25) activation. Identical to rnn_relu_standard in every other
 # respect (no Dale, no I/O positivity, self-connections on, gamma 0, trainable bias in [-1, 1]).
-# Exists for E1 (paper.md elaboration, C1): the earlier softplus(β=25) runs used a different
+# Exists for the activation ladder (claim C5): the earlier softplus(β=25) runs used a different
 # architecture; this puts the activation test on the standard network.
 _target_: trainRNNbrain.rnns.RNN_torch.RNN_torch
 RNN_tag: ""

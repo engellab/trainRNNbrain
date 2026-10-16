@@ -199,7 +199,6 @@ def get_source_code(obj_or_mod):
         return inspect.getsource(target)
     except OSError:
         # fallback if loaded from .pyc
-        import importlib.util, pathlib
         path = pathlib.Path(getattr(target, "__file__", ""))
         if path.suffix == ".pyc":
             path = pathlib.Path(importlib.util.source_from_cache(str(path)))

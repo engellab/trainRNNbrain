@@ -57,7 +57,7 @@ from trainRNNbrain.utils import filter_kwargs, import_any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import noisy_floor, noisy_loss_series, warm_start_chain
-from fig_knobs_at_floor import snapshot_at
+from heldout_r2 import snapshot_at
 
 REL = 0.05
 

@@ -59,7 +59,9 @@ import fig_paper_F1 as F1
 import fig_knobs_at_floor as KF
 import pr_matrix as PR
 import fig_paper_F2 as F2
-from common import DATA_DIR, active_count
+from common import DATA_DIR, active_count, stretched, logbin
+import fig_dropout_live as DL
+from scipy.optimize import least_squares
 
 W = 110 * ps.MM             # a single-panel slide: wider than a journal column, same 7 pt type
 H = 72 * ps.MM
@@ -742,7 +744,6 @@ def dropout_along_training_slide(name="slide_24c_dropout_along_training"):
     Returns:
         the output path, or None if the cells are missing.
     """
-    import fig_dropout_live as DL
     root = DL.DATA_DIR
     arms = [("untouched", ps.BASE,
              DL.cell(os.path.join(root, DL.REFS["none"]))
@@ -3640,8 +3641,6 @@ def floor_fit_slide():
     Returns:
         the output path.
     """
-    from scipy.optimize import least_squares
-    from common import stretched, logbin
     ps.setup()
     fig, axes = plt.subplots(1, len(F1.TRAJ), figsize=(ps.W2, 60 * ps.MM))
     for ax, (lab, pat, col, _) in zip(np.atleast_1d(axes), F1.TRAJ):
@@ -4083,7 +4082,6 @@ def synnoise_along_training_slide(name="slide_26e_synnoise_along_training", rung
     Returns:
         the output path, or None if the cells are missing.
     """
-    import fig_dropout_live as DL
     arms = []
     for lab, cells in SW_TRACE_CELLS:
         if lab not in rungs:

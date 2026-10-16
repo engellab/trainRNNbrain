@@ -21,8 +21,7 @@ as authoritative and `pdftoppm` renders it without a browser or an SVG library.
 
 Usage:  python trainRNNbrain/experiments_and_analysis/deck_pngs.py [--deck PATH] [--dpi 200] [--check]
         (run from the repository root)
-        --deck  rasterise the figures some OTHER Markdown deck links, e.g. the archived
-                docs/presentation_backup.md, whose figure set is larger and partly different.
+        --deck  rasterise the figures some OTHER Markdown deck links.
         --check reports what is missing or stale and writes nothing.
 """
 

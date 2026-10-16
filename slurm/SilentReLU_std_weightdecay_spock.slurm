@@ -1,7 +1,7 @@
 #!/bin/bash
 # E3 / T2 — IS WEIGHT DECAY WHAT WALKS UNNEEDED UNITS DOWN? (SPOCK)
 #
-# paper.md §2.1 asserts that weight decay is the driver of the slow walk to the activation floor; the
+# The old paper plan asserted that weight decay is the driver of the slow walk to the activation floor; the
 # only data (Della 11706899, 2026-07-28, wd 0 vs 1e-6) never had its participation read out and its
 # traces are not reachable from the laptop. This sweep re-runs the question on the standard network
 # with the exact recipe of the unpenalised baseline (SilentReLU_std_gamma0_drift: N=1000, 200k

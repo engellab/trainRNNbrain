@@ -1,4 +1,5 @@
 from copy import deepcopy
+import math
 import torch
 import numpy as np
 
@@ -234,8 +235,7 @@ class RNN_torch(torch.nn.Module):
         :param input_row_norm: float or None. None (default) keeps the drawn W_inp (entries at std
             1/sqrt(N), row norm ~sqrt(n_inputs/N)). A float rescales EVERY row of the drawn W_inp to
             exactly this L2 norm, so every unit starts with the same input drive and the total
-            ||W_inp||_F is input_row_norm * sqrt(N). Exists for the initialisation-scale test
-            (docs/research_directions.md T5): trained unpenalised networks end with live rows at
+            ||W_inp||_F is input_row_norm * sqrt(N). Exists for the initialisation-scale test: trained unpenalised networks end with live rows at
             norm ~5.4 and silent rows decayed to ~0.003 from an init of 0.039.
         :param activation_args: dictionary containing the name and parameters of the activation function in the dynamics of the RNN
         :param connectivity_density_rec: float, defines the sparcity of the connectivity
@@ -402,7 +402,6 @@ class RNN_torch(torch.nn.Module):
         elif activation_name == 'softplus':
             return lambda x: torch.nn.Softplus(beta=activation_args["beta"])(activation_args["slope"] * x)
         elif activation_name == 'gelu':
-            import math
             alpha = activation_args.get("alpha", 1.0)
             return lambda x: x * 0.5 * (1.0 + torch.erf(alpha * x / math.sqrt(2.0)))
         else:

@@ -24,7 +24,7 @@ to a task variable - are all computed over whichever units happened to survive t
 
 EVERYTHING HERE IS RECOMPUTED FROM NETWORKS ON DISK, at the manuscript's own lambda_frm = 0.1.
 It deliberately does NOT use data/trained_RNNs/population_distortion.csv, which is the source of the
-corresponding numbers in docs/paper.md: that CSV is the only surviving trace of a sweep
+corresponding numbers in the old paper plan: that CSV is the only surviving trace of a sweep
 (CDDM_std_g0) whose raw networks have been deleted, it was run at lambda_frm = 0.2, and it carries
 no r^2 column, so its "networks matched for performance" premise cannot be checked. Those numbers
 are not quotable; these are.

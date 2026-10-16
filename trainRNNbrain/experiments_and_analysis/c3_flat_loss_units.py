@@ -16,7 +16,7 @@ Per run it reports:
     far; the probe nearest each iteration);
   - units lost per 100k after 150k: minus the least-squares slope of the active count on every
     participation probe at >= 150k, with its standard error.
-The test, written before any number was computed, is in docs/notes/agent-c3.md.
+The test, written before any number was computed, is in `git show db10e7c:docs/notes/agent-c3.md`.
 
 Usage:
     python trainRNNbrain/experiments_and_analysis/c3_flat_loss_units.py [ROOT]
@@ -128,7 +128,7 @@ def main(root):
               f"{str(r['kind'])[:12]:<13}{r['a_floor']:>7.0f}{r['a150']:>6.0f}{r['a200']:>6.0f}{r['a300']:>6.0f}"
               f"{r['l0']:>8.4f}{r['l1']:>8.4f}{r['pct']:>+7.1f}{r['pct100']:>+9.1f}{r['lost']:>10.1f}{r['se']:>5.1f}")
 
-    print(f"\nTest (docs/notes/agent-c3.md): flat = |loss change| < {FLAT_PCT}% per 100k; "
+    print(f"\nTest (pre-registered): flat = |loss change| < {FLAT_PCT}% per 100k; "
           f"'stopped' = loses < {DIE_BAR} units per 100k")
     for size in dict.fromkeys(r["size"] for r in rows):
         sub = [r for r in rows if r["size"] == size]

@@ -321,7 +321,7 @@ def save(fig, name, w_mm=180, h_mm=None):
     Every panel in this paper is line art - dots, strokes and text - so a raster export is pure
     loss: it fixes the resolution at export time, blurs the 5 pt annotations the moment anyone
     scales the panel, and cannot be re-typeset by the journal. The PDF is the submission asset.
-    The SVG is written beside it because a Markdown working document (docs/paper.md) renders an
+    The SVG is written beside it because a Markdown working document renders an
     inline `<img>` and a PDF is not one - so the working docs link the SVG and lose nothing.
 
     Args:

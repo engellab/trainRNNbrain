@@ -5,7 +5,7 @@ C4 found that on the flip-flop the gradient reaches the incoming weights of sile
 keeps them silent, while on CDDM a third of the units never cross threshold and get exactly zero
 gradient. Hypothesis H: the flip-flop has not converged, and the gradient on its silent units is the
 signature of learning still going on. The pre-registered predictions and pass/fail bars are in
-docs/notes/agent-c4b.md; this script computes what they read.
+git show db10e7c:docs/notes/agent-c4b.md; this script computes what they read.
 
 Subcommands (all CPU; run on Della under sbatch, the data live there):
   check     torch gradient (this file) against the C4 numpy float64 BPTT oracle on one noisy batch,

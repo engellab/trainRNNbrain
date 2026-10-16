@@ -34,6 +34,7 @@ import os
 import sys
 import glob
 import numpy as np
+from omegaconf import OmegaConf
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -82,7 +83,6 @@ def seeds_for(pen, N, k):
                 continue
         except ValueError:
             continue
-        from omegaconf import OmegaConf
         cfgs = glob.glob(folder + "*_config.yaml")
         out.append((folder, int(OmegaConf.load(cfgs[0]).seed) if cfgs else -1))
     return out
