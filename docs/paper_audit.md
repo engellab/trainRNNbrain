@@ -36,8 +36,8 @@ bird's-eye view of what works.
 | C1 | Training leaves most units silent, and silent units do no work | **Done** | Rebuild F1 with `RETRAIN_DIR` → `c1_retrain_seeded2` |
 | C2 | Bigger networks keep a smaller share of units active | **Done**; Figure 1 synced to the paper 15 Oct | — |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
-| C4 | On CDDM ~300 of 1,000 units are silent (never fire, so no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Tested**; second draft 16 Oct | Pavel: approve the C4 text, and the active / low-active / silent terms paper-wide |
-| C5 | Hyperparameters shift the active count at the floor by ≤ ~120 units on CDDM; input-weight scale raises it on 3BFF | **Done**, Figure 2 built | Sync Figure 2 into the paper; update old numbers in `04_ratepenalty`, `06_whyitmatters` |
+| C4 | On CDDM ~300 of 1,000 units are silent (never fire, no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Done**: in the paper as sec:mechanism (16 Oct) | Paper-wide pass for the silent / low-active terms (Pavel to confirm) |
+| C5 | Settings move the active count at the floor by ≤ ~120 units; input-weight scale raises it but those networks then lose units faster | **Done**: sec:knobs rewritten, Figure 2 synced (16 Oct) | — |
 | C6 | Rules that give participation its own drive recruit units at a small cost | **Running** | Read the remedy top-ups (RMtop200) at the floor; B2; A3; build Figure 3 |
 | C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running** | B3 rate cells after the pilot; B4 N = 4000; read all at the floor |
 
