@@ -34,12 +34,15 @@ Results are cached in data/heldout_r2_cache.json, keyed by the parameter file's 
 so rebuilding a figure rescores nothing and retraining a cell invalidates only that cell. The key
 ends with SCHEME, so a value scored before the seeding is never reused.
 
+AT THE FLOOR. `floor_r2` gives held-out R^2 at a run's floor crossing (on a kept snapshot, else the
+common.r2_at_floor_estimate from the final weights' held-out R^2), and `read_rung` reads a whole cell
+at the floor; both take the read-out from common.read_run.
+
 Usage:  python heldout_r2.py "data/trained_RNNs/NBitFlipFlop_std_dropfix/*/*"   # populate the cache
 """
 import glob
 import json
 import os
-import re
 import sys
 
 import numpy as np
@@ -52,13 +55,13 @@ sys.path.insert(0, REPO)
 from trainRNNbrain.training.training_utils import prepare_task_arguments, get_training_mask
 from trainRNNbrain.trainer.Trainer import Trainer
 from trainRNNbrain.utils import import_any, filter_kwargs, unjsonify
-from common import DATA_DIR, warm_start_chain
-
-# kept weight snapshots, by <sweep>/<cell>/s<seed>/it<absolute iteration>/
-SNAP_DIR = os.path.join(DATA_DIR, "..", "c1_snapshots")
-SNAP_MAX_LAG = 1000     # a snapshot more than this many iterations after the crossing is not "at" it
+from common import r2_at_floor_estimate, read_run, runs_with_loss
 
 DRAWS = 9
+# noise draws per held-out R^2 in the figures. One CDDM draw has an SD of ~0.011, so the project's 9
+# draws leave ~0.004 of noise and two scorers differed by 0.01-0.013 on identical weights; 36 halves it.
+# Same measure, more draws. (Moved here from fig_knobs_at_floor on 2026-10-15.)
+R2_DRAWS = 36
 BATCH = 256                      # trials per draw; the estimate's noise is set by trials x draws
 HELDOUT_SEED = 20261012          # seeds the task's generator, so the held-out batch is fixed per task
 NOISE_SEED = 1000                # noise draw d is seeded with NOISE_SEED + d (as ablate_silent_units)
@@ -188,27 +191,71 @@ def save_cache(c):
         json.dump(c, fh, indent=0, sort_keys=True)
 
 
-def snapshot_at(run_dir, t):
-    """The kept weight snapshot at or just after iteration t, if the run (or a run it was
-    warm-started from) kept snapshots.
+def floor_r2(rd, cache, draws=R2_DRAWS):
+    """Held-out R^2 at a run's floor crossing: measured on a kept snapshot, else estimated.
 
-    A continuation's floor can fall inside its parent, whose snapshots sit under the PARENT's
-    sweep, cell and seed, so every run of the warm-start chain is searched.
+    Where the run kept weight snapshots (`trainer.checkpoint_keep`), R^2 is MEASURED on the first
+    snapshot at or after the crossing (common.snapshot_at). Otherwise it is estimated from the end
+    of the run, common.r2_at_floor_estimate, with R2_end the held-out R^2 of the final weights.
 
     Args:
-        run_dir: a run folder (its name carries `seed=<seed>`); t: an absolute iteration.
+        rd: common.read_run's dict for the run, with a read-out (rd["reason"] is None);
+        cache: an open heldout_r2 cache; draws: noise draws per score.
     Returns:
-        the snapshot folder, or None when there is none within SNAP_MAX_LAG after t.
+        (R^2, measured): held-out R^2 of the snapshot and True, or the estimate and False.
     """
-    snaps = []
-    for d in warm_start_chain(run_dir):
-        cell = os.path.dirname(d.rstrip("/"))
-        seed = re.search(r"seed=(\d+)", os.path.basename(d.rstrip("/")))
-        if seed:
-            snaps += glob.glob(os.path.join(SNAP_DIR, os.path.basename(os.path.dirname(cell)),
-                                            os.path.basename(cell), f"s{seed.group(1)}", "it*"))
-    later = sorted((int(os.path.basename(d)[2:]), d) for d in snaps if int(os.path.basename(d)[2:]) >= t)
-    return later[0][1] if later and later[0][0] - t <= SNAP_MAX_LAG else None
+    if rd["snapshot"]:
+        return heldout_r2(rd["snapshot"], draws=draws, cache=cache), True
+    return r2_at_floor_estimate(rd["L_star"], rd["L_end"],
+                                heldout_r2(rd["run_dir"], draws=draws, cache=cache)), False
+
+
+def read_rung(path, end_at=None, cache=None):
+    """Active-unit counts for one cell, at each run's own noisy-loss floor and at the end of its budget.
+
+    Moved here from fig_knobs_at_floor on 2026-10-15, unchanged, so that every script reading a cell
+    at its floor (the knob ladders, fig_paper_F2_fails, a4_cddm_std_penalties) gets it from one place.
+
+    Args:
+        path: the cell directory holding one folder per seed.
+        end_at: iteration to take the "end" count at, or None for the last probe. Set when a ladder's
+            control was trained longer than its arms, so both ends are read at the same budget.
+        cache: an open heldout_r2 cache to also take R^2 at the floor (floor_r2, R2_DRAWS draws),
+            or None to skip it.
+    Returns:
+        dict with keys `floor` (counts where the noisy loss first reaches 1.05x its fitted floor),
+        `end` (counts at the last participation probe), `cross` (crossing iterations), `late`
+        (end-of-run loss over the floor, for the runs read), `r2` (held-out R^2 at the floor, one
+        per `floor` entry; empty without a cache), `measured` (True where that R^2 was scored on a
+        snapshot rather than estimated), `n` (runs found) and `dropped` (one reason string per run
+        with no usable crossing).
+    """
+    at_floor, at_end, cross, late, r2, measured, dropped = [], [], [], [], [], [], []
+    runs = runs_with_loss(path)
+    for r in runs:
+        it_a = np.asarray(r["it_act"], float)
+        at_end.append(r["active"][-1] if end_at is None
+                      else r["active"][int(np.argmin(np.abs(it_a - end_at)))])
+        rd = read_run(r["run_dir"], run=r)
+        if rd["reason"]:
+            dropped.append(rd["reason"])
+            continue
+        # a top-up whose trace was not joined to its parent's starts late; reading its first probe
+        # as "the floor" would be silently wrong
+        if not rd["covered"]:
+            dropped.append("participation trace does not cover the crossing")
+            continue
+        at_floor.append(rd["active"])
+        cross.append(rd["t_star"])
+        late.append(rd["late_rise"])
+        if cache is not None:
+            v, m = floor_r2(rd, cache)
+            r2.append(v)
+            measured.append(m)
+    return dict(floor=np.array(at_floor, float), end=np.array(at_end, float),
+                cross=np.array(cross, float), late=np.array(late, float),
+                r2=np.array(r2, float), measured=np.array(measured, bool), n=len(runs),
+                dropped=dropped)
 
 
 def main(patterns):

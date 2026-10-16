@@ -38,7 +38,8 @@ import hydra
 import numpy as np
 from omegaconf import OmegaConf
 
-from trainRNNbrain.experiments_and_analysis.common import SILENT_FLIPFLOP, active_count, participation
+from trainRNNbrain.experiments_and_analysis.common import (SILENT_FLIPFLOP, active_count, active_mask,
+                                                          participation)
 from trainRNNbrain.experiments_and_analysis.silence_is_taskset import load_params
 from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.training.training_utils import prepare_task_arguments, r2
@@ -144,7 +145,7 @@ def readout(net_dir, focus, n_trials):
     X, Y, C = task.get_batch()
     fr, out = run_noise_free(rnn, X)
     p_all = participation(fr)
-    act = {n: p[n] >= 0.05 * np.quantile(p[n], 0.95) for n in p}
+    act = {n: active_mask(p[n]) for n in p}
     foc = focus.split(",")                                  # one rule, or a set (contextdm1,contextdm2)
     cddm = np.any([act[n] for n in foc], axis=0)
     rest = [act[n] for n in p if n not in foc]

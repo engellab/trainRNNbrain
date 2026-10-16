@@ -59,7 +59,7 @@ from omegaconf import OmegaConf
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import SILENT_FLIPFLOP, SILENT_REL, participation
+from common import SILENT_FLIPFLOP, active_mask, participation
 import plotstyle as ps
 from pr_matrix import PENS
 from flipflop_dimensionality import run_folders
@@ -195,7 +195,7 @@ def compute():
             else:
                 rates, G, dec_on = cddm_rates(folder)
                 p = participation(rates)
-                live = p >= SILENT_REL * np.quantile(p, 0.95)
+                live = active_mask(p)
                 Y = rates[:, dec_on:, :].mean(1)
             cache[folder] = measure(rates, live, Y, G)
             pickle.dump(cache, open(CACHE, "wb"))

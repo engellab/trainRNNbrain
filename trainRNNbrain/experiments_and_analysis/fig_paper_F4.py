@@ -45,7 +45,7 @@ from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
-from common import DATA_DIR, SILENT_FLIPFLOP, SILENT_REL
+from common import DATA_DIR, SILENT_FLIPFLOP, active_mask
 from flipflop_diversity import load_net, rates_and_targets
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 
@@ -117,7 +117,7 @@ def example_units(refresh=False):
     rates, _ = rates_and_targets(folder, n_trials=24)
     R = rates.reshape(rates.shape[0], -1)
     p = R.std(axis=1) + np.quantile(R, 0.9, axis=1)
-    live = p >= SILENT_REL * np.quantile(p, 0.95)
+    live = active_mask(p)
     tpr = (R.sum(axis=1) ** 2) / np.maximum((R ** 2).sum(axis=1), 1e-30) / R.shape[1]
 
     idx = np.where(live)[0]
@@ -155,8 +155,8 @@ def burst_fractions(root, pattern):
                 continue
             P = np.asarray(d["participation"])
             t = np.asarray(d["temporal_pr"], float) / N_SAMPLES
-            l0 = P[0] >= SILENT_REL * np.quantile(P[0], 0.95)
-            l1 = P[-1] >= SILENT_REL * np.quantile(P[-1], 0.95)
+            l0 = active_mask(P[0])
+            l1 = active_mask(P[-1])
             b0.append((t[0][l0] < BURST).mean())
             b1.append((t[-1][l1] < BURST).mean())
         res[arm] = (np.array(b0), np.array(b1))

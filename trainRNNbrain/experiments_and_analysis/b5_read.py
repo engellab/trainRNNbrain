@@ -6,7 +6,7 @@ Each run is read twice:
     reaches 1.05x its fitted floor, or 1.05x the minimum of its running median when the fit's
     stretch exponent sits on its bound (`common.noisy_floor`, `floor_kind`). The B5 runs kept only
     a rolling restart checkpoint, so R^2 there is ESTIMATED from the loss ratio
-    (`fig_knobs_at_floor.floor_r2`; 36 seeded noise draws);
+    (`heldout_r2.floor_r2`; 36 seeded noise draws);
   - at 200k: the active count of the last participation probe and the held-out R^2 of the final
     weights (36 draws).
 The active count at the floor is the participation probe nearest the crossing.
@@ -30,10 +30,8 @@ from matplotlib.lines import Line2D
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import fig_paper_F1 as F1
-from common import DATA_DIR, noisy_floor
-from fig_knobs_at_floor import R2_DRAWS, floor_r2
-from heldout_r2 import heldout_r2, load_cache, save_cache
+from common import DATA_DIR, read_run, runs_with_loss
+from heldout_r2 import R2_DRAWS, floor_r2, heldout_r2, load_cache, save_cache
 
 SWEEP = os.path.join(DATA_DIR, "NBitFlipFlop_b5_optimizer")
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "img", "internal_figures",
@@ -85,19 +83,15 @@ def read_arm(cell, cache):
         reason there is no read), act_floor, r2_floor (nan when no read), act_end, it_end, r2_end.
     """
     rows = []
-    for r in F1.runs_with_loss(cell):
-        run_dir = os.path.join(cell, r["name"])
-        it, L = np.asarray(r["it_loss"], float), np.asarray(r["loss"], float)
-        ita, act = np.asarray(r["it_act"], float), np.asarray(r["active"], float)
-        f = noisy_floor(it, L)
-        row = dict(name=r["name"], act_end=act[-1], it_end=ita[-1],
-                   r2_end=heldout_r2(run_dir, draws=R2_DRAWS, cache=cache))
-        if f["reason"]:
-            row.update(t_star=np.nan, kind=f["reason"], act_floor=np.nan, r2_floor=np.nan)
+    for r in runs_with_loss(cell):
+        rd = read_run(r["run_dir"], run=r)
+        row = dict(name=r["name"], act_end=rd["active_end"], it_end=rd["it_end"],
+                   r2_end=heldout_r2(r["run_dir"], draws=R2_DRAWS, cache=cache))
+        if rd["reason"]:
+            row.update(t_star=np.nan, kind=rd["reason"], act_floor=np.nan, r2_floor=np.nan)
         else:
-            r2f, _ = floor_r2(run_dir, it, L, f, cache)
-            row.update(t_star=f["t_star"], kind=f["floor_kind"],
-                       act_floor=act[np.argmin(np.abs(ita - f["t_star"]))], r2_floor=r2f)
+            r2f, _ = floor_r2(rd, cache)
+            row.update(t_star=rd["t_star"], kind=rd["floor_kind"], act_floor=rd["active"], r2_floor=r2f)
         rows.append(row)
     return rows
 

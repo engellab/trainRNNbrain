@@ -22,6 +22,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import f2_rate_lognormal as R
 import f2_remedies_cache as C
+from common import active_mask
 
 OUT_DEFAULT = "data/cddm_penalty_rates.npz"
 CELLS = [("control", "CDDM_std_g0_drift/EqType=h_N=1000_iters=200000"),
@@ -49,7 +50,7 @@ def main(out_path=OUT_DEFAULT):
                 print(f"  SKIP {arm} {os.path.basename(net)[:9]}: {type(exc).__name__}: {exc}",
                       flush=True)
                 continue
-            active = part >= C.SILENT_REL * np.quantile(part, 0.95)
+            active = active_mask(part)
             st = R.rate_stats(mean_rate, active)
             row = {"arm": arm, "cell": cell, "N": n_units, "stored": stored,
                    "n_active": int(active.sum())}

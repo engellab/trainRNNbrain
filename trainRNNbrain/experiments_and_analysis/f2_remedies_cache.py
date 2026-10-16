@@ -64,6 +64,7 @@ sys.path.insert(0, REPO)
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.trainer.Trainer import Trainer
 from trainRNNbrain.training.training_utils import prepare_task_arguments, get_training_mask
+from common import active_mask
 
 D = os.environ.get("F2_DATA", "/home/pt1290/trainRNNbrain/data/trained_RNNs")
 R2_TOL = 0.03
@@ -85,7 +86,6 @@ TRIALS = 128                 # cap on the trials kept for the RATE matrices: 300
                              # tripled). The flip-flop samples its batch at random, which is why only
                              # CDDM was affected. Every r2 is now scored on the FULL batch, which is
                              # also what the trainer stored in the folder name.
-SILENT_REL = 0.05            # the scale-free silence rule used everywhere in this project
 ZERO_TOL = 1e-12
 # log10|W| bin edges. The range has to cover the WIDEST arm, not the control: at [-8, 0.5] the
 # target-based rescale cells lost up to 4.2% of their weights off the right edge, which is the
@@ -427,7 +427,7 @@ def analyse(net_dir):
     # 407 / 559 - a sixfold overcount at N = 4000, and the noise-free series is the one that follows
     # the N^0.43 the scaling figure fits.
     p = r_clean.std(axis=1) + np.quantile(np.abs(r_clean), 0.9, axis=1)
-    live = p >= SILENT_REL * np.quantile(p, 0.95)
+    live = active_mask(p)
 
     W = np.asarray(d["W_rec"], dtype=np.float64)
     whole = weight_shape(W)

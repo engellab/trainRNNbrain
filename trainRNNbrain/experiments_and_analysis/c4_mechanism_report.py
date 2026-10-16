@@ -25,16 +25,15 @@ from matplotlib import pyplot as plt
 from scipy.stats import spearmanr
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import IMG_DIR
+from common import IMG_DIR, SILENT_REL, active_mask
 
-REL = 0.05
 BARS = np.geomspace(0.005, 0.5, 25)
 C_ACT, C_SIL, C_SR = "#1f6fb4", "#b0b0b0", "#d9541e"   # active, silent, silent-but-reached
 
 
-def over(g, rel=REL):
-    """Boolean mask of units with g >= rel * q95(g)."""
-    return g >= rel * np.quantile(g, 0.95)
+def over(g, rel=SILENT_REL):
+    """Boolean mask of units with g >= rel * q95(g) (common.active_mask)."""
+    return active_mask(g, rel)
 
 
 def rel_diff(a, b, floor):
@@ -100,7 +99,7 @@ def report(fn):
     lg = np.log10(gi + 1e-300)
     print(f"      log10 g_in active [q05 {np.quantile(lg[act], .05):.2f}, median {np.median(lg[act]):.2f}]; "
           f"silent [median {np.median(lg[~act]):.2f}, q95 {np.quantile(lg[~act], .95):.2f}]; "
-          f"bar {np.log10(REL * np.quantile(gi, .95)):.2f}")
+          f"bar {np.log10(SILENT_REL * np.quantile(gi, .95)):.2f}")
 
     # (d) per-on-sample sensitivity
     d_on = np.sqrt(z["strict_d_on_ss"] / np.maximum(n_on, 1))
@@ -141,7 +140,7 @@ def report(fn):
             print(f"      TRUE Adam step, {name:17s}: cos(estimate, true) per W_rec row median "
                   f"{np.median(z['cos_rec_row'][m]):+.2f}; true dd_top>0 share {(z['true_dd_top'][m] > 0).mean():.2f}")
     return dict(task=task, seed=seed, read=str(z["read"]), act=act, reach=reach, sr=sr, gi=gi, frac=frac, dd=dd, cnt=cnt,
-                bar=REL * np.quantile(gi, 0.95), hq99=z["ref_h_q99"])
+                bar=SILENT_REL * np.quantile(gi, 0.95), hq99=z["ref_h_q99"])
 
 
 def figure(runs, npz_dir, out_stem):
@@ -194,7 +193,7 @@ def figure(runs, npz_dir, out_stem):
         ax = fig.add_subplot(gs[row, 2])
         for r in rs:
             ax.plot(BARS * 100, r["cnt"] / r["act"].sum(), lw=1.2, label=f"seed {r['seed']} ({r['act'].sum()} active)")
-        ax.axvline(REL * 100, color="k", lw=0.8, ls="--"); ax.axhline(1, color="k", lw=0.5)
+        ax.axvline(SILENT_REL * 100, color="k", lw=0.8, ls="--"); ax.axhline(1, color="k", lw=0.5)
         ax.set_xscale("log"); ax.set_xlabel(r"bar, % of $q_{95}(g_{in})$")
         ax.set_ylabel("units reached / active units")
         ax.set_title("C  the count depends on the bar", loc="left", fontsize=10)

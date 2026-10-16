@@ -51,7 +51,7 @@ from matplotlib import pyplot as plt
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import paperstyle as ps
-from common import DATA_DIR
+from common import DATA_DIR, active_mask
 
 ROOT = f"{DATA_DIR}/CDDM_std_g0_tanh"
 RELU = "EqType=h_N=1000_act=relu_iters=150000"
@@ -59,7 +59,6 @@ TANH = "EqType=h_N=1000_act=tanh_iters=150000"
 N_TOTAL = 1000
 # calibrated against mean(1 - r^2) > 0.5; see the module docstring and --calibrate
 P_RESPONSIVE = 1.6
-SILENT_REL = 0.05          # the project's scale-free bar, as a fraction of q95(p)
 
 
 def curves(cell):
@@ -80,7 +79,7 @@ def curves(cell):
         P = np.asarray(tr["participation"], float)
         if it is None:
             it = np.asarray(tr["participation_iters"], float)
-        act.append([(p >= SILENT_REL * np.quantile(p, 0.95)).sum() for p in P])
+        act.append([active_mask(p).sum() for p in P])
         resp.append([(p < P_RESPONSIVE).sum() for p in P])
     return it, np.asarray(act, float), np.asarray(resp, float)
 

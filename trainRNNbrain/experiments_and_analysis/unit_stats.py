@@ -36,7 +36,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import SILENT_FLIPFLOP, SILENT_REL, participation
+from common import SILENT_FLIPFLOP, active_mask, participation
 import plotstyle as ps
 from characterize import cddm_folders, cddm_rates, hoyer, FF_K, FF_TRIALS
 from flipflop_dimensionality import run_folders
@@ -104,7 +104,7 @@ def cddm_one(folder):
     """Statistics for one CDDM network (decision-epoch mean per condition, as characterize.py)."""
     rates, G, dec_on = cddm_rates(folder)
     p = participation(rates)
-    live = p >= SILENT_REL * np.quantile(p, 0.95)
+    live = active_mask(p)
     Y = rates[:, dec_on:, :].mean(1)
     groups = [("ctx", G[:, 1:2]), ("motion", G[:, 2:4]), ("colour", G[:, 4:6]), ("choice", G[:, 6:8])]
     signed = np.column_stack([G[:, 2] - G[:, 3], G[:, 4] - G[:, 5], G[:, 6] - G[:, 7]])

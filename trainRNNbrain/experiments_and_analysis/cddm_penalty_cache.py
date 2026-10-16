@@ -33,7 +33,7 @@ from omegaconf import OmegaConf
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                 "..", "..")))
-from common import DATA_DIR, SILENT_REL
+from common import DATA_DIR, active_mask
 # ⚠️ FIGURE 2's participation_ratio, not common's. They are different measures sharing a name:
 # common's takes a (N,) participation VECTOR and reports how evenly activity is spread, while
 # this one takes the (N, samples) rate matrix and reports the covariance's effective rank -
@@ -128,7 +128,7 @@ def measure(net_dir):
     flat = rates.reshape(rates.shape[0], -1)
 
     p = flat.std(axis=1) + np.quantile(np.abs(flat), 0.9, axis=1)
-    live = p >= SILENT_REL * np.quantile(p, 0.95)
+    live = active_mask(p)
     # temporal_pr's own mask is the flip-flop's absolute bar; the scale-free mask is used instead so
     # these counts line up with every other active-unit number in the project
     tpr, _flipflop_live, n_samples = temporal_pr(rates)

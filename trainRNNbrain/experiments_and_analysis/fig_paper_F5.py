@@ -47,7 +47,7 @@ from matplotlib.gridspec import GridSpec
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
-from common import DATA_DIR, SILENT_REL
+from common import DATA_DIR, active_mask
 from ablate_rescued_units import measure as ablation_measure
 from characterize import cddm_rates
 
@@ -139,7 +139,7 @@ def measure_networks(refresh=False, n_nets=3):
             N = rates.shape[0]
             X = rates.reshape(N, -1).astype(np.float64)
             p = X.std(axis=1) + np.quantile(X, 0.9, axis=1)
-            live = p >= SILENT_REL * np.quantile(p, 0.95)
+            live = active_mask(p)
             # per-condition decision-epoch means: the responses an experimenter would regress
             Y = rates[:, dec_on:, :].mean(axis=1).astype(np.float64)
             rows.append({

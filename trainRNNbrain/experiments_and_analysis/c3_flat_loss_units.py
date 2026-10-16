@@ -11,7 +11,7 @@ networks trained to 200k or 300k, each along its whole warm-start chain:
 Per run it reports:
   - the noisy training loss over 150k -> end, as medians of 5k blocks: the last block over the first,
     as a % change and as % per 100k;
-  - the active count (fig_paper_F1.runs_with_loss: noise-free participation >= 5% of its q95) at the
+  - the active count (common.runs_with_loss: noise-free participation >= 5% of its q95) at the
     run's 1.05x noisy-loss floor (common.noisy_floor), at 150k, 200k and 300k (where the run gets that
     far; the probe nearest each iteration);
   - units lost per 100k after 150k: minus the least-squares slope of the active count on every
@@ -33,8 +33,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import fig_paper_F1 as F1
-from common import DATA_DIR, noisy_floor, warm_start_chain
+from common import DATA_DIR, noisy_floor, runs_with_loss, warm_start_chain
 
 CELLS = [("N=1000 claim-1", "NBitFlipFlop_c1_snapshots_c300000/EqType=h_N=1000_arm=control"),
          ("N=1000 claim-1", "NBitFlipFlop_c1_snapshots_c200000/EqType=h_N=1000_arm=control"),
@@ -102,7 +101,7 @@ def main(root):
     """
     seen, rows = set(), []
     for size, rel in CELLS:
-        for r in F1.runs_with_loss(os.path.join(root, rel)):
+        for r in runs_with_loss(os.path.join(root, rel)):
             run_dir = os.path.join(root, rel, r["name"])
             chain = [os.path.basename(d.rstrip("/")).replace("parent_", "", 1)
                      for d in warm_start_chain(run_dir)]

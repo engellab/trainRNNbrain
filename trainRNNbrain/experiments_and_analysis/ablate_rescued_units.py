@@ -42,7 +42,7 @@ from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
-from common import DATA_DIR, SILENT_REL
+from common import DATA_DIR, active_mask
 from flipflop_diversity import load_net
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 
@@ -113,7 +113,7 @@ def ablate_curve(folder, n_trials=128, rng=None):
     r2_full, hist = run_with(np.array([], int))
     R = np.maximum(hist, 0.0).reshape(N, -1)
     p = R.std(axis=1) + np.quantile(R, 0.9, axis=1)
-    n_active = int((p >= SILENT_REL * np.quantile(p, 0.95)).sum())
+    n_active = int(active_mask(p).sum())
     order_low = np.argsort(p)                       # least active first
 
     low, rnd, rnd_sd = [], [], []

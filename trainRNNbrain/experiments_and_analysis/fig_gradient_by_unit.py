@@ -37,8 +37,8 @@ from matplotlib import pyplot as plt
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import paperstyle as ps
+from common import SILENT_REL
 
-REL = 0.05
 ACTIVE_COL = ps.SLOTS[1]       # the participation histogram's red
 FLOOR = 1e-5                   # gradients below this fraction of the reference share the first bin
 
@@ -72,7 +72,7 @@ def load(json_dir):
 
 def bar(run, key):
     """The criterion: 5% of the untrained network's 95th percentile of the same quantity."""
-    return REL * np.quantile(run[key + "0"], 0.95)
+    return SILENT_REL * np.quantile(run[key + "0"], 0.95)
 
 
 def median_run(runs, key):

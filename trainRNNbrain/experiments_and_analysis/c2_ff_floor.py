@@ -3,8 +3,8 @@
 Claim C2 check: the 3-bit flip-flop size series read at each network's own noisy-loss floor.
 
 For every run in the flip-flop cells of fig_paper_F1.SCALING this prints the joined warm-start
-chain, where its noisy loss first reaches 1.05x its own fitted floor (common.noisy_floor, through
-fig_paper_F1.floor_crossing), the active count at that crossing (fig_paper_F1.runs_with_loss), and
+chain, where its noisy loss first reaches 1.05x its own fitted floor and the active count at that
+crossing (common.read_run, on the runs of common.runs_with_loss), and
 the reason for every run without a crossing. It then fits active ~ N^a over the sizes that have a
 floor read-out at every run that has one.
 
@@ -25,8 +25,8 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import noisy_floor, warm_start_chain, stretched, FLOOR_DELTA
-from fig_paper_F1 import SCALING, runs_with_loss
+from common import read_run, runs_with_loss, warm_start_chain, stretched, FLOOR_DELTA
+from fig_paper_F1 import SCALING
 
 
 def extrapolated_crossing(res, delta=FLOOR_DELTA, t_max=2e6):
@@ -57,7 +57,7 @@ def read_cell(N, pattern):
     counts, crossings, dropped = [], [], []
     for r in runs_with_loss(pattern):
         chain = warm_start_chain(os.path.join(pattern, r["name"]))
-        res = noisy_floor(r["it_loss"], r["loss"])
+        res = read_run(r["run_dir"], run=r)
         it_a = np.asarray(r["it_act"], float)
         n_loss = len(r["loss"])
         span_ok = abs(it_a[-1] - n_loss) <= 0.01 * n_loss
@@ -73,13 +73,12 @@ def read_cell(N, pattern):
                          f"{extrapolated_crossing(res):,.0f}")
             continue
         T = res["t_star"]
-        k = int(np.argmin(np.abs(it_a - T)))
-        flag = "" if abs(it_a[k] - T) <= 1000 else "  !! nearest probe > 1,000 it away"
+        flag = "" if abs(res["probe_iter"] - T) <= 1000 else "  !! nearest probe > 1,000 it away"
         if not (0.5 * end_med < floor <= end_med):
             flag += "  !! floor outside (end/2, end]"
-        counts.append(float(r["active"][k]))
+        counts.append(float(res["active"]))
         crossings.append(T)
-        print(line + f"\n      crossing {T:,.0f}, probe {it_a[k]:,.0f}: active {r['active'][k]:.0f} "
+        print(line + f"\n      crossing {T:,.0f}, probe {res['probe_iter']:,.0f}: active {res['active']:.0f} "
                      f"(end of chain: {r['active'][-1]:.0f}){flag}")
     return counts, crossings, dropped
 

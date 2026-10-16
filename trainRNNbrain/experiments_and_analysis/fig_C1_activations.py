@@ -28,7 +28,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import SILENT_REL
+from common import active_mask
 import plotstyle as ps
 
 CDDM_ACT = [("ReLU", "CDDM_2bc3c1_g0_reflective"),
@@ -70,8 +70,7 @@ def ff_traces(act):
     for f in sorted(glob.glob(os.path.join(FF_TRACES[act], "*", "*ParticipationTrace.pkl"))):
         d = pickle.load(open(f, "rb"))
         P = np.asarray(d["participation"], dtype=float)
-        q = np.quantile(P, 0.95, axis=1, keepdims=True)
-        out.append((np.asarray(d["participation_iters"]), (P >= SILENT_REL * q).sum(1)))
+        out.append((np.asarray(d["participation_iters"]), np.array([active_mask(p).sum() for p in P])))
     return out
 
 

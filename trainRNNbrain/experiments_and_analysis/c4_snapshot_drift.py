@@ -32,13 +32,14 @@ from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import c4_gradient_mechanism as C
+from common import SILENT_REL, active_mask
 
 DTS = (500, 5000)
 
 
-def over(g, rel=0.05):
-    """Boolean mask of units with g >= rel * q95(g)."""
-    return g >= rel * np.quantile(g, 0.95)
+def over(g, rel=SILENT_REL):
+    """Boolean mask of units with g >= rel * q95(g) (common.active_mask)."""
+    return active_mask(g, rel)
 
 
 def main(snap_dir, npz_dir, trials):

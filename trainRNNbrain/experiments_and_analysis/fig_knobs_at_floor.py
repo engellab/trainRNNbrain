@@ -15,6 +15,9 @@ dropped and counted per rung, with the reason. The previous version read the noi
 at 1.07x through `pr_matrix.fit_floor_at`; that loss climbs back after its minimum on the flip-flop,
 which made the input-scale ladder unreadable at its floor.
 
+THE READ-OUT CODE is `heldout_r2.read_rung` (moved there from this file on 2026-10-15, with
+`floor_r2` and R2_DRAWS = 36 noise draws), on `common.read_run`.
+
 R^2 AT THE FLOOR (`--tradeoff`). Where a run kept weight snapshots (`trainer.checkpoint_keep`), R^2
 is MEASURED: held-out R^2 of the first snapshot at or after the crossing (snapshots every 500
 iterations). Otherwise no weights exist at the crossing, and it is estimated from the end of the
@@ -39,16 +42,11 @@ from matplotlib import pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import fig_paper_F1 as F1
 import paperstyle as ps
-from common import DATA_DIR, END_FRAC, noisy_floor
-from heldout_r2 import heldout_r2, load_cache, save_cache, snapshot_at
+from common import DATA_DIR
+from heldout_r2 import load_cache, read_rung, save_cache
 
 W, H = 7.6, 2.9
-# noise draws per held-out R^2 in this figure. One CDDM draw has an SD of ~0.011, so the project's 9
-# draws leave ~0.004 of noise and two scorers differed by 0.01-0.013 on identical weights; 36 halves it.
-# Same measure (heldout_r2), more draws.
-R2_DRAWS = 36
 
 # One ladder per knob, on the bias-0 cells. The reference rung sits in its DOSE ORDER position, not
 # first: on a dose ladder the default is a rung, and putting it first makes the ladder read out of
@@ -120,70 +118,6 @@ LADDERS = [
                 ("sparsity\n$\\lambda$ = 0.05", f"{DATA_DIR}/CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0.05_LmbdFR=0"),
                 ("both", f"{DATA_DIR}/CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0.05_LmbdFR=0.2")]),
 ]
-
-
-def floor_r2(run_dir, it, L, f, cache):
-    """Held-out R^2 at a run's floor crossing: measured on a kept snapshot, else estimated.
-
-    Args:
-        run_dir: the run folder; it, L: its noisy loss series; f: noisy_floor's result for it;
-        cache: an open heldout_r2 cache.
-    Returns:
-        (R^2, measured) - held-out R^2 of the snapshot at the crossing and True, or the estimate
-        1 - (L(t*) / L_end) * (1 - R2_end) and False (see the module docstring).
-    """
-    snap = snapshot_at(run_dir, f["t_star"])
-    if snap:
-        return heldout_r2(snap, draws=R2_DRAWS, cache=cache), True
-    L_star = f["smoothed"][np.flatnonzero(it >= f["t_star"])[0]]
-    L_end = np.median(L[it >= it[-1] - END_FRAC * (it[-1] - it[0])])
-    return 1.0 - (L_star / L_end) * (1.0 - heldout_r2(run_dir, draws=R2_DRAWS, cache=cache)), False
-
-
-def read_rung(path, end_at=None, cache=None):
-    """Active-unit counts for one rung, at its own noisy-loss floor and at the end of its budget.
-
-    Args:
-        path: the cell directory holding one folder per seed.
-        end_at: iteration to take the "end" count at, or None for the last probe. Set when a ladder's
-            control was trained longer than its arms, so both ends are read at the same budget.
-        cache: an open heldout_r2 cache to also estimate R^2 at the floor, or None to skip it.
-    Returns:
-        dict with keys `floor` (counts where the noisy loss first reaches 1.05x its fitted floor),
-        `end` (counts at the last participation probe), `cross` (crossing iterations), `late`
-        (end-of-run loss over the floor, for the runs read), `r2` (held-out R^2 at the floor, one
-        per `floor` entry; empty without a cache), `measured` (True where that R^2 was scored on a
-        snapshot rather than estimated), `n` (runs found) and `dropped` (one reason string per run
-        with no usable crossing).
-    """
-    at_floor, at_end, cross, late, r2, measured, dropped = [], [], [], [], [], [], []
-    runs = F1.runs_with_loss(path)
-    for r in runs:
-        it_a = np.asarray(r["it_act"], float)
-        at_end.append(r["active"][-1] if end_at is None
-                      else r["active"][int(np.argmin(np.abs(it_a - end_at)))])
-        f = noisy_floor(r["it_loss"], r["loss"])
-        if f["reason"]:
-            dropped.append(f["reason"])
-            continue
-        T = f["t_star"]
-        # a top-up whose trace was not joined to its parent's starts late; reading its first probe
-        # as "the floor" would be silently wrong
-        if not it_a[0] <= T <= it_a[-1]:
-            dropped.append("participation trace does not cover the crossing")
-            continue
-        at_floor.append(r["active"][int(np.argmin(np.abs(it_a - T)))])
-        cross.append(T)
-        late.append(f["late_rise"])
-        if cache is not None:
-            v, m = floor_r2(os.path.join(path, r["name"]), np.asarray(r["it_loss"], float),
-                            np.asarray(r["loss"], float), f, cache)
-            r2.append(v)
-            measured.append(m)
-    return dict(floor=np.array(at_floor, float), end=np.array(at_end, float),
-                cross=np.array(cross, float), late=np.array(late, float),
-                r2=np.array(r2, float), measured=np.array(measured, bool), n=len(runs),
-                dropped=dropped)
 
 
 def ladder_slide(spec, n_total=1000):
