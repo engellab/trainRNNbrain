@@ -50,12 +50,12 @@ pruning as many units at random does not (0.921-0.929). The same holds at every 
 4000 at the end of training (36 networks, supplementary figure). Text, Methods and the seeded numbers
 are in the paper.
 
-**C2.** Read at 1.05× each run's floor under the new read-out (entry 2026-10-15_2219), the active
-count grows as N^0.47 on the 3-bit flip-flop (42% of 500 units active, 14% of 4000), N^0.44 on CDDM
-(298 of 500, 767 of 4000) and N^0.43 on DMTS (three sizes). The exponents stay between 0.41 and 0.57
-at margins of 1.05×, 1.10× and 1.20×. 1,000 active units would need N ≈ 7,300 on CDDM and ≈ 15,100 on
-the flip-flop. The learning-rate confound (lr ∝ N^−1/3) is left in and handled by reading each
-network at its own floor.
+**C2.** Read at 1.05× each run's floor under read-out 79932ef (entry 2026-10-16, Figures 1 and 2
+under read-out 79932ef), the active count grows as N^0.47 on the 3-bit flip-flop (41% of 500 units
+active, 14% of 4000), N^0.44 on CDDM (298 of 500, 767 of 4000) and N^0.58 on DMTS (three sizes; 2 of 3
+runs read at N = 1000). The exponents stay between 0.44 and 0.60 at margins of 1.05×, 1.10× and 1.20×.
+1,000 active units would need N ≈ 7,300 on CDDM and ≈ 14,300 on the flip-flop. The learning-rate
+confound (lr ∝ N^−1/3) is left in and handled by reading each network at its own floor.
 
 **C3.** CDDM, N = 1000: every weight-decay setting reaches its floor early and keeps losing units to
 200-300k with no gain in loss. Flip-flop: units keep dying while the loss is flat (N = 1000: 22-83
