@@ -164,9 +164,9 @@ SCALING = {
         100: N100.format(task="CDDM"),
         **{N: f"{DATA_DIR}/CDDM_paper_grid/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000, 4000)}
     }, 100_000, ps.SLOTS[1]),
-    DMTS_LABEL: ([100, 500, 1000, 2000], {
+    DMTS_LABEL: ([100, 500, 1000, 2000, 4000], {
         100: N100.format(task="DMTS"),
-        **{N: f"{DATA_DIR}/DMTS_paper_grid_d5/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000)}
+        **{N: f"{DATA_DIR}/DMTS_paper_grid_d5/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000, 4000)}
     }, 150_000, ps.SLOTS[2]),
 }
 

@@ -148,6 +148,12 @@ direct route; relay through the Mac (`slurm/sync_b5_spock_to_della.sh`).
   on, no Dale's law, no input/output positivity, γ = 0, weight decay 1e-6, lr = 1e-3·(100/N)^(1/3),
   Adam, `trainer_ptrack_freshbatch` (`same_batch: False`). "Pre-standard" means a trainable bias in
   [-1, 1].
+- **Which read-out (Pavel, 2026-10-16):** a comparison ACROSS network sizes reads each network at
+  its loss floor (the read-out point below), because the learning rate scales as N^(-1/3) and larger
+  networks converge later. Networks of the SAME size (knob ladders, optimizers, interventions against
+  their control) are compared at one fixed iteration, 75,000 (`fig_cosyne2027.read_fixed`); where no
+  weights were kept there, R² at 75k is estimated from the end of the run by
+  `common.r2_at_floor_estimate`, and a run that stops earlier is read at its end and labelled so.
 - **Read-out point (since 2026-10-15):** `common.noisy_floor(*common.noisy_loss_series(run))` on the
   noisy training loss (`TrainLosses.json`, joined along the warm-start chain). The curve is a Hampel
   mean over [t/1.1, 1.1·t] (points more than 3 MADs from the window median dropped), with burst
@@ -158,8 +164,8 @@ direct route; relay through the Mac (`slurm/sync_b5_spock_to_della.sh`).
   (3), the floor is the curve's minimum (`floor_kind="smoothed_min"`). DMTS is fitted from its escape.
   A run is excluded, and counted, if its floor is on the lower bound, if the curve never stays under
   the bar (including a crossing too late for its 1.2·t hold), if the curve's median over its last 10%
-  ends more than 1.5× above the floor, or if bursts cover more than half of training. Never read at
-  a fixed iteration, never on the noise-free loss. The previous rule (2,001-iteration running median,
+  ends more than 1.5× above the floor, or if bursts cover more than half of training. Never on the noise-free
+  loss. The previous rule (2,001-iteration running median,
   first crossing) read 2-19% early on synthetic traces with a known answer. Checked against the
   loss of kept snapshots on fresh batches: t* agrees within 3% on the flip-flop; on CDDM the loss
   nears its floor so slowly that t* is uncertain by about ±30% under any rule, so compare CDDM at
