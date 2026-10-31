@@ -38,8 +38,8 @@ bird's-eye view of what works.
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
 | C4 | On CDDM ~300 of 1,000 units are silent (never fire, no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Done**: in the paper as sec:mechanism (16 Oct) | Paper-wide pass for the silent / low-active terms (Pavel to confirm) |
 | C5 | Settings move the active count at the floor by ≤ ~120 units; input-weight scale raises it but those networks then lose units faster | **Done**: sec:knobs rewritten, Figure 2 synced (16 Oct) | — |
-| C6 | Rules that give participation its own drive recruit units at a small cost | **Running** | Read the remedy top-ups (RMtop200) at the floor; B2; A3; build Figure 3 |
-| C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running** | B3 rate cells after the pilot; B4 N = 4000; read all at the floor |
+| C6 | Rules that give participation its own drive recruit units at a small cost | **Running**; B2 failed its rule (31 Oct) | Read the remedy top-ups (RMtop200) at the floor; A3; build Figure 3 |
+| C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running**; B4 N = 1000 supports it (31 Oct) | B3 rate cells; B4 N = 4000; read all at the floor |
 
 **C1.** N = 1000, three networks per task, each read at its floor. Active units: CDDM about 430 of
 1000, DMTS about 350, flip-flop 266-341 (crossings 52-69k on the 200k runs). Removing every silent
@@ -82,9 +82,16 @@ re-initialising, zeroing or randomly redrawing silent units does not raise the c
 
 **C6.** The flip-flop remedy cells are being continued to 200k with snapshots (RMtop200), so each
 can be read at its floor. Until then the remedy numbers below are end-of-training reads at 75k.
+B2 (rate penalty alone, flip-flop, entry 2026-10-31_1532) fails its pre-registered rule: no run at
+N = 500 or 1000 reaches a floor read (the loss bursts 57-67 times per run and the active count swings
+between ~300 and 1,000), and at N = 2000 it holds 4.8× the control's active count at a cost of 0.024
+in held-out R² (0.926 against 0.950).
 
-**C7.** B3 (rate × synaptic noise × rescaling at N = 1000) and B4 (plasticity transfer to the 3-bit
-hyper flip-flop) are running on Della; their pre-registered rules are in the 2026-10-15_1342 entry.
+**C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
+hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
+421-457 for an untrained network trained on the new task; R² is the same (0.91). Verdict, by the
+pre-registered rule: inactive units do not come back. B4 at N = 4000 (1 of 9 runs done) and B3 are
+running on Della; their rules are in the 2026-10-15_1342 entry.
 
 ## The remedies catalogue
 
@@ -94,7 +101,7 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
 
 | Remedy | Class | What it does | Active units | Status |
 |---|---|---|---|---|
-| Rate penalty | Bio-inspired | Two-sided penalty around a target rate | CDDM: all 1000 | B2 runs it alone on the standard flip-flop grid |
+| Rate penalty | Bio-inspired | Two-sided penalty around a target rate | CDDM: all 1000; flip-flop 4.8× at N = 2000 | Flip-flop alone (B2): unstable at N ≤ 1000, −0.024 R² at N = 2000 |
 | Noisy synapses | Bio-inspired | Each weight × (1 + σ_w·noise), every step | 2.08×; 1.65× at N = 4000 | In RMtop200 |
 | Rescaling incoming weights | Bio-inspired | Tilts a silent unit's input row toward its positive weights, at fixed length, until a release target | 1.57×; 1.94× at N = 4000 | In RMtop200 |
 | Threshold lift | Bio-inspired | Raises a silent unit's bias once | 1.36× | Screen only |
@@ -125,12 +132,11 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
   network.
 
 **Training**
-- **B2.** Rate penalty alone on the standard flip-flop grid, N = 500-2000 on Della (15598509-11),
-  N = 4000 (15527679).
+- **B2.** Done, read 31 Oct: fails its rule (entry 2026-10-31_1532).
 - **B3.** Pilot read (16 Oct): λ = 0.03 chosen (72% of units active, 2.4× the control). Rate cells
   submitted 15689235-37; noise and rescaling cells 15598515-17 running.
-- **B4.** N = 1000 on Della (15598512-14); N = 4000 on gpu80 is approved, to submit when FFtop4000
-  lands.
+- **B4.** N = 1000 read 31 Oct: inactive units do not come back (entry 2026-10-31_1532). N = 4000
+  (15655301-03): 1 of 9 runs done; read with `read_b2_b4.py` when the fresh runs land.
 - **RMtop200.** 189 remedy top-up tasks to 200k with snapshots, from `~/trainRNNbrain_redo`
   (709c17d); job ids in Della `~/f2_logs/rm_submit_go.txt`.
 - **Redo with snapshots (waiting on Pavel; after the initialisation decision):** retrain the size-series controls with snapshots every
@@ -148,6 +154,13 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
 - One Dale panel from existing runs.
 
 ## Open decisions (Pavel)
+
+- **Which biological penalty goes in the main text.** The decision "rate penalty alone" rested on
+  CDDM. On the flip-flop (B2) the same penalty trains unstably at N ≤ 1000 and costs 0.024 R² at
+  N = 2000. Options: keep it with the flip-flop failure stated; lower λ_frm (B3's pilot chose 0.03
+  at N = 1000); or lead with synaptic noise or rescaling once RMtop200 is read.
+- **Figure 1, flip-flop N = 1000:** FFseed4 landed; the cell now reads 4 runs at the floor (240,
+  277, 296, 297). Rebuild Figure 1 with all four, or keep the straggler excluded.
 
 - **Conclusion wording.** Recommended: "gradient descent on the task loss alone does not keep units
   participating; participation needs a drive of its own". Say "several sources" only if B3 shows a
