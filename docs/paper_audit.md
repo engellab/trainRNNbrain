@@ -68,25 +68,16 @@ handled by reading each network at its own floor; mean crossings move from 59k t
 dead-relu-paper#20's recommendation, until Pavel decides.
 
 **C3.** CDDM, N = 1000: every weight-decay setting reaches its floor early and keeps losing units to
-<<<<<<< HEAD
 200-300k with no gain in loss. Flip-flop (Figure 2e, entry 2026-10-31_1957): from 150k, 13 of 15 runs
 with a flat loss (< 3% change per 100k) lose 8-121 units per 100k: N = 500 4 of 5, N = 1000 5 of 6
 (the two 300k runs 23 and 37 per 100k, slowing to 11-22 in their last 100k, entry 2026-10-15_0955),
-N = 4000 3 of 3 (31-121); N = 2000 has one flat run (57 per 100k), so it is untested there. **Not the optimizer (B5):** at the floor, Adam (wd 1e-6) keeps 237-271 active at R²
-0.951, AdamW 282-292 at 0.961; SGD keeps more units only where it converges to a worse solution
-(703-736 active at R² 0.883, lr 0.03) and has Adam's count at its best learning rates. Figure
-`diag_b5_optimizer`.
-=======
-200-300k with no gain in loss. Flip-flop: units keep dying while the loss is flat (N = 1000: 22-83
-units per 100k in 4 of 5 flat runs, slowing to 11-22 by 300k without stopping; N = 2000 is not yet
-flat at 200k). **Not the optimizer (B5), read at 75k** (entry 2026-10-31_2010; all 13 arms, SGD lr 3 wd 0 copied
+N = 4000 3 of 3 (31-121); N = 2000 has one flat run (57 per 100k), so it is untested there. **Not the optimizer (B5), read at 75k** (entry 2026-10-31_2010; all 13 arms, SGD lr 3 wd 0 copied
 from Spock): Adam (wd 1e-6) has 233-270 active (mean 246) at R² 0.951; Adam with wd 0 (mean 305) and
 AdamW (306-358, mean 325) have more at a higher R² (0.956-0.959), the direction weight decay 0 takes on
 CDDM; SGD has more units only at lower R² (721-759 at lr 0.03, R² 0.873-0.875) and 212-285 at lr 0.3-1
 (R² ≤ 0.915); lr 3 does not learn (R² 0.21-0.44 at 200k). Every Adam/AdamW arm keeps losing units to
 200k (169-226 at 200k; means from entry 2026-10-31_2035). Under the current read-out most SGD runs have no floor
 read, so the 14 Oct floor numbers are withdrawn. Figure: Extended Data Fig. 5 (`fig_ed_optimizer`).
->>>>>>> wp/fig3-settings
 
 **C4.** On CDDM about 300 of a network's 1,000 units are silent: their net input current is
 negative on every time step of every trial, so their rate is always zero and gradient descent cannot
