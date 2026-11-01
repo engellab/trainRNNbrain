@@ -53,6 +53,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+from matplotlib.legend_handler import HandlerTuple
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter, NullLocator
 
@@ -505,7 +506,7 @@ def panel_margins(ax, series):
                         lw=1.0, capsize=1.6)
             out[(task, d)] = (b, lo, hi, int(sum(len(v) for N, v in cells.items() if N >= FIT_MIN_N)))
     ax.axhline(1.0, color=ps.MUTED, lw=0.7, ls="-")
-    ax.text(2.45, 1.0, "every unit active", fontsize=5.8, color=ps.MUTED, ha="right", va="bottom")
+    ax.text(2.45, 1.0, "constant share", fontsize=5.8, color=ps.MUTED, ha="right", va="bottom")
     ax.set_xticks(range(len(FLOOR_DELTAS)))
     ax.set_xticklabels([f"{1 + d:.2f}×" for d in FLOOR_DELTAS])
     ax.set(xlim=(-0.55, 2.55), ylim=(0, 1.1), xlabel="read-out margin over the floor",
@@ -708,13 +709,17 @@ def draw_ed_readout(rec):
         ps.ygrid(ax)
     ax_a[0].set_ylabel("noisy training loss")
     fig.legend(handles=[
-        Line2D([], [], color=ps.GRID, lw=4, label="raw loss, 10th-90th pct"),
-        Line2D([], [], color="#f3d9a4", lw=4, label="burst (masked)"),
-        Line2D([], [], color=ps.INK, lw=0.9, label="read-out curve"),
-        Line2D([], [], color=ps.MUTED, lw=0.6, ls=(0, (1, 1.2)), label="fitted decay"),
-        Line2D([], [], color=ps.INK, lw=0.5, label="floor"),
-        Line2D([], [], color=ps.MUTED, lw=0.5, ls=(0, (4, 2)), label="1.05×, 1.10×, 1.20× floor"),
-        Line2D([], [], color=ps.MUTED, lw=0.8, label="crossings")],
+        Line2D([], [], color=ps.GRID, lw=4),
+        Line2D([], [], color="#f3d9a4", lw=4),
+        Line2D([], [], color=ps.INK, lw=0.9),
+        tuple(Line2D([], [], color=TASK_COL[t], lw=1.0, ls=(0, (1, 1.2))) for t in TASKS
+              if rec["examples"][t][0]["tf"] is not None),      # DMTS has no fitted decay
+        Line2D([], [], color=ps.INK, lw=0.5),
+        Line2D([], [], color=ps.MUTED, lw=0.5, ls=(0, (4, 2))),
+        tuple(Line2D([], [], color=TASK_COL[t], lw=0.8) for t in TASKS)],
+        labels=["raw loss, 10th-90th pct", "burst (masked)", "read-out curve", "fitted decay",
+                "floor", "1.05×, 1.10×, 1.20× floor", "crossings"],
+        handler_map={tuple: HandlerTuple(ndivide=None, pad=0.0)},   # task-coloured swatches
         loc="upper center", bbox_to_anchor=(0.5, 0.995), ncol=7, fontsize=5.8, handlelength=1.6,
         columnspacing=1.2, frameon=False)
 
@@ -777,7 +782,7 @@ def tex_row(r):
         str ending in a LaTeX line break.
     """
     read = r["reason"] is None and r.get("excluded") is None
-    t = f"{r['t_star']:,.0f}" if r["reason"] is None else "--"
+    t = f"{r['t_star'] / 1e3:.0f}k" if r["reason"] is None else "--"   # nearest 1,000 (ED Fig. 3c)
     a = f"{r['active_at'][0.05]:.0f}" if r["reason"] is None else "--"
     if r["reason"] is None and np.isfinite(r["r2_floor"]):
         r2 = f"{r['r2_floor']:.3f}" + ("" if r["r2_measured"] else "$^{e}$")
@@ -809,9 +814,11 @@ def write_table(rec):
     Returns:
         path written.
     """
-    rows = sorted(rec["series"], key=lambda r: (TASKS.index(r["task"]), r["N"], r["seed"]))
-    rows += [r for r in rec["traj"] if r["task"] == "CDDM"]
-    rows += sorted(rec["ablation"], key=lambda r: (TASKS.index(r["task"]), r["seed"]))
+    # grouped by task (size series, then the CDDM panel-d networks), seeds sorted as numbers
+    grouped = [(r, 0) for r in rec["series"]] + [(r, 1) for r in rec["traj"] if r["task"] == "CDDM"]
+    grouped.sort(key=lambda rk: (TASKS.index(rk[0]["task"]), rk[1], rk[0]["N"], int(rk[0]["seed"])))
+    rows = [r for r, _ in grouped]
+    rows += sorted(rec["ablation"], key=lambda r: (TASKS.index(r["task"]), int(r["seed"])))
     path = os.path.join(IMG_DIR, "edt2_runs_rows.tex")
     with open(path, "w") as fh:
         fh.write("% written by fig_paper_F2_size.py from data/fig_paper_F2_size_collect.pkl\n")
