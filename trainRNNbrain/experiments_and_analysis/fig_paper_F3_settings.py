@@ -140,7 +140,7 @@ def panel_a(ax_n, ax_r, by_stem):
 
     One point per network. R^2 is taken relative to the mean of the same sweep's default networks;
     filled points are measured on weights saved at 75,000 iterations, open ones estimated by the loss
-    ratio. The "15 other values" row draws each remaining CDDM value's mean (open teal circles); its
+    ratio. The "15 other values" row draws each remaining CDDM value's mean (open teal diamonds); its
     networks are in Extended Data Fig. 4.
 
     Args:
@@ -172,9 +172,9 @@ def panel_a(ax_n, ax_r, by_stem):
                     dr2.append(r2.mean() - r2_ref)
             act, dr2 = np.array(act), np.array(dr2)
             assert len(act) == 15, f"expected 15 other CDDM values, found {len(act)}"
-            for ax, x in ((ax_n, act), (ax_r, dr2)):
-                ax.scatter(x, np.full(len(x), y), s=9, facecolors="none", edgecolors=ps.SETTING,
-                           linewidths=0.6, zorder=4)
+            for ax, x in ((ax_n, act), (ax_r, dr2)):     # diamonds: open circles mean "estimated"
+                ax.scatter(x, np.full(len(x), y), s=9, marker="D", facecolors="none",
+                           edgecolors=ps.SETTING, linewidths=0.6, zorder=4)
             rows.append((blk, lab, act.tolist(), dr2.tolist(), ["mean of value"] * len(act)))
         else:
             lad = by_stem[stem]

@@ -311,9 +311,15 @@ BORROW_LEGEND = {"slide_k_inputscale": "slide_k_inputscale_cddm"}
 # item is the number of legend columns. "r2": one column in the empty upper half of the R^2 panel.
 LEGEND_AT = {"slide_k_activation": "r2",
              "slide_k_frm_rws": ("lower left", (0.02, 0.02), 1)}
-# Penalty values drawn in the violet rule family (paperstyle.RULE_COLORS), by (stem, value index).
-PENALTY_COLORS = {("slide_k_frm_rws", 1): ps.RATE_PENALTY, ("slide_k_frm_rws", 2): ps.SPARSITY_PENALTY,
-                  ("slide_k_frm_rws", 3): ps.RATE_SPARSITY}
+# Rate-penalty values, a per-unit rule, drawn in the violet rule family (paperstyle.RULE_COLORS), by
+# (stem, value index). The sparsity penalty alone is a standard setting and stays on the teal ramp.
+PENALTY_COLORS = {("slide_k_frm_rws", 1): ps.RATE_PENALTY, ("slide_k_frm_rws", 3): ps.RATE_SPARSITY}
+# Revival methods: one marker per method across both screens (cap: square; re-initialising: diamond),
+# the shade telling the two re-initialising variants apart. The CDDM screen re-initialises with the
+# outgoing weights kept (no reinit_mode in its configs: Trainer's default "random"), so it shares the
+# 3BFF "outgoing kept" style.
+REVIVAL_STYLE = {("revival_cddm", 1): (ps.SETTING_RAMP[1], "s"), ("revival_cddm", 2): (ps.SETTING_RAMP[2], "D"),
+                 ("revival_ff", 1): (ps.SETTING_RAMP[3], "D"), ("revival_ff", 2): (ps.SETTING_RAMP[2], "D")}
 MARKERS = "osD^v"
 # The optimizer comparison (panel l). SGD learning rates take the teal ramp, light to dark; the two
 # Adam variants are SETTING teal and differ from SGD in marker shape (circle, square) and position.
@@ -325,10 +331,10 @@ OPT_R2_LO = 0.86            # R^2 below this is drawn on the bottom edge as a do
 def rung_style(spec, i, n):
     """Colour and marker of value i of a sweep, by meaning (paperstyle palettes).
 
-    The default value is BASELINE grey. The rate and sparsity penalties take the violet rule family.
-    Every other value takes the teal setting ramp: ordered values light to dark in sweep order
-    (circles); unordered values (activation function, revival methods) ramp steps 1-3 with one
-    marker shape each. No task colour is used.
+    The default value is BASELINE grey. The rate penalty (alone or with the sparsity penalty) takes
+    the violet rule family. The revival methods follow REVIVAL_STYLE. Every other value takes the teal
+    setting ramp: ordered values light to dark in sweep order (circles); unordered values (activation
+    function, sparsity penalty) ramp steps 1-3 with one marker shape each. No task colour is used.
 
     Args:
         spec: a sweep (fig_knobs_at_floor.LADDERS or REVIVAL entry); i: value index; n: number of values.
@@ -339,6 +345,8 @@ def rung_style(spec, i, n):
         return ps.BASELINE, "o"
     if (spec["stem"], i) in PENALTY_COLORS:
         return PENALTY_COLORS[(spec["stem"], i)], MARKERS[i]
+    if (spec["stem"], i) in REVIVAL_STYLE:
+        return REVIVAL_STYLE[(spec["stem"], i)]
     k = i - (i > spec["ref"])                       # position among the non-default values
     if spec.get("categorical", False):
         return ps.SETTING_RAMP[1 + k], MARKERS[i]
@@ -360,7 +368,9 @@ def b5_style(opt, wd, lr):
         return dict(color=ps.SETTING, marker="o", filled=True, label="Adam, no weight decay")
     if opt == "adamw":
         return dict(color=ps.SETTING, marker="s", filled=True, label="AdamW")
-    col = ps.SETTING_RAMP[SGD_LRS.index(lr)] if lr in SGD_LRS[:4] else ps.INK
+    # learning rate 3 shares the darkest shade with 1 (four ramp steps); its runs all sit below the
+    # R^2 axis, drawn as downward triangles on the bottom edge
+    col = ps.SETTING_RAMP[min(SGD_LRS.index(lr), 3)]
     return dict(color=col, marker=SGD_MARKER, filled=wd != "0", label=f"SGD, learning rate {lr}")
 
 
@@ -432,11 +442,6 @@ def budget(lad):
         return float(lad["spec"]["end_at"])
     ends = [r["it_act"][-1] for rg in lad["rungs"] for r in rg["runs"]]
     return float(min(ends)) if ends else float("nan")
-
-
-def has_runs(lad):
-    """True when every rung of a collected ladder has at least one finished run."""
-    return all(len(rg["runs"]) for rg in lad["rungs"])
 
 
 def panel_pair(ax_r2, ax_tr, lad):
