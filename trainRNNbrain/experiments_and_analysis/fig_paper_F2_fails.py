@@ -438,12 +438,12 @@ def b5_scatter(ax, b5, key, skip_lr=()):
         for a, v in pts:
             low = v < OPT_R2_LO
             mark = (dict(facecolors=st["color"], edgecolors=edge, linewidths=0.6) if filled
-                    else ps.mark_75k(edge, scatter=True))
+                    else ps.mark_fixed(edge, scatter=True))
             ax.scatter([a], [OPT_R2_LO if low else v], s=12 if low else 10,
                        marker="v" if low else st["marker"], zorder=4 + is_ref, clip_on=False, **mark)
         if st["label"] not in seen:
             seen.add(st["label"])
-            mark = dict(mfc=st["color"], mec=edge, mew=0.6) if filled else ps.mark_75k(edge)
+            mark = dict(mfc=st["color"], mec=edge, mew=0.6) if filled else ps.mark_fixed(edge)
             handles.append(Line2D([], [], ls="none", marker=st["marker"], ms=3.0, label=st["label"],
                                   **mark))
     ax.set_xlim(0, N_UNITS)
@@ -534,7 +534,7 @@ def panel_pair(ax_r2, ax_tr, lad):
                           edgecolors=edge, linewidths=0.6, zorder=4 + ref)
         fx = [r["fixed"] for r in rg["runs"]]
         ax_r2.scatter([f["r2"] for f in fx], [f["active"] for f in fx], s=12 if ref else 9, marker=mk,
-                      zorder=3, **ps.mark_75k(ring, scatter=True))
+                      zorder=3, **ps.mark_fixed(ring, scatter=True))
         for r in rg["runs"]:
             keep = (r["it_act"] >= X_MIN) & (r["it_act"] <= budget(lad))
             tb, yb = logbin(r["it_act"][keep], r["active"][keep], nbins=TRACE_BINS)
@@ -546,7 +546,7 @@ def panel_pair(ax_r2, ax_tr, lad):
                               marker=mk, color=col, edgecolors=edge, linewidths=0.6, zorder=6 + ref)
             x_open = r["fixed"]["probe"] * f_step ** (j - (len(rg["runs"]) - 1) / 2)
             ax_tr.scatter([x_open], [r["fixed"]["active"]], s=12 if ref else 9, marker=mk, zorder=5,
-                          clip_on=False, **ps.mark_75k(ring, scatter=True))
+                          clip_on=False, **ps.mark_fixed(ring, scatter=True))
         # runs with no floor crossing are dashed; the caption says so, the legend does not count them
         handles.append(value_handle(spec, col, mk, ref, labels[i]))
     ax_tr.set_xscale("log")

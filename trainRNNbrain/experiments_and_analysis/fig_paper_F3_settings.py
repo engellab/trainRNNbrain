@@ -190,8 +190,9 @@ def panel_a(ax_n, ax_r, by_stem):
             sub = np.empty(len(act))
             sub[np.argsort(act)] = np.arange(len(act)) % 3 - 1
             ax_n.scatter(act, y + sub * ROW_SPREAD * 1.2, s=9, marker="D", zorder=4,
-                         **ps.mark_75k(ps.SETTING, scatter=True))
-            # in the R^2 panel 14 of the 15 means lie within 0.003 of 0 (under a millimetre), where
+                         **ps.mark_fixed(ps.SETTING, scatter=True))
+            # in the R^2 panel 12 of the 15 means lie within 0.003 of 0 (14 within 0.005; metabolic
+            # penalty 1 at -0.0135), under a millimetre at print size, where
             # markers would merge into a solid blob: draw their range as a bar with end ticks
             ax_r.plot([dr2.min(), dr2.max()], [y, y], color=ps.SETTING, lw=ps.DATA_LW, zorder=4,
                       solid_capstyle="butt")
@@ -208,9 +209,16 @@ def panel_a(ax_n, ax_r, by_stem):
             edge = ps.INK if is_ref else col
             # the networks of a row sit on separate sub-rows, so open markers of close counts stay open
             yy = y + (np.arange(len(act)) - (len(act) - 1) / 2) * ROW_SPREAD
-            for ax, x in ((ax_n, act), (ax_r, dr2)):
-                ax.scatter(x, yy, s=10, zorder=4, **ps.mark_75k(edge, scatter=True))
-            ax_n.plot([act.mean()] * 2, [y - 0.3, y + 0.3], color=col, lw=ps.DATA_LW, zorder=3)
+            ax_r.scatter(dr2, yy, s=10, zorder=4, **ps.mark_fixed(edge, scatter=True))
+            if np.ptp(act) == 0 and len(act) > 1:
+                # every network has the same count (the rate penalty: all 1,000 active); sub-rows
+                # still print as a solid pill, so one open marker, labelled, and no mean tick
+                ax_n.scatter([act[0]], [y], s=10, zorder=4, **ps.mark_fixed(edge, scatter=True))
+                ax_n.text(act[0] - 25, y, f"{len(act)} networks", ha="right", va="center",
+                          fontsize=ps.TICK_PT, color=ps.INK)
+            else:
+                ax_n.scatter(act, yy, s=10, zorder=4, **ps.mark_fixed(edge, scatter=True))
+                ax_n.plot([act.mean()] * 2, [y - 0.3, y + 0.3], color=col, lw=ps.DATA_LW, zorder=3)
             if is_ref:
                 guide[blk] = [act.mean(), y, y]
             rows.append((blk, lab, act.tolist(), dr2.tolist(), how))
@@ -222,7 +230,7 @@ def panel_a(ax_n, ax_r, by_stem):
         y -= 1
     # the two rate-penalty rows are a per-unit rule (Results 5), not a standard setting: say so in ink
     y_rate = [yy for (blk, lab, stem, i), yy in zip(ROWS_A, row_y) if (stem, i) in RATE_RUNGS]
-    ax_n.text(960, np.mean(y_rate), "per-unit rule", ha="right", va="center", fontsize=ps.TICK_PT,
+    ax_n.text(640, np.mean(y_rate), "per-unit rule", ha="right", va="center", fontsize=ps.TICK_PT,
               color=ps.MUTED)
     for x, y0, y1 in guide.values():           # the block default's mean, through its block
         ax_n.plot([x, x], [y1 - 0.45, y0 + 0.45], color=ps.FAINT, lw=ps.THIN_LW, ls=(0, (2, 1.5)),
@@ -298,7 +306,7 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
                                edgecolors=edge, linewidths=0.5, zorder=6)
             if not means:
                 ax.scatter([r["fixed"]["probe"] + dx], [r["fixed"]["active"]], s=9, marker=mk,
-                           zorder=5, clip_on=False, **ps.mark_75k(edge, scatter=True))
+                           zorder=5, clip_on=False, **ps.mark_fixed(edge, scatter=True))
             at_end.append(F2F.active_at(r, x_max))
         if means:
             f75 = [r["fixed"]["active"] for r in rg["runs"]]
@@ -306,7 +314,7 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
                        edgecolors=edge, linewidths=0.5, zorder=6)
             # the values' open markers step rightwards from 75,000, away from the crossings before it
             ax.scatter([F2F.FIXED_IT + (i + 0.3) * step], [np.mean(f75)], s=11, marker=mk,
-                       zorder=5, clip_on=False, **ps.mark_75k(edge, scatter=True))
+                       zorder=5, clip_on=False, **ps.mark_fixed(edge, scatter=True))
         if median:
             tm = np.array(sorted(binned))
             ax.plot(tm, [np.median(binned[t]) for t in tm], color=col, lw=1.4, zorder=3 + is_ref)
@@ -353,7 +361,7 @@ def panel_d(ax, b5):
                              ("sgd", "1e-6", "0.1", "SGD")):
         st = F2F.b5_style(opt, wd, lr)
         handles.append(Line2D([], [], ls="none", marker=st["marker"], ms=3.0, label=lab,
-                              **ps.mark_75k(ps.INK if lab.endswith("(default)") else st["color"])))
+                              **ps.mark_fixed(ps.INK if lab.endswith("(default)") else st["color"])))
     for text, x, y in SGD_LABELS:
         ax.text(x, y, text, fontsize=ps.TICK_PT, color=ps.INK, va="center", ha="left")
     ax.set_xlabel(ps.LABELS["active"], labelpad=1)
