@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Supplementary Figure S0 - THE THREE TASKS. What the network is asked to do, on each of the tasks
+Supplementary Fig. 1 - THE THREE TASKS. What the network is asked to do, on each of the tasks
 the paper uses, as a pictogram of the trial and the actual input and target channels beside it.
 
 This exists because Figure 1 used to try to explain a task and the silent-unit problem in the same
@@ -54,18 +54,21 @@ CFG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../config
 DT_TAU = 1.0 / 10.0       # dt / tau, for the fallback path where no run config is available
 BRACE_X = (-0.080, -0.205)   # right edge of each brace level, in axes fractions
 BRACE_W = 0.017              # brace depth, likewise
+H_MM = 140.0                 # printed height; the width is paperstyle.W_FULL_MM (165.1 mm)
 
 # The two features of CDDM's stimulus. Motion is drawn as arrow DIRECTION and colour as arrow
-# COLOUR, which is what the task is: one stimulus carrying two features that can point different
-# ways. The two hues are categorical slots 2 and 3 of the validated palette, not red/green - the
-# literal colours of Mante's task are the one pair a colour-blind reader cannot separate.
-COL_A, COL_B = ps.SLOTS[1], ps.SLOTS[2]   # red and green, in the CDDM pictogram only
+# SHADE (dark or light grey), which is what the task is: one stimulus carrying two features that can
+# point different ways. Shades, not hues: every hue of the house palette is reserved for a task, a
+# per-unit rule or a training setting (paperstyle colour rules), and a colour-blind reader separates
+# two greys of different lightness.
+COL_A, COL_B = ps.INK, ps.FAINT   # dark and light grey, in the CDDM pictogram only
 
 # Channel colour is SEMANTIC, not decorative: a channel is either a cue telling the network what to
-# do (violet) or a sensory stimulus it must read (black). Colouring CDDM's two colour channels red
+# do (grey) or a sensory stimulus it must read (black); the constant input is light grey. Targets are
+# drawn in the row's TASK colour (paperstyle.TASK_COLORS), the one meaning that hue has everywhere. Colouring CDDM's two colour channels red
 # and green to match the pictogram implied that a channel carries a hue, which it does not - the
 # colour feature is a pair of evidence channels like any other.
-CUE_COL, SENS_COL = ps.SLOTS[3], ps.INK
+CUE_COL, SENS_COL, TONIC_COL = ps.MUTED, ps.INK, ps.FAINT
 
 # `run` is a glob matching the run folders of the very cells the manuscript reports, so the task
 # shown is the task trained. Channel labels are asserted against the config's channel counts, so a
@@ -77,7 +80,7 @@ CUE_COL, SENS_COL = ps.SLOTS[3], ps.INK
 TASKS = {
     "CDDM": dict(
         run=f"{DATA_DIR}/CDDM_paper_grid/EqType=h_N=1000_arm=control",
-        title="CDDM  -  context-dependent decision making",
+        title="CDDM, context-dependent decision making", tcol=ps.TASK_CDDM,
         inputs=["motion", "colour", "right", "left", "right", "left"],
         in_cols=[CUE_COL, CUE_COL, SENS_COL, SENS_COL, SENS_COL, SENS_COL],
         outputs=["right", "left"],
@@ -88,7 +91,7 @@ TASKS = {
         # the first 40k leg of the warm-start chain behind the 200k size series; every leg of
         # that chain saves the same task block, and this leg is the one kept on the Mac
         run=f"{DATA_DIR}/NBitFlipFlop_ff_revive/EqType=h_k=3_N=1000_pen=none_arm=none",
-        title="3BFF  -  3-bit flip-flop",
+        title="3BFF, 3-bit flip-flop", tcol=ps.TASK_3BFF,
         inputs=["bit 1", "bit 2", "bit 3"],
         in_cols=[SENS_COL] * 3,
         outputs=["bit 1", "bit 2", "bit 3"],
@@ -98,9 +101,9 @@ TASKS = {
     # identities and a tonic channel, the 2026-09-21 design.
     "DMTS": dict(
         run=f"{DATA_DIR}/DMTS_paper_grid_d5/EqType=h_N=1000_arm=control",
-        title="DMTS  -  delayed match-to-sample",
+        title="DMTS, delayed match-to-sample", tcol=ps.TASK_DMTS,
         inputs=["1", "2", "tonic", "go"],
-        in_cols=[SENS_COL, SENS_COL, ps.MUTED, CUE_COL],
+        in_cols=[SENS_COL, SENS_COL, TONIC_COL, CUE_COL],
         outputs=["match", "non-match"],
         braces=[(0, 1, "stimuli", 0)],
     ),
@@ -165,7 +168,7 @@ def build(name):
     return inp, tgt, epochs, dt_over_tau, pending
 
 
-def brace(ax, x, y0, y1, label, col=ps.MUTED, w=BRACE_W, lw=0.6, fs=6.0, rot=0):
+def brace(ax, x, y0, y1, label, col=ps.MUTED, w=BRACE_W, lw=0.6, fs=ps.TICK_PT, rot=0):
     """A curly brace left of the channel labels, opening right, with its label beyond the tip.
 
     Drawn in `ax.get_yaxis_transform()`, i.e. x in axes fractions (negative is left of the axes)
@@ -235,7 +238,7 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec, pending=False):
         cols.append(col)
     for lab in spec["outputs"]:
         ticks.append(lab)
-        cols.append(ps.SLOTS[0])
+        cols.append(spec["tcol"])
 
     for b, sig, col in zip(bases, np.vstack([inp, tgt]), cols):
         ax.plot([t[0], t[-1]], [b, b], lw=0.45, color="#b9b8b1", ls=(0, (1.2, 2)), zorder=1)
@@ -246,9 +249,9 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec, pending=False):
     mid = (bases[n_in - 1] + bases[n_in]) / 2
     ax.axhline(mid, color=ps.FAINT, lw=0.5, ls=(0, (3, 3)), zorder=2)
     ax.text(t[-1] * 1.015, np.mean(bases[:n_in]), "input", rotation=-90, ha="left", va="center",
-            fontsize=6.0, color=ps.MUTED)
+            fontsize=ps.TICK_PT, color=ps.MUTED)
     ax.text(t[-1] * 1.015, np.mean(bases[n_in:]), "target", rotation=-90, ha="left", va="center",
-            fontsize=6.0, color=ps.SLOTS[0])
+            fontsize=ps.TICK_PT, color=spec["tcol"])
 
     # CDDM's epochs are NESTED (the cue is on for the whole trial, the stimulus for two thirds of
     # it), so they cannot share one line the way DMTS's sequential ones can. Greedy packing: an
@@ -262,12 +265,12 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec, pending=False):
             levels.append(x1)
         else:
             levels[lv] = x1
-        yb = top + 0.28 + 0.85 * lv
+        yb = top + 0.28 + 1.10 * lv
         ax.plot([x0, x1], [yb] * 2, lw=1.6, color=ps.FAINT, zorder=3, solid_capstyle="butt")
         ax.plot([x0, x0], [yb - 0.16, yb + 0.16], lw=0.5, color=ps.FAINT, zorder=3)
-        ax.text((x0 + x1) / 2, yb + 0.06, lab, ha="center", va="bottom", fontsize=5.6,
+        ax.text((x0 + x1) / 2, yb + 0.06, lab, ha="center", va="bottom", fontsize=ps.TICK_PT,
                 color=ps.MUTED)
-    head = 0.28 + 0.85 * max(len(levels) - 1, 0) + 0.52 if epochs else 0.2
+    head = 0.28 + 1.10 * max(len(levels) - 1, 0) + 0.62 if epochs else 0.2
 
     # grouping braces. Level 0 sits next to the labels; level 1 encloses it, which is the only
     # order in which "sensory" can contain "motion" and "colour".
@@ -276,11 +279,11 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec, pending=False):
 
     if pending:
         ax.text(0.0, 1.0, "config not yet trained", transform=ax.transAxes, ha="left",
-                va="bottom", fontsize=5.6, color=ps.BAD)
+                va="bottom", fontsize=ps.TICK_PT, color=ps.INK)
     ax.set(yticks=bases, xlabel=r"time ($\tau$)",
            xlim=(0, t[-1] * 1.01), ylim=(bases[-1] - 0.62, top + head))
     ax.xaxis.set_major_locator(MultipleLocator(5))   # same integer ticks (0, 5, 10, ...) on every row
-    ax.set_yticklabels(ticks, fontsize=6.0)
+    ax.set_yticklabels(ticks, fontsize=ps.TICK_PT)
     for lab, col in zip(ax.get_yticklabels(), cols):
         lab.set_color(col)
     ps.despine(ax, keep=("bottom",))
@@ -298,13 +301,13 @@ def pic_cddm(ax):
     ps.blank(ax)
     ax.set(xlim=(0, 1), ylim=(0, 1))
 
-    ax.text(0.03, 0.860, "attend", ha="left", va="center", fontsize=6.0, color=ps.INK)
+    ax.text(0.03, 0.860, "attend", ha="left", va="center", fontsize=ps.TICK_PT, color=ps.INK)
     ps.box(ax, 0.29, 0.800, 0.31, 0.120, "MOTION", col=ps.INK, face="#f2f1ec", lw=0.7,
-           fs=6.0, text_col=ps.INK)
-    ps.box(ax, 0.64, 0.800, 0.31, 0.120, "COLOUR", col=ps.FAINT, lw=0.5, ls=(0, (2, 2)), fs=6.0,
+           fs=ps.TICK_PT, text_col=ps.INK)
+    ps.box(ax, 0.64, 0.800, 0.31, 0.120, "COLOUR", col=ps.FAINT, lw=0.5, ls=(0, (2, 2)), fs=ps.TICK_PT,
            text_col=ps.FAINT)
     ax.text(0.50, 0.995, "the cue names one of the two features", ha="center", va="top",
-            fontsize=5.6, color=ps.MUTED)
+            fontsize=ps.TICK_PT, color=ps.MUTED)
 
     # the stimulus: a cloud of arrows. Direction is the motion feature, colour is the colour
     # feature, and on this trial they point opposite ways - which is the whole task.
@@ -320,19 +323,19 @@ def pic_cddm(ax):
         d = 0.045 if r else -0.045
         ps.arrow(ax, (x - d / 2, y), (x + d / 2, y), col=COL_A if a else COL_B, lw=0.8,
                  mutation_scale=4.5, shrink=0, zorder=4)
-    ax.text(0.50, 0.315, "most arrows point RIGHT;  most are green",
-            ha="center", va="top", fontsize=5.6, color=ps.MUTED)
+    ax.text(0.50, 0.300, "most arrows point RIGHT;  most are light grey",
+            ha="center", va="top", fontsize=ps.TICK_PT, color=ps.MUTED)
 
     # LEFT on the left and RIGHT on the right: the choice is a direction, so putting the winning
     # option on the wrong side of the panel fights the reader for no reason. Laid out like the cue
     # row above it - the verb outside, one word in each box.
-    ax.text(0.03, 0.130, "choose", ha="left", va="center", fontsize=6.0, color=ps.INK)
+    ax.text(0.03, 0.130, "choose", ha="left", va="center", fontsize=ps.TICK_PT, color=ps.INK)
     ps.box(ax, 0.29, 0.070, 0.31, 0.120, "LEFT", col=ps.FAINT, lw=0.5, ls=(0, (2, 2)),
-           fs=6.0, text_col=ps.FAINT)
-    ps.box(ax, 0.64, 0.070, 0.31, 0.120, "RIGHT", col=ps.SLOTS[0], lw=0.9, fs=6.0,
-           text_col=ps.SLOTS[0])
-    ax.text(0.50, 0.045, "green alone would have said LEFT,\nand the cue says to ignore it",
-            ha="center", va="top", fontsize=5.2, color=COL_B, linespacing=1.3)
+           fs=ps.TICK_PT, text_col=ps.FAINT)
+    ps.box(ax, 0.64, 0.070, 0.31, 0.120, "RIGHT", col=ps.TASK_CDDM, lw=0.9, fs=ps.TICK_PT,
+           text_col=ps.TASK_CDDM)
+    ax.text(0.50, 0.045, "the shade alone would have said LEFT,\nand the cue says to ignore it",
+            ha="center", va="top", fontsize=ps.TICK_PT, color=ps.MUTED, linespacing=1.3)
 
 
 def pic_flipflop(ax):
@@ -345,40 +348,40 @@ def pic_flipflop(ax):
     """
     ps.blank(ax)
     ax.set(xlim=(0, 1), ylim=(0, 1))
-    ax.text(0.50, 0.995, "each bit is a latch", ha="center", va="top", fontsize=5.6,
+    ax.text(0.50, 0.995, "each bit is a latch", ha="center", va="top", fontsize=ps.TICK_PT,
             color=ps.MUTED)
 
     # one bit, in full: the pulse train and the state it leaves behind
     pulses = [(0.33, +1), (0.52, -1), (0.78, +1)]
-    y_in, y_out = 0.735, 0.445
+    y_in, y_out = 0.775, 0.515
     ax.plot([0.22, 0.97], [y_in] * 2, lw=0.5, color=ps.GRID, zorder=1)
     for x, s in pulses:
         ax.plot([x, x], [y_in, y_in + 0.085 * s], lw=1.1, color=ps.INK, zorder=3)
         ax.plot([x], [y_in + 0.085 * s], "o", ms=2.2, color=ps.INK, zorder=4)
-    ax.text(0.20, y_in, "pulses in", ha="right", va="center", fontsize=5.8, color=ps.INK)
+    ax.text(0.20, y_in, "pulses in", ha="right", va="center", fontsize=ps.TICK_PT, color=ps.INK)
 
     # the held state: a step that changes only when a pulse arrives
     edges = [0.22] + [x for x, _ in pulses] + [0.97]
     state = [0] + [s for _, s in pulses]        # 0 before the first pulse, as the real target is
     for k in range(len(edges) - 1):
         ax.plot([edges[k], edges[k + 1]], [y_out + 0.11 * state[k]] * 2, lw=1.2,
-                color=ps.SLOTS[0], zorder=3)
+                color=ps.TASK_3BFF, zorder=3)
         if k:
             ax.plot([edges[k]] * 2, [y_out + 0.11 * state[k - 1], y_out + 0.11 * state[k]],
-                    lw=1.2, color=ps.SLOTS[0], zorder=3)
-    ax.text(0.20, y_out, "state\nheld", ha="right", va="center", fontsize=5.8,
-            color=ps.SLOTS[0], linespacing=1.25)
+                    lw=1.2, color=ps.TASK_3BFF, zorder=3)
+    ax.text(0.20, y_out, "state\nheld", ha="right", va="center", fontsize=ps.TICK_PT,
+            color=ps.TASK_3BFF, linespacing=1.25)
     for lev, lab in [(0.11, "+1"), (0.0, "0"), (-0.11, "$-$1")]:
-        ax.text(0.99, y_out + lev, lab, ha="left", va="center", fontsize=5.4, color=ps.SLOTS[0])
-    ax.text(0.52, 0.285, "the state changes only when a pulse arrives,\n"
+        ax.text(0.99, y_out + lev, lab, ha="left", va="center", fontsize=ps.TICK_PT, color=ps.TASK_3BFF)
+    ax.text(0.52, 0.375, "the state changes only when a pulse arrives,\n"
                          "and holds for as long as none does",
-            ha="center", va="top", fontsize=5.6, color=ps.MUTED, linespacing=1.3)
+            ha="center", va="top", fontsize=ps.TICK_PT, color=ps.MUTED, linespacing=1.3)
 
     for k in range(3):
-        ps.box(ax, 0.20 + 0.20 * k, 0.045, 0.16, 0.105, f"bit {k + 1}", col=ps.INK, lw=0.6,
-               fs=5.6, face="#f2f1ec", text_col=ps.INK)
-    ax.text(0.50, 0.020, "3 bits, independent, one channel each", ha="center", va="top",
-            fontsize=5.6, color=ps.MUTED)
+        ps.box(ax, 0.20 + 0.20 * k, 0.090, 0.16, 0.100, f"bit {k + 1}", col=ps.INK, lw=0.6,
+               fs=ps.TICK_PT, face="#f2f1ec", text_col=ps.INK)
+    ax.text(0.50, 0.060, "3 bits, independent, one channel each", ha="center", va="top",
+            fontsize=ps.TICK_PT, color=ps.MUTED)
 
 
 def pic_dmts(ax):
@@ -396,7 +399,7 @@ def pic_dmts(ax):
     ps.blank(ax)
     ax.set(xlim=(0, 1), ylim=(0, 1))
     ax.text(0.50, 0.995, "hold the sample across an empty delay", ha="center", va="top",
-            fontsize=5.6, color=ps.MUTED)
+            fontsize=ps.TICK_PT, color=ps.MUTED)
 
     y = 0.660
     for x, lab, filled in [(0.07, "sample", True), (0.37, "delay", False), (0.67, "test", True)]:
@@ -406,37 +409,60 @@ def pic_dmts(ax):
         else:
             ax.text(x + 0.125, y + 0.108, "?", ha="center", va="center", fontsize=9.0,
                     color=ps.FAINT)
-        ax.text(x + 0.125, y - 0.025, lab, ha="center", va="top", fontsize=5.8, color=ps.MUTED)
+        ax.text(x + 0.125, y - 0.025, lab, ha="center", va="top", fontsize=ps.TICK_PT, color=ps.MUTED)
     for x in (0.325, 0.625):
         ps.arrow(ax, (x, y + 0.108), (x + 0.04, y + 0.108), col=ps.MUTED, lw=0.7, mutation_scale=5)
 
     # two identities, so the four sample-test pairs split evenly
-    ax.text(0.14, 0.490, "one of two stimuli:", ha="left", va="center", fontsize=5.4,
+    ax.text(0.14, 0.510, "one of two stimuli:", ha="left", va="center", fontsize=ps.TICK_PT,
             color=ps.MUTED)
     for k in range(2):
-        ax.plot([0.66 + 0.095 * k], [0.490], "s", ms=5.0, zorder=4,
+        ax.plot([0.66 + 0.095 * k], [0.510], "s", ms=5.0, zorder=4,
                 color=SENS_COL if k == 0 else ps.FAINT)
-    ax.text(0.50, 0.405, "4 sample-test pairs: 2 match, 2 non-match", ha="center", va="center",
-            fontsize=5.2, color=ps.MUTED)
+    ax.text(0.50, 0.430, "4 sample-test pairs: 2 match, 2 non-match", ha="center", va="center",
+            fontsize=ps.TICK_PT, color=ps.MUTED)
 
-    ps.arrow(ax, (0.50, 0.355), (0.50, 0.310), col=ps.MUTED, lw=0.8)
-    ps.box(ax, 0.14, 0.185, 0.72, 0.115, "same as the sample?", col=ps.INK, lw=0.6, fs=5.8,
+    ps.arrow(ax, (0.50, 0.375), (0.50, 0.320), col=ps.MUTED, lw=0.8, shrink=0)
+    ps.box(ax, 0.14, 0.185, 0.72, 0.115, "same as the sample?", col=ps.INK, lw=0.6, fs=ps.TICK_PT,
            face="#f2f1ec", text_col=ps.INK)
-    ax.text(0.455, 0.095, "match  $\\rightarrow$  channel 1", ha="right", va="center",
-            fontsize=5.8, color=ps.SLOTS[0])
-    ax.text(0.545, 0.095, "non-match  $\\rightarrow$  channel 2", ha="left", va="center",
-            fontsize=5.8, color=ps.SLOTS[0])
-    ax.text(0.50, 0.020, "both channels held at 0 until the go cue", ha="center", va="center",
-            fontsize=5.2, color=ps.MUTED)
+    ax.text(0.455, 0.110, "match: channel 1", ha="right", va="center",
+            fontsize=ps.TICK_PT, color=ps.TASK_DMTS)
+    ax.text(0.545, 0.110, "non-match: channel 2", ha="left", va="center",
+            fontsize=ps.TICK_PT, color=ps.TASK_DMTS)
+    ax.text(0.50, 0.010, "both channels held at 0 until the go cue", ha="center", va="center",
+            fontsize=ps.TICK_PT, color=ps.MUTED)
+
+
+def check_text(fig):
+    """Report text below the house minimum and pairs of overlapping text boxes.
+
+    Args:
+        fig: the drawn figure (drawn once so that every text has a window extent).
+    Returns:
+        (list of strings under ps.MIN_PT, list of overlapping text pairs as string tuples).
+    """
+    fig.canvas.draw()
+    r = fig.canvas.get_renderer()
+    texts = [t for t in fig.findobj(plt.Text) if t.get_visible() and t.get_text().strip()]
+    small = [t.get_text() for t in texts if t.get_fontsize() < ps.MIN_PT]
+    boxes = [(t.get_text(), t.get_window_extent(r)) for t in texts]
+    over = [(a, b) for k, (a, ba) in enumerate(boxes) for b, bb in boxes[k + 1:]
+            if ba.overlaps(bb) and ba.intersection(ba, bb).width * ba.intersection(ba, bb).height > 4]
+    return small, over
 
 
 def main():
-    """Assemble Supplementary Figure S0 and write it. Returns the output path."""
+    """Assemble Supplementary Fig. 1 at its printed size (165.1 x 140 mm) and write it.
+
+    Returns:
+        the path of the PDF.
+    """
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 172 * ps.MM))
-    # the gutter has to hold both brace levels and their labels, which hang left of the axes by
-    # about 0.27 of its width - hence the wspace, and hence the outer brace label being upright
-    gs = GridSpec(3, 2, figure=fig, width_ratios=[0.76, 1.30], hspace=0.62, wspace=0.44)
+    fig = ps.figure(H_MM)
+    # explicit margins: the gutter holds both brace levels and their labels, which hang left of the
+    # channel axes by about a quarter of its width; the right margin holds "input" / "target"
+    gs = GridSpec(3, 2, figure=fig, width_ratios=[0.80, 1.30], hspace=0.62, wspace=0.40,
+                  left=0.045, right=0.965, top=0.935, bottom=0.065)
 
     # rows in the order Methods and Results introduce the tasks: 3BFF, CDDM, DMTS
     for row, (name, pic, letter) in enumerate([("NBitFlipFlop", pic_flipflop, "a"),
@@ -445,14 +471,16 @@ def main():
         inp, tgt, epochs, dt_over_tau, pending = build(name)
         ax_p = fig.add_subplot(gs[row, 0])
         pic(ax_p)
-        ax_p.set_title(TASKS[name]["title"], fontsize=7.2, color=ps.INK, loc="left", pad=15)
-        ps.panel_letter(ax_p, letter, dx=-0.09, dy=1.10)
+        ax_p.set_title(TASKS[name]["title"], fontsize=ps.LABEL_PT, fontweight="bold",
+                       color=ps.INK, loc="left", pad=14)
+        ps.panel_letter(ax_p, letter, x_mm=6.0, y_mm=4.9)
         channel_stack(fig.add_subplot(gs[row, 1]), inp, tgt, epochs, dt_over_tau, TASKS[name],
                       pending)
         print(f"  {name:13} {inp.shape[0]} inputs x {inp.shape[1]} steps "
               f"({inp.shape[1] * dt_over_tau:.0f} tau) -> {tgt.shape[0]} outputs; "
               f"epochs {[(a, b) for a, b, _ in epochs]}")
-
+    small, over = check_text(fig)
+    print(f"  text under {ps.MIN_PT} pt: {small or 'none'}; overlapping text: {over or 'none'}")
     return ps.save(fig, "fig_supp_tasks")
 
 

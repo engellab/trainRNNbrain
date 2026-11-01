@@ -17,9 +17,12 @@ HELD-OUT MEANS WHAT THE TASK CAN WITHHOLD.
   CDDM          coherences INTERLEAVED with the training grid - the midpoint of each adjacent pair,
                 so every condition lies inside the trained range and none was seen. This is the batch
                 `run_experiment` already builds for its validation probe.
-  NBitFlipFlop  a fresh draw: the input stream is sampled per batch, so new draws are unseen by
-                construction.
-  DMTS          a fresh draw, for the same reason.
+  NBitFlipFlop  a fresh draw from HELDOUT_SEED. The trial space is so large that the expected number
+                of the 256 held-out trials also drawn in a 200,000-iteration training run is below
+                0.001 (methods-r2, 1 Nov 2026), so the trials are new in practice.
+  DMTS          NOT held out in its trials. A DMTS trial is fixed by its sample-test pair and two onset
+                shifts in [-10, 9]: 4 x 20 x 20 = 1,600 noise-free trials, every one of which training
+                visits. Only the noise draws are new (dead-relu-paper #71).
 
 THE SCORE IS REPEATABLE (since 2026-10-14, Pavel: "it's ok to apply the fix project-wide"). Before,
 two scores of the same weights differed: a sampled task (flip-flop, DMTS) has `task.seed: None`, so its
@@ -92,10 +95,13 @@ def _params(net_dir):
 
 
 def heldout_batch(cfg):
-    """Inputs, targets and mask the network never trained on, the same on every call.
+    """Inputs, targets and mask of the held-out batch, the same on every call.
 
     The task's generator is seeded with HELDOUT_SEED, so a sampled task (flip-flop, DMTS) returns
-    the same trials every time; training drew from an unseeded generator, so they are still unseen.
+    the same trials every time. Training drew from another stream: unseeded before 15 Oct 2026, and
+    since then seeded from the run seed (the task configs' `seed: ${seed}`). For the flip-flop that
+    makes the held-out trials new in practice; DMTS has only 1,600 distinct noise-free trials, all of
+    them trained on, so only its noise draws are new (see the module docstring).
 
     Args:
         cfg: the run's saved config.
