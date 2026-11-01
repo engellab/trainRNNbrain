@@ -33,7 +33,7 @@ bird's-eye view of what works.
 
 | # | Claim | Status | What remains |
 |---|---|---|---|
-| C1 | Training leaves most units inactive, and a network retrained without them loses no R² | **Done**: Figure 1 rebuilt (a-d) and panel d re-run at the current floor, rule passed (31 Oct) | Pavel: confirm the 3BFF N = 1000 straggler stays excluded (it now reads out: 277 active) |
+| C1 | Training leaves most units inactive, and a network retrained without them scores within 0.004 R² of the intact network retrained the same way | **Done**: Figure 1 rebuilt (a-d) and panel d re-run at the current floor, rule passed (31 Oct) | Pavel: confirm the 3BFF N = 1000 straggler stays excluded (it now reads out: 277 active) |
 | C2 | Bigger networks keep a smaller share of units active | **Done**; Figure 1 synced to the paper 15 Oct | — |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
 | C4 | On CDDM ~300 of 1,000 units are silent (never fire, no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Done**: in the paper as sec:mechanism (16 Oct) | Paper-wide pass for the silent / low-active terms (Pavel to confirm) |
@@ -44,14 +44,14 @@ bird's-eye view of what works.
 **C1.** Figure 1 (round 1, entries 2026-10-31_1702 and 1755). Active units at N = 1000, each run of
 the size series read at 1.05× its floor (read-out 79932ef): 3BFF 278 ± 33 (296, 297, 240; the
 straggler s3374117298 stays excluded and would read 277), CDDM 431 ± 10, DMTS 218 and 422 (a third
-run has no read-out), at held-out R² 0.95, 0.83 and 0.999 (estimated from the end of training). No
-network has half its units active. Ablation, re-run on 31 Oct at each network's current crossing on
+run has no read-out), at held-out R² 0.95, 0.83 and 0.999 (estimated from the end of training).
+Ablation, re-run on 31 Oct at each network's current crossing on
 three snapshot networks per task: removing every inactive unit leaves CDDM at 0.83 (changes of
 −0.003 to 0.000) and lowers 3BFF from 0.95 to 0.26-0.52 and DMTS from 0.999 to 0.75-0.99; as many
 random units take every network to 0.09 or below. A 3,000-iteration retrain without the inactive
 units ends within 0.004 of the intact network retrained the same way on every task (3BFF 0.945-0.948
 against 0.949-0.950); random pruning plus retrain reaches 0.920-0.930 on 3BFF but costs nothing on
-CDDM (0.821-0.828). The pre-registered rule (entry 1702) passes in all nine networks. At the end of
+CDDM (0.821-0.828); on DMTS it reaches 0.998 in two networks and 0.419 in s3322309204. The pre-registered rule (entry 1702) passes in all nine networks. At the end of
 training, 36 networks of 500-4000 units (Extended Data Fig. 2): removing the inactive units changes
 R² by −0.010 to +0.001 on CDDM and −0.046 to −0.001 on DMTS.
 
