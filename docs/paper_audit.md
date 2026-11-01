@@ -38,7 +38,7 @@ bird's-eye view of what works.
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
 | C4 | On CDDM ~300 of 1,000 units are silent (never fire, no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Done**: in the paper as sec:mechanism (16 Oct) | Paper-wide pass for the silent / low-active terms (Pavel to confirm) |
 | C5 | Settings move the active count at the floor by ≤ ~120 units; input-weight scale raises it but those networks then lose units faster | **Done**: sec:knobs rewritten, Figure 2 synced (16 Oct) | — |
-| C6 | Rules that give participation its own drive recruit units at a small cost | **Partly done**: remedies read at the floor and A3 done (31 Oct, entry 2026-10-31_1732); B2 failed its rule | Build Figure 3; Pavel to decide how rescaling and read-out dropout are reported above N = 1000 (needs-pavel issue dead-relu-paper#16) |
+| C6 | Rules that give participation its own drive recruit units at a small cost | **Done, pending #16**: remedies read at the floor and A3 done (31 Oct, entry 2026-10-31_1732); B2 failed its rule; Figure 5, Results 5, ED Figs 8-9 and ED Tables 3 and 5 built (entry 2026-10-31_1953, dead-relu-paper#9) | Pavel to decide how rescaling and read-out dropout are reported above N = 1000 (dead-relu-paper#16; Figure 5c follows option 1) |
 | C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running**; B4 supports "cannot be called back" at N = 1000 and 4000 (31 Oct); B3 waits on Pavel (dead-relu-paper#17) | Pavel's B3 decision |
 
 **C1.** N = 1000, three networks per task, each read at its floor. Active units: CDDM about 430 of
@@ -93,7 +93,9 @@ rule: no run at N = 500 or 1000 reaches a floor read, and at N = 2000 it costs 0
 1.54× at N = 2000, and 5.64× against 1.60× at 4000. A3 (75k): removing the recruited units (active
 units beyond the control's count, least participating first) lowers R² from 0.93-0.95 to 0.18-0.62
 in every remedy at N = 1000 and 4000. For read-out dropout and the rate penalty, that cost equals
-removing as many random active units.
+removing as many random active units. Figure 5 (entry 2026-10-31_1953) draws rescaling and read-out
+dropout at 75k at every size (#16, option 1); at 1.20x their floor margin has reads in 15 of 16 runs at
+N ≥ 2000, giving 1.60-1.90x (dropout) and 1.23-1.81x (rescaling) across N = 500-4000 (ED Fig. 9).
 
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
@@ -105,7 +107,8 @@ rescaling): the rule binds at the floor, where its literal verdict is "supports 
 reached only through its stability clause. Rate+noise reads at the floor and rate alone does not,
 because its loss is still falling at 200k. Rate+noise has 970 active units against 556 for noise
 alone, at a cost of 0.04 in R². At 75k the verdict is between the bars. Decision with Pavel
-(dead-relu-paper#17).
+(dead-relu-paper#17). Figure 5f and ED Table 5 state both read-outs; Results 5 follows option 2 (B3
+is not taken as support for combining rules) until Pavel answers.
 
 ## The remedies catalogue
 
@@ -118,10 +121,10 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
 |---|---|---|---|---|
 | Rate penalty | Bio-inspired | Two-sided penalty around a target rate | CDDM: all 1000; flip-flop 4.8× at N = 2000, 5.6× at 4000 | Flip-flop alone (B2): unstable at N ≤ 1000, −0.024 R² at N = 2000; its multiplier is above synaptic noise's |
 | Noisy synapses | Bio-inspired | Each weight × (1 + σ_w·noise), every step | 2.03×; 1.60× at N = 4000 (read in 14 of 14 runs, N = 500-4000) | −0.021 to −0.025 R² at N ≥ 1000 |
-| Rescaling incoming weights | Bio-inspired | Tilts a silent unit's input row toward its positive weights, at fixed length, until a release target | 1.51× (1 of 4 runs read); 1.95× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000: loss still falling at 200k (dead-relu-paper#16) |
+| Rescaling incoming weights | Bio-inspired | Tilts a silent unit's input row toward its positive weights, at fixed length, until a release target | 1.51× (1 of 4 runs read); 1.95× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000: loss still falling at 200k (dead-relu-paper#16); 1.23-1.81× at 1.20× the floor (ED Fig. 9) |
 | Threshold lift | Bio-inspired | Raises a silent unit's bias once | 1.36× | Screen only |
 | Prune-and-duplicate | Engineering | Overwrites a silent unit with a jittered copy of a working one | 2.77×; 3.59× at N = 4000 | −0.005 R² at N = 1000, −0.018 at 4000; fails on DMTS above N = 500 |
-| Read-out dropout | Engineering | Randomly hides busy units from the read-out | 1.81× (1 of 3 runs read); 2.01× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000 (dead-relu-paper#16); fails on DMTS |
+| Read-out dropout | Engineering | Randomly hides busy units from the read-out | 1.81× (1 of 3 runs read); 2.01× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000 (dead-relu-paper#16); 1.60-1.90× at 1.20× the floor (ED Fig. 9); fails on DMTS |
 | Full dropout | Engineering | Randomly removes busy units from the dynamics | 904/1000 | Parked: costs 12-17 R² points |
 | Redraw silent units | Engineering (≈ continual backprop / ReDo) | Re-initialises a silent unit | 0.84-0.96× | Negative (Figure 2) |
 | Rate + sparsity | Bio-inspired pair | Both penalties | 3.51×; 5.87× at N = 4000 (1 run) | Parked; the rate penalty alone replaces it |
