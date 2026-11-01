@@ -40,17 +40,21 @@ matplotlib.use("Agg")
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.legend_handler import HandlerTuple
 from matplotlib.lines import Line2D
-from matplotlib.ticker import NullFormatter, NullLocator
+from matplotlib.ticker import FuncFormatter, NullFormatter, NullLocator
 
 import paperstyle as ps
 from common import FLOOR_DELTAS, HOLD_FRAC
 from fig_paper_F2_size import (COLLECT, ORACLE_DIR, REPO, SIZES, TASK_COL, TASKS, apply_decisions,
-                               check_overlaps, is_read, seed_of)
+                               check_overlaps, is_read, network_offsets, seed_of)
 
 BATCH_NOISE = os.path.join(REPO, "data", "fig_ed_readout_batch_noise.json")
 CDDM_DEFAULT = "CDDM_c1_snapshots__EqType=h_N=1000_arm=control__s"   # oracle folder prefix
 N_BOOT_BATCH = 1000          # bootstrap resamples over batches (entry 2026-11-01_0118)
 BATCH_SEED = 20261101
+# panels c-d: every value is read at the floor crossing, so every marker is filled (dead-relu-paper
+# #83); default networks and networks with scaled input weights differ by shape
+DEFAULT_MARK = "o"
+SCALED_MARK = "^"
 ED3_H_MM = 102.0             # printed height: at most 0.45 \textheight (102.9 mm), the float cap; width 165.1 mm
 
 
@@ -173,6 +177,8 @@ def panel_examples(axes, rec):
                xlabel="training iteration")
         ax.set_xticks([1e2, 1e3, 1e4, 1e5])
         ps.count_ticks(ax.xaxis)
+        ax.xaxis.set_major_formatter(FuncFormatter(     # every other decade, as Fig. 2d (#86)
+            lambda v, _pos: ps.fmt_count(v) if round(np.log10(v)) % 2 == 0 else ""))
         # loss ticks as plain decimals, at 1-2-5 steps inside the range
         cand = np.array([m * 10.0 ** e for e in range(-6, 1) for m in (1, 2, 5)])
         ticks = cand[(cand >= lo) & (cand <= hi)]
@@ -196,15 +202,23 @@ def panel_tstar(ax, rec):
         dict task -> {N: mean t*}.
     """
     means = {}
+    n_cddm = {}       # CDDM networks per size: DMTS's row of points starts after them
+    for r in rec["series"]:
+        if r["task"] == "CDDM" and is_read(r):
+            n_cddm[r["N"]] = n_cddm.get(r["N"], 0) + 1
     for task in TASKS:
         rows = [r for r in rec["series"] if r["task"] == task and is_read(r)]
         Ns = np.array([r["N"] for r in rows], float)
         ts = np.array([r["t_star"] for r in rows])
-        ax.plot(Ns * (1 + 0.04 * (TASKS.index(task) - 1)), ts, "o", ms=ps.SMALL_MARKER_PT,
-                color=TASK_COL[task], alpha=0.5, mec="none")
         uN = np.unique(Ns)
+        for n in uN:      # one point per network beside its size's mean, as in Fig. 2a,b
+            v = ts[Ns == n]
+            before = n_cddm.get(n, 0) if task == "DMTS" else 0
+            ax.plot(n * 10 ** network_offsets(task, len(v), before), v, "o", ms=ps.SMALL_MARKER_PT,
+                    mew=0, **ps.mark_floor(TASK_COL[task]))
         m = [ts[Ns == n].mean() for n in uN]
-        ax.plot(uN, m, "o-", ms=ps.MARKER_PT, lw=ps.DATA_LW, color=TASK_COL[task], label=task)
+        ax.plot(uN, m, "o-", ms=ps.MARKER_PT, lw=ps.DATA_LW, color=TASK_COL[task], label=task,
+                **ps.mark_floor(TASK_COL[task]))
         means[task] = dict(zip(uN.astype(int), m))
     ax.set(xscale="log", yscale="log", xlim=(75, 5500), ylim=(8_000, 160_000),
            xlabel=ps.LABELS["size"], ylabel="floor crossing $t^*$ (iterations)")
@@ -244,19 +258,20 @@ def panel_snapshot(ax_c, ax_d, rec, noise):
         tr = np.array([x["t_rule"] for x in o])
         diff = (tr / to - 1) * 100
         split = default.any() and (~default).any()      # CDDM: defaults left, scaled inputs right
-        for mask, mfc, centre, step in ((default, TASK_COL[task], -0.2 if split else 0.0, 0.12),
-                                        (~default, "white", 0.18, 0.028)):
-            ax_c.plot(to[mask], tr[mask], "o", ms=ps.MARKER_PT, color=TASK_COL[task], mfc=mfc,
-                      mew=0.7, zorder=4)
+        for mask, is_default, centre, step in ((default, True, -0.2 if split else 0.0, 0.12),
+                                               (~default, False, 0.18, 0.028)):
+            mk = DEFAULT_MARK if is_default else SCALED_MARK
+            ax_c.plot(to[mask], tr[mask], mk, ms=ps.MARKER_PT, mew=0, zorder=4,
+                      **ps.mark_floor(TASK_COL[task]))
             n = int(mask.sum())
             xs = k + centre + step * (np.arange(n) - (n - 1) / 2)
-            if mfc != "white" and not split:
+            if is_default and not split:
                 xs = k + np.linspace(-0.12, 0.12, max(n, 1))[:n]
-            ax_d.plot(xs, diff[mask], "o", ms=ps.MARKER_PT, color=TASK_COL[task], mfc=mfc,
-                      mew=0.7, zorder=4)
+            ax_d.plot(xs, diff[mask], mk, ms=ps.MARKER_PT, mew=0, zorder=4,
+                      **ps.mark_floor(TASK_COL[task]))
             for x, xo in zip(np.array(o)[mask], xs):
                 seed = x["name"].split("__s")[-1]
-                if mfc != "white" and seed in noise:
+                if is_default and seed in noise:
                     b = noise[seed]
                     lo, hi = (b["t_rule"] / b["hi"] - 1) * 100, (b["t_rule"] / b["lo"] - 1) * 100
                     ax_d.plot([xo, xo], [lo, hi], "-", color=TASK_COL[task], lw=0.8, zorder=3)
@@ -272,10 +287,10 @@ def panel_snapshot(ax_c, ax_d, rec, noise):
         axis.set_ticks([3_000, 10_000, 30_000, 100_000])
         axis.set_minor_locator(NullLocator())
         ps.count_ticks(axis)
-    ax_c.legend(handles=[Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, color=ps.INK,
-                                label="default network"),
-                         Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, color=ps.INK,
-                                mfc="white", mew=0.7, label="input weights scaled")],
+    ax_c.legend(handles=[Line2D([], [], ls="none", marker=DEFAULT_MARK, ms=ps.MARKER_PT, color=ps.INK,
+                                mew=0, label="default network"),
+                         Line2D([], [], ls="none", marker=SCALED_MARK, ms=ps.MARKER_PT, color=ps.INK,
+                                mew=0, label="input weights scaled")],
                 loc="upper left", borderaxespad=0.2, handletextpad=0.2)
     ps.ygrid(ax_c)
     ax_d.axhspan(-10, 10, color=ps.GRID, lw=0, zorder=0)
