@@ -11,7 +11,8 @@ and the combination test is inconclusive (dead-relu-paper#17). Drawn at its prin
        and the ring that marks an R^2 computed from weights saved inside a loss burst or a stretch of
        non-finite loss (dead-relu-paper#18; rule fixed in notebook 2026-11-01_0745).
   (a)  N = 1,000: active units at every participation probe over 200,000 iterations, median over
-       each rule's networks and over the control networks (traces collected by fig5_burst_check.py).
+       each rule's networks and over the control networks (traces collected by fig5_burst_check.py);
+       each rule's marker every 25,000 iterations.
   (b)  N = 1,000 at 75,000 iterations: active units against held-out R^2, every network (the intact
        scores of the removal analysis, a3_remedy_ablation.py, 9 noise draws).
   (c)  top: fold change (a network's active count over the control networks' mean, same N, same
@@ -317,8 +318,10 @@ def panel_traces(ax, series, traces):
         it = runs[0][0]
         assert all(np.array_equal(r[0], it) for r in runs), f"probe iterations differ in {cell}"
         med = np.median(np.vstack([r[1] for r in runs]), axis=0)
+        # a marker every 25,000 iterations: shape, not only lightness, tells the two ochre rules apart
         ax.plot(it, med, color=COL[fam], lw=0.6 if fam == "frm" else ps.DATA_LW,
-                zorder=1 if fam == "frm" else 2)
+                zorder=1 if fam == "frm" else 2, marker=MARK[fam], ms=3.2, mec=COL[fam],
+                markevery=(int(np.argmin(np.abs(it - 25000))), int(round(25000 / np.median(np.diff(it))))))
         j = int(np.argmin(np.abs(it - 75000)))
         out[fam] = (len(runs), float(med[j]), float(med[-1]))
     ax.set_xlim(0, 200000)

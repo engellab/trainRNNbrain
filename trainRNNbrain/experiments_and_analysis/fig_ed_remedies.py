@@ -10,7 +10,8 @@ Round 2 (dead-relu-paper#55): drawn at the printed width, 165.1 mm, in the house
               median) and the active count at every participation probe, every network, with each
               network's own floor crossing (1.05x) where one exists (common.read_run).
               d, held-out R^2 at the floor crossing against N, rate penalty and control networks,
-              with the test's fail threshold (the control networks' mean minus 0.02).
+              filled where measured on kept weights and open where estimated (every control value
+              is estimated), with the test's fail threshold (the control networks' mean minus 0.02).
   ED Fig. 8   fold change against N for every size-series rule, at the crossings of 1.05x, 1.10x
               and 1.20x each network's own fitted floor. A network with no crossing at 1.05x because
               its loss is still falling at 200,000 iterations ("never stays under the bar") is
@@ -200,7 +201,12 @@ def ed_rate_alone(series):
     ax = fig.add_axes([x_d, 0.15, 0.985 - x_d, 0.74])
     for N in SIZES:
         c = series["control"][N]
-        ax.scatter(np.full(len(c["r2"]), N * 0.94), c["r2"], s=8, color=ps.BASELINE, zorder=3)
+        cm = np.asarray(c["r2_measured"], bool)          # every control R^2 here is estimated
+        cr = np.asarray(c["r2"], float)
+        ax.scatter(np.full(cm.sum(), N * 0.94), cr[cm], s=8, color=ps.BASELINE, zorder=3)
+        ax.scatter(np.full((~cm).sum(), N * 0.94), cr[~cm], s=8, facecolor="none",
+                   edgecolor=ps.BASELINE, lw=0.7, zorder=3)
+        print(f"ED7d N={N}: control R2 measured {cm.tolist()}")
         f = series["frm"].get(N)
         if f is not None and len(f["r2"]):
             meas = np.asarray(f["r2_measured"], bool)
@@ -222,9 +228,10 @@ def ed_rate_alone(series):
     ax.set_xlabel(ps.LABELS["size"])
     ax.set_ylabel("held-out $R^2$ at the floor crossing")
     style_axes(ax)
-    h = [Line2D([], [], marker="o", color=ps.BASELINE, ls="none", ms=3, label="control"),
-         Line2D([], [], marker="o", color=COL["frm"], ls="none", ms=3, label="measured"),
-         Line2D([], [], marker="o", mfc="none", color=COL["frm"], ls="none", ms=3,
+    h = [Line2D([], [], marker="s", color=ps.BASELINE, ls="none", ms=3, label="control"),
+         Line2D([], [], marker="s", color=COL["frm"], ls="none", ms=3, label="rate penalty"),
+         Line2D([], [], marker="o", color=ps.INK, ls="none", ms=3, label="measured"),
+         Line2D([], [], marker="o", mfc="none", color=ps.INK, ls="none", ms=3,
                 label="estimated"),
          Line2D([], [], color=ps.INK, ls=":", lw=0.6, label="fail threshold")]
     ax.legend(handles=h, loc="upper center", fontsize=ps.TICK_PT, handletextpad=0.3,
