@@ -90,10 +90,13 @@ def describe(fam, s, shown, sweep=""):
     if fam == "dropout":
         return f"$q = {s['drop_rate']:g}$, $\\beta = {s['dropout_beta']:g}$"
     if fam == "duplicate":
-        parts = [f"$s = {s['copy_noise']:g}$",
-                 "length kept" if s.get("copy_norm_preserve", False) else "length not kept",
-                 f"{s['max_replace_frac']:g}$N$ per check",
-                 f"wait {s['maturity']:,}" if s["maturity"] else "no wait"]
+        parts = [f"$s = {s['copy_noise']:g}$"]
+        if not s.get("copy_norm_preserve", False):
+            parts.append("length not kept")
+        if s["max_replace_frac"] != shown["max_replace_frac"]:
+            parts.append(f"{s['max_replace_frac']:g}$N$ per check")
+        if s["maturity"] != shown["maturity"]:
+            parts.append(f"wait {s['maturity']:,}" if s["maturity"] else "no wait")
         return ", ".join(parts)
     if fam == "rescale":
         if float(s.get("rescale_target_frac", 0.0)) <= 0:
@@ -233,10 +236,13 @@ def print_tex(rows):
             dr2 = tex_signed(r["dr2_75k"]) + ("$^\\P$" if r["r2_note"] == "a3" else "") + \
                 (f"$^\\dagger$" if r["n_bad"] else "")
             ff = "--" if r["fold_floor"] is None else f"{r['fold_floor']:.2f}"
+            setting = "\\raggedright " + setting       # wrapped lines are not justified
+            act = f"{r['active_75k']:,.0f}".replace(",", "{,}")
             name = r["name"] if " " in r["name"] else \
                 f"\\texttt{{{r['name'].replace('_', chr(92) + '_')}}}"
             print(f"{name} & {setting} & {n} & "
-                  f"{r['n_75k']} & {r['active_75k']:.0f} & {r['fold_75k']:.2f} & {dr2} & "
+                  f"{r['n_75k']} & {act} & "
+                  f"{r['fold_75k']:.2f} & {dr2} & "
                   f"{r['n_cross']}/{r['n_runs']}, {ff} \\\\")
         if fam != ORDER[-1]:
             print("\\addlinespace")
