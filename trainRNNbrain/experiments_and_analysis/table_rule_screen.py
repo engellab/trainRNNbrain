@@ -172,7 +172,8 @@ def print_tex(rows):
         tr = f"{r['trained']:,}".replace(",", "{,}")
         g = "$^\\gamma$" if r["gamma"] else ""
         sweep = "\\texttt{" + r["sweep"].replace("_", "\\_") + "}"
-        print(f"\\raggedright {r['kind']}{g} & {sweep} {tex_cell(r['cell'])} & {n} & {r['n']} & "
+        print(f"\\raggedright {r['kind']}{g} & \\raggedright {sweep} {tex_cell(r['cell'])} & {n} & "
+              f"{r['n']} & "
               f"{tr} & {act} & {r['fold']:.2f} \\\\")
 
 
