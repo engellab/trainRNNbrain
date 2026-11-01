@@ -114,6 +114,17 @@ C3_EXTRA = [("N=4000", "NBitFlipFlop_paper_grid_c200000/EqType=h_N=4000_arm=cont
 # continuation's paths.init_from in NBitFlipFlop_c1_snapshots_c300000 (read on Della, 31 Oct).
 C3_CONTINUED = {"3204992658": "4113307577", "3194339211": "2461724787"}
 TASKNAME = {"NBitFlipFlop": "3BFF", "CDDM": "CDDM", "DMTS": "DMTS"}
+# Size-series cells whose networks are the transfer-test sources of Fig. 4e,f (task, N). At N = 4,000
+# the old sources are this cell's 200,000-iteration networks and the young ones the same networks at
+# 75,000 iterations: paths.transfer_from of NBitFlipFlopHyper_b4_transfer/EqType=h_N=4000_src=
+# control_age=old names the three NBitFlipFlop_paper_grid_c200000 N=4000 control folders, and of
+# ..._age=young the three NBitFlipFlop_paper_grid_c75000 folders that are those networks'
+# paths.init_from (saved configs on Della, read by the PR #119 reviewer, 1 Nov). The young sources'
+# active counts at transfer (588, 502, 544; data/remedy_reads_31oct/read_b2_b4.json) equal the
+# 75,000-iteration counts (589, 502, 544; data/c1_ablation_seeded) to within one unit
+# (dead-relu-paper #111). The N = 1,000 sources are the
+# Fig. 1d networks, marked in tex_row.
+TRANSFER_SOURCES = {("3BFF", 4000)}
 # Supplementary Table 1's Fig. column marks the 35 size-series networks that Extended Data Fig. 1
 # (removing inactive units) tests, by task and table seed (dead-relu-paper #97, #89). Set read from
 # fig_supp_ablation.py on trainRNNbrain wp/fig1-r3, notebook entry 2026-11-01_1003: every size-series
@@ -800,6 +811,8 @@ def tex_row(r, in_e):
         # Fig. 4a-c draws the same weights as Fig. 1d for these six networks (dead-relu-paper #100,
         # #91); the 3BFF ones are also the old networks of Fig. 4e,f
         fig += ", 4a--c" + (", 4e,f" if r["task"] == "3BFF" else "")
+    if r["role"] == "size series" and (r["task"], r["N"]) in TRANSFER_SOURCES:
+        fig += ", 4e,f"      # transfer-test source at N = 4,000, young and old (dead-relu-paper #111)
     if r["role"] == "size series" and r["seed"] in ED1_NETWORKS[r["task"]]:
         fig = "ED1" if fig == "--" else fig + ", ED1"      # tested in Extended Data Fig. 1
     note = re.sub(r" \(held-out R\$\^2\$ [0-9.]+\)", "", note)   # the R^2 column already shows it
@@ -827,11 +840,16 @@ def write_table(rec):
     assert len(in_e) == len(rec["c3"]) and sorted(hits) == sorted(in_e), (sorted(in_e), hits)
     n_ed1 = sum(r["role"] == "size series" and r["seed"] in ED1_NETWORKS[r["task"]] for r in rows)
     assert n_ed1 == sum(len(v) for v in ED1_NETWORKS.values()) == 35, n_ed1
+    lines = [tex_row(r, in_e) for r in rows]
+    # Fig. 4e,f draws six 3BFF networks: three at N = 1,000 (Fig. 1d) and three at N = 4,000 (#111)
+    n_4ef = [r["N"] for r, line in zip(rows, lines) if "4e,f" in line.split(" & ")[3]]
+    assert all(r["task"] == "3BFF" for r, line in zip(rows, lines) if "4e,f" in line.split(" & ")[3])
+    assert sorted(n_4ef) == [1000] * 3 + [4000] * 3, n_4ef
     path = os.path.join(IMG_DIR, "edt2_runs_rows.tex")
     with open(path, "w") as fh:
         fh.write("% written by fig_paper_F2_size.py from data/fig_paper_F2_size_collect.pkl\n")
-        for r in rows:
-            fh.write(tex_row(r, in_e) + "\n")
+        for line in lines:
+            fh.write(line + "\n")
     print(f"wrote {path} ({len(rows)} rows)")
     return path
 
