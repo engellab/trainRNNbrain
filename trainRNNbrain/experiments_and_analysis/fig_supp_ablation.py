@@ -49,9 +49,9 @@ SIZES = [500, 1000, 2000, 4000]
 Y_FLOOR = -0.5
 JITTER = 0.30                  # half-width, in size slots, over which a size's networks are spread
 
-FIG_H_MM = 100.0
-ROW_A = (13.0, 30.0)           # (top, height) of row a, mm from the canvas top
-ROW_B = (60.0, 28.0)           # (top, height) of row b
+FIG_H_MM = 90.0                # under the float's 0.40 \\textheight cap (91.4 mm), so it prints at 100%
+ROW_A = (12.0, 27.0)           # (top, height) of row a, mm from the canvas top
+ROW_B = (55.0, 25.0)           # (top, height) of row b
 LEFT_MM, PANEL_W_MM, GAP_MM = 14.0, 45.0, 6.5   # first column's left edge, column width, gap
 LETTER_X_MM = 1.0
 
