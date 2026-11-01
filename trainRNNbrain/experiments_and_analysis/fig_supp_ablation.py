@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
 """
-Extended Data Fig. 1 of the paper (companion of Figure 1d): removing the inactive units of every
-default network of the size series, at every size (round 2, dead-relu-paper#52; #45, #38 items 4-5).
+Extended Data Fig. 1 of the paper (companion of Figure 1d): removing the inactive units of 35 default
+networks of 500-4,000 units (round 2, dead-relu-paper#52; #45, #38 items 4-5; round 3, #89, #83).
+
+THE SET IS NOT THE SIZE SERIES (#89). It is every network the ablation of 14 Oct was run on: 34 of
+the 37 networks Fig. 2a fits at N >= 500, plus DMTS s2946835052 (learned the task, no floor crossing:
+its loss ends below its fitted floor). Not in it: 3BFF s4186074845 (trained in one 200,000-iteration
+run, MI=200000 in its folder name, so it has no 75,000-iteration run to ablate), DMTS s632794669
+(N = 2,000) and s2627187151 (N = 4,000), and every N = 100 network; all of these were trained after
+14 Oct (notebook 2026-10-15_2213, 2026-10-31_1532). The 15 3BFF files are the second runs
+(`NBitFlipFlop_*_c75000`) of the 15 three-run chains; their seeds are the second runs' own, not the
+size-series folder seeds of Supplementary Table 1. main() prints the set by task, size and seed.
 
 Figure 1(d) draws the removal curves at N = 1,000. This figure shows the same test on every network
 the ablation was run on - three tasks, N = 500 to 4,000 - one column per task:
 
-  (a) held-out R^2 of each network intact (ink dash), with every inactive unit removed (filled) and
-      with as many units removed in random order (open, mean of five orders), against network size
-      N on the x axis. N is an axis, so marker size encodes nothing.
+  (a) held-out R^2 of each network intact (ink dash), with every inactive unit removed (circle) and
+      with as many units removed in random order (triangle, mean of five orders), against network
+      size N on the x axis. N is an axis, so marker size encodes nothing. Every marker is OPEN: no
+      network here is measured at its floor crossing (3BFF at 75,000 iterations, CDDM and DMTS at
+      the end of training), and fill means the floor crossing in every figure (#83).
   (b) the quietest-first removal curve of each network, the x axis in units of the network's own
       inactive count, so x = 1 is the point at which every inactive unit has been removed.
 
@@ -48,6 +59,7 @@ TASKS = [("3BFF", ("NBitFlipFlop_ff_revive_c75000", "NBitFlipFlop_paper_grid_c75
 SIZES = [500, 1000, 2000, 4000]
 Y_FLOOR = -0.5
 JITTER = 0.12                  # half-width, in size slots, over which a size's networks are spread
+MS = 3.4                       # open markers, ps.mark_75k: no network here is at its floor crossing (#83)
 
 FIG_H_MM = 90.0                # under the float's 0.40 \\textheight cap (91.4 mm), so it prints at 100%
 ROW_A = (12.0, 27.0)           # (top, height) of row a, mm from the canvas top
@@ -105,9 +117,9 @@ def panel_a(ax, runs, col):
         for x, r in zip(xs, mine):
             rnd = float(np.mean(r["r2_random_same_count"]))
             ax.plot(x, r["r2_full"], "_", ms=3.6, mew=0.9, color=ps.INK, zorder=5)
-            ax.plot(x, max(r["r2_no_silent"], Y_FLOOR), "o", ms=ps.MARKER_PT, color=col, mec="none",
+            ax.plot(x, max(r["r2_no_silent"], Y_FLOOR), "o", ms=MS, **ps.mark_75k(col),
                     zorder=4, clip_on=False)
-            ax.plot(x, max(rnd, Y_FLOOR), "o", ms=ps.MARKER_PT, mfc="white", mec=col, mew=0.6,
+            ax.plot(x, max(rnd, Y_FLOOR), "^", ms=MS, **ps.mark_75k(col),
                     zorder=3, clip_on=False)
     ax.set(xlim=(-0.6, len(SIZES) - 0.4), ylim=(Y_FLOOR - 0.04, 1.05))
     ax.set_xticks(range(len(SIZES)))
@@ -163,9 +175,9 @@ def main():
     # the legend sits in the strip above row a, off the data
     fig.legend(handles=[
         Line2D([], [], ls="", marker="_", ms=3.6, mew=0.9, color=ps.INK, label="intact network"),
-        Line2D([], [], ls="", marker="o", ms=ps.MARKER_PT, color=ps.MUTED, mec="none",
+        Line2D([], [], ls="", marker="o", ms=MS, **ps.mark_75k(ps.MUTED),
                label="every inactive unit removed"),
-        Line2D([], [], ls="", marker="o", ms=ps.MARKER_PT, mfc="white", mec=ps.MUTED, mew=0.6,
+        Line2D([], [], ls="", marker="^", ms=MS, **ps.mark_75k(ps.MUTED),
                label="as many units removed in random order")],
         loc="upper left", bbox_to_anchor=(LEFT_MM / ps.W_FULL_MM, 1.0 - 2.5 / FIG_H_MM), ncol=3,
         fontsize=ps.TICK_PT, handlelength=1.2, columnspacing=1.6, borderaxespad=0.0, frameon=False)
@@ -179,6 +191,12 @@ def main():
     print(f"  left out (intact R2 under the task minimum): {dropped}")
     n_all = sum(len(v) for v in data.values())
     print(f"  networks drawn: {n_all} (+ {len(dropped)} left out = {n_all + len(dropped)})")
+    for task, _pre, _col, _min in TASKS:          # the exact set, for Methods M06 (#89)
+        for N in SIZES:
+            seeds = sorted(r["label"].split("__s")[1].rsplit("__", 1)[0] for r in data[task]
+                           if r["N"] == N)
+            if seeds:
+                print(f"  {task:5} N = {N:5d}: {len(seeds)} networks, seeds {', '.join(seeds)}")
     for task, _pre, _col, _min in TASKS:
         rs = data[task]
         by_n = {N: sum(r["N"] == N for r in rs) for N in SIZES}

@@ -9,7 +9,9 @@ is computed here beyond reading that file.
 
   (a) participation ratio of the rate covariance
   (b) participation ratio after dividing each unit's rates by their standard deviation
-  (c) selective (filled) and mixed-selective (open) unit counts
+  (c) selective (task marker) and mixed-selective (x) unit counts. Every marker is filled or a
+      cross, never open: the weights are the floor-crossing snapshots, and fill means the floor
+      crossing in every figure (dead-relu-paper#83), so selective and mixed-selective differ by shape
   (d) the same as shares: count / 1,000 against count / active count
   (e) k-means class count k* chosen by silhouette
   (f) class shares of matched classes, one point per matched pair
@@ -31,6 +33,7 @@ OUT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 
 TASKS = ("3BFF", "CDDM", "DMTS")
 MARKER = {"3BFF": "o", "CDDM": "s", "DMTS": "^"}
+MIXED_MARKER = "x"             # mixed-selective units in panels c and d, in the task colour
 # panel e: each network is shifted ALONG the diagonal (the same amount in x and y), so equal values
 # stay on the identity line; tasks get separate stretches of the diagonal, networks 0.1 apart, at most 0.3 from the true value
 K_SHIFT = {"3BFF": (-0.3, -0.2, -0.1), "CDDM": (0.1, 0.2, 0.3), "DMTS": (-0.1, 0.0, 0.1)}
@@ -51,15 +54,19 @@ def identity(ax, lo, hi):
     ax.set_aspect("equal", adjustable="box")
 
 
-def dots(ax, x, y, task, filled=True, ms=ps.MARKER_PT + 0.6):
-    """One network's marker: task colour and task shape, filled or open.
+def dots(ax, x, y, task, mixed=False, ms=ps.MARKER_PT + 0.6):
+    """One network's marker: task colour, and the task's filled shape or, for mixed-selective units in
+    panels c and d, a cross (shape, not fill, carries that distinction; dead-relu-paper#83).
 
     Args:
-        ax: axes; x, y: coordinates; task: "3BFF", "CDDM" or "DMTS"; filled: solid or open marker.
+        ax: axes; x, y: coordinates; task: "3BFF", "CDDM" or "DMTS"; mixed: draw the cross;
+        ms: marker size in points.
     """
     col = ps.TASK_COLORS[task]
-    ax.plot(x, y, MARKER[task], ms=ms, mec=col, mew=0.7, mfc=col if filled else "white",
-            zorder=3, clip_on=False)
+    if mixed:
+        ax.plot(x, y, MIXED_MARKER, ms=ms + 0.4, mec=col, mew=0.8, zorder=3, clip_on=False)
+    else:
+        ax.plot(x, y, MARKER[task], ms=ms, mew=0.7, **ps.mark_floor(col), zorder=3, clip_on=False)
 
 
 def scalar_panel(ax, res, key, lo, hi, title, ticks):
@@ -78,7 +85,7 @@ def scalar_panel(ax, res, key, lo, hi, title, ticks):
 
 
 def selectivity_panel(ax, res, share):
-    """Panels c and d: selective (filled) and mixed-selective (open) units, as counts or shares.
+    """Panels c and d: selective (task marker) and mixed-selective (cross) units, as counts or shares.
 
     Args:
         ax: axes; res: results; share: False for counts, True for count / set size.
@@ -92,10 +99,10 @@ def selectivity_panel(ax, res, share):
         ax.set_xticks([0, 200, 400, 600])
         ax.set_yticks([0, 200, 400, 600])
     for s in res:
-        for key, filled in (("S3a", True), ("S3b", False)):
+        for key, mixed in (("S3a", False), ("S3b", True)):
             v = s[key]
             x, y = (v["act"], v["all"]) if share else (v["n_act"], v["n_all"])
-            dots(ax, x, y, s["task"], filled=filled)
+            dots(ax, x, y, s["task"], mixed=mixed)
     ax.set_title("selective units, share" if share else "selective units, count")
 
 
@@ -167,14 +174,15 @@ def main():
         ax.set_xlabel("over active units")
         ax.set_ylabel("over all units")
         ps.panel_letter(ax, letter)
-    # legends above the panels, outside the data: tasks (shape and colour), and the fill key of c, d
+    # legends above the panels, outside the data: tasks (shape and colour), and the shape key of c, d
     handles = [axes[0].plot([], [], MARKER[t], ms=ps.MARKER_PT + 0.6, mfc=ps.TASK_COLORS[t],
                             mec=ps.TASK_COLORS[t], ls="none")[0] for t in TASKS]
     fig.legend(handles, TASKS, loc="upper left", bbox_to_anchor=(0.06, 0.995), ncol=3,
                frameon=False, handletextpad=0.3, columnspacing=1.2)
     fill = [axes[0].plot([], [], "o", ms=ps.MARKER_PT + 0.6, mfc=ps.INK, mec=ps.INK, ls="none")[0],
-            axes[0].plot([], [], "o", ms=ps.MARKER_PT + 0.6, mfc="white", mec=ps.INK, ls="none")[0]]
-    fig.legend(fill, ["selective", "mixed-selective"], loc="upper right", bbox_to_anchor=(0.985, 0.995),
+            axes[0].plot([], [], MIXED_MARKER, ms=ps.MARKER_PT + 1.0, mec=ps.INK, mew=0.8,
+                         ls="none")[0]]
+    fig.legend(fill, ["selective (task marker)", "mixed-selective"], loc="upper right", bbox_to_anchor=(0.985, 0.995),
                ncol=2, frameon=False, handletextpad=0.3, columnspacing=1.2, title="panels c, d:",
                alignment="left")
     n = check_overlaps(fig)
