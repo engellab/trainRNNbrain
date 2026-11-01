@@ -85,7 +85,9 @@ flip-flop (41% of 500 units active, 14% of 4000), N^0.44 on CDDM (298 of 500, 76
 DMTS (four sizes now; 191 of 500, 620 of 4000 from the one N = 4000 network that reads out). At
 N = 100, 66-90% of units are active (drawn, not fitted). At 1.05×, 1.10× and 1.20× the exponents lie
 between 0.44 and 0.61 and every bootstrap 95% upper bound is below 0.79, so the rule of entry
-2026-10-31_1900 says C2 holds on all three tasks. 1,000 active units would need N ≈ 7,300 on CDDM,
+2026-10-31_1900 says C2 holds on all three tasks. The 0.79 (DMTS at 1.20×) rests on three networks:
+leaving out any one of them gives 0.86-0.87, still below 1, so C2 holds with any one network left out
+(entry 2026-11-01_0957). 1,000 active units would need N ≈ 7,300 on CDDM,
 9,200 on DMTS and 14,200 on the flip-flop. The learning-rate confound (lr ∝ N^−1/3) is left in and
 handled by reading each network at its own floor; mean crossings move from 59.0k to 65.0k (flip-flop) and
 26.7k to 32.5k (CDDM) between N = 500 and 4000, "by about a fifth or less" in Results 2. The fourth flip-flop network at N = 1000
