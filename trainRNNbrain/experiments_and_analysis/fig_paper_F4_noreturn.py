@@ -56,7 +56,6 @@ import pickle
 import sys
 
 import numpy as np
-from matplotlib import font_manager
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from omegaconf import OmegaConf
@@ -189,32 +188,20 @@ TANH_TRACES = os.path.join(LOCAL, "tanh_traces")     # CDDM_std_g0_tanh particip
 B4_JSON = os.path.join(DATA_DIR, "..", "remedy_reads_31oct", "read_b2_b4.json")
 B4_VERDICT_4000 = os.path.join(LOCAL, "b4_verdict_4000.json")
 
-# Class colours: active as in Figure 1b; inactive units split into low-active and silent.
-C_ACT, C_LOW, C_SIL = ps.SLOTS[1], ps.SLOTS[4], ps.FAINT
-# B4 sources: the old and young networks are trained 3BFF networks (3BFF blue, two tints).
-C_OLD, C_YOUNG, C_FRESH = ps.SLOTS[0], "#8db6ea", ps.BASE
-TASK_COL = {"3BFF": ps.SLOTS[0], "CDDM": ps.SLOTS[1]}
-BARS = np.geomspace(0.005, 0.5, 25)                  # ED6b: the reach bar as a fraction of q95
-
-# Panel letters in a bold face. matplotlib registers only the regular face of the Mac's Helvetica
-# (dead-relu-paper#15), so a bold letter needs a family with a registered bold file.
-ARIAL_BOLD = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
-if os.path.exists(ARIAL_BOLD):
-    font_manager.fontManager.addfont(ARIAL_BOLD)
-LETTER_FAMILY = "Arial" if os.path.exists(ARIAL_BOLD) else "DejaVu Sans"
-
-
-def letter(ax, s, dx=-0.085, dy=1.045):
-    """A bold panel letter (paperstyle.panel_letter in a family that has a bold face).
-
-    Args:
-        ax: axes; s: the letter; dx, dy: position in axes coordinates.
-    Returns:
-        the Text artist.
-    """
-    t = ps.panel_letter(ax, s, dx=dx, dy=dy)
-    t.set_fontfamily(LETTER_FAMILY)
-    return t
+# Colours, one meaning each (paperstyle, docs/figure_style.md). Unit classes are neutrals: active
+# near-black, inactive light grey; silent units are the inactive units drawn hollow. Tasks keep
+# their reserved hues and appear only where a panel compares tasks (Extended Data Fig. 6b-e).
+# Networks in the transfer test are ink marks told apart by shape; the untrained (fresh)
+# reference is BASELINE grey, the colour of every untreated reference in the paper.
+C_ACT, C_INA = ps.ACTIVE, ps.INACTIVE
+C_TRACE = ps.INK
+TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM}
+SRC_STYLE = {"old": dict(marker="o", mfc=ps.INK, mec=ps.INK),
+             "young": dict(marker="o", mfc="none", mec=ps.INK),
+             "fresh": dict(marker="s", mfc=ps.BASELINE, mec=ps.BASELINE)}
+REACH_REL = SILENT_REL                               # the reach threshold, as a fraction of q95(g_in)
+BARS = np.geomspace(0.005, 0.5, 25)                  # ED6b: reach thresholds swept, fraction of q95
+F4_H_MM = 140.0                                      # Figure 4 height; the cap is paperstyle.MAX_H_MM
 
 
 def load_c4():
@@ -238,7 +225,10 @@ def load_c4():
                      reach=active_mask(gi), on=n_on / (int(z["ref_T"]) * int(z["ref_B"])),
                      g=gi / np.quantile(gi, 0.95), g_raw=gi, g_torch=z["prod_g_in"], p=z["ref_p"],
                      n_on=n_on, on_trials=z["ref_n_on_trials"], B=int(z["ref_B"]),
-                     near_input=z["ref_n_on_near_input"])
+                     near_input=z["ref_n_on_near_input"],
+                     # 10 training-like batches under the run's own noise: g_in over each batch's q95
+                     g_noisy_rel=z["noisy_g_in"] / np.quantile(z["noisy_g_in"], 0.95, axis=1)[:, None],
+                     n_on_noisy=z["noisy_n_on"], n_samples=int(z["ref_T"]) * int(z["ref_B"]))
             fa = os.path.join(ACT_DIR, f"{task}_s{seed}__act.npz")
             if os.path.exists(fa):
                 za = np.load(fa)
@@ -284,6 +274,16 @@ def report_c4(nets):
             s["class_check"] = int((r["act_0"] != r["act"]).sum())
             print(f"  {r['task']} s{r['seed']}: full-batch re-run at t* differs from the C4 classes in "
                   f"{s['class_check']} units (largest relative p difference {r['p_check']:.1e})")
+        if r["sil"].any():
+            G, On = r["g_noisy_rel"][:, r["sil"]], r["n_on_noisy"][:, r["sil"]]
+            s.update(noisy_on_share=float(np.median(On) / r["n_samples"]), noisy_zero=int((G == 0).sum()),
+                     noisy_n=int(G.size), noisy_med=float(np.median(G)),
+                     noisy_cross=int((G >= REACH_REL).any(0).sum()))
+            print(f"  {r['task']} s{r['seed']}: silent units under the training noise (10 batches): x > 0 on a "
+                  f"median {100 * s['noisy_on_share']:.2f}% of steps; {s['noisy_zero']} of {s['noisy_n']} "
+                  f"per-batch gradients exactly 0; median g_in {s['noisy_med']:.1e} of the batch's q95 "
+                  f"({REACH_REL / s['noisy_med']:.0f}x below the reach threshold); {s['noisy_cross']} units "
+                  f"at or above the threshold in some batch")
         summ.setdefault(r["task"], []).append(s)
         print(f"  {r['task']} s{r['seed']} t*={r['t']}: active {s['active']}, silent {s['silent']} "
               f"(largest g_in {s['sil_gmax']:.1e}; autograd {s['sil_gmax_torch']:.1e}), low-active {s['low']} of which reached {s['low_reached']}; "
@@ -415,17 +415,17 @@ def tanh_traces():
     return out
 
 
-def pick_trace_units(r):
+def pick_trace_units(r, n_candidates=20):
     """Which units and trial panel a draws for one network.
 
-    The active unit is the one with the median participation among active units; the low-active
-    unit is the reached low-active unit whose on-share is nearest the class median (the first such
-    unit that is on in one of the stored trials); the silent unit (CDDM) is the middle one by index.
-    The trial is, among the stored trials on which the low-active unit is on, the one on which the
-    active unit is on for the most steps.
+    The active unit is the one at the 75th percentile of participation among active units. The low-active
+    unit is one of the n_candidates reached low-active units whose share of steps with x > 0 is
+    nearest the class median; among them and the stored trials on which that unit is on at least
+    once, the pair is chosen on which the active unit's largest x_i is highest, so that both
+    classes are visible on one trial. The silent unit (CDDM) is the middle one by index.
 
     Args:
-        r: one load_c4() dict with a trace file.
+        r: one load_c4() dict with a trace file; n_candidates: low-active units considered.
     Returns:
         (x (T, N) of that trial, u (n_in, T), dict class -> unit index, trial index).
     """
@@ -433,17 +433,16 @@ def pick_trace_units(r):
     x = z["x"]
     pick = {}
     a = np.where(r["act"])[0]
-    pick["active"] = a[np.argsort(r["p"][a])[len(a) // 2]]
+    pick["active"] = a[np.argsort(r["p"][a])[(3 * len(a)) // 4]]
     lr = np.where(r["low"] & r["reach"])[0]
-    target = np.median(r["on"][lr])
-    order = lr[np.argsort(np.abs(r["on"][lr] - target))]
-    trial = None
+    order = lr[np.argsort(np.abs(r["on"][lr] - np.median(r["on"][lr])))][:n_candidates]
+    best = None
     for i in order:
-        on_trials = np.where((x[:, i, :] > 0).any(0))[0]
-        if len(on_trials):
-            act_on = (x[:, pick["active"], on_trials] > 0).sum(0)
-            pick["low-active"], trial = i, int(on_trials[np.argmax(act_on)])
-            break
+        for k in np.where((x[:, i, :] > 0).any(0))[0]:
+            score = x[:, pick["active"], k].max()
+            if best is None or score > best[0]:
+                best = (score, i, int(k))
+    _, pick["low-active"], trial = best
     if r["sil"].any():
         s = np.where(r["sil"])[0]
         pick["silent"] = s[len(s) // 2]
@@ -451,61 +450,72 @@ def pick_trace_units(r):
 
 
 def draw_traces(fig, gs_cell, nets):
-    """Panel a: x_i(t) of a silent, a low-active and an active unit, CDDM and 3BFF.
+    """Panel a: x_i(t) of a silent, a low-active and an active unit on one trial, CDDM and 3BFF.
 
     Args:
         fig: figure; gs_cell: the GridSpec cell the panel fills; nets: load_c4() output.
     Returns:
         the top-left axes (for the panel letter).
     """
-    sub = gs_cell.subgridspec(3, 2, hspace=0.25, wspace=0.12)
+    sub = gs_cell.subgridspec(3, 2, hspace=0.3, wspace=0.18)
     first = None
     for col, task in enumerate(("CDDM", "3BFF")):
         rs = [r for r in nets if r["task"] == task and r["trace"]]
         r = sorted(rs, key=lambda q: (q["low"] & q["reach"]).sum())[len(rs) // 2]
         x, u, pick, trial = pick_trace_units(r)
         t = np.arange(x.shape[0]) / 10.0                       # steps of 0.1 tau
-        # input pulses: channels that are on for under 90% of the trial (CDDM's context cue is on
-        # throughout and is left out)
+        # input pulses: channels on for under 90% of the trial (CDDM's context cue, on throughout,
+        # is left out)
         on_ch = np.abs(u) > 0
         inp = on_ch[on_ch.mean(1) < 0.9].any(0)
-        for row, cls, c in ((0, "silent", C_SIL), (1, "low-active", C_LOW), (2, "active", C_ACT)):
+        for row, cls in enumerate(("silent", "low-active", "active")):
             ax = fig.add_subplot(sub[row, col])
             first = first or ax
-            ax.axhline(0, color=ps.MUTED, lw=0.5, ls=":")
+            ax.set_xlim(0, t[-1])
             if cls in pick:
                 xi = x[:, pick[cls]]
-                ax.plot(t, xi, color=c if cls != "silent" else ps.MUTED, lw=0.9)
-                ax.fill_between(t, 0, np.maximum(xi, 0), color=c, alpha=0.5, lw=0)
-                lim = np.abs(xi).max() * 1.15
-                ax.set_ylim(-lim, lim)
+                lim = max(np.abs(xi).max() * 1.15, 1e-3)
+                ax.set_ylim(-lim, lim * 1.35)
+                ax.axhline(0, color=ps.MUTED, lw=ps.THIN_LW, ls=":")
+                ax.plot(t, xi, color=C_TRACE, lw=ps.DATA_LW * 0.8)
+                ax.fill_between(t, 0, np.maximum(xi, 0), color=C_TRACE, alpha=0.35, lw=0)
+                top = ax.get_ylim()[1]
+                ax.fill_between(t, top * 0.86, top, where=inp, color=ps.FAINT, lw=0, step="mid")
                 print(f"  panel a {task} s{r['seed']} trial {trial}: {cls} unit {pick[cls]}, "
-                      f"x range {xi.min():+.3f} to {xi.max():+.3f}, on {int((xi > 0).sum())} of {len(xi)} steps")
+                      f"x {xi.min():+.3f} to {xi.max():+.3f}, positive on {int((xi > 0).sum())} of {len(xi)} steps")
             else:
                 ax.set_ylim(-1, 1)
-                ax.text(0.5, 0.5, "no silent unit\n(0 of 1000 in each of 3 networks)", transform=ax.transAxes,
-                        ha="center", va="center", fontsize=6, color=ps.MUTED)
                 ax.set_yticks([])
-            # input on: a tick strip along the top of each trace
-            ax.fill_between(t, ax.get_ylim()[1] * 0.93, ax.get_ylim()[1], where=inp, color=ps.FAINT,
-                            lw=0, step="mid")
-            ax.tick_params(labelsize=5.5, length=1.8)
-            ax.set_xlim(0, t[-1])
+                ax.text(0.5, 0.45, "no silent unit\nin any 3BFF network", transform=ax.transAxes,
+                        ha="center", va="center", fontsize=ps.TICK_PT, color=ps.MUTED)
+            ax.yaxis.set_major_locator(plt.MaxNLocator(2, symmetric=True))
             if row < 2:
                 ax.set_xticklabels([])
             else:
                 ax.set_xlabel(r"time ($\tau$)", labelpad=1)
             if col == 0:
-                ax.set_ylabel(cls, fontsize=6.5, color=c if cls != "silent" else ps.MUTED, labelpad=1)
+                ax.set_ylabel(cls, labelpad=2)
             if row == 0:
-                ax.set_title(f"{task}, $N$ = 1000, at its loss floor", fontsize=6.8, pad=3)
+                ax.set_title(f"{task}, $N$ = 1,000", pad=3)
     return first
 
 
-def draw_gradient(fig, gs_cell, nets):
-    """Panel b: g_in against the share of samples with x > 0, one network per task.
+def log_zero_axis(ax, which, zero, ticks):
+    """Label a log axis with '0' at the position where exact zeros are drawn.
 
-    Silent units have both quantities exactly 0; they are drawn at the axes' "0" ticks.
+    Args:
+        ax: axes; which: 'x' or 'y'; zero: data value standing for 0; ticks: other tick values.
+    """
+    labels = ["0"] + [f"$10^{{{int(np.log10(v))}}}$" if v != 1 else "1" for v in ticks]
+    (ax.set_xticks if which == "x" else ax.set_yticks)([zero] + list(ticks))
+    (ax.set_xticklabels if which == "x" else ax.set_yticklabels)(labels)
+
+
+def draw_gradient(fig, gs_cell, nets):
+    """Panel b: g_in against the share of steps with x_i > 0, every unit of one network per task.
+
+    Silent units have both quantities exactly 0 on the noise-free batch; they are drawn at the
+    axes' '0' ticks, hollow.
 
     Args:
         fig: figure; gs_cell: GridSpec cell; nets: load_c4() output.
@@ -513,7 +523,7 @@ def draw_gradient(fig, gs_cell, nets):
         the left axes.
     """
     sub = gs_cell.subgridspec(1, 2, wspace=0.12)
-    XZ, YZ = 5e-6, 1e-8          # where the exact zeros of silent units are drawn (below every nonzero value)
+    XZ, YZ = 5e-6, 1e-8          # where the exact zeros of silent units are drawn
     first = None
     for col, task in enumerate(("CDDM", "3BFF")):
         rs = [r for r in nets if r["task"] == task]
@@ -521,75 +531,82 @@ def draw_gradient(fig, gs_cell, nets):
         ax = fig.add_subplot(sub[0, col])
         first = first or ax
         rng = np.random.default_rng(0)
-        for m, c, lab in ((r["sil"], C_SIL, "silent"), (r["low"], C_LOW, "low-active"),
-                          (r["act"], C_ACT, "active")):
+        ax.axhline(REACH_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", zorder=1)
+        for m, kw in ((r["sil"], dict(facecolors="none", edgecolors=C_INA, linewidths=0.4, s=4)),
+                      (r["low"], dict(c=C_INA, lw=0, s=2.5)),
+                      (r["act"], dict(c=C_ACT, lw=0, s=2.5))):
             if not m.any():
                 continue
             xs = np.where(r["on"][m] > 0, r["on"][m], XZ * np.exp(rng.normal(0, 0.25, m.sum())))
             ys = np.where(r["g"][m] > 0, r["g"][m], YZ * np.exp(rng.normal(0, 0.25, m.sum())))
-            ax.scatter(xs, ys, s=2.2, c=c, lw=0, alpha=0.8, rasterized=False,
-                       label=f"{lab} ({m.sum()})")
-        ax.axhline(SILENT_REL, color=ps.INK, lw=0.7, ls="--")
+            ax.scatter(xs, ys, zorder=2, **kw)
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_xlim(XZ / 2.5, 1.5)
         ax.set_ylim(YZ / 3, 30)
-        ax.set_xticks([XZ, 1e-4, 1e-2, 1])
-        ax.set_xticklabels(["0", "$10^{-4}$", "$10^{-2}$", "1"])
-        ax.set_yticks([YZ, 1e-6, 1e-4, 1e-2, 1])
-        ax.set_yticklabels(["0", "$10^{-6}$", "$10^{-4}$", "$10^{-2}$", "1"] if col == 0 else [])
+        log_zero_axis(ax, "x", XZ, [1e-4, 1e-2, 1])
+        log_zero_axis(ax, "y", YZ, [1e-6, 1e-4, 1e-2, 1])
+        if col:
+            ax.set_yticklabels([])
         ax.minorticks_off()
-        ax.tick_params(labelsize=5.8)
         ax.set_xlabel("share of steps with $x_i > 0$", labelpad=1)
         if col == 0:
-            ax.set_ylabel("incoming-weight gradient\n(network's 95th percentile = 1)", labelpad=1)
-        ax.set_title(f"{task}", fontsize=6.8, pad=3)
-        ax.legend(loc="upper left", fontsize=5.6, markerscale=2.5, handletextpad=0.2, borderaxespad=0.2)
+            ax.set_ylabel("incoming-weight gradient\n(95th percentile = 1)", labelpad=1)
+        ax.set_title(f"{task}, $N$ = 1,000", pad=3)
         print(f"  panel b {task} s{r['seed']}: {r['act'].sum()} active, {r['low'].sum()} low-active "
               f"({(r['low'] & r['reach']).sum()} reached), {r['sil'].sum()} silent")
+    # one legend for both networks, in the 3BFF axes' empty lower right
+    hs = [Line2D([], [], ls="", marker="o", ms=3, mfc=C_ACT, mec=C_ACT, label="active"),
+          Line2D([], [], ls="", marker="o", ms=3, mfc=C_INA, mec=C_INA, label="low-active"),
+          Line2D([], [], ls="", marker="o", ms=3, mfc="none", mec=C_INA, label="silent"),
+          Line2D([], [], ls="--", color=ps.INK, lw=ps.THIN_LW, label="reach threshold")]
+    ax.legend(handles=hs, loc="lower right", handletextpad=0.2, borderaxespad=0.2, labelspacing=0.2)
     return first
 
 
-def draw_drift(ax, nets, summ):
-    """Panel c: share of each class active 500 and 5,000 iterations after the floor snapshot.
+def draw_drift(ax, summ):
+    """Panel c: share of each class active 500 and 5,000 iterations after the floor crossing.
 
     Args:
-        ax: axes; nets: load_c4() output; summ: report_c4() output.
+        ax: axes; summ: report_c4() output.
     """
-    groups = [("CDDM", "active", C_ACT), ("CDDM", "low_reached", C_LOW), ("CDDM", "low_unreached", C_LOW),
-              ("CDDM", "silent", C_SIL), ("3BFF", "active", C_ACT), ("3BFF", "low_reached", C_LOW),
-              ("3BFF", "low_unreached", C_LOW)]
-    xs = np.array([0, 1, 2, 3, 4.8, 5.8, 6.8])
+    groups = [("CDDM", "active"), ("CDDM", "low_reached"), ("CDDM", "low_unreached"), ("CDDM", "silent"),
+              ("3BFF", "active"), ("3BFF", "low_reached"), ("3BFF", "low_unreached")]
+    style = {"active": dict(mfc=C_ACT, mec=C_ACT), "low_reached": dict(mfc=C_INA, mec=C_INA),
+             "low_unreached": dict(mfc=C_INA, mec=C_INA), "silent": dict(mfc="none", mec=C_INA)}
+    xs = np.array([0, 1, 2, 3, 4.6, 5.6, 6.6])
     rng = np.random.default_rng(1)
-    for x, (task, cls, c) in zip(xs, groups):
-        for dt, dx, filled in ((500, -0.17, False), (5000, 0.17, True)):
+    for x, (task, cls) in zip(xs, groups):
+        for dt, dx, mk in ((500, -0.18, "^"), (5000, 0.18, "o")):
             v = np.array([100 * s[f"{cls}_{dt}"] for s in summ[task]])
-            ax.plot(x + dx + rng.normal(0, 0.03, len(v)), v, "o", ms=2.6, mec=c, mew=0.7,
-                    mfc=c if filled else "none", clip_on=False, zorder=3)
-            ax.plot([x + dx - 0.12, x + dx + 0.12], [v.mean()] * 2, color=c, lw=1.2)
+            ax.plot(x + dx + rng.normal(0, 0.03, len(v)), v, ls="", marker=mk, ms=3, mew=0.6,
+                    clip_on=False, zorder=3, **style[cls])
+            ax.plot([x + dx - 0.13, x + dx + 0.13], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW)
     ax.set_xticks(xs)
-    ax.set_xticklabels(["active", "reached", "not\nreached", "silent", "active", "reached", "not\nreached"],
-                       fontsize=5.6)
-    for x0, x1 in ((1, 2), (5.8, 6.8)):                 # the two low-active groups share one label
-        ax.annotate("", xy=(x0 - 0.3, -0.2), xytext=(x1 + 0.3, -0.2), xycoords=("data", "axes fraction"),
-                    arrowprops=dict(arrowstyle="-", lw=0.6, color=C_LOW))
-        ax.annotate("low-active", xy=((x0 + x1) / 2, -0.23), xycoords=("data", "axes fraction"),
-                    ha="center", va="top", fontsize=5.6, color=C_LOW)
+    ax.set_xticklabels(["active", "reached", "not\nreached", "silent", "active", "reached", "not\nreached"])
+    for x0, x1 in ((1, 2), (5.6, 6.6)):                 # the two low-active groups share one label
+        ax.annotate("", xy=(x0 - 0.35, -0.27), xytext=(x1 + 0.35, -0.27), xycoords=("data", "axes fraction"),
+                    arrowprops=dict(arrowstyle="-", lw=ps.THIN_LW, color=ps.MUTED))
+        ax.annotate("low-active", xy=((x0 + x1) / 2, -0.3), xycoords=("data", "axes fraction"),
+                    ha="center", va="top", fontsize=ps.TICK_PT, color=ps.INK)
     ax.set_ylim(0, 100)
-    ax.set_xlim(-0.6, 7.4)
+    ax.set_xlim(-0.6, 7.2)
     ax.set_ylabel("% of the class active later", labelpad=1)
-    for x0, x1, task in ((0, 3, "CDDM"), (4.8, 6.8, "3BFF")):
-        ax.text((x0 + x1) / 2, 104, task, ha="center", va="bottom", fontsize=6.6)
-    ax.legend(handles=[Line2D([], [], marker="o", ls="", mec=ps.INK, mfc="none", ms=3, label="+500 iterations"),
+    for xm, task in ((1.5, "CDDM"), (5.6, "3BFF")):
+        ax.text(xm, 1.03, f"{task}, $N$ = 1,000", transform=ax.get_xaxis_transform(), ha="center",
+                va="bottom", fontsize=ps.LABEL_PT)
+    ax.legend(handles=[Line2D([], [], marker="^", ls="", mec=ps.INK, mfc=ps.INK, ms=3, label="+500 iterations"),
                        Line2D([], [], marker="o", ls="", mec=ps.INK, mfc=ps.INK, ms=3, label="+5,000 iterations")],
-              loc="center right", fontsize=5.6, handletextpad=0.2, bbox_to_anchor=(1.0, 0.62))
+              loc="center right", handletextpad=0.2, bbox_to_anchor=(1.0, 0.6))
     ps.ygrid(ax)
 
 
 def draw_tanh_hist(fig, gs_cell, tanh):
     """Panel d: per-unit state gradient per unit of error, trained against untrained, ReLU and tanh.
 
-    One network per activation, the one whose count above the bar is the median of nine.
+    One network per activation, the one whose count at or above the reach threshold is the
+    median of nine. Outlines only: no unit-class colour, since the threshold here is set on the
+    untrained network.
 
     Args:
         fig: figure; gs_cell: GridSpec cell; tanh: load_tanh() output.
@@ -608,35 +625,29 @@ def draw_tanh_hist(fig, gs_cell, tanh):
         ax = fig.add_subplot(sub[0, col])
         first = first or ax
         v, v0 = np.maximum(r["g_state"], FLOOR), np.maximum(r["g_state0"], FLOOR)
-        hi = v >= SILENT_REL
-        ax.hist(v0, bins=bins, histtype="step", color=ps.INK, lw=0.7, label="untrained")
-        ax.hist(v[~hi], bins=bins, color=C_SIL, lw=0, label="trained, below the bar")
-        ax.hist(v[hi], bins=bins, color=C_ACT, lw=0, label="trained, above")
-        ax.axvline(SILENT_REL, color=ps.INK, lw=0.7, ls="--")
+        ax.hist(v0, bins=bins, histtype="step", color=ps.BASELINE, lw=ps.DATA_LW, label="untrained")
+        ax.hist(v, bins=bins, histtype="step", color=ps.INK, lw=ps.DATA_LW, label="trained")
+        ax.axvline(SILENT_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", label="threshold")
         ax.set_xscale("log")
         ax.set_xlim(FLOOR * 0.7, 40)
         ax.set_xticks([1e-5, 1e-3, 1e-1, 10])
-        ax.set_xticklabels(["$\\leq10^{-5}$", "$10^{-3}$", "$10^{-1}$", "10"])
+        ax.set_xticklabels(["$\\leq 10^{-5}$", "$10^{-3}$", "$10^{-1}$", "10"])
         ax.minorticks_off()
-        ax.tick_params(labelsize=5.8)
-        top = ax.get_ylim()[1]
-        ax.set_ylim(0, top * 1.55)
-        ax.set_title(f"{act} ({len(runs)} networks: {min(n)}–{max(n)} units above)", fontsize=6.4, pad=3)
-        if act == "ReLU":
-            ax.legend(loc="upper left", fontsize=5.4, handlelength=1.0, borderaxespad=0.2)
-        else:
-            ax.text(0.03, 0.96, f"median unit\n{np.median(drop):.0f}$\\times$ lower than\nuntrained "
-                    f"({min(drop):.0f}–{max(drop):.0f}$\\times$\nacross networks)", transform=ax.transAxes,
-                    ha="left", va="top", fontsize=5.4, linespacing=1.15)
-        ax.set_xlabel("loss gradient on $x_i$ per unit of error\n(untrained 95th percentile = 1)", labelpad=1)
+        ax.set_ylim(0, ax.get_ylim()[1] * 1.15)
+        ax.set_title(f"{act}, CDDM, $N$ = 1,000", pad=3)
+        ax.set_xlabel("gradient on $x_i$ per unit of error\n(untrained 95th percentile = 1)", labelpad=1)
         if col == 0:
             ax.set_ylabel("units", labelpad=1)
-        print(f"  panel d {act}: drawn seed {r['seed']}, {hi.sum()} above the bar; nine-network counts {sorted(int(k) for k in n)}")
+        else:
+            ax.legend(loc="upper left", handlelength=1.2, borderaxespad=0.2, labelspacing=0.2)
+        print(f"  panel d {act}: drawn seed {r['seed']}, {int(n[runs.index(r)])} at or above the reach threshold; "
+              f"nine networks {sorted(int(k) for k in n)}; median-unit drop {np.median(drop):.1f} "
+              f"({min(drop):.1f}-{max(drop):.1f})")
     return first
 
 
 def draw_b4_revived(ax, b4):
-    """Panel e: share of S0 (units inactive at transfer) active at the new task's floor.
+    """Panel e: share of S0 (units inactive when the new task starts) active at its floor crossing.
 
     Args:
         ax: axes; b4: load_b4() output.
@@ -646,29 +657,31 @@ def draw_b4_revived(ax, b4):
     labels = []
     for (N, src), x in xs.items():
         v = np.array([100 * r["revived"] / r["n_S0"] for r in b4[N][src]])
-        c = C_OLD if src == "old" else C_YOUNG
-        ps.strip(ax, [x], [v], [c], width=0.22, jitter=0.04, rng=rng, ms=3.0)
+        ax.plot(x + rng.normal(0, 0.04, len(v)), v, ls="", ms=3, mew=0.6, zorder=3, **SRC_STYLE[src])
+        ax.plot([x - 0.22, x + 0.22], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW)
         s0 = [r["n_S0"] for r in b4[N][src]]
-        labels.append(f"{src}\n{min(s0):,}–{max(s0):,}")
-    ax.axhline(10, color=ps.INK, lw=0.7, ls="--")
-    ax.axhline(30, color=ps.INK, lw=0.7, ls=":")
-    ax.text(4.2, 10.8, "under 10% in every old\nnetwork: do not come back", fontsize=5.4, ha="right", va="bottom")
-    ax.text(4.2, 30.8, "30% in 2 of 3: can be recruited", fontsize=5.4, ha="right", va="bottom")
+        labels.append(f"{src}\n{ps.fmt_count(int(np.median(s0)))}")
+        print(f"  panel e N={N} {src}: S0 {sorted(s0)} (median drawn), share active "
+              f"{sorted(round(float(q), 1) for q in v)}%")
+    ax.axhline(10, color=ps.INK, lw=ps.THIN_LW, ls="--")
+    ax.axhline(30, color=ps.INK, lw=ps.THIN_LW, ls=":")
+    ax.text(4.25, 11.5, "pass threshold", ha="right", va="bottom", fontsize=ps.TICK_PT)
+    ax.text(4.25, 31.5, "fail threshold", ha="right", va="bottom", fontsize=ps.TICK_PT)
     ax.set_xticks(list(xs.values()))
-    ax.set_xticklabels(labels, fontsize=5.6)
-    ax.annotate("$S_0$", xy=(-0.02, -0.105), xycoords="axes fraction", ha="right", va="center",
-                fontsize=5.6, color=ps.MUTED)
+    ax.set_xticklabels(labels)
+    ax.annotate("median $S_0$", xy=(-0.03, -0.2), xycoords="axes fraction", ha="right", va="center",
+                fontsize=ps.TICK_PT, color=ps.MUTED)
     for x, N in ((0.5, 1000), (3.1, 4000)):
-        ax.annotate(f"$N$ = {N:,}", xy=(x, -0.3), xycoords=("data", "axes fraction"), ha="center",
-                    va="top", fontsize=6.4)
+        ax.text(x, 1.03, f"$N$ = {ps.fmt_count(N)}", transform=ax.get_xaxis_transform(), ha="center",
+                va="bottom", fontsize=ps.LABEL_PT)
     ax.set_xlim(-0.6, 4.3)
     ax.set_ylim(0, 40)
-    ax.set_ylabel("% of $S_0$ active at\nthe new task's floor", labelpad=1)
+    ax.set_ylabel("% of $S_0$ active at\nthe floor crossing", labelpad=1)
     ps.ygrid(ax)
 
 
 def draw_b4_active(ax, b4):
-    """Panel f: active units at the new task's floor, old / young / fresh, with the rule's bars.
+    """Panel f: active units at the new task's floor crossing, old / young / fresh networks.
 
     Args:
         ax: axes; b4: load_b4() output.
@@ -677,209 +690,223 @@ def draw_b4_active(ax, b4):
     ticks, labels = [], []
     for N, x0 in ((1000, 0), (4000, 3.8)):
         g = b4[N]
-        for j, (src, c) in enumerate((("old", C_OLD), ("young", C_YOUNG), ("fresh", C_FRESH))):
+        for j, src in enumerate(("old", "young", "fresh")):
             x = x0 + j
             v = np.array([r["active_star"] for r in g[src]], float)
-            ps.strip(ax, [x], [v], [c], width=0.22, jitter=0.04, rng=rng, ms=3.0)
+            ax.plot(x + rng.normal(0, 0.04, len(v)), v, ls="", ms=3, mew=0.6, zorder=3, **SRC_STYLE[src])
+            ax.plot([x - 0.22, x + 0.22], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW)
             if src == "old":
                 v0 = np.array([r["active0"] for r in g[src]], float)
-                ax.plot(x - 0.42 + rng.normal(0, 0.02, 3), v0, "D", ms=2.4, mfc="none", mec=c, mew=0.7,
-                        zorder=3)
+                ax.plot(x - 0.42 + rng.normal(0, 0.02, 3), v0, "x", ms=3, mew=0.7, color=ps.INK, zorder=3)
             r2 = [r["r2"] for r in g[src]]
             ticks.append(x)
-            # two decimals: every group reads 0.91 (the exact ranges are printed and in the text)
             labels.append(f"{src}\n{min(r2):.2f}" + (f"–{max(r2):.2f}" if f"{max(r2):.2f}" != f"{min(r2):.2f}" else ""))
-            print(f"  panel f N={N} {src}: active at the floor {sorted(v.astype(int).tolist())}, R2 {min(r2):.3f}-{max(r2):.3f}")
+            print(f"  panel f N={N} {src}: active at the floor crossing {sorted(v.astype(int).tolist())}, "
+                  f"R2 {min(r2):.3f}-{max(r2):.3f}")
         bar = g["fresh_mean"] - 3 * g["fresh_sd"]
-        ax.plot([x0 - 0.65, x0 + 0.35], [bar] * 2, color=ps.INK, lw=0.8, ls="--")
-        ax.annotate(f"$N$ = {N:,}", xy=(x0 + 1, -0.3), xycoords=("data", "axes fraction"), ha="center",
-                    va="top", fontsize=6.4)
-        ax.text(x0 + 1, 1010, "verdict: " + (g["verdict"] if g["gate"] else "none (gate fails)"),
-                ha="center", va="bottom", fontsize=5.6, style="italic")
-    ax.annotate("$R^2$", xy=(-0.02, -0.105), xycoords="axes fraction", ha="right", va="center",
-                fontsize=5.6, color=ps.MUTED)
+        ax.plot([x0 - 0.65, x0 + 0.35], [bar] * 2, color=ps.INK, lw=ps.THIN_LW, ls="--")
+        ax.text(x0 + 1, 1.03, f"$N$ = {ps.fmt_count(N)}", transform=ax.get_xaxis_transform(), ha="center",
+                va="bottom", fontsize=ps.LABEL_PT)
+    ax.annotate("$R^2$", xy=(-0.03, -0.2), xycoords="axes fraction", ha="right", va="center",
+                fontsize=ps.TICK_PT, color=ps.MUTED)
     ax.set_xticks(ticks)
-    ax.set_xticklabels(labels, fontsize=5.4)
+    ax.set_xticklabels(labels)
     ax.set_xlim(-0.8, 6.3)
     ax.set_ylim(0, 1000)
-    ax.set_ylabel("active units at the\nnew task's floor", labelpad=1)
-    ax.legend(handles=[Line2D([], [], marker="D", ls="", mfc="none", mec=C_OLD, ms=3, label="old, at transfer"),
-                       Line2D([], [], ls="--", color=ps.INK, lw=0.8, label="fresh mean $-$ 3 SD")],
-              loc="upper left", fontsize=5.6, handletextpad=0.3, borderaxespad=0.1)
+    ps.count_ticks(ax.yaxis)
+    ax.set_ylabel("active units at the\nfloor crossing", labelpad=1)
+    ax.legend(handles=[Line2D([], [], marker="x", ls="", color=ps.INK, ms=3, label="old, at the start"),
+                       Line2D([], [], ls="--", color=ps.INK, lw=ps.THIN_LW, label="pass threshold")],
+              loc="upper left", handletextpad=0.3, borderaxespad=0.1, labelspacing=0.2)
     ps.ygrid(ax)
 
 
 def check_layout(fig, name):
-    """Print any pair of overlapping text artists (tight bounding boxes, display coordinates).
+    """Print overlapping text pairs and text lying on a drawn line (display coordinates).
+
+    A line counts as under a text if any of 60 points sampled along any of its segments falls inside
+    the text's bounding box. Tick lines, spines, grid lines and legend handles are not axes lines and
+    are not tested.
 
     Args:
         fig: a drawn figure; name: label for the printout.
     Returns:
-        the number of overlapping pairs.
+        (number of overlapping text pairs, number of text-on-line cases).
     """
     fig.canvas.draw()
-    r = fig.canvas.get_renderer()
+    rend = fig.canvas.get_renderer()
     texts = [t for t in fig.findobj(plt.Text) if t.get_visible() and t.get_text().strip()]
-    # tick labels of ticks outside an axis's view are created but never drawn: leave them out
-    hidden = set()
+    hidden = set()   # tick labels of ticks outside an axis's view are created but never drawn
     for ax in fig.axes:
         for lo_hi, labels, locs in ((sorted(ax.get_xlim()), ax.get_xticklabels(), ax.get_xticks()),
                                     (sorted(ax.get_ylim()), ax.get_yticklabels(), ax.get_yticks())):
             for lab, v in zip(labels, locs):
                 if not lo_hi[0] - 1e-12 <= v <= lo_hi[1] + 1e-12:
                     hidden.add(id(lab))
-    texts = [t for t in texts if id(t) not in hidden]
-    boxes = [(t, t.get_window_extent(r)) for t in texts]
-    n = 0
+    boxes = [(t, t.get_window_extent(rend)) for t in texts if id(t) not in hidden]
+    n_text = 0
     for i in range(len(boxes)):
         for j in range(i + 1, len(boxes)):
             a, b = boxes[i][1], boxes[j][1]
             if a.overlaps(b) and a.width > 0 and b.width > 0:
-                ov = (min(a.x1, b.x1) - max(a.x0, b.x0)) * (min(a.y1, b.y1) - max(a.y0, b.y0))
-                if ov > 2.0:
-                    n += 1
+                if (min(a.x1, b.x1) - max(a.x0, b.x0)) * (min(a.y1, b.y1) - max(a.y0, b.y0)) > 2.0:
+                    n_text += 1
                     print(f"  OVERLAP in {name}: {boxes[i][0].get_text()[:30]!r} / {boxes[j][0].get_text()[:30]!r}")
+    n_line = 0
+    for ax in fig.axes:
+        for ln in ax.lines:
+            if not ln.get_visible() or ln.get_linestyle() in ("None", "", " "):
+                continue
+            P = ln.get_transform().transform(np.column_stack(ln.get_data()).astype(float))
+            P = P[np.all(np.isfinite(P), 1)]
+            if len(P) < 2:
+                continue
+            f = np.linspace(0, 1, 60)[:, None, None]
+            S = (P[:-1][None] * (1 - f) + P[1:][None] * f).reshape(-1, 2)
+            if ln.get_clip_on():                     # a clipped line is drawn only inside its axes
+                ab = ax.bbox
+                S = S[(S[:, 0] >= ab.x0) & (S[:, 0] <= ab.x1) & (S[:, 1] >= ab.y0) & (S[:, 1] <= ab.y1)]
+            for t, bb in boxes:
+                bb = bb.padded(0.5)
+                inside = (S[:, 0] > bb.x0) & (S[:, 0] < bb.x1) & (S[:, 1] > bb.y0) & (S[:, 1] < bb.y1)
+                if inside.any():
+                    n_line += 1
+                    print(f"  TEXT ON LINE in {name}: {t.get_text()[:30]!r} (line {ln.get_label()!r}, "
+                          f"{len(P)} points)")
     W, H = fig.get_size_inches() * fig.dpi
     for t, bb in boxes:
         if bb.x0 < -1 or bb.y0 < -1 or bb.x1 > W + 1 or bb.y1 > H + 1:
             print(f"  OUTSIDE in {name}: {t.get_text()[:30]!r}")
-    print(f"  layout {name}: {n} overlapping text pairs")
-    return n
+    print(f"  layout {name}: {n_text} overlapping text pairs, {n_line} texts on a line")
+    return n_text, n_line
 
 
 def figure4(nets, summ, tanh, b4):
-    """Draw Figure 4 (panels a-f in the module docstring).
+    """Draw Figure 4 (panels a-f in the module docstring) at the printed width.
 
     Args:
-        nets, summ: load_c4(), report_c4(); tanh: load_tanh(); b4: load_b4().
+        nets: load_c4(); summ: report_c4(); tanh: load_tanh(); b4: load_b4().
     Returns:
         the PDF path.
     """
-    ps.setup()
-    fig = plt.figure(figsize=(180 * ps.MM, 168 * ps.MM))
-    r1 = fig.add_gridspec(1, 2, left=0.075, right=0.99, top=0.965, bottom=0.715, width_ratios=[1.15, 1],
-                          wspace=0.2)
-    r2 = fig.add_gridspec(1, 2, left=0.075, right=0.99, top=0.60, bottom=0.39, width_ratios=[1, 1.15],
-                          wspace=0.2)
-    r3 = fig.add_gridspec(1, 2, left=0.075, right=0.94, top=0.275, bottom=0.085, width_ratios=[1, 1.3],
+    fig = ps.figure(h_mm=F4_H_MM)
+    r1 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.955, bottom=0.71, width_ratios=[1.1, 1],
+                          wspace=0.28)
+    r2 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.585, bottom=0.40, width_ratios=[1, 1.15],
                           wspace=0.24)
-    letter(draw_traces(fig, r1[0, 0], nets), "a", dx=-0.3, dy=1.12)
-    letter(draw_gradient(fig, r1[0, 1], nets), "b", dx=-0.32, dy=1.04)
+    r3 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.255, bottom=0.075, width_ratios=[1, 1.35],
+                          wspace=0.25)
+    ps.panel_letter(draw_traces(fig, r1[0, 0], nets), "a")
+    ps.panel_letter(draw_gradient(fig, r1[0, 1], nets), "b", x_mm=11)
     ax = fig.add_subplot(r2[0, 0])
-    draw_drift(ax, nets, summ)
-    letter(ax, "c", dx=-0.14, dy=1.06)
-    letter(draw_tanh_hist(fig, r2[0, 1], tanh), "d", dx=-0.22, dy=1.06)
+    draw_drift(ax, summ)
+    ps.panel_letter(ax, "c")
+    ps.panel_letter(draw_tanh_hist(fig, r2[0, 1], tanh), "d", x_mm=9)
     ax = fig.add_subplot(r3[0, 0])
     draw_b4_revived(ax, b4)
-    letter(ax, "e", dx=-0.2, dy=1.04)
+    ps.panel_letter(ax, "e")
     ax = fig.add_subplot(r3[0, 1])
     draw_b4_active(ax, b4)
-    letter(ax, "f", dx=-0.16, dy=1.04)
+    ps.panel_letter(ax, "f", x_mm=9)
     check_layout(fig, "fig_paper_F4_noreturn")
-    return ps.save(fig, "fig_paper_F4_noreturn", w_mm=180)
+    return ps.save(fig, "fig_paper_F4_noreturn")
 
 
 def ed_mechanism(nets):
-    """Extended Data Fig. 6: gradient reach on all six networks and the C4b convergence checks.
+    """Extended Data figure: gradient reach on all six networks and the C4b convergence checks.
 
-    a  g_in by class, every network (histograms, one row per task); b reached / active against the
-    bar; c low-active units reached at each read point and after the ten-fold learning-rate cut;
-    d batch-consistent share of the gradient (F_net); e noisy training loss over its final value.
+    a  g_in by class on the noise-free batch, three networks pooled per task, and the silent units'
+       g_in on the 10 batches under the training noise (outline); b reached / active against the
+       reach threshold; c low-active units reached at fixed iterations and after 300 iterations at a
+       tenth of the learning rate; d share of the per-batch gradient common to 32 batches;
+       e noisy training loss over its final value.
 
     Args:
         nets: load_c4() output.
     Returns:
         the PDF path.
     """
-    ps.setup()
-    fig = plt.figure(figsize=(180 * ps.MM, 112 * ps.MM))
-    top = fig.add_gridspec(1, 3, left=0.07, right=0.99, top=0.95, bottom=0.6, wspace=0.32,
-                           width_ratios=[1, 1, 1])
-    bot = fig.add_gridspec(1, 3, left=0.07, right=0.99, top=0.42, bottom=0.1, wspace=0.32)
-    # a: g_in histograms, both tasks, all networks pooled per class
-    bins = np.logspace(-7, 1.5, 45)
+    fig = ps.figure(h_mm=100)
+    top = fig.add_gridspec(1, 3, left=0.075, right=0.99, top=0.93, bottom=0.62, wspace=0.34)
+    bot = fig.add_gridspec(1, 3, left=0.075, right=0.99, top=0.42, bottom=0.11, wspace=0.34)
+    bins = np.logspace(-7, 1.5, 40)
     for col, task in enumerate(("CDDM", "3BFF")):
         ax = fig.add_subplot(top[0, col])
         rs = [r for r in nets if r["task"] == task]
-        for key, c, lab in (("sil", C_SIL, "silent"), ("low", C_LOW, "low-active"), ("act", C_ACT, "active")):
+        ax.axvline(REACH_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", label="reach threshold")
+        for key, kw, lab in (("low", dict(color=C_INA), "low-active"), ("act", dict(color=C_ACT, alpha=0.8), "active")):
             v = np.concatenate([r["g"][r[key]] for r in rs])
-            if not len(v):
-                continue
-            ax.hist(np.maximum(v, 1.5e-7), bins=bins, color=c, alpha=0.75, lw=0,
-                    label=f"{lab} ({len(v)}, 3 networks)")
-        ax.axvline(SILENT_REL, color=ps.INK, lw=0.7, ls="--")
+            ax.hist(np.maximum(v, 1.5e-7), bins=bins, lw=0, label=lab, **kw)
+        if any(r["sil"].any() for r in rs):
+            v = np.concatenate([r["g_noisy_rel"][:, r["sil"]].ravel() for r in rs])
+            w = np.full(len(v), 1.0 / 10)                    # per batch: 10 batches pooled
+            ax.hist(np.maximum(v, 1.5e-7), bins=bins, weights=w, histtype="step", color=C_INA, lw=ps.DATA_LW,
+                    ls="-", label="silent, training noise")
         ax.set_xscale("log")
-        ax.set_xticks([1e-7, 1e-5, 1e-3, 1e-1, 10])
-        ax.set_xticklabels(["$\\leq10^{-7}$", "$10^{-5}$", "$10^{-3}$", "$10^{-1}$", "10"])
+        ax.set_xticks([1e-6, 1e-4, 1e-2, 1])
         ax.minorticks_off()
-        ax.set_xlabel("incoming-weight gradient\n(network's 95th percentile = 1)", labelpad=1)
+        ax.set_xlabel("incoming-weight gradient\n(95th percentile = 1)", labelpad=1)
         ax.set_ylabel("units" if col == 0 else "")
-        ax.set_title(f"{task}, $N$ = 1000, at the loss floor", fontsize=6.8, pad=3)
-        ax.legend(loc="upper left", fontsize=5.6)
-        n_sil = int(sum(r["sil"].sum() for r in rs))
-        if n_sil:
-            # the silent units all sit in the first bin; cut that bar so the other classes stay readable
-            ax.set_ylim(0, 400)
-            ax.text(2.6e-7, 200, "silent bar\ncut at 400", fontsize=5.4, color=ps.MUTED, ha="left", va="center")
-        else:
-            ax.set_ylim(0, ax.get_ylim()[1] * 1.35)
+        ax.set_ylim(0, ax.get_ylim()[1] * 1.6)
+        ax.set_title(f"{task}, $N$ = 1,000, 3 networks", pad=3)
+        ax.legend(loc="upper left", handlelength=1.0, borderaxespad=0.1, labelspacing=0.2)
         if col == 0:
-            letter(ax, "a", dx=-0.2, dy=1.05)
-    # b: reached / active against the bar
+            ps.panel_letter(ax, "a")
     ax = fig.add_subplot(top[0, 2])
     for r in nets:
         cnt = np.array([active_mask(r["g_raw"], b).sum() for b in BARS])
-        ax.plot(BARS * 100, cnt / r["act"].sum(), color=TASK_COL[r["task"]], lw=0.9,
+        ax.plot(BARS * 100, cnt / r["act"].sum(), color=TASK_COL[r["task"]], lw=ps.DATA_LW * 0.8,
                 label=r["task"] if r["seed"] in (1423687489, 1258717025) else None)
-    ax.axvline(SILENT_REL * 100, color=ps.INK, lw=0.7, ls="--")
-    ax.axhline(1, color=ps.MUTED, lw=0.5, ls=":")
+    ax.axvline(REACH_REL * 100, color=ps.INK, lw=ps.THIN_LW, ls="--")
+    ax.axhline(1, color=ps.MUTED, lw=ps.THIN_LW, ls=":")
     ax.set_xscale("log")
-    ax.set_xlabel("reach bar (% of the 95th percentile)", labelpad=1)
+    ax.set_xticks([1, 10])
+    ax.set_xticklabels(["1", "10"])
+    ax.minorticks_off()
+    ax.set_xlabel("reach threshold (% of the 95th percentile)", labelpad=1)
     ax.set_ylabel("units reached / active units", labelpad=1)
-    ax.legend(loc="upper right", fontsize=5.8)
+    ax.legend(loc="upper right")
     ps.ygrid(ax)
-    letter(ax, "b", dx=-0.2, dy=1.05)
-    # c, d: C4b read points
+    ps.panel_letter(ax, "b")
     grads = {}
     for f in sorted(glob.glob(os.path.join(C4B_DIR, "grad_*.npz"))):
         _, name, it = os.path.basename(f)[:-4].split("_")
-        if name.startswith("DMTS"):
-            continue
-        grads[(name, int(it))] = dict(np.load(f))
+        if not name.startswith("DMTS"):
+            grads[(name, int(it))] = dict(np.load(f))
     ax_c, ax_d = fig.add_subplot(bot[0, 0]), fig.add_subplot(bot[0, 1])
-    print("\n== ED6 (C4b, 14 Oct): low-active units reached, F_net, per read point")
+    print("\n== Extended Data figure (C4b, 14 Oct): low-active units reached, F_net, per measurement")
     for name in sorted({k[0] for k in grads}):
         task = "3BFF" if name.startswith("FF") else "CDDM"
         its = sorted(k[1] for k in grads if k[0] == name)
         reach = [int(grads[(name, i)]["cls_silent_reached"].sum()) for i in its]
         fnet = [float(grads[(name, i)]["F_net"]) for i in its]
-        ax_c.plot(np.array(its) / 1000, reach, "o-", color=TASK_COL[task], ms=2.6, lw=0.8)
-        ax_d.plot(np.array(its) / 1000, fnet, "o-", color=TASK_COL[task], ms=2.6, lw=0.8)
+        ax_c.plot(its, reach, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5)
+        ax_d.plot(its, fnet, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5)
         line = f"  {name}: reached " + ", ".join(f"{i // 1000}k {n}" for i, n in zip(its, reach))
         fa = glob.glob(os.path.join(C4B_DIR, f"ft_{name}_*_anneal.npz"))
         if fa:
-            z = np.load(fa[0])
+            n_after = int(np.load(fa[0])["cls_silent_reached"].sum())
             it_end = int(os.path.basename(fa[0]).split("_")[2])
-            n_after = int(z["cls_silent_reached"].sum())
-            ax_c.plot([it_end / 1000 + 6], [n_after], "s", mfc="none", mec=TASK_COL[task], ms=3, mew=0.8)
+            ax_c.plot([it_end + 8000], [n_after], "s", mfc="none", mec=TASK_COL[task], ms=3, mew=0.7)
             line += f"; after lr/10 for 300 iterations {n_after}"
         print(line + "; F_net " + ", ".join(f"{f:.2f}" for f in fnet))
-    ax_c.set_xlabel("training iteration (thousands)", labelpad=1)
+    for a in (ax_c, ax_d):
+        a.set_xlim(0, 320000)
+        a.set_xticks([0, 100000, 200000, 300000])
+        ps.count_ticks(a.xaxis)
+        a.set_xlabel(ps.LABELS["iteration"], labelpad=1)
+        ps.ygrid(a)
     ax_c.set_ylabel("low-active units reached", labelpad=1)
-    ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.6, lw=0.8, label="3BFF"),
-                         Line2D([], [], color=TASK_COL["CDDM"], marker="o", ms=2.6, lw=0.8, label="CDDM"),
-                         Line2D([], [], ls="", marker="s", mfc="none", mec=ps.INK, ms=3,
-                                label="after learning rate / 10")], loc="upper center", fontsize=5.6, ncol=3,
-                 handletextpad=0.3, columnspacing=0.8, borderaxespad=0.1)
     ax_c.set_ylim(0, 340)
-    ps.ygrid(ax_c)
-    letter(ax_c, "c", dx=-0.2, dy=1.05)
-    ax_d.set_xlabel("training iteration (thousands)", labelpad=1)
-    ax_d.set_ylabel("share of the per-batch gradient\ncommon to 32 batches", labelpad=1)
-    ax_d.set_ylim(0, 1)
-    ps.ygrid(ax_d)
-    letter(ax_d, "d", dx=-0.2, dy=1.05)
-    # e: noisy loss over its final value
+    ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5, label="3BFF"),
+                         Line2D([], [], color=TASK_COL["CDDM"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5, label="CDDM"),
+                         Line2D([], [], ls="", marker="s", mfc="none", mec=ps.INK, ms=3,
+                                label="learning rate / 10")], loc="upper center", ncol=3,
+                handletextpad=0.3, columnspacing=0.7, borderaxespad=0.1)
+    ps.panel_letter(ax_c, "c")
+    ax_d.set_ylabel("gradient share common\nto 32 batches", labelpad=1)
+    ax_d.set_ylim(0, 1.05)
+    ps.panel_letter(ax_d, "d")
     ax = fig.add_subplot(bot[0, 2])
     loss = json.load(open(os.path.join(C4B_DIR, "loss.json")))
     for name, r in loss.items():
@@ -890,7 +917,7 @@ def ed_mechanism(nets):
         nb = len(c) // 5
         c5 = np.median(c[:nb * 5].reshape(nb, 5), 1)
         x5 = np.array(r["curve_it"])[:nb * 5].reshape(nb, 5).mean(1)
-        ax.plot(x5 / 1000, c5 / np.median(c5[-2:]), color=TASK_COL[task], lw=0.8)
+        ax.plot(x5, c5 / np.median(c5[-2:]), color=TASK_COL[task], lw=ps.DATA_LW * 0.8)
         print(f"  {name}: noisy-loss slope " + ", ".join(
             f"{w} {r[w]['lo'] // 1000}-{r[w]['hi'] // 1000}k {r[w]['noisy']['pct100k']:+.1f}% per 100k"
             for w in ("last", "ff200") if w in r))
@@ -899,78 +926,85 @@ def ed_mechanism(nets):
     ax.set_yticks([1, 1.5, 2])
     ax.set_yticklabels(["1", "1.5", "2"])
     ax.minorticks_off()
-    ax.set_xlabel("training iteration (thousands)", labelpad=1)
-    ax.set_ylabel("noisy training loss / final value", labelpad=1)
+    ax.set_xlim(0, 320000)
+    ax.set_xticks([0, 100000, 200000, 300000])
+    ps.count_ticks(ax.xaxis)
+    ax.set_xlabel(ps.LABELS["iteration"], labelpad=1)
+    ax.set_ylabel("noisy training loss / final", labelpad=1)
     ps.ygrid(ax)
-    letter(ax, "e", dx=-0.2, dy=1.05)
+    ps.panel_letter(ax, "e")
     check_layout(fig, "fig_ed_mechanism")
-    return ps.save(fig, "fig_ed_mechanism", w_mm=180)
+    return ps.save(fig, "fig_ed_mechanism")
 
 
 def ed_tanh(tanh, traces):
-    """Extended Data Fig. 7: tanh against ReLU, CDDM, N = 1000, nine networks each.
+    """Extended Data figure: tanh against ReLU, CDDM, N = 1000, nine networks each.
 
-    a  active count by the participation rule over training; b units at or above 5% of the
+    a  active count by the participation criterion over training; b units at or above 5% of the
     untrained network's 95th percentile, four per-unit measures; c median activation slope,
-    untrained against trained.
+    untrained against trained. The activation function is a standard training setting, so tanh
+    takes the setting colour and ReLU, the default, the baseline grey.
 
     Args:
         tanh: load_tanh() output; traces: tanh_traces() output.
     Returns:
         the PDF path.
     """
-    ps.setup()
-    fig = plt.figure(figsize=(180 * ps.MM, 58 * ps.MM))
-    gs = fig.add_gridspec(1, 3, left=0.07, right=0.99, top=0.9, bottom=0.25, wspace=0.34,
-                          width_ratios=[1, 1.25, 0.8])
-    col = {"ReLU": ps.BASE, "tanh": ps.INK}       # no categorical slot: SLOTS[3] means duplication in Fig. 5
+    fig = ps.figure(h_mm=52)
+    gs = fig.add_gridspec(1, 3, left=0.075, right=0.99, top=0.9, bottom=0.27, wspace=0.34,
+                          width_ratios=[1, 1.3, 0.75])
+    col = {"ReLU": ps.BASELINE, "tanh": ps.SETTING}
     ax = fig.add_subplot(gs[0, 0])
     for act in ("ReLU", "tanh"):
         it, cnt, _ = traces[act]
         for j, row in enumerate(cnt):
-            ax.plot(np.maximum(it, 1) / 1000, row, color=col[act], lw=0.7, alpha=0.8,
-                    label=f"{act} ({len(cnt)})" if j == 0 else None)
-    ax.set_xlabel("training iteration (thousands)", labelpad=1)
-    ax.set_ylabel("active units (of 1000)", labelpad=1)
-    ax.set_ylim(0, 1050)
-    ax.legend(loc="center right", fontsize=5.8)
+            ax.plot(it, row, color=col[act], lw=ps.THIN_LW, label=act if j == 0 else None)
+    ax.set_xticks([0, 50000, 100000, 150000])
+    ps.count_ticks(ax.xaxis)
+    ps.count_ticks(ax.yaxis)
+    ax.set_xlabel(ps.LABELS["iteration"], labelpad=1)
+    ax.set_ylabel(ps.of_n("active units", 1000), labelpad=1)
+    ax.set_ylim(0, 1100)
+    ax.legend(loc="center right")
     ps.ygrid(ax)
-    letter(ax, "a", dx=-0.22, dy=1.05)
+    ps.panel_letter(ax, "a")
     ax = fig.add_subplot(gs[0, 1])
     keys = [("g_state", "gradient\non $x_i$"), ("g_in_trial", "gradient on\ninput weights"),
             ("s_in", "sensitivity to\ninput weights"), ("s_state", "sensitivity\nto $x_i$")]
     rng = np.random.default_rng(4)
     for j, (k, _) in enumerate(keys):
         for dx, act in ((-0.18, "ReLU"), (0.18, "tanh")):
-            v = [int((r[k] >= SILENT_REL).sum()) for r in tanh[act] if k in r]
-            ps.strip(ax, [j + dx], [np.array(v, float)], [col[act]], width=0.12, jitter=0.03, rng=rng, ms=2.6)
+            v = np.array([int((r[k] >= SILENT_REL).sum()) for r in tanh[act] if k in r], float)
+            ax.plot(j + dx + rng.normal(0, 0.03, len(v)), v, "o", ms=2.5, color=col[act], mew=0, zorder=3)
+            ax.plot([j + dx - 0.12, j + dx + 0.12], [np.median(v)] * 2, color=ps.INK, lw=ps.DATA_LW)
     ax.set_xticks(range(len(keys)))
-    ax.set_xticklabels([lab for _, lab in keys], fontsize=5.6)
-    ax.set_ylim(0, 1050)
-    ax.set_ylabel("units at or above the bar", labelpad=1)
+    ax.set_xticklabels([lab for _, lab in keys])
+    ax.set_ylim(0, 1100)
+    ps.count_ticks(ax.yaxis)
+    ax.set_ylabel("units at or above\nthe reach threshold", labelpad=1)
     ax.legend(handles=[Line2D([], [], marker="o", ls="", color=col[a], ms=3, label=a) for a in ("ReLU", "tanh")],
-              loc="upper right", fontsize=5.8)
+              loc="upper right")
     ps.ygrid(ax)
-    letter(ax, "b", dx=-0.16, dy=1.05)
+    ps.panel_letter(ax, "b")
     ax = fig.add_subplot(gs[0, 2])
     for act in ("ReLU", "tanh"):
-        s0 = [np.median(r["slope0"]) for r in tanh[act]]
-        s1 = [np.median(r["slope"]) for r in tanh[act]]
-        for a_, b_ in zip(s0, s1):
-            ax.plot([0, 1], [a_, b_], "o-", color=col[act], ms=2.4, lw=0.6, alpha=0.8)
+        for r in tanh[act]:
+            ax.plot([0, 1], [np.median(r["slope0"]), np.median(r["slope"])], "o-", color=col[act], ms=2.5,
+                    lw=ps.THIN_LW)
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["untrained", "trained"])
     ax.set_xlim(-0.3, 1.3)
     ax.set_ylim(0, 1)
     ax.set_ylabel("median activation slope", labelpad=1)
     ps.ygrid(ax)
-    letter(ax, "c", dx=-0.3, dy=1.05)
+    ps.panel_letter(ax, "c")
     check_layout(fig, "fig_ed_tanh")
-    return ps.save(fig, "fig_ed_tanh", w_mm=180)
+    return ps.save(fig, "fig_ed_tanh")
 
 
 def draw():
     """Read every input, print every number, and write the three figures."""
+    ps.setup()
     nets = load_c4()
     summ = report_c4(nets)
     b4 = load_b4()
