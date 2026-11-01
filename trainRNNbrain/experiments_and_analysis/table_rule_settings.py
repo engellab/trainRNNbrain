@@ -8,7 +8,7 @@ lambda_frm = 0.03 (the combination test's rate-penalty-alone cell). For each cel
 the networks trained, the mean active count, fold change and held-out R^2 change at 75,000
 iterations (the same-size read-out), and the floor crossings with their fold change.
 
-Definitions (as in Supplementary Table 2, fig_ed_remedies.py):
+Definitions (as in Supplementary Table 3 since dead-relu-paper#103, fig_ed_remedies.py):
   fold change  the cell's mean active count over the mean of the size-series control networks
                (Figure 1's default 3BFF networks, catalogue role "control") at the same N and the
                same measurement point;
@@ -142,8 +142,9 @@ def row(cell, ctrl, fam, shown_sig, a3=None):
         cell: catalogue cell dict; ctrl: the size-series control cell at the same N; fam: family;
         shown_sig: sig() of the rule's shown cell; a3: load_a3() (only for the lambda 0.1 cell).
     Returns:
-        dict with name, N, setting, n_runs, n_75k, active_75k (mean), fold_75k, dr2_75k, n_bad
-        (R^2 <= 0 at 75k), r2_note ("" or "a3"), n_cross, fold_floor (or None), shown.
+        dict with name, folder (the catalogue cell, for the source comment), N, setting, n_runs,
+        n_75k, active_75k (mean), fold_75k, dr2_75k, n_bad (R^2 <= 0 at 75k), r2_note ("" or
+        "a3"), n_cross, fold_floor (or None), shown.
     """
     shown = cell["cell"] == SHOWN.get(fam)
     if fam == "synnoise":
@@ -165,7 +166,8 @@ def row(cell, ctrl, fam, shown_sig, a3=None):
         dr2, nbad = mean_r2_change([r["r2_full"] for r in nets], base)
         note = "a3"
     fold_floor = (np.mean(cell["active"]) / np.mean(ctrl["active"])) if cell["active"] else None
-    return dict(name=short_name(cell), N=cell["N"], setting=setting, n_runs=cell["n_runs"],
+    return dict(name=short_name(cell), folder=cell["cell"], N=cell["N"], setting=setting,
+                n_runs=cell["n_runs"],
                 n_75k=len(a75), active_75k=a75.mean(), fold_75k=fold75, dr2_75k=dr2, n_bad=nbad,
                 r2_note=note, n_cross=cell["n_read"], fold_floor=fold_floor, shown=shown)
 
@@ -182,7 +184,8 @@ def b3_rate_row(b3, ctrl):
     a75 = np.asarray([r["fixed"]["active"] for r in runs], float)
     dr2, nbad = mean_r2_change([r["fixed"]["r2"] for r in runs], np.mean(ctrl["r2_75k"]))
     floor = [r["floor"]["active"] for r in runs if r["floor"] is not None]
-    return dict(name="combination test", N=1000, setting="$\\lambda_{\\mathrm{frm}} = 0.03$",
+    return dict(name="combination test", folder="combination test, read_b3.json runs 'rate'",
+                N=1000, setting="$\\lambda_{\\mathrm{frm}} = 0.03$, combination test",
                 n_runs=len(runs), n_75k=len(a75), active_75k=a75.mean(),
                 fold_75k=a75.mean() / np.mean(ctrl["active_75k"]), dr2_75k=dr2, n_bad=nbad,
                 r2_note="", n_cross=len(floor),
@@ -213,10 +216,15 @@ def collect():
             # iterations (Della jobs 15598507-08) but read only under an earlier floor read-out
             # (notebook 2026-10-16_1053) and never at 75,000 iterations; its weights are on Della.
             rows.append(dict(name="combination-test pilot", N=1000,
-                             setting="$\\lambda_{\\mathrm{frm}} = 0.01$", n_runs=3, n_75k=None,
+                             folder="combination-test pilot, Della jobs 15598507-08",
+                             setting="$\\lambda_{\\mathrm{frm}} = 0.01$, combination-test pilot",
+                             n_runs=3, n_75k=None,
                              active_75k=None, fold_75k=None, dr2_75k=None, n_bad=0, r2_note="",
                              n_cross=None, fold_floor=None, shown=False))
-        rows.sort(key=lambda r: (not r["shown"], r["N"] != 1000, r["name"], r["setting"]))
+        # the shown setting, then the other settings of its sweep, then the other sweeps
+        shown_name = short_name(by_name[SHOWN[fam]])
+        rows.sort(key=lambda r: (not r["shown"], r["name"] != shown_name, r["N"] != 1000, r["name"],
+                                 r["setting"]))
         out[fam] = rows
     return out
 
@@ -226,17 +234,37 @@ def tex_signed(v):
     return "--" if v is None else f"{v:+.3f}".replace("-", "$-$")
 
 
+def sweep_numbers(rows):
+    """Number the sweeps 1, 2, ... in the order they first appear in the table.
+
+    The printed table identifies a sweep (a set of networks trained together) by this number; the
+    folder names go into source comments.
+
+    Args:
+        rows: collect() output.
+    Returns:
+        dict sweep name -> int.
+    """
+    out = {}
+    for fam in ORDER:
+        for r in rows[fam]:
+            out.setdefault(r["name"], len(out) + 1)
+    return out
+
+
 def print_tex(rows):
-    """Print the LaTeX rows of the table.
+    """Print the LaTeX rows of the table, each after a source comment naming its cell folder.
 
     Args:
         rows: collect() output.
     Returns:
         None.
     """
+    num = sweep_numbers(rows)
     print("% rows printed by table_rule_settings.py")
     for fam in ORDER:
-        print(f"\\multicolumn{{8}}{{l}}{{\\emph{{{RULE_NAME[fam]}}}}} \\\\")
+        # '\\*': no page break between a rule's heading and its first row
+        print(f"\\multicolumn{{8}}{{l}}{{\\emph{{{RULE_NAME[fam]}}}}} \\\\*")
         for r in rows[fam]:
             setting = r["setting"] + (" (shown)" if r["shown"] else "")
             n = f"{r['N']:,}".replace(",", "{,}")
@@ -244,13 +272,12 @@ def print_tex(rows):
                 (f"$^\\dagger$" if r["n_bad"] else "")
             ff = "--" if r["fold_floor"] is None else f"{r['fold_floor']:.2f}"
             setting = "\\raggedright " + setting       # wrapped lines are not justified
+            print(f"% sweep {num[r['name']]}: {r['folder']}")
             if r["active_75k"] is None:                  # not read (lambda_frm = 0.01)
-                print(f"{r['name']} & {setting} & 1{{,}}000 & -- & -- & -- & -- & not read$^\\S$ \\\\")
+                print(f"{num[r['name']]} & {setting} & 1{{,}}000 & -- & -- & -- & -- & not read$^\\S$ \\\\")
                 continue
             act = f"{r['active_75k']:,.0f}".replace(",", "{,}")
-            name = r["name"] if " " in r["name"] else \
-                f"\\texttt{{{r['name'].replace('_', chr(92) + '_')}}}"
-            print(f"{name} & {setting} & {n} & "
+            print(f"{num[r['name']]} & {setting} & {n} & "
                   f"{r['n_75k']} & {act} & "
                   f"{r['fold_75k']:.2f} & {dr2} & "
                   f"{r['n_cross']}/{r['n_runs']}, {ff} \\\\")
@@ -267,6 +294,7 @@ def print_check(rows):
         None.
     """
     print("\n% check list")
+    print("% sweep numbers: " + ", ".join(f"{k} {v}" for v, k in sweep_numbers(rows).items()))
     for fam in ORDER:
         r1 = [r for r in rows[fam] if r["N"] == 1000 and r["active_75k"] is not None]
         f = [r["fold_75k"] for r in r1]
