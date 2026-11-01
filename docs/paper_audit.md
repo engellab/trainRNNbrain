@@ -35,9 +35,9 @@ bird's-eye view of what works.
 |---|---|---|---|
 | C1 | Training leaves most units silent, and silent units do no work | **Done** | Rebuild F1 with `RETRAIN_DIR` → `c1_retrain_seeded2` |
 | C2 | Bigger networks keep a smaller share of units active | **Done**; Figure 1 synced to the paper 15 Oct | — |
-| C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
+| C3 | Longer training keeps shedding units, and no run has stopped | **Done**; B5 complete, read at 75k (31 Oct) | — |
 | C4 | On CDDM ~300 of 1,000 units are silent (never fire, no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Done**: in the paper as sec:mechanism (16 Oct) | Paper-wide pass for the silent / low-active terms (Pavel to confirm) |
-| C5 | Settings move the active count at the floor by ≤ ~120 units; input-weight scale raises it but those networks then lose units faster | **Done**: sec:knobs rewritten, Figure 2 synced (16 Oct) | — |
+| C5 | No standard setting stops the fall of the active count; at 75k CDDM settings move it by +116/−177 units, 3BFF input scale raises it 1.7× and the gain shrinks | **Done at 75k** (31 Oct, entry 2026-10-31_2010): Figure 3 rebuilt, floor read in ED Fig. 4 | Pavel: wording, dead-relu-paper#24 |
 | C6 | Rules that give participation its own drive recruit units at a small cost | **Partly done**: remedies read at the floor and A3 done (31 Oct, entry 2026-10-31_1732); B2 failed its rule | Build Figure 3; Pavel to decide how rescaling and read-out dropout are reported above N = 1000 (needs-pavel issue dead-relu-paper#16) |
 | C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running**; B4 supports "cannot be called back" at N = 1000 and 4000 (31 Oct); B3 waits on Pavel (dead-relu-paper#17) | Pavel's B3 decision |
 
@@ -60,10 +60,11 @@ confound (lr ∝ N^−1/3) is left in and handled by reading each network at its
 **C3.** CDDM, N = 1000: every weight-decay setting reaches its floor early and keeps losing units to
 200-300k with no gain in loss. Flip-flop: units keep dying while the loss is flat (N = 1000: 22-83
 units per 100k in 4 of 5 flat runs, slowing to 11-22 by 300k without stopping; N = 2000 is not yet
-flat at 200k). **Not the optimizer (B5):** at the floor, Adam (wd 1e-6) keeps 237-271 active at R²
-0.951, AdamW 282-292 at 0.961; SGD keeps more units only where it converges to a worse solution
-(703-736 active at R² 0.883, lr 0.03) and has Adam's count at its best learning rates. Figure
-`diag_b5_optimizer`.
+flat at 200k). **Not the optimizer (B5), read at 75k** (entry 2026-10-31_2010; all 13 arms, SGD lr 3 wd 0 copied
+from Spock): Adam (wd 1e-6) has 233-270 active at R² 0.951, AdamW 306-358 at 0.957-0.958; SGD has
+more units only at lower R² (721-759 at lr 0.03, R² 0.873-0.875) and 212-285 at lr 0.3-1 (R² ≤ 0.915);
+lr 3 does not learn (R² 0.21-0.44 at 200k). Under the current read-out most SGD runs have no floor
+read, so the 14 Oct floor numbers are withdrawn. Figure: Extended Data Fig. 5 (`fig_ed_optimizer`).
 
 **C4.** On CDDM about 300 of a network's 1,000 units are silent: their net input current is
 negative on every time step of every trial, so their rate is always zero and gradient descent cannot
@@ -72,13 +73,17 @@ threshold, but positive at least transiently) get gradient and their weights cha
 below the threshold. The 3BFF networks are not still learning: in two of three, the loss changes by
 under 1% per 100k from 150k. Text: entry 2026-10-16 (second draft).
 
-**C5.** Changing a hyperparameter shifts the active count at the loss floor, but on CDDM by no more
-than about 120 units from the default 418 (sigmoid: 235-255), and the count still falls after the
-floor (weight decay 0: 412 active at 200k; 1e-4: 86). On 3BFF, a 5-fold larger initial input-weight
-scale raises the count from 298-334 to 547-660 at unchanged R². A metabolic penalty lowers R² without
-raising the count. Figure 2 (`fig_paper_F2_fails.py`) shows the nine ladders and the revival screens;
-re-initialising, zeroing or randomly redrawing silent units does not raise the count. Details: entry
-2026-10-15_2207.
+**C5.** Read at 75k, the same-size rule (entry 2026-10-31_2010; Figure 3, Extended Data Fig. 4 with
+both reads). On CDDM the default has 325-345 active at R² 0.833-0.835; 18 non-default values of weight
+decay, noise, metabolic penalty, spectral radius, W_rec penalty, activation and sparsity give means of
+160-453 (largest gain +116, weight decay 0; largest loss −177, weight decay 1e-4); metabolic λ = 10
+costs R² (0.787-0.789) without adding units. The count falls under every setting (weight decay 0:
+466-494 at the floor, 442-469 at 75k, 400-428 at 200k). On 3BFF the input-weight scale 20 keeps 455-500
+against 245-296 at R² 0.953 vs 0.951 (1.7×), down from 2.5× at the floor (means 718 vs 283) and 1.6× at 150k (312-340
+vs 189-235); this triggers dead-relu-paper#24 (wording: recommended "no standard setting stops the
+loss of active units"). On CDDM, input scales 2-20 lower the count at 50k (166-268 vs 355-376).
+Re-initialising inactive units (CDDM 330-346 vs 332-340) and redrawing them on 3BFF (205-274 vs
+236-288) do not raise it. Only the rate penalty keeps all 1000 units (R² 0.828-0.830 vs 0.831-0.834).
 
 **C6.** The remedy top-ups (RMtop200, 267 runs in 83 cells) are read at 1.05× each run's own
 noisy-loss floor (entry 2026-10-31_1732; `read_remedies.py` 2d32b3b). 146 runs are read and 121
