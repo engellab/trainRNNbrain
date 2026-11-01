@@ -38,9 +38,13 @@ from read_remedies import cfg_of, classify, sel
 
 # Sweeps whose cells vary something other than a per-unit rule, or that are not 3BFF experiments.
 SKIP_SWEEPS = ("std_ksweep", "std_winp", "std_activations", "std_sigmoid", "std_switch", "std_bigN",
-               "std_inpcap", "n100", "b5_optimizer", "scaling_gamma", "size_series", "c1_snapshots")
+               "std_inpcap", "n100", "b5_optimizer", "size_series", "c1_snapshots",
+               # warm-started from rate-penalty networks to test switching the sparsity penalty
+               # on or off (N = 2,000, 50,000 more iterations): not a rule trained from scratch
+               "std_switch")
 # What each kind of cell is, in words (matched on the cell folder name, first match wins).
-KIND = (("op=synaptogenesis", "synaptogenesis (new synapses from active units)"),
+KIND = (("tgt=median_norm", "synaptic scaling"),
+        ("op=synaptogenesis", "synaptogenesis (new synapses from active units)"),
         ("op=disinhibit", "disinhibition (inhibitory inputs weakened)"),
         ("mode=orth", "replacement by a row orthogonal to the active rows"),
         ("mode=mix", "replacement by a mix of donor rows"),
@@ -82,19 +86,25 @@ def cell_runs(cell_dir):
 
 
 def mean_active_at(runs, it):
-    """Mean active count over runs at the probe nearest iteration `it`, and the probes used.
+    """Mean active count over runs at the probe nearest iteration `it`, the probes, and divergences.
+
+    A network whose participation is non-finite at that probe has diverged; load_run counts it as
+    0 active units. Such networks are counted and left out of the mean.
 
     Args:
         runs: load_run dicts; it: iteration.
     Returns:
-        (mean active count, list of probe iterations).
+        (mean active count over networks that did not diverge, or nan when all did; list of probe
+        iterations; number of diverged networks).
     """
     vals, probes = [], []
     for r in runs:
         j = int(np.argmin(np.abs(r["it_act"] - it)))
         vals.append(r["active"][j])
         probes.append(float(r["it_act"][j]))
-    return float(np.mean(vals)), probes
+    vals = np.asarray(vals, float)
+    ok = vals > 0
+    return (float(vals[ok].mean()) if ok.any() else float("nan")), probes, int((~ok).sum())
 
 
 def controls_40k():
@@ -142,11 +152,12 @@ def collect():
         N, gamma = int(sel(cfg, "model.N")), float(sel(cfg, "model.gamma") or 0.0)
         trained = int(sel(cfg, "trainer.max_iter"))
         it = 40000 if trained <= 40000 else 75000
-        act, probes = mean_active_at(runs, it)
+        act, probes, n_div = mean_active_at(runs, it)
         base = ctrl40[(N, gamma)] if it == 40000 else ctrl75[N]
         assert max(abs(p - it) for p in probes) <= 1000, f"probe far from {it} in {cell_dir}"
         rows.append(dict(sweep=sweep, cell=cell, kind=kind_of(cell, sweep), N=N, n=len(runs),
-                         trained=trained, it=it, active=act, fold=act / base, gamma=gamma))
+                         trained=trained, it=it, active=act, fold=act / base, gamma=gamma,
+                         diverged=n_div))
     rows.sort(key=lambda r: (r["kind"], r["sweep"], r["N"], r["cell"]))
     return rows
 
@@ -168,13 +179,14 @@ def print_tex(rows):
     print("% rows printed by table_rule_screen.py")
     for r in rows:
         n = f"{r['N']:,}".replace(",", "{,}")
-        act = f"{r['active']:,.0f}".replace(",", "{,}")
+        act = "--" if not np.isfinite(r["active"]) else f"{r['active']:,.0f}".replace(",", "{,}")
+        fold = "--" if not np.isfinite(r["fold"]) else f"{r['fold']:.2f}"
+        nets = f"{r['n']}" + (f" ({r['diverged']} div.)" if r["diverged"] else "")
         tr = f"{r['trained']:,}".replace(",", "{,}")
         g = "$^\\gamma$" if r["gamma"] else ""
         sweep = "\\texttt{" + r["sweep"].replace("_", "\\_") + "}"
         print(f"\\raggedright {r['kind']}{g} & \\raggedright {sweep} {tex_cell(r['cell'])} & {n} & "
-              f"{r['n']} & "
-              f"{tr} & {act} & {r['fold']:.2f} \\\\")
+              f"{nets} & {tr} & {act} & {fold} \\\\")
 
 
 def print_check(rows):
@@ -189,9 +201,10 @@ def print_check(rows):
     kinds = sorted({r["kind"] for r in rows})
     for k in kinds:
         rr = [r for r in rows if r["kind"] == k]
-        print(f"% {k}: {len(rr)} cells, {sum(r['n'] for r in rr)} networks, trained "
-              f"{sorted({r['trained'] for r in rr})}, fold {min(r['fold'] for r in rr):.2f}-"
-              f"{max(r['fold'] for r in rr):.2f}")
+        f = [r["fold"] for r in rr if np.isfinite(r["fold"])]
+        print(f"% {k}: {len(rr)} cells, {sum(r['n'] for r in rr)} networks "
+              f"({sum(r['diverged'] for r in rr)} diverged), trained "
+              f"{sorted({r['trained'] for r in rr})}, fold {min(f):.2f}-{max(f):.2f}")
     print(f"% total {len(rows)} cells")
 
 
