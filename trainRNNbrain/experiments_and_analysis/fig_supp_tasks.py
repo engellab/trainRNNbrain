@@ -7,12 +7,12 @@ This exists because Figure 1 used to try to explain a task and the silent-unit p
 panel and explained neither. Silence is not a property of any one task - it happens on all three -
 so the task definitions belong here, once, and the main text keeps its panels for the result.
 
-  row 1  CDDM      context-dependent decision making (Mante et al. 2013). Two sensory features are
+  row 1  3BFF      the 3-bit flip-flop (Sussillo & Barak 2013). Three independent memory bits, each
+                   driven by its own Poisson-timed +-1 pulse train; each output holds the sign of
+                   the last pulse that bit received, indefinitely, until the next one.
+  row 2  CDDM      context-dependent decision making (Mante et al. 2013). Two sensory features are
                    present on every trial and they can disagree; a context cue says which one to
                    report. The hard part is ignoring the other.
-  row 2  k-bit     the flip-flop (Sussillo & Barak 2013). k independent memory bits, each driven by
-         flip-flop its own Poisson-timed +-1 pulse train; each output holds the sign of the last
-                   pulse that bit received, indefinitely, until the next one.
   row 3  DMTS      delayed match-to-sample. A sample stimulus, an empty delay, a test stimulus, and
                    a judgement of whether the two were the same, reported after a go cue.
 
@@ -87,7 +87,7 @@ TASKS = {
         # the first 40k leg of the warm-start chain behind the 200k size series; every leg of
         # that chain saves the same task block, and this leg is the one kept on the Mac
         run=f"{DATA_DIR}/NBitFlipFlop_ff_revive/EqType=h_k=3_N=1000_pen=none_arm=none",
-        title="$k$-bit flip-flop  -  $k$ independent memory bits",
+        title="3BFF  -  3-bit flip-flop",
         inputs=["bit 1", "bit 2", "bit 3"],
         in_cols=[SENS_COL] * 3,
         outputs=["bit 1", "bit 2", "bit 3"],
@@ -332,7 +332,7 @@ def pic_cddm(ax):
 
 
 def pic_flipflop(ax):
-    """Pictogram: one bit as a latch driven by signed pulses, times k.
+    """Pictogram: one bit as a latch driven by signed pulses, times three.
 
     Args:
         ax: blank axes.
@@ -373,7 +373,7 @@ def pic_flipflop(ax):
     for k in range(3):
         ps.box(ax, 0.20 + 0.20 * k, 0.045, 0.16, 0.105, f"bit {k + 1}", col=ps.INK, lw=0.6,
                fs=5.6, face="#f2f1ec", text_col=ps.INK)
-    ax.text(0.50, 0.020, "$k$ bits, independent, one channel each", ha="center", va="top",
+    ax.text(0.50, 0.020, "3 bits, independent, one channel each", ha="center", va="top",
             fontsize=5.6, color=ps.MUTED)
 
 
@@ -434,8 +434,9 @@ def main():
     # about 0.27 of its width - hence the wspace, and hence the outer brace label being upright
     gs = GridSpec(3, 2, figure=fig, width_ratios=[0.76, 1.30], hspace=0.62, wspace=0.44)
 
-    for row, (name, pic, letter) in enumerate([("CDDM", pic_cddm, "a"),
-                                               ("NBitFlipFlop", pic_flipflop, "b"),
+    # rows in the order Methods and Results introduce the tasks: 3BFF, CDDM, DMTS
+    for row, (name, pic, letter) in enumerate([("NBitFlipFlop", pic_flipflop, "a"),
+                                               ("CDDM", pic_cddm, "b"),
                                                ("DMTS", pic_dmts, "c")]):
         inp, tgt, epochs, dt_over_tau, pending = build(name)
         ax_p = fig.add_subplot(gs[row, 0])
