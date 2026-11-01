@@ -90,8 +90,9 @@ rescaling runs at N = 2000 it is 1.16-1.21, 1.12-1.16, 1.09-1.11 and 1.06-1.08. 
 stretch exponents are β = 0.17-0.23, against 0.80-0.86 for two control runs at N = 2000, whose
 curves are within 1% of their floor by 150k. The floor of a run with β ≈ 0.2 is an extrapolation
 far past the data, so "5-8% above the floor at 200k" carries that uncertainty. At the looser 1.20×
-margin, 70 of the 92 runs have a crossing; the active counts there are in `rm_diag.json`, and they
-agree with the 75k counts (read-out dropout at N = 4000: 1080-1119 at 1.20×, 1081-1118 at 75k).
+margin, 70 of the 92 runs have a crossing; the active counts there are in `rm_diag.json`. For
+read-out dropout at N = 4000 they agree with the 75k counts (1080-1119 at 1.20×, 1081-1118 at 75k);
+for rescaling at N = 2000 the ranges overlap (485-633 at 1.20×, 476-701 at 75k).
 
 What this means for the catalogue: under the binding 1.05× read-out, rescaling and read-out dropout
 have no floor read at N = 2000 or 4000 (0 of 16 runs), because their noisy loss has not stopped
