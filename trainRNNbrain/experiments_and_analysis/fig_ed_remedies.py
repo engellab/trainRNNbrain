@@ -10,8 +10,10 @@ Round 2 (dead-relu-paper#55): drawn at the printed width, 165.1 mm, in the house
               median) and the active count at every participation probe, every network, with each
               network's own floor crossing (1.05x) where one exists (common.read_run).
               d, held-out R^2 at the floor crossing against N, rate penalty and control networks,
-              filled where measured on kept weights and open where estimated (every control value
-              is estimated), with the test's fail threshold (the control networks' mean minus 0.02).
+              circles where measured on kept weights and crosses where estimated (every control
+              value is estimated), with the test's fail threshold (the control networks' mean minus
+              0.02). Every value is at the floor crossing, so the circles are filled
+              (dead-relu-paper#83: fill marks the measurement point only).
   ED Fig. 8   fold change against N for every size-series rule, at the crossings of 1.05x, 1.10x
               and 1.20x each network's own fitted floor. A network with no crossing at 1.05x because
               its loss is still falling at 200,000 iterations ("never stays under the bar") is
@@ -49,8 +51,8 @@ from matplotlib.lines import Line2D
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
-from fig_paper_F5_drive import (COL, MARK, NAME, READS, SIZES, load_a3, load_b2, load_catalogue,
-                                load_marks, per_run, style_axes, size_series)
+from fig_paper_F5_drive import (COL, MARK, NAME, RATE_SHADES, READS, SIZES, load_a3, load_b2,
+                                load_catalogue, load_marks, per_run, style_axes, size_series)
 
 ED9_FAMS = ("frm", "synnoise", "rescale", "duplicate", "dropout", "frm+rws")
 MARGINS = (("active", "1.05"), ("active_d10", "1.10"), ("active_d20", "1.20"))
@@ -152,9 +154,9 @@ def ed_rate_alone(series):
         the path of the PDF.
     """
     fig = ps.figure(h_mm=82)
-    shades = ["#4f2a87", ps.RATE_PENALTY, "#a684d8"]      # three lightness steps of the rate violet
-    lefts = (0.075, 0.33, 0.585)
-    width, x_d = 0.17, 0.845
+    shades = RATE_SHADES                 # the rate violet and two lighter steps (dead-relu-paper#84)
+    lefts = (0.075, 0.315, 0.555)
+    width, x_d = 0.155, 0.80             # d is wide enough for horizontal size labels (#88)
     first = []
     for j, N in enumerate((500, 1000, 2000)):
         ax_l = fig.add_axes([lefts[j], 0.62, width, 0.27])
@@ -203,24 +205,26 @@ def ed_rate_alone(series):
         c = series["control"][N]
         cm = np.asarray(c["r2_measured"], bool)          # every control R^2 here is estimated
         cr = np.asarray(c["r2"], float)
-        ax.scatter(np.full(cm.sum(), N * 0.94), cr[cm], s=8, color=ps.BASELINE, zorder=3)
-        ax.scatter(np.full((~cm).sum(), N * 0.94), cr[~cm], s=8, facecolor="none",
-                   edgecolor=ps.BASELINE, lw=0.7, zorder=3)
+        ax.scatter(np.full(cm.sum(), N * 0.94), cr[cm], s=8, marker="o", zorder=3,
+                   **ps.mark_floor(ps.BASELINE, scatter=True))
+        ax.scatter(np.full((~cm).sum(), N * 0.94), cr[~cm], s=10, marker="x", color=ps.BASELINE,
+                   lw=0.7, zorder=3)
         print(f"ED7d N={N}: control R2 measured {cm.tolist()}")
         f = series["frm"].get(N)
         if f is not None and len(f["r2"]):
             meas = np.asarray(f["r2_measured"], bool)
             r2 = np.asarray(f["r2"], float)
-            ax.scatter(np.full(meas.sum(), N * 1.06), r2[meas], s=10, color=COL["frm"], zorder=3)
-            ax.scatter(np.full((~meas).sum(), N * 1.06), r2[~meas], s=10, facecolor="none",
-                       edgecolor=COL["frm"], lw=0.7, zorder=3)
+            ax.scatter(np.full(meas.sum(), N * 1.06), r2[meas], s=10, marker="o", zorder=3,
+                       **ps.mark_floor(COL["frm"], scatter=True))
+            ax.scatter(np.full((~meas).sum(), N * 1.06), r2[~meas], s=12, marker="x",
+                       color=COL["frm"], lw=0.7, zorder=3)
             print(f"ED7d N={N}: rate R2 {np.round(r2, 3).tolist()} measured {meas.tolist()};"
                   f" control mean {np.mean(c['r2']):.3f}")
         ax.plot([N * 0.82, N * 1.2], [np.mean(c["r2"]) - FAIL_R2] * 2, color=ps.INK, lw=0.6,
                 ls=":")
     ax.set_xscale("log")
     ax.set_xticks(SIZES)
-    ax.set_xticklabels([ps.fmt_count(n) for n in SIZES], rotation=45)
+    ax.set_xticklabels([ps.fmt_count(n) for n in SIZES])
     ax.minorticks_off()
     ax.set_xlim(380, 5300)
     ax.set_ylim(0.905, 0.975)
@@ -228,11 +232,10 @@ def ed_rate_alone(series):
     ax.set_xlabel(ps.LABELS["size"])
     ax.set_ylabel("held-out $R^2$ at the floor crossing")
     style_axes(ax)
-    h = [Line2D([], [], marker="s", color=ps.BASELINE, ls="none", ms=3, label="control"),
-         Line2D([], [], marker="s", color=COL["frm"], ls="none", ms=3, label="rate penalty"),
+    h = [Line2D([], [], color=ps.BASELINE, lw=2.0, label="control"),
+         Line2D([], [], color=COL["frm"], lw=2.0, label="rate penalty"),
          Line2D([], [], marker="o", color=ps.INK, ls="none", ms=3, label="measured"),
-         Line2D([], [], marker="o", mfc="none", color=ps.INK, ls="none", ms=3,
-                label="estimated"),
+         Line2D([], [], marker="x", color=ps.INK, ls="none", ms=3.4, mew=0.7, label="estimated"),
          Line2D([], [], color=ps.INK, ls=":", lw=0.6, label="fail threshold")]
     ax.legend(handles=h, loc="upper center", fontsize=ps.TICK_PT, handletextpad=0.3,
               borderaxespad=0.1, labelspacing=0.25, handlelength=1.3, frameon=False, ncol=1)
@@ -366,6 +369,29 @@ def removal_medians(a3, fam, N):
     return f"{added:.2f}".replace("-", "$-$"), f"{rnd:.2f}".replace("-", "$-$")
 
 
+def a3_dr2(a3, fam, N):
+    """R^2 change at 75,000 iterations from the removal analysis's intact scores (9 noise draws).
+
+    For the rate penalty, which has no 36-draw score at 75,000 iterations (dead-relu-paper#92): the
+    mean intact R^2 of the rule's networks minus the mean intact R^2 of the control networks that
+    the same analysis scored, over networks with R^2 > 0 (as fmt_dr2).
+
+    Args:
+        a3: load_a3(); fam: family key; N: size.
+    Returns:
+        LaTeX string marked with a pilcrow (9 draws), '--' when absent.
+    """
+    rule = np.asarray([r["r2_full"] for r in a3.get(N, []) if r["family"] == fam], float)
+    ctrl = [r["r2_full"] for r in a3.get(N, []) if r["family"] == "control"]
+    ok = np.isfinite(rule) & (rule > 0)
+    if not ok.any() or not ctrl:
+        return "--"
+    print(f"% a3 R2 at 75k, {fam} N={N}: {np.round(rule, 3).tolist()} against control mean "
+          f"{np.mean(ctrl):.4f}")
+    return (tex_num(rule[ok].mean() - np.mean(ctrl), sign=True) + "$^\\P$"
+            + ("$^\\dagger$" if (~ok).any() else ""))
+
+
 def table_supp2(cat, series, bursts, a3, marks, where75):
     """Print the LaTeX rows of Supplementary Table 2: a block per rule, a row per size.
 
@@ -402,7 +428,8 @@ def table_supp2(cat, series, bursts, a3, marks, where75):
             added, rnd = removal_medians(a3, fam, N)
             print(f"{tex_count(N)} & {c['n_read']}/{c['n_runs']} & "
                   f"{fmt_range(b)} & {act} & {fmt_mult(fl)} & {fmt_dr2(fl)} & {meas} & {fmt_mult(fx)} & "
-                  f"{fmt_dr2(fx)} & {nb75} & {added} / {rnd} \\\\")
+                  f"{fmt_dr2(fx) if len(fx['r2']) else a3_dr2(a3, fam, N)} & {nb75} & "
+                  f"{added} / {rnd} \\\\")
     print(f"% networks whose 75,000-iteration weights lie inside a burst, in these rows: {n_marked}")
     for c in cat:
         if c["family"] == "redraw":

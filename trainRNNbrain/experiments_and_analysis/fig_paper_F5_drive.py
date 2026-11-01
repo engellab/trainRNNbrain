@@ -67,7 +67,7 @@ from common import DATA_DIR, load_run, read_run
 READS = os.path.join(DATA_DIR, "..", "remedy_reads_31oct")
 B2_DIR = os.path.join(DATA_DIR, "NBitFlipFlop_remedy_grid")
 SIZES = (500, 1000, 2000, 4000)
-FIG_H_MM = 140.0
+FIG_H_MM = 141.0                 # paperstyle MAX_H_MM
 
 # The per-unit rules in the main figure, in key order. Rate + sparsity appears only in the Extended
 # Data and Supplementary Table 2.
@@ -88,6 +88,13 @@ B3_CELLS = ("none", "rate", "noise", "rescale", "rate+noise", "rate+rescale", "n
             "rate+noise+rescale")
 B3_PARTS = (("rate", "frm"), ("noise", "synnoise"), ("rescale", "rescale"))
 RING_S = 34                    # scatter size of the ring that marks an R^2 inside a burst
+# The three rate-penalty networks of panel d and Extended Data Fig. 8: the rate violet and two
+# lighter steps of it, none darker (a darker violet is RATE_SPARSITY's; dead-relu-paper#84 item 4).
+RATE_SHADES = (ps.RATE_PENALTY, "#9d7fd3", "#c3b0e8")
+# Row labels of panel f, in words (dead-relu-paper#84 item 1); the rules are those of B3_PARTS.
+B3_LABEL = {"none": "none", "rate": "rate", "noise": "noise", "rescale": "rescaling",
+            "rate+noise": "rate + noise", "rate+rescale": "rate + rescaling",
+            "noise+rescale": "noise + rescaling", "rate+noise+rescale": "all three"}
 
 
 # --------------------------------------------------------------------------------------------
@@ -255,17 +262,28 @@ def ring(ax, x, y):
                    zorder=4, clip_on=False)
 
 
-def edge_arrow(ax, x, y, direction, col, filled):
-    """An off-scale value: an arrowhead inside the axes' edge, pointing out of the plot.
+def edge_arrow(ax, x, y, direction, col, filled, marker="o", s=10):
+    """An off-scale value: its own marker at the axes' edge, with a short arrow pointing at it.
+
+    The marker keeps the series' shape and the fill of its measurement point (filled, floor
+    crossing; open, 75,000 iterations); the arrow comes from inside the plot and points out of it,
+    so an off-axis value is not drawn as a triangle that could read as read-out dropout's marker
+    (dead-relu-paper#99 review, item 9).
 
     Args:
-        ax: axes; x, y: where to draw it (data coordinates, inside the limits);
-        direction: "<" (left edge) or "v" (bottom edge); col: colour; filled: bool.
+        ax: axes; x, y: where to draw the marker (data coordinates, inside the limits);
+        direction: "<" (value beyond the left edge) or "v" (beyond the bottom edge);
+        col: colour; filled: bool (True at the floor crossing); marker: the series' marker;
+        s: scatter size.
     Returns:
         None.
     """
-    ax.scatter([x], [y], s=12, marker=direction, facecolor=col if filled else "none",
-               edgecolor=col, lw=0.6, zorder=3, clip_on=False)
+    kw = ps.mark_floor(col, scatter=True) if filled else ps.mark_75k(col, scatter=True)
+    ax.scatter([x], [y], s=s, marker=marker, zorder=4, clip_on=False, **kw)
+    off = (9, 0) if direction == "<" else (0, 9)          # points: the arrow starts inside the plot
+    ax.annotate("", xy=(x, y), xytext=off, textcoords="offset points", zorder=4,
+                arrowprops=dict(arrowstyle="-|>,head_length=0.25,head_width=0.12", lw=0.5,
+                                color=col, shrinkA=0, shrinkB=2.2))
 
 
 def style_axes(ax):
@@ -285,7 +303,11 @@ def style_axes(ax):
 # --------------------------------------------------------------------------------------------
 
 def panel_key(ax):
-    """The key row above the panels: one entry per rule and for the control networks, and the ring.
+    """The key above the panels: a row of rules (colour, shape) and a row of marker meanings.
+
+    Fill marks the measurement point and nothing else (dead-relu-paper#83): filled, the floor
+    crossing; open, 75,000 iterations. The ring marks an R^2 from weights inside a loss burst, the
+    arrow a value beyond the axis, drawn at the edge.
 
     Args:
         ax: a blank axes spanning the figure width.
@@ -295,10 +317,19 @@ def panel_key(ax):
     ps.blank(ax)
     h = [Line2D([], [], marker=MARK[f], color=COL[f], mec=COL[f], ls="-", lw=ps.DATA_LW,
                 ms=3.4, label=NAME[f]) for f in ("control",) + MAIN]
-    h.append(Line2D([], [], marker="o", mfc="none", mec=ps.INK, mew=0.5, ls="none", ms=5.2,
-                    label="$R^2$ from weights inside a loss burst"))
-    ax.legend(handles=h, loc="center", ncol=len(h), frameon=False, fontsize=ps.TICK_PT,
-              handlelength=1.5, columnspacing=0.9, handletextpad=0.35, borderaxespad=0)
+    leg = ax.legend(handles=h, loc="upper center", ncol=len(h), frameon=False, fontsize=ps.TICK_PT,
+                    handlelength=1.5, columnspacing=1.2, handletextpad=0.35, borderaxespad=0)
+    ax.add_artist(leg)
+    h2 = [Line2D([], [], marker="o", ls="none", ms=3.4, label=ps.MARK_FLOOR_LABEL,
+                 **ps.mark_floor(ps.INK)),
+          Line2D([], [], marker="o", ls="none", ms=3.4, label=ps.MARK_75K_LABEL,
+                 **ps.mark_75k(ps.INK)),
+          Line2D([], [], marker="o", mfc="none", mec=ps.INK, mew=0.5, ls="none", ms=5.2,
+                 label="$R^2$ from weights inside a loss burst"),
+          Line2D([], [], marker=r"$\leftarrow$", color=ps.INK, ls="none", ms=5,
+                 label="value beyond the axis (at the edge)")]
+    ax.legend(handles=h2, loc="lower center", ncol=len(h2), frameon=False, fontsize=ps.TICK_PT,
+              handlelength=1.0, columnspacing=1.6, handletextpad=0.35, borderaxespad=0)
 
 
 def panel_traces(ax, series, traces):
@@ -318,12 +349,16 @@ def panel_traces(ax, series, traces):
         it = runs[0][0]
         assert all(np.array_equal(r[0], it) for r in runs), f"probe iterations differ in {cell}"
         med = np.median(np.vstack([r[1] for r in runs]), axis=0)
-        # a marker every 25,000 iterations: shape, not only lightness, tells the two ochre rules apart
         ax.plot(it, med, color=COL[fam], lw=0.6 if fam == "frm" else ps.DATA_LW,
-                zorder=1 if fam == "frm" else 2, marker=MARK[fam], ms=3.2, mec=COL[fam],
-                markevery=(int(np.argmin(np.abs(it - 25000))), int(round(25000 / np.median(np.diff(it))))))
+                zorder=1 if fam == "frm" else 2)
+        # one marker per trace, at 75,000 iterations (open: the 75,000-iteration read-out, as in b);
+        # its shape, not only its lightness, tells the two ochre rules apart
         j = int(np.argmin(np.abs(it - 75000)))
+        kw = ps.mark_75k(COL[fam])
+        kw["mfc"] = "white"                  # still open; white so the trace does not run through it
+        ax.plot([it[j]], [med[j]], ls="none", marker=MARK[fam], ms=4.0, zorder=6, **kw)
         out[fam] = (len(runs), float(med[j]), float(med[-1]))
+    ax.axvline(75000, color=ps.FAINT, lw=ps.THIN_LW, zorder=0)
     ax.set_xlim(0, 200000)
     ax.set_xticks([0, 50000, 100000, 150000, 200000])
     ps.count_ticks(ax.xaxis)
@@ -356,9 +391,8 @@ def panel_one_size(ax, a3, marks):
     for fam in ("control",) + MAIN:
         a, r2, b = (np.asarray(v) for v in drawn[fam])
         b = b.astype(bool)
-        open_ = fam == "frm"          # the rate penalty's count at 75,000 is one moment of a swing (d)
-        ax.scatter(a, r2, s=14, marker=MARK[fam], facecolor="none" if open_ else COL[fam],
-                   edgecolor=COL[fam], lw=0.8, zorder=3)
+        # every value here is read at 75,000 iterations: open markers (dead-relu-paper#83)
+        ax.scatter(a, r2, s=14, marker=MARK[fam], zorder=3, **ps.mark_75k(COL[fam], scatter=True))
         ring(ax, a[b], r2[b])
     ax.set_xlim(0, 1040)          # rate-penalty networks reach 995: whole markers, not halves
     ax.set_xticks([0, 250, 500, 750, 1000])
@@ -400,14 +434,13 @@ def panel_sizes(ax_m, ax_r, series, marks):
             if not len(d["mult"]):
                 continue
             x = N * 10 ** offs[fam]
-            fc = "none" if ro == "75k" else COL[fam]
-            ax_m.scatter(np.full(len(d["mult"]), x), d["mult"], s=7, marker=MARK[fam], facecolor=fc,
-                         edgecolor=COL[fam], lw=0.6, zorder=3)
+            kw = ps.mark_75k(COL[fam], scatter=True) if ro == "75k" else \
+                ps.mark_floor(COL[fam], scatter=True)
+            ax_m.scatter(np.full(len(d["mult"]), x), d["mult"], s=7, marker=MARK[fam], zorder=3, **kw)
             ok = d["dr2"] > y_edge
-            ax_r.scatter(np.full(ok.sum(), x), d["dr2"][ok], s=7, marker=MARK[fam], facecolor=fc,
-                         edgecolor=COL[fam], lw=0.6, zorder=3)
+            ax_r.scatter(np.full(ok.sum(), x), d["dr2"][ok], s=7, marker=MARK[fam], zorder=3, **kw)
             for _ in range(int((~ok).sum())):
-                edge_arrow(ax_r, x, y_edge, "v", COL[fam], ro != "75k")
+                edge_arrow(ax_r, x, y_edge, "v", COL[fam], ro != "75k", MARK[fam], s=7)
             yb = np.where(ok, d["dr2"], y_edge)[d["burst"]]
             ring(ax_r, np.full(len(yb), x), yb)
             xs.append(x)
@@ -435,10 +468,10 @@ def panel_sizes(ax_m, ax_r, series, marks):
     plt.setp(ax_m.get_xticklabels(), visible=False)
     ax_m.text(430, 3.6, "rate penalty: no floor\ncrossing at $N$ $\\leq$ 1,000", fontsize=ps.TICK_PT,
               color=ps.INK, ha="left", va="center")
-    h = [Line2D([], [], color=ps.MUTED, ls="-", marker="o", ms=3, lw=0.9,
-                label="floor crossing"),
-         Line2D([], [], color=ps.MUTED, ls="--", marker="o", mfc="none", ms=3, lw=0.9,
-                label="75,000 iterations")]
+    h = [Line2D([], [], ls="-", marker="o", ms=3, lw=0.9, color=ps.MUTED,
+                label=ps.MARK_FLOOR_LABEL, **ps.mark_floor(ps.MUTED)),
+         Line2D([], [], ls="--", marker="o", ms=3, lw=0.9, color=ps.MUTED,
+                label=ps.MARK_75K_LABEL, **ps.mark_75k(ps.MUTED))]
     ax_m.legend(handles=h, loc="upper left", fontsize=ps.TICK_PT, handlelength=2.2,
                 borderaxespad=0.1, frameon=False)
     return drawn
@@ -455,8 +488,7 @@ def panel_rate_alone(ax_l, ax_a, runs, ctrl_floor):
         loss maximum), for the printout.
     """
     info = []
-    shades = ["#4f2a87", ps.RATE_PENALTY, "#a684d8"]      # three lightness steps of the rate violet
-    for r, col in zip(runs, shades):
+    for r, col in zip(runs, RATE_SHADES):
         it, L = np.asarray(r["it_loss"]), np.asarray(r["loss"])
         # vector-friendly: the per-bin maximum (the bursts) and median (the trend), 250-iteration bins
         nb = len(L) // 250
@@ -493,19 +525,23 @@ def panel_rate_alone(ax_l, ax_a, runs, ctrl_floor):
     return info
 
 
-def panel_removal(ax_s, ax_f, a3, marks):
-    """Panel (e): removing the added units (left) and random shares of all units (right).
+def panel_removal(axs, a3, marks):
+    """Panel (e): R^2 after removing each network's k added units against k random active units.
+
+    One sub-panel per size (N = 1,000 and 4,000), every network at 75,000 iterations, so every
+    marker is open (dead-relu-paper#83); a value below the axis is an arrowhead at the edge.
 
     Args:
-        ax_s, ax_f: axes; a3: load_a3() dict; marks: load_marks().
+        axs: two axes (N = 1,000, N = 4,000), the second sharing the first's y-axis;
+        a3: load_a3() dict; marks: load_marks().
     Returns:
         dict (N, family) -> list of (median R^2 after k random removals, R^2 after removing the
-        added units, where) per network, and "random" -> the per-family medians drawn on the right.
+        added units, where) per network, for the printout.
     """
     lo, hi = -0.05, 0.8
-    ax_s.plot([lo, 0.45], [lo, 0.45], color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
     out = {}
-    for N, filled in ((1000, True), (4000, False)):
+    for ax, N in zip(axs, (1000, 4000)):
+        ax.plot([lo, 0.45], [lo, 0.45], color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
         for r in a3[N]:
             fam = r["family"]
             if fam not in MAIN:
@@ -513,51 +549,33 @@ def panel_removal(ax_s, ax_f, a3, marks):
             x, y = float(np.median(r["r2_random_active"])), float(r["r2_recruited"])
             if x < lo:
                 xd, yd = lo + 0.01, y
-                edge_arrow(ax_s, xd, yd, "<", COL[fam], filled)
+                edge_arrow(ax, xd, yd, "<", COL[fam], False, MARK[fam], s=11)
             elif y < lo:
                 xd, yd = x, lo + 0.012
-                edge_arrow(ax_s, xd, yd, "v", COL[fam], filled)
+                edge_arrow(ax, xd, yd, "v", COL[fam], False, MARK[fam], s=11)
             else:
                 xd, yd = x, y
-                ax_s.scatter([x], [y], s=11, marker=MARK[fam], facecolor=COL[fam] if filled
-                             else "none", edgecolor=COL[fam], lw=0.6, zorder=3)
+                ax.scatter([x], [y], s=11, marker=MARK[fam], zorder=3,
+                           **ps.mark_75k(COL[fam], scatter=True))
             where = marks["a3"][r["run_dir"]]
             if where != "calm":
-                ring(ax_s, [xd], [yd])
+                ring(ax, [xd], [yd])
             out.setdefault((N, fam), []).append((x, y, where))
-    ax_s.set_xlim(lo - 0.012, 0.45)
-    ax_s.set_ylim(lo - 0.015, hi)
-    ax_s.set_xticks([0, 0.2, 0.4])
-    ax_s.set_yticks([0, 0.4, 0.8])
-    ax_s.set_xlabel("$R^2$, $k$ random active\nunits removed")
-    ax_s.set_ylabel("$R^2$, $k$ added units removed")
-    ax_s.text(0.44, 0.47, "equal\ncost", fontsize=ps.TICK_PT, color=ps.INK, ha="right", va="bottom")
-    h = [Line2D([], [], marker="o", color=ps.MUTED, ls="none", ms=3.2, label="$N$ = 1,000"),
-         Line2D([], [], marker="o", mfc="none", color=ps.MUTED, ls="none", ms=3.2,
-                label="$N$ = 4,000")]
-    ax_s.legend(handles=h, loc="lower right", fontsize=ps.TICK_PT, handletextpad=0.2,
-                borderaxespad=0.1, frameon=False)
-    style_axes(ax_s)
-
-    fr = np.array([0, 10, 30, 50])
-    meds = {}
-    for fam in ("control",) + MAIN:
-        nets = [r for r in a3[1000] if r["family"] == fam]
-        y = [np.median([r["r2_full"] for r in nets])]
-        for k in ("random_10", "random_30", "random_50"):
-            y.append(np.median([np.median(r[k]) for r in nets]))
-        meds[fam] = y
-        ax_f.plot(fr, y, marker=MARK[fam], ms=2.6, color=COL[fam], mfc=COL[fam], mec=COL[fam],
-                  lw=1.4 if fam == "control" else 0.8, zorder=3 if fam == "control" else 2)
-    ax_f.set_xticks(fr)
-    ax_f.set_xlim(-4, 54)
-    ax_f.set_ylim(-0.02, 1.0)
-    ax_f.set_yticks([0, 0.5, 1])
-    ax_f.set_xlabel("units removed at\nrandom (% of $N$)")
-    ax_f.set_ylabel(ps.LABELS["r2"])
-    ax_f.set_title("$N$ = 1,000", fontsize=ps.LABEL_PT, pad=3)
-    style_axes(ax_f)
-    out["random"] = meds
+        ax.set_xlim(lo - 0.012, 0.45)
+        ax.set_ylim(lo - 0.015, hi)
+        ax.set_xticks([0, 0.2, 0.4])
+        ax.set_yticks([0, 0.4, 0.8])
+        ax.set_title(f"$N$ = {ps.fmt_count(N)}", fontsize=ps.LABEL_PT, pad=3)
+        style_axes(ax)
+    axs[0].set_ylabel("$R^2$, $k$ added\nunits removed")
+    axs[1].tick_params(labelleft=False)
+    axs[0].text(0.44, 0.47, "equal\ncost", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
+                va="bottom")
+    # one x-label centred under both sub-panels
+    x0, x1 = axs[0].get_position().x0, axs[1].get_position().x1
+    axs[0].figure.text((x0 + x1) / 2, axs[0].get_position().y0 - 0.05,
+                       "$R^2$, $k$ random active units removed", fontsize=ps.LABEL_PT,
+                       color=ps.INK, ha="center", va="top")
     return out
 
 
@@ -565,24 +583,24 @@ def panel_combination(ax_m, axs, b3, marks):
     """Panel (f): the combination test, N = 1,000, per network, at the floor crossing and at 75,000.
 
     Args:
-        ax_m: axes for the dot matrix (which rules each combination has); axs: three axes sharing y
-        (active units, held-out R^2, participation ratio); b3: load_b3(); marks: load_marks().
+        ax_m: axes for the row labels (which rules each combination has, in words); axs: three
+        axes sharing y (active units, held-out R^2, participation ratio); b3: load_b3();
+        marks: load_marks().
     Returns:
         list of (cell, measurement point, active, r2, pr, where) rows drawn, for the printout.
     """
     rows = []
     ypos = {c: len(B3_CELLS) - 1 - i for i, c in enumerate(B3_CELLS)}
     lims = [(200, 1000), (0.83, 0.96), (0, 14)]
-    for j, (part, fam) in enumerate(B3_PARTS):            # dot matrix: filled where present
-        for cell in B3_CELLS:
-            has = part in cell.split("+")
-            ax_m.scatter([j], [ypos[cell]], s=12, marker=MARK[fam],
-                         facecolor=COL[fam] if has else "none",
-                         edgecolor=COL[fam] if has else ps.INACTIVE, lw=0.5, zorder=3)
     ps.blank(ax_m)
-    ax_m.set_xlim(-0.6, len(B3_PARTS) - 0.4)
+    ax_m.set_xlim(0, 1)
     for cell in B3_CELLS:
-        for ro, dy, filled in (("floor", 0.15, True), ("fixed", -0.15, False)):
+        ax_m.text(1.0, ypos[cell], B3_LABEL[cell], fontsize=ps.TICK_PT, color=ps.INK,
+                  ha="right", va="center")
+    ax_m.text(1.0, len(B3_CELLS) - 0.35, "rules present", fontsize=ps.TICK_PT, color=ps.MUTED,
+              ha="right", va="bottom")
+    for cell in B3_CELLS:
+        for ro, dy in (("floor", 0.15), ("fixed", -0.15)):
             for r in b3["runs"][cell]:
                 rec = r[ro]
                 if rec is None:
@@ -590,20 +608,21 @@ def panel_combination(ax_m, axs, b3, marks):
                 where = marks["b3"].get((cell, r["name"], ro), "calm")
                 vals = [rec["active"], rec["r2"], rec["pr"]]
                 rows.append((cell, ro, *vals, where))
+                kw = ps.mark_floor(ps.INK, scatter=True) if ro == "floor" else \
+                    ps.mark_75k(ps.INK, scatter=True)
                 for k, (ax, v, (lo, hi)) in enumerate(zip(axs, vals, lims)):
                     v = np.nan if v is None else float(v)
                     y = ypos[cell] + dy
                     if not np.isfinite(v) or v < lo:
                         xr = lo + 0.015 * (hi - lo)
-                        edge_arrow(ax, xr, y, "<", ps.INK, filled)
+                        edge_arrow(ax, xr, y, "<", ps.INK, ro == "floor", "o", s=8)
                     else:
                         xr = v
-                        ax.scatter([v], [y], s=8, marker="o", lw=0.6, edgecolor=ps.INK,
-                                   facecolor=ps.INK if filled else "none", zorder=3)
+                        ax.scatter([v], [y], s=8, marker="o", zorder=3, **kw)
                     if k == 1 and where != "calm":
                         ring(ax, [xr], [y])
     for ax, (lo, hi), lab in zip(axs, lims, ("active units", ps.LABELS["r2"],
-                                             "participation ratio")):
+                                             "participation\nratio")):
         ax.set_xlim(lo, hi)
         ax.set_xlabel(lab)
         style_axes(ax)
@@ -611,18 +630,13 @@ def panel_combination(ax_m, axs, b3, marks):
         ax.spines["left"].set_visible(False)
     for ax in [ax_m] + list(axs):
         ax.set_ylim(-0.6, len(B3_CELLS) - 0.4)
+    for ax in axs:
         for y in range(len(B3_CELLS)):
             ax.axhline(y, color=ps.GRID, lw=0.4, zorder=0)
+    # tick labels kept inside each column so neighbouring columns' labels stay >= 3 mm apart
     axs[0].set_xticks([300, 600, 900])
-    axs[1].set_xticks([0.85, 0.90, 0.95])
-    axs[2].set_xticks([0, 5, 10])
-    h = [Line2D([], [], marker="o", color=ps.INK, ls="none", ms=3, label="floor crossing"),
-         Line2D([], [], marker="o", mfc="none", color=ps.INK, ls="none", ms=3,
-                label="75,000 iterations"),
-         Line2D([], [], marker="<", color=ps.INK, ls="none", ms=3, label="off scale")]
-    axs[1].legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=3,
-                  fontsize=ps.TICK_PT, handletextpad=0.1, columnspacing=0.8, frameon=False,
-                  borderaxespad=0.2)
+    axs[1].set_xticks([0.85, 0.95])
+    axs[2].set_xticks([5, 10])
     return rows
 
 
@@ -644,40 +658,49 @@ def build():
     b2 = load_b2(1000)
 
     fig = ps.figure(h_mm=FIG_H_MM)
+
+    def y(mm):
+        """Figure fraction of a height given in mm from the figure's top edge."""
+        return 1.0 - mm / FIG_H_MM
+
     L, W = 0.075, 0.475                    # left column: left and right edges (figure fractions)
     M, R = 0.585, 0.965                    # right column
 
-    ax_key = fig.add_axes([0.0, 0.962, 1.0, 0.03])
+    ax_key = fig.add_axes([0.0, y(8.5), 1.0, y(0.8) - y(8.5)])
     panel_key(ax_key)
 
-    ax_a = fig.add_axes([L, 0.705, W - L, 0.2])
-    ax_b = fig.add_axes([M, 0.705, R - M, 0.2])
+    # row 1 (a, b): axes 15-41 mm from the top
+    ax_a = fig.add_axes([L, y(41), W - L, y(15) - y(41)])
+    ax_b = fig.add_axes([M, y(41), R - M, y(15) - y(41)])
     info_a = panel_traces(ax_a, series, traces)
     drawn_b = panel_one_size(ax_b, a3, marks)
 
-    gc = fig.add_gridspec(2, 1, left=L, right=W, top=0.625, bottom=0.39, hspace=0.12,
+    # row 2 (c, d): 57.5-91 mm
+    gc = fig.add_gridspec(2, 1, left=L, right=W, top=y(57.5), bottom=y(91), hspace=0.12,
                           height_ratios=[1.45, 1])
     ax_cm, ax_cr = fig.add_subplot(gc[0]), fig.add_subplot(gc[1])
     drawn_c = panel_sizes(ax_cm, ax_cr, series, marks)
 
-    gd = fig.add_gridspec(2, 1, left=M, right=R, top=0.625, bottom=0.39, hspace=0.12,
+    gd = fig.add_gridspec(2, 1, left=M, right=R, top=y(57.5), bottom=y(91), hspace=0.12,
                           height_ratios=[1, 1.45])
     ax_dl, ax_da = fig.add_subplot(gd[0]), fig.add_subplot(gd[1])
     info_d = panel_rate_alone(ax_dl, ax_da, b2, series["control"][1000]["active"])
 
-    ge = fig.add_gridspec(1, 2, left=L, right=W, top=0.275, bottom=0.088, wspace=0.62)
-    ax_es, ax_ef = fig.add_subplot(ge[0]), fig.add_subplot(ge[1])
-    drawn_e = panel_removal(ax_es, ax_ef, a3, marks)
+    # row 3 (e, f): 107-127.5 mm; e takes less width than its column so that f's labels fit
+    ge = fig.add_gridspec(1, 2, left=L, right=0.385, top=y(107), bottom=y(127.5), wspace=0.12)
+    ax_e1 = fig.add_subplot(ge[0])
+    ax_e2 = fig.add_subplot(ge[1], sharey=ax_e1)
+    drawn_e = panel_removal([ax_e1, ax_e2], a3, marks)
 
-    gf = fig.add_gridspec(1, 4, left=M, right=R, top=0.275, bottom=0.088, wspace=0.14,
-                          width_ratios=[0.42, 1, 1, 1])
+    gf = fig.add_gridspec(1, 4, left=0.445, right=R, top=y(107), bottom=y(127.5), wspace=0.22,
+                          width_ratios=[0.62, 1, 1, 1])
     ax_fm = fig.add_subplot(gf[0])
     axs_f = [fig.add_subplot(gf[i]) for i in (1, 2, 3)]
     rows_f = panel_combination(ax_fm, axs_f, b3, marks)
 
-    for ax, letter in ((ax_a, "a"), (ax_b, "b"), (ax_cm, "c"), (ax_dl, "d"), (ax_es, "e")):
+    for ax, letter in ((ax_a, "a"), (ax_b, "b"), (ax_cm, "c"), (ax_dl, "d"), (ax_e1, "e")):
         ps.panel_letter(ax, letter, x_mm=10.5)
-    ps.panel_letter(ax_fm, "f", x_mm=4.0)
+    ps.panel_letter(ax_fm, "f", x_mm=6.0)
 
     report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3)
     return ps.save(fig, "fig_paper_F5_drive")
@@ -722,16 +745,12 @@ def report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3):
               f"{i['lo']}-{i['hi']}; raw loss max {i['loss_max']:.3g}")
     print("\n(e) removal, (median random-k, added) per network:")
     for k, v in drawn_e.items():
-        if k == "random":
-            continue
         rec = [round(y, 2) for _, y, _ in v]
         rnd = [round(x, 2) for x, _, _ in v]
         nb = sum(w != "calm" for _, _, w in v)
         print(f"  N={k[0]} {k[1]:9s} added {rec}  random-k {rnd}  medians {np.median(rec):.2f} vs "
               f"{np.median(rnd):.2f}; random lower in {sum(x < y for x, y, _ in v)}/{len(v)};"
               f" in a burst {nb}")
-    for fam, y in drawn_e["random"].items():
-        print(f"  random removal N=1000 {fam:9s} intact/10/30/50%: {np.round(y, 2).tolist()}")
     print("\n(f) combination test outcomes:", b3["verdict"]["floor"]["verdict"], "(floor);",
           b3["verdict"]["fixed"]["verdict"], "(75k)")
     for cell in B3_CELLS:
