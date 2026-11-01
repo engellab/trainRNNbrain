@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manuscript Figure 2 (size and training time) and Extended Data Fig. 3 (the read-out rule).
+"""Manuscript Figure 2 (size and training time) and Supplementary Table 1; collect stage of Extended Data Fig. 3.
 
 Figure 2: a larger network keeps a smaller share of its units active, and training past the loss
 floor makes more units inactive.
@@ -14,20 +14,18 @@ floor makes more units inactive.
   (e) units made inactive per 100,000 iterations from 150,000 iterations on, against the change of
       the loss over the same window, every 3BFF run trained to 200,000 or 300,000 iterations
       (c3_flat_loss_units: loss_change, loss_rate).
-Extended Data Fig. 3: (a) the read-out on one N = 1000 run per task (raw loss, Hampel curve, fitted
-floor, bars, crossings, bursts); (b) the 1.05x crossing against N, every run of panel (a);
-(c) the rule's crossing against the crossing of a snapshot oracle (each kept weight snapshot scored on
-fresh batches under training noise, /scratch/gpfs/TENGEL/pt1290/oracle_readout, Della job 15635966,
-entry 2026-10-15_2054), every run whose snapshots were scored.
-The collect stage also writes the rows of Extended Data Table 2 (every run of Figures 1 and 2).
+Extended Data Fig. 3 is drawn by fig_ed_readout.py from this script's collect record (examples, size
+series and the snapshot oracle of /scratch/gpfs/TENGEL/pt1290/oracle_readout, Della job 15635966,
+entry 2026-10-15_2054). The drawing stage also writes the rows of Supplementary Table 1 (every run of
+Figures 1 and 2; formerly Extended Data Table 2).
 
 TWO STAGES, because the networks live on Della:
   --collect   on a Della CPU node, from the checkout root (data/ links the trained networks): reads
               every run and writes data/fig_paper_F2_size_collect.pkl. Held-out R^2 comes from
               heldout_r2 (36 noise draws); the shared cache is read but never written, new scores go
               to data/fig_paper_F2_size_collect_r2_cache.json.
-  (no flag)   on the Mac: draws both figures from that record into img/internal_figures/
-              (fig_paper_F2_size, fig_ed_readout; PDF + SVG), prints every number drawn, checks text
+  (no flag)   on the Mac: draws Figure 2 from that record into img/internal_figures/fig_paper_F2_size
+              (PDF + SVG, 165.1 mm wide, paperstyle), prints every number drawn, checks text
               overlap, and writes the table body img/internal_figures/edt2_runs_rows.tex.
 
 READ-OUT (Pavel, 16 Oct; docs/AGENT_GUIDE.md "Reading networks"). Across sizes every run is read at
@@ -51,18 +49,16 @@ import sys
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
-from matplotlib.legend_handler import HandlerTuple
 from matplotlib.lines import Line2D
-from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter, NullLocator
+from matplotlib.ticker import NullLocator
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 import heldout_r2 as heldout
 from common import (DATA_DIR, FLOOR_DELTAS, HOLD_FRAC, IMG_DIR, floor_curve, logbin, read_run,
                     runs_with_loss, warm_start_chain)
-from c3_flat_loss_units import CELLS as C3_CELLS, T_FLAT, FLAT_PCT, loss_change, loss_rate
+from c3_flat_loss_units import CELLS as C3_CELLS, DIE_BAR, T_FLAT, FLAT_PCT, loss_change, loss_rate
 
 REPO = os.path.normpath(os.path.join(DATA_DIR, "..", ".."))
 COLLECT = os.path.join(REPO, "data", "fig_paper_F2_size_collect.pkl")
@@ -82,7 +78,7 @@ ORACLE_DIR = "/scratch/gpfs/TENGEL/pt1290/oracle_readout"
 #         trained on Spock and relayed to Della through the Mac on 31 Oct (this package).
 FF200 = "NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N={N}_pen=none_arm=none"
 TASKS = ["3BFF", "CDDM", "DMTS"]
-TASK_COL = {"3BFF": ps.SLOTS[0], "CDDM": ps.SLOTS[1], "DMTS": ps.SLOTS[2]}
+TASK_COL = ps.TASK_COLORS     # reserved task hues of the style sheet (docs/figure_style.md)
 SERIES = {
     "3BFF": {100: "NBitFlipFlop_n100/EqType=h_N=100_arm=control",
              500: FF200.format(N=500), 1000: FF200.format(N=1000), 2000: FF200.format(N=2000),
@@ -374,9 +370,9 @@ def collect():
 # ---------------------------------------------------------------------------------------------
 # drawing
 # ---------------------------------------------------------------------------------------------
+FIG2_H_MM = 125.0       # printed height of Figure 2 (width is \textwidth, 165.1 mm)
 N_BOOT = 2000           # bootstrap resamples for the exponent's interval (panel c)
 BOOT_SEED = 20261031
-SIZE_COL = {500: "#9cc3ef", 1000: "#5f9be0", 2000: "#2a78d6", 4000: "#174a8a"}   # panel e, 3BFF hue
 SIZE_MARK = {500: "o", 1000: "s", 2000: "D", 4000: "^"}
 
 
@@ -454,7 +450,8 @@ def panel_size(ax_a, ax_b, series):
         for ax, scale in ((ax_a, 1.0), (ax_b, 100.0 / Ns)):
             for N, s in zip(Ns, np.atleast_1d(scale) * np.ones(len(Ns))):
                 v = cells[N] * s
-                ax.plot(np.full(len(v), N), v, "o", ms=2.2, color=col, alpha=0.45, mec="none", zorder=4)
+                ax.plot(np.full(len(v), N), v, "o", ms=ps.SMALL_MARKER_PT, color=col, alpha=0.45, mec="none",
+                        zorder=4)
             sc = np.atleast_1d(scale) * np.ones(len(Ns))
             # fitted sizes filled; N = 100 (drawn, not fitted) open
             ax.errorbar(Ns[fit], (m * sc)[fit], yerr=(sd * sc)[fit], fmt="o", color=col, ms=3.0,
@@ -465,24 +462,27 @@ def panel_size(ax_a, ax_b, series):
         xf = np.array([FIT_MIN_N * 0.85, 4000 * 1.15])
         ax_a.plot(xf, A * xf ** b, ls="-", lw=0.9, color=col, zorder=3)
         handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=0.9,
-                              label=f"{task}  $\\propto N^{{{b:.2f}}}$"))
+                              label=f"{task}, $b$ = {b:.2f}"))
         fits[task] = (b, A, {int(N): (float(mm), float(s), len(cells[N])) for N, mm, s in zip(Ns, m, sd)})
     nn = np.array([80, 5000.0])
-    ax_a.plot(nn, nn, "-", lw=0.7, color=ps.MUTED, zorder=2)
-    ax_a.text(140, 205, "every unit active", rotation=33, fontsize=5.8, color=ps.MUTED,
+    ax_a.plot(nn, nn, "-", lw=ps.THIN_LW, color=ps.MUTED, zorder=2)
+    ax_a.text(135, 175, "every unit active", rotation=37, fontsize=ps.TICK_PT, color=ps.MUTED,
               ha="center", va="bottom", rotation_mode="anchor")
-    ax_a.set(xscale="log", yscale="log", xlim=(75, 5500), ylim=(50, 2000),
-             xlabel="network size $N$", ylabel="active units")
-    ax_a.legend(handles=handles, loc="lower right", fontsize=6.0, handlelength=1.8)
+    ax_a.set(xscale="log", yscale="log", xlim=(75, 5500), ylim=(50, 2500),
+             xlabel=ps.LABELS["size"], ylabel=ps.LABELS["active"])
+    ax_a.set_yticks([50, 100, 200, 500, 1000, 2000])
+    ax_a.yaxis.set_minor_locator(NullLocator())
+    ps.count_ticks(ax_a.yaxis)
+    ax_a.legend(handles=handles, loc="lower right", handlelength=1.8, borderaxespad=0.2)
     for frac, lab in ((50, "50%"), (10, "10%")):
-        ax_b.axhline(frac, ls=(0, (4, 3)), lw=0.6, color=ps.FAINT, zorder=1)
-        ax_b.text(80, frac + 1.5, lab, fontsize=5.8, color=ps.MUTED, ha="left", va="bottom")
-    ax_b.set(xscale="log", xlim=(75, 5500), ylim=(0, 100), xlabel="network size $N$",
-             ylabel="active units (% of $N$)")
+        ax_b.axhline(frac, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
+        ax_b.text(80, frac + 1.5, lab, fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="bottom")
+    ax_b.set(xscale="log", xlim=(75, 5500), ylim=(0, 100), xlabel=ps.LABELS["size"],
+             ylabel="active share (% of $N$)")
     for ax in (ax_a, ax_b):
         ax.set_xticks(SIZES)
-        ax.set_xticklabels(["100", "500", "1k", "2k", "4k"])
         ax.xaxis.set_minor_locator(NullLocator())
+        ps.count_ticks(ax.xaxis)
         ps.ygrid(ax)
     return fits
 
@@ -506,15 +506,15 @@ def panel_margins(ax, series):
             b, _ = power_fit(cells)
             lo, hi = boot_exponent({N: v for N, v in cells.items() if N >= FIT_MIN_N}, rng)
             x = j + (k - 1) * 0.22
-            ax.errorbar([x], [b], yerr=[[b - lo], [hi - b]], fmt="o", color=TASK_COL[task], ms=3.2,
-                        lw=1.0, capsize=1.6)
+            ax.errorbar([x], [b], yerr=[[b - lo], [hi - b]], fmt="o", color=TASK_COL[task],
+                        ms=ps.MARKER_PT, lw=ps.DATA_LW, capsize=1.6)
             out[(task, d)] = (b, lo, hi, int(sum(len(v) for N, v in cells.items() if N >= FIT_MIN_N)))
-    ax.axhline(1.0, color=ps.MUTED, lw=0.7, ls="-")
-    ax.text(2.45, 1.0, "constant share", fontsize=5.8, color=ps.MUTED, ha="right", va="bottom")
+    ax.axhline(1.0, color=ps.MUTED, lw=ps.THIN_LW, ls="-")
+    ax.text(2.45, 1.01, "constant share", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
     ax.set_xticks(range(len(FLOOR_DELTAS)))
     ax.set_xticklabels([f"{1 + d:.2f}×" for d in FLOOR_DELTAS])
-    ax.set(xlim=(-0.55, 2.55), ylim=(0, 1.1), xlabel="read-out margin over the floor",
-           ylabel="exponent $b$ (active $\\propto N^b$)")
+    ax.set(xlim=(-0.55, 2.55), ylim=(0, 1.1), xlabel="margin over the loss floor",
+           ylabel="exponent $b$")
     ps.ygrid(ax)
     return out
 
@@ -528,17 +528,18 @@ def panel_trajectories(axes_top, axes_bot, traj):
         list of (task, run seed, t*, inactive at t*, inactive at the end, end iteration).
     """
     rows = []
-    x_hi = max(r["it_end"] for r in traj) * 1.3
+    x_hi = max(r["it_end"] for r in traj) * 1.15
     for k, task in enumerate(TASKS):
         at, ab = axes_top[k], axes_bot[k]
         runs = [r for r in traj if r["task"] == task and r["excluded"] is None]
         N = runs[0]["N"]
         for r in runs:
-            at.plot(r["tb"], r["lb"] / r["lb"][0], "-", lw=0.8, color=ps.INK, alpha=0.7)
-            ab.plot(r["it_act"][1:], N - r["active"][1:], "-", lw=0.9, color=TASK_COL[task], alpha=0.85)
+            at.plot(r["tb"], r["lb"] / r["lb"][0], "-", lw=ps.THIN_LW, color=ps.INK, alpha=0.7)
+            ab.plot(r["it_act"][1:], N - r["active"][1:], "-", lw=ps.THIN_LW + 0.2,
+                    color=TASK_COL[task], alpha=0.85)
             if r["reason"] is None:
                 for ax in (at, ab):
-                    ax.axvline(r["t_star"], color=ps.MUTED, lw=0.6, ls=(0, (3, 2)), zorder=1)
+                    ax.axvline(r["t_star"], color=ps.MUTED, lw=ps.THIN_LW, ls=(0, (3, 2)), zorder=1)
                 j = int(np.argmin(np.abs(r["it_act"] - r["t_star"])))
                 rows.append((task, r["seed"], r["t_star"], N - r["active"][j], N - r["active"][-1],
                              r["it_act"][-1]))
@@ -548,44 +549,60 @@ def panel_trajectories(axes_top, axes_bot, traj):
         at.set(xscale="log", yscale="log", xlim=(80, x_hi), ylim=(3e-4, 2.0))
         ab.set(xscale="log", xlim=(80, x_hi), ylim=(0, N), xlabel="training iteration")
         at.tick_params(labelbottom=False)
-        at.set_title(f"{task}, $N$ = {N:,}", fontsize=6.8, pad=2)
-        ab.set_xticks([1e2, 1e3, 1e4, 1e5])
-        at.set_xticks([1e2, 1e3, 1e4, 1e5])
+        at.set_title(f"{task}, $N$ = {ps.fmt_count(N)}", pad=2)
+        at.set_yticks([1e-3, 1e-2, 1e-1, 1.0])
+        at.set_yticklabels(["0.001", "0.01", "0.1", "1"])
+        at.yaxis.set_minor_locator(NullLocator())
+        for ax in (at, ab):
+            ax.set_xticks([1e2, 1e3, 1e4, 1e5])
+            ps.count_ticks(ax.xaxis)
+        ab.set_yticks([0, 250, 500, 750, 1000])
+        ps.count_ticks(ab.yaxis)
         if k:
             at.tick_params(labelleft=False)
             ab.tick_params(labelleft=False)
         ps.ygrid(ab)
-    axes_top[0].set_ylabel("loss / start")
-    axes_bot[0].set_ylabel("inactive units")
+    axes_top[0].set_ylabel("loss / initial loss")
+    axes_bot[0].set_ylabel(ps.LABELS["inactive"])
     return rows
 
 
 def panel_flat(ax, c3):
-    """Panel (e): units made inactive per 100k iterations from 150k on, against the loss change.
+    """Panel (e): units made inactive per 100,000 iterations from 150,000 on, against the loss change.
+
+    Every network is 3BFF, so all marks take the 3BFF colour; marker shape codes N.
 
     Args:
         ax: axes; c3: the collect record's panel-(e) rows (one per 3BFF lineage).
     Returns:
         the rows drawn.
     """
+    col = TASK_COL["3BFF"]
     ax.axvspan(-FLAT_PCT, FLAT_PCT, color=ps.GRID, alpha=0.6, lw=0, zorder=0)
-    ax.text(0, 132, "loss flat", fontsize=5.8, color=ps.MUTED, ha="center", va="top")
-    ax.axhline(0, color=ps.MUTED, lw=0.6)
+    ax.text(0, -13, "flat loss", fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="bottom")
+    ax.axhline(0, color=ps.MUTED, lw=ps.THIN_LW)
+    # the losing-units threshold of the flat-loss test (entry 2026-10-15_0955)
+    ax.axhline(DIE_BAR, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)))
+    ax.text(6.9, DIE_BAR + 1.5, "losing units", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
+            va="bottom")
     handles = []
-    for N in sorted(SIZE_COL):
+    for N in sorted(SIZE_MARK):
         rows = [r for r in c3 if r["N"] == N]
         for r in rows:
-            ax.errorbar([r["pct100"]], [r["lost"]], yerr=[r["se"]], fmt=SIZE_MARK[N], ms=3.0,
-                        color=SIZE_COL[N], mec=ps.INK if r["end"] > 250_000 else SIZE_COL[N],
-                        mew=0.6, lw=0.8, capsize=1.2, zorder=4)
+            long_run = r["end"] > 250_000
+            ax.errorbar([r["pct100"]], [r["lost"]], yerr=[r["se"]], fmt=SIZE_MARK[N], ms=ps.MARKER_PT,
+                        color=col, mfc=col, mec=ps.INK if long_run else col, mew=0.6 if long_run else 0,
+                        lw=0.8, capsize=1.2, zorder=4, alpha=0.85)
         if rows:
-            handles.append(Line2D([], [], ls="none", marker=SIZE_MARK[N], ms=3.0, color=SIZE_COL[N],
-                                  label=f"$N$ = {N:,}"))
-    handles.append(Line2D([], [], ls="none", marker="s", ms=3.0, color=SIZE_COL[1000], mec=ps.INK,
-                          mew=0.6, label="trained to 300k"))
-    ax.set(xlim=(-6, 7), ylim=(-15, 135), xlabel="loss change after 150k (% per 100k)",
-           ylabel="units made inactive\nper 100k iterations")
-    ax.legend(handles=handles, loc="upper left", fontsize=5.8, handletextpad=0.2, borderaxespad=0.2)
+            handles.append(Line2D([], [], ls="none", marker=SIZE_MARK[N], ms=ps.MARKER_PT, color=col,
+                                  mew=0, label=f"$N$ = {ps.fmt_count(N)}"))
+    handles.append(Line2D([], [], ls="none", marker="s", ms=ps.MARKER_PT, color=col, mec=ps.INK,
+                          mew=0.6, label=f"trained to {ps.fmt_count(300_000)}"))
+    ax.set(xlim=(-6, 7), ylim=(-15, 135),
+           xlabel="loss change after iteration 150,000\n(% per 100,000 iterations)",
+           ylabel="units made inactive\nper 100,000 iterations")
+    ax.set_xticks([-6, -3, 0, 3, 6])
+    ax.legend(handles=handles, loc="upper left", handletextpad=0.2, borderaxespad=0.2)
     ps.ygrid(ax)
     return c3
 
@@ -630,11 +647,12 @@ def draw_fig2(rec):
         path of the PDF written.
     """
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 118 * ps.MM))
-    gs = GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.15], hspace=0.42,
-                  left=0.07, right=0.985, top=0.955, bottom=0.085)
-    top = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[0], width_ratios=[1.15, 1.0, 0.8], wspace=0.38)
-    bot = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], width_ratios=[2.25, 1.0], wspace=0.30)
+    fig = ps.figure(h_mm=FIG2_H_MM)
+    # margins in figure fractions of 165.1 x FIG2_H_MM mm; panel letters sit 7 mm left of each spine
+    gs = GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.2], hspace=0.36,
+                  left=0.075, right=0.99, top=0.965, bottom=0.095)
+    top = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[0], width_ratios=[1.2, 1.2, 0.85], wspace=0.36)
+    bot = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], width_ratios=[2.5, 1.0], wspace=0.30)
     dgs = GridSpecFromSubplotSpec(2, 3, subplot_spec=bot[0], height_ratios=[1.0, 1.3], hspace=0.12,
                                   wspace=0.12)
     ax_a, ax_b, ax_c = (fig.add_subplot(top[i]) for i in range(3))
@@ -647,7 +665,7 @@ def draw_fig2(rec):
     trows = panel_trajectories(d_top, d_bot, rec["traj"])
     panel_flat(ax_e, rec["c3"])
     for ax, L in ((ax_a, "a"), (ax_b, "b"), (ax_c, "c"), (d_top[0], "d"), (ax_e, "e")):
-        ps.panel_letter(ax, L, dx=-0.30 if ax is d_top[0] else -0.2, dy=1.02)
+        ps.panel_letter(ax, L, x_mm=9.0 if ax is ax_e else ps.PANEL_LETTER_X_MM)
     check_overlaps(fig)
     out = ps.save(fig, "fig_paper_F2_size")
 
@@ -670,113 +688,6 @@ def draw_fig2(rec):
     return out
 
 
-def draw_ed_readout(rec):
-    """Draw Extended Data Fig. 3 (the read-out rule) and print its numbers.
-
-    Args:
-        rec: the unpickled COLLECT record.
-    Returns:
-        path of the PDF written.
-    """
-    ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 112 * ps.MM))
-    gs = GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.05], hspace=0.45,
-                  left=0.075, right=0.985, top=0.885, bottom=0.09)
-    agrid = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[0], wspace=0.30)
-    bgrid = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], wspace=0.30)
-    ax_a = [fig.add_subplot(agrid[k]) for k in range(3)]
-    ax_b, ax_c = fig.add_subplot(bgrid[0]), fig.add_subplot(bgrid[1])
-    for k, task in enumerate(TASKS):
-        ax, ex = ax_a[k], rec["examples"][task][0]
-        col = TASK_COL[task]
-        ax.fill_between(ex["tq"], ex["lq10"], ex["lq90"], color=ps.GRID, lw=0, zorder=1)
-        for b0, b1, _ in ex["bursts"]:
-            ax.axvspan(b0, b1, color="#f3d9a4", lw=0, zorder=0)
-        ax.plot(ex["ts"], ex["ys"], "-", color=ps.INK, lw=0.9, zorder=3)
-        if ex["tf"] is not None:
-            ax.plot(ex["tf"], ex["yf"], ls=(0, (1, 1.2)), color=col, lw=1.0, zorder=4)
-        for d, a in zip(FLOOR_DELTAS, (1.0, 0.6, 0.35)):
-            ax.axhline((1 + d) * ex["floor"], color=ps.MUTED, lw=0.5, ls=(0, (4, 2)), alpha=a)
-            t = ex["t_stars"][d]
-            if np.isfinite(t):
-                ax.axvline(t, color=col, lw=0.8, alpha=a, zorder=2)
-        ax.axhline(ex["floor"], color=ps.INK, lw=0.5)
-        lo = ex["floor"] * 0.8
-        hi = max(np.nanmax(ex["ys"][ex["ts"] > 200]) * 1.3, ex["floor"] * 3)
-        ax.set(xscale="log", yscale="log", xlim=(100, ex["tq"][-1] * 1.1), ylim=(lo, hi),
-               xlabel="training iteration")
-        if hi / lo < 30:      # under 1.5 decades a log axis gets one labelled tick: label 1-2-5 steps
-            ax.yaxis.set_major_locator(LogLocator(subs=(1.0, 2.0, 5.0)))
-            ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
-            ax.yaxis.set_minor_formatter(NullFormatter())
-        ax.set_title(f"{task}, $N$ = 1,000, seed {seed_of(ex['name'])}", fontsize=6.6, pad=2)
-        ps.ygrid(ax)
-    ax_a[0].set_ylabel("noisy training loss")
-    fig.legend(handles=[
-        Line2D([], [], color=ps.GRID, lw=4),
-        Line2D([], [], color="#f3d9a4", lw=4),
-        Line2D([], [], color=ps.INK, lw=0.9),
-        tuple(Line2D([], [], color=TASK_COL[t], lw=1.0, ls=(0, (1, 1.2))) for t in TASKS
-              if rec["examples"][t][0]["tf"] is not None),      # DMTS has no fitted decay
-        Line2D([], [], color=ps.INK, lw=0.5),
-        Line2D([], [], color=ps.MUTED, lw=0.5, ls=(0, (4, 2))),
-        tuple(Line2D([], [], color=TASK_COL[t], lw=0.8) for t in TASKS)],
-        labels=["raw loss, 10th-90th pct", "burst (masked)", "read-out curve", "fitted decay",
-                "floor", "1.05×, 1.10×, 1.20× floor", "crossings"],
-        handler_map={tuple: HandlerTuple(ndivide=None, pad=0.0)},   # task-coloured swatches
-        loc="upper center", bbox_to_anchor=(0.5, 0.995), ncol=7, fontsize=5.8, handlelength=1.6,
-        columnspacing=1.2, frameon=False)
-
-    for task in TASKS:
-        rows = [r for r in rec["series"] if r["task"] == task and is_read(r)]
-        Ns = np.array([r["N"] for r in rows], float)
-        ts = np.array([r["t_star"] for r in rows])
-        ax_b.plot(Ns * (1 + 0.04 * (TASKS.index(task) - 1)), ts, "o", ms=2.4, color=TASK_COL[task],
-                  alpha=0.5, mec="none")
-        uN = np.unique(Ns)
-        ax_b.plot(uN, [ts[Ns == n].mean() for n in uN], "o-", ms=3.0, lw=1.0, color=TASK_COL[task],
-                  label=task)
-    ax_b.set(xscale="log", yscale="log", xlim=(75, 5500), xlabel="network size $N$",
-             ylabel="1.05× crossing $t^*$ (iterations)")
-    ax_b.set_xticks(SIZES)
-    ax_b.set_xticklabels(["100", "500", "1k", "2k", "4k"])
-    ax_b.xaxis.set_minor_locator(NullLocator())
-    ax_b.legend(loc="lower right", fontsize=6.0)
-    ps.ygrid(ax_b)
-
-    ok = [o for o in rec["oracle"] if o["reason"] is None and np.isfinite(o["t_oracle"])]
-    lim = (2e3, 2e5)
-    xx = np.array(lim)
-    ax_c.fill_between(xx, xx / 1.1, xx * 1.1, color=ps.GRID, lw=0, zorder=0)
-    ax_c.plot(xx, xx, "-", color=ps.MUTED, lw=0.7)
-    for task in TASKS:
-        o = [x for x in ok if x["task"] == task]
-        ax_c.plot([x["t_oracle"] for x in o], [x["t_rule"] for x in o], "o", ms=3.0,
-                  color=TASK_COL[task], alpha=0.8, mec="none", label=f"{task} ({len(o)})")
-    ax_c.set(xscale="log", yscale="log", xlim=lim, ylim=lim,
-             xlabel="crossing of the snapshot oracle (iterations)",
-             ylabel="crossing of the rule $t^*$ (iterations)")
-    ax_c.legend(loc="upper left", fontsize=6.0)
-    ps.ygrid(ax_c)
-    for ax, L in ((ax_a[0], "a"), (ax_b, "b"), (ax_c, "c")):
-        ps.panel_letter(ax, L, dx=-0.24 if ax is ax_a[0] else -0.16, dy=1.03)
-    check_overlaps(fig)
-    out = ps.save(fig, "fig_ed_readout")
-
-    print("\nED3 a examples:", {t: seed_of(rec["examples"][t][0]["name"]) for t in TASKS})
-    print("ED3 b mean t* per size:")
-    for task in TASKS:
-        rows = [r for r in rec["series"] if r["task"] == task and is_read(r)]
-        print(f"  {task}: " + "; ".join(
-            f"N={N}: {np.mean([r['t_star'] for r in rows if r['N'] == N]):,.0f}" for N in SIZES))
-    print("ED3 c rule vs oracle:")
-    for o in rec["oracle"]:
-        err = (o["t_rule"] / o["t_oracle"] - 1) * 100 if np.isfinite(o["t_oracle"]) else float("nan")
-        print(f"  {o['name'][:70]}: rule {o['t_rule']:,.0f} oracle {o['t_oracle']:,.0f} "
-              f"({err:+.0f}%) {o['reason'] or ''}")
-    return out
-
-
 def tex_row(r, in_e):
     """One LaTeX row of Extended Data Table 2 for one run record.
 
@@ -787,7 +698,7 @@ def tex_row(r, in_e):
         str ending in a LaTeX line break.
     """
     read = r["reason"] is None and r.get("excluded") is None
-    t = f"{r['t_star'] / 1e3:.0f}k" if r["reason"] is None else "--"   # nearest 1,000 (ED Fig. 3c)
+    t = ps.fmt_count(1000 * round(r["t_star"] / 1e3)) if r["reason"] is None else "--"   # nearest 1,000
     a = f"{r['active_at'][0.05]:.0f}" if r["reason"] is None else "--"
     if r["reason"] is None and np.isfinite(r["r2_floor"]):
         r2 = f"{r['r2_floor']:.3f}" + ("" if r["r2_measured"] else "$^{e}$")
@@ -805,11 +716,11 @@ def tex_row(r, in_e):
         in_d = r["role"] == "trajectory" or (r["role"] == "size series" and r["N"] == 1000
                                               and r["task"] != "CDDM" and r.get("excluded") is None)
         fig = "2d" if in_d else "--"
-    trained = f"{r['it_end'] / 1e3:.0f}k"
+    trained = ps.fmt_count(1000 * round(r["it_end"] / 1e3))       # nearest 1,000
     if r["task"] == "3BFF" and r["seed"] in in_e:
         fig = "2e" if fig == "--" else fig + ", 2e"
         if in_e[r["seed"]] > r["it_end"]:      # continued for panel (e)
-            trained += f"; {in_e[r['seed']] / 1e3:.0f}k"
+            trained += "$^{c}$"                # trained on to 300,000 (table footnote)
     note = re.sub(r" \(held-out R\$\^2\$ [0-9.]+\)", "", note)   # the R^2 column already shows it
     note = note.replace("_", r"\_").replace("%", r"\%")
     return (f"{r['task']} & {r['N']:,} & {r['seed']} & {fig} & {trained} & {t} & {a} & "
@@ -817,7 +728,7 @@ def tex_row(r, in_e):
 
 
 def write_table(rec):
-    """Write the body rows of Extended Data Table 2 to img/internal_figures/edt2_runs_rows.tex.
+    """Write the body rows of Supplementary Table 1 to img/internal_figures/edt2_runs_rows.tex.
 
     Args:
         rec: the unpickled COLLECT record.
@@ -852,5 +763,4 @@ if __name__ == "__main__":
         with open(COLLECT, "rb") as fh:
             record = apply_decisions(pickle.load(fh))
         draw_fig2(record)
-        draw_ed_readout(record)
         write_table(record)
