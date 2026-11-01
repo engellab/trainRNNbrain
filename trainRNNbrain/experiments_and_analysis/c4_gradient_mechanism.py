@@ -255,16 +255,19 @@ def adam_step(run_dir, N):
     return out
 
 
-def run_one(run_dir, out_dir, K, at):
+def run_one(run_dir, out_dir, K, at, point=None, fn=None):
     """All per-unit quantities for one run; writes <out_dir>/<cell>__<seed>.npz.
 
     Args:
-        run_dir: a run folder; out_dir: output folder; K: number of noisy training-like batches;
+        run_dir: a run folder (or any folder holding the run's *_config.yaml); out_dir: output folder;
+        K: number of noisy training-like batches;
         at: "floor" or "end" (which saved weights to read, see gradient_participation.read_point).
+        point: optional (params path, read label, iteration) to read instead of read_point's choice;
+        fn: optional output file name (inside out_dir) instead of the one built from run_dir.
     """
     t0 = time.time()
     cfg = OmegaConf.load(glob.glob(os.path.join(run_dir, "*_config.yaml"))[0])
-    path, read, read_iter = read_point(run_dir, at)
+    path, read, read_iter = point if point is not None else read_point(run_dir, at)
     assert cfg.model.equation_type == "h"
     P = load_params(path)
     sig = (float(cfg.model.sigma_rec), float(cfg.model.sigma_inp), float(cfg.model.sigma_out))
@@ -350,10 +353,12 @@ def run_one(run_dir, out_dir, K, at):
     del H2
 
     os.makedirs(out_dir, exist_ok=True)
-    cell = os.path.basename(os.path.dirname(run_dir.rstrip("/")))
-    sweep = os.path.basename(os.path.dirname(os.path.dirname(run_dir.rstrip("/"))))
-    seed = os.path.basename(run_dir.rstrip("/")).split("seed=")[1].split(";")[0]
-    fn = os.path.join(out_dir, f"{sweep}__{cell}__s{seed}__{at}.npz")
+    if fn is None:
+        cell = os.path.basename(os.path.dirname(run_dir.rstrip("/")))
+        sweep = os.path.basename(os.path.dirname(os.path.dirname(run_dir.rstrip("/"))))
+        seed = os.path.basename(run_dir.rstrip("/")).split("seed=")[1].split(";")[0]
+        fn = f"{sweep}__{cell}__s{seed}__{at}.npz"
+    fn = os.path.join(out_dir, fn)
     np.savez(fn, **{k: np.asarray(v) for k, v in res.items()})
     print(f"wrote {fn} ({time.time() - t0:.0f}s)", flush=True)
 
