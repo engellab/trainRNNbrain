@@ -8,11 +8,14 @@ It fails if
   - there is no bold face (issue #15),
   - a panel letter is not bold or not PANEL_LETTER_PT, an axis label not LABEL_PT, a tick label
     not TICK_PT, any glyph smaller than MIN_SCRIPT_PT (a subscript of tick-size text),
-  - the page is not W_FULL_MM wide (the figure would not print at 100%).
+  - the page is not W_FULL_MM wide (the figure would not print at 100%),
+  - a y-axis label sits closer than MIN_LABEL_GAP_MM (1 mm) to its tick labels, measured between
+    PyMuPDF span boxes; the demo asks one label for labelpad=1, which `save` must raise
+    (dead-relu-paper #63).
 
 Given figure PDFs as arguments, it audits those instead, at the size each prints when included at
 \\textwidth: the house family only (Helvetica on the Mac), a bold face, panel letters 8-10 pt, no glyph under MIN_SCRIPT_PT (the
-acceptance tests of dead-relu-paper #15 and #40). Glyph runs between MIN_SCRIPT_PT and MIN_PT are
+acceptance tests of dead-relu-paper #15 and #40), every y-label at least 1 mm from its tick labels (#63). Glyph runs between MIN_SCRIPT_PT and MIN_PT are
 counted, not failed: a PDF does not say which runs are sub- or superscripts.
 
 Run: python tests/test_paperstyle.py [figure.pdf ...]
@@ -32,6 +35,7 @@ sys.path.insert(0, os.path.join(REPO, "trainRNNbrain", "experiments_and_analysis
 import paperstyle as ps  # noqa: E402  (needs the path above)
 
 PT_PER_MM = 72 / 25.4
+MIN_LABEL_GAP_MM = 1.0      # y-label to tick-label gap on the page (dead-relu-paper #63)
 
 
 def pdf_font_names(path):
@@ -72,6 +76,35 @@ def spans(path):
     return out, page.rect.width / PT_PER_MM
 
 
+def y_label_gaps(path, scale=1.0, search_mm=8.0):
+    """Gap between every rotated (vertical) text line and the nearest horizontal text to its right.
+
+    A y-axis label is a vertical line of text; its tick labels are the horizontal lines to its
+    right that overlap it in height. Vertical lines with no horizontal text within `search_mm`
+    (a label on an axis without tick labels, a rotated annotation) are skipped.
+
+    Args:
+        path: str, a PDF file; scale: printed size / PDF size; search_mm: how far right to look.
+    Returns:
+        list of (text, gap_mm at print size), one per vertical line that has a neighbour.
+    """
+    page = pymupdf.open(path)[0]
+    vertical, horizontal = [], []
+    for block in page.get_text("dict")["blocks"]:
+        for line in block.get("lines", []):
+            text = "".join(s["text"] for s in line["spans"]).strip()
+            if not text:
+                continue
+            (vertical if abs(line["dir"][0]) < 0.1 else horizontal).append((text, line["bbox"]))
+    out = []
+    for text, (x0, y0, x1, y1) in vertical:
+        gaps = [hx0 - x1 for _, (hx0, hy0, hx1, hy1) in horizontal
+                if hy1 > y0 and hy0 < y1 and -0.5 <= hx0 - x1 < search_mm * PT_PER_MM]
+        if gaps:
+            out.append((text, min(gaps) * scale / PT_PER_MM))
+    return out
+
+
 def audit(path, printed_width_mm=ps.W_FULL_MM):
     """Check one figure PDF against the style sheet at the size it prints when set at \\textwidth.
 
@@ -99,10 +132,15 @@ def audit(path, printed_width_mm=ps.W_FULL_MM):
         fail.append(f"panel letters {min(letters)}-{max(letters)} pt printed, outside 8-10 pt")
     if sizes and min(sizes) < ps.MIN_SCRIPT_PT - 0.05:
         fail.append(f"text at {min(sizes):.1f} pt printed, under {ps.MIN_SCRIPT_PT:.1f} pt")
+    gaps = y_label_gaps(path, scale)
+    for text, gap in gaps:
+        if gap < MIN_LABEL_GAP_MM:
+            fail.append(f"y-label '{text}' {gap:.2f} mm from its tick labels, under {MIN_LABEL_GAP_MM} mm")
     summary = dict(fonts=fonts, scale=round(scale, 3),
                    median_pt=round(statistics.median(sizes), 2) if sizes else None,
                    letters_pt=sorted(set(letters)),
-                   runs_under_min_pt=sum(s < ps.MIN_PT - 0.05 for s in sizes))
+                   runs_under_min_pt=sum(s < ps.MIN_PT - 0.05 for s in sizes),
+                   min_ylabel_gap_mm=round(min(g for _, g in gaps), 2) if gaps else None)
     return fail, summary
 
 
@@ -114,6 +152,7 @@ def check_demo():
     """
     fig = ps.demo_figure()
     ax_a = fig.axes[0]
+    fig.axes[1].set_ylabel(ps.LABELS["r2"], labelpad=1)    # the pad Fig. 4 asked for; save() must raise it
     fail = []
     # what matplotlib was asked to draw
     if ax_a.xaxis.label.get_size() != ps.LABEL_PT:
@@ -126,6 +165,8 @@ def check_demo():
         fail += audit_fail
         runs, width_mm = spans(path)
     print("summary", summary)
+    if summary["min_ylabel_gap_mm"] is None:
+        fail.append("no y-label to tick-label gap measured on the demo")
     # what landed in the PDF, read back independently
     if abs(width_mm - ps.W_FULL_MM) > 0.1:
         fail.append(f"page is {width_mm:.2f} mm wide, not {ps.W_FULL_MM} mm")
