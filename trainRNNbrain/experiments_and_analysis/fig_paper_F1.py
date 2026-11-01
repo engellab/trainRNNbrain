@@ -184,6 +184,10 @@ SCALING = {
 # chance-level runs; diverged runs are dropped by name in traces_of.
 TASK_MIN_R2 = {DMTS_LABEL: 0.8}
 
+# Figure 1 names each task in full once (panel a, and the caption) and then by the abbreviation the
+# paper defines; the series labels above stay as they are, because the Figure 2 legends use them.
+TASK_SHORT = {EXAMPLE_TASK: "3BFF", "CDDM": "CDDM", DMTS_LABEL: "DMTS"}
+
 # Panel (c): the N = 1000 cell of each task's size series (the same runs as Figure 2's N = 1000
 # point), each run read at 1.05x its own noisy-loss floor (common.read_run) with held-out R^2 at
 # that crossing (heldout_r2.floor_r2: measured on a kept snapshot, else estimated from the end).
@@ -922,7 +926,7 @@ def panel_b_pair(axes, p_init, p, iterations):
     allp = np.maximum(np.r_[p_init, p], 1e-6)
     bins = np.logspace(np.log10(allp.min() * 0.7), np.log10(allp.max() * 1.4), 46)
     counts = []
-    for ax, q, title in ((axes[0], p_init, f"{EXAMPLE_TASK}, $N = {len(p)}$: untrained"),
+    for ax, q, title in ((axes[0], p_init, f"{TASK_SHORT[EXAMPLE_TASK]}, $N = {len(p)}$: untrained"),
                          (axes[1], p, f"after {iterations:,} training iterations")):
         thr = SILENT_REL * np.quantile(q, 0.95)
         qq = np.maximum(q, 1e-6)
@@ -1285,16 +1289,16 @@ def panel_e(axes):
 # read-out), ...] in order of preference, colour), top to bottom in the order of panel (e). The
 # networks are the claim-1 snapshot runs, read where their noisy loss reaches 1.05x its floor; the
 # flip-flop falls back to its end-of-training controls until its 200k continuations have a floor.
-# The *_seeded folders hold the re-run of 2026-10-14 with the held-out and ordering batches seeded and
-# the smoothed-minimum floor fallback; the unseeded results stay in c1_ablation and c1_retrain.
-ABLATION_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_ablation_seeded"
+# Earlier results: the *_seeded folders hold the re-run of 2026-10-14 (held-out and ordering batches
+# seeded); the unseeded results stay in c1_ablation and c1_retrain.
+ABLATION_DIR = "/scratch/gpfs/TENGEL/pt1290/c1_ablation_79932ef"
 # Prune-and-retrain folders, searched in order; per cell the first one holding results is used.
-# c1_retrain_seeded2/rep1 is the re-run with the fine-tune's training batches seeded too
-# (FINETUNE_SEED, ff994a9): it holds the three flip-flop networks. CDDM's training batch is a fixed
-# grid, so its retrains in c1_retrain_seeded are already deterministic; DMTS has no seeded-batch
-# re-run and is read from c1_retrain_seeded.
-RETRAIN_DIRS = ("/scratch/gpfs/TENGEL/pt1290/c1_retrain_seeded2/rep1",
-                "/scratch/gpfs/TENGEL/pt1290/c1_retrain_seeded")
+# 2026-10-31: ABLATION_DIR and this folder are the re-run at each network's crossing under read-out
+# 79932ef (Della 16555113 and 16555114, entry 2026-10-31_1702), with the fine-tune's training batches
+# seeded (FINETUNE_SEED). The ablations of 14 Oct (c1_ablation_seeded, c1_retrain_seeded2/rep1,
+# c1_retrain_seeded) sat on snapshots chosen under the read-out of that day; one DMTS network was
+# ablated 24k iterations before its current crossing.
+RETRAIN_DIRS = ("/scratch/gpfs/TENGEL/pt1290/c1_retrain_79932ef",)
 ABLATION = [
     ("3-bit flip-flop", [("NBitFlipFlop_c1_snapshots_c200000__EqType=h_N=1000_arm=control", "floor"),
                          ("NBitFlipFlop_ff_revive_c75000__EqType=h_k=3_N=1000_pen=none_arm=none",
@@ -1302,7 +1306,7 @@ ABLATION = [
     ("CDDM", [("CDDM_c1_snapshots__EqType=h_N=1000_arm=control", "floor")], ps.SLOTS[1]),
     (DMTS_LABEL, [("DMTS_c1_snapshots__EqType=h_N=1000_arm=control", "floor")], ps.SLOTS[2]),
 ]
-READOUT_TITLE = {"floor": "at its loss floor", "end": "end of training"}
+READOUT_TITLE = {"floor": "each at its loss floor", "end": "end of training"}
 ABL_GRID = np.linspace(0.0, 1.0, 201)        # fraction of units removed, the common x of every curve
 
 
@@ -1406,7 +1410,8 @@ def panel_d(axes, loaded=None):
         ax.set(xlim=(0, 100), ylim=(0, top))
         ps.ygrid(ax)
         n = len(res)
-        ax.set_title(f"{label},  $N = {res[0]['N']}$,  {n} networks, {READOUT_TITLE[readout]}",
+        ax.set_title(f"{TASK_SHORT.get(label, label)},  $N = {res[0]['N']}$,  {n} networks, "
+                     f"{READOUT_TITLE[readout]}",
                      fontsize=5.8, color=ps.INK, pad=3)
         rows.append((label, n, float(np.mean([r["n_silent"] for r in res])),
                      float(np.mean([r["r2_full"] for r in res])),
@@ -1421,7 +1426,7 @@ def panel_d(axes, loaded=None):
     for ax in drawn[:-1]:
         ax.tick_params(labelbottom=False)
     drawn[-1].set_xlabel("units removed (% of the network)")
-    drawn[len(drawn) // 2].set_ylabel("held-out $r^2$")
+    drawn[len(drawn) // 2].set_ylabel("held-out $R^2$")
     # the legend goes in the bottom sub-panel's empty middle: in the top one it sat on the random
     # order's band, and DMTS's curves leave 20-55% of the axis clear below the quietest-first line
     drawn[-1].legend(handles=[
@@ -1433,7 +1438,7 @@ def panel_d(axes, loaded=None):
         # between the random-order band (ends near 22%) and the drop of the quietest-first traces
         # (from 55%)
         loc="lower left", bbox_to_anchor=(0.22, 0.02), fontsize=5.2, ncol=1, handlelength=1.8,
-        columnspacing=0.8, framealpha=0.9)
+        columnspacing=0.8, frameon=True, framealpha=0.95, facecolor="white", edgecolor=ps.FAINT)
     return rows
 
 
@@ -1650,12 +1655,14 @@ C_LETTER_DX = 0.13             # panel c's letter offset, as a fraction of its a
 
 
 def panel_tasks(ax, rows):
-    """Panel (c): active units at N = 1000 against held-out R^2, every run at its own loss floor.
+    """Panel (c): active units at N = 1000 on each task, every run at its own loss floor.
 
-    One point per run, in the task's colour; a run is drawn when it has a floor read-out
-    (read_run's reason is None), its participation probes cover the crossing, and it is not in
-    EXCLUDED_RUNS. Beside each task's points: its mean and SD and the number of runs drawn. The
-    dashed line marks half of the network.
+    One column per task: one point per run in the task's colour, a bar at the mean, and under the
+    task's name the mean held-out R^2 at the floor and the number of runs drawn. A run is drawn when
+    it has a floor read-out (read_run's reason is None), its participation probes cover the
+    crossing, and it is not in EXCLUDED_RUNS. The dashed line marks half of the network. A strip and
+    not a scatter against R^2: the three tasks sit at R^2 0.83, 0.95 and 0.999, so a shared R^2 axis
+    spends most of its width between the tasks and none within one.
 
     Args:
         ax: axes; rows: the collect stage's panel (c) records (dicts with task, name, active,
@@ -1664,47 +1671,45 @@ def panel_tasks(ax, rows):
         list of (task, active counts, R^2 values, measured flags, crossings, runs on disk, list of
         "name: reason" strings for the runs not drawn), one per PANEL_TASKS entry.
     """
-    out = []
-    for label, _pat, col in PANEL_TASKS:
+    out, ticks = [], []
+    for k, (label, _pat, col) in enumerate(PANEL_TASKS):
         mine = [r for r in rows if r["task"] == label]
         drawn = [r for r in mine if r["reason"] is None and r["covered"] and not r["excluded"]]
         why = [f"{r['name'][:40]}: {r['excluded'] or r['reason'] or 'trace misses the crossing'}"
                + (f" (would read {r['active']} active, R2 {r['r2']:.3f})"
                   if r["active"] is not None and np.isfinite(r["r2"]) else "")
                for r in mine if r not in drawn]
-        x = np.array([r["r2"] for r in drawn], float)
         y = np.array([r["active"] for r in drawn], float)
-        ax.plot(x, y, "o", ms=4.2, color=col, mec="white", mew=0.5, zorder=4, clip_on=False)
-        sd = f" $\\pm$ {y.std(ddof=1):.0f}" if len(y) > 1 else ""
-        dx, dy, ha = TASK_LABEL_AT[label]
-        ax.text(x.mean() + dx, y.mean() + dy,
-                f"{TASK_SHORT.get(label, label)}\n{y.mean():.0f}{sd} active, $n$ = {len(y)}",
-                ha=ha, va="center", fontsize=6.0, color=col, linespacing=1.25)
-        out.append((label, y, x, [r["measured"] for r in drawn], [r["t_star"] for r in drawn],
+        r2 = np.array([r["r2"] for r in drawn], float)
+        xs = k + np.linspace(-0.09, 0.09, len(y)) if len(y) > 1 else np.full(len(y), float(k))
+        ax.plot([k - 0.24, k + 0.24], [y.mean()] * 2, lw=1.3, color=col, zorder=3,
+                solid_capstyle="butt")
+        ax.plot(xs, y, "o", ms=4.4, color=col, mec="white", mew=0.5, zorder=4)
+        ax.text(k + 0.29, y.mean(), f"{y.mean():.0f}", ha="left", va="center", fontsize=6.2,
+                color=col)
+        ticks.append(f"{TASK_SHORT.get(label, label)}\n$R^2$ = {r2.mean():.3f}\n$n$ = {len(y)}")
+        out.append((label, y, r2, [r["measured"] for r in drawn], [r["t_star"] for r in drawn],
                     len(mine), why))
     ax.axhline(500, color=ps.FAINT, lw=0.7, ls=(0, (4, 3)), zorder=1)
-    ax.text(C_XLIM[0] + 0.004, 512, "half of the 1,000 units", fontsize=5.6, color=ps.MUTED,
-            ha="left", va="bottom")
-    ax.set(xlim=C_XLIM, ylim=(0, 1000), xlabel="held-out $R^2$ at the loss floor",
-           ylabel="active units (of 1,000)")
+    ax.text(len(PANEL_TASKS) - 0.45, 515, "half of the units", fontsize=5.8, color=ps.MUTED,
+            ha="right", va="bottom")
+    ax.set(xlim=(-0.5, len(PANEL_TASKS) - 0.4), ylim=(0, 1000),
+           ylabel="active units at the loss floor (of 1,000)")
+    ax.set_xticks(range(len(PANEL_TASKS)))
+    ax.set_xticklabels(ticks, fontsize=6.2, linespacing=1.3)
+    ax.tick_params(axis="x", length=0, pad=4)
     ax.set_yticks([0, 250, 500, 750, 1000])
     ps.ygrid(ax)
     return out
 
 
-# panel (c): x range, and where each task's label sits relative to its points' mean
-# (dx in R^2, dy in units, horizontal alignment); set after reading the drawn data
-C_XLIM = (0.80, 1.005)
-TASK_SHORT = {EXAMPLE_TASK: "3-bit flip-flop", "CDDM": "CDDM", DMTS_LABEL: "DMTS, 5$\\tau$ delay"}
-TASK_LABEL_AT = {EXAMPLE_TASK: (0.0, -120, "center"), "CDDM": (0.0, 110, "center"),
-                 DMTS_LABEL: (-0.004, 230, "right")}
-
-
 def check_overlaps(fig):
-    """Print every pair of visible, non-empty text artists whose drawn boxes overlap.
+    """Print every pair of drawn text artists whose rendered boxes overlap.
 
     Run on the finished canvas before saving, so a label collision is reported from the actual
-    rendered extents (get_window_extent after a draw) rather than judged by eye.
+    rendered extents rather than judged by eye. Collected per axes: free text, titles, axis labels,
+    legend entries, and the tick labels whose tick lies inside the view (matplotlib keeps Text
+    objects for ticks outside the limits, which are never drawn); plus the figure's own texts.
 
     Args:
         fig: the figure.
@@ -1713,7 +1718,18 @@ def check_overlaps(fig):
     """
     fig.canvas.draw()
     rend = fig.canvas.get_renderer()
-    texts = [t for t in fig.findobj(plt.Text) if t.get_visible() and t.get_text().strip()]
+    texts = list(fig.texts)
+    for ax in fig.axes:
+        texts += list(ax.texts) + [ax.title, ax._left_title, ax._right_title,
+                                   ax.xaxis.label, ax.yaxis.label]
+        leg = ax.get_legend()
+        if leg is not None:
+            texts += list(leg.get_texts())
+        for axis, (lo, hi) in ((ax.xaxis, sorted(ax.get_xlim())), (ax.yaxis, sorted(ax.get_ylim()))):
+            for tick in axis.get_major_ticks():
+                if lo <= tick.get_loc() <= hi and tick.label1.get_visible():
+                    texts.append(tick.label1)
+    texts = [t for t in texts if t.get_visible() and t.get_text().strip()]
     boxes = [(t, t.get_window_extent(rend)) for t in texts]
     hits = []
     for i, (ta, ba) in enumerate(boxes):
@@ -1723,7 +1739,7 @@ def check_overlaps(fig):
     for a, b in hits:
         print(f"  !! text overlap: {a[:40]!r} <-> {b[:40]!r}")
     if not hits:
-        print("  .. no overlapping text")
+        print(f"  .. no overlapping text ({len(boxes)} text artists checked)")
     return hits
 
 
@@ -1754,9 +1770,10 @@ def collect(refresh=False):
         for r in runs:
             rd = read_run(r["run_dir"], run=r)
             excluded = next((why for key, why in EXCLUDED_RUNS.items() if key in r["name"]), None)
-            row = dict(task=label, name=r["name"], active=rd["active"], t_star=float(rd["t_star"]), reason=rd["reason"],
-                       covered=bool(rd["covered"]), excluded=excluded, r2=float("nan"),
-                       measured=False, active_end=rd["active_end"], it_end=rd["it_end"])
+            row = dict(task=label, name=r["name"], active=rd["active"], t_star=float(rd["t_star"]),
+                       reason=rd["reason"], covered=bool(rd["covered"]), excluded=excluded,
+                       r2=float("nan"), measured=False, active_end=rd["active_end"],
+                       it_end=rd["it_end"])
             if rd["reason"] is None and rd["covered"]:
                 row["r2"], row["measured"] = heldout.floor_r2(rd, cache)
             rows.append(row)
