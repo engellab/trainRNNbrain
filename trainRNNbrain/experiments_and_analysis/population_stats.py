@@ -533,11 +533,14 @@ def responses(name, rates, tgt, cond):
     return Y, X, ["bit 1", "bit 2", "bit 3"]
 
 
-def measure(net):
-    """All statistics for one network of the manifest.
+def simulate(net):
+    """One network of the manifest on the rule's batch: rates, active units and S3 responses.
 
+    Args:
+        net: a manifest() row.
     Returns:
-        dict of population_statistics plus gates (active counts, noise-free R^2 on the batch).
+        dict name (taskname), rates (N, T, B) float32, act (N,) bool, Y (N, n_samples) responses,
+        X (n_samples, p) task variables, names (variable names), r2 (noise-free R^2 on the batch).
     """
     cfg, rnn = A.build(net["dir"], A.load_params(net["params"]))   # config read from net["dir"]
     inp, tgt, mask, cond = batch(cfg)
@@ -547,13 +550,24 @@ def measure(net):
         rates = torch.relu(states).cpu().numpy()
         r2 = Trainer.r2_score(out, torch.as_tensor(tgt, dtype=torch.float32, device=rnn.device),
                               torch.as_tensor(np.asarray(mask), device=rnn.device))
-    act = active_mask(p)
     name = cfg.task.taskname
     Y, X, names = responses(name, rates, tgt, cond)
-    st = population_statistics(rates, Y, X, act)
-    st.update(label=net["label"], task=TASK_LABEL[name], seed=net["seed"], iteration=net["iteration"],
-              n_active_ablation=net["n_active_ablation"], r2_noise_free=float(r2),
-              variables=names, n_samples=int(Y.shape[1]), batch_shape=list(rates.shape))
+    return dict(name=name, rates=rates, act=active_mask(p), Y=Y, X=X, names=names, r2=float(r2))
+
+
+def measure(net):
+    """All statistics for one network of the manifest.
+
+    Returns:
+        dict of population_statistics plus gates (active counts, noise-free R^2 on the batch).
+    """
+    sim = simulate(net)
+    rates, Y = sim["rates"], sim["Y"]
+    st = population_statistics(rates, Y, sim["X"], sim["act"])
+    st.update(label=net["label"], task=TASK_LABEL[sim["name"]], seed=net["seed"],
+              iteration=net["iteration"], n_active_ablation=net["n_active_ablation"],
+              r2_noise_free=sim["r2"], variables=sim["names"], n_samples=int(Y.shape[1]),
+              batch_shape=list(rates.shape))
     return st
 
 
