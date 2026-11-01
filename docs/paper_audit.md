@@ -75,9 +75,9 @@ against 0.949-0.950); random pruning plus retrain reaches 0.920-0.930 on 3BFF an
 the inactive-pruned retrain on CDDM (0.821-0.828 against 0.825-0.829); on DMTS it reaches 0.998 in two networks and 0.419 in s3322309204. The pre-registered rule (entry 1702) passes in all nine networks. Across sizes (the Extended
 Data figure of removing inactive units at every size; entry 2026-11-01_0716): 35 default networks
 of 500-4000 units, 3BFF (15) at 75k and CDDM (12) and DMTS (8) at the end of training; the 36th,
-DMTS s597040509 at N = 2000 (intact R² 0.418), never learned the task and is left out. Removing the
-inactive units changes R² by −0.010 to +0.001 on CDDM and −0.046 to −0.001 on DMTS, and in all 35
-networks it costs less than removing as many units at random.
+DMTS s597040509 at N = 2000 (R² 0.417 in the Supplementary table of every network), never learned
+the task and is left out. Removing the inactive units changes R² by −0.010 to +0.001 on CDDM and
+−0.046 to −0.001 on DMTS, and in all 35 networks it costs less than removing as many units at random.
 
 **C2.** Figure 2 (entry 2026-10-31_1957; Della job 16558986, read-out 79932ef). Read at 1.05× each
 run's floor and fitted on the size means from N = 500, the active count grows as N^0.48 on the 3-bit

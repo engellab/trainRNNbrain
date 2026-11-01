@@ -58,22 +58,30 @@ Colour: one colour per meaning, everywhere, and a colour is never reused for ano
   Figure 5 set (baseline, ACTIVE, rate, rate + sparsity, dropout, synaptic noise, duplicate,
   rescale), worst 8.0 (pass), normal-vision worst 15.5 (pass, floor 15); the Figure 3 set
   (baseline, ACTIVE, the three penalties, SETTING_RAMP[1] and [2]), worst 8.9, normal-vision 15.9.
-  Pairs that fail the checks, and the limitation each one carries (dead-relu-paper#63; the
-  validator and an independent Machado-2009 / OKLab script agree on every value below):
-  - Tasks and rules are never colour-coded in the same panel: DMTS green and rescale magenta are
-    2.7 apart under deuteranopia, and 3BFF blue and sparsity violet 2.9 apart under protanopia
-    (11.1 under deuteranopia), although both pairs are 19-29 apart in normal vision. A panel that
-    crosses tasks with rules gives tasks a facet or a marker and rules the colour.
+  Pairs that fail the checks, and the limitation each one carries (dead-relu-paper#63). Every pair
+  of the 17 series colours above (tasks, rules, the four teals, BASELINE, ACTIVE, INACTIVE) was
+  run; every pair under 8 in a colour-blind simulation or under 15 in normal vision is listed here.
+  The validator and an independent Machado-2009 / OKLab script agree on every value.
+  - Tasks and rules are never colour-coded in the same panel: DMTS and rescale are 2.7 apart under
+    deuteranopia; 3BFF and sparsity 2.9 under protanopia (11.1 under deuteranopia); 3BFF and rate
+    penalty 7.2 under deuteranopia and 14.8 in normal vision; CDDM and dropout 13.2 in normal vision.
+    A panel that crosses tasks with rules gives tasks a facet or a marker and rules the colour.
+  - Tasks and the setting teals are never colour-coded in the same panel: DMTS and SETTING_RAMP[1]
+    are 7.7 apart under deuteranopia and 8.3 in normal vision; 3BFF and SETTING_RAMP[1] 12.8 in
+    normal vision.
   - The setting teals never share a panel with rescale, duplicate or synaptic noise: SETTING
-    (SETTING_RAMP[2]) and rescale are 3.7 apart under protanopia, SETTING_RAMP[1] and rescale 6.4,
-    SETTING_RAMP[3] and duplicate 5.2, and SETTING and synaptic noise 13.7 in normal vision (floor
-    15). With the violet penalties and with dropout every teal passes (the Figure 3 set above).
-  - BASELINE and INACTIVE never share a panel: the two greys are 8.6 apart in every vision type.
-    ACTIVE and SETTING_RAMP[3] (12.4 in normal vision) never share a panel either.
-  - BASELINE and SETTING_RAMP[0] are 4.4 apart under colour blindness and 8.3 in normal vision.
-    A sweep that uses both draws the default's markers with an ink edge and names it in the legend
-    (the metabolic-penalty and input-weight-scale panels of the Extended Data figure of every
+    (SETTING_RAMP[2]) and rescale are 3.7 apart under protanopia; SETTING_RAMP[1] and rescale 6.4
+    under deuteranopia; SETTING_RAMP[3] and duplicate 5.2 under protanopia; SETTING and synaptic
+    noise 13.7 in normal vision. With the violet penalties and with dropout every teal passes.
+  - INACTIVE never shares a panel with BASELINE (8.6 apart in normal vision and under both
+    simulations) or with the setting teals (SETTING_RAMP[0]: 3.8 under protanopia, 10.0 in normal
+    vision). ACTIVE and SETTING_RAMP[3] (12.4 in normal vision) never share a panel.
+  - BASELINE and SETTING_RAMP[0] are 4.4 apart under deuteranopia and 8.3 in normal vision. A sweep
+    that uses both draws the default's markers with an ink edge and names it in the legend (the
+    metabolic-penalty and input-weight-scale panels of the Extended Data figure of every
     standard-setting sweep).
+  - SETTING_RAMP[2] and SETTING_RAMP[3] are 10.7 apart in normal vision. The teals are the ordered
+    values of one setting, read by lightness; every value is named in a legend or a direct label.
   - BASELINE has a contrast of 2.35:1 on white, under the validator's 3:1 for a mark. A BASELINE
     series is always named directly (a label beside it, a legend entry, or the caption's "grey,
     ...") and never carries a value that only its colour identifies.
