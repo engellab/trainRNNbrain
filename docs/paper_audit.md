@@ -129,8 +129,9 @@ positive on a median 2-4% of steps, almost always within 2τ of an input pulse. 
 later 0.7-4.3% of them are active (0-1.3% after 500). These 3BFF numbers depend on the trial batch
 (dead-relu-paper#112): over twelve batches of 1,024 trials 108-222 low-active units are reached
 (16-30%) and 0.7-6.3% of them are active 5,500 iterations later (entries 2026-11-01_1150 and its
-correction _1204 on wp/results-r4, 2026-11-01_1200 on wp/methods-r4); the paper says "about a sixth
-to a third" and "fewer than a tenth (at most 6.3%)". On CDDM 23-39% of the 40-60 reached
+corrections _1204 and _1215 on wp/results-r4, 2026-11-01_1200 on wp/methods-r4); the review of PR #117
+found 6.9% in a 17th batch. The paper says "a sixth to three-tenths" and, with no batch maximum, the
+pre-registered "fewer than a tenth", which holds in all 17 batches. On CDDM 23-39% of the 40-60 reached
 low-active units are active by then (turnover near the criterion while the count falls). The reach
 does not shrink with training (C4b, entry 2026-10-14_1218: 199/155/175 reached at 50k, 174/152/156
 at the end, no fewer after lr/10). Tanh (CDDM, N = 1000, 9 networks, end of 150k, not a floor read):
