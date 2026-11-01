@@ -796,6 +796,10 @@ def tex_row(r, in_e):
         fig = "2e" if fig == "--" else fig + ", 2e"
         if in_e[r["seed"]] > r["it_end"]:      # continued for panel (e)
             trained += "$^{c}$"                # trained on to 300,000 (table footnote)
+    if r["role"] == "Fig. 1d ablation" and r["task"] in ("3BFF", "CDDM"):
+        # Fig. 4a-c draws the same weights as Fig. 1d for these six networks (dead-relu-paper #100,
+        # #91); the 3BFF ones are also the old networks of Fig. 4e,f
+        fig += ", 4a--c" + (", 4e,f" if r["task"] == "3BFF" else "")
     if r["role"] == "size series" and r["seed"] in ED1_NETWORKS[r["task"]]:
         fig = "ED1" if fig == "--" else fig + ", ED1"      # tested in Extended Data Fig. 1
     note = re.sub(r" \(held-out R\$\^2\$ [0-9.]+\)", "", note)   # the R^2 column already shows it
