@@ -58,7 +58,7 @@ import paperstyle as ps
 import heldout_r2 as heldout
 from common import (DATA_DIR, FLOOR_DELTAS, HOLD_FRAC, IMG_DIR, floor_curve, logbin, read_run,
                     runs_with_loss, warm_start_chain)
-from c3_flat_loss_units import CELLS as C3_CELLS, T_FLAT, FLAT_PCT, loss_change, loss_rate
+from c3_flat_loss_units import CELLS as C3_CELLS, DIE_BAR, T_FLAT, FLAT_PCT, loss_change, loss_rate
 
 REPO = os.path.normpath(os.path.join(DATA_DIR, "..", ".."))
 COLLECT = os.path.join(REPO, "data", "fig_paper_F2_size_collect.pkl")
@@ -581,6 +581,10 @@ def panel_flat(ax, c3):
     ax.axvspan(-FLAT_PCT, FLAT_PCT, color=ps.GRID, alpha=0.6, lw=0, zorder=0)
     ax.text(0, -13, "flat loss", fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="bottom")
     ax.axhline(0, color=ps.MUTED, lw=ps.THIN_LW)
+    # the losing-units threshold of the flat-loss test (entry 2026-10-15_0955)
+    ax.axhline(DIE_BAR, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)))
+    ax.text(6.9, DIE_BAR + 1.5, "losing units", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
+            va="bottom")
     handles = []
     for N in sorted(SIZE_MARK):
         rows = [r for r in c3 if r["N"] == N]

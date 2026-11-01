@@ -6,13 +6,15 @@
       loss bursts masked before smoothing;
   (b) the floor crossing t* (1.05x) against N, every network of Fig. 2a;
   (c) t* against the snapshot estimate of the same crossing, for every N = 1,000 network whose weights
-      were kept every 1,000 iterations; horizontal bars on the three CDDM default networks give the
-      snapshot estimate's 90% range from batch noise alone (stage --batch-noise);
+      were kept every 1,000 iterations;
   (d) the difference between t* and the snapshot estimate, in percent of the snapshot estimate, per
-      task, with the CDDM extremes printed on the panel (the Discussion quotes them).
+      task, with the CDDM extremes printed on the panel (the Discussion quotes them); vertical bars
+      on the three CDDM default networks show that difference over the snapshot estimate's 90%
+      range from batch noise alone (stage --batch-noise), a description of n = 3 networks, not a
+      test (review of dead-relu-paper PR #67).
 
 Inputs: the collect record of fig_paper_F2_size.py (data/fig_paper_F2_size_collect.pkl, Della job
-16558986) and, for the bars of panel (c), data/fig_ed_readout_batch_noise.json written by the
+16558986) and, for the bars of panel (d), data/fig_ed_readout_batch_noise.json written by the
 --batch-noise stage.
 
 TWO STAGES:
@@ -50,7 +52,6 @@ CDDM_DEFAULT = "CDDM_c1_snapshots__EqType=h_N=1000_arm=control__s"   # oracle fo
 N_BOOT_BATCH = 1000          # bootstrap resamples over batches (entry 2026-11-01_0118)
 BATCH_SEED = 20261101
 ED3_H_MM = 102.0             # printed height: at most 0.45 \textheight (102.9 mm), the float cap; width 165.1 mm
-BURST_SHADE = "#d8d6cf"      # neutral shade for masked loss bursts (no task or rule hue)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -220,36 +221,51 @@ def panel_tstar(ax, rec):
 def panel_snapshot(ax_c, ax_d, rec, noise):
     """Panels (c) and (d): t* against the snapshot estimate, and their difference in percent.
 
+    In (d) the CDDM default networks sit left of the CDDM networks with scaled input weights, and
+    each default network carries a vertical bar: the difference t* minus the snapshot estimate
+    over the snapshot estimate's 90% batch-noise range (t*/hi - 1 to t*/lo - 1).
+
     Args:
         ax_c, ax_d: axes; rec: the collect record; noise: BATCH_NOISE contents (seed -> range) or {}.
     Returns:
-        list of (name, task, t*, snapshot estimate, difference %) for every network with both.
+        list of (name, task, t*, snapshot estimate, difference %) for every network with both, and
+        dict seed -> (low %, high %) of the bars drawn.
     """
     ok = [o for o in rec["oracle"] if o["reason"] is None and np.isfinite(o["t_oracle"])]
     lim = (3_000, 150_000)
     xx = np.array(lim)
     ax_c.fill_between(xx, xx / 1.1, xx * 1.1, color=ps.GRID, lw=0, zorder=0)
     ax_c.plot(xx, xx, "-", color=ps.MUTED, lw=ps.THIN_LW)
-    rows = []
+    rows, bars = [], {}
     for k, task in enumerate(TASKS):
         o = [x for x in ok if x["task"] == task]
         default = np.array(["arm=control" in x["name"] for x in o])
         to = np.array([x["t_oracle"] for x in o])
         tr = np.array([x["t_rule"] for x in o])
         diff = (tr / to - 1) * 100
-        for mask, mfc in ((default, TASK_COL[task]), (~default, "white")):
+        split = default.any() and (~default).any()      # CDDM: defaults left, scaled inputs right
+        for mask, mfc, centre, step in ((default, TASK_COL[task], -0.2 if split else 0.0, 0.12),
+                                        (~default, "white", 0.18, 0.028)):
             ax_c.plot(to[mask], tr[mask], "o", ms=ps.MARKER_PT, color=TASK_COL[task], mfc=mfc,
                       mew=0.7, zorder=4)
-            jit = np.linspace(-0.12, 0.12, max(mask.sum(), 1))[:mask.sum()]
-            ax_d.plot(k + jit, diff[mask], "o", ms=ps.MARKER_PT, color=TASK_COL[task], mfc=mfc,
+            n = int(mask.sum())
+            xs = k + centre + step * (np.arange(n) - (n - 1) / 2)
+            if mfc != "white" and not split:
+                xs = k + np.linspace(-0.12, 0.12, max(n, 1))[:n]
+            ax_d.plot(xs, diff[mask], "o", ms=ps.MARKER_PT, color=TASK_COL[task], mfc=mfc,
                       mew=0.7, zorder=4)
+            for x, xo in zip(np.array(o)[mask], xs):
+                seed = x["name"].split("__s")[-1]
+                if mfc != "white" and seed in noise:
+                    b = noise[seed]
+                    lo, hi = (b["t_rule"] / b["hi"] - 1) * 100, (b["t_rule"] / b["lo"] - 1) * 100
+                    ax_d.plot([xo, xo], [lo, hi], "-", color=TASK_COL[task], lw=0.8, zorder=3)
+                    bars[seed] = (lo, hi)
         rows += [(x["name"], task, t1, t0, d) for x, t1, t0, d in zip(o, tr, to, diff)]
         if task == "CDDM":
-            for y, va in ((diff.min(), "top"), (diff.max(), "bottom")):
-                ax_d.text(k + 0.2, y, f"{y:+.0f}%".replace("-", "−"), fontsize=ps.TICK_PT,
+            for y in (diff.min(), diff.max()):
+                ax_d.text(k + 0.38, y, f"{y:+.0f}%".replace("-", "\u2212"), fontsize=ps.TICK_PT,
                           ha="left", va="center", color=ps.INK)
-    for seed, b in noise.items():
-        ax_c.plot([b["lo"], b["hi"]], [b["t_rule"]] * 2, "-", color=TASK_COL["CDDM"], lw=0.8, zorder=3)
     ax_c.set(xscale="log", yscale="log", xlim=lim, ylim=lim,
              xlabel="snapshot estimate (iterations)", ylabel="floor crossing $t^*$ (iterations)")
     for axis in (ax_c.xaxis, ax_c.yaxis):
@@ -259,18 +275,21 @@ def panel_snapshot(ax_c, ax_d, rec, noise):
     ax_c.legend(handles=[Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, color=ps.INK,
                                 label="default network"),
                          Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, color=ps.INK,
-                                mfc="white", mew=0.7, label="input weights scaled"),
-                         Line2D([], [], color=ps.INK, lw=0.8, label="90% range, batch noise")],
+                                mfc="white", mew=0.7, label="input weights scaled")],
                 loc="upper left", borderaxespad=0.2, handletextpad=0.2)
     ps.ygrid(ax_c)
     ax_d.axhspan(-10, 10, color=ps.GRID, lw=0, zorder=0)
     ax_d.axhline(0, color=ps.MUTED, lw=ps.THIN_LW)
+    if bars:
+        ax_d.legend(handles=[Line2D([], [], ls="none", marker="|", ms=7, mew=0.8,
+                                    color=TASK_COL["CDDM"], label="batch-noise\n90% range")],
+                    loc="lower left", borderaxespad=0.2, handletextpad=0.3)
     ax_d.set_xticks(range(len(TASKS)))
     ax_d.set_xticklabels(TASKS)
-    ax_d.set(xlim=(-0.6, 2.6), ylim=(-50, 80),
+    ax_d.set(xlim=(-0.6, 2.6), ylim=(-60, 80),
              ylabel="$t^*$ minus snapshot estimate\n(% of snapshot estimate)")
     ps.ygrid(ax_d)
-    return rows
+    return rows, bars
 
 
 def draw(rec, noise):
@@ -305,7 +324,7 @@ def draw(rec, noise):
         loc="upper center", bbox_to_anchor=(0.53, 0.998), ncol=7, handlelength=1.6,
         columnspacing=1.0, frameon=False)
     means = panel_tstar(ax_b, rec)
-    rows = panel_snapshot(ax_c, ax_d, rec, noise)
+    rows, bars = panel_snapshot(ax_c, ax_d, rec, noise)
     for ax, L in ((ax_a[0], "a"), (ax_b, "b"), (ax_c, "c"), (ax_d, "d")):
         ps.panel_letter(ax, L, x_mm=9.0 if ax is ax_d else ps.PANEL_LETTER_X_MM)
     check_overlaps(fig)
@@ -326,7 +345,8 @@ def draw(rec, noise):
           f"{sum(o['reason'] is None and not np.isfinite(o['t_oracle']) for o in rec['oracle'])}")
     for seed, b in noise.items():
         print(f"  CDDM default s{seed}: snapshot {b['t_oracle']:,.0f}, 90% batch range "
-              f"{b['lo']:,.0f}-{b['hi']:,.0f}, t* {b['t_rule']:,.0f}")
+              f"{b['lo']:,.0f}-{b['hi']:,.0f}, t* {b['t_rule']:,.0f}; panel d bar "
+              f"{bars[seed][0]:+.0f}% to {bars[seed][1]:+.0f}%")
     return out
 
 
