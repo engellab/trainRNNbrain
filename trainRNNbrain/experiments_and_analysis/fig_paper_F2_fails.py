@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
-"""Extended Data Fig. 4 (was manuscript Figure 2) - every standard training knob, and the tricks that
-revive silent units, on the standard network (ReLU, bias 0, N = 1000), at BOTH read-outs: each run's
-own loss floor and a fixed 75,000 iterations. Figure 3 (`fig_paper_F3_settings.py`) draws the 75k
-read from this script's cache. The old `fig_paper_F2.py` is kept because other code imports it.
+"""Extended Data Fig. 4 (was manuscript Figure 2) - every standard-setting sweep, the input-weight cap
+and the re-initialisation of inactive units, on the default network (ReLU, bias 0, N = 1000), at BOTH
+measurement points: each run's own floor crossing and a fixed 75,000 iterations; and, in its last
+panel pair, the optimizer comparison (3BFF) at the floor crossing and at 200,000 iterations (its
+75,000-iteration view is Figure 3d, so it is not repeated here). Figure 3 (`fig_paper_F3_settings.py`)
+draws the 75k read from this script's cache. The old `fig_paper_F2.py` is kept because other code
+imports it.
+
+ROUND 2 (dead-relu-paper#54). Drawn at the printed width (165.1 mm) in the house style of
+`paperstyle.py`: colours from the setting palette (default grey, other values on the teal ramp,
+the rate and sparsity penalties in the violet rule family), never a task colour; counts with a comma
+every three digits; the old bottom-line panel l (every value's mean at both points) is dropped, since
+Figure 3a draws the 75k means and each pair here draws both points; panel l is now the optimizer.
 
 TWO READ-OUTS (31 Oct, work package fig3-settings). Networks of one size are compared at a fixed
 75,000 iterations (Pavel, 16 Oct); a ladder whose common budget is shorter (CDDM input scale, 50k) is
@@ -25,9 +34,9 @@ sharing one active-units axis:
          same height. A run with no usable crossing is dashed. The dotted vertical line is the
          ladder's common budget.
 Panels a-i are the nine ladders of `fig_knobs_at_floor.LADDERS`; j and k the revival screens
-(placeholders until their top-ups land; picked up automatically on the next --collect); l the
-bottom line: every rung's mean at its own floor (open) and at its ladder's common budget (filled),
-so a knob that only reached its floor sooner shows up as a filled symbol LEFT of its reference.
+(input-weight cap and re-initialising inactive units); l the optimizer comparison, held-out R^2
+against active units at each run's floor crossing and at 200,000 iterations (B5 cache,
+data/b5_read_cache.pkl, written by `b5_read.py`).
 
 BUDGETS DIFFER between ladders and are never compared across them: weight decay, recurrent noise and
 activation 200k; metabolic, spectral radius, W_rec penalty, rate/sparsity and the CDDM revival
@@ -46,7 +55,8 @@ Usage (repository root):
     python trainRNNbrain/experiments_and_analysis/fig_paper_F2_fails.py             # draw from the
                        cache (data/fig_paper_F2_fails_cache.pkl; copy it from Della to draw locally)
 Output: img/internal_figures/fig_paper_F2_fails.{pdf,svg} (vector only, paperstyle.save), with a
-layout check printed (legends covering data, overlapping text) and the bottom-line numbers.
+layout check printed (legends covering data, overlapping text) and each value's mean active count
+at its floor crossing and at 75,000 iterations.
 """
 
 import argparse
@@ -55,10 +65,8 @@ import pickle
 import sys
 
 import numpy as np
-from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
-from matplotlib.patches import Rectangle
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -69,6 +77,9 @@ from heldout_r2 import R2_DRAWS, heldout_r2, load_cache, read_rung, save_cache
 from read_remedies import chain_member_ending_at
 
 CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "fig_paper_F2_fails_cache.pkl"))
+# The optimizer comparison's cache, written by `b5_read.py` (the same path as b5_read.CACHE; not
+# imported from there because b5_read imports this module).
+B5_CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "b5_read_cache.pkl"))
 # Networks of the SAME size are compared at a fixed iteration (Pavel, 16 Oct); the floor read is for
 # comparisons across sizes. A ladder whose common budget (`end_at`) is shorter is read at that budget.
 FIXED_IT = 75_000
@@ -260,38 +271,153 @@ Y_MAX = 1040                # room for markers at exactly 1000 (the rate penalty
 X_MIN = 2000                # first iteration drawn on the log axis of the traces. Below ~2,500 a log
                             # bin holds fewer than three probes (one every 100 iterations), and no
                             # run reaches its floor before 4,400.
-K_TICKS = [2e3, 1e4, 5e4, 2e5]      # labelled iterations; 5k, 20k and 100k get unlabelled ticks
-K_MINOR = [5e3, 2e4, 1e5]
+K_TICKS = [1e4, 5e4, 2e5]   # labelled iterations; 2,000, 5,000, 20,000 and 100,000 get unlabelled ticks
+K_MINOR = [2e3, 5e3, 2e4, 1e5]
 TRACE_BINS = 40             # log-spaced bins the drawn traces are median-reduced into (see panel_pair)
-# Rung labels shortened for the legends of this figure, where a long label covers data; the
-# parameters dropped here (leak 0.01, beta 25, the sigmoid's gain and offset, the penalty weights) are
-# in Methods.
-DISPLAY = {"leaky ReLU\nleak 0.01": "leaky ReLU", "softplus\n$\\beta$ = 25": "softplus",
-           "sigmoid\n7.5(x$-$0.3)": "sigmoid", "default\ndraw": "default",
-           "rate\n$\\lambda$ = 0.2": "rate", "sparsity\n$\\lambda$ = 0.05": "sparsity"}
+# Legend text of every value, by stem, in value order. Parameters left out here (leak 0.01, beta 25,
+# the sigmoid's gain and offset, the penalty weights) are in Methods.
+VALUE_LABELS = {
+    "slide_k_weightdecay": ["0", "$10^{-6}$ (default)", "$10^{-5}$", "$10^{-4}$"],
+    "slide_k_recnoise": ["0", "0.01", "0.05 (default)", "0.1"],
+    "slide_k_metabolic": ["0 (default)", "0.01", "0.1", "1", "10"],
+    "slide_k_recgain": ["0.5", "1.2 (default)", "2.0"],
+    "slide_k_rwm": ["0 (default)", "0.05", "0.2"],
+    "slide_k_activation": ["ReLU", "leaky", "softplus", "sigmoid"],   # ReLU is the default (grey)
+    "slide_k_inputscale_cddm": ["default", "0.5", "2", "5", "20"],
+    "slide_k_inputscale": ["default", "0.5", "2", "5", "20"],
+    "slide_k_frm_rws": ["default", "rate", "sparsity", "both"],
+    "revival_cddm": ["none (default)", "input-weight cap", "re-initialised"],
+    "revival_ff": ["none (default)", "outgoing zeroed", "outgoing kept"],
+}
+# Panel titles: the setting by its glossary name, then the task.
+TITLES = {
+    "slide_k_weightdecay": "weight decay, CDDM",
+    "slide_k_recnoise": "recurrent noise $\\sigma_{rec}$, CDDM",
+    "slide_k_metabolic": "metabolic penalty $\\lambda_{met}$, CDDM",
+    "slide_k_recgain": "initial spectral radius, CDDM",
+    "slide_k_rwm": "recurrent-weight magnitude penalty, CDDM",
+    "slide_k_activation": "activation function, CDDM",
+    "slide_k_inputscale_cddm": "initial input-weight scale, CDDM",
+    "slide_k_inputscale": "initial input-weight scale, 3BFF",
+    "slide_k_frm_rws": "rate and sparsity penalties, CDDM",
+    "revival_cddm": "revival methods, CDDM",
+    "revival_ff": "re-initialising inactive units, 3BFF",
+}
 # A ladder whose traces leave no room for a legend borrows the legend of a ladder with the same
-# rungs and colours; its dashed traces still mark the runs with no floor read-out.
+# values and colours; its dashed traces still mark the runs with no floor crossing.
 BORROW_LEGEND = {"slide_k_inputscale": "slide_k_inputscale_cddm"}
-# Short row labels for the bottom-line panel, by stem.
-SHORT = {"slide_k_weightdecay": "weight decay", "slide_k_recnoise": "recurrent noise",
-         "slide_k_metabolic": "metabolic penalty", "slide_k_recgain": "spectral radius",
-         "slide_k_rwm": "rec.-weight magnitude pen.", "slide_k_frm_rws": "rate / sparsity pen.",
-         "slide_k_activation": "activation", "slide_k_inputscale_cddm": "input-weight scale",
-         "slide_k_inputscale": "input-weight scale (3BFF)", "revival_cddm": "interventions",
-         "revival_ff": "interventions (3BFF)"}
+# Legends placed by hand (matplotlib loc, anchor in axes fractions of the traces panel) where the
+# automatic search finds no free spot; `check_layout` still tests that they cover no data. The third
+# item is the number of legend columns. "r2": one column in the empty upper half of the R^2 panel.
+LEGEND_AT = {"slide_k_activation": "r2",
+             "slide_k_frm_rws": ("lower left", (0.02, 0.02), 1)}
+# Penalty values drawn in the violet rule family (paperstyle.RULE_COLORS), by (stem, value index).
+PENALTY_COLORS = {("slide_k_frm_rws", 1): ps.RATE_PENALTY, ("slide_k_frm_rws", 2): ps.SPARSITY_PENALTY,
+                  ("slide_k_frm_rws", 3): ps.RATE_SPARSITY}
+MARKERS = "osD^v"
+# The optimizer comparison (panel l). SGD learning rates take the teal ramp, light to dark; the two
+# Adam variants are SETTING teal and differ from SGD in marker shape (circle, square) and position.
+SGD_LRS = ["0.03", "0.1", "0.3", "1", "3"]
+SGD_MARKER = "^"
+OPT_R2_LO = 0.86            # R^2 below this is drawn on the bottom edge as a downward triangle
 
 
 def rung_style(spec, i, n):
-    """Colour and marker of rung i, the same rule as `fig_knobs_at_floor.tradeoff`.
+    """Colour and marker of value i of a sweep, by meaning (paperstyle palettes).
+
+    The default value is BASELINE grey. The rate and sparsity penalties take the violet rule family.
+    Every other value takes the teal setting ramp: ordered values light to dark in sweep order
+    (circles); unordered values (activation function, revival methods) ramp steps 1-3 with one
+    marker shape each. No task colour is used.
 
     Args:
-        spec: a ladder; i: rung index; n: number of rungs.
+        spec: a sweep (fig_knobs_at_floor.LADDERS or REVIVAL entry); i: value index; n: number of values.
     Returns:
         (colour, marker).
     """
+    if i == spec["ref"]:
+        return ps.BASELINE, "o"
+    if (spec["stem"], i) in PENALTY_COLORS:
+        return PENALTY_COLORS[(spec["stem"], i)], MARKERS[i]
+    k = i - (i > spec["ref"])                       # position among the non-default values
     if spec.get("categorical", False):
-        return ps.SLOTS[i], "osD^v"[i]
-    return plt.get_cmap("viridis")(np.linspace(0.05, 0.85, n))[i], "o"
+        return ps.SETTING_RAMP[1 + k], MARKERS[i]
+    steps = {1: [2], 2: [1, 3], 3: [1, 2, 3], 4: [0, 1, 2, 3]}[n - 1]
+    return ps.SETTING_RAMP[steps[k]], "o"
+
+
+def b5_style(opt, wd, lr):
+    """Colour, marker, fill and legend label of one optimizer-comparison arm.
+
+    Args:
+        opt, wd, lr: the arm, as strings ('adam', '1e-6', '1e-3').
+    Returns:
+        dict(color, marker, filled, label); `filled` is False for SGD without weight decay.
+    """
+    if opt == "adam" and wd == "1e-6":
+        return dict(color=ps.BASELINE, marker="o", filled=True, label="Adam (default)")
+    if opt == "adam":
+        return dict(color=ps.SETTING, marker="o", filled=True, label="Adam, no weight decay")
+    if opt == "adamw":
+        return dict(color=ps.SETTING, marker="s", filled=True, label="AdamW")
+    col = ps.SETTING_RAMP[SGD_LRS.index(lr)] if lr in SGD_LRS[:4] else ps.INK
+    return dict(color=col, marker=SGD_MARKER, filled=wd != "0", label=f"SGD, learning rate {lr}")
+
+
+def b5_points(rows, key):
+    """(active, R^2) of every run of one arm at one measurement point, finite values only.
+
+    Args:
+        rows: the arm's run dicts from b5_read; key: "floor", "fixed" (75,000 iterations) or "end"
+            (200,000 iterations).
+    Returns:
+        list of (active units, held-out R^2).
+    """
+    if key == "floor":
+        pts = [(r["act_floor"], r["r2_floor"]) for r in rows]
+    elif key == "fixed":
+        pts = [(r["fixed"]["active"], r["fixed"]["r2"]) for r in rows]
+    else:
+        pts = [(r["act_end"], r["r2_end"]) for r in rows]
+    return [(a, v) for a, v in pts if np.isfinite(a) and np.isfinite(v)]
+
+
+def b5_scatter(ax, b5, key, skip_lr=()):
+    """Every optimizer-comparison run on one axes: held-out R^2 against active units.
+
+    A run below OPT_R2_LO is drawn on the bottom edge as a downward triangle in its arm's colour.
+
+    Args:
+        ax: axes; b5: b5_read rows, a list of ((opt, wd, lr), runs); key: "floor", "fixed" or "end";
+        skip_lr: SGD learning rates (strings) not drawn.
+    Returns:
+        (list of (arm, [active], [R^2]) per arm drawn, list of legend handles, one per arm with
+        weight decay, plus one for "open: SGD without weight decay").
+    """
+    out, handles = [], []
+    for (opt, wd, lr), rows in b5:
+        if opt == "sgd" and lr in skip_lr:
+            continue
+        st = b5_style(opt, wd, lr)
+        pts = b5_points(rows, key)
+        out.append(((opt, wd, lr), [a for a, _ in pts], [v for _, v in pts]))
+        is_ref = opt == "adam" and wd == "1e-6"
+        for a, v in pts:
+            low = v < OPT_R2_LO
+            ax.scatter([a], [OPT_R2_LO if low else v], s=10, marker="v" if low else st["marker"],
+                       facecolors=st["color"] if st["filled"] else "none",
+                       edgecolors=ps.INK if is_ref else st["color"], linewidths=0.6,
+                       zorder=4 + is_ref, clip_on=False)
+        if wd != "0" or opt != "sgd":
+            handles.append(Line2D([], [], ls="none", marker=st["marker"], ms=3.0, color=st["color"],
+                                  mec=ps.INK if is_ref else st["color"], mew=0.5, label=st["label"]))
+    handles.append(Line2D([], [], ls="none", marker=SGD_MARKER, ms=3.0, mfc="none", mec=ps.MUTED,
+                          mew=0.6, label="open: SGD, no weight decay"))
+    ax.set_xlim(0, N_UNITS)
+    ax.set_xticks([0, 500, 1000])
+    ps.count_ticks(ax.xaxis)
+    ax.set_ylim(OPT_R2_LO, 0.97)
+    return out, handles
 
 
 def budget(lad):
@@ -316,148 +442,92 @@ def has_runs(lad):
 def panel_pair(ax_r2, ax_tr, lad):
     """One ladder as two panels sharing the active-units axis.
 
-    Left (narrow): held-out R^2 (x) against active units (y), one point per run and read-out: open
-    at the run's floor, filled at the ladder's fixed point (fixed_point: 75,000 iterations, or a
-    shorter budget). Right: active units over training for every run (log iteration axis), each
-    run's floor crossing marked with the open symbol and its fixed-point read with the filled one, so
-    a point on the left and its mark on the right sit at the same height. A run with no usable
-    crossing is drawn dashed, with only the filled symbol. A dashed vertical line marks 75,000
-    iterations where the budget is longer; the dotted one the budget.
+    Left (narrow): held-out R^2 (x) against active units (y), one point per run and measurement
+    point: open at the run's floor crossing, filled at the ladder's fixed point (fixed_point: 75,000
+    iterations, or a shorter budget). Right: active units over training for every run (log iteration
+    axis), each run's floor crossing marked with the open symbol and its fixed-point measurement with
+    the filled one, so a point on the left and its mark on the right sit at the same height. A run
+    with no floor crossing is drawn dashed, with only the filled symbol. A dashed vertical line marks
+    75,000 iterations where the budget is longer; the dotted one the budget.
 
     Each trace is drawn as medians in TRACE_BINS log-spaced bins (common.logbin). Probe-to-probe
-    noise is small on both tasks (median step 1-4 units), but a flip-flop count drops by 100-350
-    units within one probe 4-10 times per run on the input-scale ladder, and drawn raw that
-    ladder's 15 traces cannot be told apart; the medians keep the level a trace stays at and
-    lose the one-probe spikes. The crossing symbol is the RAW count at the probe nearest the
-    crossing, the number the left panel and fig_knobs_at_floor report, so on the flip-flop it can
-    sit off its line.
+    noise is small on both tasks (median step 1-4 units), but a 3BFF count drops by 100-350 units
+    within one probe 4-10 times per run on the input-scale ladder, and drawn raw that ladder's 15
+    traces cannot be told apart; the medians keep the level a trace stays at and lose the one-probe
+    spikes. The crossing symbol is the RAW count at the probe nearest the crossing, the number the
+    left panel reports, so on 3BFF it can sit off its line.
 
     Args:
         ax_r2, ax_tr: the two axes; lad: one collected ladder.
     Returns:
-        list of legend handles (one per rung).
+        list of legend handles (one per value).
     """
     spec = lad["spec"]
     n = len(lad["rungs"])
+    labels = VALUE_LABELS[spec["stem"]]
     handles = []
     for i, rg in enumerate(lad["rungs"]):
         col, mk = rung_style(spec, i, n)
         ref = i == spec["ref"]
+        edge = ps.INK if ref else "none"
         rd = rg["read"]
         if rd is not None and len(rd["floor"]):
-            ax_r2.scatter(rd["r2"], rd["floor"], s=14 if ref else 10, marker=mk, facecolors="none",
+            ax_r2.scatter(rd["r2"], rd["floor"], s=12 if ref else 9, marker=mk, facecolors="none",
                           edgecolors=col, linewidths=0.6, zorder=3)
         fx = [r["fixed"] for r in rg["runs"]]
-        ax_r2.scatter([f["r2"] for f in fx], [f["active"] for f in fx], s=16 if ref else 11, marker=mk,
-                      color=col, edgecolors="k" if ref else "none", linewidths=0.7, zorder=4 + ref)
+        ax_r2.scatter([f["r2"] for f in fx], [f["active"] for f in fx], s=13 if ref else 10, marker=mk,
+                      color=col, edgecolors=edge, linewidths=0.6, zorder=4 + ref)
         for r in rg["runs"]:
             keep = (r["it_act"] >= X_MIN) & (r["it_act"] <= budget(lad))
             tb, yb = logbin(r["it_act"][keep], r["active"][keep], nbins=TRACE_BINS)
-            ax_tr.plot(tb, yb, color=col,
-                       lw=0.9 if ref else 0.65, alpha=0.9,
+            ax_tr.plot(tb, yb, color=col, lw=0.8 if ref else ps.THIN_LW + 0.1, alpha=0.9,
                        ls="-" if np.isfinite(r["t_star"]) else (0, (2, 1.2)), zorder=2 + ref)
         for r in rg["runs"]:
             if np.isfinite(r["t_star"]):
-                ax_tr.scatter([r["t_star"]], [active_at(r, r["t_star"])], s=14 if ref else 10,
+                ax_tr.scatter([r["t_star"]], [active_at(r, r["t_star"])], s=12 if ref else 9,
                               marker=mk, facecolors="none", edgecolors=col, linewidths=0.6, zorder=5)
-            ax_tr.scatter([r["fixed"]["probe"]], [r["fixed"]["active"]], s=16 if ref else 11,
-                          marker=mk, color=col, edgecolors="k" if ref else "none",
-                          linewidths=0.7, zorder=6 + ref)
-        k = len(rd["floor"]) if rd is not None else 0
-        nr = len(rg["runs"])
-        lab = DISPLAY.get(rg["label"], rg["label"]).replace("\n", " ") + ("" if k == nr else f" ({k}/{nr})")
-        handles.append(Line2D([], [], color=col, marker=mk, ms=3.6 if ref else 3.0, lw=0.8,
-                              mec="k" if ref else col, mew=0.6 if ref else 0, label=lab))
+            ax_tr.scatter([r["fixed"]["probe"]], [r["fixed"]["active"]], s=13 if ref else 10,
+                          marker=mk, color=col, edgecolors=edge, linewidths=0.6, zorder=6 + ref)
+        # runs with no floor crossing are dashed; the caption says so, the legend does not count them
+        handles.append(Line2D([], [], color=col, marker=mk, ms=3.0, lw=0.8,
+                              mec=ps.INK if ref else col, mew=0.5 if ref else 0, label=labels[i]))
     B = budget(lad)
     ax_tr.set_xscale("log")
     ax_tr.set_xlim(X_MIN, B * 1.25)
     ax_tr.set_xticks([t for t in K_TICKS if t <= B * 1.25])
-    ax_tr.set_xticklabels([f"{t / 1e3:.0f}k" for t in K_TICKS if t <= B * 1.25])
     ax_tr.set_xticks([t for t in K_MINOR if t <= B * 1.25], minor=True)
-    ax_tr.set_xticklabels([], minor=True)
+    ps.count_ticks(ax_tr.xaxis)
     ax_tr.axvline(B, color=ps.FAINT, lw=0.6, ls=":", zorder=1)
     if fixed_point(spec) < B:
         ax_tr.axvline(fixed_point(spec), color=ps.FAINT, lw=0.6, ls=(0, (3, 2)), zorder=1)
     for ax in (ax_r2, ax_tr):
         ax.set_ylim(0, Y_MAX)
+        ax.set_yticks([0, 500, 1000])
+        ps.count_ticks(ax.yaxis)
         ax.axhline(N_UNITS, color=ps.GRID, lw=0.6, zorder=0)
     ax_tr.tick_params(labelleft=False)
     return handles
 
 
-def bottom_line(ax, lads):
-    """Every ladder on one active-units axis: each rung at its own floor and at the ladder's
-    common budget.
-
-    One row per ladder. On the row, filled symbols are each rung's mean active count at the ladder's
-    fixed point (fixed_point: every run of the ladder read at the same iteration, 75,000 or the
-    shorter budget); the open symbols just above are the same rungs at their own floor, joined to
-    their filled symbol by a thin line. A knob that read high at its floor only because it got there
-    sooner ends left of its reference.
+def value_means(lads):
+    """Each value's mean active count at its floor crossing and at the ladder's fixed point.
 
     Args:
-        ax: the axes; lads: collected ladders, top to bottom.
+        lads: collected ladders.
     Returns:
-        list of (ladder, fixed point, [(rung, floor mean, fixed-point mean)]) rows, for the caption.
+        list of (stem, fixed point, [(value label, floor mean or nan, fixed-point mean)]).
     """
     rows = []
-    for j, lad in enumerate(lads):
+    for lad in lads:
         spec = lad["spec"]
-        B = fixed_point(spec)
-        y = -j
         out = []
-        n = len(lad["rungs"])
         for i, rg in enumerate(lad["rungs"]):
-            col, mk = rung_style(spec, i, n)
-            ref = i == spec["ref"]
-            ends = [r["fixed"]["active"] for r in rg["runs"]]
             fl = rg["read"]["floor"] if rg["read"] is not None else []
-            m_end = float(np.mean(ends)) if ends else float("nan")
-            m_fl = float(np.mean(fl)) if len(fl) else float("nan")
-            ax.plot([m_fl, m_end], [y + 0.38, y], color=col, lw=0.5, alpha=0.6, zorder=2)
-            ax.scatter([m_end], [y], s=16 if ref else 11, marker=mk, color=col,
-                       edgecolors="k" if ref else "none", linewidths=0.7, zorder=4 + ref)
-            ax.scatter([m_fl], [y + 0.38], s=9 if ref else 7, marker=mk, facecolors="none",
-                       edgecolors=col, linewidths=0.6, zorder=3)
-            out.append((rg["label"].replace("\n", " "), m_fl, m_end))
-        ax.text(-0.03, y + 0.19, f"{SHORT[spec['stem']]}, {B / 1e3:.0f}k",
-                transform=ax.get_yaxis_transform(), ha="right", va="center", fontsize=5.6,
-                color=ps.INK)
-        rows.append((SHORT[spec["stem"]], B, out))
-    ax.set_ylim(-len(lads) + 0.5, 0.9)
-    ax.set_yticks([])
-    ax.spines["left"].set_visible(False)
-    ax.set_xlim(0, Y_MAX)
-    ax.set_xticks([0, 250, 500, 750, 1000])
-    ax.set_xlabel("active units (of 1000)", labelpad=1)
-    ax.axvline(N_UNITS, color=ps.GRID, lw=0.6, zorder=0)
+            ends = [r["fixed"]["active"] for r in rg["runs"]]
+            out.append((VALUE_LABELS[spec["stem"]][i], float(np.mean(fl)) if len(fl) else float("nan"),
+                        float(np.mean(ends)) if ends else float("nan")))
+        rows.append((spec["stem"], fixed_point(spec), out))
     return rows
-
-
-# The paper's name for a knob where it differs from the slide name in `fig_knobs_at_floor.LADDERS`
-# (one name per thing across Fig. 3, ED Fig. 4, Results 3 and Methods).
-PAPER_KNOB = {"slide_k_recgain": "initial spectral radius",
-              "slide_k_rwm": "recurrent-weight magnitude penalty",
-              "slide_k_inputscale": "initial input-weight scale",
-              "slide_k_inputscale_cddm": "initial input-weight scale"}
-
-
-def title_text(lad, pending=False):
-    """Two-line pair title: the knob, then the task, where the floors fell, and the budget.
-
-    Args:
-        lad: one collected ladder; pending: True for a revival screen still training.
-    Returns:
-        the title string.
-    """
-    spec = lad["spec"]
-    task = "3BFF" if "flip" in spec["task"] else "CDDM"
-    if pending:
-        return f"{spec['knob']}\n{task}: pending"
-    cross = [r["t_star"] for rg in lad["rungs"] for r in rg["runs"] if np.isfinite(r["t_star"])]
-    where = f"floors at {min(cross) / 1e3:.0f}-{max(cross) / 1e3:.0f}k" if cross else "no floor read"
-    knob = PAPER_KNOB.get(spec["stem"], spec["knob"])
-    return f"{knob}\n{task}, {where}, budget {budget(lad) / 1e3:.0f}k"
 
 
 def covered(ax, leg):
@@ -487,7 +557,7 @@ def covered(ax, leg):
 
 
 def place_legend(ax, handles, alt=None):
-    """Put the rung legend where it covers no data: inside the traces axes, else inside `alt`.
+    """Put the value legend where it covers no data: inside the traces axes, else inside `alt`.
 
     The legend's size is measured once per column count; candidate positions are then tested
     arithmetically against every drawn vertex and symbol: the four corners first (one column, then
@@ -500,7 +570,7 @@ def place_legend(ax, handles, alt=None):
     Returns:
         (the axes holding the legend - a tuple (ax, alt) for a legend spanning both - , the legend).
     """
-    kw = dict(handles=handles, fontsize=5.5, handlelength=1.1, borderaxespad=0.0,
+    kw = dict(handles=handles, fontsize=ps.TICK_PT, handlelength=1.1, borderaxespad=0.0,
               labelspacing=0.15, handletextpad=0.3, columnspacing=0.6, loc="lower left")
     fig = ax.figure
     rend = fig.canvas.get_renderer()
@@ -572,18 +642,51 @@ def place_legend(ax, handles, alt=None):
     return ax, ax.legend(ncol=1, bbox_to_anchor=(m, m), **kw)
 
 
-def draw(data):
-    """Assemble Figure 2 from the collected data and write it (PDF + SVG).
+def optimizer_pair(ax_fl, ax_end, b5):
+    """Panel l: the optimizer comparison at each run's floor crossing and at 200,000 iterations.
 
-    Layout, 180 mm wide: four rows of three slots. Each of the nine knob ladders and the two revival
-    screens takes one slot as a PAIR of panels that share the active-units axis (the narrow R^2
-    panel and the traces panel, see panel_pair), so a run's point on the trade-off and its floor
-    crossing on its trace sit at the same height. The last slot is the bottom line across ladders.
+    Its 75,000-iteration view is Figure 3d and is not repeated. Markers and colours are those of
+    Figure 3d (b5_style); the two groups are labelled directly ("Adam, AdamW", "SGD") because no
+    corner of either axes is free for a legend. The R^2 axis runs to 1.0 to make room for the label.
 
     Args:
-        data: the dict `collect` writes.
+        ax_fl, ax_end: the two axes; b5: b5_read rows.
     Returns:
-        (output path, bottom-line rows).
+        dict(floor=..., end=...) of b5_scatter's per-arm points.
+    """
+    nums = {}
+    for ax, key, title in ((ax_fl, "floor", "floor crossing"),
+                           (ax_end, "end", "200,000 iterations")):
+        nums[key], _ = b5_scatter(ax, b5, key)
+        ax.set_ylim(OPT_R2_LO, 1.0)
+        ax.set_title(title, fontsize=ps.LABEL_PT, pad=2)
+        ax.set_xlabel(ps.LABELS["active"], labelpad=1)
+    ax_fl.set_xticks([0, 500])
+    ps.count_ticks(ax_fl.xaxis)
+    for ax in (ax_fl, ax_end):
+        ax.set_yticks([0.88, 0.92, 0.96, 1.0])
+    ax_fl.set_ylabel(ps.LABELS["r2"], labelpad=1)
+    ax_end.tick_params(labelleft=False)
+    # direct labels instead of a legend (no free corner holds one); the markers are those of Fig. 3d
+    for ax in (ax_fl, ax_end):
+        ax.text(30, 0.985, "Adam, AdamW", fontsize=ps.TICK_PT, color=ps.INK, va="center")
+    ax_end.text(560, 0.93, "SGD", fontsize=ps.TICK_PT, color=ps.INK, va="center")
+    return nums
+
+
+def draw(data, b5):
+    """Assemble Extended Data Fig. 4 from the collected data and write it (PDF + SVG).
+
+    Layout, 165.1 mm wide (the printed width): four rows of three slots. Each of the nine sweeps and
+    the two revival screens takes one slot as a PAIR of panels that share the active-units axis (the
+    narrow R^2 panel and the traces panel, see panel_pair), so a run's point on the trade-off and its
+    floor crossing on its trace sit at the same height. The last slot holds the optimizer comparison
+    (optimizer_pair).
+
+    Args:
+        data: the dict `collect` writes; b5: the optimizer comparison's rows (B5_CACHE).
+    Returns:
+        (output path, value_means rows, optimizer points).
     """
     # the specs (titles, labels) come from this file, not from the cache, so a wording change
     # needs no re-collect; the rung folders must still be the ones the cache was read from
@@ -600,77 +703,68 @@ def draw(data):
     rev = data["revival"]
 
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 180 * ps.MM))
-    gs = GridSpec(4, 3, figure=fig, left=0.065, right=0.985, top=0.955, bottom=0.05,
-                  hspace=0.50, wspace=0.30)
-    slots = [gs[i // 3, i % 3] for i in range(9)] + [gs[3, 0], gs[3, 1]]
+    fig = ps.figure(178)
+    gs = GridSpec(4, 3, figure=fig, left=0.062, right=0.976, top=0.950, bottom=0.042,
+                  hspace=0.46, wspace=0.26)
+    slots = [gs[i // 3, i % 3] for i in range(12)]
     letters = iter("abcdefghijkl")
     pairs = []
     for slot, lad in zip(slots, lads + rev):
-        sub = GridSpecFromSubplotSpec(1, 2, subplot_spec=slot, width_ratios=[0.42, 1.0], wspace=0.20)
+        sub = GridSpecFromSubplotSpec(1, 2, subplot_spec=slot, width_ratios=[0.42, 1.0], wspace=0.14)
         ax_r2, ax_tr = fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[0, 1])
-        ps.panel_letter(ax_r2, next(letters), dx=-0.62, dy=1.16)
-        if lad in rev and not any(len(rg["runs"]) for rg in lad["rungs"][1:]):
-            # the slot for a revival screen whose treated cells have no finished run yet
-            for ax in (ax_r2, ax_tr):
-                ps.blank(ax)
-                ax.add_patch(Rectangle((0, 0), 1, 1, transform=ax.transAxes, fill=False,
-                                       ls=(0, (3, 2)), lw=0.6, ec=ps.FAINT))
-            names = "\nand ".join(rg["label"].replace("\n", " ") for rg in lad["rungs"][1:])
-            ax_tr.text(0.5, 0.5, f"{names}:\ntop-ups to the floor\nstill training; drawn\n"
-                       "here when they land", transform=ax_tr.transAxes, ha="center",
-                       va="center", fontsize=6, color=ps.MUTED, linespacing=1.3)
-            pairs.append((ax_r2, ax_tr, lad, None))
-            continue
+        ps.panel_letter(ax_r2, next(letters), x_mm=7.5, y_mm=4.0)
         handles = panel_pair(ax_r2, ax_tr, lad)
-        ax_r2.set_xlabel("held-out $R^2$", labelpad=1)
-        ax_tr.set_xlabel("training iteration", labelpad=1)
+        ax_r2.set_xlabel(ps.LABELS["r2"], labelpad=1)
+        ax_tr.set_xlabel(ps.LABELS["iteration"], labelpad=1)
         pairs.append((ax_r2, ax_tr, lad, handles))
 
-    # one R^2 range for every CDDM pair so they compare by eye; the flip-flop gets its own
-    drawn = [p for p in pairs if p[3] is not None]
-    for task_ff, ticks in ((False, [0.80, 0.83]), (True, [0.950, 0.953])):  # inside the range: an edge tick ran into the next axis's "2k"
-        group = [p for p in drawn if ("flip" in p[2]["spec"]["task"]) == task_ff]
-        if not group:
-            continue
+    # one R^2 range for every CDDM pair so they compare by eye; 3BFF gets its own
+    for task_ff, ticks in ((False, [0.80, 0.83]), (True, [0.950, 0.953])):
+        group = [p for p in pairs if ("flip" in p[2]["spec"]["task"]) == task_ff]
         r2 = np.concatenate([rg["read"]["r2"] for p in group for rg in p[2]["rungs"]
                              if rg["read"] is not None]
                             + [[r["fixed"]["r2"] for p in group for rg in p[2]["rungs"] for r in rg["runs"]]])
         pad = 0.08 * (r2.max() - r2.min())
-        lo, hi = r2.min() - pad, r2.max() + pad
         for p in group:
-            p[0].set_xlim(lo, hi)
+            p[0].set_xlim(r2.min() - pad, r2.max() + pad)
             p[0].set_xticks(ticks)
     for i, (ax_r2, ax_tr, lad, handles) in enumerate(pairs):
         pos_l, pos_r = ax_r2.get_position(), ax_tr.get_position()
-        fig.text((pos_l.x0 + pos_r.x1) / 2, pos_l.y1 + 0.006, title_text(lad, handles is None),
-                 ha="center", va="bottom", fontsize=6.2, color=ps.INK, linespacing=1.15)
+        fig.text((pos_l.x0 + pos_r.x1) / 2, pos_l.y1 + 0.006, TITLES[lad["spec"]["stem"]],
+                 ha="center", va="bottom", fontsize=ps.LABEL_PT, color=ps.INK)
         if i % 3 == 0:
-            ax_r2.set_ylabel("active units (of 1000)")
+            ax_r2.set_ylabel(ps.LABELS["active"], labelpad=1)
     # legends last, once every axis has its final limits, so the coverage test reads the real layout
     legends = []
     for ax_r2, ax_tr, lad, handles in pairs:
-        if handles is None:
-            continue
         lender = BORROW_LEGEND.get(lad["spec"]["stem"])
         if lender:
             handles = [Line2D([], [], ls="none",
-                              label=f"rungs as in {'abcdefghi'[ORDER.index(lender)]}")]
-        holder, leg = place_legend(ax_tr, handles, alt=ax_r2)
+                              label=f"values as in {'abcdefghi'[ORDER.index(lender)]}")]
+        at = LEGEND_AT.get(lad["spec"]["stem"])
+        if at == "r2":
+            holder, leg = ax_r2, ax_r2.legend(
+                handles=handles, loc="upper left", bbox_to_anchor=(0.025, 0.97),
+                fontsize=ps.TICK_PT, handlelength=0.7, borderaxespad=0.0, labelspacing=0.15,
+                handletextpad=0.3)
+        elif at:
+            holder, leg = ax_tr, ax_tr.legend(handles=handles, loc=at[0], bbox_to_anchor=at[1], ncol=at[2],
+                                              columnspacing=0.8,
+                                              fontsize=ps.TICK_PT, handlelength=0.9, borderaxespad=0.0,
+                                              labelspacing=0.15, handletextpad=0.3)
+        else:
+            holder, leg = place_legend(ax_tr, handles, alt=ax_r2)
         legends.append((holder, lad, leg))
 
-    # the bottom line sits where a traces panel would, so its axis lines up with the panels above
-    # and its row labels take the place of an R^2 panel
-    sub = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[3, 2], width_ratios=[0.42, 1.0], wspace=0.20)
-    ax_b = fig.add_subplot(sub[0, 1])
-    rows = bottom_line(ax_b, [lad for lad in lads + rev if has_runs(lad)])
-    pos = ax_b.get_position()
-    ps.panel_letter(ax_b, "l", dx=-0.62 * 0.42 - 0.20 * 0.71, dy=1.10)
-    fig.text(pos.x0 + pos.width * 0.35, pos.y1 + 0.006,
-             "all ladders: mean at own floor (open)\nand at 75k or the budget (filled)",
-             ha="center", va="bottom", fontsize=6.2, color=ps.INK, linespacing=1.15)
+    sub = GridSpecFromSubplotSpec(1, 2, subplot_spec=slots[11], wspace=0.10, width_ratios=[0.8, 1.2])
+    ax_fl, ax_end = fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[0, 1])
+    opt = optimizer_pair(ax_fl, ax_end, b5)
+    ps.panel_letter(ax_fl, "l", x_mm=7.5, y_mm=4.0)
+    pos_l, pos_r = ax_fl.get_position(), ax_end.get_position()
+    fig.text((pos_l.x0 + pos_r.x1) / 2, pos_l.y1 + 0.006 + 0.012, "optimizer, 3BFF",
+             ha="center", va="bottom", fontsize=ps.LABEL_PT, color=ps.INK)
     check_layout(fig, legends)
-    return ps.save(fig, "fig_paper_F2_fails", w_mm=180), rows
+    return ps.save(fig, "fig_paper_F2_fails"), value_means(lads + rev), opt
 
 
 def drawn_texts(fig):
@@ -733,7 +827,7 @@ def check_layout(fig, legends):
 
 
 def main():
-    """Collect, probe, and draw Figure 2."""
+    """Collect, probe, and draw Extended Data Fig. 4; print each value's means and the optimizer runs."""
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--collect", action="store_true", help="read every run and write the cache")
     ap.add_argument("--probe", action="store_true", help="print the per-run table from the cache")
@@ -745,10 +839,22 @@ def main():
     if a.probe:
         probe(data)
         return
-    out, rows = draw(data)
-    print("\n--- bottom line: mean active units at own floor -> at 75k (or the shorter budget) ---")
-    for knob, B, rr in rows:
-        print(f"  {knob} ({B / 1e3:.0f}k): " + "; ".join(f"{lab} {f:.0f}->{e:.0f}" for lab, f, e in rr))
+    with open(B5_CACHE, "rb") as fh:
+        b5 = pickle.load(fh)
+    _, rows, opt = draw(data, b5)
+    print("\n--- mean active units at the floor crossing -> at 75,000 iterations (or the shorter budget) ---")
+    for stem, B, rr in rows:
+        print(f"  {stem} ({fmt(B)}): " + "; ".join(f"{lab} {f:.0f}->{e:.0f}" for lab, f, e in rr))
+    for key in ("floor", "end"):
+        print(f"\n--- optimizer comparison, {key} ---")
+        for (o, wd, lr), act, r2 in opt[key]:
+            print(f"  {o:<6} wd {wd:<5} lr {lr:<5} n={len(act)} active {sorted(int(x) for x in act)}"
+                  f"  R2 {[round(v, 3) for v in r2]}")
+
+
+def fmt(t):
+    """An iteration count as the paper prints it ('75,000')."""
+    return ps.fmt_count(t)
 
 
 if __name__ == "__main__":
