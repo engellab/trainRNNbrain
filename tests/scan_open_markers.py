@@ -13,7 +13,10 @@ Pass rules, fixed before the first scan (#104):
      showed matplotlib's anchor of a 3-4 pt open triangle lying on its anti-aliased edge stroke.
      The table also gives the darkest value at the anchor itself;
   2. overlap: no two open markers of one axes have centres closer than half the larger marker's
-     diameter (they overlap by more than half a marker width);
+     diameter (they overlap by more than half a marker width). Added after the PR #118 review,
+     which ruled out moving a marker off its measured value: a pair whose faces are both
+     half-transparent white (fig_paper_F5_drive.see_through, Fig. 5e) is a deliberate overlap at
+     the measured values; it is printed as "see-through" and not counted;
   3. rings: no two rings of one axes have centres closer than 1.0 mm.
 A check of the coordinate mapping, not a pass rule: the centre of nearly every filled marker must
 read dark (darkest channel under 200); if it does not, the centres are in the wrong place and the
@@ -78,6 +81,11 @@ def run_and_capture(script):
 def is_white_or_none(rgba):
     """True if an RGBA face is transparent or white/paper (every channel above 0.95)."""
     return rgba[3] == 0 or min(rgba[:3]) > 0.95
+
+
+def see_through(rgba):
+    """True if an RGBA face is white at partial opacity (a deliberate overlap, rule 2)."""
+    return 0 < rgba[3] < 1 and min(rgba[:3]) > 0.95
 
 
 def legend_artists(fig):
@@ -145,7 +153,7 @@ def markers_of(fig):
     px_to_mm = 25.4 / fig.dpi
     out = []
 
-    def add(artist, xy, kind, d_pt, edge, verts_pt):
+    def add(artist, xy, kind, d_pt, edge, verts_pt, thin=False):
         """Append the drawn points of one artist to `out` (anchor and centre of the inside)."""
         xy = np.atleast_2d(np.asarray(xy, float))
         if not len(xy):
@@ -156,7 +164,7 @@ def markers_of(fig):
             x_mm, y_mm = x * px_to_mm, (h_px - y) * px_to_mm
             out.append(dict(kind=kind, x_mm=x_mm, y_mm=y_mm, cx_mm=x_mm + dx * MM_PER_PT,
                             cy_mm=y_mm - dy * MM_PER_PT, d_mm=d_pt * MM_PER_PT, axes=artist.axes,
-                            legend=id(artist) in in_legend, edge=edge))
+                            legend=id(artist) in in_legend, edge=edge, thin=thin))
 
     ticks = {id(a) for ax in fig.axes for axis in (ax.xaxis, ax.yaxis) for a in axis.findobj()}
     for ln in fig.findobj(Line2D):
@@ -173,7 +181,8 @@ def markers_of(fig):
             xy = xy[every] if isinstance(every, (slice, list, tuple, np.ndarray)) else xy[::every]
         style = MarkerStyle(mk)
         verts = style.get_transform().transform(style.get_path().vertices) * ln.get_markersize()
-        add(ln, xy, kind, ln.get_markersize(), ps_hex(ln.get_markeredgecolor()), verts)
+        add(ln, xy, kind, ln.get_markersize(), ps_hex(ln.get_markeredgecolor()), verts,
+            see_through(face))
     for col in fig.findobj(PathCollection):
         if not col.get_visible() or not len(col.get_offsets()):
             continue
@@ -187,7 +196,8 @@ def markers_of(fig):
         if open_:
             kind = "ring" if (s >= RING_SIZE_MIN and edge == ps_hex(ps.INK)) else "open"
         xy = col.get_offset_transform().transform(col.get_offsets())
-        add(col, xy, kind, np.sqrt(s), edge, col.get_paths()[0].vertices * np.sqrt(s))
+        add(col, xy, kind, np.sqrt(s), edge, col.get_paths()[0].vertices * np.sqrt(s),
+            len(faces) > 0 and all(see_through(f) for f in faces))
     return out
 
 
@@ -267,6 +277,11 @@ def scan(fig, pdf):
                 for b in op[i + 1:]:
                     dist = np.hypot(a["x_mm"] - b["x_mm"], a["y_mm"] - b["y_mm"])
                     if dist < 0.5 * max(a["d_mm"], b["d_mm"]):
+                        if a["thin"] and b["thin"]:
+                            print(f"  see-through (not counted): {axes_name(ax)}: {a['edge']} and "
+                                  f"{b['edge']} at ({a['x_mm']:.1f}, {a['y_mm']:.1f}) mm, "
+                                  f"{dist:.2f} mm apart")
+                            continue
                         pairs += 1
                         print(f"  overlap: {axes_name(ax)}: {a['edge']} at ({a['x_mm']:.1f}, "
                               f"{a['y_mm']:.1f}) mm and {b['edge']} at ({b['x_mm']:.1f}, "
