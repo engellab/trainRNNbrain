@@ -1,44 +1,47 @@
 #!/usr/bin/env python3
 """
-Manuscript Figure 5 - A PER-UNIT PARTICIPATION DRIVE RECRUITS UNITS, AT A COST.
+Manuscript Figure 5 - TRAINING RULES THAT ACT ON INDIVIDUAL UNITS (per-unit rules) on 3BFF.
 
-Every rule that adds a per-unit drive raises the 3-bit flip-flop's active count above its control's;
-the multiplier and the cost in held-out R^2 and in stable training differ by rule; the recruited
-units carry task signal; and combining two rules raises the count further at a larger R^2 cost
-(B3, read as between the bars: dead-relu-paper#17).
+Every per-unit rule raises the active count above that of its control networks; the fold change and
+the cost in held-out R^2 and in training stability differ by rule; the added units carry task signal;
+and the combination test is inconclusive (dead-relu-paper#17). Drawn at its printed size,
+165.1 x 140 mm (round 2, dead-relu-paper#55; style: paperstyle.py, paper docs/figure_style.md).
 
-  (a) THE RULES          each remedy, its glyph and one line on what it does, grouped bio-inspired /
-                         engineering (criteria: Extended Data Table 4).
-  (b) ONE SIZE, 75k      N = 1000: active units against held-out R^2 for every network of every remedy
-                         and of the control, read at 75,000 iterations (the same-size rule). Source:
-                         A3 (the intact scores of a3_remedy_ablation.py, 9 seeded draws).
-  (c) ACROSS SIZES       top: multiplier (run's active count / its control's mean, same N, same
-                         read-out) against N = 500-4000; bottom: R^2 minus the control's mean R^2.
-                         Read at 1.05x each run's own noisy-loss floor (RMtop200,
-                         read_remedies.py). Rescaling and read-out dropout have no floor read at
-                         N >= 2000, so their whole series is drawn at 75k, open markers, dashed
-                         (dead-relu-paper#16, as decided on 31 Oct).
-  (d) RATE PENALTY ALONE (B2), N = 1000: active units over training, every run, against the
-                         control's floor-read range; the noisy loss of the same runs above. No run
-                         has a floor read.
-  (e) A3                 left: R^2 after removing the k recruited units (k = active count minus the
-                         control's mean; the k least participating active units) against removing k
-                         random active units; N = 1000 filled, 4000 open. Right: R^2 after removing a
-                         random 10/30/50% of all units, N = 1000, median over networks.
-  (f) B3                 N = 1000 factorial of rate penalty (lambda 0.03), synaptic noise (sigma_w 1)
-                         and rescaling: active units, R^2 and participation ratio per run, at the
-                         floor (filled) and at 75k (open). Verdicts as pre-registered.
+  key  one row above the panels: the marker and colour of the control networks and of each rule,
+       and the ring that marks an R^2 computed from weights saved inside a loss burst or a stretch of
+       non-finite loss (dead-relu-paper#18; rule fixed in notebook 2026-11-01_0745).
+  (a)  N = 1,000: active units at every participation probe over 200,000 iterations, median over
+       each rule's networks and over the control networks (traces collected by fig5_burst_check.py);
+       each rule's marker every 25,000 iterations.
+  (b)  N = 1,000 at 75,000 iterations: active units against held-out R^2, every network (the intact
+       scores of the removal analysis, a3_remedy_ablation.py, 9 noise draws).
+  (c)  top: fold change (a network's active count over the control networks' mean, same N, same
+       measurement point) against N = 500-4,000; bottom: R^2 minus the control networks' mean.
+       Measured at the floor crossing (read_remedies.py); rescaling and read-out dropout have no
+       floor crossing at N >= 2,000, so their whole series is drawn at 75,000 iterations, open
+       markers, dashed (dead-relu-paper#16).
+  (d)  the rate penalty alone at N = 1,000: noisy training loss (top) and active units (bottom) of
+       its three networks over training; grey band, the control networks at their floor crossing.
+  (e)  left: R^2 after removing a network's k added units (k = its active count minus the control
+       networks' mean; its k least participating active units) against removing k random active
+       units; N = 1,000 filled, 4,000 open. Right: median R^2 after removing a random 10, 30 or 50%
+       of all units, N = 1,000.
+  (f)  the combination test, N = 1,000: rate penalty (lambda 0.03), noisy synapses (sigma_w 1) and
+       rescaling, each present or absent (dot matrix), three networks per combination; active
+       units, R^2 and participation ratio at the floor crossing (filled) and at 75,000 iterations
+       (open).
 
 DATA. Read outputs copied from Della into data/remedy_reads_31oct/ (gitignored):
-  remedies_catalogue.json  ~/rm_read/   (read_remedies.py 2d32b3b, Della array 16553347 + 16555725)
-  a3_N<N>.json             ~/a3_read/   (a3_remedy_ablation.py 30efe65, Della jobs 16553440-43)
-  read_b3.json             ~/b3b4_read/ (read_b3_b4_4000.py, Della job 16553903)
-  rm_diag.json             ~/rm_diag/   (rm_exclusion_diag.py cb36d82, Della job 16554963)
-and the B2 runs' loss and participation traces (TrainLosses.json, ParticipationTrace.pkl, config)
-rsynced from Della ~/trainRNNbrain_c1ana/data/trained_RNNs/NBitFlipFlop_remedy_grid/ into the same
-place under data/trained_RNNs. Panel (d) re-reads those runs with common.read_run.
-Notebook: docs/project_trajectory/2026-10-31_1532, _1732, _1750 (the reads) and the entry that
-records this figure.
+  remedies_catalogue.json  ~/rm_read/     (read_remedies.py 2d32b3b, Della array 16553347 + 16555725)
+  a3_N<N>.json             ~/a3_read/     (a3_remedy_ablation.py 30efe65, Della jobs 16553440-43)
+  read_b3.json             ~/b3b4_read/   (read_b3_b4_4000.py, Della job 16553903)
+  rm_diag.json             ~/rm_diag/     (rm_exclusion_diag.py cb36d82, Della job 16554963)
+  fig5r2_read/             ~/fig5r2_read/ (fig5_burst_check.py e36f638, Della job 16592651):
+                           burst_check.json, traces_N1000.json
+and the rate-penalty runs' loss and participation traces (TrainLosses.json, ParticipationTrace.pkl,
+config) under data/trained_RNNs/NBitFlipFlop_remedy_grid/. Panel (d) re-reads them with
+common.read_run. Notebook: docs/project_trajectory/2026-10-31_1532, _1732, _1750, _1953 (the reads)
+and 2026-11-01_0745 and its follow-up (the burst check and this figure).
 
 Usage:  python fig_paper_F5_drive.py
 Output: img/internal_figures/fig_paper_F5_drive.pdf (+ .svg), and a printout of every number the
@@ -55,7 +58,6 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -65,35 +67,27 @@ from common import DATA_DIR, load_run, read_run
 READS = os.path.join(DATA_DIR, "..", "remedy_reads_31oct")
 B2_DIR = os.path.join(DATA_DIR, "NBitFlipFlop_remedy_grid")
 SIZES = (500, 1000, 2000, 4000)
+FIG_H_MM = 140.0
 
-# The remedies in the main figure, in legend order. Rate + sparsity is parked (board, "Decisions
-# taken": the rate penalty alone replaces it) and appears only in the Extended Data.
+# The per-unit rules in the main figure, in key order. Rate + sparsity appears only in the Extended
+# Data and Supplementary Table 2.
 MAIN = ("frm", "synnoise", "rescale", "duplicate", "dropout")
-BIO = ("frm", "synnoise", "rescale")
-NAME = {"control": "Control", "frm": "Rate penalty", "synnoise": "Noisy synapses",
-        "rescale": "Rescaling", "duplicate": "Prune-and-duplicate", "dropout": "Read-out dropout",
-        "frm+rws": "Rate + sparsity"}
-WHAT = {"control": "task loss only",
-        "frm": "penalises a peak rate above or below a target",
-        "synnoise": "every weight $\\times (1 + \\sigma_w\\,\\xi)$, redrawn each step",
-        "rescale": "strengthens an inactive unit's positive inputs",
-        "duplicate": "replaces an inactive unit by a copy",
-        "dropout": "hides active units from the read-out"}
-COL = {"control": ps.BASE, "frm": ps.COND_COL["frm"], "synnoise": ps.COND_COL["synnoise"],
-       "rescale": ps.COND_COL["rescale"], "duplicate": ps.COND_COL["duplicate"],
-       "dropout": ps.COND_COL["dropout"], "frm+rws": ps.COND_COL["frm + rws"]}
+NAME = {"control": "control networks", "frm": "rate penalty", "synnoise": "noisy synapses",
+        "rescale": "rescaling", "duplicate": "prune-and-duplicate", "dropout": "read-out dropout",
+        "frm+rws": "rate + sparsity"}
+COL = {"control": ps.BASELINE, "frm": ps.RATE_PENALTY, "synnoise": ps.SYNAPTIC_NOISE,
+       "rescale": ps.RESCALE, "duplicate": ps.DUPLICATE, "dropout": ps.DROPOUT,
+       "frm+rws": ps.RATE_SPARSITY}
 MARK = {"control": "o", "frm": "o", "synnoise": "s", "rescale": "D", "duplicate": "^",
         "dropout": "v", "frm+rws": "P"}
-# Remedies whose size series is drawn at 75k because they have no floor read at N >= 2000
-# (dead-relu-paper#16, decided on 31 Oct).
+# Rules whose size series is drawn at 75,000 iterations: no floor crossing at N >= 2,000
+# (dead-relu-paper#16).
 AT_75K = ("rescale", "dropout")
 
 B3_CELLS = ("none", "rate", "noise", "rescale", "rate+noise", "rate+rescale", "noise+rescale",
             "rate+noise+rescale")
-B3_LABEL = {"none": "none", "rate": "rate", "noise": "noise", "rescale": "rescale",
-            "rate+noise": "rate + noise", "rate+rescale": "rate + rescale",
-            "noise+rescale": "noise + rescale", "rate+noise+rescale": "all three"}
-B3_COL = {"none": ps.BASE, "rate": COL["frm"], "noise": COL["synnoise"], "rescale": COL["rescale"]}
+B3_PARTS = (("rate", "frm"), ("noise", "synnoise"), ("rescale", "rescale"))
+RING_S = 34                    # scatter size of the ring that marks an R^2 inside a burst
 
 
 # --------------------------------------------------------------------------------------------
@@ -101,13 +95,13 @@ B3_COL = {"none": ps.BASE, "rate": COL["frm"], "noise": COL["synnoise"], "rescal
 # --------------------------------------------------------------------------------------------
 
 def load_catalogue():
-    """The RMtop200 catalogue (read_remedies.py output), one dict per cell.
+    """The per-unit-rule catalogue (read_remedies.py output), one dict per cell.
 
     Returns:
         list of dicts with keys cell, role, family, signature, N, n_runs, n_read, excluded, active,
         r2, r2_measured, t_star, active_d10, active_d20, active_75k, r2_75k, mult_*, dr2, dr2_75k.
-        Arrays over runs: `active`, `r2`, `active_d10/d20` cover the runs read at 1.05x;
-        `active_75k` and `r2_75k` cover every run with weights at 75k.
+        Arrays over runs: `active`, `r2`, `active_d10/d20` cover the runs with a floor crossing at
+        1.05x; `active_75k` and `r2_75k` cover every run with weights at 75,000 iterations.
     """
     with open(os.path.join(READS, "remedies_catalogue.json")) as fh:
         return json.load(fh)
@@ -141,11 +135,11 @@ def size_series(cat):
 
 
 def load_a3():
-    """The A3 ablation records (a3_remedy_ablation.py output) for every N.
+    """The removal-analysis records (a3_remedy_ablation.py output) for every N.
 
     Returns:
-        dict N -> list of per-network dicts (family, cell, n_active, r2_full, random_10/30/50,
-        surplus, r2_recruited, r2_random_active, r2_keep_ctrl, r2_no_inactive).
+        dict N -> list of per-network dicts (run_dir, family, cell, n_active, r2_full,
+        random_10/30/50, surplus, r2_recruited, r2_random_active, r2_keep_ctrl, r2_no_inactive).
     """
     out = {}
     for f in sorted(glob.glob(os.path.join(READS, "a3_N*.json"))):
@@ -156,13 +150,13 @@ def load_a3():
 
 
 def load_b3():
-    """The B3 read (read_b3_b4_4000.py output): runs, stats, n_found and verdicts, per read-out."""
+    """The combination-test read (read_b3_b4_4000.py output): runs, stats, n_found and verdicts."""
     with open(os.path.join(READS, "read_b3.json")) as fh:
         return json.load(fh)
 
 
 def load_b2(N):
-    """Every B2 run (rate penalty alone, lambda 0.1) at size N, re-read with common.read_run.
+    """Every rate-penalty-alone network (lambda 0.1) at size N, re-read with common.read_run.
 
     Args:
         N: network size (500, 1000 or 2000 are on the Mac).
@@ -177,314 +171,458 @@ def load_b2(N):
     return runs
 
 
+def load_marks():
+    """Which R^2 values come from weights inside a loss burst or a non-finite stretch.
+
+    Source: fig5_burst_check.py's burst_check.json (rule: notebook 2026-11-01_0745).
+
+    Returns:
+        dict with
+          cat: {(cell, "floor" or "75k"): list of affected R^2 values} for the catalogue;
+          a3: {run_dir: where} for the removal analysis (every score uses the 75,000 weights);
+          b3: {(cell, name, "floor" or "fixed"): where} for the combination test;
+          where is "calm", "burst" or "non-finite".
+    """
+    with open(os.path.join(READS, "fig5r2_read", "burst_check.json")) as fh:
+        res = json.load(fh)
+    cat, a3, b3 = collections.defaultdict(list), {}, {}
+    for r in res:
+        if "error" in r:
+            continue
+        for v in r["values"]:
+            if r["source"] == "catalogue" and v["where"] != "calm":
+                ro = "75k" if v["what"] == "75k" else "floor"
+                cat[(r["cell"], ro)].append(v["r2"])
+            elif r["source"] == "a3" and v["what"] == "intact":
+                a3[r["run_dir"]] = v["where"]
+            elif r["source"] == "b3":
+                b3[(r["cell"], r["key"], v["what"])] = v["where"]
+    return dict(cat=cat, a3=a3, b3=b3)
+
+
+def load_traces():
+    """Active-count traces of the N = 1,000 catalogue networks (fig5_burst_check.py).
+
+    Returns:
+        dict run_dir -> (it_act array, active array).
+    """
+    with open(os.path.join(READS, "fig5r2_read", "traces_N1000.json")) as fh:
+        raw = json.load(fh)
+    return {d: (np.asarray(v["it_act"], float), np.asarray(v["active"], float))
+            for d, v in raw.items()}
+
+
 # --------------------------------------------------------------------------------------------
-# derived quantities
+# derived quantities and drawing helpers
 # --------------------------------------------------------------------------------------------
 
-def per_run(series, fam, N, readout):
-    """One family's runs at one size under one read-out, as multipliers and R^2 differences.
+def per_run(series, fam, N, readout, marks=None):
+    """One family's networks at one size and one measurement point, as fold changes and R^2 changes.
 
     Args:
         series: size_series() dict; fam: family key; N: size;
-        readout: "floor" (1.05x each run's own floor) or "75k".
+        readout: "floor" (the floor crossing at 1.05x) or "75k";
+        marks: load_marks() dict, or None (then nothing is flagged).
     Returns:
-        dict with active (runs' counts), mult (count / control mean, same read-out), r2, dr2 (R^2
-        minus the control's mean R^2, same read-out; every run kept, non-finite R^2 included),
-        n_read, n_runs.
-        Empty arrays when the cell is missing.
+        dict with active (networks' counts), mult (fold change: count / control mean, same
+        measurement point), r2, dr2 (R^2 minus the control networks' mean R^2; every network kept,
+        non-finite R^2 included), burst (bool per R^2 value: from weights inside a loss burst or a
+        non-finite stretch), n_read, n_runs. Empty arrays when the cell is missing.
     """
     c, ctrl = series.get(fam, {}).get(N), series["control"][N]
     if c is None:
         return dict(active=np.array([]), mult=np.array([]), r2=np.array([]), dr2=np.array([]),
-                    n_read=0, n_runs=0)
+                    burst=np.array([], bool), n_read=0, n_runs=0)
     ka, kr = ("active", "r2") if readout == "floor" else ("active_75k", "r2_75k")
     act, r2 = np.asarray(c[ka], float), np.asarray(c[kr], float)
     base_a, base_r = np.mean(ctrl[ka]), np.mean(ctrl[kr])
-    return dict(active=act, mult=act / base_a, r2=r2, dr2=r2 - base_r,
+    bad = marks["cat"].get((c["cell"], readout), []) if marks else []
+    burst = np.array([any(v == b for b in bad) for v in r2], bool)
+    return dict(active=act, mult=act / base_a, r2=r2, dr2=r2 - base_r, burst=burst,
                 n_read=len(c[ka]), n_runs=c["n_runs"])
 
 
-def clip(v, lo, hi):
-    """Clip an array to [lo, hi] and return it with a mask of the clipped entries.
+def ring(ax, x, y):
+    """Draw the ink ring that marks an R^2 from weights inside a loss burst around points (x, y).
 
     Args:
-        v: array-like; lo, hi: bounds.
+        ax: axes; x, y: array-likes of positions (data coordinates).
     Returns:
-        (clipped float array, bool array True where a value was outside the bounds).
+        None.
     """
-    v = np.asarray(v, float)
-    return np.clip(v, lo, hi), (v < lo) | (v > hi)
+    if len(np.atleast_1d(x)):
+        ax.scatter(x, y, s=RING_S, marker="o", facecolor="none", edgecolor=ps.INK, lw=0.5,
+                   zorder=4, clip_on=False)
+
+
+def edge_arrow(ax, x, y, direction, col, filled):
+    """An off-scale value: an arrowhead inside the axes' edge, pointing out of the plot.
+
+    Args:
+        ax: axes; x, y: where to draw it (data coordinates, inside the limits);
+        direction: "<" (left edge) or "v" (bottom edge); col: colour; filled: bool.
+    Returns:
+        None.
+    """
+    ax.scatter([x], [y], s=12, marker=direction, facecolor=col if filled else "none",
+               edgecolor=col, lw=0.6, zorder=3, clip_on=False)
+
+
+def style_axes(ax):
+    """Spines left and bottom only; tick length and width from the style sheet.
+
+    Args:
+        ax: axes.
+    Returns:
+        None.
+    """
+    ps.despine(ax)
+    ax.tick_params(length=ps.TICK_LEN, width=ps.AXIS_LW)
 
 
 # --------------------------------------------------------------------------------------------
 # panels
 # --------------------------------------------------------------------------------------------
 
-def panel_rules(ax):
-    """Panel (a): the remedies as a key - glyph, name, what it does - grouped by class.
+def panel_key(ax):
+    """The key row above the panels: one entry per rule and for the control networks, and the ring.
 
     Args:
-        ax: a blank axes.
+        ax: a blank axes spanning the figure width.
     Returns:
         None.
     """
     ps.blank(ax)
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    rows = [("head", "Bio-inspired: uses only the unit's own synapses and rate")]
-    rows += [("fam", f) for f in BIO]
-    rows += [("head", "Engineering: copies units or ranks the population")]
-    rows += [("fam", f) for f in MAIN if f not in BIO]
-    rows += [("fam", "control")]
-    y, dy = 0.96, 0.118
-    for kind, val in rows:
-        if kind == "head":
-            ax.text(0.0, y, val, fontsize=6.5, color=ps.MUTED, style="italic", va="center")
-        else:
-            ax.plot([0.035], [y], marker=MARK[val], ms=4.6, color=COL[val], mec=COL[val],
-                    ls="none", clip_on=False)
-            ax.text(0.075, y, NAME[val], fontsize=6.8, fontweight="bold", color=ps.INK, va="center")
-            ax.text(0.47, y, WHAT[val], fontsize=6.3, color=ps.INK, va="center")
-        y -= dy
+    h = [Line2D([], [], marker=MARK[f], color=COL[f], mec=COL[f], ls="-", lw=ps.DATA_LW,
+                ms=3.4, label=NAME[f]) for f in ("control",) + MAIN]
+    h.append(Line2D([], [], marker="o", mfc="none", mec=ps.INK, mew=0.5, ls="none", ms=5.2,
+                    label="$R^2$ from weights inside a loss burst"))
+    ax.legend(handles=h, loc="center", ncol=len(h), frameon=False, fontsize=ps.TICK_PT,
+              handlelength=1.5, columnspacing=0.9, handletextpad=0.35, borderaxespad=0)
 
 
-def panel_one_size(ax, a3):
-    """Panel (b): N = 1000 at 75k, active units against held-out R^2, every network.
+def panel_traces(ax, series, traces):
+    """Panel (a): active units over training at N = 1,000, median over each group's networks.
 
     Args:
-        ax: axes; a3: load_a3() dict.
+        ax: axes; series: size_series(); traces: load_traces().
     Returns:
-        dict family -> (active list, r2 list) as drawn, for the printout.
+        dict family -> (n networks, median active count at the probe nearest 75,000, at the last
+        probe), for the printout.
     """
-    drawn = collections.defaultdict(lambda: ([], []))
+    out = {}
+    for fam in ("control",) + MAIN:
+        cell = series[fam][1000]["cell"]
+        runs = [v for d, v in traces.items() if f"/{cell}/" in d]
+        assert len(runs) == series[fam][1000]["n_runs"], f"traces for {len(runs)} runs of {cell}"
+        it = runs[0][0]
+        assert all(np.array_equal(r[0], it) for r in runs), f"probe iterations differ in {cell}"
+        med = np.median(np.vstack([r[1] for r in runs]), axis=0)
+        # a marker every 25,000 iterations: shape, not only lightness, tells the two ochre rules apart
+        ax.plot(it, med, color=COL[fam], lw=0.6 if fam == "frm" else ps.DATA_LW,
+                zorder=1 if fam == "frm" else 2, marker=MARK[fam], ms=3.2, mec=COL[fam],
+                markevery=(int(np.argmin(np.abs(it - 25000))), int(round(25000 / np.median(np.diff(it))))))
+        j = int(np.argmin(np.abs(it - 75000)))
+        out[fam] = (len(runs), float(med[j]), float(med[-1]))
+    ax.set_xlim(0, 200000)
+    ax.set_xticks([0, 50000, 100000, 150000, 200000])
+    ps.count_ticks(ax.xaxis)
+    ax.set_ylim(0, 1030)
+    ax.set_yticks([0, 250, 500, 750, 1000])
+    ps.count_ticks(ax.yaxis)
+    ax.set_xlabel(ps.LABELS["iteration"])
+    ax.set_ylabel(ps.of_n("active units", 1000))
+    ax.set_title("$N$ = 1,000; median over networks", fontsize=ps.LABEL_PT, pad=3)
+    style_axes(ax)
+    return out
+
+
+def panel_one_size(ax, a3, marks):
+    """Panel (b): N = 1,000 at 75,000 iterations, active units against held-out R^2, every network.
+
+    Args:
+        ax: axes; a3: load_a3() dict; marks: load_marks().
+    Returns:
+        dict family -> (active list, r2 list, burst list) as drawn, for the printout.
+    """
+    drawn = collections.defaultdict(lambda: ([], [], []))
     for r in a3[1000]:
         fam = r["family"]
         if fam not in MAIN and fam != "control":
             continue
         drawn[fam][0].append(r["n_active"])
         drawn[fam][1].append(r["r2_full"])
+        drawn[fam][2].append(marks["a3"][r["run_dir"]] != "calm")
     for fam in ("control",) + MAIN:
-        a, r2 = drawn[fam]
-        open_ = fam == "frm"          # rate alone: the count at 75k is one moment of a swing (d)
-        ax.scatter(a, r2, s=16, marker=MARK[fam], facecolor="none" if open_ else COL[fam],
+        a, r2, b = (np.asarray(v) for v in drawn[fam])
+        b = b.astype(bool)
+        open_ = fam == "frm"          # the rate penalty's count at 75,000 is one moment of a swing (d)
+        ax.scatter(a, r2, s=14, marker=MARK[fam], facecolor="none" if open_ else COL[fam],
                    edgecolor=COL[fam], lw=0.8, zorder=3)
-    ax.set_xlim(0, 1030)          # rate-penalty networks reach 995: whole markers, not halves
+        ring(ax, a[b], r2[b])
+    ax.set_xlim(0, 1040)          # rate-penalty networks reach 995: whole markers, not halves
     ax.set_xticks([0, 250, 500, 750, 1000])
-    ax.set_ylim(0.920, 0.956)
-    ax.set_xlabel("Active units (of 1000)")
-    ax.set_ylabel("Held-out $R^2$")
-    ax.text(0.02, 0.97, "$N$ = 1000, 75k iterations", transform=ax.transAxes, fontsize=6.3,
-            color=ps.MUTED, va="top")
-    ax.annotate("rate penalty: count\nswings (see d)", xy=(935, 0.9268), xytext=(720, 0.9235),
-                fontsize=5.8, color=COL["frm"], ha="center",
-                arrowprops=dict(arrowstyle="-", color=COL["frm"], lw=0.5))
+    ps.count_ticks(ax.xaxis)
+    ax.set_ylim(0.918, 0.956)
+    ax.set_yticks([0.93, 0.94, 0.95])
+    ax.set_xlabel(ps.of_n("active units", 1000))
+    ax.set_ylabel(ps.LABELS["r2"])
+    ax.set_title("$N$ = 1,000; 75,000 iterations", fontsize=ps.LABEL_PT, pad=3)
+    ax.text(1035, 0.9195, "rate penalty: count swings during training (d)", fontsize=ps.TICK_PT,
+            color=ps.INK, ha="right", va="bottom")
+    style_axes(ax)
     return drawn
 
 
-def panel_sizes(ax_m, ax_r, series):
-    """Panel (c): multiplier (top) and R^2 difference (bottom) against N, per remedy.
+def panel_sizes(ax_m, ax_r, series, marks):
+    """Panel (c): fold change (top) and R^2 change (bottom) against N, per rule.
 
-    Floor reads filled with solid lines; the AT_75K families at 75k, open markers, dashed lines.
-    A size with no read is left out of that family's line.
+    Floor crossings filled with solid lines; the AT_75K families at 75,000 iterations, open markers,
+    dashed lines. A size with no floor crossing is left out of that family's line. An R^2 change
+    below the axis is drawn as an arrowhead at the bottom edge.
 
     Args:
-        ax_m, ax_r: the two axes (shared x); series: size_series() dict.
+        ax_m, ax_r: the two axes (shared x); series: size_series() dict; marks: load_marks().
     Returns:
         dict family -> {N: per_run dict} as drawn, for the printout.
     """
     offs = dict(zip(MAIN, np.linspace(-0.06, 0.06, len(MAIN))))
+    lo_r, hi_r = -0.064, 0.008
+    y_edge = lo_r + 0.003
     drawn = {}
     for fam in MAIN:
         ro = "75k" if fam in AT_75K else "floor"
         drawn[fam] = {}
         xs, mm, rr = [], [], []
         for N in SIZES:
-            d = per_run(series, fam, N, ro)
+            d = per_run(series, fam, N, ro, marks)
             drawn[fam][N] = d
             if not len(d["mult"]):
                 continue
             x = N * 10 ** offs[fam]
             fc = "none" if ro == "75k" else COL[fam]
             ax_m.scatter(np.full(len(d["mult"]), x), d["mult"], s=7, marker=MARK[fam], facecolor=fc,
-                         edgecolor=COL[fam], lw=0.6, alpha=0.75, zorder=3)
-            dr, cut = clip(d["dr2"], -0.06, 0.01)
-            ax_r.scatter(np.full(len(dr), x), dr, s=7, marker=MARK[fam], facecolor=fc,
-                         edgecolor=COL[fam], lw=0.6, alpha=0.75, zorder=3)
+                         edgecolor=COL[fam], lw=0.6, zorder=3)
+            ok = d["dr2"] > y_edge
+            ax_r.scatter(np.full(ok.sum(), x), d["dr2"][ok], s=7, marker=MARK[fam], facecolor=fc,
+                         edgecolor=COL[fam], lw=0.6, zorder=3)
+            for _ in range(int((~ok).sum())):
+                edge_arrow(ax_r, x, y_edge, "v", COL[fam], ro != "75k")
+            yb = np.where(ok, d["dr2"], y_edge)[d["burst"]]
+            ring(ax_r, np.full(len(yb), x), yb)
             xs.append(x)
             mm.append(d["mult"].mean())
             rr.append(np.median(d["dr2"]))
         ls = "--" if fam in AT_75K else "-"
-        ax_m.plot(xs, mm, ls=ls, color=COL[fam], lw=1.0, zorder=2)
-        ax_r.plot(xs, rr, ls=ls, color=COL[fam], lw=1.0, zorder=2)
+        ax_m.plot(xs, mm, ls=ls, color=COL[fam], lw=ps.DATA_LW, zorder=2)
+        ax_r.plot(xs, rr, ls=ls, color=COL[fam], lw=ps.DATA_LW, zorder=2)
     for ax in (ax_m, ax_r):
         ax.set_xscale("log")
         ax.set_xticks(SIZES)
-        ax.set_xticklabels([str(n) for n in SIZES])
+        ax.set_xticklabels([ps.fmt_count(n) for n in SIZES])
         ax.minorticks_off()
         ax.set_xlim(400, 5000)
-    ax_m.axhline(1, color=ps.FAINT, lw=0.6, zorder=1)
-    ax_r.axhline(0, color=ps.FAINT, lw=0.6, zorder=1)
-    ax_m.set_ylim(0.8, 7.0)
-    ax_m.set_ylabel("Multiplier\n(active / control's)")
-    ax_r.set_ylim(-0.062, 0.008)
-    ax_r.set_ylabel("$R^2$ minus\ncontrol's")
-    ax_r.set_xlabel("Network size $N$")
+        style_axes(ax)
+    ax_m.axhline(1, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
+    ax_r.axhline(0, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
+    ax_m.set_ylim(0.6, 7.0)
+    ax_m.set_yticks([1, 3, 5, 7])
+    ax_m.set_ylabel("fold change")
+    ax_r.set_ylim(lo_r, hi_r)
+    ax_r.set_yticks([-0.06, -0.03, 0])
+    ax_r.set_ylabel("$R^2$ change")
+    ax_r.set_xlabel(ps.LABELS["size"])
     plt.setp(ax_m.get_xticklabels(), visible=False)
-    ax_m.text(430, 3.9, "rate penalty: no floor\nread at $N \\leq$ 1000", fontsize=5.6,
-              color=COL["frm"], ha="left", va="center")
-    h = [Line2D([], [], color=ps.MUTED, ls="-", marker="o", ms=3, lw=0.9, label="at the floor"),
+    ax_m.text(430, 3.6, "rate penalty: no floor\ncrossing at $N$ $\\leq$ 1,000", fontsize=ps.TICK_PT,
+              color=ps.INK, ha="left", va="center")
+    h = [Line2D([], [], color=ps.MUTED, ls="-", marker="o", ms=3, lw=0.9,
+                label="floor crossing"),
          Line2D([], [], color=ps.MUTED, ls="--", marker="o", mfc="none", ms=3, lw=0.9,
-                label="at 75k (no floor read\nat $N \\geq$ 2000)")]
-    ax_m.legend(handles=h, loc="upper left", fontsize=5.6, handlelength=2.2, borderaxespad=0.1)
+                label="75,000 iterations")]
+    ax_m.legend(handles=h, loc="upper left", fontsize=ps.TICK_PT, handlelength=2.2,
+                borderaxespad=0.1, frameon=False)
     return drawn
 
 
 def panel_rate_alone(ax_l, ax_a, runs, ctrl_floor):
-    """Panel (d): B2 at N = 1000 - noisy loss (top) and active units (bottom) over training.
+    """Panel (d): the rate penalty alone at N = 1,000 - noisy loss (top) and active units (bottom).
 
     Args:
         ax_l, ax_a: the two axes (shared x); runs: load_b2(1000);
-        ctrl_floor: the N = 1000 control's active counts at the floor (catalogue).
+        ctrl_floor: the N = 1,000 control networks' active counts at the floor crossing (catalogue).
     Returns:
-        dict with the per-run active range after 3k iterations and burst counts, for the printout.
+        list of dicts per network (reason, burst count, active range after 3,000 iterations, raw
+        loss maximum), for the printout.
     """
     info = []
-    shades = [COL["frm"], "#a8341b", "#f08a6a"]
+    shades = ["#4f2a87", ps.RATE_PENALTY, "#a684d8"]      # three lightness steps of the rate violet
     for r, col in zip(runs, shades):
         it, L = np.asarray(r["it_loss"]), np.asarray(r["loss"])
         # vector-friendly: the per-bin maximum (the bursts) and median (the trend), 250-iteration bins
         nb = len(L) // 250
         Lb = L[:nb * 250].reshape(nb, 250)
-        xb = it[:nb * 250].reshape(nb, 250)[:, 0] / 1000
-        ax_l.plot(xb, np.clip(Lb.max(1), None, 1e3), color=col, lw=0.35, alpha=0.55)
+        xb = it[:nb * 250].reshape(nb, 250)[:, 0]
+        ax_l.plot(xb, np.clip(Lb.max(1), None, 1e3), color=col, lw=0.3, alpha=0.6)
         ax_l.plot(xb, np.median(Lb, 1), color=col, lw=0.8)
         ia, act = np.asarray(r["it_act"]), np.asarray(r["active_series"])
-        ax_a.plot(ia / 1000, act, color=col, lw=0.45)
+        ax_a.plot(ia, act, color=col, lw=0.4)
         late = act[ia >= 3000]
         info.append(dict(name=r["name"], reason=r["reason"], n_bursts=len(r["bursts"]),
                          lo=int(late.min()), hi=int(late.max()), loss_max=float(np.nanmax(L))))
-    ax_a.axhspan(min(ctrl_floor), max(ctrl_floor), color=ps.BASE, alpha=0.25, lw=0, zorder=0)
-    ax_a.text(198, min(ctrl_floor) - 15, "control at its floor", fontsize=5.6, color=ps.MUTED,
-              ha="right", va="top")
+    ax_a.axhspan(min(ctrl_floor), max(ctrl_floor), color=ps.BASELINE, alpha=0.35, lw=0, zorder=0)
+    ax_a.text(197000, min(ctrl_floor) - 25, "control networks at their floor crossing",
+              fontsize=ps.TICK_PT, color=ps.INK, ha="right", va="top")
     ax_l.set_yscale("log")
-    ax_l.set_ylim(0.03, 1e3)
+    ax_l.set_ylim(0.03, 1e4)                 # headroom: the maxima are clipped at 1,000
     ax_l.set_yticks([0.1, 10, 1000])
-    ax_l.set_ylabel("Noisy loss")
-    ax_a.set_ylim(0, 1020)
-    ax_a.set_ylabel("Active units")
-    ax_a.set_xlabel("Iteration (thousands)")
+    ax_l.set_yticklabels(["0.1", "10", "1,000"])
+    ax_l.minorticks_off()
+    ax_l.set_ylabel("noisy loss")
+    ax_a.set_ylim(0, 1030)
+    ax_a.set_yticks([0, 500, 1000])
+    ps.count_ticks(ax_a.yaxis)
+    ax_a.set_ylabel("active units")
+    ax_a.set_xlabel(ps.LABELS["iteration"])
     for ax in (ax_l, ax_a):
-        ax.set_xlim(0, 200)
+        ax.set_xlim(0, 200000)
+        ax.set_xticks([0, 50000, 100000, 150000, 200000])
+        ps.count_ticks(ax.xaxis)
+        style_axes(ax)
     plt.setp(ax_l.get_xticklabels(), visible=False)
-    ax_l.text(0.02, 0.95, "Rate penalty alone, $N$ = 1000: no floor read in 3 of 3 runs",
-              transform=ax_l.transAxes, fontsize=6.0, color=ps.INK, va="top",
-              bbox=dict(facecolor=ps.PAPER, edgecolor="none", pad=0.6, alpha=0.9))
+    ax_l.set_title("rate penalty alone, $N$ = 1,000, three networks", fontsize=ps.LABEL_PT, pad=3)
     return info
 
 
-def panel_a3(ax_s, ax_f, a3):
-    """Panel (e): removing the recruited units (left) and random fractions of all units (right).
+def panel_removal(ax_s, ax_f, a3, marks):
+    """Panel (e): removing the added units (left) and random shares of all units (right).
 
     Args:
-        ax_s, ax_f: axes; a3: load_a3() dict.
+        ax_s, ax_f: axes; a3: load_a3() dict; marks: load_marks().
     Returns:
-        dict with the per-cell medians drawn, for the printout.
+        dict (N, family) -> list of (median R^2 after k random removals, R^2 after removing the
+        added units, where) per network, and "random" -> the per-family medians drawn on the right.
     """
-    lo = -0.05
-    ax_s.plot([lo, 1], [lo, 1], color=ps.FAINT, lw=0.6, zorder=1)
+    lo, hi = -0.05, 0.8
+    ax_s.plot([lo, 0.45], [lo, 0.45], color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
     out = {}
     for N, filled in ((1000, True), (4000, False)):
         for r in a3[N]:
             fam = r["family"]
             if fam not in MAIN:
                 continue
-            x = np.median(r["r2_random_active"])
-            y, cut = clip([r["r2_recruited"]], lo, 1)
-            ax_s.scatter([max(x, lo)], y, s=12, marker=MARK[fam],
-                         facecolor=COL[fam] if filled else "none", edgecolor=COL[fam], lw=0.7,
-                         zorder=3)
-            out.setdefault((N, fam), []).append((float(x), float(r["r2_recruited"])))
-    ax_s.set_xlim(lo, 0.45)
-    ax_s.set_ylim(lo, 0.8)
+            x, y = float(np.median(r["r2_random_active"])), float(r["r2_recruited"])
+            if x < lo:
+                xd, yd = lo + 0.01, y
+                edge_arrow(ax_s, xd, yd, "<", COL[fam], filled)
+            elif y < lo:
+                xd, yd = x, lo + 0.012
+                edge_arrow(ax_s, xd, yd, "v", COL[fam], filled)
+            else:
+                xd, yd = x, y
+                ax_s.scatter([x], [y], s=11, marker=MARK[fam], facecolor=COL[fam] if filled
+                             else "none", edgecolor=COL[fam], lw=0.6, zorder=3)
+            where = marks["a3"][r["run_dir"]]
+            if where != "calm":
+                ring(ax_s, [xd], [yd])
+            out.setdefault((N, fam), []).append((x, y, where))
+    ax_s.set_xlim(lo - 0.012, 0.45)
+    ax_s.set_ylim(lo - 0.015, hi)
+    ax_s.set_xticks([0, 0.2, 0.4])
+    ax_s.set_yticks([0, 0.4, 0.8])
     ax_s.set_xlabel("$R^2$, $k$ random active\nunits removed")
-    ax_s.set_ylabel("$R^2$, $k$ added\nunits removed")
-    ax_s.text(0.44, 0.40, "equal cost", fontsize=5.6, color=ps.MUTED, ha="right", va="top")
-    h = [Line2D([], [], marker="o", color=ps.MUTED, ls="none", ms=3.5, label="$N$ = 1000"),
-         Line2D([], [], marker="o", mfc="none", color=ps.MUTED, ls="none", ms=3.5,
-                label="$N$ = 4000")]
-    ax_s.legend(handles=h, loc="lower right", fontsize=5.6, handletextpad=0.2, borderaxespad=0.1)
+    ax_s.set_ylabel("$R^2$, $k$ added units removed")
+    ax_s.text(0.44, 0.47, "equal\ncost", fontsize=ps.TICK_PT, color=ps.INK, ha="right", va="bottom")
+    h = [Line2D([], [], marker="o", color=ps.MUTED, ls="none", ms=3.2, label="$N$ = 1,000"),
+         Line2D([], [], marker="o", mfc="none", color=ps.MUTED, ls="none", ms=3.2,
+                label="$N$ = 4,000")]
+    ax_s.legend(handles=h, loc="lower right", fontsize=ps.TICK_PT, handletextpad=0.2,
+                borderaxespad=0.1, frameon=False)
+    style_axes(ax_s)
 
     fr = np.array([0, 10, 30, 50])
     meds = {}
     for fam in ("control",) + MAIN:
         nets = [r for r in a3[1000] if r["family"] == fam]
-        if not nets:
-            continue
         y = [np.median([r["r2_full"] for r in nets])]
         for k in ("random_10", "random_30", "random_50"):
             y.append(np.median([np.median(r[k]) for r in nets]))
         meds[fam] = y
-        ax_f.plot(fr, np.clip(y, 0, 1), marker=MARK[fam], ms=3, color=COL[fam],
-                  lw=1.4 if fam == "control" else 0.8, mfc=COL[fam], zorder=3 if fam == "control" else 2)
+        ax_f.plot(fr, y, marker=MARK[fam], ms=2.6, color=COL[fam], mfc=COL[fam], mec=COL[fam],
+                  lw=1.4 if fam == "control" else 0.8, zorder=3 if fam == "control" else 2)
     ax_f.set_xticks(fr)
-    ax_f.set_xlim(-3, 53)
-    ax_f.set_ylim(0, 1.0)
-    ax_f.set_xlabel("Units removed at\nrandom (% of $N$)")
-    ax_f.set_ylabel("Held-out $R^2$")
-    ax_f.text(0.97, 0.97, "$N$ = 1000", transform=ax_f.transAxes, fontsize=6.0, color=ps.MUTED,
-              ha="right", va="top")
+    ax_f.set_xlim(-4, 54)
+    ax_f.set_ylim(-0.02, 1.0)
+    ax_f.set_yticks([0, 0.5, 1])
+    ax_f.set_xlabel("units removed at\nrandom (% of $N$)")
+    ax_f.set_ylabel(ps.LABELS["r2"])
+    ax_f.set_title("$N$ = 1,000", fontsize=ps.LABEL_PT, pad=3)
+    style_axes(ax_f)
     out["random"] = meds
     return out
 
 
-def panel_b3(axs, b3):
-    """Panel (f): B3, per run, active units / R^2 / participation ratio, at the floor and at 75k.
+def panel_combination(ax_m, axs, b3, marks):
+    """Panel (f): the combination test, N = 1,000, per network, at the floor crossing and at 75,000.
 
     Args:
-        axs: three axes sharing y (one row per cell); b3: load_b3() dict.
+        ax_m: axes for the dot matrix (which rules each combination has); axs: three axes sharing y
+        (active units, held-out R^2, participation ratio); b3: load_b3(); marks: load_marks().
     Returns:
-        list of (cell, read-out, active, r2, pr) rows drawn, for the printout.
+        list of (cell, measurement point, active, r2, pr, where) rows drawn, for the printout.
     """
     rows = []
     ypos = {c: len(B3_CELLS) - 1 - i for i, c in enumerate(B3_CELLS)}
     lims = [(200, 1000), (0.83, 0.96), (0, 14)]
+    for j, (part, fam) in enumerate(B3_PARTS):            # dot matrix: filled where present
+        for cell in B3_CELLS:
+            has = part in cell.split("+")
+            ax_m.scatter([j], [ypos[cell]], s=12, marker=MARK[fam],
+                         facecolor=COL[fam] if has else "none",
+                         edgecolor=COL[fam] if has else ps.INACTIVE, lw=0.5, zorder=3)
+    ps.blank(ax_m)
+    ax_m.set_xlim(-0.6, len(B3_PARTS) - 0.4)
     for cell in B3_CELLS:
-        col = B3_COL.get(cell, ps.INK)
-        for ro, dy, filled in (("floor", 0.14, True), ("fixed", -0.14, False)):
+        for ro, dy, filled in (("floor", 0.15, True), ("fixed", -0.15, False)):
             for r in b3["runs"][cell]:
                 rec = r[ro]
                 if rec is None:
                     continue
+                where = marks["b3"].get((cell, r["name"], ro), "calm")
                 vals = [rec["active"], rec["r2"], rec["pr"]]
-                rows.append((cell, ro, *vals))
-                for ax, v, (lo, hi) in zip(axs, vals, lims):
+                rows.append((cell, ro, *vals, where))
+                for k, (ax, v, (lo, hi)) in enumerate(zip(axs, vals, lims)):
                     v = np.nan if v is None else float(v)
+                    y = ypos[cell] + dy
                     if not np.isfinite(v) or v < lo:
-                        # off-scale (an R^2 taken inside a loss burst): a marker at the left edge
-                        ax.scatter([lo], [ypos[cell] + dy], s=10, marker="<", color=col, lw=0.6,
-                                   facecolor=col if filled else "none", clip_on=False, zorder=3)
-                        continue
-                    ax.scatter([v], [ypos[cell] + dy], s=9, marker="o", lw=0.6, edgecolor=col,
-                               facecolor=col if filled else "none", zorder=3)
-    for ax, (lo, hi), lab in zip(axs, lims, ("Active units", "Held-out $R^2$", "Participation\nratio")):
+                        xr = lo + 0.015 * (hi - lo)
+                        edge_arrow(ax, xr, y, "<", ps.INK, filled)
+                    else:
+                        xr = v
+                        ax.scatter([v], [y], s=8, marker="o", lw=0.6, edgecolor=ps.INK,
+                                   facecolor=ps.INK if filled else "none", zorder=3)
+                    if k == 1 and where != "calm":
+                        ring(ax, [xr], [y])
+    for ax, (lo, hi), lab in zip(axs, lims, ("active units", ps.LABELS["r2"],
+                                             "participation ratio")):
         ax.set_xlim(lo, hi)
-        ax.set_ylim(-0.6, len(B3_CELLS) - 0.4)
         ax.set_xlabel(lab)
-        for y in range(len(B3_CELLS)):
-            ax.axhline(y, color=ps.GRID, lw=0.4, zorder=0)
+        style_axes(ax)
         ax.set_yticks([])
         ax.spines["left"].set_visible(False)
-    axs[0].set_yticks([ypos[c] for c in B3_CELLS])
-    axs[0].set_yticklabels([B3_LABEL[c] for c in B3_CELLS], fontsize=6.2)
-    axs[0].tick_params(axis="y", length=0)
-    axs[1].set_xticks([0.85, 0.90, 0.95])
+    for ax in [ax_m] + list(axs):
+        ax.set_ylim(-0.6, len(B3_CELLS) - 0.4)
+        for y in range(len(B3_CELLS)):
+            ax.axhline(y, color=ps.GRID, lw=0.4, zorder=0)
     axs[0].set_xticks([300, 600, 900])
-    h = [Line2D([], [], marker="o", color=ps.MUTED, ls="none", ms=3.2, label="floor"),
-         Line2D([], [], marker="o", mfc="none", color=ps.MUTED, ls="none", ms=3.2, label="75k"),
-         Line2D([], [], marker="<", color=ps.MUTED, ls="none", ms=3.2, label="off scale")]
-    axs[1].set_title("B3 factorial, $N$ = 1000", fontsize=6.5, pad=3)
-    axs[1].legend(handles=h, loc="upper left", fontsize=5.6, handletextpad=0.1,
-                  borderaxespad=0.1, labelspacing=0.25)
+    axs[1].set_xticks([0.85, 0.90, 0.95])
+    axs[2].set_xticks([0, 5, 10])
+    h = [Line2D([], [], marker="o", color=ps.INK, ls="none", ms=3, label="floor crossing"),
+         Line2D([], [], marker="o", mfc="none", color=ps.INK, ls="none", ms=3,
+                label="75,000 iterations"),
+         Line2D([], [], marker="<", color=ps.INK, ls="none", ms=3, label="off scale")]
+    axs[1].legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=3,
+                  fontsize=ps.TICK_PT, handletextpad=0.1, columnspacing=0.8, frameon=False,
+                  borderaxespad=0.2)
     return rows
 
 
@@ -502,56 +640,69 @@ def build():
     cat = load_catalogue()
     series = size_series(cat)
     a3, b3 = load_a3(), load_b3()
+    marks, traces = load_marks(), load_traces()
     b2 = load_b2(1000)
 
-    fig = plt.figure(figsize=(180 * ps.MM, 190 * ps.MM))
-    gs = GridSpec(3, 2, figure=fig, left=0.085, right=0.985, top=0.975, bottom=0.068,
-                  wspace=0.30, hspace=0.30, height_ratios=[0.85, 1.15, 1.0])
+    fig = ps.figure(h_mm=FIG_H_MM)
+    L, W = 0.075, 0.475                    # left column: left and right edges (figure fractions)
+    M, R = 0.585, 0.965                    # right column
 
-    ax_a = fig.add_subplot(gs[0, 0])
-    panel_rules(ax_a)
-    ax_b = fig.add_subplot(gs[0, 1])
-    drawn_b = panel_one_size(ax_b, a3)
+    ax_key = fig.add_axes([0.0, 0.962, 1.0, 0.03])
+    panel_key(ax_key)
 
-    g_c = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[1, 0], hspace=0.12, height_ratios=[1.5, 1])
-    ax_cm, ax_cr = fig.add_subplot(g_c[0]), fig.add_subplot(g_c[1])
-    drawn_c = panel_sizes(ax_cm, ax_cr, series)
+    ax_a = fig.add_axes([L, 0.705, W - L, 0.2])
+    ax_b = fig.add_axes([M, 0.705, R - M, 0.2])
+    info_a = panel_traces(ax_a, series, traces)
+    drawn_b = panel_one_size(ax_b, a3, marks)
 
-    g_d = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[1, 1], hspace=0.12, height_ratios=[1, 1.5])
-    ax_dl, ax_da = fig.add_subplot(g_d[0]), fig.add_subplot(g_d[1])
+    gc = fig.add_gridspec(2, 1, left=L, right=W, top=0.625, bottom=0.39, hspace=0.12,
+                          height_ratios=[1.45, 1])
+    ax_cm, ax_cr = fig.add_subplot(gc[0]), fig.add_subplot(gc[1])
+    drawn_c = panel_sizes(ax_cm, ax_cr, series, marks)
+
+    gd = fig.add_gridspec(2, 1, left=M, right=R, top=0.625, bottom=0.39, hspace=0.12,
+                          height_ratios=[1, 1.45])
+    ax_dl, ax_da = fig.add_subplot(gd[0]), fig.add_subplot(gd[1])
     info_d = panel_rate_alone(ax_dl, ax_da, b2, series["control"][1000]["active"])
 
-    g_e = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[2, 0], wspace=0.55)
-    ax_es, ax_ef = fig.add_subplot(g_e[0]), fig.add_subplot(g_e[1])
-    drawn_e = panel_a3(ax_es, ax_ef, a3)
+    ge = fig.add_gridspec(1, 2, left=L, right=W, top=0.275, bottom=0.088, wspace=0.62)
+    ax_es, ax_ef = fig.add_subplot(ge[0]), fig.add_subplot(ge[1])
+    drawn_e = panel_removal(ax_es, ax_ef, a3, marks)
 
-    g_f = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[2, 1], wspace=0.12)
-    axs_f = [fig.add_subplot(g_f[i]) for i in range(3)]
-    rows_f = panel_b3(axs_f, b3)
+    gf = fig.add_gridspec(1, 4, left=M, right=R, top=0.275, bottom=0.088, wspace=0.14,
+                          width_ratios=[0.42, 1, 1, 1])
+    ax_fm = fig.add_subplot(gf[0])
+    axs_f = [fig.add_subplot(gf[i]) for i in (1, 2, 3)]
+    rows_f = panel_combination(ax_fm, axs_f, b3, marks)
 
-    for ax, letter in ((ax_a, "a"), (ax_b, "b"), (ax_cm, "c"), (ax_dl, "d"), (ax_es, "e"),
-                       (axs_f[0], "f")):
-        ps.panel_letter(ax, letter, dx=-0.30 if ax is axs_f[0] else (-0.02 if ax is ax_a else (-0.42 if ax is ax_es else -0.16)),
-                        dy=1.04 if ax not in (ax_cm, ax_dl) else 1.06)
+    for ax, letter in ((ax_a, "a"), (ax_b, "b"), (ax_cm, "c"), (ax_dl, "d"), (ax_es, "e")):
+        ps.panel_letter(ax, letter, x_mm=10.5)
+    ps.panel_letter(ax_fm, "f", x_mm=4.0)
 
-    report(series, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3)
-    return ps.save(fig, "fig_paper_F5_drive", w_mm=180)
+    report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3)
+    return ps.save(fig, "fig_paper_F5_drive")
 
 
-def report(series, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3):
+def report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3):
     """Print the numbers the caption and Results 5 quote, from exactly what was drawn.
 
     Args:
-        series: size_series(); drawn_b, drawn_c, info_d, drawn_e, rows_f: the panel functions'
-        returns; b3: load_b3().
+        series: size_series(); info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f: the panel
+        functions' returns; b3: load_b3().
     Returns:
         None.
     """
-    print("\n(b) N = 1000, 75k (A3 intact scores):")
-    for fam, (a, r2) in drawn_b.items():
-        print(f"  {fam:9s} n={len(a)} active {min(a)}-{max(a)} (mean {np.mean(a):.0f})"
-              f"  R2 {min(r2):.3f}-{max(r2):.3f}")
-    print("\n(c) multiplier and R2 difference (run - control mean), by N:")
+    print("\n(a) N = 1,000 median active count over networks: (n, at 75k, at the end)")
+    for fam, v in info_a.items():
+        print(f"  {fam:9s} n={v[0]} {v[1]:.0f} {v[2]:.0f}")
+    print("\n(b) N = 1,000, 75k (removal analysis intact scores):")
+    ctrl_mean = np.mean(drawn_b["control"][1])
+    for fam, (a, r2, b) in drawn_b.items():
+        print(f"  {fam:9s} n={len(a)} active {min(a)}-{max(a)} (mean {np.mean(a):.0f}, fold "
+              f"{np.mean(a) / np.mean(drawn_b['control'][0]):.2f})  R2 {min(r2):.4f}-{max(r2):.4f}"
+              f"  R2 - control mean {min(r2) - ctrl_mean:+.4f} to {max(r2) - ctrl_mean:+.4f}"
+              f"  in a burst {sum(b)}")
+    print("\n(c) fold change and R2 change (network - control mean), by N:")
     for N in SIZES:
         c = series["control"][N]
         print(f"  control N={N}: floor active {c['active']} R2 {np.round(c['r2'], 3).tolist()};"
@@ -559,32 +710,36 @@ def report(series, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3):
     for fam, byN in drawn_c.items():
         for N, d in byN.items():
             if not len(d["mult"]):
-                print(f"  {fam:9s} N={N}: no read ({d['n_runs']} runs)")
+                print(f"  {fam:9s} N={N}: no floor crossing ({d['n_runs']} runs)")
                 continue
-            print(f"  {fam:9s} N={N}: {d['n_read']}/{series[fam][N]['n_runs']} runs, mult "
+            print(f"  {fam:9s} N={N}: {d['n_read']}/{series[fam][N]['n_runs']} runs, fold "
                   f"{d['mult'].mean():.2f} ({d['mult'].min():.2f}-{d['mult'].max():.2f}), dR2 median "
-                  f"{np.median(d['dr2']):+.3f} (range {d['dr2'].min():+.3f} to {d['dr2'].max():+.3f})")
-    print("\n(d) B2, N = 1000:")
+                  f"{np.median(d['dr2']):+.3f} (range {d['dr2'].min():+.3f} to {d['dr2'].max():+.3f})"
+                  f"; in a burst {int(d['burst'].sum())}")
+    print("\n(d) rate penalty alone, N = 1,000:")
     for i in info_d:
         print(f"  {i['name'][:40]}: {i['reason']}; {i['n_bursts']} bursts; active after 3k "
               f"{i['lo']}-{i['hi']}; raw loss max {i['loss_max']:.3g}")
-    print("\n(e) A3, (median random-k, recruited) per network:")
+    print("\n(e) removal, (median random-k, added) per network:")
     for k, v in drawn_e.items():
         if k == "random":
             continue
-        rec = [round(y, 2) for _, y in v]
-        rnd = [round(x, 2) for x, _ in v]
-        print(f"  N={k[0]} {k[1]:9s} recruited {rec}  random-k {rnd}")
+        rec = [round(y, 2) for _, y, _ in v]
+        rnd = [round(x, 2) for x, _, _ in v]
+        nb = sum(w != "calm" for _, _, w in v)
+        print(f"  N={k[0]} {k[1]:9s} added {rec}  random-k {rnd}  medians {np.median(rec):.2f} vs "
+              f"{np.median(rnd):.2f}; random lower in {sum(x < y for x, y, _ in v)}/{len(v)};"
+              f" in a burst {nb}")
     for fam, y in drawn_e["random"].items():
         print(f"  random removal N=1000 {fam:9s} intact/10/30/50%: {np.round(y, 2).tolist()}")
-    print("\n(f) B3 verdicts:", b3["verdict"]["floor"]["verdict"], "(floor);",
+    print("\n(f) combination test outcomes:", b3["verdict"]["floor"]["verdict"], "(floor);",
           b3["verdict"]["fixed"]["verdict"], "(75k)")
     for cell in B3_CELLS:
         for ro in ("floor", "fixed"):
             rr = [r for r in rows_f if r[0] == cell and r[1] == ro]
             print(f"  {cell:20s} {ro:5s} n={len(rr)} active {[r[2] for r in rr]} "
                   f"R2 {[None if r[3] is None else round(r[3], 3) for r in rr]} "
-                  f"PR {[round(r[4], 1) for r in rr]}")
+                  f"PR {[round(r[4], 1) for r in rr]} where {[r[5] for r in rr]}")
 
 
 if __name__ == "__main__":
