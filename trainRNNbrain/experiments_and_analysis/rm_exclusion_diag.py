@@ -7,14 +7,14 @@ For every run that read_remedies.py excluded with that reason, the read-out is r
   t_first_under    the first iteration (after the fit start) the curve is at or below the bar;
   share_above      the share of iterations after t_first_under at which the curve is back above it;
   t_last_above     the last iteration the curve is above the bar (nan if never after t_first_under);
+  t_settle         the first iteration of the final under-bar stretch (nan if the curve ends above);
   t_d10, t_d20     the sustained crossings at 1.10x and 1.20x (nan where none holds);
   n_bursts         bursts found by the read-out;
 and each run gets one cause:
   "ends above the bar"   late_rise > 1.05: the curve finishes more than 5% above its own fitted floor;
-  "settles too late"     the curve stays under the bar from some t on, but t > end / 1.2, so the
-                         1.2t hold runs past the end of training;
-  "crosses back"         the curve is under the bar at the end, and every under-bar stretch that
-                         starts early enough is broken by a return above the bar before 1.2t.
+  "settles too late"     the curve stays under the bar from t_settle on, but t_settle > end / 1.2,
+                         so the 1.2t hold runs past the end of training;
+  "crosses back"         anything else (not expected: a run that settles by end / 1.2 has a read).
 Where a looser margin holds, the active count at its probe is given too (active_d10, active_d20).
 
 Usage (repository root, CPU node):
@@ -53,6 +53,7 @@ def diagnose(run_dir):
     if rd.get("floor") is None or rd.get("smoothed") is None:
         return dict(error=f"read_run stopped: {rd['reason']}")
     it = np.asarray(rd["it_loss"], float)
+    it = it[np.isfinite(np.asarray(rd["loss"], float))]   # noisy_floor smooths the finite samples only
     sm = np.asarray(rd["smoothed"], float)
     fit_from = rd["burst_from"] if np.isfinite(rd["burst_from"]) else FIT_START
     bar = (1.0 + FLOOR_DELTA) * rd["floor"]
@@ -67,11 +68,14 @@ def diagnose(run_dir):
         t1 = float(it[np.flatnonzero(under)[0]])
         post = it >= t1
         above_post = post & (sm > bar)
+        last_above = float(it[np.flatnonzero(above_post)[-1]]) if above_post.any() else float("nan")
         out.update(t_first_under=t1, share_above=float(above_post.sum() / post.sum()),
-                   t_last_above=float(it[np.flatnonzero(above_post)[-1]]) if above_post.any() else float("nan"))
+                   t_last_above=last_above,
+                   t_settle=t1 if np.isnan(last_above) else float(it[np.flatnonzero(it > last_above)[0]])
+                   if last_above < it[-1] else float("nan"))
     if out["late_rise"] > 1.0 + FLOOR_DELTA or sm[-1] > bar:
         out["cause"] = "ends above the bar"
-    elif np.isfinite(out["t_last_above"]) and out["t_last_above"] > it[-1] / (1.0 + HOLD_FRAC):
+    elif out.get("t_settle", np.nan) > it[-1] / (1.0 + HOLD_FRAC):
         out["cause"] = "settles too late"
     else:
         out["cause"] = "crosses back"
