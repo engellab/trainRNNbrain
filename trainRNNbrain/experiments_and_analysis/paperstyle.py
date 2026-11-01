@@ -58,11 +58,33 @@ Colour: one colour per meaning, everywhere, and a colour is never reused for ano
   Figure 5 set (baseline, ACTIVE, rate, rate + sparsity, dropout, synaptic noise, duplicate,
   rescale), worst 8.0 (pass), normal-vision worst 15.5 (pass, floor 15); the Figure 3 set
   (baseline, ACTIVE, the three penalties, SETTING_RAMP[1] and [2]), worst 8.9, normal-vision 15.9.
-  Tasks and rules are never colour-coded in the same panel: under deuteranopia DMTS green and
-  rescale magenta collapse (dE 2.7), as do 3BFF blue and sparsity violet (2.9), although they are
-  19-29 dE apart in normal vision. A panel that crosses tasks with rules gives tasks a facet or a
-  marker and rules the colour. The dark family tints fail the validator's lightness band on
-  purpose: lightness is what tells tints apart.
+  Pairs that fail the checks, and the limitation each one carries (dead-relu-paper#63; the
+  validator and an independent Machado-2009 / OKLab script agree on every value below):
+  - Tasks and rules are never colour-coded in the same panel: DMTS green and rescale magenta are
+    2.7 apart under deuteranopia, and 3BFF blue and sparsity violet 2.9 apart under protanopia
+    (11.1 under deuteranopia), although both pairs are 19-29 apart in normal vision. A panel that
+    crosses tasks with rules gives tasks a facet or a marker and rules the colour.
+  - The setting teals never share a panel with rescale, duplicate or synaptic noise: SETTING
+    (SETTING_RAMP[2]) and rescale are 3.7 apart under protanopia, SETTING_RAMP[1] and rescale 6.4,
+    SETTING_RAMP[3] and duplicate 5.2, and SETTING and synaptic noise 13.7 in normal vision (floor
+    15). With the violet penalties and with dropout every teal passes (the Figure 3 set above).
+  - BASELINE and INACTIVE never share a panel: the two greys are 8.6 apart in every vision type.
+    ACTIVE and SETTING_RAMP[3] (12.4 in normal vision) never share a panel either.
+  - BASELINE and SETTING_RAMP[0] are 4.4 apart under colour blindness and 8.3 in normal vision.
+    A sweep that uses both draws the default's markers with an ink edge and names it in the legend
+    (the metabolic-penalty and input-weight-scale panels of the Extended Data figure of every
+    standard-setting sweep).
+  - BASELINE has a contrast of 2.35:1 on white, under the validator's 3:1 for a mark. A BASELINE
+    series is always named directly (a label beside it, a legend entry, or the caption's "grey,
+    ...") and never carries a value that only its colour identifies.
+  - SYNAPTIC_NOISE (chroma 0.089) and SETTING (0.07) are below the chroma floor of 0.10, so they
+    read close to grey. Neither is the only cue to identity: each comes with its own marker shape
+    or a direct label (Fig. 5 gives every rule its own marker).
+  - The dark family tints fail the validator's lightness band on purpose: lightness is what tells
+    tints apart.
+  The figures on paper main of 1 Nov 2026 meet these limitations; checked from which colours each
+  figure script draws in each panel, and on a render of the Extended Data figure of every
+  standard-setting sweep.
 
 Words and numbers.
   - Axis labels are lower case, a noun phrase with the unit or symbol last: LABELS["active"]
@@ -343,8 +365,8 @@ def setup():
 
     Registers the typeface (`register_fonts`), sets every text size, stroke and mark of the style
     sheet, and points mathtext at the same family so no second typeface is embedded. A glyph the
-    family lacks (an arrow, $\\propto$, $\\sim$, angle brackets) falls back to STIX Sans and shows
-    up as a second family in `pdffonts`: write the word, or draw the arrow with `arrow()`.
+    family lacks (an arrow, $\\propto$, $\\sim$, angle brackets) falls back to STIX, which `pdffonts`
+    lists as a second family (STIXGeneral-Regular): write the word, or draw the arrow with `arrow()`.
 
     Returns:
         str, the font family in use.
@@ -687,8 +709,9 @@ def demo_figure():
     gs = fig.add_gridspec(1, 2, left=0.08, right=0.98, bottom=0.2, top=0.88, wspace=0.3)
     ax_a, ax_b = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
     sizes = np.array([250, 500, 1000, 2000, 4000])
-    for task, col in TASK_COLORS.items():
-        ax_a.plot(sizes, sizes * 0.3, "o-", color=col, label=task)
+    # one made-up power law per task, so the three task colours are drawn apart
+    for (task, col), b in zip(TASK_COLORS.items(), (0.48, 0.44, 0.55)):
+        ax_a.plot(sizes, 10 * sizes ** b, "o-", color=col, label=task)
     ax_a.set_xscale("log")
     ax_a.set_xticks(sizes)
     count_ticks(ax_a.xaxis)

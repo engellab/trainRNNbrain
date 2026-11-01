@@ -154,6 +154,10 @@ def main():
     if paths:
         bad = 0
         for path in paths:
+            if not os.path.exists(path):
+                print(f"FAIL {path}: no such file")
+                bad += 1
+                continue
             fail, summary = audit(path)
             print(f"{'FAIL' if fail else 'ok  '} {os.path.basename(path)} {summary}")
             for f in fail:
