@@ -103,10 +103,13 @@ def readouts():
 def main():
     """Draw the supplementary 36-tau figure and print both read-outs. Returns the output path."""
     ps.setup()
-    fig, axes = plt.subplots(1, 2, figsize=(ps.W2 * 0.86, 62 * ps.MM),
+    # drawn at the full print width, so it prints at 100% and `save` writes the canvas uncropped;
+    # margins set here keep every text line inside the page (dead-relu-paper #102)
+    fig, axes = plt.subplots(1, 2, figsize=(ps.W_FULL_MM * ps.MM, 62 * ps.MM),
                              gridspec_kw=dict(width_ratios=[1.55, 1.0]))
+    fig.subplots_adjust(left=0.075, right=0.99, top=0.90, bottom=0.17, wspace=0.28)
     panel(axes[0])
-    ps.panel_letter(axes[0], "a", dx=-0.10)
+    ps.panel_letter(axes[0], "a")
 
     ax = axes[1]
     r = readouts()
@@ -127,7 +130,7 @@ def main():
                               mew=0.9, label="best checkpoint")],
               loc="lower left", fontsize=5.8)
     ps.ygrid(ax)
-    ps.panel_letter(ax, "b", dx=-0.16)
+    ps.panel_letter(ax, "b")
 
     out = ps.save(fig, "fig_supp_dmts36")
     print()

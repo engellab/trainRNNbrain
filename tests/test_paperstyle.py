@@ -11,11 +11,13 @@ It fails if
   - the page is not W_FULL_MM wide (the figure would not print at 100%),
   - a y-axis label sits closer than MIN_LABEL_GAP_MM (1 mm) to its tick labels, measured between
     PyMuPDF span boxes; the demo asks one label for labelpad=1, which `save` must raise
-    (dead-relu-paper #63).
+    (dead-relu-paper #63),
+  - any text line lies outside the page or within EDGE_MM (0.3 mm) of its edge, i.e. was clipped
+    or nearly so (text off the page is read with an unbounded clip rectangle).
 
 Given figure PDFs as arguments, it audits those instead, at the size each prints when included at
 \\textwidth: the house family only (Helvetica on the Mac), a bold face, panel letters 8-10 pt, no glyph under MIN_SCRIPT_PT (the
-acceptance tests of dead-relu-paper #15 and #40), every y-label at least 1 mm from its tick labels (#63). Glyph runs between MIN_SCRIPT_PT and MIN_PT are
+acceptance tests of dead-relu-paper #15 and #40), every y-label at least 1 mm from its tick labels (#63), no text within 0.3 mm of the page edge or past it. Glyph runs between MIN_SCRIPT_PT and MIN_PT are
 counted, not failed: a PDF does not say which runs are sub- or superscripts.
 
 Run: python tests/test_paperstyle.py [figure.pdf ...]
@@ -36,6 +38,7 @@ import paperstyle as ps  # noqa: E402  (needs the path above)
 
 PT_PER_MM = 72 / 25.4
 MIN_LABEL_GAP_MM = 1.0      # y-label to tick-label gap on the page (dead-relu-paper #63)
+EDGE_MM = 0.3               # no text box closer than this to the page edge, nor past it
 
 
 def pdf_font_names(path):
@@ -105,6 +108,31 @@ def y_label_gaps(path, scale=1.0, search_mm=8.0):
     return out
 
 
+def edge_text(path, scale=1.0, edge_mm=EDGE_MM):
+    """Text lines whose box lies past the page edge or within `edge_mm` of it.
+
+    Reads with an unbounded clip rectangle, so text that the page crops away is still returned.
+
+    Args:
+        path: str, a PDF file; scale: printed size / PDF size; edge_mm: the margin, at print size.
+    Returns:
+        list of (text, distance_mm at print size from the nearest edge; negative = off the page).
+    """
+    page = pymupdf.open(path)[0]
+    w, h = page.rect.width, page.rect.height
+    out = []
+    for block in page.get_text("dict", clip=pymupdf.INFINITE_RECT())["blocks"]:
+        for line in block.get("lines", []):
+            text = "".join(s["text"] for s in line["spans"]).strip()
+            if not text:
+                continue
+            x0, y0, x1, y1 = line["bbox"]
+            dist = min(x0, y0, w - x1, h - y1) * scale / PT_PER_MM
+            if dist < edge_mm:
+                out.append((text, dist))
+    return out
+
+
 def audit(path, printed_width_mm=ps.W_FULL_MM):
     """Check one figure PDF against the style sheet at the size it prints when set at \\textwidth.
 
@@ -136,6 +164,9 @@ def audit(path, printed_width_mm=ps.W_FULL_MM):
     for text, gap in gaps:
         if gap < MIN_LABEL_GAP_MM:
             fail.append(f"y-label '{text}' {gap:.2f} mm from its tick labels, under {MIN_LABEL_GAP_MM} mm")
+    for text, dist in edge_text(path, scale):
+        where = "outside the page" if dist < 0 else "from the page edge"
+        fail.append(f"text '{text}' {abs(dist):.2f} mm {where}, want at least {EDGE_MM} mm inside")
     summary = dict(fonts=fonts, scale=round(scale, 3),
                    median_pt=round(statistics.median(sizes), 2) if sizes else None,
                    letters_pt=sorted(set(letters)),

@@ -114,11 +114,12 @@ Words and numbers.
 
 Markers (dead-relu-paper #83). One convention in every figure: a FILLED marker is a value read at
 the floor crossing (the first iteration after which the run's smoothed noisy training loss stays
-at or below 1.05 times its loss floor), an OPEN marker a value read at a fixed 75,000
-iterations. Fill carries no other meaning anywhere; any other distinction (measured against
-estimated, one size against another, one rule against another) uses marker shape or colour. Draw
-them with `mark_floor(col)` and `mark_75k(col)`; name them in a legend with MARK_FLOOR_LABEL and
-MARK_75K_LABEL.
+at or below 1.05 times its loss floor), an OPEN marker a value read at a fixed iteration (75,000
+iterations, or the end of a fixed training budget), with that iteration named in the caption. Fill
+carries no other meaning anywhere; any other distinction (measured against estimated, one size
+against another, one rule against another) uses marker shape, colour or words. Draw them with
+`mark_floor(col)` and `mark_fixed(col)` (alias `mark_75k`); name them in a legend with
+MARK_FLOOR_LABEL and MARK_75K_LABEL, or f"{fmt_count(it)} iterations" for another fixed iteration.
 
 Self-checks:
   python trainRNNbrain/experiments_and_analysis/paperstyle.py   swatches + primitives sheet
@@ -310,7 +311,8 @@ def count_ticks(axis):
 # --------------------------------------------------------------------------------------------
 
 MARK_FLOOR_LABEL = "floor crossing"         # legend words for a filled marker
-MARK_75K_LABEL = "75,000 iterations"        # legend words for an open marker
+MARK_75K_LABEL = "75,000 iterations"        # legend words for an open marker read at 75,000;
+                                            # another fixed iteration: f"{fmt_count(it)} iterations"
 
 
 def mark_floor(col, scatter=False):
@@ -330,8 +332,11 @@ def mark_floor(col, scatter=False):
     return dict(mfc=col, mec=col)
 
 
-def mark_75k(col, scatter=False):
-    """Marker colours for a value read at a fixed 75,000 iterations: OPEN, in every figure.
+def mark_fixed(col, scatter=False):
+    """Marker colours for a value read at a fixed iteration: OPEN, in every figure.
+
+    The fixed iteration is 75,000 iterations or the end of a fixed training budget; the caption
+    names which (dead-relu-paper #83, decision update).
 
     Args:
         col: str, the series colour (drawn as the edge; the inside is empty).
@@ -343,6 +348,9 @@ def mark_75k(col, scatter=False):
     if scatter:
         return dict(facecolors="none", edgecolors=col, linewidths=OPEN_MARKER_EW)
     return dict(mfc="none", mec=col, mew=OPEN_MARKER_EW)
+
+
+mark_75k = mark_fixed           # the first name of `mark_fixed`, kept for scripts that use it
 
 
 # --------------------------------------------------------------------------------------------
@@ -726,15 +734,15 @@ def floor_label_pads(fig, pad_pt=LABEL_PAD_PT):
         fig: matplotlib Figure; pad_pt: float, the smallest pad in points (at print size for a
             print-width figure).
     Returns:
-        int, how many axis labels were raised.
+        list of str, the text of every axis label whose pad was raised.
     """
-    n = 0
+    raised = []
     for ax in fig.axes:
         for axis in (ax.xaxis, ax.yaxis):
             if axis.label.get_text() and axis.labelpad < pad_pt:
                 axis.labelpad = pad_pt
-                n += 1
-    return n
+                raised.append(axis.label.get_text())
+    return raised
 
 
 def save(fig, name, w_mm=None, h_mm=None, tight=None, out_dir=IMG_DIR):
@@ -750,7 +758,8 @@ def save(fig, name, w_mm=None, h_mm=None, tight=None, out_dir=IMG_DIR):
     0.02 in padding, whose printed scale then depends on the crop.
 
     Label pads. Before drawing, `floor_label_pads` raises every axis label's pad to LABEL_PAD_PT,
-    whatever `labelpad` the script passed, so a GridSpec must leave room for it.
+    whatever `labelpad` the script passed, so a GridSpec must leave room for it; a warning gives
+    the count and names the labels raised.
 
     Args:
         fig: the figure; name: file stem;
@@ -766,7 +775,11 @@ def save(fig, name, w_mm=None, h_mm=None, tight=None, out_dir=IMG_DIR):
                             (h_mm * MM) if h_mm is not None else fig.get_figheight())
     if tight is None:
         tight = not _is_print_width(fig)
-    floor_label_pads(fig)
+    raised = floor_label_pads(fig)
+    if raised:
+        names = ", ".join(sorted({" ".join(t.split()) for t in raised}))
+        warnings.warn(f"paperstyle.save({name}): raised {len(raised)} axis label pads to "
+                      f"{LABEL_PAD_PT} pt: {names}")
     if not tight:
         renderer = fig.canvas.get_renderer()
         bb = fig.get_tightbbox(renderer)            # inches

@@ -52,7 +52,7 @@ section 7).
 
 | # | Claim | Status | What remains |
 |---|---|---|---|
-| C1 | Training leaves most units inactive, and a network retrained without them scores within 0.004 R² of the intact network retrained the same way | **Done**: Figure 1 rebuilt (a-d) and panel d re-run at the current floor, rule passed (31 Oct); the fourth 3BFF network at N = 1000 is counted (decision dead-relu-paper#20, option 2). Round 2 (fig1-r2, dead-relu-paper#52, PR #65; entry 2026-11-01_0716): Fig. 1c, Results 1 and the caption with four 3BFF networks; the Extended Data figure of removing inactive units at every size drawn on 35 networks | — |
+| C1 | Training leaves most units inactive, and a network retrained without them scores within 0.004 R² of the intact network retrained the same way | **Done**: Figure 1 rebuilt (a-d) and panel d re-run at the current floor, rule passed (31 Oct); the fourth 3BFF network at N = 1000 is counted (decision dead-relu-paper#20, option 2). Round 2 (fig1-r2, dead-relu-paper#52, PR #65; entry 2026-11-01_0716): Fig. 1c, Results 1 and the caption with four 3BFF networks; the Extended Data figure of removing inactive units across sizes drawn on 35 networks of 500-4000 units, which are not the size series (fig1-r3, dead-relu-paper#89) | — |
 | C2 | Bigger networks keep a smaller share of units active | **Done**: Figure 2 (31 Oct, entry 2026-10-31_1957). Round 2: threshold sensitivity recomputed on the networks Fig. 2a fits (methods-r2, dead-relu-paper#51, PR #64; entries 2026-10-31_2209 and _2211); Figure 2 and the Extended Data figure of floor crossings against snapshots redrawn (fig2-r2, dead-relu-paper#53, PR #67; entry 2026-11-01_0716) | — |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done**; B5 complete, read at 75k (31 Oct); Fig. 2d,e and the optimizer comparison in Fig. 3d and the Extended Data figure of every standard-setting sweep (fig2-r2, fig3-r2) | — |
 | C4 | On CDDM 253-310 of 1,000 units are silent (never above zero on the noise-free batch, zero gradient there, 94-155× below the reach threshold under training noise); on 3BFF none is, and low-active 3BFF units get gradient yet stay below threshold | **Done**: re-read on the Fig. 1d weights, rule passed (1 Nov, entries 2026-11-01_0948 and _1021, dead-relu-paper#91; first read 2026-10-31_2207 on weights 281-480 iterations later); Figure 4a-d, the Extended Data figures of gradient reach and of tanh (fig4-no-return, dead-relu-paper#8, PR #60) | Results 4's tanh sentence ("most tanh units ... are left with little gradient") fails in 2 of the 9 networks on the state-gradient measure, and its 25-147 against 277-293 counts cite panels b,c of the tanh figure where only b has them (dead-relu-paper#70; owner layout-r2, #58) |
@@ -73,10 +73,14 @@ random units take every network to 0.09 or below. A 3,000-iteration retrain with
 units ends within 0.004 of the intact network retrained the same way on every task (3BFF 0.945-0.948
 against 0.949-0.950); random pruning plus retrain reaches 0.920-0.930 on 3BFF and ends within 0.01 of
 the inactive-pruned retrain on CDDM (0.821-0.828 against 0.825-0.829); on DMTS it reaches 0.998 in two networks and 0.419 in s3322309204. The pre-registered rule (entry 1702) passes in all nine networks. Across sizes (the Extended
-Data figure of removing inactive units at every size; entry 2026-11-01_0716): 35 default networks
-of 500-4000 units, 3BFF (15) at 75k and CDDM (12) and DMTS (8) at the end of training; the 36th,
-DMTS s597040509 at N = 2000 (R² 0.417 in the Supplementary table of every network), never learned
-the task and is left out. Removing the inactive units changes R² by −0.010 to +0.001 on CDDM and
+Data figure of removing inactive units across sizes; entries 2026-11-01_0716 and the fig1-r3 entry
+of 1 Nov, dead-relu-paper#89): 35 default networks of 500-4000 units, 3BFF (15: six at N = 500,
+three at each larger size) at 75k and CDDM (12) and DMTS (8, none at N = 4000) at the end of
+training. **This set is not the size series.** 34 of the 35 are among the 37 networks Fig. 2a fits
+at N ≥ 500; the 35th, DMTS s2946835052, learned the task but has no floor crossing (loss ends below
+its floor). Not tested: 3BFF s4186074845 (trained in one 200k run, after the ablation), DMTS
+s632794669 (N = 2000) and s2627187151 (N = 4000), and every N = 100 network. A 36th ablation file,
+DMTS s597040509 at N = 2000 (R² 0.417), never learned the task and is left out. Removing the inactive units changes R² by −0.010 to +0.001 on CDDM and
 −0.046 to −0.001 on DMTS, and in all 35 networks it costs less than removing as many units at random.
 
 **C2.** Figure 2 (entry 2026-10-31_1957; Della job 16558986, read-out 79932ef). Read at 1.05× each
@@ -85,7 +89,9 @@ flip-flop (41% of 500 units active, 14% of 4000), N^0.44 on CDDM (298 of 500, 76
 DMTS (four sizes now; 191 of 500, 620 of 4000 from the one N = 4000 network that reads out). At
 N = 100, 66-90% of units are active (drawn, not fitted). At 1.05×, 1.10× and 1.20× the exponents lie
 between 0.44 and 0.61 and every bootstrap 95% upper bound is below 0.79, so the rule of entry
-2026-10-31_1900 says C2 holds on all three tasks. 1,000 active units would need N ≈ 7,300 on CDDM,
+2026-10-31_1900 says C2 holds on all three tasks. The 0.79 (DMTS at 1.20×) rests on three networks:
+leaving out any one of them gives 0.86-0.87, still below 1, so C2 holds with any one network left out (at sizes with two or more)
+(entry 2026-11-01_0957). 1,000 active units would need N ≈ 7,300 on CDDM,
 9,200 on DMTS and 14,200 on the flip-flop. The learning-rate confound (lr ∝ N^−1/3) is left in and
 handled by reading each network at its own floor; mean crossings move from 59.0k to 65.0k (flip-flop) and
 26.7k to 32.5k (CDDM) between N = 500 and 4000, "by about a fifth or less" in Results 2. The fourth flip-flop network at N = 1000
