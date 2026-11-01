@@ -13,7 +13,8 @@ floor makes more units inactive.
       every run at N = 1000, one column per task; dashed lines at each run's own 1.05x crossing.
   (e) units made inactive per 100,000 iterations from 150,000 iterations on, against the change of
       the loss over the same window, every 3BFF run trained to 200,000 or 300,000 iterations
-      (c3_flat_loss_units: loss_change, loss_rate).
+      (c3_flat_loss_units: loss_change, loss_rate). Open markers (dead-relu-paper#104): a slope
+      over a window is not read at the floor crossing, the one meaning of a filled marker.
 Extended Data Fig. 3 is drawn by fig_ed_readout.py from this script's collect record (examples, size
 series and the snapshot oracle of /scratch/gpfs/TENGEL/pt1290/oracle_readout, Della job 15635966,
 entry 2026-10-15_2054). The drawing stage also writes the rows of Supplementary Table 1 (every run of
@@ -388,6 +389,10 @@ FIG2_H_MM = 125.0       # printed height of Figure 2 (width is \textwidth, 165.1
 N_BOOT = 2000           # bootstrap resamples for the exponent's interval (panel c)
 BOOT_SEED = 20261031
 SIZE_MARK = {500: "o", 1000: "s", 2000: "D", 4000: "^"}
+# Panel e markersize per N: a matplotlib triangle of markersize m has half the area of the square
+# m x m and 64% of a circle's, and an open 3 pt triangle prints with its inside nearly closed
+# (dead-relu-paper#104 scan); 1.25 times the size gives it a circle's area.
+SIZE_MS = {N: ps.MARKER_PT * (1.25 if m == "^" else 1.0) for N, m in SIZE_MARK.items()}
 NET_GAP_DEX = 0.04      # panels a-b: first network point this far (log10 N) from its size's mean
 NET_STEP_DEX = 0.025    # and the next ones this far apart (0.6 mm in panel a at print size; a 2 pt dot is 0.7 mm)
 
@@ -639,7 +644,11 @@ def panel_trajectories(axes_top, axes_bot, traj):
 def panel_flat(ax, c3):
     """Panel (e): units made inactive per 100,000 iterations from 150,000 on, against the loss change.
 
-    Every network is 3BFF, so all marks take the 3BFF colour; marker shape codes N.
+    Every network is 3BFF, so all marks take the 3BFF colour; marker shape codes N. Markers are open
+    (dead-relu-paper#104): a slope over iterations 150,000 to the end of training is not read at the
+    floor crossing, and filled means the floor crossing in every figure. Their inside is white and
+    drawn above the error bar, so the bar does not fill them; an ink edge marks a network trained
+    to 300,000 iterations.
 
     Args:
         ax: axes; c3: the collect record's panel-(e) rows (one per 3BFF lineage).
@@ -659,14 +668,15 @@ def panel_flat(ax, c3):
         rows = [r for r in c3 if r["N"] == N]
         for r in rows:
             long_run = r["end"] > 250_000
-            ax.errorbar([r["pct100"]], [r["lost"]], yerr=[r["se"]], fmt=SIZE_MARK[N], ms=ps.MARKER_PT,
-                        color=col, mfc=col, mec=ps.INK if long_run else col, mew=0.6 if long_run else 0,
-                        lw=0.8, capsize=1.2, zorder=4, alpha=0.85)
+            ax.errorbar([r["pct100"]], [r["lost"]], yerr=[r["se"]], fmt="none", ecolor=col, lw=0.8,
+                        capsize=1.2, zorder=4)
+            ax.plot([r["pct100"]], [r["lost"]], ls="none", marker=SIZE_MARK[N], ms=SIZE_MS[N],
+                    zorder=5, **dict(ps.mark_fixed(ps.INK if long_run else col), mfc="white"))
         if rows:
-            handles.append(Line2D([], [], ls="none", marker=SIZE_MARK[N], ms=ps.MARKER_PT, color=col,
-                                  mew=0, label=f"$N$ = {ps.fmt_count(N)}"))
-    handles.append(Line2D([], [], ls="none", marker="s", ms=ps.MARKER_PT, color=col, mec=ps.INK,
-                          mew=0.6, label=f"trained to {ps.fmt_count(300_000)}"))
+            handles.append(Line2D([], [], ls="none", marker=SIZE_MARK[N], ms=SIZE_MS[N],
+                                  label=f"$N$ = {ps.fmt_count(N)}", **ps.mark_fixed(col)))
+    handles.append(Line2D([], [], ls="none", marker="s", ms=ps.MARKER_PT,
+                          label=f"trained to {ps.fmt_count(300_000)}", **ps.mark_fixed(ps.INK)))
     ax.set(xlim=(-6, 7), ylim=(-15, 135),
            xlabel="loss change after iteration 150,000\n(% per 100,000 iterations)",
            ylabel="units made inactive\nper 100,000 iterations")

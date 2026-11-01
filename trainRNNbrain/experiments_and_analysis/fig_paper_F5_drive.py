@@ -43,6 +43,14 @@ config) under data/trained_RNNs/NBitFlipFlop_remedy_grid/. Panel (d) re-reads th
 common.read_run. Notebook: docs/project_trajectory/2026-10-31_1532, _1732, _1750, _1953 (the reads)
 and 2026-11-01_0745 and its follow-up (the burst check and this figure).
 
+ROUND 4 (dead-relu-paper#104). Every open marker has a white inside and is drawn above lines,
+filled markers and rings. Networks of one rule whose open markers or rings would overlap are one
+marker at their mean with bars over their range and their count beside it (Figure 3's treatment);
+in panel c's lower axes ringed and unringed networks share such a group and its label reads
+"ringed/all" when only some are ringed. Markers of two rules that coincide (a: two medians at
+75,000 iterations; e and f: values equal to 0.01) are set side by side about their mean x. Open
+triangles are drawn 1.25 times larger (a circle's area). Check: tests/scan_open_markers.py.
+
 Usage:  python fig_paper_F5_drive.py
 Output: img/internal_figures/fig_paper_F5_drive.pdf (+ .svg), and a printout of every number the
         caption and Results 5 quote.
@@ -88,6 +96,18 @@ B3_CELLS = ("none", "rate", "noise", "rescale", "rate+noise", "rate+rescale", "n
             "rate+noise+rescale")
 B3_PARTS = (("rate", "frm"), ("noise", "synnoise"), ("rescale", "rescale"))
 RING_S = 34                    # scatter size of the ring that marks an R^2 inside a burst
+# Open markers (dead-relu-paper#104). An open marker has a white inside and is drawn above lines,
+# filled markers and rings, so nothing behind it shows through. Networks of one rule whose open
+# markers or rings would overlap are drawn as one marker at their mean, with thin bars over their
+# range and their number beside it (Figure 3's treatment, fig_paper_F2_fails.draw_open_groups).
+# A matplotlib triangle has 64% of a circle's area at the same size and an open one prints with its
+# inside nearly closed, so open triangles take 1.25 times the size (a circle's area).
+OPEN_FACE = "white"
+Z_OPEN = 6
+TRIANGLES = ("^", "v")
+TRI_SCALE = 1.25
+JOIN = 1.15                    # points closer than JOIN marker diameters (or rings) form one group
+EDGE_LABEL_PT = 9.8            # count label of an off-scale group: right of its 9 pt arrow
 # The three rate-penalty networks of panel d and Extended Data Fig. 8: the rate violet and two
 # lighter steps of it, none darker (a darker violet is RATE_SPARSITY's; dead-relu-paper#84 item 4).
 RATE_SHADES = (ps.RATE_PENALTY, "#9d7fd3", "#c3b0e8")
@@ -262,6 +282,235 @@ def ring(ax, x, y):
                    zorder=4, clip_on=False)
 
 
+def open_size(marker, s):
+    """Scatter size (pt^2) of an open marker: triangles TRI_SCALE times larger in diameter.
+
+    Args:
+        marker: matplotlib marker; s: scatter size of the series (pt^2).
+    Returns:
+        float, the scatter size to draw.
+    """
+    return s * TRI_SCALE ** 2 if marker in TRIANGLES else s
+
+
+def open_kw(col):
+    """Scatter keywords of an open marker: the series colour as edge, white inside (#104).
+
+    Args:
+        col: edge colour.
+    Returns:
+        dict for ax.scatter.
+    """
+    kw = ps.mark_75k(col, scatter=True)
+    kw["facecolors"] = OPEN_FACE
+    return kw
+
+
+def groups_of(pts, join):
+    """Single-linkage groups of points closer than `join` to one another.
+
+    Args:
+        pts: (n, 2) array of printed positions (pt); join: distance (pt).
+    Returns:
+        list of index arrays, one per group, in order of each group's first point.
+    """
+    label = list(range(len(pts)))
+
+    def root(i):
+        """The group label of point i (union-find with path halving)."""
+        while label[i] != i:
+            label[i] = label[label[i]]
+            i = label[i]
+        return i
+
+    for i in range(len(pts)):
+        for j in range(i + 1, len(pts)):
+            if np.hypot(*(pts[i] - pts[j])) < join:
+                label[root(j)] = root(i)
+    out = {}
+    for i in range(len(pts)):
+        out.setdefault(root(i), []).append(i)
+    return [np.asarray(v) for v in out.values()]
+
+
+def open_groups(ax, xs, ys, col, marker, s, burst=None, merge=False):
+    """Group one series' open markers on one axes: points whose markers or rings would overlap.
+
+    Points join a group when their printed centres are closer than JOIN marker diameters (JOIN
+    ring diameters among ringed points). Ringed and unringed points form separate groups, unless
+    `merge` (panel c, where a size column has no room for two groups side by side): then they
+    share groups, joined at the ring distance when any point is ringed.
+
+    Args:
+        ax: axes with limits and scales already set; xs, ys: data coordinates (array-likes);
+        col: edge colour; marker: matplotlib marker; s: the series' scatter size (pt^2);
+        burst: bool array (True: R^2 from weights inside a loss burst) or None;
+        merge: bool, see above.
+    Returns:
+        list of dicts, one per group: xs, ys (its networks' values), x, y (where its marker goes:
+        the mean), n (networks), k (ringed networks), col, marker, s (scatter size drawn).
+    """
+    xs, ys = np.asarray(xs, float), np.asarray(ys, float)
+    if not len(xs):
+        return []
+    burst = np.zeros(len(xs), bool) if burst is None else np.asarray(burst, bool)
+    s_open = open_size(marker, s)
+    d = np.sqrt(s_open)                                    # marker diameter (pt)
+    pts = ax.transData.transform(np.column_stack([xs, ys])) * 72 / ax.figure.dpi
+    out = []
+    for idx in [np.arange(len(xs))] if merge else [np.flatnonzero(burst), np.flatnonzero(~burst)]:
+        if not len(idx):
+            continue
+        join = JOIN * (np.sqrt(RING_S) if burst[idx].any() else d)
+        for g in groups_of(pts[idx], join):
+            g = idx[g]
+            out.append(dict(xs=xs[g], ys=ys[g], x=float(xs[g].mean()), y=float(ys[g].mean()),
+                            n=len(g), k=int(burst[g].sum()), col=col, marker=marker, s=s_open))
+    return out
+
+
+def set_apart(ax, groups):
+    """Set markers of different series that would overlap side by side, about their mean x.
+
+    Two groups whose printed centres are closer than JOIN times their mean diameter are moved apart
+    horizontally, each by half the missing distance, so the true x lies midway between them
+    (Fig. 5a: two rules' medians at 75,000 iterations; Fig. 5e: networks of two rules with the
+    same R^2 values to 0.01). Linear x axes only.
+
+    Args:
+        ax: axes with limits set; groups: list of open_groups() dicts (changed in place: x).
+    Returns:
+        the same list.
+    """
+    to_pt = 72 / ax.figure.dpi
+    for _ in range(3):
+        for i, a in enumerate(groups):
+            for b in groups[i + 1:]:
+                if a.get("at_edge") or b.get("at_edge"):
+                    continue                            # an off-scale marker stays at the edge
+                pa = ax.transData.transform((a["x"], a["y"])) * to_pt
+                pb = ax.transData.transform((b["x"], b["y"])) * to_pt
+                need = JOIN * (np.sqrt(a["s"]) + np.sqrt(b["s"])) / 2
+                dist = np.hypot(*(pa - pb))
+                if dist >= need:
+                    continue
+                dx = np.sqrt(need ** 2 - (pa[1] - pb[1]) ** 2) - abs(pa[0] - pb[0])
+                sign = 1 if pa[0] >= pb[0] else -1
+                for g, sg in ((a, sign), (b, -sign)):
+                    px = ax.transData.transform((g["x"], g["y"]))[0] * to_pt + sg * dx / 2
+                    g["x"] = float(ax.transData.inverted().transform((px / to_pt, 0))[0])
+    return groups
+
+
+def label_box(px, py, text, off, side):
+    """Printed box (pt) of a group's count label beside, below or above a marker at (px, py).
+
+    Args:
+        px, py: marker centre (pt); text: the label; off: distance from the centre to the label's
+        near edge (pt); side: "right", "left", "below" or "above".
+    Returns:
+        (x0, x1, y0, y1) in pt.
+    """
+    w, h = 3.4 * len(text), 4.4                 # 6 pt Helvetica digits: 3.3 pt wide, 4.3 pt tall
+    if side in ("right", "left"):
+        x0 = px + off if side == "right" else px - off - w
+        return x0, x0 + w, py - h / 2, py + h / 2
+    y0 = py - off - h if side == "below" else py + off
+    return px - w / 2, px + w / 2, y0, y0 + h
+
+
+def hits(box, circles, boxes):
+    """True if a label box touches any marker circle (cx, cy, r) or another label box (all pt)."""
+    x0, x1, y0, y1 = box
+    for cx, cy, r in circles:
+        if np.hypot(cx - np.clip(cx, x0, x1), cy - np.clip(cy, y0, y1)) < r:
+            return True
+    return any(x0 < b[1] and b[0] < x1 and y0 < b[3] and b[2] < y1 for b in boxes)
+
+
+def draw_groups(ax, groups, label_side="right", box=False):
+    """Draw open-marker groups (#104): one marker per group with its range bars, ring and count.
+
+    Each group is one open marker at its x, y (white inside, above lines and filled markers),
+    thin bars over its networks' range in y (and in x on a linear axis), the ring when any of its
+    R^2 values comes from weights inside a loss burst, and its number of networks beside it when
+    it has more than one; the label reads "ringed/all" when only some are ringed. The label goes
+    on the group's preferred side (its "side" key, else `label_side`), else on the other side,
+    below or above, whichever comes first without touching a marker, a ring or another label
+    (the preferred side if none is free). Call it after every other marker of the axes is drawn,
+    so those count as obstacles.
+
+    Args:
+        ax: axes; groups: open_groups() dicts (after set_apart, if used); a group may carry
+            "side" (preferred label side) and "at_edge" (True for an off-scale value drawn at the
+            left edge: its label goes right, EDGE_LABEL_PT from the centre, past the arrow);
+        label_side: default preferred side, "right" or "left";
+        box: bool, a white box behind the label (where lines pass under it).
+    Returns:
+        list of (x drawn, y drawn, n networks, n ringed) per group.
+    """
+    to_pt = 72 / ax.figure.dpi
+    r_ring = np.sqrt(RING_S) / 2
+    circles = []                                 # markers already drawn on the axes
+    for c in ax.collections:
+        if len(c.get_offsets()) and len(c.get_sizes()):
+            off = c.get_offset_transform().transform(c.get_offsets()) * to_pt
+            circles += [(x, y, np.sqrt(c.get_sizes()[0]) / 2) for x, y in off]
+    centres = [ax.transData.transform((g["x"], g["y"])) * to_pt for g in groups]
+    for g, (px, py) in zip(groups, centres):
+        circles.append((px, py, r_ring if g["k"] else np.sqrt(g["s"]) / 2))
+    boxes, out = [], []
+    for i, (g, (px, py)) in enumerate(zip(groups, centres)):
+        x0, my, n, k, col = g["x"], g["y"], g["n"], g["k"], g["col"]
+        if ax.get_xscale() != "log" and np.ptp(g["xs"]) > 0:
+            ax.plot([g["xs"].min(), g["xs"].max()], [my, my], color=col, lw=ps.THIN_LW,
+                    zorder=Z_OPEN - 1, solid_capstyle="butt", clip_on=False)
+        if np.ptp(g["ys"]) > 0:
+            ax.plot([x0, x0], [g["ys"].min(), g["ys"].max()], color=col, lw=ps.THIN_LW,
+                    zorder=Z_OPEN - 1, solid_capstyle="butt", clip_on=False)
+        ax.scatter([x0], [my], s=g["s"], marker=g["marker"], zorder=Z_OPEN, clip_on=False,
+                   **open_kw(col))
+        if k:
+            ring(ax, [x0], [my])
+        if n > 1:
+            text = f"{k}/{n}" if 0 < k < n else str(n)
+            off = EDGE_LABEL_PT if g.get("at_edge") else (r_ring if k else np.sqrt(g["s"]) / 2) + 0.8
+            others = [c for j, c in enumerate(circles) if j != len(circles) - len(groups) + i]
+            first = "right" if g.get("at_edge") else g.get("side", label_side)
+            cands = [first, "left" if first == "right" else "right", "below", "above"]
+            side = first
+            for cand in cands[:1] if g.get("at_edge") else cands:
+                if not hits(label_box(px, py, text, off, cand), others, boxes):
+                    side = cand
+                    break
+            bx = label_box(px, py, text, off, side)
+            boxes.append(bx)
+            anchor = {"right": (bx[0], py, "left", "center"), "left": (bx[1], py, "right", "center"),
+                      "below": (px, bx[3], "center", "top"),
+                      "above": (px, bx[2], "center", "bottom")}[side]
+            lx, ly = ax.transData.inverted().transform((anchor[0] / to_pt, anchor[1] / to_pt))
+            ax.text(lx, ly, text, fontsize=ps.TICK_PT, color=ps.INK, ha=anchor[2], va=anchor[3],
+                    zorder=Z_OPEN + 1,
+                    bbox=dict(boxstyle="square,pad=0.08", fc=OPEN_FACE, ec="none") if box else None)
+        out.append((x0, my, n, k))
+    return out
+
+
+def arrow_to(ax, x, y, direction, col):
+    """A short arrow from inside the axes pointing at an off-scale value's marker at (x, y).
+
+    Args:
+        ax: axes; x, y: the marker's position (data coordinates, inside the limits);
+        direction: "<" (value beyond the left edge) or "v" (beyond the bottom edge); col: colour.
+    Returns:
+        None.
+    """
+    off = (9, 0) if direction == "<" else (0, 9)          # points: the arrow starts inside the plot
+    ax.annotate("", xy=(x, y), xytext=off, textcoords="offset points", zorder=4,
+                arrowprops=dict(arrowstyle="-|>,head_length=0.25,head_width=0.12", lw=0.5,
+                                color=col, shrinkA=0, shrinkB=2.2))
+
+
 def edge_arrow(ax, x, y, direction, col, filled, marker="o", s=10):
     """An off-scale value: its own marker at the axes' edge, with a short arrow pointing at it.
 
@@ -278,12 +527,10 @@ def edge_arrow(ax, x, y, direction, col, filled, marker="o", s=10):
     Returns:
         None.
     """
-    kw = ps.mark_floor(col, scatter=True) if filled else ps.mark_75k(col, scatter=True)
-    ax.scatter([x], [y], s=s, marker=marker, zorder=4, clip_on=False, **kw)
-    off = (9, 0) if direction == "<" else (0, 9)          # points: the arrow starts inside the plot
-    ax.annotate("", xy=(x, y), xytext=off, textcoords="offset points", zorder=4,
-                arrowprops=dict(arrowstyle="-|>,head_length=0.25,head_width=0.12", lw=0.5,
-                                color=col, shrinkA=0, shrinkB=2.2))
+    kw = ps.mark_floor(col, scatter=True) if filled else open_kw(col)
+    ax.scatter([x], [y], s=s if filled else open_size(marker, s), marker=marker,
+               zorder=4 if filled else Z_OPEN, clip_on=False, **kw)
+    arrow_to(ax, x, y, direction, col)
 
 
 def style_axes(ax):
@@ -341,7 +588,7 @@ def panel_traces(ax, series, traces):
         dict family -> (n networks, median active count at the probe nearest 75,000, at the last
         probe), for the printout.
     """
-    out = {}
+    out, marks75 = {}, []
     for fam in ("control",) + MAIN:
         cell = series[fam][1000]["cell"]
         runs = [v for d, v in traces.items() if f"/{cell}/" in d]
@@ -354,15 +601,17 @@ def panel_traces(ax, series, traces):
         # one marker per trace, at 75,000 iterations (open: the 75,000-iteration read-out, as in b);
         # its shape, not only its lightness, tells the two ochre rules apart
         j = int(np.argmin(np.abs(it - 75000)))
-        kw = ps.mark_75k(COL[fam])
-        kw["mfc"] = "white"                  # still open; white so the trace does not run through it
-        ax.plot([it[j]], [med[j]], ls="none", marker=MARK[fam], ms=4.0, zorder=6, **kw)
+        marks75.append((fam, it[j], med[j]))
         out[fam] = (len(runs), float(med[j]), float(med[-1]))
     ax.axvline(75000, color=ps.FAINT, lw=ps.THIN_LW, zorder=0)
     ax.set_xlim(0, 200000)
+    ax.set_ylim(0, 1030)
+    # 4 pt markers (16 pt^2); two that would overlap (noisy synapses and read-out dropout, 33
+    # units apart) are set side by side about 75,000 iterations (#104)
+    groups = [open_groups(ax, [x], [y], COL[fam], MARK[fam], 16.0)[0] for fam, x, y in marks75]
+    draw_groups(ax, set_apart(ax, groups))
     ax.set_xticks([0, 50000, 100000, 150000, 200000])
     ps.count_ticks(ax.xaxis)
-    ax.set_ylim(0, 1030)
     ax.set_yticks([0, 250, 500, 750, 1000])
     ps.count_ticks(ax.yaxis)
     ax.set_xlabel(ps.LABELS["iteration"])
@@ -374,6 +623,8 @@ def panel_traces(ax, series, traces):
 
 def panel_one_size(ax, a3, marks):
     """Panel (b): N = 1,000 at 75,000 iterations, active units against held-out R^2, every network.
+
+    Overlapping networks of one rule are one group marker (draw_groups, #104).
 
     Args:
         ax: axes; a3: load_a3() dict; marks: load_marks().
@@ -388,16 +639,17 @@ def panel_one_size(ax, a3, marks):
         drawn[fam][0].append(r["n_active"])
         drawn[fam][1].append(r["r2_full"])
         drawn[fam][2].append(marks["a3"][r["run_dir"]] != "calm")
+    ax.set_xlim(0, 1040)          # rate-penalty networks reach 995: whole markers, not halves
+    ax.set_ylim(0.918, 0.956)
+    groups = []
     for fam in ("control",) + MAIN:
         a, r2, b = (np.asarray(v) for v in drawn[fam])
-        b = b.astype(bool)
-        # every value here is read at 75,000 iterations: open markers (dead-relu-paper#83)
-        ax.scatter(a, r2, s=14, marker=MARK[fam], zorder=3, **ps.mark_75k(COL[fam], scatter=True))
-        ring(ax, a[b], r2[b])
-    ax.set_xlim(0, 1040)          # rate-penalty networks reach 995: whole markers, not halves
+        # every value here is read at 75,000 iterations: open markers (dead-relu-paper#83), one
+        # per network or per group of overlapping networks (#104)
+        groups += open_groups(ax, a, r2, COL[fam], MARK[fam], 14, burst=b.astype(bool))
+    draw_groups(ax, set_apart(ax, groups))
     ax.set_xticks([0, 250, 500, 750, 1000])
     ps.count_ticks(ax.xaxis)
-    ax.set_ylim(0.918, 0.956)
     ax.set_yticks([0.93, 0.94, 0.95])
     ax.set_xlabel(ps.of_n("active units", 1000))
     ax.set_ylabel(ps.LABELS["r2"])
@@ -413,19 +665,28 @@ def panel_sizes(ax_m, ax_r, series, marks):
 
     Floor crossings filled with solid lines; the AT_75K families at 75,000 iterations, open markers,
     dashed lines. A size with no floor crossing is left out of that family's line. An R^2 change
-    below the axis is drawn as an arrowhead at the bottom edge.
+    below the axis is drawn at the bottom edge with an arrow. Open markers that would overlap are
+    one group marker each (draw_groups; bottom: ringed and unringed networks share a group, #104).
 
     Args:
         ax_m, ax_r: the two axes (shared x); series: size_series() dict; marks: load_marks().
     Returns:
         dict family -> {N: per_run dict} as drawn, for the printout.
     """
-    offs = dict(zip(MAIN, np.linspace(-0.06, 0.06, len(MAIN))))
+    # each rule's column sits this far (log10 N) from its size; the two open-marker rules take the
+    # outer columns and write their group counts on the outer side (#104)
+    offs = {"rescale": -0.08, "frm": -0.04, "synnoise": 0.0, "duplicate": 0.04, "dropout": 0.08}
     lo_r, hi_r = -0.064, 0.008
     y_edge = lo_r + 0.003
-    drawn = {}
+    for ax in (ax_m, ax_r):
+        ax.set_xscale("log")
+        ax.set_xlim(340, 5900)
+    ax_m.set_ylim(0.6, 7.0)
+    ax_r.set_ylim(lo_r, hi_r)
+    drawn, groups_m, groups_r = {}, [], []
     for fam in MAIN:
         ro = "75k" if fam in AT_75K else "floor"
+        side = "left" if offs[fam] < 0 else "right"
         drawn[fam] = {}
         xs, mm, rr = [], [], []
         for N in SIZES:
@@ -434,34 +695,46 @@ def panel_sizes(ax_m, ax_r, series, marks):
             if not len(d["mult"]):
                 continue
             x = N * 10 ** offs[fam]
-            kw = ps.mark_75k(COL[fam], scatter=True) if ro == "75k" else \
-                ps.mark_floor(COL[fam], scatter=True)
-            ax_m.scatter(np.full(len(d["mult"]), x), d["mult"], s=7, marker=MARK[fam], zorder=3, **kw)
             ok = d["dr2"] > y_edge
-            ax_r.scatter(np.full(ok.sum(), x), d["dr2"][ok], s=7, marker=MARK[fam], zorder=3, **kw)
+            if ro == "75k":
+                # open markers: one per network or per group of overlapping networks
+                gm = open_groups(ax_m, np.full(len(d["mult"]), x), d["mult"], COL[fam],
+                                 MARK[fam], 7)
+                gr = open_groups(ax_r, np.full(ok.sum(), x), d["dr2"][ok], COL[fam], MARK[fam], 7,
+                                 burst=d["burst"][ok], merge=True)
+                for g in gm + gr:
+                    g["side"] = side
+                groups_m += gm
+                groups_r += gr
+            else:
+                kw = ps.mark_floor(COL[fam], scatter=True)
+                ax_m.scatter(np.full(len(d["mult"]), x), d["mult"], s=7, marker=MARK[fam], zorder=3,
+                             **kw)
+                ax_r.scatter(np.full(ok.sum(), x), d["dr2"][ok], s=7, marker=MARK[fam], zorder=3,
+                             **kw)
+                ring(ax_r, np.full(int((ok & d["burst"]).sum()), x), d["dr2"][ok & d["burst"]])
             for _ in range(int((~ok).sum())):
                 edge_arrow(ax_r, x, y_edge, "v", COL[fam], ro != "75k", MARK[fam], s=7)
-            yb = np.where(ok, d["dr2"], y_edge)[d["burst"]]
-            ring(ax_r, np.full(len(yb), x), yb)
+            ring(ax_r, np.full(int((~ok & d["burst"]).sum()), x),
+                 np.full(int((~ok & d["burst"]).sum()), y_edge))
             xs.append(x)
             mm.append(d["mult"].mean())
             rr.append(np.median(d["dr2"]))
         ls = "--" if fam in AT_75K else "-"
         ax_m.plot(xs, mm, ls=ls, color=COL[fam], lw=ps.DATA_LW, zorder=2)
         ax_r.plot(xs, rr, ls=ls, color=COL[fam], lw=ps.DATA_LW, zorder=2)
+    # open markers last, so every filled marker counts as an obstacle for their count labels
+    draw_groups(ax_m, groups_m, box=True)
+    draw_groups(ax_r, groups_r, box=True)
     for ax in (ax_m, ax_r):
-        ax.set_xscale("log")
         ax.set_xticks(SIZES)
         ax.set_xticklabels([ps.fmt_count(n) for n in SIZES])
         ax.minorticks_off()
-        ax.set_xlim(400, 5000)
         style_axes(ax)
     ax_m.axhline(1, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
     ax_r.axhline(0, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
-    ax_m.set_ylim(0.6, 7.0)
     ax_m.set_yticks([1, 3, 5, 7])
     ax_m.set_ylabel("fold change")
-    ax_r.set_ylim(lo_r, hi_r)
     ax_r.set_yticks([-0.06, -0.03, 0])
     ax_r.set_ylabel("$R^2$ change")
     ax_r.set_xlabel(ps.LABELS["size"])
@@ -471,7 +744,7 @@ def panel_sizes(ax_m, ax_r, series, marks):
     h = [Line2D([], [], ls="-", marker="o", ms=3, lw=0.9, color=ps.MUTED,
                 label=ps.MARK_FLOOR_LABEL, **ps.mark_floor(ps.MUTED)),
          Line2D([], [], ls="--", marker="o", ms=3, lw=0.9, color=ps.MUTED,
-                label=ps.MARK_75K_LABEL, **ps.mark_75k(ps.MUTED))]
+                label=ps.MARK_75K_LABEL, **dict(ps.mark_75k(ps.MUTED), mfc=OPEN_FACE))]
     ax_m.legend(handles=h, loc="upper left", fontsize=ps.TICK_PT, handlelength=2.2,
                 borderaxespad=0.1, frameon=False)
     return drawn
@@ -541,28 +814,30 @@ def panel_removal(axs, a3, marks):
     lo, hi = -0.05, 0.8
     out = {}
     for ax, N in zip(axs, (1000, 4000)):
+        ax.set_xlim(lo - 0.012, 0.45)
+        ax.set_ylim(lo - 0.015, hi)
         ax.plot([lo, 0.45], [lo, 0.45], color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
+        inside = collections.defaultdict(list)          # family -> (x, y, ringed) inside the axes
         for r in a3[N]:
             fam = r["family"]
             if fam not in MAIN:
                 continue
             x, y = float(np.median(r["r2_random_active"])), float(r["r2_recruited"])
-            if x < lo:
-                xd, yd = lo + 0.01, y
-                edge_arrow(ax, xd, yd, "<", COL[fam], False, MARK[fam], s=11)
-            elif y < lo:
-                xd, yd = x, lo + 0.012
-                edge_arrow(ax, xd, yd, "v", COL[fam], False, MARK[fam], s=11)
-            else:
-                xd, yd = x, y
-                ax.scatter([x], [y], s=11, marker=MARK[fam], zorder=3,
-                           **ps.mark_75k(COL[fam], scatter=True))
             where = marks["a3"][r["run_dir"]]
-            if where != "calm":
-                ring(ax, [xd], [yd])
+            if x < lo or y < lo:
+                xd, yd = (lo + 0.01, y) if x < lo else (x, lo + 0.012)
+                edge_arrow(ax, xd, yd, "<" if x < lo else "v", COL[fam], False, MARK[fam], s=11)
+                if where != "calm":
+                    ring(ax, [xd], [yd])
+            else:
+                inside[fam].append((x, y, where != "calm"))
             out.setdefault((N, fam), []).append((x, y, where))
-        ax.set_xlim(lo - 0.012, 0.45)
-        ax.set_ylim(lo - 0.015, hi)
+        groups = []
+        for fam in MAIN:
+            if inside[fam]:
+                x, y, b = (np.array(v) for v in zip(*inside[fam]))
+                groups += open_groups(ax, x, y, COL[fam], MARK[fam], 11, burst=b.astype(bool))
+        draw_groups(ax, set_apart(ax, groups))
         ax.set_xticks([0, 0.2, 0.4])
         ax.set_yticks([0, 0.4, 0.8])
         ax.set_title(f"$N$ = {ps.fmt_count(N)}", fontsize=ps.LABEL_PT, pad=3)
@@ -599,8 +874,15 @@ def panel_combination(ax_m, axs, b3, marks):
                   ha="right", va="center")
     ax_m.text(1.0, len(B3_CELLS) - 0.35, "rules present", fontsize=ps.TICK_PT, color=ps.MUTED,
               ha="right", va="bottom")
+    for ax, (lo, hi) in zip(axs, lims):
+        ax.set_xlim(lo, hi)
+        ax.set_ylim(-0.6, len(B3_CELLS) - 0.4)
+    groups = collections.defaultdict(list)              # column -> open-marker groups
     for cell in B3_CELLS:
         for ro, dy in (("floor", 0.15), ("fixed", -0.15)):
+            y = ypos[cell] + dy
+            inside = collections.defaultdict(list)      # column -> (value, ringed) inside the axes
+            at_edge = collections.defaultdict(list)     # column -> (edge position, ringed)
             for r in b3["runs"][cell]:
                 rec = r[ro]
                 if rec is None:
@@ -608,22 +890,40 @@ def panel_combination(ax_m, axs, b3, marks):
                 where = marks["b3"].get((cell, r["name"], ro), "calm")
                 vals = [rec["active"], rec["r2"], rec["pr"]]
                 rows.append((cell, ro, *vals, where))
-                kw = ps.mark_floor(ps.INK, scatter=True) if ro == "floor" else \
-                    ps.mark_75k(ps.INK, scatter=True)
                 for k, (ax, v, (lo, hi)) in enumerate(zip(axs, vals, lims)):
                     v = np.nan if v is None else float(v)
-                    y = ypos[cell] + dy
-                    if not np.isfinite(v) or v < lo:
+                    ringed = k == 1 and where != "calm"
+                    off_axis = not np.isfinite(v) or v < lo
+                    if off_axis and ro == "floor":
                         xr = lo + 0.015 * (hi - lo)
-                        edge_arrow(ax, xr, y, "<", ps.INK, ro == "floor", "o", s=8)
+                        edge_arrow(ax, xr, y, "<", ps.INK, True, "o", s=8)
+                        if ringed:
+                            ring(ax, [xr], [y])
+                    elif off_axis:                      # open, at the edge with an arrow
+                        at_edge[k].append((lo + 0.015 * (hi - lo), ringed))
+                    elif ro == "floor":
+                        ax.scatter([v], [y], s=8, marker="o", zorder=3,
+                                   **ps.mark_floor(ps.INK, scatter=True))
+                        if ringed:
+                            ring(ax, [v], [y])
                     else:
-                        xr = v
-                        ax.scatter([v], [y], s=8, marker="o", zorder=3, **kw)
-                    if k == 1 and where != "calm":
-                        ring(ax, [xr], [y])
-    for ax, (lo, hi), lab in zip(axs, lims, ("active units", ps.LABELS["r2"],
-                                             "participation\nratio")):
-        ax.set_xlim(lo, hi)
+                        inside[k].append((v, ringed))
+            # 75,000 iterations: open markers, one per network or per group of overlapping networks
+            for k, pts in inside.items():
+                v, b = (np.array(t) for t in zip(*pts))
+                groups[k] += open_groups(axs[k], v, np.full(len(v), y), ps.INK, "o", 8,
+                                         burst=b.astype(bool))
+            for k, pts in at_edge.items():
+                v, b = (np.array(t) for t in zip(*pts))
+                for g in open_groups(axs[k], v, np.full(len(v), y), ps.INK, "o", 8,
+                                     burst=b.astype(bool)):
+                    g["at_edge"] = True                 # its label goes beyond the arrow's tail
+                    groups[k].append(g)
+                arrow_to(axs[k], pts[0][0], y, "<", ps.INK)
+    # open markers last, so every filled marker counts as an obstacle for their count labels
+    for k, gs in groups.items():
+        draw_groups(axs[k], set_apart(axs[k], gs))
+    for ax, lab in zip(axs, ("active units", ps.LABELS["r2"], "participation\nratio")):
         ax.set_xlabel(lab)
         style_axes(ax)
         ax.set_yticks([])
