@@ -54,7 +54,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
-from matplotlib.ticker import NullLocator
+from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter, NullLocator
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
@@ -96,8 +96,11 @@ FIT_MIN_N = 500        # N = 100 is drawn but not fitted: nearly every unit is a
 # A network that never learned the task is no evidence about how many units the task needs. DMTS is
 # bimodal per seed: solved (R^2 > 0.99) or stuck at the constant-output solution (R^2 ~ 0.4).
 MIN_R2 = {"DMTS": 0.8}
-# Runs left out by a recorded decision (folder-name fragment -> reason), as in Figure 1.
-EXCLUDED_RUNS = {"seed=3374117298;": "replaced by a fourth seed (board decision)"}
+# Runs left out by a recorded decision (folder-name fragment -> reason). Empty: the 3BFF N = 1000
+# straggler (seed 3374117298), once replaced by a fourth seed, reads out under the current read-out
+# (277 active), and dead-relu-paper#20 recommends drawing all four networks; followed until Pavel
+# answers. A collect record written under an earlier list is re-flagged by apply_decisions.
+EXCLUDED_RUNS = {}
 # Panel (d): every run of one N = 1000 cell per task. CDDM uses its longest standard control (200k),
 # because the panel is about what happens long after the floor; the size series' CDDM runs stop at 100k.
 TRAJ = {"3BFF": FF200.format(N=1000),
@@ -121,6 +124,23 @@ def seed_of(name):
 def excluded_by_decision(name):
     """The recorded reason a run is left out of Figure 2 (EXCLUDED_RUNS), or None."""
     return next((why for key, why in EXCLUDED_RUNS.items() if key in name), None)
+
+
+def apply_decisions(rec):
+    """Re-apply EXCLUDED_RUNS to a collect record, so a changed decision needs no new Della read.
+
+    Exclusions for a run that never learned the task (set from its R^2 at collect time) are kept.
+
+    Args:
+        rec: the unpickled COLLECT record (modified in place).
+    Returns:
+        the same record.
+    """
+    for key in ("series", "traj", "ablation", "c3"):
+        for r in rec[key]:
+            if not (r.get("excluded") or "").startswith("never learned"):
+                r["excluded"] = excluded_by_decision(r["name"])
+    return rec
 
 
 def read_one(run, cache, with_r2=True):
@@ -425,15 +445,21 @@ def panel_size(ax_a, ax_b, series):
         Ns = np.array(sorted(cells), float)
         m = np.array([cells[N].mean() for N in Ns])
         sd = np.array([cells[N].std(ddof=1) if len(cells[N]) > 1 else 0.0 for N in Ns])
+        fit = Ns >= FIT_MIN_N
         for ax, scale in ((ax_a, 1.0), (ax_b, 100.0 / Ns)):
             for N, s in zip(Ns, np.atleast_1d(scale) * np.ones(len(Ns))):
                 v = cells[N] * s
                 ax.plot(np.full(len(v), N), v, "o", ms=2.2, color=col, alpha=0.45, mec="none", zorder=4)
-            ax.errorbar(Ns, m * scale, yerr=sd * scale, fmt="o-", color=col, ms=3.0, lw=1.0,
-                        capsize=1.6, zorder=5)
-        xf = np.array([FIT_MIN_N * 0.9, 4000 * 1.1])
-        ax_a.plot(xf, A * xf ** b, ls=":", lw=0.9, color=col, zorder=3)
-        handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=1.0,
+            sc = np.atleast_1d(scale) * np.ones(len(Ns))
+            # fitted sizes filled; N = 100 (drawn, not fitted) open
+            ax.errorbar(Ns[fit], (m * sc)[fit], yerr=(sd * sc)[fit], fmt="o", color=col, ms=3.0,
+                        lw=1.0, capsize=1.6, zorder=5)
+            ax.errorbar(Ns[~fit], (m * sc)[~fit], yerr=(sd * sc)[~fit], fmt="o", color=col, mfc="white",
+                        ms=3.0, lw=1.0, capsize=1.6, zorder=5)
+        ax_b.plot(Ns, m * 100.0 / Ns, "-", color=col, lw=0.9, zorder=3)
+        xf = np.array([FIT_MIN_N * 0.85, 4000 * 1.15])
+        ax_a.plot(xf, A * xf ** b, ls="-", lw=0.9, color=col, zorder=3)
+        handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=0.9,
                               label=f"{task}  $\\propto N^{{{b:.2f}}}$"))
         fits[task] = (b, A, {int(N): (float(mm), float(s), len(cells[N])) for N, mm, s in zip(Ns, m, sd)})
     nn = np.array([80, 5000.0])
@@ -445,7 +471,7 @@ def panel_size(ax_a, ax_b, series):
     ax_a.legend(handles=handles, loc="lower right", fontsize=6.0, handlelength=1.8)
     for frac, lab in ((50, "50%"), (10, "10%")):
         ax_b.axhline(frac, ls=(0, (4, 3)), lw=0.6, color=ps.FAINT, zorder=1)
-        ax_b.text(5300, frac + 1.5, lab, fontsize=5.8, color=ps.MUTED, ha="right", va="bottom")
+        ax_b.text(80, frac + 1.5, lab, fontsize=5.8, color=ps.MUTED, ha="left", va="bottom")
     ax_b.set(xscale="log", xlim=(75, 5500), ylim=(0, 100), xlabel="network size $N$",
              ylabel="active units (% of $N$)")
     for ax in (ax_a, ax_b):
@@ -538,7 +564,7 @@ def panel_flat(ax, c3):
         the rows drawn.
     """
     ax.axvspan(-FLAT_PCT, FLAT_PCT, color=ps.GRID, alpha=0.6, lw=0, zorder=0)
-    ax.text(0, 112, "loss flat", fontsize=5.8, color=ps.MUTED, ha="center", va="top")
+    ax.text(0, 132, "loss flat", fontsize=5.8, color=ps.MUTED, ha="center", va="top")
     ax.axhline(0, color=ps.MUTED, lw=0.6)
     handles = []
     for N in sorted(SIZE_COL):
@@ -550,7 +576,9 @@ def panel_flat(ax, c3):
         if rows:
             handles.append(Line2D([], [], ls="none", marker=SIZE_MARK[N], ms=3.0, color=SIZE_COL[N],
                                   label=f"$N$ = {N:,}"))
-    ax.set(xlim=(-12, 4), ylim=(-25, 115), xlabel="loss change after 150k (% per 100k)",
+    handles.append(Line2D([], [], ls="none", marker="s", ms=3.0, color=SIZE_COL[1000], mec=ps.INK,
+                          mew=0.6, label="trained to 300k"))
+    ax.set(xlim=(-6, 7), ylim=(-15, 135), xlabel="loss change after 150k (% per 100k)",
            ylabel="units made inactive\nper 100k iterations")
     ax.legend(handles=handles, loc="upper left", fontsize=5.8, handletextpad=0.2, borderaxespad=0.2)
     ps.ygrid(ax)
@@ -648,7 +676,7 @@ def draw_ed_readout(rec):
     ps.setup()
     fig = plt.figure(figsize=(ps.W2, 112 * ps.MM))
     gs = GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.05], hspace=0.45,
-                  left=0.075, right=0.985, top=0.95, bottom=0.09)
+                  left=0.075, right=0.985, top=0.885, bottom=0.09)
     agrid = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[0], wspace=0.30)
     bgrid = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], wspace=0.30)
     ax_a = [fig.add_subplot(agrid[k]) for k in range(3)]
@@ -672,17 +700,23 @@ def draw_ed_readout(rec):
         hi = max(np.nanmax(ex["ys"][ex["ts"] > 200]) * 1.3, ex["floor"] * 3)
         ax.set(xscale="log", yscale="log", xlim=(100, ex["tq"][-1] * 1.1), ylim=(lo, hi),
                xlabel="training iteration")
+        if hi / lo < 30:      # under 1.5 decades a log axis gets one labelled tick: label 1-2-5 steps
+            ax.yaxis.set_major_locator(LogLocator(subs=(1.0, 2.0, 5.0)))
+            ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+            ax.yaxis.set_minor_formatter(NullFormatter())
         ax.set_title(f"{task}, $N$ = 1,000, seed {seed_of(ex['name'])}", fontsize=6.6, pad=2)
         ps.ygrid(ax)
     ax_a[0].set_ylabel("noisy training loss")
-    ax_a[2].legend(handles=[
+    fig.legend(handles=[
         Line2D([], [], color=ps.GRID, lw=4, label="raw loss, 10th-90th pct"),
+        Line2D([], [], color="#f3d9a4", lw=4, label="burst (masked)"),
         Line2D([], [], color=ps.INK, lw=0.9, label="read-out curve"),
         Line2D([], [], color=ps.MUTED, lw=0.6, ls=(0, (1, 1.2)), label="fitted decay"),
         Line2D([], [], color=ps.INK, lw=0.5, label="floor"),
         Line2D([], [], color=ps.MUTED, lw=0.5, ls=(0, (4, 2)), label="1.05×, 1.10×, 1.20× floor"),
         Line2D([], [], color=ps.MUTED, lw=0.8, label="crossings")],
-        loc="upper right", fontsize=5.2, handlelength=1.6)
+        loc="upper center", bbox_to_anchor=(0.5, 0.995), ncol=7, fontsize=5.8, handlelength=1.6,
+        columnspacing=1.2, frameon=False)
 
     for task in TASKS:
         rows = [r for r in rec["series"] if r["task"] == task and is_read(r)]
@@ -757,6 +791,11 @@ def tex_row(r):
     fig = {"size series": "2a--c", "trajectory": "2d", "Fig. 1d ablation": "1d"}[r["role"]]
     if r["role"] == "size series" and r["N"] == 1000:
         fig = "1c, 2a--c" + (", 2d" if r["task"] != "CDDM" else "")
+    if not read:      # a network with no read-out is drawn only as a panel-(d) trajectory, if at all
+        in_d = r["role"] == "trajectory" or (r["role"] == "size series" and r["N"] == 1000
+                                              and r["task"] != "CDDM" and r.get("excluded") is None)
+        fig = "2d" if in_d else "--"
+    note = re.sub(r" \(held-out R\$\^2\$ [0-9.]+\)", "", note)   # the R^2 column already shows it
     note = note.replace("_", r"\_").replace("%", r"\%")
     return (f"{r['task']} & {r['N']:,} & {r['seed']} & {fig} & {r['it_end'] / 1e3:.0f}k & {t} & {a} & "
             f"{r2} & {note} \\\\")
@@ -790,7 +829,7 @@ if __name__ == "__main__":
         collect()
     else:
         with open(COLLECT, "rb") as fh:
-            record = pickle.load(fh)
+            record = apply_decisions(pickle.load(fh))
         draw_fig2(record)
         draw_ed_readout(record)
         write_table(record)
