@@ -1327,7 +1327,9 @@ D_BAR_Y = (1.055, 1.09)        # inactive-units bar, in R^2 units, above every c
 D_TITLE_PAD_PT = 6.0           # task title above the axes
 D_SPINE_OUT_PT = 4.0           # left spine offset: 1.4 mm between the spine and the busiest-first drop
 D_STAR_MS, D_TRI_MS = 5.5, 3.8 # retrained marks: star (inactive removed), triangle (random removed)
-D_STRIP_JITTER = 0.22          # half-spread of the networks within one column of the retrain strip
+D_STRIP_JITTER = 0.06          # half-spread of the networks within one column of the retrain strip
+D_STRIP_XLIM = (-0.42, 1.42)   # strip x range: columns at 0 and 1, 3.5 mm apart on a 6.5 mm strip,
+                               # which leaves 1 mm of white between the star and triangle columns (#85)
 
 
 def ablation_results(prefix, readout):
@@ -1446,7 +1448,7 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None):
                 if t.get("random_removed"):
                     ax_s.plot(1 + j, max(t["random_removed"][-1][1], 0), "^", ms=D_TRI_MS,
                               **ps.mark_floor(col), zorder=6, clip_on=False)
-            ax_s.set(xlim=(-0.6, 1.6), ylim=D_YLIM)
+            ax_s.set(xlim=D_STRIP_XLIM, ylim=D_YLIM)
             ax_s.set_title("retrained", fontsize=ps.TICK_PT, color=ps.MUTED, pad=D_TITLE_PAD_PT)
             ax_s.set_xticks([])
             ax_s.tick_params(labelleft=False)
@@ -1703,10 +1705,10 @@ LAYOUT_MM = {                  # name: (left, top, width, height)
     "b_bot": (111.0, 36.5, 51.0, 18.0),   # b, trained
     "c":     (14.0, 77.0, 40.0, 47.0),    # c, active units per task
     "d_key": (69.0, 71.0, 93.0, 7.0),     # d, legend strip, above the sub-panels and off the data
-    "d":     (70.5, 86.0, 21.0, 38.0),    # d, first of three side-by-side sub-panels (removal curves)
+    "d":     (70.5, 86.0, 20.5, 38.0),    # d, first of three side-by-side sub-panels (removal curves)
 }
-D_GAP_MM = 4.5                 # gap between one task's retrain strip and the next task's sub-panel
-D_STRIP_MM = (1.5, 5.5)        # retrain strip right of each sub-panel: (gap, width)
+D_GAP_MM = 3.5                 # gap between one task's retrain strip and the next task's sub-panel
+D_STRIP_MM = (1.5, 6.5)        # retrain strip right of each sub-panel: (gap, width)
 LETTER_X_MM = {"a": 1.0, "c": 1.0, "b": 100.0, "d": 59.0}  # panel letters: left edges, two columns
 LETTER_TOP_MM = {"a": 4.5, "b": 4.5, "c": 71.0, "d": 71.0}  # letter baseline, from the top
 

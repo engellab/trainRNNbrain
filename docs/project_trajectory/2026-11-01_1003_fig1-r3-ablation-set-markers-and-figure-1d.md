@@ -89,9 +89,13 @@ Numbers in the figures are unchanged (same collect record and ablation files).
 - Fig. 1 title names ReLU.
 - Results 1: "busiest first (by decreasing participation)"; the closing sentence no longer says
   removal "costs no R² on CDDM"; held-out R² is defined in one clause (the trial detail stays in
-  Methods); Results 1 is 388 words, 5.9 numerals per 100. With the population paragraph at #81's
-  limit of 200 words, Results 1 totals 588 words against the blueprint's 500 (18% over; the 15%
-  margin would be 575).
+  Methods). After the PR #98 review (items 6-13): the closing sentence says retraining recovers the
+  R² "to within 0.004"; the population paragraph closes on "the other three statistics", names the
+  normalised rates one way in Results, Methods and the ED Fig. 2 caption, and states the 5% of the
+  softened divisor; the CDDM silhouette margin moved to the ED Fig. 2e caption. Results 1 is 377 +
+  195 = 572 words (limit 575), 5.8 and 5.6 numerals per 100 words.
+- Fig. 1d strip widened to 6.5 mm with the columns 3.5 mm apart: a 600 dpi pixel scan finds 1.14 mm
+  of white between the star and triangle columns in every task (review item 10).
 - Population paragraph rewritten statistic by statistic, each with every task in turn, 200 words
   (#81 acceptance limit), 5.5 numerals per 100. New derived values, from entries 2026-10-31_2220 and
   2026-11-01_0741: normalised-rate dimensionality over all units / over active units 1.84-2.02 on
