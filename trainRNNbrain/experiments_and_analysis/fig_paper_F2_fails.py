@@ -16,8 +16,16 @@ Figure 3a draws the 75k means and each pair here draws both points; panel l is n
 TWO READ-OUTS (31 Oct, work package fig3-settings). Networks of one size are compared at a fixed
 75,000 iterations (Pavel, 16 Oct); a ladder whose common budget is shorter (CDDM input scale, 50k) is
 read at that budget (`fixed_point`). Each run's 75k read is `read_fixed`: R^2 measured on weights
-from that iteration where they exist, else estimated from the loss ratio. In the drawing, open
-symbols are the floor read and filled symbols the 75k read.
+from that iteration where they exist, else estimated from the loss ratio. In the drawing, filled
+symbols are the floor read and open symbols the 75k read (the paper-wide marker rule, decision
+dead-relu-paper#83: filled = floor crossing, open = a fixed iteration; fill means nothing else).
+
+ROUND 3 (dead-relu-paper#88, #83). Fill flipped to the paper-wide rule; SGD with and without weight
+decay share one marker (fill no longer tells them apart); an R^2 below the optimizer panel's range is
+an arrowhead inside the bottom edge; each R^2 sub-panel is wider (width ratio 0.62, was 0.42) and its
+x range is its own data's, with two ticks at least 2 mm apart (`check_layout` tests the gap between
+any two texts on one baseline); every legend has an opaque white box, so no guide line crosses its
+text.
 
 WHY TWO VIEWS PER KNOB. Each run is read where its noisy training loss first reaches 1.05x its own
 fitted floor (`common.noisy_floor`), the project's rule. Its blind spot: a knob that speeds
@@ -67,6 +75,7 @@ import sys
 import numpy as np
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
+from matplotlib.ticker import FuncFormatter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -271,8 +280,9 @@ Y_MAX = 1040                # room for markers at exactly 1000 (the rate penalty
 X_MIN = 2000                # first iteration drawn on the log axis of the traces. Below ~2,500 a log
                             # bin holds fewer than three probes (one every 100 iterations), and no
                             # run reaches its floor before 4,400.
-K_TICKS = [1e4, 5e4, 2e5]   # labelled iterations; 2,000, 5,000, 20,000 and 100,000 get unlabelled ticks
-K_MINOR = [2e3, 5e3, 2e4, 1e5]
+K_TICKS = [1e4, 1e5]        # labelled iterations, one decade apart so the labels keep MIN_GAP_MM
+K_MINOR = [2e3, 5e3, 2e4, 5e4, 2e5]
+X_MAX_MIN = 1.15e5          # every traces axis reaches past 100,000 so both labelled ticks show
 TRACE_BINS = 40             # log-spaced bins the drawn traces are median-reduced into (see panel_pair)
 # Legend text of every value, by stem, in value order. Parameters left out here (leak 0.01, beta 25,
 # the sigmoid's gain and offset, the penalty weights) are in Methods.
@@ -309,7 +319,7 @@ BORROW_LEGEND = {"slide_k_inputscale": "slide_k_inputscale_cddm"}
 # Legends placed by hand (matplotlib loc, anchor in axes fractions of the traces panel) where the
 # automatic search finds no free spot; `check_layout` still tests that they cover no data. The third
 # item is the number of legend columns. "r2": one column in the empty upper half of the R^2 panel.
-LEGEND_AT = {"slide_k_activation": "r2",
+LEGEND_AT = {"slide_k_activation": "r2", "slide_k_weightdecay": "r2", "slide_k_recnoise": "r2",
              "slide_k_frm_rws": ("lower left", (0.02, 0.02), 1)}
 # Rate-penalty values, a per-unit rule, drawn in the violet rule family (paperstyle.RULE_COLORS), by
 # (stem, value index). The sparsity penalty alone is a standard setting and stays on the teal ramp.
@@ -323,9 +333,14 @@ REVIVAL_STYLE = {("revival_cddm", 1): (ps.SETTING_RAMP[1], "s"), ("revival_cddm"
 MARKERS = "osD^v"
 # The optimizer comparison (panel l). SGD learning rates take the teal ramp, light to dark; the two
 # Adam variants are SETTING teal and differ from SGD in marker shape (circle, square) and position.
+# SGD with and without weight decay share one marker per learning rate.
 SGD_LRS = ["0.03", "0.1", "0.3", "1", "3"]
 SGD_MARKER = "^"
-OPT_R2_LO = 0.86            # R^2 below this is drawn on the bottom edge as a downward triangle
+OPT_R2_LO = 0.86            # R^2 below this is drawn as an arrowhead inside the bottom edge
+OPT_Y_MIN = 0.852           # lower limit of the optimizer R^2 axis: the arrowheads sit above the spine
+MIN_GAP_MM = 2.0            # least horizontal gap between two texts on one baseline (dead-relu-paper#88)
+# Every legend gets an opaque white box (no edge) above the guide lines, so no line crosses its text.
+LEGEND_BOX = dict(frameon=True, facecolor="white", edgecolor="none", framealpha=1.0, borderpad=0.25)
 
 
 def rung_style(spec, i, n):
@@ -355,23 +370,26 @@ def rung_style(spec, i, n):
 
 
 def b5_style(opt, wd, lr):
-    """Colour, marker, fill and legend label of one optimizer-comparison arm.
+    """Colour, marker and legend label of one optimizer-comparison arm.
+
+    Fill is not part of the style: it marks the measurement point (filled = floor crossing, open = a
+    fixed iteration), so SGD with and without weight decay share one marker per learning rate.
 
     Args:
         opt, wd, lr: the arm, as strings ('adam', '1e-6', '1e-3').
     Returns:
-        dict(color, marker, filled, label); `filled` is False for SGD without weight decay.
+        dict(color, marker, label).
     """
     if opt == "adam" and wd == "1e-6":
-        return dict(color=ps.BASELINE, marker="o", filled=True, label="Adam (default)")
+        return dict(color=ps.BASELINE, marker="o", label="Adam (default)")
     if opt == "adam":
-        return dict(color=ps.SETTING, marker="o", filled=True, label="Adam, no weight decay")
+        return dict(color=ps.SETTING, marker="o", label="Adam, no weight decay")
     if opt == "adamw":
-        return dict(color=ps.SETTING, marker="s", filled=True, label="AdamW")
+        return dict(color=ps.SETTING, marker="s", label="AdamW")
     # learning rate 3 shares the darkest shade with 1 (four ramp steps); its runs all sit below the
-    # R^2 axis, drawn as downward triangles on the bottom edge
+    # R^2 axis, drawn as arrowheads inside the bottom edge
     col = ps.SETTING_RAMP[min(SGD_LRS.index(lr), 3)]
-    return dict(color=col, marker=SGD_MARKER, filled=wd != "0", label=f"SGD, learning rate {lr}")
+    return dict(color=col, marker=SGD_MARKER, label=f"SGD, learning rate {lr}")
 
 
 def b5_points(rows, key):
@@ -395,16 +413,19 @@ def b5_points(rows, key):
 def b5_scatter(ax, b5, key, skip_lr=()):
     """Every optimizer-comparison run on one axes: held-out R^2 against active units.
 
-    A run below OPT_R2_LO is drawn on the bottom edge as a downward triangle in its arm's colour.
+    Filled markers at the floor crossing (key "floor"), open ones at a fixed iteration ("fixed",
+    "end"). A run below OPT_R2_LO is an arrowhead in its arm's colour inside the bottom edge
+    (OPT_Y_MIN leaves room between the arrowhead and the spine).
 
     Args:
         ax: axes; b5: b5_read rows, a list of ((opt, wd, lr), runs); key: "floor", "fixed" or "end";
         skip_lr: SGD learning rates (strings) not drawn.
     Returns:
-        (list of (arm, [active], [R^2]) per arm drawn, list of legend handles, one per arm with
-        weight decay, plus one for "open: SGD without weight decay").
+        (list of (arm, [active], [R^2]) per arm drawn, list of legend handles, one per distinct
+        style).
     """
-    out, handles = [], []
+    out, handles, seen = [], [], set()
+    filled = key == "floor"
     for (opt, wd, lr), rows in b5:
         if opt == "sgd" and lr in skip_lr:
             continue
@@ -412,21 +433,22 @@ def b5_scatter(ax, b5, key, skip_lr=()):
         pts = b5_points(rows, key)
         out.append(((opt, wd, lr), [a for a, _ in pts], [v for _, v in pts]))
         is_ref = opt == "adam" and wd == "1e-6"
+        edge = ps.INK if is_ref else st["color"]
         for a, v in pts:
             low = v < OPT_R2_LO
-            ax.scatter([a], [OPT_R2_LO if low else v], s=10, marker="v" if low else st["marker"],
-                       facecolors=st["color"] if st["filled"] else "none",
-                       edgecolors=ps.INK if is_ref else st["color"], linewidths=0.6,
-                       zorder=4 + is_ref, clip_on=False)
-        if wd != "0" or opt != "sgd":
-            handles.append(Line2D([], [], ls="none", marker=st["marker"], ms=3.0, color=st["color"],
-                                  mec=ps.INK if is_ref else st["color"], mew=0.5, label=st["label"]))
-    handles.append(Line2D([], [], ls="none", marker=SGD_MARKER, ms=3.0, mfc="none", mec=ps.MUTED,
-                          mew=0.6, label="open: SGD, no weight decay"))
+            mark = (dict(facecolors=st["color"], edgecolors=edge, linewidths=0.6) if filled
+                    else ps.mark_75k(edge, scatter=True))
+            ax.scatter([a], [OPT_R2_LO if low else v], s=12 if low else 10,
+                       marker="v" if low else st["marker"], zorder=4 + is_ref, clip_on=False, **mark)
+        if st["label"] not in seen:
+            seen.add(st["label"])
+            mark = dict(mfc=st["color"], mec=edge, mew=0.6) if filled else ps.mark_75k(edge)
+            handles.append(Line2D([], [], ls="none", marker=st["marker"], ms=3.0, label=st["label"],
+                                  **mark))
     ax.set_xlim(0, N_UNITS)
     ax.set_xticks([0, 500, 1000])
     ps.count_ticks(ax.xaxis)
-    ax.set_ylim(OPT_R2_LO, 0.97)
+    ax.set_ylim(OPT_Y_MIN, 0.97)
     return out, handles
 
 
@@ -448,11 +470,12 @@ def panel_pair(ax_r2, ax_tr, lad):
     """One ladder as two panels sharing the active-units axis.
 
     Left (narrow): held-out R^2 (x) against active units (y), one point per run and measurement
-    point: open at the run's floor crossing, filled at the ladder's fixed point (fixed_point: 75,000
+    point: filled at the run's floor crossing, open at the ladder's fixed point (fixed_point: 75,000
     iterations, or a shorter budget). Right: active units over training for every run (log iteration
-    axis), each run's floor crossing marked with the open symbol and its fixed-point measurement with
-    the filled one, so a point on the left and its mark on the right sit at the same height. A run
-    with no floor crossing is drawn dashed, with only the filled symbol. A dashed vertical line marks
+    axis), each run's floor crossing marked with the filled symbol and its fixed-point measurement with
+    the open one, so a point on the left and its mark on the right sit at the same height. A run
+    with no floor crossing is drawn dashed, with only the open symbol. The default value's markers
+    have an ink edge, filled or open. A dashed vertical line marks
     75,000 iterations where the budget is longer; the dotted one the budget.
 
     Each trace is drawn as medians in TRACE_BINS log-spaced bins (common.logbin). Probe-to-probe
@@ -476,12 +499,13 @@ def panel_pair(ax_r2, ax_tr, lad):
         ref = i == spec["ref"]
         edge = ps.INK if ref else "none"
         rd = rg["read"]
+        ring = ps.INK if ref else col                  # edge of the open (fixed-point) markers
         if rd is not None and len(rd["floor"]):
-            ax_r2.scatter(rd["r2"], rd["floor"], s=12 if ref else 9, marker=mk, facecolors="none",
-                          edgecolors=col, linewidths=0.6, zorder=3)
+            ax_r2.scatter(rd["r2"], rd["floor"], s=13 if ref else 10, marker=mk, color=col,
+                          edgecolors=edge, linewidths=0.6, zorder=4 + ref)
         fx = [r["fixed"] for r in rg["runs"]]
-        ax_r2.scatter([f["r2"] for f in fx], [f["active"] for f in fx], s=13 if ref else 10, marker=mk,
-                      color=col, edgecolors=edge, linewidths=0.6, zorder=4 + ref)
+        ax_r2.scatter([f["r2"] for f in fx], [f["active"] for f in fx], s=12 if ref else 9, marker=mk,
+                      zorder=3, **ps.mark_75k(ring, scatter=True))
         for r in rg["runs"]:
             keep = (r["it_act"] >= X_MIN) & (r["it_act"] <= budget(lad))
             tb, yb = logbin(r["it_act"][keep], r["active"][keep], nbins=TRACE_BINS)
@@ -489,18 +513,19 @@ def panel_pair(ax_r2, ax_tr, lad):
                        ls="-" if np.isfinite(r["t_star"]) else (0, (2, 1.2)), zorder=2 + ref)
         for r in rg["runs"]:
             if np.isfinite(r["t_star"]):
-                ax_tr.scatter([r["t_star"]], [active_at(r, r["t_star"])], s=12 if ref else 9,
-                              marker=mk, facecolors="none", edgecolors=col, linewidths=0.6, zorder=5)
-            ax_tr.scatter([r["fixed"]["probe"]], [r["fixed"]["active"]], s=13 if ref else 10,
-                          marker=mk, color=col, edgecolors=edge, linewidths=0.6, zorder=6 + ref)
+                ax_tr.scatter([r["t_star"]], [active_at(r, r["t_star"])], s=13 if ref else 10,
+                              marker=mk, color=col, edgecolors=edge, linewidths=0.6, zorder=6 + ref)
+            ax_tr.scatter([r["fixed"]["probe"]], [r["fixed"]["active"]], s=12 if ref else 9,
+                          marker=mk, zorder=5, **ps.mark_75k(ring, scatter=True))
         # runs with no floor crossing are dashed; the caption says so, the legend does not count them
         handles.append(Line2D([], [], color=col, marker=mk, ms=3.0, lw=0.8,
                               mec=ps.INK if ref else col, mew=0.5 if ref else 0, label=labels[i]))
     B = budget(lad)
     ax_tr.set_xscale("log")
-    ax_tr.set_xlim(X_MIN, B * 1.25)
-    ax_tr.set_xticks([t for t in K_TICKS if t <= B * 1.25])
-    ax_tr.set_xticks([t for t in K_MINOR if t <= B * 1.25], minor=True)
+    x_hi = max(B * 1.25, X_MAX_MIN)
+    ax_tr.set_xlim(X_MIN, x_hi)
+    ax_tr.set_xticks([t for t in K_TICKS if t <= x_hi])
+    ax_tr.set_xticks([t for t in K_MINOR if t <= x_hi], minor=True)
     ps.count_ticks(ax_tr.xaxis)
     ax_tr.axvline(B, color=ps.FAINT, lw=0.6, ls=":", zorder=1)
     if fixed_point(spec) < B:
@@ -576,7 +601,7 @@ def place_legend(ax, handles, alt=None):
         (the axes holding the legend - a tuple (ax, alt) for a legend spanning both - , the legend).
     """
     kw = dict(handles=handles, fontsize=ps.TICK_PT, handlelength=1.1, borderaxespad=0.0,
-              labelspacing=0.15, handletextpad=0.3, columnspacing=0.6, loc="lower left")
+              labelspacing=0.15, handletextpad=0.3, columnspacing=0.6, loc="lower left", **LEGEND_BOX)
     fig = ax.figure
     rend = fig.canvas.get_renderer()
     m = 0.015                                   # margin from the axes edge, in axes fractions
@@ -663,7 +688,7 @@ def optimizer_pair(ax_fl, ax_end, b5):
     for ax, key, title in ((ax_fl, "floor", "floor crossing"),
                            (ax_end, "end", "200,000 iterations")):
         nums[key], _ = b5_scatter(ax, b5, key)
-        ax.set_ylim(OPT_R2_LO, 1.0)
+        ax.set_ylim(OPT_Y_MIN, 1.0)
         ax.set_title(title, fontsize=ps.LABEL_PT, pad=2)
         ax.set_xlabel(ps.LABELS["active"], labelpad=1)
     ax_fl.set_xticks([0, 500])
@@ -709,13 +734,13 @@ def draw(data, b5):
 
     ps.setup()
     fig = ps.figure(178)
-    gs = GridSpec(4, 3, figure=fig, left=0.062, right=0.976, top=0.950, bottom=0.042,
-                  hspace=0.46, wspace=0.26)
+    gs = GridSpec(4, 3, figure=fig, left=0.072, right=0.976, top=0.955, bottom=0.050,
+                  hspace=0.58, wspace=0.26)
     slots = [gs[i // 3, i % 3] for i in range(12)]
     letters = iter("abcdefghijkl")
     pairs = []
     for slot, lad in zip(slots, lads + rev):
-        sub = GridSpecFromSubplotSpec(1, 2, subplot_spec=slot, width_ratios=[0.42, 1.0], wspace=0.14)
+        sub = GridSpecFromSubplotSpec(1, 2, subplot_spec=slot, width_ratios=[0.62, 1.0], wspace=0.14)
         ax_r2, ax_tr = fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[0, 1])
         ps.panel_letter(ax_r2, next(letters), x_mm=7.5, y_mm=4.0)
         handles = panel_pair(ax_r2, ax_tr, lad)
@@ -723,16 +748,15 @@ def draw(data, b5):
         ax_tr.set_xlabel(ps.LABELS["iteration"], labelpad=1)
         pairs.append((ax_r2, ax_tr, lad, handles))
 
-    # one R^2 range for every CDDM pair so they compare by eye; 3BFF gets its own
-    for task_ff, ticks in ((False, [0.80, 0.83]), (True, [0.950, 0.953])):
-        group = [p for p in pairs if ("flip" in p[2]["spec"]["task"]) == task_ff]
-        r2 = np.concatenate([rg["read"]["r2"] for p in group for rg in p[2]["rungs"]
-                             if rg["read"] is not None]
-                            + [[r["fixed"]["r2"] for p in group for rg in p[2]["rungs"] for r in rg["runs"]]])
-        pad = 0.08 * (r2.max() - r2.min())
-        for p in group:
-            p[0].set_xlim(r2.min() - pad, r2.max() + pad)
-            p[0].set_xticks(ticks)
+    # each R^2 panel spans its own data (dead-relu-paper#88: a shared range left the points in a third
+    # of a 12 mm strip), with two round ticks
+    for ax_r2, _, lad, _ in pairs:
+        r2 = np.concatenate([rg["read"]["r2"] for rg in lad["rungs"] if rg["read"] is not None]
+                            + [[r["fixed"]["r2"] for rg in lad["rungs"] for r in rg["runs"]]])
+        lo, hi, ticks, dec = r2_axis(r2)
+        ax_r2.set_xlim(lo, hi)
+        ax_r2.set_xticks(ticks)
+        ax_r2.xaxis.set_major_formatter(FuncFormatter(lambda v, _, d=dec: f"{v:.{d}f}"))
     for i, (ax_r2, ax_tr, lad, handles) in enumerate(pairs):
         pos_l, pos_r = ax_r2.get_position(), ax_tr.get_position()
         fig.text((pos_l.x0 + pos_r.x1) / 2, pos_l.y1 + 0.006, TITLES[lad["spec"]["stem"]],
@@ -748,17 +772,19 @@ def draw(data, b5):
                               label=f"values as in {'abcdefghi'[ORDER.index(lender)]}")]
         at = LEGEND_AT.get(lad["spec"]["stem"])
         if at == "r2":
-            holder, leg = ax_r2, ax_r2.legend(
+            # the legend may reach into the gap beside the R^2 panel: test the data of both panels
+            holder, leg = (ax_r2, ax_tr), ax_r2.legend(
                 handles=handles, loc="upper left", bbox_to_anchor=(0.025, 0.97),
                 fontsize=ps.TICK_PT, handlelength=0.7, borderaxespad=0.0, labelspacing=0.15,
-                handletextpad=0.3)
+                handletextpad=0.3, **LEGEND_BOX)
         elif at:
             holder, leg = ax_tr, ax_tr.legend(handles=handles, loc=at[0], bbox_to_anchor=at[1], ncol=at[2],
                                               columnspacing=0.8,
                                               fontsize=ps.TICK_PT, handlelength=0.9, borderaxespad=0.0,
-                                              labelspacing=0.15, handletextpad=0.3)
+                                              labelspacing=0.15, handletextpad=0.3, **LEGEND_BOX)
         else:
             holder, leg = place_legend(ax_tr, handles, alt=ax_r2)
+        leg.set_zorder(20)
         legends.append((holder, lad, leg))
 
     sub = GridSpecFromSubplotSpec(1, 2, subplot_spec=slots[11], wspace=0.10, width_ratios=[0.8, 1.2])
@@ -768,6 +794,7 @@ def draw(data, b5):
     pos_l, pos_r = ax_fl.get_position(), ax_end.get_position()
     fig.text((pos_l.x0 + pos_r.x1) / 2, pos_l.y1 + 0.006 + 0.012, "optimizer, 3BFF",
              ha="center", va="bottom", fontsize=ps.LABEL_PT, color=ps.INK)
+    ps.floor_label_pads(fig)                     # what save() will do, so the check sees the page
     check_layout(fig, legends)
     return ps.save(fig, "fig_paper_F2_fails"), value_means(lads + rev), opt
 
@@ -827,8 +854,61 @@ def check_layout(fig, legends):
             if boxes[a][1].overlaps(boxes[b][1]):
                 bad += 1
                 print(f"  OVERLAP: '{boxes[a][0].get_text()[:30]}' x '{boxes[b][0].get_text()[:30]}'")
+    bad += check_gaps(fig, boxes)
     print(f"layout check: {len(boxes)} texts, {len(legends)} legends, {bad} problem(s)")
     return bad
+
+
+def check_gaps(fig, boxes):
+    """Print every pair of texts on one baseline closer than MIN_GAP_MM (dead-relu-paper#88).
+
+    Two texts share a baseline when their boxes overlap vertically by more than half the smaller
+    height; their gap is the horizontal distance between the boxes.
+
+    Args:
+        fig: the figure (its dpi converts pixels to millimetres); boxes: list of (Text, Bbox).
+    Returns:
+        number of pairs closer than MIN_GAP_MM.
+    """
+    px_per_mm = fig.dpi / 25.4
+    bad = 0
+    for a in range(len(boxes)):
+        for b in range(a + 1, len(boxes)):
+            if boxes[a][0].get_rotation() or boxes[b][0].get_rotation():
+                continue                         # an axis label beside its tick labels
+            p, q = boxes[a][1], boxes[b][1]
+            v = min(p.y1, q.y1) - max(p.y0, q.y0)
+            if v <= 0.5 * min(p.height, q.height):
+                continue
+            gap = max(q.x0 - p.x1, p.x0 - q.x1)
+            if 0 <= gap < MIN_GAP_MM * px_per_mm:
+                bad += 1
+                print(f"  GAP {gap / px_per_mm:.1f} mm: '{boxes[a][0].get_text()[:20]}' | "
+                      f"'{boxes[b][0].get_text()[:20]}'")
+    return bad
+
+
+def r2_axis(r2):
+    """Limits, two ticks and decimals for an R^2 panel that spans its own data.
+
+    The tick step is the smallest 1-2-5 value at least 0.6 times the data's range, so two ticks a
+    step apart take about half the axis and their labels keep MIN_GAP_MM on a 17 mm panel. The two
+    ticks are the pair of multiples of the step whose midpoint is nearest the data's midpoint; the
+    limits cover the data and both ticks with a margin of a fifth of a step.
+
+    Args:
+        r2: array of the R^2 values drawn.
+    Returns:
+        (lo, hi, [tick, tick], decimals of the tick labels).
+    """
+    lo, hi = float(np.min(r2)), float(np.max(r2))
+    steps = [k * 10.0 ** e for e in range(-4, 0) for k in (1, 2, 5)]
+    step = next(s for s in steps if s >= 0.6 * max(hi - lo, 1e-4))
+    t0 = np.round((lo + hi) / 2 / step - 0.5) * step
+    ticks = [t0, t0 + step]
+    pad = step / 5
+    dec = max(2, int(np.ceil(-np.log10(step) - 1e-9)))
+    return min(lo, ticks[0]) - pad, max(hi, ticks[1]) + pad, ticks, dec
 
 
 def main():

@@ -22,6 +22,15 @@ the violet rule family; no task colour.
   e  revival methods: input-weight cap and re-initialisation (CDDM, 75,000) and re-initialisation
      with outgoing weights zeroed or kept (3BFF, 200,000)
 
+ROUND 3 (dead-relu-paper#87, #83). Markers follow the paper-wide rule (filled = floor crossing,
+open = 75,000 iterations; fill means nothing else): panels a and d, measured only at 75,000
+iterations, are drawn open, and panel a no longer marks measured against estimated R^2 by fill (the
+caption names the rows whose R^2 is measured). Panel c draws each input-weight scale's median over
+its networks as a thick line and the networks as thin faint lines, so each scale can be followed.
+Panel d's legend sits above the axes, outside the data; an R^2 below its range is an arrowhead
+inside the bottom edge. Every legend has an opaque white box; the layout check also tests the gap
+between texts on one baseline (`fig_paper_F2_fails.check_gaps`).
+
 Inputs, no reading of runs here:
   data/fig_paper_F2_fails_cache.pkl   `fig_paper_F2_fails.py --collect` (Della): every sweep and
                                       revival run, its participation trace, its floor crossing and its
@@ -76,7 +85,7 @@ SGD_LABELS = [("SGD, 0.03", 690, 0.882), ("0.1", 612, 0.903), ("0.3 and 1", 300,
 # Layout, in millimetres on the 165.1 mm x H_MM canvas: (x0, y0, width, height) of every axes.
 H_MM = 128
 POS = {"a_n": (42, 75, 45, 47), "a_r": (91, 75, 20, 47), "b": (123, 75, 37, 47),
-       "c": (12, 12, 36, 43), "d": (59, 12, 42, 43), "e1": (109, 12, 22, 43), "e2": (137, 12, 24, 43)}
+       "c": (12, 12, 36, 43), "d": (59, 12, 42, 36.5), "e1": (109, 12, 22, 43), "e2": (137, 12, 24, 43)}
 
 
 def load():
@@ -138,9 +147,10 @@ def fixed_of(lad, i):
 def panel_a(ax_n, ax_r, by_stem):
     """The rows Results 3 discusses, at 75,000 iterations: active units (ax_n) and R^2 minus default (ax_r).
 
-    One point per network. R^2 is taken relative to the mean of the same sweep's default networks;
-    filled points are measured on weights saved at 75,000 iterations, open ones estimated by the loss
-    ratio. The "15 other values" row draws each remaining CDDM value's mean (open teal diamonds); its
+    One open point per network (open = 75,000 iterations, the paper-wide marker rule); the default
+    rows have an ink edge. R^2 is taken relative to the mean of the same sweep's default networks;
+    whether it was measured or estimated is returned per network and stated in the caption, not drawn.
+    The "15 other values" row draws each remaining CDDM value's mean (open teal diamonds); its
     networks are in Extended Data Fig. 4.
 
     Args:
@@ -172,9 +182,9 @@ def panel_a(ax_n, ax_r, by_stem):
                     dr2.append(r2.mean() - r2_ref)
             act, dr2 = np.array(act), np.array(dr2)
             assert len(act) == 15, f"expected 15 other CDDM values, found {len(act)}"
-            for ax, x in ((ax_n, act), (ax_r, dr2)):     # diamonds: open circles mean "estimated"
-                ax.scatter(x, np.full(len(x), y), s=9, marker="D", facecolors="none",
-                           edgecolors=ps.SETTING, linewidths=0.6, zorder=4)
+            for ax, x in ((ax_n, act), (ax_r, dr2)):     # diamonds: a value's mean, not a network
+                ax.scatter(x, np.full(len(x), y), s=9, marker="D", zorder=4,
+                           **ps.mark_75k(ps.SETTING, scatter=True))
             rows.append((blk, lab, act.tolist(), dr2.tolist(), ["mean of value"] * len(act)))
         else:
             lad = by_stem[stem]
@@ -183,17 +193,10 @@ def panel_a(ax_n, ax_r, by_stem):
             act, r2, how = fixed_of(lad, i)
             dr2 = r2 - fixed_of(lad, ref)[1].mean()
             is_ref = i == ref
-            edge = ps.INK if is_ref else "none"
-            ax_n.scatter(act, np.full(len(act), y), s=10, color=col, edgecolors=edge, linewidths=0.5,
-                         zorder=4)
+            edge = ps.INK if is_ref else col
+            for ax, x in ((ax_n, act), (ax_r, dr2)):
+                ax.scatter(x, np.full(len(x), y), s=10, zorder=4, **ps.mark_75k(edge, scatter=True))
             ax_n.plot([act.mean()] * 2, [y - 0.3, y + 0.3], color=col, lw=ps.DATA_LW, zorder=3)
-            meas = np.array([h != "estimate" for h in how])
-            for m, fill in ((meas, True), (~meas, False)):
-                if m.any():
-                    ax_r.scatter(dr2[m], np.full(m.sum(), y), s=10, zorder=4,
-                                 facecolors=col if fill else "none",
-                                 edgecolors=(ps.INK if is_ref else col) if fill or is_ref else col,
-                                 linewidths=0.6)
             if is_ref:
                 guide[blk] = [act.mean(), y, y]
             rows.append((blk, lab, act.tolist(), dr2.tolist(), how))
@@ -221,22 +224,25 @@ def panel_a(ax_n, ax_r, by_stem):
     ax_n.set_xlabel("active units at 75,000 iterations", labelpad=1)
     ax_r.axvline(0, color=ps.FAINT, lw=ps.THIN_LW, zorder=0)
     ax_r.set_xlim(-0.055, 0.012)
-    ax_r.set_xticks([-0.04, -0.02, 0])
-    ax_r.set_xticklabels(["−0.04", "−0.02", "0"])
+    ax_r.set_xticks([-0.04, 0])
+    ax_r.set_xticklabels(["−0.04", "0"])
     ax_r.set_xlabel("held-out $R^2$ minus default", labelpad=1)
     return rows
 
 
-def traces(ax, lad, x_max, ticks, legend_loc, ncol=1):
+def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False):
     """Active units against iteration for every run of a sweep (linear axis), binned medians.
 
-    The floor crossing of each run that has one is an open symbol at its raw count; the 75,000
-    iteration measurement is a filled symbol; a dashed vertical line marks 75,000 iterations. Colours
-    and legend text come from `fig_paper_F2_fails` (rung_style, VALUE_LABELS).
+    The floor crossing of each run that has one is a filled symbol at its raw count; the 75,000
+    iteration measurement is an open symbol (the paper-wide marker rule); the default's symbols have
+    an ink edge; a dashed vertical line marks 75,000 iterations. With `median`, each value's networks
+    are thin faint lines and the median over them, bin by bin, a thick line. Colours and legend text
+    come from `fig_paper_F2_fails` (rung_style, VALUE_LABELS).
 
     Args:
         ax: axes; lad: one collected sweep; x_max: last iteration drawn; ticks: x tick positions;
-        legend_loc: matplotlib legend location, or None for no legend; ncol: legend columns.
+        legend_loc: matplotlib legend location, or None for no legend; ncol: legend columns;
+        median: bool, draw each value's median trace thick over faint per-network traces.
     Returns:
         (list of (label, [floor crossings], [counts at floor crossing], [counts at 75k],
         [counts at x_max]), the legend or None).
@@ -248,19 +254,28 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1):
     for i, (rg, lab) in enumerate(zip(lad["rungs"], labels)):
         col, mk = F2F.rung_style(spec, i, n)
         is_ref = i == spec["ref"]
-        cross, at_floor, at_end = [], [], []
+        cross, at_floor, at_end, binned = [], [], [], {}
+        edge = ps.INK if is_ref else col
         for r in rg["runs"]:
             keep = r["it_act"] <= x_max
             tb, yb = linbin(r["it_act"][keep], r["active"][keep])
-            ax.plot(tb, yb, color=col, lw=0.8 if is_ref else 0.6, alpha=0.9, zorder=2 + is_ref)
+            for t, v in zip(tb, yb):
+                binned.setdefault(t, []).append(v)
+            if median:
+                ax.plot(tb, yb, color=col, lw=0.4, alpha=0.25, zorder=2)
+            else:
+                ax.plot(tb, yb, color=col, lw=0.8 if is_ref else 0.6, alpha=0.9, zorder=2 + is_ref)
             if np.isfinite(r["t_star"]):
                 cross.append(r["t_star"])
                 at_floor.append(F2F.active_at(r, r["t_star"]))
-                ax.scatter([r["t_star"]], [at_floor[-1]], s=9, marker=mk, facecolors="none",
-                           edgecolors=col, linewidths=0.6, zorder=5)
-            ax.scatter([r["fixed"]["probe"]], [r["fixed"]["active"]], s=10, marker=mk, color=col,
-                       edgecolors=ps.INK if is_ref else "none", linewidths=0.5, zorder=6)
+                ax.scatter([r["t_star"]], [at_floor[-1]], s=10, marker=mk, color=col,
+                           edgecolors=edge, linewidths=0.5, zorder=6)
+            ax.scatter([r["fixed"]["probe"]], [r["fixed"]["active"]], s=9, marker=mk, zorder=5,
+                       **ps.mark_75k(edge, scatter=True))
             at_end.append(F2F.active_at(r, x_max))
+        if median:
+            tm = np.array(sorted(binned))
+            ax.plot(tm, [np.median(binned[t]) for t in tm], color=col, lw=1.4, zorder=3 + is_ref)
         out.append((lab, cross, at_floor, [r["fixed"]["active"] for r in rg["runs"]], at_end))
         handles.append(Line2D([], [], color=col, marker=mk, ms=3.0, lw=0.8,
                               mec=ps.INK if is_ref else col, mew=0.5 if is_ref else 0, label=lab))
@@ -277,15 +292,17 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1):
     if legend_loc:
         leg = ax.legend(handles=handles, loc=legend_loc, fontsize=ps.TICK_PT, ncol=ncol,
                         handlelength=1.0, columnspacing=0.8, labelspacing=0.15, borderaxespad=0.3,
-                        handletextpad=0.3)
+                        handletextpad=0.3, **F2F.LEGEND_BOX)
+        leg.set_zorder(20)
     return out, leg
 
 
 def panel_d(ax, b5):
     """Optimizer comparison on 3BFF at 75,000 iterations: held-out R^2 against active units.
 
-    Markers and colours from `fig_paper_F2_fails.b5_style` (shared with Extended Data Fig. 4l). The
-    legend names the optimizers; the SGD learning rates are labelled at their clusters.
+    Markers and colours from `fig_paper_F2_fails.b5_style` (shared with Extended Data Fig. 4l), open
+    (75,000 iterations). The legend names the optimizers and sits above the axes, outside the data;
+    the SGD learning rates are labelled at their clusters.
 
     Args:
         ax: axes; b5: b5_read rows.
@@ -300,18 +317,18 @@ def panel_d(ax, b5):
     for opt, wd, lr, lab in (("adam", "1e-6", "1e-3", "Adam (default)"),
                              ("adam", "0", "1e-3", "Adam, no weight decay"),
                              ("adamw", "1e-6", "1e-3", "AdamW"),
-                             ("sgd", "1e-6", "0.1", "SGD (learning rate)")):
+                             ("sgd", "1e-6", "0.1", "SGD")):
         st = F2F.b5_style(opt, wd, lr)
-        handles.append(Line2D([], [], ls="none", marker=st["marker"], ms=3.0, color=st["color"],
-                              mec=ps.INK if lab.endswith("(default)") else st["color"], mew=0.5,
-                              label=lab))
+        handles.append(Line2D([], [], ls="none", marker=st["marker"], ms=3.0, label=lab,
+                              **ps.mark_75k(ps.INK if lab.endswith("(default)") else st["color"])))
     for text, x, y in SGD_LABELS:
         ax.text(x, y, text, fontsize=ps.TICK_PT, color=ps.INK, va="center", ha="left")
     ax.set_xlabel(ps.LABELS["active"], labelpad=1)
     ax.set_ylabel(ps.LABELS["r2"], labelpad=1)
-    # between the Adam runs (R^2 above 0.95) and the SGD runs (below 0.92), right of every run
-    leg = ax.legend(handles=handles, loc="upper right", bbox_to_anchor=(1.0, 0.79), fontsize=ps.TICK_PT,
-                    handlelength=0.8, labelspacing=0.15, borderaxespad=0.3, handletextpad=0.3)
+    # above the axes, outside the data (dead-relu-paper#87), two columns under the panel title
+    leg = ax.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2,
+                    fontsize=ps.TICK_PT, handlelength=0.8, labelspacing=0.15, borderaxespad=0.2,
+                    handletextpad=0.3, columnspacing=0.8)
     return pts, leg
 
 
@@ -339,6 +356,7 @@ def check_layout(fig, name, legends):
             if boxes[i][1].overlaps(boxes[j][1]):
                 bad += 1
                 print(f"  OVERLAP: '{boxes[i][0].get_text()[:30]}' x '{boxes[j][0].get_text()[:30]}'")
+    bad += F2F.check_gaps(fig, boxes)
     for ax, leg in legends:
         c = F2F.covered(ax, leg)
         if c:
@@ -376,12 +394,14 @@ def figure3(by_stem, b5):
 
     ax_c, ax_d, ax_e1, ax_e2 = (axes_mm(*POS[k]) for k in ("c", "d", "e1", "e2"))
     nums["c"], leg = traces(ax_c, by_stem["slide_k_inputscale"], 150_000, [0, 50_000, 100_000, 150_000],
-                            "upper right", ncol=2)
+                            "upper right", ncol=2, median=True)
     legends.append((ax_c, leg))
     ax_c.set_title("initial input-weight scale, 3BFF", fontsize=ps.LABEL_PT, pad=2)
     nums["d"], leg = panel_d(ax_d, b5)
-    legends.append((ax_d, leg))
-    ax_d.set_title("optimizer, 3BFF", fontsize=ps.LABEL_PT, pad=2)
+    # panel d is shorter than c and e by its legend's height, so the legend sits between the axes and
+    # a title level with theirs; being outside the axes it covers no data and is not tested for it
+    ax_d.set_title("optimizer, 3BFF", fontsize=ps.LABEL_PT,
+                   pad=2 + (POS["c"][3] - POS["d"][3]) * 72 / 25.4)
     nums["e_cddm"], leg = traces(ax_e1, by_stem["revival_cddm"], 75_000, [0, 75_000], "upper right")
     legends.append((ax_e1, leg))
     nums["e_ff"], leg = traces(ax_e2, by_stem["revival_ff"], 200_000, [0, 200_000], "upper right")
@@ -391,8 +411,10 @@ def figure3(by_stem, b5):
     ax_e2.set_title("re-initialising, 3BFF", fontsize=ps.LABEL_PT, pad=2)
     for ax in (ax_b, ax_c, ax_e1):
         ax.set_ylabel(ps.LABELS["active"], labelpad=1)
-    for ax, letter in ((ax_b, "b"), (ax_c, "c"), (ax_d, "d"), (ax_e1, "e")):
+    for ax, letter in ((ax_b, "b"), (ax_c, "c"), (ax_e1, "e")):
         ps.panel_letter(ax, letter, x_mm=9.0)
+    ps.panel_letter(ax_d, "d", x_mm=9.0, y_mm=ps.PANEL_LETTER_Y_MM + POS["c"][3] - POS["d"][3])
+    ps.floor_label_pads(fig)                     # what save() will do, so the check sees the page
     check_layout(fig, "fig_paper_F3_settings", legends)
     ps.save(fig, "fig_paper_F3_settings")
     return nums
