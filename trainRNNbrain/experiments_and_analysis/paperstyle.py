@@ -36,7 +36,12 @@ $R^2$, $N$ and $\\tau$ are Helvetica too. `pdffonts` on a figure lists that one 
                              'rec' of $\\sigma_{rec}$ in 6 pt text is 4.2 pt; nothing below that
 Strokes and marks, in points:
   AXIS_LW 0.6 (spines, ticks; ticks 2.4 long), DATA_LW 1.0 (a data line), THIN_LW 0.5 (per-run
-  traces, guides, connectors), MARKER_PT 3.0 (marker diameter), SMALL_MARKER_PT 2.0 (one dot per run).
+  traces, guides, connectors), MARKER_PT 3.0 (marker diameter), SMALL_MARKER_PT 2.0 (one dot per run),
+  OPEN_MARKER_EW 0.7 (edge of an open marker).
+Spacing: LABEL_PAD_PT 4.0 pt between an axis label and its tick labels (matplotlib's own default).
+  `save()` raises any smaller pad to it, so a script's `labelpad=1` no longer reaches the page;
+  measured between PyMuPDF text boxes, a y-label then sits 1.36 mm from its tick labels
+  (0.3 mm at labelpad=1; tests/test_paperstyle.py fails under 1 mm; dead-relu-paper #63).
 
 Colour: one colour per meaning, everywhere, and a colour is never reused for another meaning.
   TASK_COLORS   3BFF blue, CDDM burnt orange, DMTS green. Reserved: no rule, setting, unit class or
@@ -107,6 +112,14 @@ Words and numbers.
     PANEL_LETTER_Y_MM above the top), so every letter sits the same way on the page.
   - Output is vector only: `save()` writes PDF and SVG, never PNG.
 
+Markers (dead-relu-paper #83). One convention in every figure: a FILLED marker is a value read at
+the floor crossing (the first iteration after which the run's smoothed noisy training loss stays
+at or below 1.05 times its loss floor), an OPEN marker a value read at a fixed 75,000
+iterations. Fill carries no other meaning anywhere; any other distinction (measured against
+estimated, one size against another, one rule against another) uses marker shape or colour. Draw
+them with `mark_floor(col)` and `mark_75k(col)`; name them in a legend with MARK_FLOOR_LABEL and
+MARK_75K_LABEL.
+
 Self-checks:
   python trainRNNbrain/experiments_and_analysis/paperstyle.py   swatches + primitives sheet
   python tests/test_paperstyle.py [figure.pdf ...]             fonts, bold face, sizes, page width
@@ -154,6 +167,7 @@ MIN_PT = 5.0                    # the smallest base text allowed anywhere
 MIN_SCRIPT_PT = 0.7 * TICK_PT   # a sub/superscript of tick-size text (mathtext's fixed 70%)
 PANEL_LETTER_X_MM = 7.0         # letter's left edge this far left of the axes' left spine
 PANEL_LETTER_Y_MM = 2.0         # letter's baseline this far above the axes' top edge
+LABEL_PAD_PT = 4.0              # axis label to tick labels; save() raises any smaller pad to this
 
 AXIS_LW = 0.6                   # spines and ticks
 TICK_LEN = 2.4                  # tick length
@@ -161,6 +175,7 @@ DATA_LW = 1.0                   # a data line
 THIN_LW = 0.5                   # per-run traces, guides, connectors
 MARKER_PT = 3.0                 # marker diameter (matplotlib markersize)
 SMALL_MARKER_PT = 2.0           # one dot per run in a crowded strip
+OPEN_MARKER_EW = 0.7            # edge width of an open marker
 
 # Font families tried in order; the first with regular, bold and oblique faces wins (`setup`).
 FONT_CANDIDATES = ("Helvetica", "Arial", "Liberation Sans", "DejaVu Sans")
@@ -291,6 +306,46 @@ def count_ticks(axis):
 
 
 # --------------------------------------------------------------------------------------------
+# markers: the measurement point (dead-relu-paper #83)
+# --------------------------------------------------------------------------------------------
+
+MARK_FLOOR_LABEL = "floor crossing"         # legend words for a filled marker
+MARK_75K_LABEL = "75,000 iterations"        # legend words for an open marker
+
+
+def mark_floor(col, scatter=False):
+    """Marker colours for a value read at the floor crossing: FILLED, in every figure.
+
+    Fill means the measurement point and nothing else; the caller picks the marker shape and size.
+
+    Args:
+        col: str, the series colour.
+        scatter: bool, False for keyword names of ax.plot / ax.errorbar / Line2D (mfc, mec),
+            True for ax.scatter (facecolors, edgecolors).
+    Returns:
+        dict of keyword arguments, e.g. ax.plot(x, y, "o", **mark_floor(ps.RATE_PENALTY)).
+    """
+    if scatter:
+        return dict(facecolors=col, edgecolors=col)
+    return dict(mfc=col, mec=col)
+
+
+def mark_75k(col, scatter=False):
+    """Marker colours for a value read at a fixed 75,000 iterations: OPEN, in every figure.
+
+    Args:
+        col: str, the series colour (drawn as the edge; the inside is empty).
+        scatter: bool, False for ax.plot / ax.errorbar / Line2D keywords (mfc, mec, mew),
+            True for ax.scatter (facecolors, edgecolors, linewidths).
+    Returns:
+        dict of keyword arguments with an OPEN_MARKER_EW pt edge.
+    """
+    if scatter:
+        return dict(facecolors="none", edgecolors=col, linewidths=OPEN_MARKER_EW)
+    return dict(mfc="none", mec=col, mew=OPEN_MARKER_EW)
+
+
+# --------------------------------------------------------------------------------------------
 # fonts and rcParams
 # --------------------------------------------------------------------------------------------
 
@@ -398,6 +453,7 @@ def setup():
         "axes.titlesize": LABEL_PT,
         "axes.titleweight": "normal",
         "axes.labelsize": LABEL_PT,
+        "axes.labelpad": LABEL_PAD_PT,
         "axes.linewidth": AXIS_LW,
         "axes.edgecolor": "#3a3a36",
         "axes.labelcolor": INK,
@@ -660,6 +716,27 @@ def _is_print_width(fig):
     return any(abs(w_mm - w) < 0.05 for w in PRINT_WIDTHS_MM)
 
 
+def floor_label_pads(fig, pad_pt=LABEL_PAD_PT):
+    """Raise every axis label's pad in a figure to at least `pad_pt`, so no label touches its ticks.
+
+    A script that passes `labelpad=1` gets a label 0.15-0.3 mm from its tick labels on the page
+    (dead-relu-paper #63); this floor overrides any pad below `pad_pt` and leaves larger pads alone.
+
+    Args:
+        fig: matplotlib Figure; pad_pt: float, the smallest pad in points (at print size for a
+            print-width figure).
+    Returns:
+        int, how many axis labels were raised.
+    """
+    n = 0
+    for ax in fig.axes:
+        for axis in (ax.xaxis, ax.yaxis):
+            if axis.label.get_text() and axis.labelpad < pad_pt:
+                axis.labelpad = pad_pt
+                n += 1
+    return n
+
+
 def save(fig, name, w_mm=None, h_mm=None, tight=None, out_dir=IMG_DIR):
     """Save a manuscript figure as PDF + SVG into img/internal_figures. VECTOR ONLY.
 
@@ -671,6 +748,9 @@ def save(fig, name, w_mm=None, h_mm=None, tight=None, out_dir=IMG_DIR):
     size, uncropped, so it prints at 100%; anything drawn outside the canvas would be clipped, and a
     warning names how far it overflows. Any other width keeps the old behaviour, a tight crop with
     0.02 in padding, whose printed scale then depends on the crop.
+
+    Label pads. Before drawing, `floor_label_pads` raises every axis label's pad to LABEL_PAD_PT,
+    whatever `labelpad` the script passed, so a GridSpec must leave room for it.
 
     Args:
         fig: the figure; name: file stem;
@@ -686,6 +766,7 @@ def save(fig, name, w_mm=None, h_mm=None, tight=None, out_dir=IMG_DIR):
                             (h_mm * MM) if h_mm is not None else fig.get_figheight())
     if tight is None:
         tight = not _is_print_width(fig)
+    floor_label_pads(fig)
     if not tight:
         renderer = fig.canvas.get_renderer()
         bb = fig.get_tightbbox(renderer)            # inches
