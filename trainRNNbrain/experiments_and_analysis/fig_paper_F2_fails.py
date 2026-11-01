@@ -338,6 +338,7 @@ SGD_LRS = ["0.03", "0.1", "0.3", "1", "3"]
 SGD_MARKER = "^"
 OPT_R2_LO = 0.86            # R^2 below this is drawn as an arrowhead inside the bottom edge
 OPT_Y_MIN = 0.852           # lower limit of the optimizer R^2 axis: the arrowheads sit above the spine
+SPREAD_MM = 0.55            # horizontal step between open markers of one value set side by side
 MIN_GAP_MM = 2.0            # least horizontal gap between two texts on one baseline (dead-relu-paper#88)
 # Every legend gets an opaque white box (no edge) above the guide lines, so no line crosses its text.
 LEGEND_BOX = dict(frameon=True, facecolor="white", edgecolor="none", framealpha=1.0, borderpad=0.25)
@@ -452,6 +453,28 @@ def b5_scatter(ax, b5, key, skip_lr=()):
     return out, handles
 
 
+def value_handle(spec, col, mk, ref, label):
+    """Legend handle of one sweep value: a line in its colour, with its marker only when the sweep's
+    values differ in marker shape.
+
+    A circle-only sweep needs no marker in its key, and a filled key marker would give fill a second
+    meaning (the panels use fill for the measurement point, dead-relu-paper#96 review). Where shape
+    tells values apart (activation function, rate and sparsity penalties, revival methods), the key
+    shows the shape filled, as the floor-crossing markers are drawn.
+
+    Args:
+        spec: the sweep; col, mk: the value's colour and marker; ref: bool, the default value;
+        label: legend text.
+    Returns:
+        matplotlib Line2D.
+    """
+    shapes = len({rung_style(spec, k, len(spec["rungs"]))[1] for k in range(len(spec["rungs"]))}) > 1
+    if not shapes:
+        return Line2D([], [], color=col, lw=1.2, label=label)
+    return Line2D([], [], color=col, marker=mk, ms=3.0, lw=0.8, mec=ps.INK if ref else col,
+                  mew=0.5 if ref else 0, label=label)
+
+
 def budget(lad):
     """A ladder's common budget: `end_at` when set, else the shortest trace among its runs.
 
@@ -494,6 +517,12 @@ def panel_pair(ax_r2, ax_tr, lad):
     n = len(lad["rungs"])
     labels = VALUE_LABELS[spec["stem"]]
     handles = []
+    B = budget(lad)
+    x_hi = max(B * 1.25, X_MAX_MIN)
+    # open fixed-point markers of one value are set side by side, SPREAD_MM apart on the log axis, so
+    # stacked ones stay visibly open (dead-relu-paper#96 review, the sparsity diamonds of panel f)
+    w_mm = ax_tr.get_position().width * ps.W_FULL_MM
+    f_step = 10 ** (SPREAD_MM / w_mm * np.log10(x_hi / X_MIN))
     for i, rg in enumerate(lad["rungs"]):
         col, mk = rung_style(spec, i, n)
         ref = i == spec["ref"]
@@ -511,18 +540,16 @@ def panel_pair(ax_r2, ax_tr, lad):
             tb, yb = logbin(r["it_act"][keep], r["active"][keep], nbins=TRACE_BINS)
             ax_tr.plot(tb, yb, color=col, lw=0.8 if ref else ps.THIN_LW + 0.1, alpha=0.9,
                        ls="-" if np.isfinite(r["t_star"]) else (0, (2, 1.2)), zorder=2 + ref)
-        for r in rg["runs"]:
+        for j, r in enumerate(rg["runs"]):
             if np.isfinite(r["t_star"]):
                 ax_tr.scatter([r["t_star"]], [active_at(r, r["t_star"])], s=13 if ref else 10,
                               marker=mk, color=col, edgecolors=edge, linewidths=0.6, zorder=6 + ref)
-            ax_tr.scatter([r["fixed"]["probe"]], [r["fixed"]["active"]], s=12 if ref else 9,
-                          marker=mk, zorder=5, **ps.mark_75k(ring, scatter=True))
+            x_open = r["fixed"]["probe"] * f_step ** (j - (len(rg["runs"]) - 1) / 2)
+            ax_tr.scatter([x_open], [r["fixed"]["active"]], s=12 if ref else 9, marker=mk, zorder=5,
+                          clip_on=False, **ps.mark_75k(ring, scatter=True))
         # runs with no floor crossing are dashed; the caption says so, the legend does not count them
-        handles.append(Line2D([], [], color=col, marker=mk, ms=3.0, lw=0.8,
-                              mec=ps.INK if ref else col, mew=0.5 if ref else 0, label=labels[i]))
-    B = budget(lad)
+        handles.append(value_handle(spec, col, mk, ref, labels[i]))
     ax_tr.set_xscale("log")
-    x_hi = max(B * 1.25, X_MAX_MIN)
     ax_tr.set_xlim(X_MIN, x_hi)
     ax_tr.set_xticks([t for t in K_TICKS if t <= x_hi])
     ax_tr.set_xticks([t for t in K_MINOR if t <= x_hi], minor=True)
