@@ -233,10 +233,13 @@ def print_tex(rows):
             dr2 = tex_signed(r["dr2_75k"]) + ("$^\\P$" if r["r2_note"] == "a3" else "") + \
                 (f"$^\\dagger$" if r["n_bad"] else "")
             ff = "--" if r["fold_floor"] is None else f"{r['fold_floor']:.2f}"
-            print(f"\\texttt{{{r['name'].replace('_', chr(92) + '_')}}} & {setting} & {n} & "
+            name = r["name"] if " " in r["name"] else \
+                f"\\texttt{{{r['name'].replace('_', chr(92) + '_')}}}"
+            print(f"{name} & {setting} & {n} & "
                   f"{r['n_75k']} & {r['active_75k']:.0f} & {r['fold_75k']:.2f} & {dr2} & "
                   f"{r['n_cross']}/{r['n_runs']}, {ff} \\\\")
-        print("\\addlinespace")
+        if fam != ORDER[-1]:
+            print("\\addlinespace")
 
 
 def print_check(rows):
