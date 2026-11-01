@@ -49,7 +49,7 @@ follow first citation (blueprint section 7).
 | C1 | Training leaves most units inactive, and a network retrained without them scores within 0.004 R² of the intact network retrained the same way | **Done**: Figure 1 rebuilt (a-d) and panel d re-run at the current floor, rule passed (31 Oct); the fourth 3BFF network at N = 1000 is counted (decision dead-relu-paper#20, option 2) | Fig. 1c, Results 1 and the caption with four 3BFF networks: fig1-r2 (dead-relu-paper#52) |
 | C2 | Bigger networks keep a smaller share of units active | **Done**: Figure 2 (31 Oct, entry 2026-10-31_1957) | Threshold sensitivity recomputed on the networks Fig. 2a fits (decision dead-relu-paper#21 item 2): methods-r2 (dead-relu-paper#51) |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done**; B5 complete, read at 75k (31 Oct) | — |
-| C4 | On CDDM 260-313 of 1,000 units are silent (never fire, no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Done**: re-read at the current floor, rule passed (31 Oct, entry 2026-10-31_2207); Figure 4a-d, ED Figs 6-7 (dead-relu-paper#8) | — |
+| C4 | On CDDM 260-313 of 1,000 units are silent (never above zero on the noise-free batch, zero gradient there, 60-290× below the reach threshold under training noise); on 3BFF none is, and low-active 3BFF units get gradient yet stay below threshold | **Done**: re-read at the current floor, rule passed (31 Oct, entry 2026-10-31_2207); Figure 4a-d, ED Figs 6-7 (dead-relu-paper#8) | — |
 | C5 | No standard setting stops the fall of the active count; at 75k CDDM settings move it by +116/−177 units, 3BFF input scale raises it 1.7× and the gain shrinks | **Done at 75k** (31 Oct, entry 2026-10-31_2010): Figure 3 rebuilt; both measurement points in the Extended Data figure of every standard-setting sweep | Wording: decision dead-relu-paper#24, option 1. The optimizer comparison merges into that Extended Data figure, and the CDDM rate-penalty values stay in Fig. 3a as a labelled reference (decision dead-relu-paper#35 item 4): fig3-r2 (dead-relu-paper#54) |
 | C6 | Rules that give participation its own drive recruit units at a small cost | **Done**: remedies read at the floor and A3 done (31 Oct, entry 2026-10-31_1732); B2 failed its rule; Figure 5, Results 5, the Extended Data figures of the rate penalty alone on 3BFF and of per-unit rules across sizes at three margins, the table of per-unit rules at every size and the table of pre-registered tests built (entry 2026-10-31_1953, dead-relu-paper#9); rescaling and read-out dropout above N = 1000 reported at 75k (decision dead-relu-paper#16, 31 Oct) | The rate penalty told once, in Results 5, with both tasks (decision dead-relu-paper#35 item 4); every R² in Figure 5 and the per-unit-rule table checked against loss bursts and non-finite stretches, affected values marked (decision dead-relu-paper#18): fig5-r2 (dead-relu-paper#55) |
 | C7 | Participation needs a drive of its own; inactive units do not become active again | **Data done**: B4 supports "do not become active again" at N = 1000 and 4000 (31 Oct); B3 inconclusive (decision dead-relu-paper#17, 31 Oct); the conclusion is "a drive of its own" | Results 4 and Figure 4 (transfer test): fig4-no-return (dead-relu-paper#8) |
@@ -99,9 +99,12 @@ repeats Fig. 3d.
 
 **C4.** Re-read at the current floor (entry 2026-10-31_2207, rule in 2026-10-31_2137, Della job
 16566988), on the six Figure 1d networks. On CDDM 260-313 of a network's 1,000 units are silent:
-their net input current is at or below zero on every step of every trial of the reference batch, so
-their rate and the loss gradient on their incoming weights are exactly zero (numpy float64 and
-autograd); those weights change only through weight decay. On 3BFF no unit is silent; the gradient
+their net input current is at or below zero on every step of every trial of the noise-free
+reference batch, so there their rate and the loss gradient on their incoming weights are exactly
+zero (numpy float64 and autograd). Under the training noise they are above zero on about 1.6% of
+steps and their gradient is 60-290 times (median per network) below the reach threshold; 8 of 866
+cross it in some batch (entry 2026-11-01_0716, which withdraws "only through weight decay"). At
+most 1 silent unit per network is active 5,000 iterations later. On 3BFF no unit is silent; the gradient
 reaches 143-165 of the 656-732 low-active units (5% of the network's q95 of g_in), whose current is
 positive on a median 3-4% of steps, almost always within 2τ of an input pulse. 5,000 iterations
 later 0.7-5.5% of them are active (0-2.1% after 500). On CDDM 20-39% of the 39-56 reached
