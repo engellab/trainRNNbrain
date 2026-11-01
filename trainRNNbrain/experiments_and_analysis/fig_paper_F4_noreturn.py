@@ -258,9 +258,11 @@ B4_VERDICT_4000 = os.path.join(LOCAL, "b4_verdict_4000.json")
 # their reserved hues and appear only where a panel compares tasks (Extended Data Fig. 6b-e).
 # Networks in the transfer test are ink marks told apart by shape; the untrained (fresh)
 # reference is BASELINE grey, the colour of every untreated reference in the paper.
-# Fill (dead-relu-paper #83): a filled marker is a value read at the floor crossing, an open one a
-# value at 75,000 iterations. Every marker here is read at or after a floor crossing, so every
-# marker is filled; silent units and the network groups differ by shape.
+# Fill (dead-relu-paper #83 decision): a filled marker is a value read at the floor crossing
+# (ps.mark_floor: Fig. 4b, 4e,f), an open one a value read at a fixed iteration named in the caption
+# (ps.mark_fixed: Fig. 4c, 500 and 5,500 iterations after the Fig. 1d weights; ED Fig. 5c,d, fixed
+# iterations; ED Fig. 6b,c, end of the 150,000-iteration budget and untrained). Fill means nothing
+# else: silent units and the network groups differ by shape.
 C_ACT, C_INA = ps.ACTIVE, ps.INACTIVE
 C_TRACE = ps.INK
 TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM}
@@ -635,21 +637,22 @@ def draw_gradient(fig, gs_cell, nets):
 
 
 def draw_drift(ax, summ):
-    """Panel c: share of each class active LATER[0] and LATER[1] iterations after the floor crossing.
+    """Panel c: share of each class active LATER[0] and LATER[1] iterations after the Fig. 1d weights.
 
     Args:
         ax: axes; summ: report_c4() output.
     """
     groups = [("CDDM", "active"), ("CDDM", "low_reached"), ("CDDM", "low_unreached"), ("CDDM", "silent"),
               ("3BFF", "active"), ("3BFF", "low_reached"), ("3BFF", "low_unreached")]
-    style = {"active": dict(mfc=C_ACT, mec=C_ACT), "low_reached": dict(mfc=C_INA, mec=C_INA),
-             "low_unreached": dict(mfc=C_INA, mec=C_INA), "silent": dict(mfc=C_INA, mec=C_INA)}
+    # open: read at fixed offsets after the Fig. 1d weights (#83)
+    style = {"active": ps.mark_fixed(C_ACT), "low_reached": ps.mark_fixed(C_INA),
+             "low_unreached": ps.mark_fixed(C_INA), "silent": ps.mark_fixed(C_INA)}
     xs = np.array([0, 1, 2, 3, 4.6, 5.6, 6.6])
     rng = np.random.default_rng(1)
     for x, (task, cls) in zip(xs, groups):
         for dt, dx, mk in ((LATER[0], -0.18, "^"), (LATER[1], 0.18, "o")):
             v = np.array([100 * s[f"{cls}_{dt}"] for s in summ[task]])
-            ax.plot(x + dx + rng.normal(0, 0.03, len(v)), v, ls="", marker=mk, ms=3, mew=0.6,
+            ax.plot(x + dx + rng.normal(0, 0.03, len(v)), v, ls="", marker=mk, ms=3,
                     clip_on=False, zorder=3, **style[cls])
             ax.plot([x + dx - 0.13, x + dx + 0.13], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW)
     ax.set_xticks(xs)
@@ -665,7 +668,7 @@ def draw_drift(ax, summ):
     for xm, task in ((1.5, "CDDM"), (5.6, "3BFF")):
         ax.text(xm, 1.03, f"{task}, $N$ = 1,000", transform=ax.get_xaxis_transform(), ha="center",
                 va="bottom", fontsize=ps.LABEL_PT)
-    ax.legend(handles=[Line2D([], [], marker=mk, ls="", mec=ps.INK, mfc=ps.INK, ms=3,
+    ax.legend(handles=[Line2D([], [], marker=mk, ls="", ms=3, **ps.mark_fixed(ps.INK),
                               label=f"+{ps.fmt_count(dt)} iterations") for mk, dt in zip("^o", LATER)],
               loc="center right", handletextpad=0.2, bbox_to_anchor=(1.0, 0.6))
     ps.ygrid(ax)
@@ -697,7 +700,7 @@ def draw_tanh_hist(fig, gs_cell, tanh):
         v, v0 = np.maximum(r["g_state"], FLOOR), np.maximum(r["g_state0"], FLOOR)
         ax.hist(v0, bins=bins, histtype="step", color=ps.BASELINE, lw=ps.DATA_LW, label="untrained")
         ax.hist(v, bins=bins, histtype="step", color=ps.INK, lw=ps.DATA_LW, label="trained")
-        ax.axvline(SILENT_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", label="threshold")
+        ax.axvline(SILENT_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", label="untrained\nthreshold")
         ax.set_xscale("log")
         ax.set_xlim(FLOOR * 0.7, 40)
         ax.set_xticks([1e-5, 1e-3, 1e-1, 10])
@@ -952,14 +955,15 @@ def ed_mechanism(nets):
         its = sorted(k[1] for k in grads if k[0] == name)
         reach = [int(grads[(name, i)]["cls_silent_reached"].sum()) for i in its]
         fnet = [float(grads[(name, i)]["F_net"]) for i in its]
-        ax_c.plot(its, reach, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5)
-        ax_d.plot(its, fnet, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5)
+        # open: read at fixed iterations (#83)
+        ax_c.plot(its, reach, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5, **ps.mark_fixed(TASK_COL[task]))
+        ax_d.plot(its, fnet, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5, **ps.mark_fixed(TASK_COL[task]))
         line = f"  {name}: reached " + ", ".join(f"{i // 1000}k {n}" for i, n in zip(its, reach))
         fa = glob.glob(os.path.join(C4B_DIR, f"ft_{name}_*_anneal.npz"))
         if fa:
             n_after = int(np.load(fa[0])["cls_silent_reached"].sum())
             it_end = int(os.path.basename(fa[0]).split("_")[2])
-            ax_c.plot([it_end + 8000], [n_after], "s", mfc=TASK_COL[task], mec=TASK_COL[task], ms=3, mew=0.7)
+            ax_c.plot([it_end + 8000], [n_after], "s", ms=3, **ps.mark_fixed(TASK_COL[task]))
             line += f"; after lr/10 for 300 iterations {n_after}"
         print(line + "; F_net " + ", ".join(f"{f:.2f}" for f in fnet))
     for a in (ax_c, ax_d):
@@ -970,9 +974,11 @@ def ed_mechanism(nets):
         ps.ygrid(a)
     ax_c.set_ylabel("low-active units reached", labelpad=1)
     ax_c.set_ylim(0, 340)
-    ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5, label="3BFF"),
-                         Line2D([], [], color=TASK_COL["CDDM"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5, label="CDDM"),
-                         Line2D([], [], ls="", marker="s", mfc=ps.INK, mec=ps.INK, ms=3,
+    ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
+                                **ps.mark_fixed(TASK_COL["3BFF"]), label="3BFF"),
+                         Line2D([], [], color=TASK_COL["CDDM"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
+                                **ps.mark_fixed(TASK_COL["CDDM"]), label="CDDM"),
+                         Line2D([], [], ls="", marker="s", ms=3, **ps.mark_fixed(ps.INK),
                                 label="learning rate / 10")], loc="upper center", ncol=3,
                 handletextpad=0.3, columnspacing=0.7, borderaxespad=0.1)
     ps.panel_letter(ax_c, "c")
@@ -1048,14 +1054,14 @@ def ed_tanh(tanh, traces):
     for j, (k, _) in enumerate(keys):
         for dx, act in ((-0.18, "ReLU"), (0.18, "tanh")):
             v = np.array([int((r[k] >= SILENT_REL).sum()) for r in tanh[act] if k in r], float)
-            ax.plot(j + dx + rng.normal(0, 0.03, len(v)), v, "o", ms=2.5, color=col[act], mew=0, zorder=3)
+            ax.plot(j + dx + rng.normal(0, 0.03, len(v)), v, "o", ms=2.5, zorder=3, **ps.mark_fixed(col[act]))
             ax.plot([j + dx - 0.12, j + dx + 0.12], [np.median(v)] * 2, color=ps.INK, lw=ps.DATA_LW)
     ax.set_xticks(range(len(keys)))
     ax.set_xticklabels([lab for _, lab in keys])
     ax.set_ylim(0, 1100)
     ps.count_ticks(ax.yaxis)
-    ax.set_ylabel("units at or above\nthe reach threshold", labelpad=1)
-    ax.legend(handles=[Line2D([], [], marker="o", ls="", color=col[a], ms=3, label=a) for a in ("ReLU", "tanh")],
+    ax.set_ylabel("units at or above\nthe untrained threshold", labelpad=1)
+    ax.legend(handles=[Line2D([], [], marker="o", ls="", ms=3, **ps.mark_fixed(col[a]), label=a) for a in ("ReLU", "tanh")],
               loc="upper right")
     ps.ygrid(ax)
     ps.panel_letter(ax, "b")
@@ -1063,7 +1069,7 @@ def ed_tanh(tanh, traces):
     for act in ("ReLU", "tanh"):
         for r in tanh[act]:
             ax.plot([0, 1], [np.median(r["slope0"]), np.median(r["slope"])], "o-", color=col[act], ms=2.5,
-                    lw=ps.THIN_LW)
+                    lw=ps.THIN_LW, **ps.mark_fixed(col[act]))
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["untrained", "trained"])
     ax.set_xlim(-0.3, 1.3)
