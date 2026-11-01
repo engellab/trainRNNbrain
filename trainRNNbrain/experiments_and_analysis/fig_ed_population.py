@@ -66,7 +66,7 @@ def dots(ax, x, y, task, mixed=False, ms=ps.MARKER_PT + 0.6):
     if mixed:
         ax.plot(x, y, MIXED_MARKER, ms=ms + 0.4, mec=col, mew=0.8, zorder=3, clip_on=False)
     else:
-        ax.plot(x, y, MARKER[task], ms=ms, mec=col, mew=0.7, mfc=col, zorder=3, clip_on=False)
+        ax.plot(x, y, MARKER[task], ms=ms, mew=0.7, **ps.mark_floor(col), zorder=3, clip_on=False)
 
 
 def scalar_panel(ax, res, key, lo, hi, title, ticks):

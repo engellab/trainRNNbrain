@@ -1432,20 +1432,20 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None):
         if ax_s is None:
             for t in ret:
                 xs = 100 * t["n_silent"] / t["N"]
-                ax.plot(xs, t["silent_removed"][-1][1], "*", ms=D_STAR_MS, color=col, mec="none",
+                ax.plot(xs, t["silent_removed"][-1][1], "*", ms=D_STAR_MS, **ps.mark_floor(col),
                         zorder=7, clip_on=False)
                 if t.get("random_removed"):
-                    ax.plot(xs, t["random_removed"][-1][1], "^", ms=D_TRI_MS, color=col,
-                            mec="none", zorder=6, clip_on=False)
+                    ax.plot(xs, t["random_removed"][-1][1], "^", ms=D_TRI_MS, **ps.mark_floor(col),
+                            zorder=6, clip_on=False)
         else:
             # one column per retraining, the networks spread a little within it
             dx = np.linspace(-D_STRIP_JITTER, D_STRIP_JITTER, len(ret)) if len(ret) > 1 else [0.0]
             for j, t in zip(dx, ret):
-                ax_s.plot(j, max(t["silent_removed"][-1][1], 0), "*", ms=D_STAR_MS, color=col,
-                          mec="none", zorder=7, clip_on=False)
+                ax_s.plot(j, max(t["silent_removed"][-1][1], 0), "*", ms=D_STAR_MS,
+                          **ps.mark_floor(col), zorder=7, clip_on=False)
                 if t.get("random_removed"):
                     ax_s.plot(1 + j, max(t["random_removed"][-1][1], 0), "^", ms=D_TRI_MS,
-                              color=col, mec="none", zorder=6, clip_on=False)
+                              **ps.mark_floor(col), zorder=6, clip_on=False)
             ax_s.set(xlim=(-0.6, 1.6), ylim=D_YLIM)
             ax_s.set_title("retrained", fontsize=ps.TICK_PT, color=ps.MUTED, pad=D_TITLE_PAD_PT)
             ax_s.set_xticks([])
@@ -1481,9 +1481,9 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None):
             Line2D([], [], color=ps.MUTED, lw=0.9, ls="--", label="random order"),
             Line2D([], [], color=ps.MUTED, lw=1.1, ls=":", label="busiest first"),
             Patch(color=SILENT_GREY, lw=0, label="inactive units"),
-            Line2D([], [], color=ps.MUTED, marker="*", ls="", ms=D_STAR_MS, mec="none",
+            Line2D([], [], marker="*", ls="", ms=D_STAR_MS, **ps.mark_floor(ps.MUTED),
                    label="inactive units removed, then retrained"),
-            Line2D([], [], color=ps.MUTED, marker="^", ls="", ms=D_TRI_MS, mec="none",
+            Line2D([], [], marker="^", ls="", ms=D_TRI_MS, **ps.mark_floor(ps.MUTED),
                    label="as many removed at random, then retrained")],
             loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=3, fontsize=ps.TICK_PT,
             handlelength=2.0, columnspacing=1.2, borderaxespad=0.0, borderpad=0.0, frameon=False)
