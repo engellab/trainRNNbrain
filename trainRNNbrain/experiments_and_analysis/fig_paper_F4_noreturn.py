@@ -32,6 +32,11 @@ the 3BFF ones are also the B4 sources). Every input is produced elsewhere and re
                             copy in data/fig4_noreturn/c4_floor/ (npz), traces/ and snap/; `activity`
                             below recomputes participation at t*, t* + 500 and t* + 5000 on the full
                             reference batch (c4_snapshot_drift.py uses 256 trials) into activity/
+  C4 on the Fig. 1d weights `fig1d` below (Mac, dead-relu-paper#91; notebook 2026-11-01_0948): the
+                            same measurement on the snapshots Figure 1d and Extended Data Fig. 2 use
+                            (data/pop_stats_nets), with participation 500 and 5,500 iterations later
+                            (the d0 and d5000 copies above), into c4_fig1d/, traces_fig1d/ and
+                            activity_fig1d/. Panels a-c and ED6a-b draw these.
   C4b convergence           c4b_convergence.py outputs, Della agent_c4b/out (14 Oct), local copy
                             data/fig4_noreturn/out/
   tanh                      gradient_participation.py (job 15064275) and gradient_sensitivity.py (job
@@ -42,7 +47,8 @@ the 3BFF ones are also the B4 sources). Every input is produced elsewhere and re
 Usage:
   Della:  python fig_paper_F4_noreturn.py collect --c4 DIR --snap DIR --traces DIR
           (after c4_gradient_mechanism.py RUNS --out <c4> --at floor; before c4_snapshot_drift.py)
-  Mac:    python trainRNNbrain/experiments_and_analysis/fig_paper_F4_noreturn.py activity
+  Mac:    python trainRNNbrain/experiments_and_analysis/fig_paper_F4_noreturn.py fig1d
+          python trainRNNbrain/experiments_and_analysis/fig_paper_F4_noreturn.py activity
           python trainRNNbrain/experiments_and_analysis/fig_paper_F4_noreturn.py draw
 Output: img/internal_figures/fig_paper_F4_noreturn, fig_ed_mechanism, fig_ed_tanh (.pdf + .svg),
 and every number drawn, printed.
@@ -75,6 +81,7 @@ C4_RUNS = (
 CELL = "EqType=h_N=1000_arm=control"
 DRIFT_DTS = (0, 500, 5000)     # snapshot offsets after the floor snapshot read by c4_snapshot_drift.py
 N_TRACE_TRIALS = 16            # trials of the reference batch whose full x(t) is kept for panel a
+LATER = (500, 5500)            # iterations after the Figure 1d snapshot of the later weights read (fig1d)
 
 
 def run_dir(sweep, seed):
@@ -172,6 +179,60 @@ def activity(snap_dir, out_dir):
                   + " / ".join(str(int(active_mask(res[f'p_{dt}']).sum())) for dt in DRIFT_DTS), flush=True)
 
 
+def fig1d(pop_dir, snap_dir, c4_out, trace_out, act_out, K=10):
+    """C4 on the snapshots Figure 1d and Extended Data Fig. 2 use (Mac; dead-relu-paper#91).
+
+    For each C4 network: c4_gradient_mechanism.run_one on the population-statistics copy of the
+    Figure 1d weights; the noise-free x(t) of the first N_TRACE_TRIALS reference trials (panel a);
+    participation on the full reference batch at that snapshot and at the two later snapshots kept
+    on the Mac, LATER[0] and LATER[1] iterations after it (the Della read's d0 and d5000 copies).
+    Rule and checks: notebook 2026-11-01_0948.
+
+    Args:
+        pop_dir: data/pop_stats_nets (one folder per network with config and LastParams, and
+            manifest.tsv: label, run_dir, params_file, iteration, active count of the removal file);
+        snap_dir: the Della read's snapshot copies <seed>_d{0,5000}.npz and <seed>_config.yaml;
+        c4_out, trace_out, act_out: output folders (npz per network, names as load_c4 reads them);
+        K: number of training-noise batches.
+    """
+    rows = {}
+    with open(os.path.join(pop_dir, "manifest.tsv")) as fh:
+        for line in fh:
+            label, _, _, it, n_act = line.rstrip("\n").split("\t")
+            rows[label] = (int(it), int(n_act))
+    for d in (c4_out, trace_out, act_out):
+        os.makedirs(d, exist_ok=True)
+    for task, sweep, seeds in C4_RUNS:
+        for seed in seeds:
+            label = f"{sweep}__{CELL}__s{seed}__floor"
+            folder = os.path.join(pop_dir, label)
+            it, n_act = rows[label]
+            params = glob.glob(os.path.join(folder, "*LastParams*.npz"))[0]
+            cfg_path = glob.glob(os.path.join(folder, "*_config.yaml"))[0]
+            cfg = OmegaConf.load(cfg_path)
+            # the Della copies must belong to the same run
+            assert OmegaConf.to_container(cfg) == OmegaConf.to_container(
+                OmegaConf.load(os.path.join(snap_dir, f"{seed}_config.yaml"))), seed
+            fn = f"{label}.npz"
+            if not os.path.exists(os.path.join(c4_out, fn)):
+                C4.run_one(folder, c4_out, K, "floor", point=(params, "floor", it), fn=fn)
+            u, y, _ = C4.batch(cfg, C4.REF_SEED)
+            res = {}
+            for dt, path in ((0, params), (LATER[0], os.path.join(snap_dir, f"{seed}_d0.npz")),
+                             (LATER[1], os.path.join(snap_dir, f"{seed}_d5000.npz"))):
+                H, _, _, _ = C4.forward(C4.load_params(path), u)
+                res[f"p_{dt}"] = participation(H)
+                if dt == 0:
+                    k = N_TRACE_TRIALS
+                    np.savez(os.path.join(trace_out, f"{task}_s{seed}__trace.npz"), x=H[:, :, :k].astype(np.float32),
+                             u=u[:, :, :k].astype(np.float32), y=y[:, :, :k].astype(np.float32), t_star=it)
+                del H
+            np.savez(os.path.join(act_out, f"{task}_s{seed}__act.npz"), **res)
+            print(f"{task} s{seed} at {it}: active {int(active_mask(res['p_0']).sum())} (removal file {n_act}); "
+                  f"+{LATER[0]} {int(active_mask(res[f'p_{LATER[0]}']).sum())}; "
+                  f"+{LATER[1]} {int(active_mask(res[f'p_{LATER[1]}']).sum())}", flush=True)
+
+
 # --------------------------------------------------------------------------------------------
 # drawing (Mac)
 # --------------------------------------------------------------------------------------------
@@ -181,6 +242,10 @@ C4_DIR = os.path.join(LOCAL, "c4_floor")             # c4_gradient_mechanism + c
 TRACE_DIR = os.path.join(LOCAL, "traces")            # collect() output
 SNAP_LOCAL = os.path.join(LOCAL, "snap")             # collect()'s snapshot links, copied (rsync -L)
 ACT_DIR = os.path.join(LOCAL, "activity")            # activity() output
+POP_DIR = os.path.join(DATA_DIR, "..", "pop_stats_nets")   # the Figure 1d weights (population statistics)
+FIG1D_C4 = os.path.join(LOCAL, "c4_fig1d")           # fig1d() output: what the figures draw
+FIG1D_TRACES = os.path.join(LOCAL, "traces_fig1d")
+FIG1D_ACT = os.path.join(LOCAL, "activity_fig1d")
 C4B_DIR = os.path.join(LOCAL, "out")                 # c4b_convergence.py output (14 Oct)
 GRADPART_DIR = os.path.join(LOCAL, "gradpart")       # gradient_participation.py, job 15064275
 GRADSENS_DIR = os.path.join(LOCAL, "gradsens")       # gradient_sensitivity.py, job 15066631
@@ -193,12 +258,31 @@ B4_VERDICT_4000 = os.path.join(LOCAL, "b4_verdict_4000.json")
 # their reserved hues and appear only where a panel compares tasks (Extended Data Fig. 6b-e).
 # Networks in the transfer test are ink marks told apart by shape; the untrained (fresh)
 # reference is BASELINE grey, the colour of every untreated reference in the paper.
+# Fill (dead-relu-paper #83 decision): a filled marker is a value read at the floor crossing
+# (ps.mark_floor: Fig. 4b, 4e,f), an open one a value read at a fixed iteration named in the caption
+# (ps.mark_fixed: Fig. 4c, 500 and 5,500 iterations after the Fig. 1d weights; ED Fig. 5c,d, fixed
+# iterations; ED Fig. 6b,c, end of the 150,000-iteration budget and untrained). Fill means nothing
+# else: silent units and the network groups differ by shape.
 C_ACT, C_INA = ps.ACTIVE, ps.INACTIVE
 C_TRACE = ps.INK
 TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM}
-SRC_STYLE = {"old": dict(marker="o", mfc=ps.INK, mec=ps.INK),
-             "young": dict(marker="o", mfc="none", mec=ps.INK),
-             "fresh": dict(marker="s", mfc=ps.BASELINE, mec=ps.BASELINE)}
+SRC_STYLE = {"old": dict(marker="o", **ps.mark_floor(ps.INK)),
+             "young": dict(marker="^", **ps.mark_floor(ps.INK)),
+             "fresh": dict(marker="s", **ps.mark_floor(ps.BASELINE))}
+def open_mark(col):
+    """Keywords for an open marker (read at a fixed iteration, #83) whose inside is painted paper.
+
+    A paper face keeps the marker open where it overlaps a mean bar or a neighbour drawn under it, so
+    a cluster of open markers never prints as a solid shape.
+
+    Args:
+        col: str, the series colour (the ring).
+    Returns:
+        dict of ax.plot / Line2D keywords.
+    """
+    return dict(ps.mark_fixed(col), mfc=ps.PAPER)
+
+
 REACH_REL = SILENT_REL                               # the reach threshold, as a fraction of q95(g_in)
 BARS = np.geomspace(0.005, 0.5, 25)                  # ED6b: reach thresholds swept, fraction of q95
 F4_H_MM = 140.0                                      # Figure 4 height; the cap is paperstyle.MAX_H_MM
@@ -210,13 +294,14 @@ def load_c4():
     Returns:
         list of dicts (one per network, CDDM first) with task, seed, t (floor snapshot iteration),
         masks act / low / sil / reach, on-share (share of reference-batch samples with x > 0), g
-        (g_in over the network's q95 of g_in), p, the drift arrays act_500 / act_5000 (units active
-        500 and 5,000 iterations later; reference batch, 256 trials) and the trace file, if present.
+        (g_in over the network's q95 of g_in), p, the arrays act_<dt> for dt in LATER (units active
+        that many iterations later; full reference batch) and the trace file, if present. Read from
+        fig1d()'s outputs (the Figure 1d snapshots).
     """
     out = []
     for task, _, seeds in C4_RUNS:
         for seed in seeds:
-            z = np.load(glob.glob(os.path.join(C4_DIR, f"*__s{seed}__floor.npz"))[0])
+            z = np.load(glob.glob(os.path.join(FIG1D_C4, f"*__s{seed}__floor.npz"))[0])
             act = active_mask(z["ref_p"])
             n_on = z["ref_n_on"]
             sil = ~act & (n_on == 0)
@@ -229,14 +314,15 @@ def load_c4():
                      # 10 training-like batches under the run's own noise: g_in over each batch's q95
                      g_noisy_rel=z["noisy_g_in"] / np.quantile(z["noisy_g_in"], 0.95, axis=1)[:, None],
                      n_on_noisy=z["noisy_n_on"], n_samples=int(z["ref_T"]) * int(z["ref_B"]))
-            fa = os.path.join(ACT_DIR, f"{task}_s{seed}__act.npz")
+            fa = os.path.join(FIG1D_ACT, f"{task}_s{seed}__act.npz")
             if os.path.exists(fa):
                 za = np.load(fa)
-                # the d0 pass repeats c4_gradient_mechanism's reference pass: same classes expected
+                # the +0 pass repeats c4_gradient_mechanism's reference pass: same classes expected
                 r["act_0"] = active_mask(za["p_0"])
-                r["act_500"], r["act_5000"] = active_mask(za["p_500"]), active_mask(za["p_5000"])
+                for dt in LATER:
+                    r[f"act_{dt}"] = active_mask(za[f"p_{dt}"])
                 r["p_check"] = float(np.max(np.abs(za["p_0"] - z["ref_p"]) / np.maximum(z["ref_p"], 1e-12)))
-            ft = os.path.join(TRACE_DIR, f"{task}_s{seed}__trace.npz")
+            ft = os.path.join(FIG1D_TRACES, f"{task}_s{seed}__trace.npz")
             r["trace"] = ft if os.path.exists(ft) else None
             out.append(r)
     return out
@@ -251,7 +337,7 @@ def report_c4(nets):
         dict task -> list of per-network summary dicts.
     """
     summ = {}
-    print("\n== C4 at the current floor (classes on the noise-free reference batch)")
+    print("\n== C4 on the Figure 1d snapshots (classes on the noise-free reference batch)")
     for r in nets:
         low_r = r["low"] & r["reach"]
         s = dict(seed=r["seed"], t=r["t"], active=int(r["act"].sum()), silent=int(r["sil"].sum()),
@@ -264,7 +350,7 @@ def report_c4(nets):
                  trials_med_low_reached=float(np.median(r["on_trials"][low_r])) if low_r.any() else float("nan"),
                  B=r["B"])
         s["near_input_share"] = float(r["near_input"][low_r].sum() / max(r["n_on"][low_r].sum(), 1))
-        for dt in (500, 5000):
+        for dt in LATER:
             k = f"act_{dt}"
             if k in r:
                 for name, m in (("active", r["act"]), ("low_reached", low_r),
@@ -290,18 +376,18 @@ def report_c4(nets):
               f"reached low-active: median on-share {s['on_med_low_reached']:.3f}, on in a median "
               f"{s['trials_med_low_reached']:.0f} of {s['B']} trials, {s['near_input_share']:.2f} of their "
               f"on-steps within 2 tau of an input; largest on-share of any low-active unit {s['on_max_low']:.3f}")
-        if "active_5000" in s:
-            print("     share active at t*+500 / t*+5000: " + ", ".join(
-                f"{n} {s[n + '_500']:.3f}/{s[n + '_5000']:.3f}" for n in
+        if f"active_{LATER[1]}" in s:
+            print(f"     share active at t*+{LATER[0]} / t*+{LATER[1]}: " + ", ".join(
+                f"{n} {s[f'{n}_{LATER[0]}']:.3f}/{s[f'{n}_{LATER[1]}']:.3f}" for n in
                 ("active", "low_reached", "low_unreached", "silent")))
     ff, cd = summ["3BFF"], summ["CDDM"]
     rule = [("every 3BFF network has 0 silent units", all(s["silent"] == 0 for s in ff)),
             ("every CDDM network has >= 200 silent units with largest g_in exactly 0",
              all(s["silent"] >= 200 and s["sil_gmax"] == 0 for s in cd)),
             ("every 3BFF network has >= 100 reached low-active units", all(s["low_reached"] >= 100 for s in ff)),
-            ("in every 3BFF network < 10% of reached low-active units are active at t*+5000",
-             all(s.get("low_reached_5000", np.nan) < 0.10 for s in ff))]
-    print("  RULE (notebook 2026-10-31_2137): " + "; ".join(f"{k}: {'PASS' if v else 'FAIL'}" for k, v in rule))
+            (f"in every 3BFF network < 10% of reached low-active units are active at t*+{LATER[1]}",
+             all(s.get(f"low_reached_{LATER[1]}", np.nan) < 0.10 for s in ff))]
+    print("  RULE (notebook 2026-10-31_2137, read as in 2026-11-01_0948): " + "; ".join(f"{k}: {'PASS' if v else 'FAIL'}" for k, v in rule))
     return summ
 
 
@@ -515,7 +601,7 @@ def draw_gradient(fig, gs_cell, nets):
     """Panel b: g_in against the share of steps with x_i > 0, every unit of one network per task.
 
     Silent units have both quantities exactly 0 on the noise-free batch; they are drawn at the
-    axes' '0' ticks, hollow.
+    axes' '0' ticks, as diamonds.
 
     Args:
         fig: figure; gs_cell: GridSpec cell; nets: load_c4() output.
@@ -532,7 +618,7 @@ def draw_gradient(fig, gs_cell, nets):
         first = first or ax
         rng = np.random.default_rng(0)
         ax.axhline(REACH_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", zorder=1)
-        for m, kw in ((r["sil"], dict(facecolors="none", edgecolors=C_INA, linewidths=0.4, s=4)),
+        for m, kw in ((r["sil"], dict(marker="D", c=C_INA, lw=0, s=3)),
                       (r["low"], dict(c=C_INA, lw=0, s=2.5)),
                       (r["act"], dict(c=C_ACT, lw=0, s=2.5))):
             if not m.any():
@@ -558,30 +644,30 @@ def draw_gradient(fig, gs_cell, nets):
     # one legend for both networks, in the 3BFF axes' empty lower right
     hs = [Line2D([], [], ls="", marker="o", ms=3, mfc=C_ACT, mec=C_ACT, label="active"),
           Line2D([], [], ls="", marker="o", ms=3, mfc=C_INA, mec=C_INA, label="low-active"),
-          Line2D([], [], ls="", marker="o", ms=3, mfc="none", mec=C_INA, label="silent"),
+          Line2D([], [], ls="", marker="D", ms=2.5, mfc=C_INA, mec=C_INA, label="silent"),
           Line2D([], [], ls="--", color=ps.INK, lw=ps.THIN_LW, label="reach threshold")]
     ax.legend(handles=hs, loc="lower right", handletextpad=0.2, borderaxespad=0.2, labelspacing=0.2)
     return first
 
 
 def draw_drift(ax, summ):
-    """Panel c: share of each class active 500 and 5,000 iterations after the floor crossing.
+    """Panel c: share of each class active LATER[0] and LATER[1] iterations after the Fig. 1d weights.
 
     Args:
         ax: axes; summ: report_c4() output.
     """
     groups = [("CDDM", "active"), ("CDDM", "low_reached"), ("CDDM", "low_unreached"), ("CDDM", "silent"),
               ("3BFF", "active"), ("3BFF", "low_reached"), ("3BFF", "low_unreached")]
-    style = {"active": dict(mfc=C_ACT, mec=C_ACT), "low_reached": dict(mfc=C_INA, mec=C_INA),
-             "low_unreached": dict(mfc=C_INA, mec=C_INA), "silent": dict(mfc="none", mec=C_INA)}
+    # open: read at fixed offsets after the Fig. 1d weights (#83)
+    style = {"active": open_mark(C_ACT), "low_reached": open_mark(C_INA),
+             "low_unreached": open_mark(C_INA), "silent": open_mark(C_INA)}
     xs = np.array([0, 1, 2, 3, 4.6, 5.6, 6.6])
-    rng = np.random.default_rng(1)
+    offs = np.array([-0.13, 0.0, 0.13])               # the three networks at fixed offsets, no jitter
     for x, (task, cls) in zip(xs, groups):
-        for dt, dx, mk in ((500, -0.18, "^"), (5000, 0.18, "o")):
+        for dt, dx, mk in ((LATER[0], -0.22, "^"), (LATER[1], 0.22, "o")):
             v = np.array([100 * s[f"{cls}_{dt}"] for s in summ[task]])
-            ax.plot(x + dx + rng.normal(0, 0.03, len(v)), v, ls="", marker=mk, ms=3, mew=0.6,
-                    clip_on=False, zorder=3, **style[cls])
-            ax.plot([x + dx - 0.13, x + dx + 0.13], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW)
+            ax.plot([x + dx - 0.17, x + dx + 0.17], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW, zorder=2)
+            ax.plot(x + dx + offs, v, ls="", marker=mk, ms=3, clip_on=False, zorder=3, **style[cls])
     ax.set_xticks(xs)
     ax.set_xticklabels(["active", "reached", "not\nreached", "silent", "active", "reached", "not\nreached"])
     for x0, x1 in ((1, 2), (5.6, 6.6)):                 # the two low-active groups share one label
@@ -595,8 +681,8 @@ def draw_drift(ax, summ):
     for xm, task in ((1.5, "CDDM"), (5.6, "3BFF")):
         ax.text(xm, 1.03, f"{task}, $N$ = 1,000", transform=ax.get_xaxis_transform(), ha="center",
                 va="bottom", fontsize=ps.LABEL_PT)
-    ax.legend(handles=[Line2D([], [], marker="^", ls="", mec=ps.INK, mfc=ps.INK, ms=3, label="+500 iterations"),
-                       Line2D([], [], marker="o", ls="", mec=ps.INK, mfc=ps.INK, ms=3, label="+5,000 iterations")],
+    ax.legend(handles=[Line2D([], [], marker=mk, ls="", ms=3, **open_mark(ps.INK),
+                              label=f"+{ps.fmt_count(dt)} iterations") for mk, dt in zip("^o", LATER)],
               loc="center right", handletextpad=0.2, bbox_to_anchor=(1.0, 0.6))
     ps.ygrid(ax)
 
@@ -627,7 +713,7 @@ def draw_tanh_hist(fig, gs_cell, tanh):
         v, v0 = np.maximum(r["g_state"], FLOOR), np.maximum(r["g_state0"], FLOOR)
         ax.hist(v0, bins=bins, histtype="step", color=ps.BASELINE, lw=ps.DATA_LW, label="untrained")
         ax.hist(v, bins=bins, histtype="step", color=ps.INK, lw=ps.DATA_LW, label="trained")
-        ax.axvline(SILENT_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", label="threshold")
+        ax.axvline(SILENT_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", label="untrained\nthreshold")
         ax.set_xscale("log")
         ax.set_xlim(FLOOR * 0.7, 40)
         ax.set_xticks([1e-5, 1e-3, 1e-1, 10])
@@ -635,12 +721,13 @@ def draw_tanh_hist(fig, gs_cell, tanh):
         ax.minorticks_off()
         ax.set_ylim(0, ax.get_ylim()[1] * 1.15)
         ax.set_title(f"{act}, CDDM, $N$ = 1,000", pad=3)
-        ax.set_xlabel("gradient on $x_i$ per unit of error\n(untrained 95th percentile = 1)", labelpad=1)
+        ax.set_xlabel("gradient on $x_i$ / $L^{1/2}$\n(untrained 95th percentile = 1)", labelpad=1)
         if col == 0:
             ax.set_ylabel("units", labelpad=1)
         else:
             ax.legend(loc="upper left", handlelength=1.2, borderaxespad=0.2, labelspacing=0.2)
-        print(f"  panel d {act}: drawn seed {r['seed']}, {int(n[runs.index(r)])} at or above the reach threshold; "
+        print(f"  panel d {act}: drawn seed {r['seed']}, {int(n[runs.index(r)])} at or above the reach threshold, "
+              f"median-unit drop {drop[runs.index(r)]:.1f}; "
               f"nine networks {sorted(int(k) for k in n)}; median-unit drop {np.median(drop):.1f} "
               f"({min(drop):.1f}-{max(drop):.1f})")
     return first
@@ -808,6 +895,7 @@ def figure4(nets, summ, tanh, b4):
     ax = fig.add_subplot(r3[0, 1])
     draw_b4_active(ax, b4)
     ps.panel_letter(ax, "f", x_mm=9)
+    ps.floor_label_pads(fig)                         # as save() will, so the layout check sees it
     check_layout(fig, "fig_paper_F4_noreturn")
     return ps.save(fig, "fig_paper_F4_noreturn")
 
@@ -875,32 +963,43 @@ def ed_mechanism(nets):
             grads[(name, int(it))] = dict(np.load(f))
     ax_c, ax_d = fig.add_subplot(bot[0, 0]), fig.add_subplot(bot[0, 1])
     print("\n== Extended Data figure (C4b, 14 Oct): low-active units reached, F_net, per measurement")
-    for name in sorted({k[0] for k in grads}):
+    names = sorted({k[0] for k in grads})
+    for name in names:
         task = "3BFF" if name.startswith("FF") else "CDDM"
         its = sorted(k[1] for k in grads if k[0] == name)
         reach = [int(grads[(name, i)]["cls_silent_reached"].sum()) for i in its]
         fnet = [float(grads[(name, i)]["F_net"]) for i in its]
-        ax_c.plot(its, reach, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5)
-        ax_d.plot(its, fnet, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5)
+        # drawn 7,500 iterations apart per network of a task (display only), so that networks read at
+        # the same iteration with near-equal values do not stack into a solid shape
+        k = [q for q in names if q[:2] == name[:2]].index(name)
+        dodge = (k - 1) * 7500
+        xs_it = np.array(its) + dodge
+        # open: read at fixed iterations (#83)
+        # (lines under every network's markers, so no line crosses another network's ring)
+        for a, yv in ((ax_c, reach), (ax_d, fnet)):
+            a.plot(xs_it, yv, "-", color=TASK_COL[task], lw=ps.THIN_LW * 1.5, zorder=2)
+            a.plot(xs_it, yv, "o", ls="", ms=2.5, zorder=3, **open_mark(TASK_COL[task]))
         line = f"  {name}: reached " + ", ".join(f"{i // 1000}k {n}" for i, n in zip(its, reach))
         fa = glob.glob(os.path.join(C4B_DIR, f"ft_{name}_*_anneal.npz"))
         if fa:
             n_after = int(np.load(fa[0])["cls_silent_reached"].sum())
             it_end = int(os.path.basename(fa[0]).split("_")[2])
-            ax_c.plot([it_end + 8000], [n_after], "s", mfc="none", mec=TASK_COL[task], ms=3, mew=0.7)
+            ax_c.plot([it_end + 22000 + dodge], [n_after], "s", ms=3, zorder=3, **open_mark(TASK_COL[task]))
             line += f"; after lr/10 for 300 iterations {n_after}"
         print(line + "; F_net " + ", ".join(f"{f:.2f}" for f in fnet))
     for a in (ax_c, ax_d):
-        a.set_xlim(0, 320000)
+        a.set_xlim(0, 335000)
         a.set_xticks([0, 100000, 200000, 300000])
         ps.count_ticks(a.xaxis)
         a.set_xlabel(ps.LABELS["iteration"], labelpad=1)
         ps.ygrid(a)
     ax_c.set_ylabel("low-active units reached", labelpad=1)
     ax_c.set_ylim(0, 340)
-    ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5, label="3BFF"),
-                         Line2D([], [], color=TASK_COL["CDDM"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5, label="CDDM"),
-                         Line2D([], [], ls="", marker="s", mfc="none", mec=ps.INK, ms=3,
+    ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
+                                **open_mark(TASK_COL["3BFF"]), label="3BFF"),
+                         Line2D([], [], color=TASK_COL["CDDM"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
+                                **open_mark(TASK_COL["CDDM"]), label="CDDM"),
+                         Line2D([], [], ls="", marker="s", ms=3, **open_mark(ps.INK),
                                 label="learning rate / 10")], loc="upper center", ncol=3,
                 handletextpad=0.3, columnspacing=0.7, borderaxespad=0.1)
     ps.panel_letter(ax_c, "c")
@@ -933,6 +1032,7 @@ def ed_mechanism(nets):
     ax.set_ylabel("noisy training loss / final", labelpad=1)
     ps.ygrid(ax)
     ps.panel_letter(ax, "e")
+    ps.floor_label_pads(fig)                         # as save() will, so the layout check sees it
     check_layout(fig, "fig_ed_mechanism")
     return ps.save(fig, "fig_ed_mechanism")
 
@@ -952,7 +1052,7 @@ def ed_tanh(tanh, traces):
     """
     fig = ps.figure(h_mm=52)
     gs = fig.add_gridspec(1, 3, left=0.075, right=0.99, top=0.9, bottom=0.27, wspace=0.34,
-                          width_ratios=[1, 1.3, 0.75])
+                          width_ratios=[1, 1.45, 0.7])
     col = {"ReLU": ps.BASELINE, "tanh": ps.SETTING}
     ax = fig.add_subplot(gs[0, 0])
     for act in ("ReLU", "tanh"):
@@ -969,35 +1069,56 @@ def ed_tanh(tanh, traces):
     ps.ygrid(ax)
     ps.panel_letter(ax, "a")
     ax = fig.add_subplot(gs[0, 1])
-    keys = [("g_state", "gradient\non $x_i$"), ("g_in_trial", "gradient on\ninput weights"),
-            ("s_in", "sensitivity to\ninput weights"), ("s_state", "sensitivity\nto $x_i$")]
-    rng = np.random.default_rng(4)
+    keys = [("g_state", "gradient\non $x_i$"), ("g_in_trial", "gradient\non incoming\nweights"),
+            ("s_in", "sensitivity\nto incoming\nweights"), ("s_state", "sensitivity\nto $x_i$")]
     for j, (k, _) in enumerate(keys):
-        for dx, act in ((-0.18, "ReLU"), (0.18, "tanh")):
-            v = np.array([int((r[k] >= SILENT_REL).sum()) for r in tanh[act] if k in r], float)
-            ax.plot(j + dx + rng.normal(0, 0.03, len(v)), v, "o", ms=2.5, color=col[act], mew=0, zorder=3)
-            ax.plot([j + dx - 0.12, j + dx + 0.12], [np.median(v)] * 2, color=ps.INK, lw=ps.DATA_LW)
+        for dx, act in ((-0.21, "ReLU"), (0.21, "tanh")):
+            v = np.sort(np.array([int((r[k] >= SILENT_REL).sum()) for r in tanh[act] if k in r], float))
+            ax.plot([j + dx - 0.17, j + dx + 0.17], [np.median(v)] * 2, color=ps.INK, lw=ps.DATA_LW, zorder=2)
+            # networks spread evenly across the strip in order of value, so neighbours never stack
+            ax.plot(j + dx + np.linspace(-0.18, 0.18, len(v)), v, "o", ms=ps.SMALL_MARKER_PT, zorder=3,
+                    **open_mark(col[act]))
     ax.set_xticks(range(len(keys)))
     ax.set_xticklabels([lab for _, lab in keys])
     ax.set_ylim(0, 1100)
     ps.count_ticks(ax.yaxis)
-    ax.set_ylabel("units at or above\nthe reach threshold", labelpad=1)
-    ax.legend(handles=[Line2D([], [], marker="o", ls="", color=col[a], ms=3, label=a) for a in ("ReLU", "tanh")],
+    ax.set_ylabel("units at or above\nthe untrained threshold", labelpad=1)
+    ax.legend(handles=[Line2D([], [], marker="o", ls="", ms=3, **open_mark(col[a]), label=a) for a in ("ReLU", "tanh")],
               loc="upper right")
     ps.ygrid(ax)
     ps.panel_letter(ax, "b")
     ax = fig.add_subplot(gs[0, 2])
+    # A tight cluster (range under CLUSTER of the axis) is one open marker at the median with a range
+    # bar and its n; a spread set is one marker per network, spread in x by value so none stack.
+    CLUSTER = 0.04
     for act in ("ReLU", "tanh"):
-        for r in tanh[act]:
-            ax.plot([0, 1], [np.median(r["slope0"]), np.median(r["slope"])], "o-", color=col[act], ms=2.5,
-                    lw=ps.THIN_LW)
+        y0 = np.array([np.median(r["slope0"]) for r in tanh[act]])
+        y1 = np.array([np.median(r["slope"]) for r in tanh[act]])
+        x1 = np.full(len(y1), 1.0)
+        if np.ptp(y1) >= CLUSTER:
+            x1[np.argsort(y1)] = 1.0 + np.linspace(0.0, 0.35, len(y1))
+        for a, b, xe in zip(y0, y1, x1):
+            ax.plot([0, xe], [a, b], color=col[act], lw=ps.THIN_LW, zorder=2)
+        for x, y, side in ((np.zeros(len(y0)), y0, -1), (x1, y1, 1)):
+            if np.ptp(y) < CLUSTER:
+                ax.plot([x[0]] * 2, [y.min(), y.max()], color=col[act], lw=ps.DATA_LW, zorder=3, clip_on=False)
+                ax.plot([x[0]], [np.median(y)], "o", ms=3, zorder=4, clip_on=False, **open_mark(col[act]))
+                # untrained: label to the left; trained: to the right and just above the axis, clear of
+                # the spread tanh markers (lowest values sit nearest x = 1)
+                ax.text(x[0] + side * (0.09 if side < 0 else 0.12), np.median(y) + (0 if side < 0 else 0.02),
+                        f"$n$ = {len(y)}", ha="right" if side < 0 else "left", va="center",
+                        fontsize=ps.TICK_PT, color=ps.INK)
+            else:
+                ax.plot(x, y, "o", ms=ps.SMALL_MARKER_PT, zorder=4, ls="", clip_on=False, **open_mark(col[act]))
+        print(f"  ED tanh c {act}: untrained {y0.min():.2f}-{y0.max():.2f}, trained {y1.min():.2f}-{y1.max():.2f}")
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["untrained", "trained"])
-    ax.set_xlim(-0.3, 1.3)
+    ax.set_xlim(-0.45, 1.5)
     ax.set_ylim(0, 1)
     ax.set_ylabel("median activation slope", labelpad=1)
     ps.ygrid(ax)
     ps.panel_letter(ax, "c")
+    ps.floor_label_pads(fig)                         # as save() will, so the layout check sees it
     check_layout(fig, "fig_ed_tanh")
     return ps.save(fig, "fig_ed_tanh")
 
@@ -1022,11 +1143,14 @@ if __name__ == "__main__":
     c.add_argument("--snap", required=True)
     c.add_argument("--traces", required=True)
     sub.add_parser("activity")
+    sub.add_parser("fig1d")
     sub.add_parser("draw")
     a = ap.parse_args()
     if a.cmd == "collect":
         collect(a.c4, a.snap, a.traces)
     elif a.cmd == "activity":
         activity(SNAP_LOCAL, ACT_DIR)
+    elif a.cmd == "fig1d":
+        fig1d(POP_DIR, SNAP_LOCAL, FIG1D_C4, FIG1D_TRACES, FIG1D_ACT)
     else:
         draw()
