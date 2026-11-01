@@ -719,7 +719,7 @@ def draw_fig2(rec):
     fig = ps.figure(h_mm=FIG2_H_MM)
     # margins in figure fractions of 165.1 x FIG2_H_MM mm; panel letters sit 7 mm left of each spine
     gs = GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.2], hspace=0.36,
-                  left=0.075, right=0.99, top=0.965, bottom=0.095)
+                  left=0.075, right=0.99, top=0.955, bottom=0.095)
     top = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[0], width_ratios=[1.2, 1.2, 0.85], wspace=0.36)
     bot = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], width_ratios=[2.5, 1.0], wspace=0.30)
     dgs = GridSpecFromSubplotSpec(2, 3, subplot_spec=bot[0], height_ratios=[1.0, 1.3], hspace=0.12,
