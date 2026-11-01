@@ -269,6 +269,20 @@ TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM}
 SRC_STYLE = {"old": dict(marker="o", **ps.mark_floor(ps.INK)),
              "young": dict(marker="^", **ps.mark_floor(ps.INK)),
              "fresh": dict(marker="s", **ps.mark_floor(ps.BASELINE))}
+def open_mark(col):
+    """Keywords for an open marker (read at a fixed iteration, #83) whose inside is painted paper.
+
+    A paper face keeps the marker open where it overlaps a mean bar or a neighbour drawn under it, so
+    a cluster of open markers never prints as a solid shape.
+
+    Args:
+        col: str, the series colour (the ring).
+    Returns:
+        dict of ax.plot / Line2D keywords.
+    """
+    return dict(ps.mark_fixed(col), mfc=ps.PAPER)
+
+
 REACH_REL = SILENT_REL                               # the reach threshold, as a fraction of q95(g_in)
 BARS = np.geomspace(0.005, 0.5, 25)                  # ED6b: reach thresholds swept, fraction of q95
 F4_H_MM = 140.0                                      # Figure 4 height; the cap is paperstyle.MAX_H_MM
@@ -645,16 +659,15 @@ def draw_drift(ax, summ):
     groups = [("CDDM", "active"), ("CDDM", "low_reached"), ("CDDM", "low_unreached"), ("CDDM", "silent"),
               ("3BFF", "active"), ("3BFF", "low_reached"), ("3BFF", "low_unreached")]
     # open: read at fixed offsets after the Fig. 1d weights (#83)
-    style = {"active": ps.mark_fixed(C_ACT), "low_reached": ps.mark_fixed(C_INA),
-             "low_unreached": ps.mark_fixed(C_INA), "silent": ps.mark_fixed(C_INA)}
+    style = {"active": open_mark(C_ACT), "low_reached": open_mark(C_INA),
+             "low_unreached": open_mark(C_INA), "silent": open_mark(C_INA)}
     xs = np.array([0, 1, 2, 3, 4.6, 5.6, 6.6])
-    rng = np.random.default_rng(1)
+    offs = np.array([-0.13, 0.0, 0.13])               # the three networks at fixed offsets, no jitter
     for x, (task, cls) in zip(xs, groups):
-        for dt, dx, mk in ((LATER[0], -0.18, "^"), (LATER[1], 0.18, "o")):
+        for dt, dx, mk in ((LATER[0], -0.22, "^"), (LATER[1], 0.22, "o")):
             v = np.array([100 * s[f"{cls}_{dt}"] for s in summ[task]])
-            ax.plot(x + dx + rng.normal(0, 0.03, len(v)), v, ls="", marker=mk, ms=3,
-                    clip_on=False, zorder=3, **style[cls])
-            ax.plot([x + dx - 0.13, x + dx + 0.13], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW)
+            ax.plot([x + dx - 0.17, x + dx + 0.17], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW, zorder=2)
+            ax.plot(x + dx + offs, v, ls="", marker=mk, ms=3, clip_on=False, zorder=3, **style[cls])
     ax.set_xticks(xs)
     ax.set_xticklabels(["active", "reached", "not\nreached", "silent", "active", "reached", "not\nreached"])
     for x0, x1 in ((1, 2), (5.6, 6.6)):                 # the two low-active groups share one label
@@ -668,7 +681,7 @@ def draw_drift(ax, summ):
     for xm, task in ((1.5, "CDDM"), (5.6, "3BFF")):
         ax.text(xm, 1.03, f"{task}, $N$ = 1,000", transform=ax.get_xaxis_transform(), ha="center",
                 va="bottom", fontsize=ps.LABEL_PT)
-    ax.legend(handles=[Line2D([], [], marker=mk, ls="", ms=3, **ps.mark_fixed(ps.INK),
+    ax.legend(handles=[Line2D([], [], marker=mk, ls="", ms=3, **open_mark(ps.INK),
                               label=f"+{ps.fmt_count(dt)} iterations") for mk, dt in zip("^o", LATER)],
               loc="center right", handletextpad=0.2, bbox_to_anchor=(1.0, 0.6))
     ps.ygrid(ax)
@@ -708,7 +721,7 @@ def draw_tanh_hist(fig, gs_cell, tanh):
         ax.minorticks_off()
         ax.set_ylim(0, ax.get_ylim()[1] * 1.15)
         ax.set_title(f"{act}, CDDM, $N$ = 1,000", pad=3)
-        ax.set_xlabel("gradient on $x_i$ per unit of error\n(untrained 95th percentile = 1)", labelpad=1)
+        ax.set_xlabel("gradient on $x_i$ / $L^{1/2}$\n(untrained 95th percentile = 1)", labelpad=1)
         if col == 0:
             ax.set_ylabel("units", labelpad=1)
         else:
@@ -950,24 +963,32 @@ def ed_mechanism(nets):
             grads[(name, int(it))] = dict(np.load(f))
     ax_c, ax_d = fig.add_subplot(bot[0, 0]), fig.add_subplot(bot[0, 1])
     print("\n== Extended Data figure (C4b, 14 Oct): low-active units reached, F_net, per measurement")
-    for name in sorted({k[0] for k in grads}):
+    names = sorted({k[0] for k in grads})
+    for name in names:
         task = "3BFF" if name.startswith("FF") else "CDDM"
         its = sorted(k[1] for k in grads if k[0] == name)
         reach = [int(grads[(name, i)]["cls_silent_reached"].sum()) for i in its]
         fnet = [float(grads[(name, i)]["F_net"]) for i in its]
+        # drawn 7,500 iterations apart per network of a task (display only), so that networks read at
+        # the same iteration with near-equal values do not stack into a solid shape
+        k = [q for q in names if q[:2] == name[:2]].index(name)
+        dodge = (k - 1) * 7500
+        xs_it = np.array(its) + dodge
         # open: read at fixed iterations (#83)
-        ax_c.plot(its, reach, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5, **ps.mark_fixed(TASK_COL[task]))
-        ax_d.plot(its, fnet, "o-", color=TASK_COL[task], ms=2.5, lw=ps.THIN_LW * 1.5, **ps.mark_fixed(TASK_COL[task]))
+        # (lines under every network's markers, so no line crosses another network's ring)
+        for a, yv in ((ax_c, reach), (ax_d, fnet)):
+            a.plot(xs_it, yv, "-", color=TASK_COL[task], lw=ps.THIN_LW * 1.5, zorder=2)
+            a.plot(xs_it, yv, "o", ls="", ms=2.5, zorder=3, **open_mark(TASK_COL[task]))
         line = f"  {name}: reached " + ", ".join(f"{i // 1000}k {n}" for i, n in zip(its, reach))
         fa = glob.glob(os.path.join(C4B_DIR, f"ft_{name}_*_anneal.npz"))
         if fa:
             n_after = int(np.load(fa[0])["cls_silent_reached"].sum())
             it_end = int(os.path.basename(fa[0]).split("_")[2])
-            ax_c.plot([it_end + 8000], [n_after], "s", ms=3, **ps.mark_fixed(TASK_COL[task]))
+            ax_c.plot([it_end + 22000 + dodge], [n_after], "s", ms=3, zorder=3, **open_mark(TASK_COL[task]))
             line += f"; after lr/10 for 300 iterations {n_after}"
         print(line + "; F_net " + ", ".join(f"{f:.2f}" for f in fnet))
     for a in (ax_c, ax_d):
-        a.set_xlim(0, 320000)
+        a.set_xlim(0, 335000)
         a.set_xticks([0, 100000, 200000, 300000])
         ps.count_ticks(a.xaxis)
         a.set_xlabel(ps.LABELS["iteration"], labelpad=1)
@@ -975,10 +996,10 @@ def ed_mechanism(nets):
     ax_c.set_ylabel("low-active units reached", labelpad=1)
     ax_c.set_ylim(0, 340)
     ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
-                                **ps.mark_fixed(TASK_COL["3BFF"]), label="3BFF"),
+                                **open_mark(TASK_COL["3BFF"]), label="3BFF"),
                          Line2D([], [], color=TASK_COL["CDDM"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
-                                **ps.mark_fixed(TASK_COL["CDDM"]), label="CDDM"),
-                         Line2D([], [], ls="", marker="s", ms=3, **ps.mark_fixed(ps.INK),
+                                **open_mark(TASK_COL["CDDM"]), label="CDDM"),
+                         Line2D([], [], ls="", marker="s", ms=3, **open_mark(ps.INK),
                                 label="learning rate / 10")], loc="upper center", ncol=3,
                 handletextpad=0.3, columnspacing=0.7, borderaxespad=0.1)
     ps.panel_letter(ax_c, "c")
@@ -1050,29 +1071,49 @@ def ed_tanh(tanh, traces):
     ax = fig.add_subplot(gs[0, 1])
     keys = [("g_state", "gradient\non $x_i$"), ("g_in_trial", "gradient\non incoming\nweights"),
             ("s_in", "sensitivity\nto incoming\nweights"), ("s_state", "sensitivity\nto $x_i$")]
-    rng = np.random.default_rng(4)
     for j, (k, _) in enumerate(keys):
-        for dx, act in ((-0.18, "ReLU"), (0.18, "tanh")):
-            v = np.array([int((r[k] >= SILENT_REL).sum()) for r in tanh[act] if k in r], float)
-            ax.plot(j + dx + rng.normal(0, 0.03, len(v)), v, "o", ms=2.5, zorder=3, **ps.mark_fixed(col[act]))
-            ax.plot([j + dx - 0.12, j + dx + 0.12], [np.median(v)] * 2, color=ps.INK, lw=ps.DATA_LW)
+        for dx, act in ((-0.21, "ReLU"), (0.21, "tanh")):
+            v = np.sort(np.array([int((r[k] >= SILENT_REL).sum()) for r in tanh[act] if k in r], float))
+            ax.plot([j + dx - 0.17, j + dx + 0.17], [np.median(v)] * 2, color=ps.INK, lw=ps.DATA_LW, zorder=2)
+            # networks spread evenly across the strip in order of value, so neighbours never stack
+            ax.plot(j + dx + np.linspace(-0.18, 0.18, len(v)), v, "o", ms=ps.SMALL_MARKER_PT, zorder=3,
+                    **open_mark(col[act]))
     ax.set_xticks(range(len(keys)))
     ax.set_xticklabels([lab for _, lab in keys])
     ax.set_ylim(0, 1100)
     ps.count_ticks(ax.yaxis)
     ax.set_ylabel("units at or above\nthe untrained threshold", labelpad=1)
-    ax.legend(handles=[Line2D([], [], marker="o", ls="", ms=3, **ps.mark_fixed(col[a]), label=a) for a in ("ReLU", "tanh")],
+    ax.legend(handles=[Line2D([], [], marker="o", ls="", ms=3, **open_mark(col[a]), label=a) for a in ("ReLU", "tanh")],
               loc="upper right")
     ps.ygrid(ax)
     ps.panel_letter(ax, "b")
     ax = fig.add_subplot(gs[0, 2])
+    # A tight cluster (range under CLUSTER of the axis) is one open marker at the median with a range
+    # bar and its n; a spread set is one marker per network, spread in x by value so none stack.
+    CLUSTER = 0.04
     for act in ("ReLU", "tanh"):
-        for r in tanh[act]:
-            ax.plot([0, 1], [np.median(r["slope0"]), np.median(r["slope"])], "o-", color=col[act], ms=2.5,
-                    lw=ps.THIN_LW, **ps.mark_fixed(col[act]))
+        y0 = np.array([np.median(r["slope0"]) for r in tanh[act]])
+        y1 = np.array([np.median(r["slope"]) for r in tanh[act]])
+        x1 = np.full(len(y1), 1.0)
+        if np.ptp(y1) >= CLUSTER:
+            x1[np.argsort(y1)] = 1.0 + np.linspace(0.0, 0.35, len(y1))
+        for a, b, xe in zip(y0, y1, x1):
+            ax.plot([0, xe], [a, b], color=col[act], lw=ps.THIN_LW, zorder=2)
+        for x, y, side in ((np.zeros(len(y0)), y0, -1), (x1, y1, 1)):
+            if np.ptp(y) < CLUSTER:
+                ax.plot([x[0]] * 2, [y.min(), y.max()], color=col[act], lw=ps.DATA_LW, zorder=3, clip_on=False)
+                ax.plot([x[0]], [np.median(y)], "o", ms=3, zorder=4, clip_on=False, **open_mark(col[act]))
+                # untrained: label to the left; trained: to the right and just above the axis, clear of
+                # the spread tanh markers (lowest values sit nearest x = 1)
+                ax.text(x[0] + side * (0.09 if side < 0 else 0.12), np.median(y) + (0 if side < 0 else 0.02),
+                        f"$n$ = {len(y)}", ha="right" if side < 0 else "left", va="center",
+                        fontsize=ps.TICK_PT, color=ps.INK)
+            else:
+                ax.plot(x, y, "o", ms=ps.SMALL_MARKER_PT, zorder=4, ls="", clip_on=False, **open_mark(col[act]))
+        print(f"  ED tanh c {act}: untrained {y0.min():.2f}-{y0.max():.2f}, trained {y1.min():.2f}-{y1.max():.2f}")
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["untrained", "trained"])
-    ax.set_xlim(-0.3, 1.3)
+    ax.set_xlim(-0.45, 1.5)
     ax.set_ylim(0, 1)
     ax.set_ylabel("median activation slope", labelpad=1)
     ps.ygrid(ax)
