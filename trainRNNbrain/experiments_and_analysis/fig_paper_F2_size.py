@@ -114,6 +114,20 @@ C3_EXTRA = [("N=4000", "NBitFlipFlop_paper_grid_c200000/EqType=h_N=4000_arm=cont
 # continuation's paths.init_from in NBitFlipFlop_c1_snapshots_c300000 (read on Della, 31 Oct).
 C3_CONTINUED = {"3204992658": "4113307577", "3194339211": "2461724787"}
 TASKNAME = {"NBitFlipFlop": "3BFF", "CDDM": "CDDM", "DMTS": "DMTS"}
+# Supplementary Table 1's Fig. column marks the 35 size-series networks that Extended Data Fig. 1
+# (removing inactive units) tests, by task and table seed (dead-relu-paper #97, #89). Set read from
+# fig_supp_ablation.py on trainRNNbrain wp/fig1-r3, notebook entry 2026-11-01_1003: every size-series
+# network at N = 500-4,000 except 3BFF s4186074845 and DMTS s632794669 and s2627187151, plus DMTS
+# s2946835052 (no floor crossing); no N = 100 network.
+ED1_NETWORKS = {
+    "3BFF": {"822903475", "822939552", "893469585", "2484557599", "2489235792", "2545439171",
+             "3374117298", "1914910909", "3866906883", "620846234", "2422919889", "4145304148",
+             "3341404959", "3346922328", "3386387268"},
+    "CDDM": {"2251851164", "3291291930", "3565681970", "457853", "1272763220", "3833537590",
+             "575781518", "3640167262", "4259132547", "292757883", "3046823201", "3572448132"},
+    "DMTS": {"1084904964", "2099578504", "2106510642", "86371460", "1167683015", "2946835052",
+             "2585017553", "4124951173"},
+}
 
 
 def seed_of(name):
@@ -374,8 +388,8 @@ FIG2_H_MM = 125.0       # printed height of Figure 2 (width is \textwidth, 165.1
 N_BOOT = 2000           # bootstrap resamples for the exponent's interval (panel c)
 BOOT_SEED = 20261031
 SIZE_MARK = {500: "o", 1000: "s", 2000: "D", 4000: "^"}
-NET_GAP_DEX = 0.05      # panels a-b: first network point this far (log10 N) from its size's mean
-NET_STEP_DEX = 0.03     # and the next ones this far apart (0.72 mm in panel a at print size, one 2 pt dot)
+NET_GAP_DEX = 0.04      # panels a-b: first network point this far (log10 N) from its size's mean
+NET_STEP_DEX = 0.025    # and the next ones this far apart (0.6 mm in panel a at print size; a 2 pt dot is 0.7 mm)
 
 
 def is_read(r, margin=0.05):
@@ -430,19 +444,21 @@ def boot_exponent(cells, rng):
     return tuple(np.percentile(bs, [2.5, 97.5]))
 
 
-def network_offsets(task, n):
+def network_offsets(task, n, n_before=0):
     """Horizontal offsets (log10 units) of one size's network points beside that size's mean.
 
-    3BFF's points sit to the left of the mean, CDDM's and DMTS's to the right; neighbouring
-    points are NET_STEP_DEX apart, the row starting NET_GAP_DEX from the mean.
+    3BFF's points sit to the left of the mean; CDDM's and DMTS's share the right side, DMTS's row
+    starting where CDDM's ends (n_before points in), so no DMTS point lands on a CDDM point.
+    Neighbouring points are NET_STEP_DEX apart, the row starting NET_GAP_DEX from the mean.
 
     Args:
-        task: "3BFF", "CDDM" or "DMTS"; n: int, networks at this size.
+        task: "3BFF", "CDDM" or "DMTS"; n: int, networks of this task at this size;
+        n_before: int, points already placed on the same side at this size (CDDM's count for DMTS).
     Returns:
         float array of shape (n,), added to log10 N.
     """
     side = -1.0 if task == "3BFF" else 1.0
-    return side * (NET_GAP_DEX + NET_STEP_DEX * np.arange(n))
+    return side * (NET_GAP_DEX + NET_STEP_DEX * (n_before + np.arange(n)))
 
 
 def leave_one_out(series, task, margin):
@@ -481,6 +497,7 @@ def panel_size(ax_a, ax_b, series):
         dict task -> (exponent, prefactor, {N: (mean, SD, n)}).
     """
     fits, handles = {}, []
+    cddm = cells_of(series, "CDDM")      # DMTS's row of points starts after CDDM's
     for task in TASKS:
         col = TASK_COL[task]
         cells = cells_of(series, task)
@@ -496,13 +513,14 @@ def panel_size(ax_a, ax_b, series):
             # and DMTS to the right, so 3BFF and DMTS, whose counts overlap, do not hide each other)
             for N, s in zip(Ns, sc):
                 v = cells[N] * s
-                ax.plot(N * 10 ** network_offsets(task, len(v)), v, "o", ms=ps.SMALL_MARKER_PT,
-                        mew=0, zorder=4, **ps.mark_floor(col))
+                before = len(cddm.get(N, [])) if task == "DMTS" else 0
+                ax.plot(N * 10 ** network_offsets(task, len(v), before), v, "o",
+                        ms=ps.SMALL_MARKER_PT, mew=0, zorder=4, **ps.mark_floor(col))
             # every value is read at the floor crossing, so every marker is filled (#83); N = 100 is
             # set apart by the fitted line, which starts above it
-            # caps narrower than the mean's marker and drawn under it, so a small s.d. does not
-            # turn the round marker into a square
-            ax.errorbar(Ns, m * sc, yerr=sd * sc, fmt="none", ecolor=col, lw=1.0, capsize=1.0,
+            # no caps, bars drawn under the mean's marker, so a small s.d. does not turn the round
+            # marker into a square
+            ax.errorbar(Ns, m * sc, yerr=sd * sc, fmt="none", ecolor=col, lw=1.0, capsize=0,
                         zorder=5)
             ax.plot(Ns, m * sc, "o", ms=ps.MARKER_PT, mew=0, zorder=6, **ps.mark_floor(col))
         ax_b.plot(Ns, m * 100.0 / Ns, "-", color=col, lw=0.9, zorder=3)
@@ -778,6 +796,8 @@ def tex_row(r, in_e):
         fig = "2e" if fig == "--" else fig + ", 2e"
         if in_e[r["seed"]] > r["it_end"]:      # continued for panel (e)
             trained += "$^{c}$"                # trained on to 300,000 (table footnote)
+    if r["role"] == "size series" and r["seed"] in ED1_NETWORKS[r["task"]]:
+        fig = "ED1" if fig == "--" else fig + ", ED1"      # tested in Extended Data Fig. 1
     note = re.sub(r" \(held-out R\$\^2\$ [0-9.]+\)", "", note)   # the R^2 column already shows it
     note = note.replace("_", r"\_").replace("%", r"\%")
     return (f"{r['task']} & {r['N']:,} & {r['seed']} & {fig} & {trained} & {t} & {a} & "
@@ -801,6 +821,8 @@ def write_table(rec):
     in_e = {C3_CONTINUED.get(r["seed"], r["seed"]): r["end"] for r in rec["c3"]}
     hits = [r["seed"] for r in rows if r["task"] == "3BFF" and r["seed"] in in_e]
     assert len(in_e) == len(rec["c3"]) and sorted(hits) == sorted(in_e), (sorted(in_e), hits)
+    n_ed1 = sum(r["role"] == "size series" and r["seed"] in ED1_NETWORKS[r["task"]] for r in rows)
+    assert n_ed1 == sum(len(v) for v in ED1_NETWORKS.values()) == 35, n_ed1
     path = os.path.join(IMG_DIR, "edt2_runs_rows.tex")
     with open(path, "w") as fh:
         fh.write("% written by fig_paper_F2_size.py from data/fig_paper_F2_size_collect.pkl\n")

@@ -202,6 +202,10 @@ def panel_tstar(ax, rec):
         dict task -> {N: mean t*}.
     """
     means = {}
+    n_cddm = {}       # CDDM networks per size: DMTS's row of points starts after them
+    for r in rec["series"]:
+        if r["task"] == "CDDM" and is_read(r):
+            n_cddm[r["N"]] = n_cddm.get(r["N"], 0) + 1
     for task in TASKS:
         rows = [r for r in rec["series"] if r["task"] == task and is_read(r)]
         Ns = np.array([r["N"] for r in rows], float)
@@ -209,8 +213,9 @@ def panel_tstar(ax, rec):
         uN = np.unique(Ns)
         for n in uN:      # one point per network beside its size's mean, as in Fig. 2a,b
             v = ts[Ns == n]
-            ax.plot(n * 10 ** network_offsets(task, len(v)), v, "o", ms=ps.SMALL_MARKER_PT, mew=0,
-                    **ps.mark_floor(TASK_COL[task]))
+            before = n_cddm.get(n, 0) if task == "DMTS" else 0
+            ax.plot(n * 10 ** network_offsets(task, len(v), before), v, "o", ms=ps.SMALL_MARKER_PT,
+                    mew=0, **ps.mark_floor(TASK_COL[task]))
         m = [ts[Ns == n].mean() for n in uN]
         ax.plot(uN, m, "o-", ms=ps.MARKER_PT, lw=ps.DATA_LW, color=TASK_COL[task], label=task,
                 **ps.mark_floor(TASK_COL[task]))
