@@ -10,8 +10,13 @@ units scores as the intact network retrained the same way.
       by 3-28% (dead-relu-paper#13, notebook 2026-10-31_1657).
   (c) active units at N = 1,000 on all three tasks, every run at its own floor crossing, with
       held-out R^2 there (panel_tasks). All four 3BFF networks are drawn (decision dead-relu-paper#20).
-  (d) held-out R^2 as units are removed, three networks per task, with prune-and-retrain stars;
-      one sub-panel per task, side by side, the legend above them and off the data.
+  (d) held-out R^2 as units are removed, three networks per task; one sub-panel per task, side by
+      side, the legend above them and off the data. Round 3 (dead-relu-paper#85, #83): the left
+      spine sits 1.4 mm outward so the busiest-first curve is clear of it; the inactive units are a
+      grey bar along the top, not a band behind the curves; the retrained networks are a strip right
+      of each sub-panel, stars (inactive removed) and triangles (as many removed at random), every
+      mark filled because fill means the floor crossing in every figure. Inactive units in (a) are
+      light grey dots, no longer hollow.
 
 ROUND 2 STYLE (dead-relu-paper#31, #40; paperstyle.py). Drawn at the printed width (W_FULL_MM).
 One meaning per colour: ACTIVE (near-black) and INACTIVE (light grey) for unit classes in (a), (b)
@@ -99,7 +104,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.patches import Circle, Patch
+from matplotlib.patches import Circle, Patch, Rectangle
 from matplotlib.path import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -842,8 +847,9 @@ def panel_a(ax_net, ax_tr, rates, p):
         ps.arrow(ax_net, (gx[src], gy[src]), (gx[dst], gy[dst]), rad=rad, col=CONN_COL, lw=0.5,
                  zorder=2, mutation_scale=4.0, shrink=1.9, style="-|>")
 
-    ax_net.scatter(gx[~on], gy[~on], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.6,
-                   zorder=3)
+    # both classes are filled and told apart by colour: fill marks the floor crossing in every
+    # figure and means nothing else (dead-relu-paper#83)
+    ax_net.scatter(gx[~on], gy[~on], s=DOT_S, color=SILENT_GREY, edgecolor="none", zorder=3)
     ax_net.scatter(gx[on], gy[on], s=DOT_S, color=ACTIVE_COL, edgecolor="none", zorder=4)
 
     # inputs and outputs: what makes it a circuit rather than a bag of units. The task is named in
@@ -855,13 +861,13 @@ def panel_a(ax_net, ax_tr, rates, p):
     ax_net.text(-1.30, 0.44, "inputs", ha="center", va="bottom", fontsize=ps.TICK_PT, color=ps.INK)
     ax_net.text(1.30, 0.44, "outputs", ha="center", va="bottom", fontsize=ps.TICK_PT, color=ps.INK)
 
-    # the key: a filled dot is an active unit, a hollow grey one an inactive unit, with the counts
+    # the key: a near-black dot is an active unit, a light grey one an inactive unit, with the counts
     ax_net.scatter([-1.62], [-1.32], s=DOT_S, color=ACTIVE_COL, edgecolor="none", zorder=4,
                    clip_on=False)
     ax_net.text(-1.50, -1.32, f"{ps.fmt_count(n_live)} active", ha="left", va="center",
                 fontsize=ps.TICK_PT, color=ps.INK)
-    ax_net.scatter([0.16], [-1.32], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.6,
-                   zorder=4, clip_on=False)
+    ax_net.scatter([0.16], [-1.32], s=DOT_S, color=SILENT_GREY, edgecolor="none", zorder=4,
+                   clip_on=False)
     ax_net.text(0.28, -1.32, f"{ps.fmt_count(N - n_live)} inactive", ha="left", va="center",
                 fontsize=ps.TICK_PT, color=ps.INK)
 
@@ -1315,6 +1321,13 @@ ABLATION = [
 ]
 READOUT_TITLE = {"floor": "each at its loss floor", "end": "end of training"}
 ABL_GRID = np.linspace(0.0, 1.0, 201)        # fraction of units removed, the common x of every curve
+# panel (d) marks (round 3, dead-relu-paper#85 and #83)
+D_YLIM = (0.0, 1.10)           # room above R^2 = 1 for the retrained stars and the inactive bar
+D_BAR_Y = (1.055, 1.09)        # inactive-units bar, in R^2 units, above every curve and star
+D_TITLE_PAD_PT = 6.0           # task title above the axes
+D_SPINE_OUT_PT = 4.0           # left spine offset: 1.4 mm between the spine and the busiest-first drop
+D_STAR_MS, D_TRI_MS = 5.5, 3.8 # retrained marks: star (inactive removed), triangle (random removed)
+D_STRIP_JITTER = 0.22          # half-spread of the networks within one column of the retrain strip
 
 
 def ablation_results(prefix, readout):
@@ -1358,32 +1371,41 @@ def ablation_for(sources):
     return [], [], None
 
 
-def panel_d(axes, loaded=None, ax_key=None):
+def panel_d(axes, loaded=None, ax_key=None, strips=None):
     """Panel (d): held-out R^2 as units are removed, one sub-panel per task, side by side.
 
     Every network is drawn. Units are removed by zeroing their outgoing weights and the network is
     scored on held-out trials under its training noise (ablate_silent_units.py). Three orders, all in
     the task's colour and told apart by line style: quietest first (solid; thick, mean; thin, each
     network), random order (dashed, mean over five orders and the networks; band, range) and
-    busiest first (dotted, mean). The grey band is the share of inactive units (INACTIVE, the same
-    grey as an inactive unit in panels a and b). A star marks each network pruned of every inactive
-    unit and retrained for 3,000 iterations (ablate_silent_units.py retrain), joined by a thin line
-    to its score straight after removal; an open star marks the same retraining after as many
-    units were removed at random (the control). Scores below 0 are drawn at 0.
+    busiest first (dotted, mean). The left spine is set D_SPINE_OUT_PT outward, so the busiest-first
+    curve, which falls to R^2 = 0 within the first 1-2% of units, runs clear of the spine
+    (dead-relu-paper#85 item 1). The inactive units (mean share of the networks) are a solid INACTIVE
+    bar along the top of the axes, not a band behind the curves, so the grey never mixes with the
+    random-order band (#85 item 3). The retrained networks are drawn in a strip to the right of each
+    sub-panel, sharing its y axis: a star per network for every inactive unit removed and the rest
+    retrained for 3,000 iterations, a triangle for as many units removed at random and retrained the
+    same way (#85 item 2). Every marker is filled: the weights are the floor-crossing snapshots, and
+    fill means the floor crossing in every figure (#83); stars and triangles differ by shape only.
+    Scores below 0 are drawn at 0.
 
     Args:
         axes: one Axes per entry of ABLATION, left to right, sharing the y axis;
         loaded: dict task label -> (ablation dicts, retrain dicts, read-out) as ablation_for returns
             them (the collect stage's record), or None to read the result files on disk;
         ax_key: a blank Axes above the sub-panels that holds the legend (off the data), or None to
-            draw no legend.
+            draw no legend;
+        strips: one narrow Axes per entry of ABLATION for the retrained networks, or None to draw
+            them inside `axes` at each network's inactive share (the pre-round-3 placement, kept for
+            fig_cosyne2027).
     Returns:
         list of (task, n nets, inactive, r2 intact, r2 all inactive removed, r2 same number random,
         r2 all active removed, read-out, iteration, r2 after pruning and retraining) rows, means
         over nets.
     """
     rows = []
-    for ax, (label, sources, col) in zip(axes, ABLATION):
+    strips = strips if strips is not None else [None] * len(axes)
+    for ax, ax_s, (label, sources, col) in zip(axes, strips, ABLATION):
         res, ret, readout = (ablation_for(sources) if loaded is None
                              else loaded.get(label, ([], [], None)))
         floor_r2 = TASK_MIN_R2.get(label)
@@ -1394,7 +1416,9 @@ def panel_d(axes, loaded=None, ax_key=None):
             continue
         x = 100 * ABL_GRID
         silent = np.array([r["n_silent"] / r["N"] for r in res])
-        ax.axvspan(0, 100 * silent.mean(), color=SILENT_GREY, alpha=0.35, lw=0, zorder=0)
+        # the inactive units: a solid bar just above the data, from 0 to the mean inactive share
+        ax.add_patch(Rectangle((0, D_BAR_Y[0]), 100 * silent.mean(), D_BAR_Y[1] - D_BAR_Y[0],
+                               color=SILENT_GREY, lw=0, zorder=1))
         quiet = np.array([_on_grid(r, "quiet_first") for r in res])
         busy = np.array([_on_grid(r, "busy_first") for r in res])
         rand = np.concatenate([_on_grid(r, "random") for r in res])
@@ -1404,20 +1428,38 @@ def panel_d(axes, loaded=None, ax_key=None):
         ax.fill_between(x, rand.min(0), rand.max(0), color=col, alpha=0.13, lw=0, zorder=2)
         ax.plot(x, rand.mean(0), "--", lw=0.9, color=col, zorder=4)
         ax.plot(x, busy.mean(0), ":", lw=1.1, color=col, zorder=4)
-        for t in ret:
-            xs = 100 * t["n_silent"] / t["N"]
-            y0, y1 = t["silent_removed"][0][1], t["silent_removed"][-1][1]
-            ax.plot([xs, xs], [max(y0, 0), y1], "-", lw=ps.THIN_LW, color=col, zorder=5)
-            ax.plot(xs, y1, "*", ms=5.5, color=col, mec="white", mew=0.3, zorder=7, clip_on=False)
-            # the control: as many units removed at random, retrained the same way (open star)
-            if t.get("random_removed"):
-                ax.plot(xs, t["random_removed"][-1][1], "*", ms=5.5, mfc="white", mec=col, mew=0.5,
-                        zorder=6, clip_on=False)
-        ax.set(xlim=(0, 100), ylim=(0, 1.0))
+        ax.spines["left"].set_position(("outward", D_SPINE_OUT_PT))
+        if ax_s is None:
+            for t in ret:
+                xs = 100 * t["n_silent"] / t["N"]
+                ax.plot(xs, t["silent_removed"][-1][1], "*", ms=D_STAR_MS, color=col, mec="none",
+                        zorder=7, clip_on=False)
+                if t.get("random_removed"):
+                    ax.plot(xs, t["random_removed"][-1][1], "^", ms=D_TRI_MS, color=col,
+                            mec="none", zorder=6, clip_on=False)
+        else:
+            # one column per retraining, the networks spread a little within it
+            dx = np.linspace(-D_STRIP_JITTER, D_STRIP_JITTER, len(ret)) if len(ret) > 1 else [0.0]
+            for j, t in zip(dx, ret):
+                ax_s.plot(j, max(t["silent_removed"][-1][1], 0), "*", ms=D_STAR_MS, color=col,
+                          mec="none", zorder=7, clip_on=False)
+                if t.get("random_removed"):
+                    ax_s.plot(1 + j, max(t["random_removed"][-1][1], 0), "^", ms=D_TRI_MS,
+                              color=col, mec="none", zorder=6, clip_on=False)
+            ax_s.set(xlim=(-0.6, 1.6), ylim=D_YLIM)
+            ax_s.set_title("retrained", fontsize=ps.TICK_PT, color=ps.MUTED, pad=D_TITLE_PAD_PT)
+            ax_s.set_xticks([])
+            ax_s.tick_params(labelleft=False)
+            ax_s.set_yticks([0, 0.5, 1.0])
+            ax_s.spines["left"].set_visible(False)
+            ax_s.tick_params(axis="y", length=0)
+            ps.ygrid(ax_s)
+        ax.set(xlim=(0, 100), ylim=D_YLIM)
         ax.set_xticks([0, 50, 100])
         ax.set_yticks([0, 0.5, 1.0])
         ps.ygrid(ax)
-        ax.set_title(TASK_SHORT.get(label, label), fontsize=ps.LABEL_PT, color=ps.INK, pad=6)
+        ax.set_title(TASK_SHORT.get(label, label), fontsize=ps.LABEL_PT, color=ps.INK,
+                     pad=D_TITLE_PAD_PT)
         rows.append((label, len(res), float(np.mean([r["n_silent"] for r in res])),
                      float(np.mean([r["r2_full"] for r in res])),
                      float(np.mean([r["r2_no_silent"] for r in res])),
@@ -1438,10 +1480,10 @@ def panel_d(axes, loaded=None, ax_key=None):
             Line2D([], [], color=ps.MUTED, lw=1.2, label="quietest first"),
             Line2D([], [], color=ps.MUTED, lw=0.9, ls="--", label="random order"),
             Line2D([], [], color=ps.MUTED, lw=1.1, ls=":", label="busiest first"),
-            Patch(color=SILENT_GREY, alpha=0.35, label="inactive units"),
-            Line2D([], [], color=ps.MUTED, marker="*", ls="", ms=5.5,
+            Patch(color=SILENT_GREY, lw=0, label="inactive units"),
+            Line2D([], [], color=ps.MUTED, marker="*", ls="", ms=D_STAR_MS, mec="none",
                    label="inactive units removed, then retrained"),
-            Line2D([], [], marker="*", ls="", ms=5.5, mfc="white", mec=ps.MUTED, mew=0.5,
+            Line2D([], [], color=ps.MUTED, marker="^", ls="", ms=D_TRI_MS, mec="none",
                    label="as many removed at random, then retrained")],
             loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=3, fontsize=ps.TICK_PT,
             handlelength=2.0, columnspacing=1.2, borderaxespad=0.0, borderpad=0.0, frameon=False)
@@ -1660,10 +1702,11 @@ LAYOUT_MM = {                  # name: (left, top, width, height)
     "b_top": (111.0, 10.0, 51.0, 18.0),   # b, untrained
     "b_bot": (111.0, 36.5, 51.0, 18.0),   # b, trained
     "c":     (14.0, 77.0, 40.0, 47.0),    # c, active units per task
-    "d_key": (69.0, 72.0, 93.0, 7.0),     # d, legend strip, above the sub-panels and off the data
-    "d":     (69.0, 86.0, 27.0, 38.0),    # d, first of three side-by-side sub-panels
+    "d_key": (69.0, 71.0, 93.0, 7.0),     # d, legend strip, above the sub-panels and off the data
+    "d":     (70.5, 86.0, 21.0, 38.0),    # d, first of three side-by-side sub-panels (removal curves)
 }
-D_GAP_MM = 6.0                 # gap between the sub-panels of d
+D_GAP_MM = 4.5                 # gap between one task's retrain strip and the next task's sub-panel
+D_STRIP_MM = (1.5, 5.5)        # retrain strip right of each sub-panel: (gap, width)
 LETTER_X_MM = {"a": 1.0, "c": 1.0, "b": 100.0, "d": 59.0}  # panel letters: left edges, two columns
 LETTER_TOP_MM = {"a": 4.5, "b": 4.5, "c": 71.0, "d": 71.0}  # letter baseline, from the top
 
@@ -1903,11 +1946,14 @@ def main():
     letter_mm(ax_c, "c")
 
     left, top, w, h = L["d"]
-    axes_d = [ax_mm(fig, left + i * (w + D_GAP_MM), top, w, h) for i in range(len(ABLATION))]
-    for ax in axes_d[1:]:
+    step = w + sum(D_STRIP_MM) + D_GAP_MM
+    axes_d = [ax_mm(fig, left + i * step, top, w, h) for i in range(len(ABLATION))]
+    strips_d = [ax_mm(fig, left + i * step + w + D_STRIP_MM[0], top, D_STRIP_MM[1], h)
+                for i in range(len(ABLATION))]
+    for ax in axes_d[1:] + strips_d:
         ax.sharey(axes_d[0])
     ax_key = ax_mm(fig, *L["d_key"])
-    rows_d = panel_d(axes_d, loaded=rec["ablation"], ax_key=ax_key)
+    rows_d = panel_d(axes_d, loaded=rec["ablation"], ax_key=ax_key, strips=strips_d)
     letter_mm(ax_key, "d")
 
     check_overlaps(fig)
