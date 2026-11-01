@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 """
-Manuscript Figure 1 (round 1 of the paper push, 31 Oct 2026). Training splits a network's units into
-an active and an inactive group, and the inactive units do no work the network cannot do without.
+Manuscript Figure 1 (round 2 of the paper push, 1 Nov 2026; dead-relu-paper#52). Training splits a
+network's units into an active and an inactive group, and a network retrained without its inactive
+units scores as the intact network retrained the same way.
 
-  (a) one 3-bit flip-flop network (N = 1000, 200k iterations): schematic and 8 random units
-  (b) participation of every unit before and after training, criterion in the valley
-  (c) active units at N = 1000 on all three tasks, every run at its own loss floor, against
-      held-out R^2 at that floor (panel_tasks; replaces the paper's "It is not one task" table)
-  (d) held-out R^2 as units are removed, three networks per task, with prune-and-retrain stars
+  (a) one 3-bit flip-flop (3BFF) network (N = 1,000, 200,000 iterations): schematic and 8 random units
+  (b) participation of every unit before and after training, with the criterion. The criterion is
+      not claimed to sit in an empty valley: halving or doubling its factor moves the active count
+      by 3-28% (dead-relu-paper#13, notebook 2026-10-31_1657).
+  (c) active units at N = 1,000 on all three tasks, every run at its own floor crossing, with
+      held-out R^2 there (panel_tasks). All four 3BFF networks are drawn (decision dead-relu-paper#20).
+  (d) held-out R^2 as units are removed, three networks per task, with prune-and-retrain stars;
+      one sub-panel per task, side by side, the legend above them and off the data.
+
+ROUND 2 STYLE (dead-relu-paper#31, #40; paperstyle.py). Drawn at the printed width (W_FULL_MM).
+One meaning per colour: ACTIVE (near-black) and INACTIVE (light grey) for unit classes in (a), (b)
+and the inactive band of (d); task colours only in (c) and (d); text in ink; the excitatory /
+inhibitory colour code of (a) is gone (every sampled connection is drawn in one neutral grey).
 
 TWO STAGES. `--collect` runs on Della (the networks, snapshots and ablation results live there) and
 pickles every input the figure draws to COLLECT; without the flag the script draws from that pickle,
@@ -89,7 +98,6 @@ from omegaconf import OmegaConf
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Patch
 from matplotlib.path import Path
@@ -140,9 +148,9 @@ BEND = -0.20              # arc3 curvature. Negative bows LEFT of travel, so an 
 R_POOL = 0.90             # pool radius inside the unit-radius boundary circle
 DOT_S = 10.0              # unit glyph area in pt^2 (3.6 pt across), on a 7.5 pt lattice
 GLYPH_SEED, TRACE_SEED = 3, 11
-SILENT_GREY = "#c9c8c0"   # one grey for "silent", in the drawing and in the traces alike
-ACTIVE_COL = ps.SLOTS[1]  # red: active units, their traces, and their count
-EXC_COL, INH_COL = ps.SLOTS[1], ps.SLOTS[0]   # excitatory / inhibitory connections
+SILENT_GREY = ps.INACTIVE  # one grey for an inactive unit, in the drawing, traces and histograms
+ACTIVE_COL = ps.ACTIVE    # near-black: active units, their traces and their histogram
+CONN_COL = ps.FAINT       # the sampled recurrent connections of panel (a), one neutral grey
 
 # A series listed here is drawn, with every seed, but NOT fitted (task -> reason). The exponent
 # would be quoted, and an exponent one seed can move by 0.3 is not a measurement. None at present.
@@ -193,16 +201,17 @@ TASK_SHORT = {EXAMPLE_TASK: "3BFF", "CDDM": "CDDM", DMTS_LABEL: "DMTS"}
 # that crossing (heldout_r2.floor_r2: measured on a kept snapshot, else estimated from the end).
 # (label, cell, colour); the colours are the ones panel (d) gives the same tasks.
 PANEL_TASKS = [
-    (EXAMPLE_TASK, FF200.format(N=1000), ps.SLOTS[0]),
-    ("CDDM", SCALING["CDDM"][1][1000], ps.SLOTS[1]),
-    (DMTS_LABEL, SCALING[DMTS_LABEL][1][1000], ps.SLOTS[2]),
+    (EXAMPLE_TASK, FF200.format(N=1000), ps.TASK_3BFF),
+    ("CDDM", SCALING["CDDM"][1][1000], ps.TASK_CDDM),
+    (DMTS_LABEL, SCALING[DMTS_LABEL][1][1000], ps.TASK_DMTS),
 ]
 # Runs left out of panel (c) on purpose, by a substring of the run folder's name -> the reason.
-# The board's decision (docs/paper_audit.md, "Decisions taken"): the N = 1000 flip-flop straggler
-# stays excluded and a new seed (FFseed4, Della 15657728_4) replaces it. The straggler's loss sat
-# near 1.055x its floor from 125k to 175k (entry 2026-10-15_1342); it reads out under 79932ef, so
-# the collect stage still records its numbers and the drawing stage prints them.
-EXCLUDED_RUNS = {"seed=3374117298": "flip-flop straggler, replaced by FFseed4 (board decision)"}
+# Empty since decision dead-relu-paper#20 (option 2, 31 Oct): the N = 1000 3BFF network of seed
+# 3374117298, once excluded as a straggler and replaced by FFseed4, has a floor crossing under
+# read-out 79932ef (t* 58,968, 277 active, R^2 0.949; entry 2026-10-31_1702), so all four networks
+# are drawn: 277.5 +- 26.6 (n = 4). A collect record written under the old list is re-flagged by
+# apply_decisions, so the change needs no new Della read.
+EXCLUDED_RUNS = {}
 COLLECT = "data/fig_paper_F1_collect.pkl"   # everything the drawing stage reads, written on Della
 
 # Every intervention we ran, grouped into families that share a task, an architecture, a read-out
@@ -767,8 +776,8 @@ def check_connections(conns, gx, gy, clear, trim):
             assert not paths[k].intersects_path(q, filled=False), f"connection {a}->{b} crosses"
 
 
-def panel_a(ax_net, ax_tr, rates, p, p_exc=None):
-    """Panel (a): the problem, and nothing else. The recurrent pool with most of it dead, and
+def panel_a(ax_net, ax_tr, rates, p):
+    """Panel (a): the problem, and nothing else. The recurrent pool with most of it inactive, and
     eight units drawn at random out of that same network.
 
     THE TASK IS DELIBERATELY ABSENT. The previous version of this panel drew the input and output
@@ -778,8 +787,8 @@ def panel_a(ax_net, ax_tr, rates, p, p_exc=None):
     structure of all three now has its own supplementary figure (`fig_supp_tasks.py`), which leaves
     this panel one job: most units of a trained ReLU RNN never leave zero.
 
-    TWO COLOURS, AND THEY ARE THE SAME TWO ON BOTH SIDES. Filled = active, hollow grey = silent in
-    the drawing; the traces repeat exactly that, so a grey trace and a grey dot are the same
+    TWO COLOURS, AND THEY ARE THE SAME TWO ON BOTH SIDES. Filled black = active, hollow grey =
+    inactive in the drawing; the traces repeat exactly that, so a grey trace and a grey dot are the same
     statement. Giving each trace its own hue, as this panel used to, encodes identity - which is
     not a variable the reader needs.
 
@@ -790,9 +799,7 @@ def panel_a(ax_net, ax_tr, rates, p, p_exc=None):
 
     Args:
         ax_net: blank axes for the network drawing; ax_tr: blank axes for the traces;
-        rates: (N, T, B) firing rates; p: (N,) participation;
-        p_exc: fraction of positive off-diagonal recurrent weights, or None to read it from the
-            example network on disk (excitatory_fraction).
+        rates: (N, T, B) firing rates; p: (N,) participation.
     Returns:
         (n_live, n_shown_live, n_conn): active units in the network, how many of the drawn units
         were active, and how many connections the layout managed to place.
@@ -804,7 +811,7 @@ def panel_a(ax_net, ax_tr, rates, p, p_exc=None):
 
     # --- left: the recurrent pool as a circuit -------------------------------------------------
     ps.blank(ax_net)
-    ax_net.set(xlim=(-1.78, 1.78), ylim=(-2.12, 1.16))
+    ax_net.set(xlim=(-1.78, 1.78), ylim=(-1.50, 1.16))
     ax_net.set_aspect("equal", adjustable="box")
 
     rng = np.random.default_rng(GLYPH_SEED)
@@ -828,43 +835,34 @@ def panel_a(ax_net, ax_tr, rates, p, p_exc=None):
     clear, trim = 0.40 * nn, 0.30 * nn        # clearance 3.0 pt against a 1.8 pt glyph radius
     conns = plan_connections(gx, gy, rng, N_EDGES, 1.02 * nn, 2.4 * nn, clear, BEND, trim)
     check_connections(conns, gx, gy, clear, trim)
-    if p_exc is None:
-        p_exc = excitatory_fraction()
+    # one neutral grey for every connection: the sign of a weight is not a variable of this figure,
+    # and a red/blue sign code reused the task and unit-class hues (dead-relu-paper#31 item 2)
     for src, dst, rad, _ in conns:
-        exc = rng.random() < p_exc
-        ps.arrow(ax_net, (gx[src], gy[src]), (gx[dst], gy[dst]), rad=rad,
-                 col=EXC_COL if exc else INH_COL, lw=0.5, zorder=2, mutation_scale=4.0,
-                 shrink=1.9, style="-|>" if exc else "-[,widthB=0.32,lengthB=0.0")
+        ps.arrow(ax_net, (gx[src], gy[src]), (gx[dst], gy[dst]), rad=rad, col=CONN_COL, lw=0.5,
+                 zorder=2, mutation_scale=4.0, shrink=1.9, style="-|>")
 
-    ax_net.scatter(gx[~on], gy[~on], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
+    ax_net.scatter(gx[~on], gy[~on], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.6,
                    zorder=3)
     ax_net.scatter(gx[on], gy[on], s=DOT_S, color=ACTIVE_COL, edgecolor="none", zorder=4)
 
-    # inputs and outputs: what makes it a circuit rather than a bag of units. The task is named,
-    # not explained - its trial structure is the supplementary task figure.
+    # inputs and outputs: what makes it a circuit rather than a bag of units. The task is named in
+    # the panel title, not explained - its trial structure is Supplementary Fig. 1.
     for y in (0.30, 0.0, -0.30):
         xc = np.sqrt(max(1.0 - y * y, 0.0))
         ps.arrow(ax_net, (-1.60, y), (-xc - 0.03, y), col=ps.INK, lw=0.7, mutation_scale=5)
         ps.arrow(ax_net, (xc + 0.03, y), (1.60, y), col=ps.INK, lw=0.7, mutation_scale=5)
-    ax_net.text(-1.30, 0.44, "inputs", ha="center", va="bottom", fontsize=6.0, color=ps.INK)
-    ax_net.text(1.30, 0.44, "outputs", ha="center", va="bottom", fontsize=6.0, color=ps.INK)
+    ax_net.text(-1.30, 0.44, "inputs", ha="center", va="bottom", fontsize=ps.TICK_PT, color=ps.INK)
+    ax_net.text(1.30, 0.44, "outputs", ha="center", va="bottom", fontsize=ps.TICK_PT, color=ps.INK)
 
-    ax_net.text(0.0, -1.20, "3-bit flip-flop task", ha="center", va="center", fontsize=6.2,
-                color=ps.INK)
-    ax_net.scatter([-1.62], [-1.58], s=DOT_S, color=ACTIVE_COL, edgecolor="none", zorder=4,
+    # the key: a filled dot is an active unit, a hollow grey one an inactive unit, with the counts
+    ax_net.scatter([-1.62], [-1.32], s=DOT_S, color=ACTIVE_COL, edgecolor="none", zorder=4,
                    clip_on=False)
-    ax_net.text(-1.50, -1.58, f"{n_live} active", ha="left", va="center", fontsize=6.0,
-                color=ACTIVE_COL)
-    ax_net.scatter([0.16], [-1.58], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.5,
+    ax_net.text(-1.50, -1.32, f"{ps.fmt_count(n_live)} active", ha="left", va="center",
+                fontsize=ps.TICK_PT, color=ps.INK)
+    ax_net.scatter([0.16], [-1.32], s=DOT_S, facecolor="none", edgecolor=SILENT_GREY, lw=0.6,
                    zorder=4, clip_on=False)
-    ax_net.text(0.28, -1.58, f"{N - n_live} inactive", ha="left", va="center", fontsize=6.0,
-                color=ps.MUTED)
-    ps.arrow(ax_net, (-1.70, -1.94), (-1.50, -1.94), col=EXC_COL, lw=0.5, mutation_scale=4.0,
-             shrink=0, style="-|>")
-    ax_net.text(-1.44, -1.94, "excitatory", ha="left", va="center", fontsize=6.0, color=EXC_COL)
-    ps.arrow(ax_net, (0.08, -1.94), (0.28, -1.94), col=INH_COL, lw=0.5, mutation_scale=4.0,
-             shrink=0, style="-[,widthB=0.30,lengthB=0.0")
-    ax_net.text(0.34, -1.94, "inhibitory", ha="left", va="center", fontsize=6.0, color=INH_COL)
+    ax_net.text(0.28, -1.32, f"{ps.fmt_count(N - n_live)} inactive", ha="left", va="center",
+                fontsize=ps.TICK_PT, color=ps.INK)
 
     # --- right: units drawn at random out of that same network ---------------------------------
     ps.blank(ax_tr)
@@ -885,13 +883,13 @@ def panel_a(ax_net, ax_tr, rates, p, p_exc=None):
 
     n_shown_live = int(live[pick].sum())
     for lo, hi, lab, col in [(N_SHOWN - n_shown_live, N_SHOWN - 1, "active", ACTIVE_COL),
-                             (0, N_SHOWN - n_shown_live - 1, "inactive", ps.MUTED)]:
+                             (0, N_SHOWN - n_shown_live - 1, "inactive", SILENT_GREY)]:
         if hi < lo:
             continue
         ax_tr.plot([T + 16] * 2, [lo - 0.18, hi + 0.86], lw=0.8, color=col, zorder=4,
                    solid_capstyle="round")
-        ax_tr.text(T + 26, (lo + hi + 0.68) / 2, lab, ha="left", va="center", fontsize=6.2,
-                   color=col)
+        ax_tr.text(T + 26, (lo + hi + 0.68) / 2, lab, ha="left", va="center", fontsize=ps.TICK_PT,
+                   color=ps.INK)
 
     # scale bars instead of axes: a schematic panel should not spend two spines on a quantity
     # whose absolute value carries no meaning (ReLU rates are in arbitrary units)
@@ -899,23 +897,25 @@ def panel_a(ax_net, ax_tr, rates, p, p_exc=None):
     y0 = float(N_SHOWN - 1)                    # beside the tallest trace, not in a corner
     ax_tr.plot([-20, -20], [y0, y0 + amp * v], lw=1.0, color=ps.INK, zorder=4,
                solid_capstyle="butt")
-    ax_tr.text(-27, y0 + amp * v / 2, f"{v:g} a.u.\nrate", ha="right", va="center", fontsize=5.4,
-               color=ps.MUTED, linespacing=1.3)
+    ax_tr.text(-27, y0 + amp * v / 2, f"{v:g} a.u.\nrate", ha="right", va="center",
+               fontsize=ps.TICK_PT, color=ps.INK, linespacing=1.2)
     ax_tr.plot([0, 100], [-0.72] * 2, lw=1.0, color=ps.INK, zorder=4, solid_capstyle="butt")
-    ax_tr.text(50, -0.92, r"10 $\tau$", ha="center", va="top", fontsize=5.4, color=ps.MUTED)
+    ax_tr.text(50, -0.95, r"10 $\tau$", ha="center", va="top", fontsize=ps.TICK_PT, color=ps.INK)
 
     ax_tr.text(T / 2, N_SHOWN + 0.02, f"{N_SHOWN} units drawn at random, one trial",
-               ha="center", va="bottom", fontsize=6.4, color=ps.INK)
-    ax_tr.set(xlim=(-105, T + 80), ylim=(-1.35, N_SHOWN + 0.55))
+               ha="center", va="bottom", fontsize=ps.LABEL_PT, color=ps.INK)
+    ax_tr.set(xlim=(-130, T + 95), ylim=(-1.55, N_SHOWN + 0.55))
     return n_live, n_shown_live, len(conns)
 
 
 def panel_b_pair(axes, p_init, p, iterations):
     """Panel (b): participation of the example network before and after training, on a log axis.
 
-    Two sub-panels on one x axis: the untrained twin (top) - unimodal, nearly every unit above the
-    criterion - and the same network after training (bottom) - bimodal, the criterion in the empty
-    valley between the modes, so the threshold is read off the data rather than chosen.
+    Two sub-panels on one x axis: the untrained twin (top) and the same network after training
+    (bottom), the dashed line at the criterion 0.05 q95(p) of each. Active units are drawn in ACTIVE,
+    inactive ones in INACTIVE, and each class is labelled directly with its count, above its own
+    bars, so no legend sits on the data. The figure makes no claim that the criterion falls in an
+    empty valley (dead-relu-paper#13: halving or doubling the factor moves the count by 3-28%).
 
     Args:
         axes: (top, bottom) axes; p_init, p: (N,) participation untrained and trained;
@@ -926,34 +926,39 @@ def panel_b_pair(axes, p_init, p, iterations):
     allp = np.maximum(np.r_[p_init, p], 1e-6)
     bins = np.logspace(np.log10(allp.min() * 0.7), np.log10(allp.max() * 1.4), 46)
     counts = []
-    for ax, q, title in ((axes[0], p_init, f"{TASK_SHORT[EXAMPLE_TASK]}, $N = {len(p)}$: untrained"),
-                         (axes[1], p, f"after {iterations:,} training iterations")):
+    for ax, q, title in ((axes[0], p_init, "untrained"),
+                         (axes[1], p, f"after {ps.fmt_count(iterations)} training iterations")):
         thr = SILENT_REL * np.quantile(q, 0.95)
         qq = np.maximum(q, 1e-6)
         live = qq >= thr
-        ax.hist(qq[~live], bins=bins, color=ps.FAINT, edgecolor="none",
-                label=f"inactive ({(~live).sum()})")
-        ax.hist(qq[live], bins=bins, color=ACTIVE_COL, edgecolor="none",
-                label=f"active ({live.sum()})")
-        ax.axvline(thr, color=ps.INK, lw=0.9, ls="--", zorder=5)
-        top = ax.get_ylim()[1]
-        ax.set_ylim(0, top * 1.3)
+        h_in, _, _ = ax.hist(qq[~live], bins=bins, color=SILENT_GREY, edgecolor="none")
+        h_on, _, _ = ax.hist(qq[live], bins=bins, color=ACTIVE_COL, edgecolor="none")
+        ax.axvline(thr, color=ps.INK, lw=0.8, ls=(0, (3, 2)), zorder=5)
+        top = max(h_in.max(), h_on.max())
+        ax.set_ylim(0, top * 1.32)
         ax.set_xscale("log")
         ax.set_xlim(bins[0], bins[-1])
-        ax.set_title(title, fontsize=5.8, color=ps.INK, pad=2, loc="left")
-        # trained: the silent mode towers at the left, so the legend goes over the empty middle
-        ax.legend(loc="upper left" if q is p_init else "upper center", fontsize=5.4,
-                  handlelength=1.2, borderaxespad=0.2)
+        ax.set_title(title, fontsize=ps.LABEL_PT, color=ps.INK, pad=2, loc="left")
+        # direct labels: each class's count just above its own tallest bar, centred on its bars
+        # (the inactive label of the untrained network sits left of the criterion, where its few
+        # bars are)
+        for mask, h, word, ha in ((~live, h_in, "inactive", "right"), (live, h_on, "active", "center")):
+            if not mask.any():
+                continue
+            k = int(np.argmax(h))
+            xc = np.sqrt(bins[k] * bins[k + 1])
+            if ha == "right":
+                xc = min(xc * 3.0, thr / 1.25) if q is p_init else xc * 1.6
+            ax.text(xc, h[k] + top * 0.06, f"{ps.fmt_count(int(mask.sum()))} {word}",
+                    ha=ha if q is p_init else "left", va="bottom", fontsize=ps.TICK_PT,
+                    color=ps.INK)
         ax.set_ylabel("units")
-        ps.ygrid(ax)
+        ax.set_yticks([0, 100, 200])
         counts.append(int(live.sum()))
-    axes[1].text(SILENT_REL * np.quantile(p, 0.95) * 1.35, axes[1].get_ylim()[1] * 0.88,
-                 "criterion", fontsize=5.6, color=ps.INK, ha="left", va="center")
+    axes[0].text(SILENT_REL * np.quantile(p_init, 0.95) / 1.25, axes[0].get_ylim()[1] * 0.98,
+                 "criterion", fontsize=ps.TICK_PT, color=ps.INK, ha="right", va="top")
     axes[0].tick_params(labelbottom=False)
-    # spelled out, because "p" on its own is the one thing a reader of this figure has to be
-    # told: it is not the firing rate, it is how far the rate moves and how high it gets
-    axes[1].set_xlabel("participation  $p_i=\\mathrm{std}(r_i)+q_{0.9}(|r_i|)$: how much unit "
-                       "$i$'s rate moves\nover a trial, and how high it gets", fontsize=5.8)
+    axes[1].set_xlabel("participation $p_i$")
     return counts
 
 
@@ -1302,9 +1307,9 @@ RETRAIN_DIRS = ("/scratch/gpfs/TENGEL/pt1290/c1_retrain_79932ef",)
 ABLATION = [
     ("3-bit flip-flop", [("NBitFlipFlop_c1_snapshots_c200000__EqType=h_N=1000_arm=control", "floor"),
                          ("NBitFlipFlop_ff_revive_c75000__EqType=h_k=3_N=1000_pen=none_arm=none",
-                          "end")], ps.SLOTS[0]),
-    ("CDDM", [("CDDM_c1_snapshots__EqType=h_N=1000_arm=control", "floor")], ps.SLOTS[1]),
-    (DMTS_LABEL, [("DMTS_c1_snapshots__EqType=h_N=1000_arm=control", "floor")], ps.SLOTS[2]),
+                          "end")], ps.TASK_3BFF),
+    ("CDDM", [("CDDM_c1_snapshots__EqType=h_N=1000_arm=control", "floor")], ps.TASK_CDDM),
+    (DMTS_LABEL, [("DMTS_c1_snapshots__EqType=h_N=1000_arm=control", "floor")], ps.TASK_DMTS),
 ]
 READOUT_TITLE = {"floor": "each at its loss floor", "end": "end of training"}
 ABL_GRID = np.linspace(0.0, 1.0, 201)        # fraction of units removed, the common x of every curve
@@ -1351,28 +1356,26 @@ def ablation_for(sources):
     return [], [], None
 
 
-def panel_d(axes, loaded=None):
-    """Panel (d): the silent units do no work - held-out r2 as units are removed.
+def panel_d(axes, loaded=None, ax_key=None):
+    """Panel (d): held-out R^2 as units are removed, one sub-panel per task, side by side.
 
-    One sub-panel per task, every seed. Units are removed by zeroing their outgoing weights and the
-    network is scored on held-out inputs under its training noise (ablate_silent_units.py). Three
-    orders: quietest first (solid, the task's colour), random (dashed, mean over five orders and
-    the seeds), and busiest first (dotted). The shaded band is the silent share of the network.
-    Quietest-first holds the score across the whole band and collapses only when the first working
-    unit goes; the same number removed at random, or the working few, take the score to chance.
-    Where removing the silent units does cost something (the flip-flop, DMTS right after its
-    escape), the star says whether the network needs them: the silent units pruned and the rest
-    fine-tuned for 3,000 iterations (ablate_silent_units.py retrain), the thin line rising from the
-    score straight after removal.
-
-    Scores below 0 (worse than predicting the mean) are drawn at the axis floor.
+    Every network is drawn. Units are removed by zeroing their outgoing weights and the network is
+    scored on held-out trials under its training noise (ablate_silent_units.py). Three orders, all in
+    the task's colour and told apart by line style: quietest first (solid; thick, mean; thin, each
+    network), random order (dashed, mean over five orders and the networks; band, range) and
+    busiest first (dotted, mean). The grey band is the share of inactive units (INACTIVE, the same
+    grey as an inactive unit in panels a and b). A star marks each network pruned of every inactive
+    unit and retrained for 3,000 iterations (ablate_silent_units.py retrain), joined by a thin line
+    to its score straight after removal. Scores below 0 are drawn at 0.
 
     Args:
-        axes: one Axes per entry of ABLATION, top to bottom;
+        axes: one Axes per entry of ABLATION, left to right, sharing the y axis;
         loaded: dict task label -> (ablation dicts, retrain dicts, read-out) as ablation_for returns
-            them (the collect stage's record), or None to read the result files on disk.
+            them (the collect stage's record), or None to read the result files on disk;
+        ax_key: a blank Axes above the sub-panels that holds the legend (off the data), or None to
+            draw no legend.
     Returns:
-        list of (task, n nets, silent, r2 intact, r2 all silent removed, r2 same number random,
+        list of (task, n nets, inactive, r2 intact, r2 all inactive removed, r2 same number random,
         r2 all active removed, read-out, iteration, r2 after pruning and retraining) rows, means
         over nets.
     """
@@ -1388,32 +1391,27 @@ def panel_d(axes, loaded=None):
             continue
         x = 100 * ABL_GRID
         silent = np.array([r["n_silent"] / r["N"] for r in res])
-        ax.axvspan(0, 100 * silent.mean(), color=ps.GRID, alpha=0.9, lw=0, zorder=0)
+        ax.axvspan(0, 100 * silent.mean(), color=SILENT_GREY, alpha=0.35, lw=0, zorder=0)
         quiet = np.array([_on_grid(r, "quiet_first") for r in res])
         busy = np.array([_on_grid(r, "busy_first") for r in res])
         rand = np.concatenate([_on_grid(r, "random") for r in res])
         for q in quiet:
-            ax.plot(x, q, "-", lw=0.5, color=col, alpha=0.35, zorder=3)
+            ax.plot(x, q, "-", lw=ps.THIN_LW, color=col, alpha=0.45, zorder=3)
         ax.plot(x, quiet.mean(0), "-", lw=1.2, color=col, zorder=5)
-        ax.fill_between(x, rand.min(0), rand.max(0), color=col, alpha=0.12, lw=0, zorder=2)
-        ax.plot(x, rand.mean(0), "--", lw=0.9, color=col, alpha=0.8, zorder=4)
-        ax.plot(x, busy.mean(0), ":", lw=1.0, color=ps.INK, alpha=0.8, zorder=4)
-        # prune-and-retrain: the silent units removed, the rest fine-tuned 3,000 iterations. A thin
-        # line from the score straight after removal to the score after fine-tuning, a star there.
-        # Drawn for every task: where removal costs nothing (CDDM) the star sits on the intact score.
+        ax.fill_between(x, rand.min(0), rand.max(0), color=col, alpha=0.13, lw=0, zorder=2)
+        ax.plot(x, rand.mean(0), "--", lw=0.9, color=col, zorder=4)
+        ax.plot(x, busy.mean(0), ":", lw=1.1, color=col, zorder=4)
         for t in ret:
             xs = 100 * t["n_silent"] / t["N"]
             y0, y1 = t["silent_removed"][0][1], t["silent_removed"][-1][1]
-            ax.plot([xs, xs], [max(y0, 0), y1], "-", lw=0.6, color=col, alpha=0.7, zorder=5)
-            ax.plot(xs, y1, "*", ms=6, color=col, mec="white", mew=0.4, zorder=6)
-        top = max(1.0, float(np.max([r["r2_full"] for r in res]))) * 1.04
-        ax.set(xlim=(0, 100), ylim=(0, top))
+            ax.plot([xs, xs], [max(y0, 0), y1], "-", lw=ps.THIN_LW, color=col, zorder=5)
+            ax.plot(xs, y1, "*", ms=5.5, color=col, mec="white", mew=0.3, zorder=6, clip_on=False)
+        ax.set(xlim=(0, 100), ylim=(0, 1.0))
+        ax.set_xticks([0, 50, 100])
+        ax.set_yticks([0, 0.5, 1.0])
         ps.ygrid(ax)
-        n = len(res)
-        ax.set_title(f"{TASK_SHORT.get(label, label)},  $N = {res[0]['N']}$,  {n} networks, "
-                     f"{READOUT_TITLE[readout]}",
-                     fontsize=5.8, color=ps.INK, pad=3)
-        rows.append((label, n, float(np.mean([r["n_silent"] for r in res])),
+        ax.set_title(TASK_SHORT.get(label, label), fontsize=ps.LABEL_PT, color=ps.INK, pad=6)
+        rows.append((label, len(res), float(np.mean([r["n_silent"] for r in res])),
                      float(np.mean([r["r2_full"] for r in res])),
                      float(np.mean([r["r2_no_silent"] for r in res])),
                      float(np.mean([np.mean(r["r2_random_same_count"]) for r in res])),
@@ -1423,22 +1421,21 @@ def panel_d(axes, loaded=None):
     drawn = [ax for ax in axes if ax.has_data()]
     if not drawn:
         return rows
-    for ax in drawn[:-1]:
-        ax.tick_params(labelbottom=False)
-    drawn[-1].set_xlabel("units removed (% of the network)")
-    drawn[len(drawn) // 2].set_ylabel("held-out $R^2$")
-    # the legend goes in the bottom sub-panel's empty middle: in the top one it sat on the random
-    # order's band, and DMTS's curves leave 20-55% of the axis clear below the quietest-first line
-    drawn[-1].legend(handles=[
-        Line2D([], [], color=ps.INK, lw=1.2, label="quietest first"),
-        Line2D([], [], color=ps.INK, lw=0.9, ls="--", label="random order"),
-        Line2D([], [], color=ps.INK, lw=1.0, ls=":", label="busiest first"),
-        Patch(color=ps.GRID, label="inactive units"),
-        Line2D([], [], color=ps.INK, marker="*", ls="", ms=6, label="pruned + retrained")],
-        # between the random-order band (ends near 22%) and the drop of the quietest-first traces
-        # (from 55%)
-        loc="lower left", bbox_to_anchor=(0.22, 0.02), fontsize=5.2, ncol=1, handlelength=1.8,
-        columnspacing=0.8, frameon=True, framealpha=0.95, facecolor="white", edgecolor=ps.FAINT)
+    for ax in drawn[1:]:
+        ax.tick_params(labelleft=False)
+    drawn[len(drawn) // 2].set_xlabel("units removed (% of the network)")
+    drawn[0].set_ylabel(ps.LABELS["r2"])
+    if ax_key is not None:
+        ps.blank(ax_key)
+        ax_key.legend(handles=[
+            Line2D([], [], color=ps.MUTED, lw=1.2, label="quietest first"),
+            Line2D([], [], color=ps.MUTED, lw=0.9, ls="--", label="random order"),
+            Line2D([], [], color=ps.MUTED, lw=1.1, ls=":", label="busiest first"),
+            Patch(color=SILENT_GREY, alpha=0.35, label="inactive units"),
+            Line2D([], [], color=ps.MUTED, marker="*", ls="", ms=5.5,
+                   label="inactive units removed, then retrained")],
+            loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=3, fontsize=ps.TICK_PT,
+            handlelength=2.0, columnspacing=1.2, borderaxespad=0.0, borderpad=0.0, frameon=False)
     return rows
 
 
@@ -1644,18 +1641,76 @@ def panel_knobs(ax):
 
 
 
-# Figure 1 layout (drawing stage). Width is the journal's double column (ps.W2, 180 mm).
-FIG_H_MM = 140
-ROW_RATIOS = (0.80, 1.45)      # top row a | b, bottom row c | d
-ROW_GAP = 0.30                 # GridSpec hspace between the rows: b's two-line x label sits in it
-W_RATIO, GUTTER = 0.95, 0.30   # left column width relative to the right; wspace between them
-LEFT, RIGHT, TOP, BOTTOM = 0.065, 0.975, 0.975, 0.06
-A_RATIOS, A_WSPACE = (1.25, 1.0), 0.02   # panel a: schematic | traces
-C_LETTER_DX = 0.13             # panel c's letter offset, as a fraction of its axes' width
+# Figure 1 layout (drawing stage), in millimetres on the printed page: the canvas is W_FULL_MM
+# (165.1 mm, \\textwidth) by FIG_H_MM, and every axes is placed by its left edge, top edge, width and
+# height measured from the canvas's top-left corner, so the printed sizes are exact.
+FIG_H_MM = 114.0
+LAYOUT_MM = {                  # name: (left, top, width, height)
+    "net":   (1.0, 8.5, 46.0, 34.0),      # a, the circuit drawing
+    "trace": (49.0, 9.5, 45.0, 36.0),     # a, eight random units
+    "b_top": (108.0, 9.5, 54.0, 15.0),    # b, untrained
+    "b_bot": (108.0, 31.5, 54.0, 15.0),   # b, trained
+    "c":     (14.0, 62.0, 40.0, 40.0),    # c, active units per task
+    "d_key": (69.0, 57.5, 93.0, 6.0),     # d, legend strip, above the sub-panels and off the data
+    "d":     (69.0, 70.0, 27.0, 32.0),    # d, first of three side-by-side sub-panels
+}
+D_GAP_MM = 6.0                 # gap between the sub-panels of d
+LETTER_X_MM = {"a": 1.0, "c": 1.0, "b": 97.0, "d": 59.0}   # panel letters: left edges, two columns
+LETTER_TOP_MM = {"a": 4.5, "b": 4.5, "c": 57.0, "d": 57.0}  # letter baseline, from the top
+
+
+def ax_mm(fig, left, top, width, height):
+    """Add an axes placed in millimetres from the canvas's top-left corner.
+
+    Args:
+        fig: the figure (its size fixes the conversion); left, top, width, height: in mm.
+    Returns:
+        the new Axes.
+    """
+    W, H = fig.get_figwidth() / ps.MM, fig.get_figheight() / ps.MM
+    return fig.add_axes([left / W, 1.0 - (top + height) / H, width / W, height / H])
+
+
+def letter_mm(ax, letter):
+    """Put a panel letter at LETTER_X_MM / LETTER_TOP_MM, through ps.panel_letter's mm offsets.
+
+    Args:
+        ax: the panel's top-left axes (its position fixes the offsets); letter: 'a' to 'd'.
+    Returns:
+        the Text artist.
+    """
+    fig = ax.figure
+    H = fig.get_figheight() / ps.MM
+    bb = ax.get_position()
+    left_mm = bb.x0 * fig.get_figwidth() / ps.MM
+    top_mm = H * (1.0 - bb.y1)
+    return ps.panel_letter(ax, letter, x_mm=left_mm - LETTER_X_MM[letter],
+                           y_mm=top_mm - LETTER_TOP_MM[letter])
+
+
+def excluded_by_decision(name):
+    """The recorded reason a panel (c) run is left out (EXCLUDED_RUNS), or None."""
+    return next((why for key, why in EXCLUDED_RUNS.items() if key in name), None)
+
+
+def apply_decisions(rec):
+    """Re-apply EXCLUDED_RUNS to the panel (c) rows of a collect record (as fig_paper_F2_size does).
+
+    The record of Della job 16556248 was written while seed 3374117298 was excluded; decision
+    dead-relu-paper#20 draws it, and this re-flags every row so that no new Della read is needed.
+
+    Args:
+        rec: the unpickled COLLECT record (modified in place).
+    Returns:
+        the same record.
+    """
+    for r in rec["tasks"]:
+        r["excluded"] = excluded_by_decision(r["name"])
+    return rec
 
 
 def panel_tasks(ax, rows):
-    """Panel (c): active units at N = 1000 on each task, every run at its own loss floor.
+    """Panel (c): active units at N = 1000 on each task, every run at its own floor crossing.
 
     One column per task: one point per run in the task's colour, a bar at the mean, and under the
     task's name the mean held-out R^2 at the floor and the number of runs drawn. A run is drawn when
@@ -1681,25 +1736,25 @@ def panel_tasks(ax, rows):
                for r in mine if r not in drawn]
         y = np.array([r["active"] for r in drawn], float)
         r2 = np.array([r["r2"] for r in drawn], float)
-        xs = k + np.linspace(-0.09, 0.09, len(y)) if len(y) > 1 else np.full(len(y), float(k))
-        ax.plot([k - 0.24, k + 0.24], [y.mean()] * 2, lw=1.3, color=col, zorder=3,
+        xs = k + np.linspace(-0.12, 0.12, len(y)) if len(y) > 1 else np.full(len(y), float(k))
+        ax.plot([k - 0.26, k + 0.26], [y.mean()] * 2, lw=1.2, color=col, zorder=3,
                 solid_capstyle="butt")
-        ax.plot(xs, y, "o", ms=4.4, color=col, mec="white", mew=0.5, zorder=4)
-        ax.text(k + 0.29, y.mean(), f"{y.mean():.0f}", ha="left", va="center", fontsize=6.2,
-                color=col)
+        ax.plot(xs, y, "o", ms=ps.MARKER_PT + 0.6, color=col, mec="white", mew=0.4, zorder=4)
+        ax.text(k + 0.31, y.mean(), f"{y.mean():.0f}", ha="left", va="center", fontsize=ps.TICK_PT,
+                color=ps.INK)
         ticks.append(f"{TASK_SHORT.get(label, label)}\n$R^2$ = {r2.mean():.3f}\n$n$ = {len(y)}")
         out.append((label, y, r2, [r["measured"] for r in drawn], [r["t_star"] for r in drawn],
                     len(mine), why))
-    ax.axhline(500, color=ps.FAINT, lw=0.7, ls=(0, (4, 3)), zorder=1)
-    ax.text(len(PANEL_TASKS) - 0.45, 515, "half of the units", fontsize=5.8, color=ps.MUTED,
+    ax.axhline(500, color=ps.FAINT, lw=0.6, ls=(0, (4, 3)), zorder=1)
+    ax.text(len(PANEL_TASKS) - 0.45, 515, "half of the units", fontsize=ps.TICK_PT, color=ps.MUTED,
             ha="right", va="bottom")
-    ax.set(xlim=(-0.5, len(PANEL_TASKS) - 0.4), ylim=(0, 1000),
-           ylabel="active units at the loss floor (of 1,000)")
+    ax.set(xlim=(-0.5, len(PANEL_TASKS) - 0.45), ylim=(0, 1000),
+           ylabel=ps.of_n(ps.LABELS["active"], N_UNITS))
     ax.set_xticks(range(len(PANEL_TASKS)))
-    ax.set_xticklabels(ticks, fontsize=6.2, linespacing=1.3)
-    ax.tick_params(axis="x", length=0, pad=4)
+    ax.set_xticklabels(ticks, fontsize=ps.TICK_PT, linespacing=1.25)
+    ax.tick_params(axis="x", length=0, pad=3)
     ax.set_yticks([0, 250, 500, 750, 1000])
-    ps.ygrid(ax)
+    ps.count_ticks(ax.yaxis)
     return out
 
 
@@ -1818,47 +1873,40 @@ def main():
     if args.collect:
         return collect(refresh=args.refresh)
     with open(COLLECT, "rb") as fh:
-        rec = pickle.load(fh)
+        rec = apply_decisions(pickle.load(fh))
     ex = rec["example"]
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, FIG_H_MM * ps.MM))
-    # Two rows, two columns: a over c on the left, b over d on the right, so every panel edge lines
-    # up with the one above or below it. The margins are explicit (the matplotlib default spends
-    # 25 mm of the width on blank edges that the tight-bbox export then trims).
-    gs = GridSpec(2, 2, figure=fig, height_ratios=list(ROW_RATIOS), width_ratios=[W_RATIO, 1.0],
-                  hspace=ROW_GAP, wspace=GUTTER, left=LEFT, right=RIGHT, top=TOP, bottom=BOTTOM)
-    gs_a = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[0, 0], width_ratios=list(A_RATIOS),
-                                   wspace=A_WSPACE)
-    ax_net, ax_tr = fig.add_subplot(gs_a[0, 0]), fig.add_subplot(gs_a[0, 1])
-    n_live, n_shown_live, n_conn = panel_a(ax_net, ax_tr, ex["rates"], ex["p"], p_exc=ex["p_exc"])
-    ax_net.set_title("trained ReLU RNN", fontsize=6.6, color=ps.INK, pad=2)
-    # panel_letter's offset is a fraction of its own axes' width; a's is derived from c's by the
-    # ratio of their widths, so the two letters of the left column sit on one vertical
-    net_frac = A_RATIOS[0] / (sum(A_RATIOS) * (1.0 + A_WSPACE / 2.0))
-    ps.panel_letter(ax_net, "a", dx=-C_LETTER_DX / net_frac, dy=1.02)
+    fig = ps.figure(FIG_H_MM)
+    L = LAYOUT_MM
+    ax_net, ax_tr = ax_mm(fig, *L["net"]), ax_mm(fig, *L["trace"])
+    n_live, n_shown_live, n_conn = panel_a(ax_net, ax_tr, ex["rates"], ex["p"])
+    ax_net.set_title(f"trained 3BFF network, $N$ = {ps.fmt_count(N_UNITS)}",
+                     fontsize=ps.LABEL_PT, color=ps.INK, pad=3)
+    letter_mm(ax_net, "a")
 
-    gs_b = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[0, 1], hspace=0.55)
-    axes_b = [fig.add_subplot(gs_b[0, 0]), fig.add_subplot(gs_b[1, 0])]
+    axes_b = [ax_mm(fig, *L["b_top"]), ax_mm(fig, *L["b_bot"])]
     axes_b[1].sharex(axes_b[0])
     n_init, n_trained = panel_b_pair(axes_b, ex["p_init"], ex["p"], ex["iterations"])
-    ps.panel_letter(axes_b[0], "b")
+    letter_mm(axes_b[0], "b")
 
-    ax_c = fig.add_subplot(gs[1, 0])
+    ax_c = ax_mm(fig, *L["c"])
     rows_c = panel_tasks(ax_c, rec["tasks"])
-    ps.panel_letter(ax_c, "c", dx=-C_LETTER_DX)
+    letter_mm(ax_c, "c")
 
-    gs_d = GridSpecFromSubplotSpec(len(ABLATION), 1, subplot_spec=gs[1, 1], hspace=0.55)
-    axes_d = [fig.add_subplot(gs_d[i, 0]) for i in range(len(ABLATION))]
-    rows_d = panel_d(axes_d, loaded=rec["ablation"])
-    ps.panel_letter(axes_d[0], "d")
+    left, top, w, h = L["d"]
+    axes_d = [ax_mm(fig, left + i * (w + D_GAP_MM), top, w, h) for i in range(len(ABLATION))]
+    for ax in axes_d[1:]:
+        ax.sharey(axes_d[0])
+    ax_key = ax_mm(fig, *L["d_key"])
+    rows_d = panel_d(axes_d, loaded=rec["ablation"], ax_key=ax_key)
+    letter_mm(ax_key, "d")
 
     check_overlaps(fig)
     out = ps.save(fig, "fig_paper_F1")
 
     print("\n--- numbers quoted in the caption and the text ---")
     print(f"  panel a: {n_live} of {N_UNITS} units active; {n_shown_live} of {N_SHOWN} randomly "
-          f"drawn units active; {n_conn} connections drawn over {N_GLYPH} glyphs; excitatory "
-          f"fraction {ex['p_exc']:.3f}")
+          f"drawn units active; {n_conn} connections drawn over {N_GLYPH} glyphs")
     print(f"  panel b: {n_init} of {N_UNITS} active untrained, {n_trained} after "
           f"{ex['iterations']:,} iterations")
     for task, counts, r2, measured, t_star, n_all, why in rows_c:
