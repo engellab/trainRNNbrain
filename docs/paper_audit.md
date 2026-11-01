@@ -37,7 +37,7 @@ bird's-eye view of what works.
 | C2 | Bigger networks keep a smaller share of units active | **Done**; Figure 1 synced to the paper 15 Oct | — |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done**; B5 complete, read at 75k (31 Oct) | — |
 | C4 | On CDDM ~300 of 1,000 units are silent (never fire, no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Done**: in the paper as sec:mechanism (16 Oct) | Paper-wide pass for the silent / low-active terms (Pavel to confirm) |
-| C5 | No standard setting stops the fall of the active count; at 75k CDDM settings move it by +116/−177 units, 3BFF input scale raises it 1.7× and the gain shrinks | **Done at 75k** (31 Oct, entry 2026-10-31_2010): Figure 3 rebuilt, floor read in ED Fig. 4 | Pavel: wording, dead-relu-paper#24 |
+| C5 | No standard setting stops the fall of the active count; at 75k CDDM settings move it by +116/−177 units, 3BFF input scale raises it 1.7× and the gain shrinks | **Done at 75k** (31 Oct, entry 2026-10-31_2010): Figure 3 rebuilt, floor read in ED Fig. 4 | wording: decision dead-relu-paper#24, option 1 |
 | C6 | Rules that give participation its own drive recruit units at a small cost | **Partly done**: remedies read at the floor and A3 done (31 Oct, entry 2026-10-31_1732); B2 failed its rule | Build Figure 3; Pavel to decide how rescaling and read-out dropout are reported above N = 1000 (needs-pavel issue dead-relu-paper#16) |
 | C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running**; B4 supports "cannot be called back" at N = 1000 and 4000 (31 Oct); B3 waits on Pavel (dead-relu-paper#17) | Pavel's B3 decision |
 
@@ -61,9 +61,11 @@ confound (lr ∝ N^−1/3) is left in and handled by reading each network at its
 200-300k with no gain in loss. Flip-flop: units keep dying while the loss is flat (N = 1000: 22-83
 units per 100k in 4 of 5 flat runs, slowing to 11-22 by 300k without stopping; N = 2000 is not yet
 flat at 200k). **Not the optimizer (B5), read at 75k** (entry 2026-10-31_2010; all 13 arms, SGD lr 3 wd 0 copied
-from Spock): Adam (wd 1e-6) has 233-270 active at R² 0.951, AdamW 306-358 at 0.957-0.958; SGD has
-more units only at lower R² (721-759 at lr 0.03, R² 0.873-0.875) and 212-285 at lr 0.3-1 (R² ≤ 0.915);
-lr 3 does not learn (R² 0.21-0.44 at 200k). Under the current read-out most SGD runs have no floor
+from Spock): Adam (wd 1e-6) has 233-270 active (mean 246) at R² 0.951; Adam with wd 0 (mean 305) and
+AdamW (306-358, mean 325) have more at a higher R² (0.956-0.959), the direction weight decay 0 takes on
+CDDM; SGD has more units only at lower R² (721-759 at lr 0.03, R² 0.873-0.875) and 212-285 at lr 0.3-1
+(R² ≤ 0.915); lr 3 does not learn (R² 0.21-0.44 at 200k). Every Adam/AdamW arm keeps losing units to
+200k (169-226 at 200k; means from entry 2026-10-31_2035). Under the current read-out most SGD runs have no floor
 read, so the 14 Oct floor numbers are withdrawn. Figure: Extended Data Fig. 5 (`fig_ed_optimizer`).
 
 **C4.** On CDDM about 300 of a network's 1,000 units are silent: their net input current is
@@ -80,10 +82,12 @@ decay, noise, metabolic penalty, spectral radius, W_rec penalty, activation and 
 costs R² (0.787-0.789) without adding units. The count falls under every setting (weight decay 0:
 466-494 at the floor, 442-469 at 75k, 400-428 at 200k). On 3BFF the input-weight scale 20 keeps 455-500
 against 245-296 at R² 0.953 vs 0.951 (1.7×), down from 2.5× at the floor (means 718 vs 283) and 1.6× at 150k (312-340
-vs 189-235); this triggers dead-relu-paper#24 (wording: recommended "no standard setting stops the
-loss of active units"). On CDDM, input scales 2-20 lower the count at 50k (166-268 vs 355-376).
-Re-initialising inactive units (CDDM 330-346 vs 332-340) and redrawing them on 3BFF (205-274 vs
-236-288) do not raise it. Only the rate penalty keeps all 1000 units (R² 0.828-0.830 vs 0.831-0.834).
+vs 189-235); wording "no standard setting stops the loss of active units" (decision
+dead-relu-paper#24, option 1). On CDDM, input scales 2-20 lower the count at 50k (166-268 vs 355-376).
+Interventions designed to raise the count add at most 60 units: the CDDM input-weight cap 0.3 gives
+390-400 at R² 0.827-0.832 (vs 332-340 at 0.833-0.835); re-initialising inactive units (CDDM 330-346)
+and redrawing them on 3BFF (205-274 vs 236-288) do not raise it. Only with the rate penalty, alone or
+with the sparsity penalty, are all 1000 units active (R² 0.822-0.830 vs 0.831-0.834).
 
 **C6.** The remedy top-ups (RMtop200, 267 runs in 83 cells) are read at 1.05× each run's own
 noisy-loss floor (entry 2026-10-31_1732; `read_remedies.py` 2d32b3b). 146 runs are read and 121

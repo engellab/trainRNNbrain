@@ -45,8 +45,9 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "img"
                    "diag_b5_optimizer")
 CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "b5_read_cache.pkl"))
 SKIP_LR = {"10"}          # SGD lr 10: dropped by Pavel
-# SGD learning rate -> colour (light to dark orange); filled marker = wd 1e-6, open = wd 0
-SGD_COLOR = {"0.03": "#f7b37a", "0.1": "#f28a3c", "0.3": "#d9620f", "1": "#a8470a", "3": "#6b2c05"}
+# SGD learning rate -> colour (light to dark orange, CIELAB lightness 81, 68, 52, 37, 18); filled
+# marker = wd 1e-6, open = wd 0
+SGD_COLOR = {"0.03": "#fdbf6f", "0.1": "#f5892c", "0.3": "#d2560a", "1": "#963a06", "3": "#4f1d02"}
 ADAM_STYLE = {("adam", "0"): dict(color="#2a76d2", marker="o", label="Adam, wd 0"),
               ("adam", "1e-6"): dict(color="#808080", marker="o", mec="black", label="Adam, wd 1e-6 (standard)"),
               ("adamw", "1e-6"): dict(color="#1a9e77", marker="s", label="AdamW, wd 1e-6")}

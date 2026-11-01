@@ -4,13 +4,14 @@ the optimizer control (B5). Both are same-size comparisons (N = 1000), so every 
 fixed 75,000 iterations (Pavel, 16 Oct), not at its loss floor; the floor read of the same ladders is
 Extended Data Fig. 4 (`fig_paper_F2_fails.py`).
 
-  a  every rung of every ladder and revival screen: active units at 75k (left) and held-out R^2 at
+  a  every rung of every ladder and intervention screen: active units at 75k (left) and held-out R^2 at
      75k minus the ladder default's mean (right), one point per run, default ringed. The CDDM
      input-scale ladder ends at 50k and is read there.
   b  weight decay, CDDM: active units against iteration to 200k, floor crossings open
   c  initial input-weight scale, 3-bit flip-flop: the same to 150k
   d  optimizer (B5), 3-bit flip-flop: active units against held-out R^2, both at 75k
-  e  acting on inactive units: active units against iteration, CDDM screen (75k) and flip-flop (200k)
+  e  interventions designed to raise the active count: active units against iteration, CDDM
+     screen (75k) and 3-bit flip-flop (200k)
 
 Extended Data Fig. 5 (`fig_ed_optimizer`): every B5 arm at its floor, at 75k and at 200k.
 
@@ -57,10 +58,13 @@ BLOCKS = [
     ("slide_k_frm_rws", "rate and sparsity penalties (CDDM)", ["none (default)", "rate", "sparsity", "both"]),
     ("slide_k_inputscale_cddm", "input-weight scale (CDDM, at 50k)", ["default", "0.5", "2", "5", "20"]),
     ("slide_k_inputscale", "input-weight scale (3BFF)", ["default", "0.5", "2", "5", "20"]),
-    ("revival_cddm", "acting on inactive units (CDDM)", ["none", "input-weight cap", "re-initialise"]),
-    ("revival_ff", "acting on inactive units (3BFF)", ["none", "zero-out", "random redraw"]),
+    ("revival_cddm", "interventions (CDDM)", ["none", "input-weight cap", "re-initialise"]),
+    ("revival_ff", "interventions (3BFF)", ["none", "zero-out", "random redraw"]),
 ]
 FRM_RUNGS = {("slide_k_frm_rws", 1), ("slide_k_frm_rws", 3)}     # rate, both
+# SGD learning rate -> marker, on top of its colour (SGD_COLOR): three dark oranges alone are hard
+# to tell apart in print. "v" is kept for the runs drawn on the bottom edge.
+SGD_MARKER = {"0.03": "^", "0.1": ">", "0.3": "D", "1": "P", "3": "X"}
 
 
 def load():
@@ -141,7 +145,7 @@ def panel_a(ax_n, ax_r, by_stem):
                                  facecolors=col if fill else "none", edgecolors="k" if is_ref else col,
                                  linewidths=0.6)
             ax_n.text(-0.02, y, f"{lab} ({len(act)})", transform=ax_n.get_yaxis_transform(),
-                      ha="right", va="center", fontsize=4.9, color=ps.INK)
+                      ha="right", va="center", fontsize=5.3, color=ps.INK)
             yt.append(y)
             rows.append((head, lab, act.tolist(), r2.tolist(), [f["r2_how"] for f in fx],
                          fx[0]["t_read"]))
@@ -205,7 +209,7 @@ def traces(ax, lad, x_max, labels, legend_loc):
     ax.axhline(N_UNITS, color=ps.GRID, lw=0.6, zorder=0)
     ax.set_xlabel("training iteration", labelpad=1)
     if legend_loc:
-        ax.legend(handles=handles, loc=legend_loc, fontsize=5.2, ncol=2, handlelength=1.4,
+        ax.legend(handles=handles, loc=legend_loc, fontsize=5.5, ncol=2, handlelength=1.4,
                   columnspacing=0.8, labelspacing=0.2, borderaxespad=0.2)
     return out
 
@@ -224,7 +228,7 @@ def b5_style(opt, wd, lr):
         return dict(color=ps.SLOTS[0], marker="o", filled=True, label="Adam, wd 0")
     if opt == "adamw":
         return dict(color=ps.SLOTS[2], marker="s", filled=True, label="AdamW")
-    return dict(color=SGD_COLOR[lr], marker="^", filled=wd != "0", label=f"SGD lr {lr}")
+    return dict(color=SGD_COLOR[lr], marker=SGD_MARKER[lr], filled=wd != "0", label=f"SGD lr {lr}")
 
 
 def b5_scatter(ax, b5, key, y_lo, legend):
@@ -263,9 +267,9 @@ def b5_scatter(ax, b5, key, y_lo, legend):
     ax.set_ylim(y_lo, 0.97)
     ax.set_xlabel("active units (of 1000)", labelpad=1)
     if legend:
-        handles.append(Line2D([], [], ls="none", marker="^", ms=3.2, mfc="none", mec=ps.MUTED,
+        handles.append(Line2D([], [], ls="none", marker="D", ms=3.0, mfc="none", mec=ps.MUTED,
                               mew=0.6, label="open: SGD, wd 0"))
-        ax.legend(handles=handles, loc="upper right", fontsize=5.2, ncol=2, handlelength=1.0,
+        ax.legend(handles=handles, loc="upper right", fontsize=5.5, ncol=2, handlelength=1.0,
                   columnspacing=0.6, labelspacing=0.2, borderaxespad=0.2)
     return out
 
@@ -314,7 +318,7 @@ def figure3(by_stem, b5):
         dict of every number drawn, by panel.
     """
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 180 * ps.MM))
+    fig = plt.figure(figsize=(ps.W2, 165 * ps.MM))
     outer = GridSpec(1, 2, figure=fig, left=0.205, right=0.985, top=0.975, bottom=0.05,
                      width_ratios=[1.0, 1.05], wspace=0.30)
     left = GridSpecFromSubplotSpec(1, 2, subplot_spec=outer[0, 0], width_ratios=[1.0, 0.42], wspace=0.10)
@@ -340,7 +344,7 @@ def figure3(by_stem, b5):
     nums["e_cddm"] = traces(ax_e1, by_stem["revival_cddm"], 75_000, ["none", "cap", "re-init."], "upper right")
     nums["e_ff"] = traces(ax_e2, by_stem["revival_ff"], 200_000, ["none", "zero-out", "redraw"], "upper right")
     ax_e2.tick_params(labelleft=False)
-    ax_e1.set_title("acting on inactive units: CDDM", fontsize=6.5, pad=2, loc="left")
+    ax_e1.set_title("interventions: CDDM", fontsize=6.5, pad=2, loc="left")
     ax_e2.set_title("3BFF", fontsize=6.5, pad=2)
     for ax in (ax_b, ax_c, ax_e1):
         ax.set_ylabel("active units")
@@ -405,7 +409,9 @@ def report(nums3, nums5):
     for key in ("floor", "fixed", "end"):
         print(f"\n--- B5 ({key}) ---")
         for (opt, wd, lr), act, r2 in nums5[key]:
-            print(f"  {opt:<6} wd {wd:<5} lr {lr:<5} n={len(act)} active {rng(act):<10} R2 {rng(r2, '{:.3f}')}")
+            mean = f"{np.mean(act):6.1f}" if act else "     -"
+            print(f"  {opt:<6} wd {wd:<5} lr {lr:<5} n={len(act)} active {rng(act):<10} mean {mean}"
+                  f"  R2 {rng(r2, '{:.3f}')}")
 
 
 def main():

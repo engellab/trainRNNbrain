@@ -80,12 +80,12 @@ PROBE_STEP = 100            # iterations between participation probes and betwee
 # flip-flop screen has none, and its config differs from the claim-1 flip-flop control
 # (`ff_revive_c200000`, arm none) only in the prune keys, so that control is its reference.
 REVIVAL = [
-    dict(stem="revival_cddm", knob="reviving inactive units", ref=0, categorical=True,
+    dict(stem="revival_cddm", knob="interventions to raise the active count", ref=0, categorical=True,
          task="CDDM, $N$ = 1000, 75,000 iterations",
          rungs=[("none", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=none"),
                 ("input-weight\ncap 0.3", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=cap"),
                 ("re-initialise\ninactive units", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=prune")]),
-    dict(stem="revival_ff", knob="reviving inactive units", ref=0, categorical=True,
+    dict(stem="revival_ff", knob="interventions to raise the active count", ref=0, categorical=True,
          task="3-bit flip-flop, $N$ = 1000, 200,000 iterations",
          rungs=[("none", f"{DATA_DIR}/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none"),
                 ("zero-out\ninactive units", f"{DATA_DIR}/NBitFlipFlop_replace_variants_c200000/EqType=h_k=3_N=1000_mode=zero_out_rate=0.025_mat=1000"),
@@ -264,10 +264,11 @@ K_TICKS = [2e3, 1e4, 5e4, 2e5]      # labelled iterations; 5k, 20k and 100k get 
 K_MINOR = [5e3, 2e4, 1e5]
 TRACE_BINS = 40             # log-spaced bins the drawn traces are median-reduced into (see panel_pair)
 # Rung labels shortened for the legends of this figure, where a long label covers data; the
-# parameters dropped here (leak 0.01, beta 25, the sigmoid's gain and offset) go in the caption.
+# parameters dropped here (leak 0.01, beta 25, the sigmoid's gain and offset, the penalty weights) are
+# in Methods.
 DISPLAY = {"leaky ReLU\nleak 0.01": "leaky ReLU", "softplus\n$\\beta$ = 25": "softplus",
            "sigmoid\n7.5(x$-$0.3)": "sigmoid", "default\ndraw": "default",
-           "rate\n$\\lambda$ = 0.2": "rate 0.2", "sparsity\n$\\lambda$ = 0.05": "sparsity 0.05"}
+           "rate\n$\\lambda$ = 0.2": "rate", "sparsity\n$\\lambda$ = 0.05": "sparsity"}
 # A ladder whose traces leave no room for a legend borrows the legend of a ladder with the same
 # rungs and colours; its dashed traces still mark the runs with no floor read-out.
 BORROW_LEGEND = {"slide_k_inputscale": "slide_k_inputscale_cddm"}
@@ -276,7 +277,8 @@ SHORT = {"slide_k_weightdecay": "weight decay", "slide_k_recnoise": "recurrent n
          "slide_k_metabolic": "metabolic penalty", "slide_k_recgain": "spectral radius",
          "slide_k_rwm": "$W_{rec}$ penalty", "slide_k_frm_rws": "rate / sparsity pen.",
          "slide_k_activation": "activation", "slide_k_inputscale_cddm": "input scale",
-         "slide_k_inputscale": "input scale (FF)", "revival_cddm": "revival", "revival_ff": "revival (FF)"}
+         "slide_k_inputscale": "input scale (3BFF)", "revival_cddm": "interventions",
+         "revival_ff": "interventions (3BFF)"}
 
 
 def rung_style(spec, i, n):
@@ -441,7 +443,7 @@ def title_text(lad, pending=False):
         the title string.
     """
     spec = lad["spec"]
-    task = "flip-flop" if "flip" in spec["task"] else "CDDM"
+    task = "3BFF" if "flip" in spec["task"] else "CDDM"
     if pending:
         return f"{spec['knob']}\n{task}: pending"
     cross = [r["t_star"] for rg in lad["rungs"] for r in rg["runs"] if np.isfinite(r["t_star"])]
@@ -490,8 +492,8 @@ def place_legend(ax, handles, alt=None):
     Returns:
         (the axes holding the legend - a tuple (ax, alt) for a legend spanning both - , the legend).
     """
-    kw = dict(handles=handles, fontsize=5.0, handlelength=1.6, borderaxespad=0.0,
-              labelspacing=0.2, handletextpad=0.4, columnspacing=0.8, loc="lower left")
+    kw = dict(handles=handles, fontsize=5.5, handlelength=1.1, borderaxespad=0.0,
+              labelspacing=0.15, handletextpad=0.3, columnspacing=0.6, loc="lower left")
     fig = ax.figure
     rend = fig.canvas.get_renderer()
     m = 0.015                                   # margin from the axes edge, in axes fractions
@@ -590,9 +592,9 @@ def draw(data):
     rev = data["revival"]
 
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 200 * ps.MM))
+    fig = plt.figure(figsize=(ps.W2, 180 * ps.MM))
     gs = GridSpec(4, 3, figure=fig, left=0.065, right=0.985, top=0.955, bottom=0.05,
-                  hspace=0.72, wspace=0.30)
+                  hspace=0.50, wspace=0.30)
     slots = [gs[i // 3, i % 3] for i in range(9)] + [gs[3, 0], gs[3, 1]]
     letters = iter("abcdefghijkl")
     pairs = []
@@ -655,7 +657,7 @@ def draw(data):
     ax_b = fig.add_subplot(sub[0, 1])
     rows = bottom_line(ax_b, [lad for lad in lads + rev if has_runs(lad)])
     pos = ax_b.get_position()
-    ps.panel_letter(ax_b, "l", dx=-0.62 * 0.42 - 0.20 * 0.71, dy=1.16)
+    ps.panel_letter(ax_b, "l", dx=-0.62 * 0.42 - 0.20 * 0.71, dy=1.10)
     fig.text(pos.x0 + pos.width * 0.35, pos.y1 + 0.006,
              "all ladders: mean at own floor (open)\nand at 75k or the budget (filled)",
              ha="center", va="bottom", fontsize=6.2, color=ps.INK, linespacing=1.15)
