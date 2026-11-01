@@ -29,7 +29,10 @@ caption names the rows whose R^2 is measured). Panel c draws each input-weight s
 its networks as a thick line and the networks as thin faint lines, so each scale can be followed.
 Panel d's legend sits above the axes, outside the data; an R^2 below its range is an arrowhead
 inside the bottom edge. Every legend has an opaque white box; the layout check also tests the gap
-between texts on one baseline (`fig_paper_F2_fails.check_gaps`).
+between texts on one baseline (`fig_paper_F2_fails.check_gaps`). After the third review of PR #96,
+every fixed-iteration group is one open marker at its mean with range bars
+(`fig_paper_F2_fails.draw_open_groups`), labelled with its number of networks where they coincide
+(the rate-penalty rows) or where the number differs from the caption's (SGD, 6 per learning rate).
 
 Inputs, no reading of runs here:
   data/fig_paper_F2_fails_cache.pkl   `fig_paper_F2_fails.py --collect` (Della): every sweep and
@@ -58,8 +61,6 @@ import paperstyle as ps
 
 N_UNITS = 1000
 BIN = 2500                            # iterations per median bin of the drawn traces (b, c, e)
-SPREAD_MM = 0.55                      # horizontal step between open markers set side by side
-ROW_SPREAD = 0.13                     # panel a: vertical step between a row's networks, in rows
 
 # Panel a, top to bottom: (block, row label, stem, value index or OTHERS).
 OTHERS = "others"
@@ -83,7 +84,8 @@ SHOWN = {(stem, i) for _, _, stem, i in ROWS_A if i != OTHERS}
 # Optimizer panel: SGD learning rate 3 does not learn the task and is left to Extended Data Fig. 4l.
 SKIP_LR = ("3",)
 # Direct labels of the SGD clusters in panel d: (text, active units, R^2) at the label's left end.
-SGD_LABELS = [("SGD, 0.03", 690, 0.882), ("0.1", 612, 0.903), ("0.3 and 1", 300, 0.882)]
+SGD_LABELS = [("SGD, 0.03", 690, 0.882), ("0.1", 612, 0.903), ("0.3 and 1", 300, 0.882),
+              ("6 networks", 690, 0.866)]   # an SGD group: with and without weight decay, 3 each
 # Layout, in millimetres on the 165.1 mm x H_MM canvas: (x0, y0, width, height) of every axes.
 H_MM = 128
 POS = {"a_n": (42, 75, 45, 47), "a_r": (91, 75, 20, 47), "b": (123, 75, 37, 47),
@@ -149,19 +151,19 @@ def fixed_of(lad, i):
 def panel_a(ax_n, ax_r, by_stem):
     """The rows Results 3 discusses, at 75,000 iterations: active units (ax_n) and R^2 minus default (ax_r).
 
-    One open point per network (open = 75,000 iterations, the paper-wide marker rule), the networks
-    of a row on sub-rows ROW_SPREAD apart so close counts stay visibly open; the default rows have an
-    ink edge. R^2 is taken relative to the mean of the same sweep's default networks;
+    One open marker per row (open = 75,000 iterations, the paper-wide marker rule) at the mean of
+    the row's networks, with a bar over their range (`fig_paper_F2_fails.draw_open_groups`); the
+    default rows have an ink edge. R^2 is taken relative to the mean of the same sweep's default networks;
     whether it was measured or estimated is returned per network and stated in the caption, not drawn.
-    The "15 other values" row draws each remaining CDDM value's mean (open teal diamonds) in ax_n
-    and the range of those means as a bar in ax_r; their networks are in Extended Data Fig. 4.
+    The "15 other values" row draws the range of the remaining CDDM values' means as a bar with end
+    ticks in both halves; their networks are in Extended Data Fig. 4.
 
     Args:
         ax_n, ax_r: two axes sharing rows; by_stem: the collected sweeps.
     Returns:
         list of (block, row label, [active], [R^2 minus default], [how R^2 was got]) per row.
     """
-    rows, y, block = [], 0.0, None
+    rows, y, block, row_groups = [], 0.0, None, []
     guide, row_y = {}, []
     for blk, lab, stem, i in ROWS_A:
         if blk != block:
@@ -185,19 +187,14 @@ def panel_a(ax_n, ax_r, by_stem):
                     dr2.append(r2.mean() - r2_ref)
             act, dr2 = np.array(act), np.array(dr2)
             assert len(act) == 15, f"expected 15 other CDDM values, found {len(act)}"
-            # diamonds: a value's mean, not a network; neighbours in x go to three sub-rows in turn,
-            # so clustered means stay visibly open
-            sub = np.empty(len(act))
-            sub[np.argsort(act)] = np.arange(len(act)) % 3 - 1
-            ax_n.scatter(act, y + sub * ROW_SPREAD * 1.2, s=9, marker="D", zorder=4,
-                         **ps.mark_fixed(ps.SETTING, scatter=True))
-            # in the R^2 panel 12 of the 15 means lie within 0.003 of 0 (14 within 0.005; metabolic
-            # penalty 1 at -0.0135), under a millimetre at print size, where
-            # markers would merge into a solid blob: draw their range as a bar with end ticks
-            ax_r.plot([dr2.min(), dr2.max()], [y, y], color=ps.SETTING, lw=ps.DATA_LW, zorder=4,
-                      solid_capstyle="butt")
-            for xe in (dr2.min(), dr2.max()):
-                ax_r.plot([xe, xe], [y - 0.22, y + 0.22], color=ps.SETTING, lw=ps.DATA_LW, zorder=4)
+            # the 15 means overlap in both halves (in the R^2 half 12 of them lie within 0.003 of 0,
+            # 14 within 0.005, metabolic penalty 1 at -0.0135), and open markers that overlap print
+            # solid: draw the range of the means as a bar with end ticks in each half
+            for ax, x in ((ax_n, act), (ax_r, dr2)):
+                ax.plot([x.min(), x.max()], [y, y], color=ps.SETTING, lw=ps.DATA_LW, zorder=4,
+                        solid_capstyle="butt")
+                for xe in (x.min(), x.max()):
+                    ax.plot([xe, xe], [y - 0.22, y + 0.22], color=ps.SETTING, lw=ps.DATA_LW, zorder=4)
             rows.append((blk, lab, act.tolist(), dr2.tolist(), ["mean of value"] * len(act)))
         else:
             lad = by_stem[stem]
@@ -207,18 +204,13 @@ def panel_a(ax_n, ax_r, by_stem):
             dr2 = r2 - fixed_of(lad, ref)[1].mean()
             is_ref = i == ref
             edge = ps.INK if is_ref else col
-            # the networks of a row sit on separate sub-rows, so open markers of close counts stay open
-            yy = y + (np.arange(len(act)) - (len(act) - 1) / 2) * ROW_SPREAD
-            ax_r.scatter(dr2, yy, s=10, zorder=4, **ps.mark_fixed(edge, scatter=True))
+            # one open marker per row at the mean of its networks, with a range bar (open markers of
+            # close values print solid otherwise); a row whose networks all share one value (the rate
+            # penalty, all 1,000 active) has no bar, so it is labelled with its number of networks
+            row_groups.append((ax_n, F2F.open_group(act, [y] * len(act), "o", edge)))
+            row_groups.append((ax_r, F2F.open_group(dr2, [y] * len(dr2), "o", edge)))
             if np.ptp(act) == 0 and len(act) > 1:
-                # every network has the same count (the rate penalty: all 1,000 active); sub-rows
-                # still print as a solid pill, so one open marker, labelled, and no mean tick
-                ax_n.scatter([act[0]], [y], s=10, zorder=4, **ps.mark_fixed(edge, scatter=True))
-                ax_n.text(act[0] - 25, y, f"{len(act)} networks", ha="right", va="center",
-                          fontsize=ps.TICK_PT, color=ps.INK)
-            else:
-                ax_n.scatter(act, yy, s=10, zorder=4, **ps.mark_fixed(edge, scatter=True))
-                ax_n.plot([act.mean()] * 2, [y - 0.3, y + 0.3], color=col, lw=ps.DATA_LW, zorder=3)
+                row_groups[-2][1]["label"] = f"{len(act)} networks"
             if is_ref:
                 guide[blk] = [act.mean(), y, y]
             rows.append((blk, lab, act.tolist(), dr2.tolist(), how))
@@ -249,6 +241,8 @@ def panel_a(ax_n, ax_r, by_stem):
     ax_r.set_xticks([-0.04, 0])
     ax_r.set_xticklabels(["−0.04", "0"])
     ax_r.set_xlabel("held-out $R^2$ minus default", labelpad=1)
+    for ax, g in row_groups:                    # limits are final now
+        F2F.draw_open_groups(ax, [g], zorder=4)
     return rows
 
 
@@ -257,21 +251,21 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
 
     The floor crossing of each run that has one is a filled symbol at its raw count; the 75,000
     iteration measurement is an open symbol (the paper-wide marker rule); the default's symbols have
-    an ink edge; a dashed vertical line marks 75,000 iterations. Open markers that would print on top
-    of each other are set side by side, SPREAD_MM apart, and drawn unclipped (dead-relu-paper#96
-    review: stacked open markers print as one solid marker). With `means=False` each network has its
-    own markers and the networks of one value are spread about 75,000 iterations; with `means=True`
-    (the revival methods, whose values coincide) each value has one filled marker at its mean
-    crossing iteration and mean count there and one open marker at its mean count at 75,000
-    iterations, the values' open markers side by side, stepping rightwards from 75,000. With `median`, each value's networks are thin
-    faint lines and the median over them, bin by bin, a thick line. Colours and legend text come from
+    an ink edge; a dashed vertical line marks 75,000 iterations. Each value's networks at 75,000
+    iterations are ONE open marker at their mean count with a bar over their range
+    (`fig_paper_F2_fails.draw_open_groups`, which also sets overlapping values' markers side by side,
+    right of 75,000, unclipped): open markers of close counts print solid otherwise
+    (dead-relu-paper#96 reviews). With `means=True` (the revival methods, whose crossings coincide)
+    the floor crossings are also one filled marker per value, at the mean crossing iteration and
+    the mean count there. With `median`, each value's networks are thin faint lines and the median
+    over them, bin by bin, a thick line. Colours and legend text come from
     `fig_paper_F2_fails` (rung_style, VALUE_LABELS).
 
     Args:
         ax: axes; lad: one collected sweep; x_max: last iteration drawn; ticks: x tick positions;
         legend_loc: matplotlib legend location, or None for no legend; ncol: legend columns;
         median: bool, draw each value's median trace thick over faint per-network traces;
-        means: bool, one marker pair per value instead of one per network.
+        means: bool, one filled marker per value instead of one per network.
     Returns:
         (list of (label, [floor crossings], [counts at floor crossing], [counts at 75k],
         [counts at x_max]), the legend or None).
@@ -281,15 +275,13 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
     labels = F2F.VALUE_LABELS[spec["stem"]]
     out, handles = [], []
     x_hi = x_max * 1.02
-    w_mm = ax.get_position().width * ps.W_FULL_MM
-    step = SPREAD_MM / w_mm * x_hi                 # data units per SPREAD_MM
+    groups = []
     for i, (rg, lab) in enumerate(zip(lad["rungs"], labels)):
         col, mk = F2F.rung_style(spec, i, n)
         is_ref = i == spec["ref"]
         cross, at_floor, at_end, binned = [], [], [], {}
         edge = ps.INK if is_ref else col
-        for j, r in enumerate(rg["runs"]):
-            dx = (j - (len(rg["runs"]) - 1) / 2) * step
+        for r in rg["runs"]:
             keep = r["it_act"] <= x_max
             tb, yb = linbin(r["it_act"][keep], r["active"][keep])
             for t, v in zip(tb, yb):
@@ -304,17 +296,12 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
                 if not means:
                     ax.scatter([r["t_star"]], [at_floor[-1]], s=10, marker=mk, color=col,
                                edgecolors=edge, linewidths=0.5, zorder=6)
-            if not means:
-                ax.scatter([r["fixed"]["probe"] + dx], [r["fixed"]["active"]], s=9, marker=mk,
-                           zorder=5, clip_on=False, **ps.mark_fixed(edge, scatter=True))
             at_end.append(F2F.active_at(r, x_max))
+        groups.append(F2F.open_group([r["fixed"]["probe"] for r in rg["runs"]],
+                                     [r["fixed"]["active"] for r in rg["runs"]], mk, edge))
         if means:
-            f75 = [r["fixed"]["active"] for r in rg["runs"]]
             ax.scatter([np.mean(cross)], [np.mean(at_floor)], s=12, marker=mk, color=col,
                        edgecolors=edge, linewidths=0.5, zorder=6)
-            # the values' open markers step rightwards from 75,000, away from the crossings before it
-            ax.scatter([F2F.FIXED_IT + (i + 0.3) * step], [np.mean(f75)], s=11, marker=mk,
-                       zorder=5, clip_on=False, **ps.mark_fixed(edge, scatter=True))
         if median:
             tm = np.array(sorted(binned))
             ax.plot(tm, [np.median(binned[t]) for t in tm], color=col, lw=1.4, zorder=3 + is_ref)
@@ -329,6 +316,7 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
     ps.count_ticks(ax.yaxis)
     ax.axhline(N_UNITS, color=ps.GRID, lw=0.6, zorder=0)
     ax.set_xlabel(ps.LABELS["iteration"], labelpad=1)
+    F2F.draw_open_groups(ax, groups, max_shift=2)
     leg = None
     if legend_loc:
         leg = ax.legend(handles=handles, loc=legend_loc, fontsize=ps.TICK_PT, ncol=ncol,
