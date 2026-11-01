@@ -75,37 +75,33 @@ CUE_COL, SENS_COL = ps.SLOTS[3], ps.INK
 # flip-flop's channels are one per bit and need none.
 TASKS = {
     "CDDM": dict(
-        run=f"{DATA_DIR}/CDDM_std_g0_drift/EqType=h_N=1000_iters=*",
+        run=f"{DATA_DIR}/CDDM_paper_grid/EqType=h_N=1000_arm=control",
         title="CDDM  -  context-dependent decision making",
         inputs=["motion", "colour", "right", "left", "right", "left"],
         in_cols=[CUE_COL, CUE_COL, SENS_COL, SENS_COL, SENS_COL, SENS_COL],
         outputs=["right", "left"],
         braces=[(2, 3, "motion", 0), (4, 5, "colour", 0),
                 (0, 1, "cue", 1), (2, 5, "sensory", 1)],
-        note="an attend-colour trial has the same stimulus and the opposite correct choice",
     ),
     "NBitFlipFlop": dict(
-        run=f"{DATA_DIR}/NBitFlipFlop_std_ksweep/EqType=h_k=3_N=1000_iters=*",
+        # the first 40k leg of the warm-start chain behind the 200k size series; every leg of
+        # that chain saves the same task block, and this leg is the one kept on the Mac
+        run=f"{DATA_DIR}/NBitFlipFlop_ff_revive/EqType=h_k=3_N=1000_pen=none_arm=none",
         title="$k$-bit flip-flop  -  $k$ independent memory bits",
         inputs=["bit 1", "bit 2", "bit 3"],
         in_cols=[SENS_COL] * 3,
         outputs=["bit 1", "bit 2", "bit 3"],
         braces=[(0, 2, "pulses", 0), (3, 5, "state held", 0)],
-        note="pulse times are Poisson, so a trial has no epochs and every trial differs",
     ),
-    # Redesigned 2026-09-21: two stimulus identities instead of four, plus a tonic channel. The
-    # DMTS_v2 runs are still training, so this row falls back to the config those runs will use and
-    # says so on the panel, rather than drawing the superseded four-stimulus task.
+    # The 5-tau delay of the size series (DMTS_paper_grid_d5, 150k, finished): two stimulus
+    # identities and a tonic channel, the 2026-09-21 design.
     "DMTS": dict(
-        run=f"{DATA_DIR}/DMTS_v2_pen/EqType=h_N=1000_pen=none",
-        cfg="DMTS_long.yaml",
+        run=f"{DATA_DIR}/DMTS_paper_grid_d5/EqType=h_N=1000_arm=control",
         title="DMTS  -  delayed match-to-sample",
         inputs=["1", "2", "tonic", "go"],
         in_cols=[SENS_COL, SENS_COL, ps.MUTED, CUE_COL],
         outputs=["match", "non-match"],
         braces=[(0, 1, "stimuli", 0)],
-        note="a match trial (stimulus 1 twice); the four sample-test pairs are 50/50 match and "
-             "non-match, and onsets jitter by $\\pm 1\\tau$",
     ),
 }
 
@@ -216,7 +212,7 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec, pending=False):
         ax: axes; inp: (n_inputs, n_steps); tgt: (n_outputs, n_steps); epochs: list of
             (start_step, end_step, label) from the run config, possibly empty; dt_over_tau: step
             length in membrane time constants; spec: the TASKS entry, supplying `inputs`,
-            `in_cols`, `outputs`, `braces` and `note`; pending: the config has not been trained
+            `in_cols`, `outputs` and `braces`; pending: the config has not been trained
             yet, which the panel says out loud.
     Returns:
         None.
@@ -280,9 +276,6 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec, pending=False):
     if pending:
         ax.text(0.0, 1.0, "config not yet trained", transform=ax.transAxes, ha="left",
                 va="bottom", fontsize=5.6, color=ps.BAD)
-    if spec.get("note"):
-        ax.text(0.0, -0.25, spec["note"], transform=ax.transAxes, ha="left", va="top",
-                fontsize=5.6, color=ps.MUTED)
     ax.set(yticks=bases, xlabel=r"time ($\tau$)",
            xlim=(0, t[-1] * 1.01), ylim=(bases[-1] - 0.62, top + head))
     ax.set_yticklabels(ticks, fontsize=6.0)
@@ -323,10 +316,9 @@ def pic_cddm(ax):
         d = 0.045 if r else -0.045
         ps.arrow(ax, (x - d / 2, y), (x + d / 2, y), col=COL_A if a else COL_B, lw=0.8,
                  mutation_scale=4.5, shrink=0, zorder=4)
-    ax.text(0.50, 0.295, "most arrows point RIGHT;  most are green",
+    ax.text(0.50, 0.315, "most arrows point RIGHT;  most are green",
             ha="center", va="top", fontsize=5.6, color=ps.MUTED)
 
-    ps.arrow(ax, (0.50, 0.245), (0.50, 0.195), col=ps.MUTED, lw=0.8)
     # LEFT on the left and RIGHT on the right: the choice is a direction, so putting the winning
     # option on the wrong side of the panel fights the reader for no reason. Laid out like the cue
     # row above it - the verb outside, one word in each box.
@@ -401,8 +393,6 @@ def pic_dmts(ax):
     ax.set(xlim=(0, 1), ylim=(0, 1))
     ax.text(0.50, 0.995, "hold the sample across an empty delay", ha="center", va="top",
             fontsize=5.6, color=ps.MUTED)
-    ps.arrow(ax, (0.07, 0.905), (0.78, 0.905), col=ps.FAINT, lw=0.6, mutation_scale=5)
-    ax.text(0.80, 0.905, "time", ha="left", va="center", fontsize=5.6, color=ps.MUTED)
 
     y = 0.660
     for x, lab, filled in [(0.07, "sample", True), (0.37, "delay", False), (0.67, "test", True)]:
@@ -428,9 +418,9 @@ def pic_dmts(ax):
     ps.arrow(ax, (0.50, 0.355), (0.50, 0.310), col=ps.MUTED, lw=0.8)
     ps.box(ax, 0.14, 0.185, 0.72, 0.115, "same as the sample?", col=ps.INK, lw=0.6, fs=5.8,
            face="#f2f1ec", text_col=ps.INK)
-    ax.text(0.485, 0.095, "match  $\\rightarrow$  channel 1", ha="right", va="center",
+    ax.text(0.455, 0.095, "match  $\\rightarrow$  channel 1", ha="right", va="center",
             fontsize=5.8, color=ps.SLOTS[0])
-    ax.text(0.515, 0.095, "non-match  $\\rightarrow$  channel 2", ha="left", va="center",
+    ax.text(0.545, 0.095, "non-match  $\\rightarrow$  channel 2", ha="left", va="center",
             fontsize=5.8, color=ps.SLOTS[0])
     ax.text(0.50, 0.020, "both channels held at 0 until the go cue", ha="center", va="center",
             fontsize=5.2, color=ps.MUTED)
