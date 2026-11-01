@@ -113,6 +113,10 @@ ABLATION_CELLS = {"3BFF": "NBitFlipFlop_c1_snapshots_c200000/EqType=h_N=1000_arm
                   "DMTS": "DMTS_c1_snapshots/EqType=h_N=1000_arm=control"}
 # Panel (e): the lineages c3_flat_loss_units reads, plus the N = 4000 controls continued to 200k.
 C3_EXTRA = [("N=4000", "NBitFlipFlop_paper_grid_c200000/EqType=h_N=4000_arm=control")]
+# Panel (e) reads two Fig. 1d networks as their 300k continuations, whose folders carry new seeds.
+# Continuation seed -> the 200k network's seed (its row in Extended Data Table 2), from each
+# continuation's paths.init_from in NBitFlipFlop_c1_snapshots_c300000 (read on Della, 31 Oct).
+C3_CONTINUED = {"3204992658": "4113307577", "3194339211": "2461724787"}
 TASKNAME = {"NBitFlipFlop": "3BFF", "CDDM": "CDDM", "DMTS": "DMTS"}
 
 
@@ -773,11 +777,12 @@ def draw_ed_readout(rec):
     return out
 
 
-def tex_row(r):
+def tex_row(r, in_e):
     """One LaTeX row of Extended Data Table 2 for one run record.
 
     Args:
         r: a size-series, trajectory or ablation row of the collect record.
+        in_e: dict seed -> training length (iterations) of the panel-(e) networks (3BFF only).
     Returns:
         str ending in a LaTeX line break.
     """
@@ -800,9 +805,14 @@ def tex_row(r):
         in_d = r["role"] == "trajectory" or (r["role"] == "size series" and r["N"] == 1000
                                               and r["task"] != "CDDM" and r.get("excluded") is None)
         fig = "2d" if in_d else "--"
+    trained = f"{r['it_end'] / 1e3:.0f}k"
+    if r["task"] == "3BFF" and r["seed"] in in_e:
+        fig = "2e" if fig == "--" else fig + ", 2e"
+        if in_e[r["seed"]] > r["it_end"]:      # continued for panel (e)
+            trained += f"; {in_e[r['seed']] / 1e3:.0f}k"
     note = re.sub(r" \(held-out R\$\^2\$ [0-9.]+\)", "", note)   # the R^2 column already shows it
     note = note.replace("_", r"\_").replace("%", r"\%")
-    return (f"{r['task']} & {r['N']:,} & {r['seed']} & {fig} & {r['it_end'] / 1e3:.0f}k & {t} & {a} & "
+    return (f"{r['task']} & {r['N']:,} & {r['seed']} & {fig} & {trained} & {t} & {a} & "
             f"{r2} & {note} \\\\")
 
 
@@ -819,11 +829,15 @@ def write_table(rec):
     grouped.sort(key=lambda rk: (TASKS.index(rk[0]["task"]), rk[1], rk[0]["N"], int(rk[0]["seed"])))
     rows = [r for r, _ in grouped]
     rows += sorted(rec["ablation"], key=lambda r: (TASKS.index(r["task"]), int(r["seed"])))
+    # panel (e): every network it draws must be exactly one 3BFF row of the table
+    in_e = {C3_CONTINUED.get(r["seed"], r["seed"]): r["end"] for r in rec["c3"]}
+    hits = [r["seed"] for r in rows if r["task"] == "3BFF" and r["seed"] in in_e]
+    assert len(in_e) == len(rec["c3"]) and sorted(hits) == sorted(in_e), (sorted(in_e), hits)
     path = os.path.join(IMG_DIR, "edt2_runs_rows.tex")
     with open(path, "w") as fh:
         fh.write("% written by fig_paper_F2_size.py from data/fig_paper_F2_size_collect.pkl\n")
         for r in rows:
-            fh.write(tex_row(r) + "\n")
+            fh.write(tex_row(r, in_e) + "\n")
     print(f"wrote {path} ({len(rows)} rows)")
     return path
 
