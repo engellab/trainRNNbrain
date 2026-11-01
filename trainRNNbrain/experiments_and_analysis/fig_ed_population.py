@@ -24,12 +24,16 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps                                   # noqa: E402
-from population_stats import OUT                          # noqa: E402
+
+# written by population_stats.py (its OUT); a path here, so drawing does not load torch and hydra
+OUT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data",
+                                    "population_stats.json"))
 
 TASKS = ("3BFF", "CDDM", "DMTS")
 MARKER = {"3BFF": "o", "CDDM": "s", "DMTS": "^"}
-K_OFFSET = {"3BFF": -0.35, "CDDM": 0.0, "DMTS": 0.35}   # panel e: x offset of each task at equal k
-SEED_OFFSET = (-0.35, 0.0, 0.35)                            # panel e: y offset of a task's three networks
+# panel e: each network is shifted ALONG the diagonal (the same amount in x and y), so equal values
+# stay on the identity line; tasks get separate stretches of the diagonal, networks 0.1 apart, at most 0.3 from the true value
+K_SHIFT = {"3BFF": (-0.3, -0.2, -0.1), "CDDM": (0.1, 0.2, 0.3), "DMTS": (-0.1, 0.0, 0.1)}
 
 
 def load():
@@ -96,13 +100,13 @@ def selectivity_panel(ax, res, share):
 
 
 def k_panel(ax, res):
-    """Panel e: k* over all units against k* over the active units. At equal values the tasks are
-    offset in x and a task's three networks in y, so every network stays visible."""
+    """Panel e: k* over all units against k* over the active units. Each network is shifted along
+    the diagonal (K_SHIFT), so coinciding networks stay visible and equal values stay on y = x."""
     identity(ax, 1.5, 8.5)
     for task in TASKS:
         rows = [s for s in res if s["task"] == task]
-        for s, dy in zip(rows, SEED_OFFSET):
-            dots(ax, s["S4"]["k_act"] + K_OFFSET[task], s["S4"]["k_all"] + dy, task)
+        for s, d in zip(rows, K_SHIFT[task]):
+            dots(ax, s["S4"]["k_act"] + d, s["S4"]["k_all"] + d, task, ms=ps.SMALL_MARKER_PT + 0.4)
     ax.set_xticks(range(2, 9))
     ax.set_yticks(range(2, 9))
     ax.set_title("number of classes")
