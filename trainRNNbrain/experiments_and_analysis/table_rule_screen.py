@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 The per-unit rules and settings that were trained on 3BFF but NOT continued to 200,000 iterations
-(dead-relu-paper#90 review, item 5): the second block of Supplementary Table 3.
+(dead-relu-paper#90 review, item 5): block b of Supplementary Table 2 (numbered 3 before
+dead-relu-paper#103).
 
 Every cell folder under data/trained_RNNs/NBitFlipFlop_*/ (the original sweeps, not their
 '_c200000' continuations) whose saved config is a 3-bit flip-flop (task.n_inputs == 3) with a
@@ -125,7 +126,8 @@ def collect():
     """Every row of the block: cells with a per-unit rule on 3BFF that the catalogue does not hold.
 
     Returns:
-        list of dicts (sweep, cell, kind, N, n, trained, it, active, fold), sorted by kind and cell.
+        list of dicts (sweep, cell, kind, setting, N, n, trained, it, active, fold, gamma,
+        diverged), sorted by kind, setting, training length and N.
     """
     cat = load_catalogue()
     continued = {c["cell"].replace("_c200000", "") for c in cat}
@@ -155,21 +157,76 @@ def collect():
         act, probes, n_div = mean_active_at(runs, it)
         base = ctrl40[(N, gamma)] if it == 40000 else ctrl75[N]
         assert max(abs(p - it) for p in probes) <= 1000, f"probe far from {it} in {cell_dir}"
-        rows.append(dict(sweep=sweep, cell=cell, kind=kind_of(cell, sweep), N=N, n=len(runs),
-                         trained=trained, it=it, active=act, fold=act / base, gamma=gamma,
-                         diverged=n_div))
-    rows.sort(key=lambda r: (r["kind"], r["sweep"], r["N"], r["cell"]))
+        rows.append(dict(sweep=sweep, cell=cell, kind=kind_of(cell, sweep), setting=setting_of(cfg),
+                         N=N, n=len(runs), trained=trained, it=it, active=act, fold=act / base,
+                         gamma=gamma, diverged=n_div))
+    rows.sort(key=lambda r: (r["kind"], r["gamma"], r["setting"], r["trained"], r["N"], r["cell"]))
     return rows
 
 
-def tex_cell(cell):
-    """A cell folder name for the table: the setting part only, in typewriter type, escaped."""
-    s = cell.replace("EqType=h_", "").replace("k=3_", "")
-    return "\\texttt{" + s.replace("_", "\\_\\allowbreak{}") + "}"
+def setting_of(cfg):
+    """The rule parameters of one cell in words and Methods symbols, read from its saved config.
+
+    Defaults are the Trainer's own (prune_and_reinit_, grow_synapses_, synaptic_scaling_) where a
+    key is absent from the config. Symbols as in block a and Methods, Per-unit rules: $s$, the copy
+    noise; $q$ and $\\beta$, read-out dropout; $m$, the rescaling target; $\\eta$, the scaling step.
+
+    Args:
+        cfg: a run's saved config (OmegaConf).
+    Returns:
+        LaTeX string, the parts joined by ', '.
+    """
+    parts = []
+    frm, rws = float(sel(cfg, "trainer.lambda_frm") or 0), float(sel(cfg, "trainer.lambda_rws") or 0)
+    if bool(sel(cfg, "trainer.dropout") or False):
+        d = sel(cfg, "trainer.dropout_args") or {}
+        parts.append(f"$q = {float(d.get('drop_rate', 0.05)):g}$, "
+                     f"$\\beta = {float(d.get('dropout_beta', 1.0)):g}$")
+    if frm > 0:
+        parts.append(f"$\\lambda_{{\\mathrm{{frm}}}} = {frm:g}$")
+    if rws > 0:
+        parts.append(f"$\\lambda_{{\\mathrm{{rws}}}} = {rws:g}$")
+    if bool(sel(cfg, "trainer.prune_reinit") or False):
+        a = sel(cfg, "trainer.prune_args") or {}
+        mode = a.get("reinit_mode", "random")
+        if mode == "rescale":                      # the revival operators of revive_ops(2)
+            parts.append(f"$m = {float(a.get('rescale_target_frac', 0.0)):g}$")
+            op = a.get("revive_op", "rescale")
+            if op == "synaptogenesis":
+                parts.append(f"step {float(a.get('syn_step', 0.02)):g}")
+                parts.append("partners least connected" if a.get("syn_novel", False)
+                             else "partners by rate")
+            elif op == "disinhibit":
+                parts.append(f"{int(a.get('disinhibit_k', 10))} inputs")
+        else:
+            if mode == "copy":
+                if a.get("copy_iid", False):
+                    parts.append("incoming row redrawn")
+                else:
+                    parts.append(f"$s = {float(a.get('copy_noise', 0.05)):g}$")
+                    if a.get("copy_permute", False):
+                        parts.append("incoming row permuted")
+                if not a.get("copy_norm_preserve", False):
+                    parts.append("length not kept")
+            frac, mat = float(a.get("max_replace_frac", 1.0)), int(a.get("maturity", 0))
+            parts.append("no cap" if frac >= 1 else f"{frac:g}$N$ per check")
+            parts.append(f"wait {mat:,}" if mat else "no wait")
+    if bool(sel(cfg, "trainer.synaptic_scaling") or False):
+        a = sel(cfg, "trainer.scaling_args") or {}
+        parts.append(f"$\\eta = {float(a.get('eta', 0.05)):g}$")
+        parts.append("length kept" if a.get("preserve_row_norm", True) else "length not kept")
+    lo, hi = (sel(cfg, "model.bias_range") or [0.0, 0.0])
+    if lo != hi:
+        parts.append(f"trainable bias in $[{lo:g}, {hi:g}]$")
+    return ", ".join(parts)
 
 
 def print_tex(rows):
-    """Print the LaTeX rows: kind, sweep, cell, N, networks, trained, active, fold.
+    """Print the LaTeX rows, grouped under one heading per rule: setting, N, networks, trained,
+    active, fold.
+
+    Each row is preceded by a source comment naming its sweep and cell folder (provenance; the
+    printed table describes the setting in words).
 
     Args:
         rows: collect() output.
@@ -177,16 +234,22 @@ def print_tex(rows):
         None.
     """
     print("% rows printed by table_rule_screen.py")
+    kind = None
     for r in rows:
+        if r["kind"] != kind:
+            if kind is not None:
+                print("\\addlinespace")
+            kind = r["kind"]
+            # '\\*': no page break between a rule's heading and its first row
+            print(f"\\multicolumn{{6}}{{l}}{{\\emph{{{kind[0].upper() + kind[1:]}}}}} \\\\*")
         n = f"{r['N']:,}".replace(",", "{,}")
         act = "--" if not np.isfinite(r["active"]) else f"{r['active']:,.0f}".replace(",", "{,}")
         fold = "--" if not np.isfinite(r["fold"]) else f"{r['fold']:.2f}"
         nets = f"{r['n']}" + (f" ({r['diverged']} div.)" if r["diverged"] else "")
         tr = f"{r['trained']:,}".replace(",", "{,}")
         g = "$^\\gamma$" if r["gamma"] else ""
-        sweep = "\\texttt{" + r["sweep"].replace("_", "\\_") + "}"
-        print(f"\\raggedright {r['kind']}{g} & \\raggedright {sweep} {tex_cell(r['cell'])} & {n} & "
-              f"{nets} & {tr} & {act} & {fold} \\\\")
+        print(f"% NBitFlipFlop_{r['sweep']}/{r['cell']}")
+        print(f"\\raggedright {r['setting']}{g} & {n} & {nets} & {tr} & {act} & {fold} \\\\")
 
 
 def print_check(rows):
@@ -206,6 +269,12 @@ def print_check(rows):
               f"({sum(r['diverged'] for r in rr)} diverged), trained "
               f"{sorted({r['trained'] for r in rr})}, fold {min(f):.2f}-{max(f):.2f}")
     print(f"% total {len(rows)} cells")
+    seen = {}
+    for r in rows:
+        seen.setdefault((r["kind"], r["gamma"], r["setting"], r["trained"], r["N"]), []).append(r["cell"])
+    for key, cells in seen.items():
+        if len(cells) > 1:
+            print(f"% INDISTINGUISHABLE rows {key}: {cells}")
 
 
 if __name__ == "__main__":
