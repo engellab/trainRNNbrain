@@ -115,10 +115,14 @@ C3_EXTRA = [("N=4000", "NBitFlipFlop_paper_grid_c200000/EqType=h_N=4000_arm=cont
 C3_CONTINUED = {"3204992658": "4113307577", "3194339211": "2461724787"}
 TASKNAME = {"NBitFlipFlop": "3BFF", "CDDM": "CDDM", "DMTS": "DMTS"}
 # Size-series cells whose networks are the transfer-test sources of Fig. 4e,f (task, N). At N = 4,000
-# the old sources are this cell's 200,000-iteration networks (read_b2_b4.B2_CTRL[4000]) and the young
-# ones the same networks at 75,000 iterations (their active counts at transfer, 588, 502, 544 in
-# data/remedy_reads_31oct/read_b2_b4.json, equal the 75,000-iteration counts 589, 502, 544 of
-# data/c1_ablation_seeded to within one unit; dead-relu-paper #111). The N = 1,000 sources are the
+# the old sources are this cell's 200,000-iteration networks and the young ones the same networks at
+# 75,000 iterations: paths.transfer_from of NBitFlipFlopHyper_b4_transfer/EqType=h_N=4000_src=
+# control_age=old names the three NBitFlipFlop_paper_grid_c200000 N=4000 control folders, and of
+# ..._age=young the three NBitFlipFlop_paper_grid_c75000 folders that are those networks'
+# paths.init_from (saved configs on Della, read by the PR #119 reviewer, 1 Nov). The young sources'
+# active counts at transfer (588, 502, 544; data/remedy_reads_31oct/read_b2_b4.json) equal the
+# 75,000-iteration counts (589, 502, 544; data/c1_ablation_seeded) to within one unit
+# (dead-relu-paper #111). The N = 1,000 sources are the
 # Fig. 1d networks, marked in tex_row.
 TRANSFER_SOURCES = {("3BFF", 4000)}
 # Supplementary Table 1's Fig. column marks the 35 size-series networks that Extended Data Fig. 1
