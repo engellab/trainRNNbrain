@@ -76,9 +76,9 @@ NAME = {"control": "Control", "frm": "Rate penalty", "synnoise": "Noisy synapses
 WHAT = {"control": "task loss only",
         "frm": "penalises a peak rate above or below a target",
         "synnoise": "every weight $\\times (1 + \\sigma_w\\,\\xi)$, redrawn each step",
-        "rescale": "tilts an inactive unit's inputs to excitation",
+        "rescale": "strengthens an inactive unit's positive inputs",
         "duplicate": "replaces an inactive unit by a copy",
-        "dropout": "hides busy units from the read-out"}
+        "dropout": "hides active units from the read-out"}
 COL = {"control": ps.BASE, "frm": ps.COND_COL["frm"], "synnoise": ps.COND_COL["synnoise"],
        "rescale": ps.COND_COL["rescale"], "duplicate": ps.COND_COL["duplicate"],
        "dropout": ps.COND_COL["dropout"], "frm+rws": ps.COND_COL["frm + rws"]}
@@ -407,7 +407,7 @@ def panel_a3(ax_s, ax_f, a3):
     ax_s.set_xlim(lo, 0.45)
     ax_s.set_ylim(lo, 0.8)
     ax_s.set_xlabel("$R^2$, $k$ random active\nunits removed")
-    ax_s.set_ylabel("$R^2$, $k$ recruited\nunits removed")
+    ax_s.set_ylabel("$R^2$, $k$ added\nunits removed")
     ax_s.text(0.44, 0.40, "equal cost", fontsize=5.6, color=ps.MUTED, ha="right", va="top")
     h = [Line2D([], [], marker="o", color=ps.MUTED, ls="none", ms=3.5, label="$N$ = 1000"),
          Line2D([], [], marker="o", mfc="none", color=ps.MUTED, ls="none", ms=3.5,

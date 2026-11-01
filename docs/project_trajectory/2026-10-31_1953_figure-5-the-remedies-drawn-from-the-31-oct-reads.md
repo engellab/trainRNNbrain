@@ -82,3 +82,18 @@ undefined; those files belong to other packages.
   breaks a family's line. Figure 5b x-axis to 1030 (rate-penalty markers at 990-995 were clipped);
   ED Fig. 8d legend moved inside the axes, checked with `get_tightbbox` (no overlap with any tick
   label or text).
+
+**Revision after the second round-1 review (PR #22).**
+- Why the rate penalty alone (B2) has no floor read at N ≤ 1000. The first two versions of Results 5
+  and ED Fig. 8 gave the loss bursts as the reason. The bursts are not the reason: ED Table 3 has the
+  rate penalty at N = 2000 with 68-75 bursts and a floor read in 3 of 3 networks, and rescaling at
+  N = 500 with 74-82 bursts and 4 of 4, and the read-out masks bursts before the fit. The exclusion
+  reasons, from `common.read_run` (`fig_ed_remedies.py`, ED8 lines): N = 500, two networks never stay
+  under the 1.05x bar (60 and 58 bursts) and one ends 1.8x above its floor (57); N = 1000, two never
+  stay under the bar (67 and 60) and one ends below its floor, still falling (66). Controls burst 4-8
+  times at N = 500 and 8-12 at N = 1000. Results 5 and the ED Fig. 8 caption now state the reasons and
+  give the burst counts as a separate observation.
+- Figure 5 panel text: panel a, rescaling "strengthens an inactive unit's positive inputs", read-out
+  dropout "hides active units from the read-out"; panel e y-label "k added units removed" (the
+  caption, Results 5 and Methods say "added"). Text-overlap check over every drawn tick label, axis
+  label, text and legend: no overlap, nothing off the canvas.
