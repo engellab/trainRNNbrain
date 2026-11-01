@@ -264,9 +264,9 @@ B4_VERDICT_4000 = os.path.join(LOCAL, "b4_verdict_4000.json")
 C_ACT, C_INA = ps.ACTIVE, ps.INACTIVE
 C_TRACE = ps.INK
 TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM}
-SRC_STYLE = {"old": dict(marker="o", mfc=ps.INK, mec=ps.INK),
-             "young": dict(marker="^", mfc=ps.INK, mec=ps.INK),
-             "fresh": dict(marker="s", mfc=ps.BASELINE, mec=ps.BASELINE)}
+SRC_STYLE = {"old": dict(marker="o", **ps.mark_floor(ps.INK)),
+             "young": dict(marker="^", **ps.mark_floor(ps.INK)),
+             "fresh": dict(marker="s", **ps.mark_floor(ps.BASELINE))}
 REACH_REL = SILENT_REL                               # the reach threshold, as a fraction of q95(g_in)
 BARS = np.geomspace(0.005, 0.5, 25)                  # ED6b: reach thresholds swept, fraction of q95
 F4_H_MM = 140.0                                      # Figure 4 height; the cap is paperstyle.MAX_H_MM
@@ -879,6 +879,7 @@ def figure4(nets, summ, tanh, b4):
     ax = fig.add_subplot(r3[0, 1])
     draw_b4_active(ax, b4)
     ps.panel_letter(ax, "f", x_mm=9)
+    ps.floor_label_pads(fig)                         # as save() will, so the layout check sees it
     check_layout(fig, "fig_paper_F4_noreturn")
     return ps.save(fig, "fig_paper_F4_noreturn")
 
@@ -1004,6 +1005,7 @@ def ed_mechanism(nets):
     ax.set_ylabel("noisy training loss / final", labelpad=1)
     ps.ygrid(ax)
     ps.panel_letter(ax, "e")
+    ps.floor_label_pads(fig)                         # as save() will, so the layout check sees it
     check_layout(fig, "fig_ed_mechanism")
     return ps.save(fig, "fig_ed_mechanism")
 
@@ -1023,7 +1025,7 @@ def ed_tanh(tanh, traces):
     """
     fig = ps.figure(h_mm=52)
     gs = fig.add_gridspec(1, 3, left=0.075, right=0.99, top=0.9, bottom=0.27, wspace=0.34,
-                          width_ratios=[1, 1.3, 0.75])
+                          width_ratios=[1, 1.45, 0.7])
     col = {"ReLU": ps.BASELINE, "tanh": ps.SETTING}
     ax = fig.add_subplot(gs[0, 0])
     for act in ("ReLU", "tanh"):
@@ -1069,6 +1071,7 @@ def ed_tanh(tanh, traces):
     ax.set_ylabel("median activation slope", labelpad=1)
     ps.ygrid(ax)
     ps.panel_letter(ax, "c")
+    ps.floor_label_pads(fig)                         # as save() will, so the layout check sees it
     check_layout(fig, "fig_ed_tanh")
     return ps.save(fig, "fig_ed_tanh")
 
