@@ -47,7 +47,7 @@ TASKS = [("3BFF", ("NBitFlipFlop_ff_revive_c75000", "NBitFlipFlop_paper_grid_c75
          ("DMTS", ("DMTS_paper_grid_d5",), ps.TASK_DMTS, 0.8)]
 SIZES = [500, 1000, 2000, 4000]
 Y_FLOOR = -0.5
-JITTER = 0.30                  # half-width, in size slots, over which a size's networks are spread
+JITTER = 0.12                  # half-width, in size slots, over which a size's networks are spread
 
 FIG_H_MM = 90.0                # under the float's 0.40 \\textheight cap (91.4 mm), so it prints at 100%
 ROW_A = (12.0, 27.0)           # (top, height) of row a, mm from the canvas top
@@ -129,7 +129,7 @@ def panel_b(ax, runs, col):
         x = np.asarray(r["ks"], float) / max(r["n_silent"], 1)
         y = np.maximum(np.asarray(r["quiet_first"], float), Y_FLOOR)
         ax.plot(x, y, "-", lw=ps.THIN_LW, color=col, alpha=0.7)
-    ax.axvline(1.0, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)))
+    ax.axvline(1.0, color=ps.INK, lw=0.6, ls=(0, (5, 2.5)))
     ax.set(xlim=(0, 1.6), ylim=(Y_FLOOR - 0.04, 1.05))
     ax.set_xticks([0, 0.5, 1.0, 1.5])
     ax.set_yticks([-0.5, 0, 0.5, 1.0])

@@ -616,6 +616,7 @@ def example_network_pair(refresh=False):
     inputs, targets, _ = task.get_batch()
 
     def run(net):
+        """Simulate `net` noise-free on the batch `inputs`; return its (N, T, B) ReLU rates."""
         net.clear_history()
         net.y = net.y_init
         net.run(input_timeseries=inputs, sigma_rec=0.0, sigma_inp=0.0)
@@ -950,7 +951,8 @@ def panel_b_pair(axes, p_init, p, iterations):
             if ha == "right":
                 xc = min(xc * 3.0, thr / 1.25) if q is p_init else xc * 1.6
             ax.text(xc, h[k] + top * 0.06, f"{ps.fmt_count(int(mask.sum()))} {word}",
-                    ha=ha if q is p_init else "left", va="bottom", fontsize=ps.TICK_PT,
+                    ha=ha if q is p_init else ("left" if word == "inactive" else "center"),
+                    va="bottom", fontsize=ps.TICK_PT,
                     color=ps.INK)
         ax.set_ylabel("units")
         ax.set_yticks([0, 100, 200])
@@ -1366,7 +1368,8 @@ def panel_d(axes, loaded=None, ax_key=None):
     busiest first (dotted, mean). The grey band is the share of inactive units (INACTIVE, the same
     grey as an inactive unit in panels a and b). A star marks each network pruned of every inactive
     unit and retrained for 3,000 iterations (ablate_silent_units.py retrain), joined by a thin line
-    to its score straight after removal. Scores below 0 are drawn at 0.
+    to its score straight after removal; an open star marks the same retraining after as many
+    units were removed at random (the control). Scores below 0 are drawn at 0.
 
     Args:
         axes: one Axes per entry of ABLATION, left to right, sharing the y axis;
@@ -1405,7 +1408,11 @@ def panel_d(axes, loaded=None, ax_key=None):
             xs = 100 * t["n_silent"] / t["N"]
             y0, y1 = t["silent_removed"][0][1], t["silent_removed"][-1][1]
             ax.plot([xs, xs], [max(y0, 0), y1], "-", lw=ps.THIN_LW, color=col, zorder=5)
-            ax.plot(xs, y1, "*", ms=5.5, color=col, mec="white", mew=0.3, zorder=6, clip_on=False)
+            ax.plot(xs, y1, "*", ms=5.5, color=col, mec="white", mew=0.3, zorder=7, clip_on=False)
+            # the control: as many units removed at random, retrained the same way (open star)
+            if t.get("random_removed"):
+                ax.plot(xs, t["random_removed"][-1][1], "*", ms=5.5, mfc="white", mec=col, mew=0.5,
+                        zorder=6, clip_on=False)
         ax.set(xlim=(0, 100), ylim=(0, 1.0))
         ax.set_xticks([0, 50, 100])
         ax.set_yticks([0, 0.5, 1.0])
@@ -1433,7 +1440,9 @@ def panel_d(axes, loaded=None, ax_key=None):
             Line2D([], [], color=ps.MUTED, lw=1.1, ls=":", label="busiest first"),
             Patch(color=SILENT_GREY, alpha=0.35, label="inactive units"),
             Line2D([], [], color=ps.MUTED, marker="*", ls="", ms=5.5,
-                   label="inactive units removed, then retrained")],
+                   label="inactive units removed, then retrained"),
+            Line2D([], [], marker="*", ls="", ms=5.5, mfc="white", mec=ps.MUTED, mew=0.5,
+                   label="as many removed at random, then retrained")],
             loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=3, fontsize=ps.TICK_PT,
             handlelength=2.0, columnspacing=1.2, borderaxespad=0.0, borderpad=0.0, frameon=False)
     return rows
@@ -1644,19 +1653,19 @@ def panel_knobs(ax):
 # Figure 1 layout (drawing stage), in millimetres on the printed page: the canvas is W_FULL_MM
 # (165.1 mm, \\textwidth) by FIG_H_MM, and every axes is placed by its left edge, top edge, width and
 # height measured from the canvas's top-left corner, so the printed sizes are exact.
-FIG_H_MM = 114.0
+FIG_H_MM = 136.0
 LAYOUT_MM = {                  # name: (left, top, width, height)
-    "net":   (1.0, 8.5, 46.0, 34.0),      # a, the circuit drawing
-    "trace": (49.0, 9.5, 45.0, 36.0),     # a, eight random units
-    "b_top": (108.0, 9.5, 54.0, 15.0),    # b, untrained
-    "b_bot": (108.0, 31.5, 54.0, 15.0),   # b, trained
-    "c":     (14.0, 62.0, 40.0, 40.0),    # c, active units per task
-    "d_key": (69.0, 57.5, 93.0, 6.0),     # d, legend strip, above the sub-panels and off the data
-    "d":     (69.0, 70.0, 27.0, 32.0),    # d, first of three side-by-side sub-panels
+    "net":   (1.0, 9.0, 52.0, 40.0),      # a, the circuit drawing
+    "trace": (55.0, 10.0, 46.0, 42.0),    # a, eight random units
+    "b_top": (111.0, 10.0, 51.0, 18.0),   # b, untrained
+    "b_bot": (111.0, 36.5, 51.0, 18.0),   # b, trained
+    "c":     (14.0, 77.0, 40.0, 47.0),    # c, active units per task
+    "d_key": (69.0, 72.0, 93.0, 7.0),     # d, legend strip, above the sub-panels and off the data
+    "d":     (69.0, 86.0, 27.0, 38.0),    # d, first of three side-by-side sub-panels
 }
 D_GAP_MM = 6.0                 # gap between the sub-panels of d
-LETTER_X_MM = {"a": 1.0, "c": 1.0, "b": 97.0, "d": 59.0}   # panel letters: left edges, two columns
-LETTER_TOP_MM = {"a": 4.5, "b": 4.5, "c": 57.0, "d": 57.0}  # letter baseline, from the top
+LETTER_X_MM = {"a": 1.0, "c": 1.0, "b": 100.0, "d": 59.0}  # panel letters: left edges, two columns
+LETTER_TOP_MM = {"a": 4.5, "b": 4.5, "c": 71.0, "d": 71.0}  # letter baseline, from the top
 
 
 def ax_mm(fig, left, top, width, height):
