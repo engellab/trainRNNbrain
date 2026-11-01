@@ -22,7 +22,7 @@ and the exponents equal Fig. 2a's to three decimals (3BFF 0.478, CDDM 0.443, DMT
 | largest q50/q95 at t\* | 0.038 | 0.099 (N = 500; at most 0.022 from N = 1000) | 0.015 |
 
 Over all three tasks: halving the factor raises the count by 3-25%, doubling it lowers the count by
-9-28%, and the exponent moves by at most 0.05 between factors. Adding DMTS N = 4000 (one network,
+9-28%; the exponent at 0.025 or 0.10 differs from its value at 0.05 by at most 0.05 (3BFF 0.044 at 0.025). Adding DMTS N = 4000 (one network,
 620 active) moved the DMTS exponents from 0.57 / 0.58 / 0.62 (entry 1657) to 0.54 / 0.55 / 0.60.
 
 **Paper.** Methods M04 (dead-relu-paper PR for #51) gives these values.
