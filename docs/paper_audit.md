@@ -38,8 +38,8 @@ bird's-eye view of what works.
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done** except one B5 arm | SGD lr 3, wd 0 (Spock, another session) |
 | C4 | On CDDM ~300 of 1,000 units are silent (never fire, no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Done**: in the paper as sec:mechanism (16 Oct) | Paper-wide pass for the silent / low-active terms (Pavel to confirm) |
 | C5 | Settings move the active count at the floor by ≤ ~120 units; input-weight scale raises it but those networks then lose units faster | **Done**: sec:knobs rewritten, Figure 2 synced (16 Oct) | — |
-| C6 | Rules that give participation its own drive recruit units at a small cost | **Running**; B2 failed its rule (31 Oct) | Read the remedy top-ups (RMtop200) at the floor; A3; build Figure 3 |
-| C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running**; B4 N = 1000 supports it (31 Oct) | B3 rate cells; B4 N = 4000; read all at the floor |
+| C6 | Rules that give participation its own drive recruit units at a small cost | **Partly done**: remedies read at the floor and A3 done (31 Oct, entry 2026-10-31_1732); B2 failed its rule | Build Figure 3; Pavel to decide how rescaling and read-out dropout are reported above N = 1000 (needs-pavel issue dead-relu-paper#16) |
+| C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running**; B4 supports "cannot be called back" at N = 1000 and 4000 (31 Oct); B3 waits on Pavel (dead-relu-paper#17) | Pavel's B3 decision |
 
 **C1.** N = 1000, three networks per task, each read at its floor. Active units: CDDM about 430 of
 1000, DMTS about 350, flip-flop 266-341 (crossings 52-69k on the 200k runs). Removing every silent
@@ -80,36 +80,51 @@ raising the count. Figure 2 (`fig_paper_F2_fails.py`) shows the nine ladders and
 re-initialising, zeroing or randomly redrawing silent units does not raise the count. Details: entry
 2026-10-15_2207.
 
-**C6.** The flip-flop remedy cells are being continued to 200k with snapshots (RMtop200), so each
-can be read at its floor. Until then the remedy numbers below are end-of-training reads at 75k.
-B2 (rate penalty alone, flip-flop, entry 2026-10-31_1532) fails its pre-registered rule: no run at
-N = 500 or 1000 reaches a floor read (the loss bursts 57-67 times per run and the active count swings
-between ~300 and 1,000), and at N = 2000 it holds 4.8× the control's active count at a cost of 0.024
-in held-out R² (0.926 against 0.950).
+**C6.** The remedy top-ups (RMtop200, 267 runs in 83 cells) are read at 1.05× each run's own
+noisy-loss floor (entry 2026-10-31_1732; `read_remedies.py` 2d32b3b). 146 runs are read and 121
+excluded. 92 of the exclusions never stay under the bar: their loss is still falling at 200k
+(`rm_exclusion_diag.py`). Noisy synapses (σ_w = 1) are read in every run at every size and give
+1.81×, 2.03×, 1.54× and 1.60× the control's active count at N = 500, 1000, 2000 and 4000, at an R²
+cost of 0.021-0.025 for N ≥ 1000 (0.043 at 500). Prune-and-duplicate gives 2.06-3.59× at a cost of
+at most 0.018. Rescaling and read-out dropout have no floor read at N = 2000 or 4000 (0 of 16 runs);
+at 75k they give 1.7-2.0×. B2 (rate penalty alone, entry 2026-10-31_1532) fails its pre-registered
+rule: no run at N = 500 or 1000 reaches a floor read, and at N = 2000 it costs 0.024 in held-out R²
+(0.926 against 0.950). B2's third test, against synaptic noise, does not falsify: 4.81× against
+1.54× at N = 2000, and 5.64× against 1.60× at 4000. A3 (75k): removing the recruited units (active
+units beyond the control's count, least participating first) lowers R² from 0.93-0.95 to 0.18-0.62
+in every remedy at N = 1000 and 4000. For read-out dropout and the rate penalty, that cost equals
+removing as many random active units.
 
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
 421-457 for an untrained network trained on the new task; R² is the same (0.91). Verdict, by the
-pre-registered rule: inactive units do not come back. B4 at N = 4000 (1 of 9 runs done) and B3 are
-running on Della; their rules are in the 2026-10-15_1342 entry.
+pre-registered rule: inactive units do not come back. B4 at N = 4000 (entry 2026-10-31_1750) gives
+the same verdict: old networks revive 2.3-7.8% of their inactive units and end with 446-613 active
+against 806-956 for untrained networks; R² 0.909-0.914 for both. B3 (N = 1000, rate × noise ×
+rescaling): the rule binds at the floor, where its literal verdict is "supports several sources",
+reached only through its stability clause. Rate+noise reads at the floor and rate alone does not,
+because its loss is still falling at 200k. Rate+noise has 970 active units against 556 for noise
+alone, at a cost of 0.04 in R². At 75k the verdict is between the bars. Decision with Pavel
+(dead-relu-paper#17).
 
 ## The remedies catalogue
 
 *Bio-inspired*: uses only the unit's own activity and synapses and could run online. *Engineering*:
 copies units, ranks the whole population, or acts outside the dynamics. Flip-flop multipliers are
-N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
+read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 1000 and then 4000;
+'75k' marks a cell with no floor read at that size.
 
 | Remedy | Class | What it does | Active units | Status |
 |---|---|---|---|---|
-| Rate penalty | Bio-inspired | Two-sided penalty around a target rate | CDDM: all 1000; flip-flop 4.8× at N = 2000 | Flip-flop alone (B2): unstable at N ≤ 1000, −0.024 R² at N = 2000 |
-| Noisy synapses | Bio-inspired | Each weight × (1 + σ_w·noise), every step | 2.08×; 1.65× at N = 4000 | In RMtop200 |
-| Rescaling incoming weights | Bio-inspired | Tilts a silent unit's input row toward its positive weights, at fixed length, until a release target | 1.57×; 1.94× at N = 4000 | In RMtop200 |
+| Rate penalty | Bio-inspired | Two-sided penalty around a target rate | CDDM: all 1000; flip-flop 4.8× at N = 2000, 5.6× at 4000 | Flip-flop alone (B2): unstable at N ≤ 1000, −0.024 R² at N = 2000; its multiplier is above synaptic noise's |
+| Noisy synapses | Bio-inspired | Each weight × (1 + σ_w·noise), every step | 2.03×; 1.60× at N = 4000 (read in 14 of 14 runs, N = 500-4000) | −0.021 to −0.025 R² at N ≥ 1000 |
+| Rescaling incoming weights | Bio-inspired | Tilts a silent unit's input row toward its positive weights, at fixed length, until a release target | 1.51× (1 of 4 runs read); 1.95× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000: loss still falling at 200k (dead-relu-paper#16) |
 | Threshold lift | Bio-inspired | Raises a silent unit's bias once | 1.36× | Screen only |
-| Prune-and-duplicate | Engineering | Overwrites a silent unit with a jittered copy of a working one | 2.92×; 3.70× at N = 4000 | In RMtop200; fails on DMTS above N = 500 |
-| Read-out dropout | Engineering | Randomly hides busy units from the read-out | 1.95× | In RMtop200; fails on DMTS |
+| Prune-and-duplicate | Engineering | Overwrites a silent unit with a jittered copy of a working one | 2.77×; 3.59× at N = 4000 | −0.005 R² at N = 1000, −0.018 at 4000; fails on DMTS above N = 500 |
+| Read-out dropout | Engineering | Randomly hides busy units from the read-out | 1.81× (1 of 3 runs read); 2.01× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000 (dead-relu-paper#16); fails on DMTS |
 | Full dropout | Engineering | Randomly removes busy units from the dynamics | 904/1000 | Parked: costs 12-17 R² points |
-| Redraw silent units | Engineering (≈ continual backprop / ReDo) | Re-initialises a silent unit | no gain | Negative (Figure 2) |
-| Rate + sparsity | Bio-inspired pair | Both penalties | 3.39× | Parked; the rate penalty alone replaces it |
+| Redraw silent units | Engineering (≈ continual backprop / ReDo) | Re-initialises a silent unit | 0.84-0.96× | Negative (Figure 2) |
+| Rate + sparsity | Bio-inspired pair | Both penalties | 3.51×; 5.87× at N = 4000 (1 run) | Parked; the rate penalty alone replaces it |
 
 ## Parked (do not restart without Pavel)
 
@@ -125,20 +140,23 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
 ## Open work
 
 **Analyses (no new training)**
-- **A3.** Ablate the recruited units for every remedy, plus random 10/30/50% ablation curves, in
-  held-out R², once RMtop200 is read at the floor.
+- **A3.** Done 31 Oct (entry 2026-10-31_1732). Recruited units carry task signal in every remedy.
+  Remedy networks lose less to random 10% removal (median R² 0.58-0.86 against 0.48 for the control
+  at N = 1000).
 - **A5.** Supplementary task-demand panel (`fig_supp_task_demand`) is drafted on pre-standard data:
   harder tasks recruit more units, no solved task fills the network. Open: a re-run on the standard
   network.
 
 **Training**
-- **B2.** Done, read 31 Oct: fails its rule (entry 2026-10-31_1532).
-- **B3.** Pilot read (16 Oct): λ = 0.03 chosen (72% of units active, 2.4× the control). Rate cells
-  submitted 15689235-37; noise and rescaling cells 15598515-17 running.
-- **B4.** N = 1000 read 31 Oct: inactive units do not come back (entry 2026-10-31_1532). N = 4000
-  (15655301-03): 1 of 9 runs done; read with `read_b2_b4.py` when the fresh runs land.
-- **RMtop200.** 189 remedy top-up tasks to 200k with snapshots, from `~/trainRNNbrain_redo`
-  (709c17d); job ids in Della `~/f2_logs/rm_submit_go.txt`.
+- **B2.** Done, read 31 Oct: fails its rule (entry 2026-10-31_1532). Third test (against synaptic
+  noise) does not falsify.
+- **B3.** Read 31 Oct (entry 2026-10-31_1750, Della job 16553903). At the floor: literal "supports",
+  through the stability clause only. At 75k: between the bars. Rate+rescale skips 44-67% of updates
+  and the triple 8-11%. Under today's read-out the λ = 0.03 pilot rung reads at 0 of 3 runs (2 of 3
+  when it was chosen). Stage 2 not run; waits on dead-relu-paper#17.
+- **B4.** Done. N = 1000 and N = 4000 both: inactive units do not come back (entries
+  2026-10-31_1532 and 2026-10-31_1750).
+- **RMtop200.** Read 31 Oct (entry 2026-10-31_1732).
 - **Redo with snapshots (waiting on Pavel; after the initialisation decision):** retrain the size-series controls with snapshots every
   1000 iterations (~800 GPU-h). CDDM regenerates exactly; flip-flop and DMTS give new networks.
 
@@ -158,13 +176,22 @@ N = 1000 at 75k (end of training, to be replaced by floor reads from RMtop200).
 - **Which biological penalty goes in the main text.** The decision "rate penalty alone" rested on
   CDDM. On the flip-flop (B2) the same penalty trains unstably at N ≤ 1000 and costs 0.024 R² at
   N = 2000. Options: keep it with the flip-flop failure stated; lower λ_frm (B3's pilot chose 0.03
-  at N = 1000); or lead with synaptic noise or rescaling once RMtop200 is read.
+  at N = 1000); or lead with synaptic noise, the only remedy read at the floor in all 14 runs at
+  N = 500-4000 (1.5-2.0×, R² cost 0.021-0.025 at N ≥ 1000). Rescaling has no floor read above
+  N = 1000 (dead-relu-paper#16).
+- **Rescaling and read-out dropout above N = 1000** (dead-relu-paper#16): report at 75k, labelled, with the 1.20×
+  crossing in the supplement (recommended), or continue the 16 runs past 200k.
 - **Figure 1, flip-flop N = 1000:** FFseed4 landed; the cell now reads 4 runs at the floor (240,
   277, 296, 297). Rebuild Figure 1 with all four, or keep the straggler excluded.
 
 - **Conclusion wording.** Recommended: "gradient descent on the task loss alone does not keep units
-  participating; participation needs a drive of its own". Say "several sources" only if B3 shows a
-  combination beats the rate penalty alone on stability, cost, dimensionality or ablation.
+  participating; participation needs a drive of its own". B3's literal floor verdict "supports
+  several sources" rests only on rate+noise reaching a floor read where rate alone, whose loss is
+  still falling at 200k, does not; the cost is 0.04 R². At 75k it is between the bars. Options and
+  recommendation (keep "a drive of its own") in dead-relu-paper#17.
+- **Read-out limits found in B3, not patched:** non-finite losses are dropped before bursts are
+  counted, and floor R² can be taken on a snapshot inside a burst (dead-relu-paper#18). They may
+  affect the bursting remedy cells (B2, B3, RMtop200), not B4.
 - **C4 wording:** candidates in the 2026-10-15_1342 entry.
 - **Does the old correlated initialisation change silencing?** 3 seeds at N = 1000, CDDM and the
   flip-flop, independent draws against the current controls (~45 GPU-h); entry 2026-10-15_2206.
