@@ -19,10 +19,10 @@ so the task definitions belong here, once, and the main text keeps its panels fo
 NOTHING HERE IS DRAWN BY HAND, AND NOTHING IS READ FROM `configs/task/`. The right-hand channel
 stacks are the real input and target streams produced by the task objects in `trainRNNbrain/tasks/`,
 instantiated from the config SAVED INSIDE A TRAINED RUN FOLDER - the one the manuscript's own
-networks were trained with. The first version of this figure built DMTS from
-`configs/task/DMTS.yaml` and drew 2 stimuli, 1 output and a 14-tau trial; the runs the paper
-actually reports used 4 stimuli, 2 outputs and a 30-tau trial, because that config is
-`DMTS_long.yaml`. A figure of the tasks is worth nothing if it is a figure of a different task, so
+networks were trained with: NBitFlipFlop_ff_revive (the first 40k run of the 200k chain),
+CDDM_paper_grid and DMTS_paper_grid_d5, all at N = 1000. The paper's DMTS runs are the 5-tau-delay
+variant (configs/task/DMTS_d5.yaml): 2 stimuli, 2 outputs, a 19-tau trial. A figure of the tasks
+is worth nothing if it is a figure of a different task, so
 the config comes from the runs and the epoch bars are derived from it rather than typed in.
 
 Usage:  python fig_supp_tasks.py
@@ -41,6 +41,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
+from matplotlib.ticker import MultipleLocator
 from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -278,6 +279,7 @@ def channel_stack(ax, inp, tgt, epochs, dt_over_tau, spec, pending=False):
                 va="bottom", fontsize=5.6, color=ps.BAD)
     ax.set(yticks=bases, xlabel=r"time ($\tau$)",
            xlim=(0, t[-1] * 1.01), ylim=(bases[-1] - 0.62, top + head))
+    ax.xaxis.set_major_locator(MultipleLocator(5))   # same integer ticks (0, 5, 10, ...) on every row
     ax.set_yticklabels(ticks, fontsize=6.0)
     for lab, col in zip(ax.get_yticklabels(), cols):
         lab.set_color(col)
@@ -307,11 +309,13 @@ def pic_cddm(ax):
     # the stimulus: a cloud of arrows. Direction is the motion feature, colour is the colour
     # feature, and on this trial they point opposite ways - which is the whole task.
     ps.box(ax, 0.13, 0.320, 0.74, 0.42, col=ps.MUTED, face=ps.PAPER, lw=0.7)
+    # Arrows sit on a jittered 6 x 4 grid, so no two overlap and every direction can be read.
     rng = np.random.default_rng(4)
-    xs = 0.19 + 0.62 * rng.random(26)
-    ys = 0.375 + 0.31 * rng.random(26)
-    right = rng.random(26) < 0.72                       # motion evidence: 72% rightward
-    col_a = rng.random(26) < 0.28                       # colour evidence: 28% colour A
+    gx, gy = np.meshgrid(np.linspace(0.21, 0.79, 6), np.linspace(0.40, 0.66, 4))
+    xs = gx.ravel() + rng.uniform(-0.025, 0.025, gx.size)
+    ys = gy.ravel() + rng.uniform(-0.015, 0.015, gy.size)
+    right = rng.permutation(np.arange(gx.size) < 17)    # motion evidence: 17 of 24 rightward
+    col_a = rng.permutation(np.arange(gx.size) < 7)     # colour evidence: 7 of 24 colour A
     for x, y, r, a in zip(xs, ys, right, col_a):
         d = 0.045 if r else -0.045
         ps.arrow(ax, (x - d / 2, y), (x + d / 2, y), col=COL_A if a else COL_B, lw=0.8,
