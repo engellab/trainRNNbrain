@@ -209,6 +209,13 @@ def collect():
         rows = [row(c, ctrl[c["N"]], fam, shown_sig, a3) for c in cells]
         if fam == "frm":
             rows.append(b3_rate_row(b3, ctrl[1000]))
+            # lambda_frm = 0.01, the combination-test pilot's other value: trained to 200,000
+            # iterations (Della jobs 15598507-08) but read only under an earlier floor read-out
+            # (notebook 2026-10-16_1053) and never at 75,000 iterations; its weights are on Della.
+            rows.append(dict(name="combination-test pilot", N=1000,
+                             setting="$\\lambda_{\\mathrm{frm}} = 0.01$", n_runs=3, n_75k=None,
+                             active_75k=None, fold_75k=None, dr2_75k=None, n_bad=0, r2_note="",
+                             n_cross=None, fold_floor=None, shown=False))
         rows.sort(key=lambda r: (not r["shown"], r["N"] != 1000, r["name"], r["setting"]))
         out[fam] = rows
     return out
@@ -237,6 +244,9 @@ def print_tex(rows):
                 (f"$^\\dagger$" if r["n_bad"] else "")
             ff = "--" if r["fold_floor"] is None else f"{r['fold_floor']:.2f}"
             setting = "\\raggedright " + setting       # wrapped lines are not justified
+            if r["active_75k"] is None:                  # not read (lambda_frm = 0.01)
+                print(f"{r['name']} & {setting} & 1{{,}}000 & -- & -- & -- & -- & not read$^\\S$ \\\\")
+                continue
             act = f"{r['active_75k']:,.0f}".replace(",", "{,}")
             name = r["name"] if " " in r["name"] else \
                 f"\\texttt{{{r['name'].replace('_', chr(92) + '_')}}}"
@@ -258,7 +268,7 @@ def print_check(rows):
     """
     print("\n% check list")
     for fam in ORDER:
-        r1 = [r for r in rows[fam] if r["N"] == 1000]
+        r1 = [r for r in rows[fam] if r["N"] == 1000 and r["active_75k"] is not None]
         f = [r["fold_75k"] for r in r1]
         d = [r["dr2_75k"] for r in r1 if r["dr2_75k"] is not None]
         low = [(r["name"], r["setting"], round(r["fold_75k"], 2)) for r in r1 if r["fold_75k"] < 1]

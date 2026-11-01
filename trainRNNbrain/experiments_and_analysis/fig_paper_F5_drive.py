@@ -67,7 +67,7 @@ from common import DATA_DIR, load_run, read_run
 READS = os.path.join(DATA_DIR, "..", "remedy_reads_31oct")
 B2_DIR = os.path.join(DATA_DIR, "NBitFlipFlop_remedy_grid")
 SIZES = (500, 1000, 2000, 4000)
-FIG_H_MM = 156.0
+FIG_H_MM = 141.0                 # paperstyle MAX_H_MM
 
 # The per-unit rules in the main figure, in key order. Rate + sparsity appears only in the Extended
 # Data and Supplementary Table 2.
@@ -262,17 +262,28 @@ def ring(ax, x, y):
                    zorder=4, clip_on=False)
 
 
-def edge_arrow(ax, x, y, direction, col, filled):
-    """An off-scale value: an arrowhead inside the axes' edge, pointing out of the plot.
+def edge_arrow(ax, x, y, direction, col, filled, marker="o", s=10):
+    """An off-scale value: its own marker at the axes' edge, with a short arrow pointing at it.
+
+    The marker keeps the series' shape and the fill of its measurement point (filled, floor
+    crossing; open, 75,000 iterations); the arrow comes from inside the plot and points out of it,
+    so an off-axis value is not drawn as a triangle that could read as read-out dropout's marker
+    (dead-relu-paper#99 review, item 9).
 
     Args:
-        ax: axes; x, y: where to draw it (data coordinates, inside the limits);
-        direction: "<" (left edge) or "v" (bottom edge); col: colour; filled: bool.
+        ax: axes; x, y: where to draw the marker (data coordinates, inside the limits);
+        direction: "<" (value beyond the left edge) or "v" (beyond the bottom edge);
+        col: colour; filled: bool (True at the floor crossing); marker: the series' marker;
+        s: scatter size.
     Returns:
         None.
     """
-    ax.scatter([x], [y], s=12, marker=direction, facecolor=col if filled else "none",
-               edgecolor=col, lw=0.6, zorder=3, clip_on=False)
+    kw = ps.mark_floor(col, scatter=True) if filled else ps.mark_75k(col, scatter=True)
+    ax.scatter([x], [y], s=s, marker=marker, zorder=4, clip_on=False, **kw)
+    off = (9, 0) if direction == "<" else (0, 9)          # points: the arrow starts inside the plot
+    ax.annotate("", xy=(x, y), xytext=off, textcoords="offset points", zorder=4,
+                arrowprops=dict(arrowstyle="-|>,head_length=0.25,head_width=0.12", lw=0.5,
+                                color=col, shrinkA=0, shrinkB=2.2))
 
 
 def style_axes(ax):
@@ -296,7 +307,7 @@ def panel_key(ax):
 
     Fill marks the measurement point and nothing else (dead-relu-paper#83): filled, the floor
     crossing; open, 75,000 iterations. The ring marks an R^2 from weights inside a loss burst, the
-    arrowhead a value off the axis.
+    arrow a value beyond the axis, drawn at the edge.
 
     Args:
         ax: a blank axes spanning the figure width.
@@ -315,7 +326,8 @@ def panel_key(ax):
                  **ps.mark_75k(ps.INK)),
           Line2D([], [], marker="o", mfc="none", mec=ps.INK, mew=0.5, ls="none", ms=5.2,
                  label="$R^2$ from weights inside a loss burst"),
-          Line2D([], [], marker="<", color=ps.INK, ls="none", ms=3, label="value off the axis")]
+          Line2D([], [], marker=r"$\leftarrow$", color=ps.INK, ls="none", ms=5,
+                 label="value beyond the axis (at the edge)")]
     ax.legend(handles=h2, loc="lower center", ncol=len(h2), frameon=False, fontsize=ps.TICK_PT,
               handlelength=1.0, columnspacing=1.6, handletextpad=0.35, borderaxespad=0)
 
@@ -342,8 +354,9 @@ def panel_traces(ax, series, traces):
         # one marker per trace, at 75,000 iterations (open: the 75,000-iteration read-out, as in b);
         # its shape, not only its lightness, tells the two ochre rules apart
         j = int(np.argmin(np.abs(it - 75000)))
-        ax.plot([it[j]], [med[j]], ls="none", marker=MARK[fam], ms=4.0, zorder=4,
-                **ps.mark_75k(COL[fam]))
+        kw = ps.mark_75k(COL[fam])
+        kw["mfc"] = "white"                  # still open; white so the trace does not run through it
+        ax.plot([it[j]], [med[j]], ls="none", marker=MARK[fam], ms=4.0, zorder=6, **kw)
         out[fam] = (len(runs), float(med[j]), float(med[-1]))
     ax.axvline(75000, color=ps.FAINT, lw=ps.THIN_LW, zorder=0)
     ax.set_xlim(0, 200000)
@@ -427,7 +440,7 @@ def panel_sizes(ax_m, ax_r, series, marks):
             ok = d["dr2"] > y_edge
             ax_r.scatter(np.full(ok.sum(), x), d["dr2"][ok], s=7, marker=MARK[fam], zorder=3, **kw)
             for _ in range(int((~ok).sum())):
-                edge_arrow(ax_r, x, y_edge, "v", COL[fam], ro != "75k")
+                edge_arrow(ax_r, x, y_edge, "v", COL[fam], ro != "75k", MARK[fam], s=7)
             yb = np.where(ok, d["dr2"], y_edge)[d["burst"]]
             ring(ax_r, np.full(len(yb), x), yb)
             xs.append(x)
@@ -536,10 +549,10 @@ def panel_removal(axs, a3, marks):
             x, y = float(np.median(r["r2_random_active"])), float(r["r2_recruited"])
             if x < lo:
                 xd, yd = lo + 0.01, y
-                edge_arrow(ax, xd, yd, "<", COL[fam], False)
+                edge_arrow(ax, xd, yd, "<", COL[fam], False, MARK[fam], s=11)
             elif y < lo:
                 xd, yd = x, lo + 0.012
-                edge_arrow(ax, xd, yd, "v", COL[fam], False)
+                edge_arrow(ax, xd, yd, "v", COL[fam], False, MARK[fam], s=11)
             else:
                 xd, yd = x, y
                 ax.scatter([x], [y], s=11, marker=MARK[fam], zorder=3,
@@ -602,7 +615,7 @@ def panel_combination(ax_m, axs, b3, marks):
                     y = ypos[cell] + dy
                     if not np.isfinite(v) or v < lo:
                         xr = lo + 0.015 * (hi - lo)
-                        edge_arrow(ax, xr, y, "<", ps.INK, ro == "floor")
+                        edge_arrow(ax, xr, y, "<", ps.INK, ro == "floor", "o", s=8)
                     else:
                         xr = v
                         ax.scatter([v], [y], s=8, marker="o", zorder=3, **kw)
@@ -653,33 +666,33 @@ def build():
     L, W = 0.075, 0.475                    # left column: left and right edges (figure fractions)
     M, R = 0.585, 0.965                    # right column
 
-    ax_key = fig.add_axes([0.0, y(9.0), 1.0, y(1.0) - y(9.0)])
+    ax_key = fig.add_axes([0.0, y(8.5), 1.0, y(0.8) - y(8.5)])
     panel_key(ax_key)
 
-    # row 1 (a, b): axes 17-48 mm from the top
-    ax_a = fig.add_axes([L, y(48), W - L, y(17) - y(48)])
-    ax_b = fig.add_axes([M, y(48), R - M, y(17) - y(48)])
+    # row 1 (a, b): axes 15-41 mm from the top
+    ax_a = fig.add_axes([L, y(41), W - L, y(15) - y(41)])
+    ax_b = fig.add_axes([M, y(41), R - M, y(15) - y(41)])
     info_a = panel_traces(ax_a, series, traces)
     drawn_b = panel_one_size(ax_b, a3, marks)
 
-    # row 2 (c, d): 66-104 mm
-    gc = fig.add_gridspec(2, 1, left=L, right=W, top=y(66), bottom=y(104), hspace=0.12,
+    # row 2 (c, d): 57.5-91 mm
+    gc = fig.add_gridspec(2, 1, left=L, right=W, top=y(57.5), bottom=y(91), hspace=0.12,
                           height_ratios=[1.45, 1])
     ax_cm, ax_cr = fig.add_subplot(gc[0]), fig.add_subplot(gc[1])
     drawn_c = panel_sizes(ax_cm, ax_cr, series, marks)
 
-    gd = fig.add_gridspec(2, 1, left=M, right=R, top=y(66), bottom=y(104), hspace=0.12,
+    gd = fig.add_gridspec(2, 1, left=M, right=R, top=y(57.5), bottom=y(91), hspace=0.12,
                           height_ratios=[1, 1.45])
     ax_dl, ax_da = fig.add_subplot(gd[0]), fig.add_subplot(gd[1])
     info_d = panel_rate_alone(ax_dl, ax_da, b2, series["control"][1000]["active"])
 
-    # row 3 (e, f): 123-143 mm; e takes less width than its column so that f's labels fit
-    ge = fig.add_gridspec(1, 2, left=L, right=0.385, top=y(122), bottom=y(142), wspace=0.12)
+    # row 3 (e, f): 107-127.5 mm; e takes less width than its column so that f's labels fit
+    ge = fig.add_gridspec(1, 2, left=L, right=0.385, top=y(107), bottom=y(127.5), wspace=0.12)
     ax_e1 = fig.add_subplot(ge[0])
     ax_e2 = fig.add_subplot(ge[1], sharey=ax_e1)
     drawn_e = panel_removal([ax_e1, ax_e2], a3, marks)
 
-    gf = fig.add_gridspec(1, 4, left=0.445, right=R, top=y(122), bottom=y(142), wspace=0.22,
+    gf = fig.add_gridspec(1, 4, left=0.445, right=R, top=y(107), bottom=y(127.5), wspace=0.22,
                           width_ratios=[0.62, 1, 1, 1])
     ax_fm = fig.add_subplot(gf[0])
     axs_f = [fig.add_subplot(gf[i]) for i in (1, 2, 3)]
