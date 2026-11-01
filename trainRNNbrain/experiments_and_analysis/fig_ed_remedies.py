@@ -93,6 +93,29 @@ def load_bursts():
     return out
 
 
+def load_where_75k():
+    """Whether each network's weights at 75,000 iterations lie inside a loss burst or non-finite stretch.
+
+    Pools the catalogue's 75,000-iteration values and the removal analysis's intact scores from
+    fig5_burst_check.py (the same weights, so the same verdict; checked: no network differs).
+
+    Returns:
+        dict cell -> {network folder name: "calm", "burst" or "non-finite"}.
+    """
+    with open(os.path.join(READS, "fig5r2_read", "burst_check.json")) as fh:
+        res = json.load(fh)
+    out = {}
+    for r in res:
+        if "error" in r:
+            continue
+        for v in r["values"]:
+            if (r["source"], v["what"]) in (("catalogue", "75k"), ("a3", "intact")):
+                name = os.path.basename(r["run_dir"].rstrip("/"))
+                prev = out.setdefault(r["cell"], {}).setdefault(name, v["where"])
+                assert prev == v["where"], f"two verdicts for {name}"
+    return out
+
+
 def fmt_range(v):
     """'57--60' for a list of ints, '57' when min equals max, '--' when empty."""
     if not len(v):
@@ -336,12 +359,12 @@ def removal_medians(a3, fam, N):
     return f"{added:.2f}".replace("-", "$-$"), f"{rnd:.2f}".replace("-", "$-$")
 
 
-def table_supp2(cat, series, bursts, a3, marks):
+def table_supp2(cat, series, bursts, a3, marks, where75):
     """Print the LaTeX rows of Supplementary Table 2: a block per rule, a row per size.
 
     Args:
         cat: load_catalogue(); series: size_series(cat); bursts: load_bursts(); a3: load_a3();
-        marks: load_marks().
+        marks: load_marks(); where75: load_where_75k().
     Returns:
         None.
     """
@@ -354,7 +377,7 @@ def table_supp2(cat, series, bursts, a3, marks):
     print("\n% Supplementary Table 2 rows (fig_ed_remedies.py)")
     n_marked = 0
     for fam in ED9_FAMS:
-        print(f"\\multicolumn{{12}}{{l}}{{\\emph{{{TABLE_NAME[fam]}}}}} \\\\")
+        print(f"\\multicolumn{{11}}{{l}}{{\\emph{{{TABLE_NAME[fam]}}}}} \\\\")
         for N in SIZES:
             c = series[fam].get(N)
             if c is None:
@@ -365,22 +388,25 @@ def table_supp2(cat, series, bursts, a3, marks):
             b = bursts.get(c["cell"], [])
             assert len(b) == c["n_runs"], f"burst counts for {len(b)} of {c['n_runs']} runs: {c['cell']}"
             assert not fl["burst"].any(), f"a floor-crossing R2 inside a burst: {c['cell']}"
-            nb75 = f"{int(fx['burst'].sum())}/{len(fx['burst'])}" if len(fx["burst"]) else "--"
-            n_marked += int(fx["burst"].sum())
+            w = where75.get(c["cell"], {})
+            n_in = sum(v != "calm" for v in w.values())
+            nb75 = f"{n_in}/{len(w)}" if w else "--"
+            n_marked += n_in
             added, rnd = removal_medians(a3, fam, N)
-            print(f" & {tex_count(N)} & {c['n_read']}/{c['n_runs']} & "
+            print(f"{tex_count(N)} & {c['n_read']}/{c['n_runs']} & "
                   f"{fmt_range(b)} & {act} & {fmt_mult(fl)} & {fmt_dr2(fl)} & {meas} & {fmt_mult(fx)} & "
                   f"{fmt_dr2(fx)} & {nb75} & {added} / {rnd} \\\\")
-    print(f"% 75,000-iteration R2 values from weights inside a burst, in these rows: {n_marked}")
-    print("\\multicolumn{12}{l}{\\emph{Revival methods (Fig. 3e)}} \\\\")
+    print(f"% networks whose 75,000-iteration weights lie inside a burst, in these rows: {n_marked}")
     for c in cat:
         if c["family"] == "redraw":
-            name = "Redraw" if "mode=random" in c["cell"] else "Redraw, outgoing zeroed"
+            name = ("Revival method: incoming weights redrawn, outgoing kept" if "mode=random" in
+                    c["cell"] else "Revival method: incoming weights redrawn, outgoing zeroed")
+            print(f"\\multicolumn{{11}}{{l}}{{\\emph{{{name}}}}} \\\\")
             ctrl = series["control"][1000]
             mult = np.mean(c["active"]) / np.mean(ctrl["active"])
             dr2 = np.mean(c["r2"]) - np.mean(ctrl["r2"])
-            print(f"% {name}: {c['cell']}")
-            print(f" & 1{{,}}000 & {c['n_read']}/{c['n_runs']} & "
+            print(f"% {c['cell']}")
+            print(f"1{{,}}000 & {c['n_read']}/{c['n_runs']} & "
                   f"{fmt_range(bursts.get(c['cell'], []))} & {tex_range(c['active'])} & "
                   f"{mult:.2f} & {tex_num(dr2, sign=True)} & "
                   f"{sum(c['r2_measured'])}/{len(c['r2_measured'])} & -- & -- & -- & -- \\\\")
@@ -392,4 +418,4 @@ if __name__ == "__main__":
     series = size_series(cat)
     ed_rate_alone(series)
     ed_margins(series, load_diag())
-    table_supp2(cat, series, load_bursts(), load_a3(), load_marks())
+    table_supp2(cat, series, load_bursts(), load_a3(), load_marks(), load_where_75k())
