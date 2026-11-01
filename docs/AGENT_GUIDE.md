@@ -171,7 +171,10 @@ direct route; relay through the Mac (`slurm/sync_b5_spock_to_della.sh`).
   of training and label it so.
 - A penalised run's noisy loss includes λ·penalty, so its floor is task plus penalty.
 - **Active unit:** participation p = std(r) + q0.9(|r|) on a noise-free pass; active if
-  p ≥ 0.05·q95(p). Health check: q50/q95 below 0.05. Report active counts, never silent fractions.
+  p ≥ 0.05·q95(p). Health check: q50/q95 below 0.05, applied only to networks with fewer than half
+  their units active. More than half the units are active exactly when q50/q95 ≥ 0.05, so the check
+  fails by construction in such a network (CDDM at N = 500: 291-302 of 500 active, q50/q95
+  0.08-0.10; entry 2026-10-31_1657). Report active counts, never silent fractions.
 - **Performance:** held-out R² under the training noise, from `heldout_r2.py`, on CPU
   (`CUDA_VISIBLE_DEVICES=`). Seeds: held-out batch `HELDOUT_SEED = 20261012`, noise draw d
   `NOISE_SEED + d`, ordering batch `ORDER_SEED = 20261013`, fine-tune batches
