@@ -51,7 +51,7 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
-from matplotlib.ticker import NullLocator
+from matplotlib.ticker import FuncFormatter, NullLocator
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
@@ -374,6 +374,8 @@ FIG2_H_MM = 125.0       # printed height of Figure 2 (width is \textwidth, 165.1
 N_BOOT = 2000           # bootstrap resamples for the exponent's interval (panel c)
 BOOT_SEED = 20261031
 SIZE_MARK = {500: "o", 1000: "s", 2000: "D", 4000: "^"}
+NET_GAP_DEX = 0.05      # panels a-b: first network point this far (log10 N) from its size's mean
+NET_STEP_DEX = 0.03     # and the next ones this far apart (0.72 mm in panel a at print size, one 2 pt dot)
 
 
 def is_read(r, margin=0.05):
@@ -428,6 +430,48 @@ def boot_exponent(cells, rng):
     return tuple(np.percentile(bs, [2.5, 97.5]))
 
 
+def network_offsets(task, n):
+    """Horizontal offsets (log10 units) of one size's network points beside that size's mean.
+
+    3BFF's points sit to the left of the mean, CDDM's and DMTS's to the right; neighbouring
+    points are NET_STEP_DEX apart, the row starting NET_GAP_DEX from the mean.
+
+    Args:
+        task: "3BFF", "CDDM" or "DMTS"; n: int, networks at this size.
+    Returns:
+        float array of shape (n,), added to log10 N.
+    """
+    side = -1.0 if task == "3BFF" else 1.0
+    return side * (NET_GAP_DEX + NET_STEP_DEX * np.arange(n))
+
+
+def leave_one_out(series, task, margin):
+    """Exponent and bootstrap upper end of one fit with each network left out in turn.
+
+    Only networks at sizes with two or more are left out, so every refit keeps all four sizes
+    N >= FIT_MIN_N. Each refit's bootstrap starts from BOOT_SEED.
+
+    Args:
+        series: the collect record's size-series rows; task: "3BFF", "CDDM" or "DMTS";
+        margin: floor margin (0.05, 0.10, 0.20).
+    Returns:
+        list of (upper end of the 95% interval, exponent, N, seed), largest upper end first.
+    """
+    rows = [r for r in series if r["task"] == task and r["N"] >= FIT_MIN_N and is_read(r, margin)]
+    out = []
+    for drop in rows:
+        if sum(r["N"] == drop["N"] for r in rows) < 2:
+            continue
+        cells = {}
+        for r in rows:
+            if r is not drop:
+                cells.setdefault(r["N"], []).append(r["active_at"][margin])
+        cells = {N: np.array(v, float) for N, v in cells.items()}
+        hi = boot_exponent(cells, np.random.default_rng(BOOT_SEED))[1]
+        out.append((float(hi), power_fit(cells)[0], drop["N"], drop["seed"]))
+    return sorted(out, reverse=True)
+
+
 def panel_size(ax_a, ax_b, series):
     """Panels (a) and (b): active units, and active units as a percentage of N, against N.
 
@@ -446,18 +490,21 @@ def panel_size(ax_a, ax_b, series):
         Ns = np.array(sorted(cells), float)
         m = np.array([cells[N].mean() for N in Ns])
         sd = np.array([cells[N].std(ddof=1) if len(cells[N]) > 1 else 0.0 for N in Ns])
-        fit = Ns >= FIT_MIN_N
         for ax, scale in ((ax_a, 1.0), (ax_b, 100.0 / Ns)):
-            for N, s in zip(Ns, np.atleast_1d(scale) * np.ones(len(Ns))):
-                v = cells[N] * s
-                ax.plot(np.full(len(v), N), v, "o", ms=ps.SMALL_MARKER_PT, color=col, alpha=0.45, mec="none",
-                        zorder=4)
             sc = np.atleast_1d(scale) * np.ones(len(Ns))
-            # fitted sizes filled; N = 100 (drawn, not fitted) open
-            ax.errorbar(Ns[fit], (m * sc)[fit], yerr=(sd * sc)[fit], fmt="o", color=col, ms=3.0,
-                        lw=1.0, capsize=1.6, zorder=5)
-            ax.errorbar(Ns[~fit], (m * sc)[~fit], yerr=(sd * sc)[~fit], fmt="o", color=col, mfc="white",
-                        ms=3.0, lw=1.0, capsize=1.6, zorder=5)
+            # one point per network, in a short row beside its size's mean (3BFF to the left, CDDM
+            # and DMTS to the right, so 3BFF and DMTS, whose counts overlap, do not hide each other)
+            for N, s in zip(Ns, sc):
+                v = cells[N] * s
+                ax.plot(N * 10 ** network_offsets(task, len(v)), v, "o", ms=ps.SMALL_MARKER_PT,
+                        mew=0, zorder=4, **ps.mark_floor(col))
+            # every value is read at the floor crossing, so every marker is filled (#83); N = 100 is
+            # set apart by the fitted line, which starts above it
+            # caps narrower than the mean's marker and drawn under it, so a small s.d. does not
+            # turn the round marker into a square
+            ax.errorbar(Ns, m * sc, yerr=sd * sc, fmt="none", ecolor=col, lw=1.0, capsize=1.0,
+                        zorder=5)
+            ax.plot(Ns, m * sc, "o", ms=ps.MARKER_PT, mew=0, zorder=6, **ps.mark_floor(col))
         ax_b.plot(Ns, m * 100.0 / Ns, "-", color=col, lw=0.9, zorder=3)
         xf = np.array([FIT_MIN_N * 0.85, 4000 * 1.15])
         ax_a.plot(xf, A * xf ** b, ls="-", lw=0.9, color=col, zorder=3)
@@ -506,8 +553,9 @@ def panel_margins(ax, series):
             b, _ = power_fit(cells)
             lo, hi = boot_exponent({N: v for N, v in cells.items() if N >= FIT_MIN_N}, rng)
             x = j + (k - 1) * 0.22
-            ax.errorbar([x], [b], yerr=[[b - lo], [hi - b]], fmt="o", color=TASK_COL[task],
-                        ms=ps.MARKER_PT, lw=ps.DATA_LW, capsize=1.6)
+            ax.errorbar([x], [b], yerr=[[b - lo], [hi - b]], fmt="none", ecolor=TASK_COL[task],
+                        lw=ps.DATA_LW, capsize=1.0, zorder=5)       # caps under the marker, as a-b
+            ax.plot([x], [b], "o", ms=ps.MARKER_PT, mew=0, zorder=6, **ps.mark_floor(TASK_COL[task]))
             out[(task, d)] = (b, lo, hi, int(sum(len(v) for N, v in cells.items() if N >= FIT_MIN_N)))
     ax.axhline(1.0, color=ps.MUTED, lw=ps.THIN_LW, ls="-")
     ax.text(2.45, 1.01, "constant share", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
@@ -556,6 +604,9 @@ def panel_trajectories(axes_top, axes_bot, traj):
         for ax in (at, ab):
             ax.set_xticks([1e2, 1e3, 1e4, 1e5])
             ps.count_ticks(ax.xaxis)
+            # label every other decade: four labels per sub-panel ran into one string (#86)
+            ax.xaxis.set_major_formatter(FuncFormatter(
+                lambda v, _pos: ps.fmt_count(v) if round(np.log10(v)) % 2 == 0 else ""))
         ab.set_yticks([0, 250, 500, 750, 1000])
         ps.count_ticks(ab.yaxis)
         if k:
@@ -654,7 +705,7 @@ def draw_fig2(rec):
     top = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[0], width_ratios=[1.2, 1.2, 0.85], wspace=0.36)
     bot = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], width_ratios=[2.5, 1.0], wspace=0.30)
     dgs = GridSpecFromSubplotSpec(2, 3, subplot_spec=bot[0], height_ratios=[1.0, 1.3], hspace=0.12,
-                                  wspace=0.12)
+                                  wspace=0.16)
     ax_a, ax_b, ax_c = (fig.add_subplot(top[i]) for i in range(3))
     d_top = [fig.add_subplot(dgs[0, k]) for k in range(3)]
     d_bot = [fig.add_subplot(dgs[1, k], sharex=d_top[k]) for k in range(3)]
@@ -677,6 +728,12 @@ def draw_fig2(rec):
     print("Panel c (exponent, bootstrap 95%, runs in fit):")
     for (task, d), (b, lo, hi, n) in margins.items():
         print(f"  {task} {1 + d:.2f}x: {b:.3f} [{lo:.3f}, {hi:.3f}] n={n}")
+    print("Panel c, one network left out at a time (largest two upper ends: hi, b, N, seed):")
+    for task in TASKS:
+        for d in FLOOR_DELTAS:
+            top = leave_one_out(rec["series"], task, d)[:2]
+            print(f"  {task} {1 + d:.2f}x: " + "; ".join(f"{hi:.3f} (b {b:.3f}) without N={N} s{sd}"
+                                                         for hi, b, N, sd in top))
     print("Panel d (task, seed, t*, inactive at t*, inactive at end, end):")
     for row in trows:
         print("  ", row, f"-> {row[4] - row[3]:+.0f} after the floor" if np.isfinite(row[3]) else "")
