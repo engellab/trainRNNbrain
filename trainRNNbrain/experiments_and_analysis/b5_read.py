@@ -8,19 +8,25 @@ Each run is read twice:
     a rolling restart checkpoint, so R^2 there is ESTIMATED from the loss ratio
     (`heldout_r2.floor_r2`; 36 seeded noise draws);
   - at 200k: the active count of the last participation probe and the held-out R^2 of the final
-    weights (36 draws).
-The active count at the floor is the participation probe nearest the crossing.
+    weights (36 draws);
+  - at 75,000 iterations, the same-size read-out (Pavel, 16 Oct): `fig_paper_F2_fails.read_fixed`,
+    the read every training-setting ladder of Figure 3 gets. No B5 weights were kept at 75k, so R^2
+    there is estimated from the loss ratio.
+The active count at the floor is the participation probe nearest the crossing. Every row is also
+pickled to data/b5_read_cache.pkl, which `fig_paper_F3_settings.py` draws from.
 
 SGD lr 10 is left out (Pavel judged it pointless; it diverged). The SGD lr 3, wd 1e-6 arm fails the
 task (R^2 0.30-0.44) and is listed but drawn off the bottom of the axes.
 
 Usage (from the repository root, with `data` pointing at the trained networks):
     python trainRNNbrain/experiments_and_analysis/b5_read.py
-Writes img/internal_figures/diag_b5_optimizer.{png,pdf} and prints the per-run table.
+Writes img/internal_figures/diag_b5_optimizer.{png,pdf} and data/b5_read_cache.pkl, and prints the
+per-run table.
 """
 
 import glob
 import os
+import pickle
 import re
 import sys
 
@@ -32,13 +38,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from common import DATA_DIR, read_run, runs_with_loss
 from heldout_r2 import R2_DRAWS, floor_r2, heldout_r2, load_cache, save_cache
+from fig_paper_F2_fails import FIXED_IT, read_fixed
 
 SWEEP = os.path.join(DATA_DIR, "NBitFlipFlop_b5_optimizer")
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "img", "internal_figures",
                    "diag_b5_optimizer")
+CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "b5_read_cache.pkl"))
 SKIP_LR = {"10"}          # SGD lr 10: dropped by Pavel
-# SGD learning rate -> colour (light to dark orange); filled marker = wd 1e-6, open = wd 0
-SGD_COLOR = {"0.03": "#f7b37a", "0.1": "#f28a3c", "0.3": "#d9620f", "1": "#a8470a", "3": "#6b2c05"}
+# SGD learning rate -> colour (light to dark orange, CIELAB lightness 81, 68, 52, 37, 18); filled
+# marker = wd 1e-6, open = wd 0
+SGD_COLOR = {"0.03": "#fdbf6f", "0.1": "#f5892c", "0.3": "#d2560a", "1": "#963a06", "3": "#4f1d02"}
 ADAM_STYLE = {("adam", "0"): dict(color="#2a76d2", marker="o", label="Adam, wd 0"),
               ("adam", "1e-6"): dict(color="#808080", marker="o", mec="black", label="Adam, wd 1e-6 (standard)"),
               ("adamw", "1e-6"): dict(color="#1a9e77", marker="s", label="AdamW, wd 1e-6")}
@@ -80,13 +89,15 @@ def read_arm(cell, cache):
         cache: an open heldout_r2 cache.
     Returns:
         list of dicts, one per run: name, t_star (nan if no floor read), kind (floor_kind or the
-        reason there is no read), act_floor, r2_floor (nan when no read), act_end, it_end, r2_end.
+        reason there is no read), act_floor, r2_floor (nan when no read), act_end, it_end, r2_end,
+        and fixed (read_fixed at FIXED_IT: t_read, short, active, probe, r2, r2_how).
     """
     rows = []
     for r in runs_with_loss(cell):
         rd = read_run(r["run_dir"], run=r)
         row = dict(name=r["name"], act_end=rd["active_end"], it_end=rd["it_end"],
-                   r2_end=heldout_r2(r["run_dir"], draws=R2_DRAWS, cache=cache))
+                   r2_end=heldout_r2(r["run_dir"], draws=R2_DRAWS, cache=cache),
+                   fixed=read_fixed(r, FIXED_IT, cache))
         if rd["reason"]:
             row.update(t_star=np.nan, kind=rd["reason"], act_floor=np.nan, r2_floor=np.nan)
         else:
@@ -110,14 +121,18 @@ def main():
             arms.append(((opt, wd, lr), rows))
     # order: Adam arms, then SGD by learning rate, wd 1e-6 before wd 0
     arms.sort(key=lambda a: (a[0][0] == "sgd", float(a[0][2]), a[0][1] == "0"))
+    with open(CACHE, "wb") as fh:
+        pickle.dump(arms, fh)
+    print("wrote", CACHE)
 
     print(f"{'arm':<22}{'run':<12}{'cross (k)':>10} {'kind':<14}{'act@floor':>10}{'R2@floor':>10}"
-          f"{'act@end':>9}{'end (k)':>8}{'R2@end':>8}")
+          f"{'act@end':>9}{'end (k)':>8}{'R2@end':>8}{'act@75k':>9}{'R2@75k':>8}")
     for (opt, wd, lr), rows in arms:
         for r in rows:
             print(f"{opt + ' wd ' + wd + ' lr ' + lr:<22}{r['name'][:10]:<12}{r['t_star'] / 1e3:>10.0f} "
                   f"{str(r['kind'])[:13]:<14}{r['act_floor']:>10.0f}{r['r2_floor']:>10.4f}"
-                  f"{r['act_end']:>9.0f}{r['it_end'] / 1e3:>8.0f}{r['r2_end']:>8.4f}")
+                  f"{r['act_end']:>9.0f}{r['it_end'] / 1e3:>8.0f}{r['r2_end']:>8.4f}"
+                  f"{r['fixed']['active']:>9.0f}{r['fixed']['r2']:>8.4f}")
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5.4), sharey=True)
     handles = []

@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""Manuscript Figure 2 - WHAT FAILS. Every standard training knob, and the tricks that revive silent
-units, on the standard network (ReLU, bias 0, N = 1000). Figure 1 is the phenomenon; Figure 3 what
-worked. The old `fig_paper_F2.py` is kept because other code imports it.
+"""Extended Data Fig. 4 (was manuscript Figure 2) - every standard training knob, and the tricks that
+revive silent units, on the standard network (ReLU, bias 0, N = 1000), at BOTH read-outs: each run's
+own loss floor and a fixed 75,000 iterations. Figure 3 (`fig_paper_F3_settings.py`) draws the 75k
+read from this script's cache. The old `fig_paper_F2.py` is kept because other code imports it.
+
+TWO READ-OUTS (31 Oct, work package fig3-settings). Networks of one size are compared at a fixed
+75,000 iterations (Pavel, 16 Oct); a ladder whose common budget is shorter (CDDM input scale, 50k) is
+read at that budget (`fixed_point`). Each run's 75k read is `read_fixed`: R^2 measured on weights
+from that iteration where they exist, else estimated from the loss ratio. In the drawing, open
+symbols are the floor read and filled symbols the 75k read.
 
 WHY TWO VIEWS PER KNOB. Each run is read where its noisy training loss first reaches 1.05x its own
 fitted floor (`common.noisy_floor`), the project's rule. Its blind spot: a knob that speeds
@@ -57,10 +64,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import fig_knobs_at_floor as K
 import paperstyle as ps
-from common import DATA_DIR, logbin, noisy_floor, runs_with_loss
-from heldout_r2 import load_cache, read_rung, save_cache
+from common import DATA_DIR, END_FRAC, logbin, noisy_floor, r2_at_floor_estimate, runs_with_loss, snapshot_at
+from heldout_r2 import R2_DRAWS, heldout_r2, load_cache, read_rung, save_cache
+from read_remedies import chain_member_ending_at
 
 CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "fig_paper_F2_fails_cache.pkl"))
+# Networks of the SAME size are compared at a fixed iteration (Pavel, 16 Oct); the floor read is for
+# comparisons across sizes. A ladder whose common budget (`end_at`) is shorter is read at that budget.
+FIXED_IT = 75_000
+PROBE_STEP = 100            # iterations between participation probes and between logged losses
 
 # The revival screens, continued to a budget where they can reach their floor (trajectory
 # 2026-10-13: top-ups A and B). Each cell is read only when its folder holds finished runs; until
@@ -68,17 +80,79 @@ CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "fig_paper_F2_fails_cache.
 # flip-flop screen has none, and its config differs from the claim-1 flip-flop control
 # (`ff_revive_c200000`, arm none) only in the prune keys, so that control is its reference.
 REVIVAL = [
-    dict(stem="revival_cddm", knob="reviving inactive units", ref=0, categorical=True,
+    dict(stem="revival_cddm", knob="interventions to raise the active count", ref=0, categorical=True,
          task="CDDM, $N$ = 1000, 75,000 iterations",
          rungs=[("none", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=none"),
                 ("input-weight\ncap 0.3", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=cap"),
                 ("re-initialise\ninactive units", f"{DATA_DIR}/CDDM_screen3_c75000/EqType=h_N=1000_pen=none_arm=prune")]),
-    dict(stem="revival_ff", knob="reviving inactive units", ref=0, categorical=True,
+    dict(stem="revival_ff", knob="interventions to raise the active count", ref=0, categorical=True,
          task="3-bit flip-flop, $N$ = 1000, 200,000 iterations",
          rungs=[("none", f"{DATA_DIR}/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none"),
                 ("zero-out\ninactive units", f"{DATA_DIR}/NBitFlipFlop_replace_variants_c200000/EqType=h_k=3_N=1000_mode=zero_out_rate=0.025_mat=1000"),
                 ("random\nredraw", f"{DATA_DIR}/NBitFlipFlop_replace_variants_c200000/EqType=h_k=3_N=1000_mode=random_rate=0.025_mat=1000")]),
 ]
+
+
+def fixed_point(spec):
+    """The iteration a ladder is read at for the same-size comparison.
+
+    Args:
+        spec: one entry of `fig_knobs_at_floor.LADDERS` or REVIVAL.
+    Returns:
+        float: FIXED_IT, or the ladder's `end_at` where that is shorter (CDDM input scale, 50,000).
+    """
+    e = spec.get("end_at")
+    return float(min(FIXED_IT, e)) if e else float(FIXED_IT)
+
+
+def read_fixed(r, t, cache):
+    """One run read at a fixed iteration: its active units there and its held-out R^2 there.
+
+    Ported from `fig_cosyne2027.read_fixed` (branch panelc-n100), with R^2 MEASURED wherever weights
+    from iteration t exist, in this order: the run's own final weights when it ends at t; the member
+    of its warm-start chain that ends at t (a top-up's parent); a kept snapshot within
+    `common.SNAP_MAX_LAG` after t. Only where none exists is R^2 estimated as
+    `common.r2_at_floor_estimate` does at the floor: the final weights' unexplained variance scaled by
+    the ratio of the noisy loss at t (mean over the 2% of iterations up to t) to the loss at the end
+    (median of the last END_FRAC, as `common.read_run`). All R^2 are held-out, R2_DRAWS seeded draws.
+    A run that ends before t is read at its end and flagged short.
+
+    Args:
+        r: one `common.runs_with_loss` dict (it_loss, loss, it_act, active, run_dir);
+        t: float, the iteration to read at; cache: an open heldout_r2 cache.
+    Returns:
+        dict(t_read: iteration read, short: True if the run ended before t, active: active units at
+        the probe nearest t_read, probe: that probe's iteration, r2: held-out R^2 at t_read,
+        r2_how: "final", "parent", "snapshot" or "estimate").
+    """
+    it = np.asarray(r["it_loss"], float)
+    L = np.asarray(r["loss"], float)
+    short = bool(it[-1] < t - PROBE_STEP)
+    t_read = float(it[-1]) if short else float(t)
+    it_a = np.asarray(r["it_act"], float)
+    k = int(np.argmin(np.abs(it_a - t_read)))
+    out = dict(t_read=t_read, short=short, active=float(r["active"][k]), probe=float(it_a[k]))
+
+    def r2_of(d):
+        """Held-out R^2 of the weights saved in folder d."""
+        return heldout_r2(d, draws=R2_DRAWS, cache=cache)
+
+    if short or it[-1] <= t + PROBE_STEP:                 # the run's own final weights are at t
+        out.update(r2=r2_of(r["run_dir"]), r2_how="final")
+        return out
+    member = chain_member_ending_at(r["run_dir"], int(t))
+    if member:
+        out.update(r2=r2_of(member), r2_how="parent")
+        return out
+    snap = snapshot_at(r["run_dir"], t)
+    if snap:
+        out.update(r2=r2_of(snap), r2_how="snapshot")
+        return out
+    win = (it <= t_read) & (it > t_read - max(0.02 * t_read, 50.0))
+    L_t = float(np.mean(L[win])) if win.any() else float(L[np.argmin(np.abs(it - t_read))])
+    L_end = float(np.median(L[it >= it[-1] - END_FRAC * (it[-1] - it[0])]))
+    out.update(r2=float(r2_at_floor_estimate(L_t, L_end, r2_of(r["run_dir"]))), r2_how="estimate")
+    return out
 
 
 def collect_spec(spec, r2cache):
@@ -95,7 +169,7 @@ def collect_spec(spec, r2cache):
         dict(spec=spec, rungs=[dict(label, path, read, runs)]), with `read` read_rung's dict and
         `runs` one dict per run: name, it_act (iterations of the participation probes), active
         (active units at each probe), t_star (floor crossing, nan when the run has no usable
-        crossing) and reason (why not, or None).
+        crossing), reason (why not, or None) and fixed (read_fixed at fixed_point(spec)).
     """
     rungs = []
     for lab, path in spec["rungs"]:
@@ -113,7 +187,8 @@ def collect_spec(spec, r2cache):
             if why is not None:
                 t = float("nan")
             runs.append(dict(name=r["name"], it_act=it_a, active=np.asarray(r["active"], float),
-                             t_star=float(t), reason=why))
+                             t_star=float(t), reason=why,
+                             fixed=read_fixed(r, fixed_point(spec), r2cache)))
         mine = sorted(r["t_star"] for r in runs if np.isfinite(r["t_star"]))
         assert np.allclose(mine, sorted(read["cross"])), f"crossings disagree in {path}"
         rungs.append(dict(label=lab, path=path, read=read, runs=runs))
@@ -161,6 +236,9 @@ def probe(data):
                       f"  R2 {np.round(rg['read']['r2'], 3).tolist()}"
                       f"  measured {rg['read']['measured'].tolist()}")
                 for r in rg["runs"]:
+                    fx = r["fixed"]
+                    print(f"     {r['name'][:9]:<10} at {fx['t_read'] / 1e3:.0f}k{' (short)' if fx['short'] else ''}:"
+                          f" {fx['active']:.0f} active, R2 {fx['r2']:.4f} ({fx['r2_how']})")
                     at = " ".join(f"{active_at(r, t):5.0f}" for t in (5e3, 12.5e3, 25e3, 50e3, 75e3, 150e3, 200e3))
                     print(f"     {r['name'][:9]:<10} trace {r['it_act'][0]:>7.0f}-{r['it_act'][-1]:<7.0f}"
                           f" ({len(r['it_act'])} probes)  t*={r['t_star']:>7.0f}"
@@ -186,19 +264,21 @@ K_TICKS = [2e3, 1e4, 5e4, 2e5]      # labelled iterations; 5k, 20k and 100k get 
 K_MINOR = [5e3, 2e4, 1e5]
 TRACE_BINS = 40             # log-spaced bins the drawn traces are median-reduced into (see panel_pair)
 # Rung labels shortened for the legends of this figure, where a long label covers data; the
-# parameters dropped here (leak 0.01, beta 25, the sigmoid's gain and offset) go in the caption.
+# parameters dropped here (leak 0.01, beta 25, the sigmoid's gain and offset, the penalty weights) are
+# in Methods.
 DISPLAY = {"leaky ReLU\nleak 0.01": "leaky ReLU", "softplus\n$\\beta$ = 25": "softplus",
            "sigmoid\n7.5(x$-$0.3)": "sigmoid", "default\ndraw": "default",
-           "rate\n$\\lambda$ = 0.2": "rate 0.2", "sparsity\n$\\lambda$ = 0.05": "sparsity 0.05"}
+           "rate\n$\\lambda$ = 0.2": "rate", "sparsity\n$\\lambda$ = 0.05": "sparsity"}
 # A ladder whose traces leave no room for a legend borrows the legend of a ladder with the same
 # rungs and colours; its dashed traces still mark the runs with no floor read-out.
 BORROW_LEGEND = {"slide_k_inputscale": "slide_k_inputscale_cddm"}
 # Short row labels for the bottom-line panel, by stem.
 SHORT = {"slide_k_weightdecay": "weight decay", "slide_k_recnoise": "recurrent noise",
          "slide_k_metabolic": "metabolic penalty", "slide_k_recgain": "spectral radius",
-         "slide_k_rwm": "$W_{rec}$ penalty", "slide_k_frm_rws": "rate / sparsity pen.",
-         "slide_k_activation": "activation", "slide_k_inputscale_cddm": "input scale",
-         "slide_k_inputscale": "input scale (FF)", "revival_cddm": "revival", "revival_ff": "revival (FF)"}
+         "slide_k_rwm": "rec.-weight magnitude pen.", "slide_k_frm_rws": "rate / sparsity pen.",
+         "slide_k_activation": "activation", "slide_k_inputscale_cddm": "input-weight scale",
+         "slide_k_inputscale": "input-weight scale (3BFF)", "revival_cddm": "interventions",
+         "revival_ff": "interventions (3BFF)"}
 
 
 def rung_style(spec, i, n):
@@ -236,10 +316,13 @@ def has_runs(lad):
 def panel_pair(ax_r2, ax_tr, lad):
     """One ladder as two panels sharing the active-units axis.
 
-    Left (narrow): held-out R^2 at each run's floor (x) against active units there (y), one point
-    per run. Right: active units over training for every run (log iteration axis), each run's floor
-    crossing marked with the same symbol as its point on the left, so a point and its crossing sit
-    at the same height. A run with no usable crossing is drawn dashed, without a symbol.
+    Left (narrow): held-out R^2 (x) against active units (y), one point per run and read-out: open
+    at the run's floor, filled at the ladder's fixed point (fixed_point: 75,000 iterations, or a
+    shorter budget). Right: active units over training for every run (log iteration axis), each
+    run's floor crossing marked with the open symbol and its fixed-point read with the filled one, so
+    a point on the left and its mark on the right sit at the same height. A run with no usable
+    crossing is drawn dashed, with only the filled symbol. A dashed vertical line marks 75,000
+    iterations where the budget is longer; the dotted one the budget.
 
     Each trace is drawn as medians in TRACE_BINS log-spaced bins (common.logbin). Probe-to-probe
     noise is small on both tasks (median step 1-4 units), but a flip-flop count drops by 100-350
@@ -262,8 +345,11 @@ def panel_pair(ax_r2, ax_tr, lad):
         ref = i == spec["ref"]
         rd = rg["read"]
         if rd is not None and len(rd["floor"]):
-            ax_r2.scatter(rd["r2"], rd["floor"], s=16 if ref else 11, marker=mk, color=col,
-                          edgecolors="k" if ref else "none", linewidths=0.7, zorder=3 + ref)
+            ax_r2.scatter(rd["r2"], rd["floor"], s=14 if ref else 10, marker=mk, facecolors="none",
+                          edgecolors=col, linewidths=0.6, zorder=3)
+        fx = [r["fixed"] for r in rg["runs"]]
+        ax_r2.scatter([f["r2"] for f in fx], [f["active"] for f in fx], s=16 if ref else 11, marker=mk,
+                      color=col, edgecolors="k" if ref else "none", linewidths=0.7, zorder=4 + ref)
         for r in rg["runs"]:
             keep = (r["it_act"] >= X_MIN) & (r["it_act"] <= budget(lad))
             tb, yb = logbin(r["it_act"][keep], r["active"][keep], nbins=TRACE_BINS)
@@ -272,9 +358,11 @@ def panel_pair(ax_r2, ax_tr, lad):
                        ls="-" if np.isfinite(r["t_star"]) else (0, (2, 1.2)), zorder=2 + ref)
         for r in rg["runs"]:
             if np.isfinite(r["t_star"]):
-                ax_tr.scatter([r["t_star"]], [active_at(r, r["t_star"])], s=16 if ref else 11,
-                              marker=mk, color=col, edgecolors="k" if ref else "none",
-                              linewidths=0.7, zorder=5 + ref)
+                ax_tr.scatter([r["t_star"]], [active_at(r, r["t_star"])], s=14 if ref else 10,
+                              marker=mk, facecolors="none", edgecolors=col, linewidths=0.6, zorder=5)
+            ax_tr.scatter([r["fixed"]["probe"]], [r["fixed"]["active"]], s=16 if ref else 11,
+                          marker=mk, color=col, edgecolors="k" if ref else "none",
+                          linewidths=0.7, zorder=6 + ref)
         k = len(rd["floor"]) if rd is not None else 0
         nr = len(rg["runs"])
         lab = DISPLAY.get(rg["label"], rg["label"]).replace("\n", " ") + ("" if k == nr else f" ({k}/{nr})")
@@ -288,6 +376,8 @@ def panel_pair(ax_r2, ax_tr, lad):
     ax_tr.set_xticks([t for t in K_MINOR if t <= B * 1.25], minor=True)
     ax_tr.set_xticklabels([], minor=True)
     ax_tr.axvline(B, color=ps.FAINT, lw=0.6, ls=":", zorder=1)
+    if fixed_point(spec) < B:
+        ax_tr.axvline(fixed_point(spec), color=ps.FAINT, lw=0.6, ls=(0, (3, 2)), zorder=1)
     for ax in (ax_r2, ax_tr):
         ax.set_ylim(0, Y_MAX)
         ax.axhline(N_UNITS, color=ps.GRID, lw=0.6, zorder=0)
@@ -299,29 +389,28 @@ def bottom_line(ax, lads):
     """Every ladder on one active-units axis: each rung at its own floor and at the ladder's
     common budget.
 
-    One row per ladder. On the row, filled symbols are each rung's mean active count at the end of
-    the ladder's common budget (every run of the ladder read at the same iteration); the open
-    symbols just above are the same rungs at their own floor, joined to their filled symbol by a
-    thin line. A knob that read high at its floor only because it got there sooner ends left of its
-    reference.
+    One row per ladder. On the row, filled symbols are each rung's mean active count at the ladder's
+    fixed point (fixed_point: every run of the ladder read at the same iteration, 75,000 or the
+    shorter budget); the open symbols just above are the same rungs at their own floor, joined to
+    their filled symbol by a thin line. A knob that read high at its floor only because it got there
+    sooner ends left of its reference.
 
     Args:
         ax: the axes; lads: collected ladders, top to bottom.
     Returns:
-        list of (ladder, budget, [(rung, floor mean, end mean)]) rows, for the caption.
+        list of (ladder, fixed point, [(rung, floor mean, fixed-point mean)]) rows, for the caption.
     """
     rows = []
     for j, lad in enumerate(lads):
         spec = lad["spec"]
-        B = budget(lad)
+        B = fixed_point(spec)
         y = -j
         out = []
         n = len(lad["rungs"])
         for i, rg in enumerate(lad["rungs"]):
             col, mk = rung_style(spec, i, n)
             ref = i == spec["ref"]
-            ends = [active_at(r, B) for r in rg["runs"]]
-            ends = [v for v in ends if np.isfinite(v)]
+            ends = [r["fixed"]["active"] for r in rg["runs"]]
             fl = rg["read"]["floor"] if rg["read"] is not None else []
             m_end = float(np.mean(ends)) if ends else float("nan")
             m_fl = float(np.mean(fl)) if len(fl) else float("nan")
@@ -345,6 +434,14 @@ def bottom_line(ax, lads):
     return rows
 
 
+# The paper's name for a knob where it differs from the slide name in `fig_knobs_at_floor.LADDERS`
+# (one name per thing across Fig. 3, ED Fig. 4, Results 3 and Methods).
+PAPER_KNOB = {"slide_k_recgain": "initial spectral radius",
+              "slide_k_rwm": "recurrent-weight magnitude penalty",
+              "slide_k_inputscale": "initial input-weight scale",
+              "slide_k_inputscale_cddm": "initial input-weight scale"}
+
+
 def title_text(lad, pending=False):
     """Two-line pair title: the knob, then the task, where the floors fell, and the budget.
 
@@ -354,12 +451,12 @@ def title_text(lad, pending=False):
         the title string.
     """
     spec = lad["spec"]
-    task = "flip-flop" if "flip" in spec["task"] else "CDDM"
+    task = "3BFF" if "flip" in spec["task"] else "CDDM"
     if pending:
         return f"{spec['knob']}\n{task}: pending"
     cross = [r["t_star"] for rg in lad["rungs"] for r in rg["runs"] if np.isfinite(r["t_star"])]
     where = f"floors at {min(cross) / 1e3:.0f}-{max(cross) / 1e3:.0f}k" if cross else "no floor read"
-    knob = "initial spectral radius" if spec["stem"] == "slide_k_recgain" else spec["knob"]
+    knob = PAPER_KNOB.get(spec["stem"], spec["knob"])
     return f"{knob}\n{task}, {where}, budget {budget(lad) / 1e3:.0f}k"
 
 
@@ -403,8 +500,8 @@ def place_legend(ax, handles, alt=None):
     Returns:
         (the axes holding the legend - a tuple (ax, alt) for a legend spanning both - , the legend).
     """
-    kw = dict(handles=handles, fontsize=5.0, handlelength=1.6, borderaxespad=0.0,
-              labelspacing=0.2, handletextpad=0.4, columnspacing=0.8, loc="lower left")
+    kw = dict(handles=handles, fontsize=5.5, handlelength=1.1, borderaxespad=0.0,
+              labelspacing=0.15, handletextpad=0.3, columnspacing=0.6, loc="lower left")
     fig = ax.figure
     rend = fig.canvas.get_renderer()
     m = 0.015                                   # margin from the axes edge, in axes fractions
@@ -503,9 +600,9 @@ def draw(data):
     rev = data["revival"]
 
     ps.setup()
-    fig = plt.figure(figsize=(ps.W2, 200 * ps.MM))
+    fig = plt.figure(figsize=(ps.W2, 180 * ps.MM))
     gs = GridSpec(4, 3, figure=fig, left=0.065, right=0.985, top=0.955, bottom=0.05,
-                  hspace=0.72, wspace=0.30)
+                  hspace=0.50, wspace=0.30)
     slots = [gs[i // 3, i % 3] for i in range(9)] + [gs[3, 0], gs[3, 1]]
     letters = iter("abcdefghijkl")
     pairs = []
@@ -526,18 +623,19 @@ def draw(data):
             pairs.append((ax_r2, ax_tr, lad, None))
             continue
         handles = panel_pair(ax_r2, ax_tr, lad)
-        ax_r2.set_xlabel("$R^2$ at floor", labelpad=1)
+        ax_r2.set_xlabel("held-out $R^2$", labelpad=1)
         ax_tr.set_xlabel("training iteration", labelpad=1)
         pairs.append((ax_r2, ax_tr, lad, handles))
 
     # one R^2 range for every CDDM pair so they compare by eye; the flip-flop gets its own
     drawn = [p for p in pairs if p[3] is not None]
-    for task_ff, ticks in ((False, [0.80, 0.83]), (True, [0.949, 0.951])):  # inside the range: an edge tick ran into the next axis's "2k"
+    for task_ff, ticks in ((False, [0.80, 0.83]), (True, [0.950, 0.953])):  # inside the range: an edge tick ran into the next axis's "2k"
         group = [p for p in drawn if ("flip" in p[2]["spec"]["task"]) == task_ff]
         if not group:
             continue
         r2 = np.concatenate([rg["read"]["r2"] for p in group for rg in p[2]["rungs"]
-                             if rg["read"] is not None])
+                             if rg["read"] is not None]
+                            + [[r["fixed"]["r2"] for p in group for rg in p[2]["rungs"] for r in rg["runs"]]])
         pad = 0.08 * (r2.max() - r2.min())
         lo, hi = r2.min() - pad, r2.max() + pad
         for p in group:
@@ -567,9 +665,9 @@ def draw(data):
     ax_b = fig.add_subplot(sub[0, 1])
     rows = bottom_line(ax_b, [lad for lad in lads + rev if has_runs(lad)])
     pos = ax_b.get_position()
-    ps.panel_letter(ax_b, "l", dx=-0.62 * 0.42 - 0.20 * 0.71, dy=1.16)
+    ps.panel_letter(ax_b, "l", dx=-0.62 * 0.42 - 0.20 * 0.71, dy=1.10)
     fig.text(pos.x0 + pos.width * 0.35, pos.y1 + 0.006,
-             "all ladders: mean at own floor (open)\nand at common budget (filled)",
+             "all ladders: mean at own floor (open)\nand at 75k or the budget (filled)",
              ha="center", va="bottom", fontsize=6.2, color=ps.INK, linespacing=1.15)
     check_layout(fig, legends)
     return ps.save(fig, "fig_paper_F2_fails", w_mm=180), rows
@@ -648,7 +746,7 @@ def main():
         probe(data)
         return
     out, rows = draw(data)
-    print("\n--- bottom line: mean active units at own floor -> at the common budget ---")
+    print("\n--- bottom line: mean active units at own floor -> at 75k (or the shorter budget) ---")
     for knob, B, rr in rows:
         print(f"  {knob} ({B / 1e3:.0f}k): " + "; ".join(f"{lab} {f:.0f}->{e:.0f}" for lab, f, e in rr))
 
