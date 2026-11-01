@@ -50,17 +50,23 @@ pruning as many units at random does not (0.921-0.929). The same holds at every 
 4000 at the end of training (36 networks, supplementary figure). Text, Methods and the seeded numbers
 are in the paper.
 
-**C2.** Read at 1.05× each run's floor under read-out 79932ef (entry 2026-10-16, Figures 1 and 2
-under read-out 79932ef), the active count grows as N^0.47 on the 3-bit flip-flop (41% of 500 units
-active, 14% of 4000), N^0.44 on CDDM (298 of 500, 767 of 4000) and N^0.58 on DMTS (three sizes; 2 of 3
-runs read at N = 1000). The exponents stay between 0.44 and 0.60 at margins of 1.05×, 1.10× and 1.20×.
-1,000 active units would need N ≈ 7,300 on CDDM and ≈ 14,300 on the flip-flop. The learning-rate
-confound (lr ∝ N^−1/3) is left in and handled by reading each network at its own floor.
+**C2.** Figure 2 (entry 2026-10-31_1957; Della job 16558986, read-out 79932ef). Read at 1.05× each
+run's floor and fitted on the size means from N = 500, the active count grows as N^0.48 on the 3-bit
+flip-flop (41% of 500 units active, 14% of 4000), N^0.44 on CDDM (298 of 500, 767 of 4000) and N^0.55 on
+DMTS (four sizes now; 191 of 500, 620 of 4000 from the one N = 4000 network that reads out). At
+N = 100, 66-90% of units are active (drawn, not fitted). At 1.05×, 1.10× and 1.20× the exponents lie
+between 0.44 and 0.61 and every bootstrap 95% upper bound is below 0.79, so the rule of entry
+2026-10-31_1900 says C2 holds on all three tasks. 1,000 active units would need N ≈ 7,300 on CDDM,
+9,200 on DMTS and 14,200 on the flip-flop. The learning-rate confound (lr ∝ N^−1/3) is left in and
+handled by reading each network at its own floor; mean crossings move from 59k to 65k (flip-flop) and
+27k to 32k (CDDM) between N = 500 and 4000. The flip-flop N = 1000 straggler is counted, per
+dead-relu-paper#20's recommendation, until Pavel decides.
 
 **C3.** CDDM, N = 1000: every weight-decay setting reaches its floor early and keeps losing units to
-200-300k with no gain in loss. Flip-flop: units keep dying while the loss is flat (N = 1000: 22-83
-units per 100k in 4 of 5 flat runs, slowing to 11-22 by 300k without stopping; N = 2000 is not yet
-flat at 200k). **Not the optimizer (B5):** at the floor, Adam (wd 1e-6) keeps 237-271 active at R²
+200-300k with no gain in loss. Flip-flop (Figure 2e, entry 2026-10-31_1957): from 150k, 13 of 15 runs
+with a flat loss (< 3% change per 100k) lose 8-121 units per 100k: N = 500 4 of 5, N = 1000 5 of 6
+(the two 300k runs 23 and 37 per 100k, slowing to 11-22 in their last 100k, entry 2026-10-15_0955),
+N = 4000 3 of 3 (31-121); N = 2000 has one flat run (57 per 100k), so it is untested there. **Not the optimizer (B5):** at the floor, Adam (wd 1e-6) keeps 237-271 active at R²
 0.951, AdamW 282-292 at 0.961; SGD keeps more units only where it converges to a worse solution
 (703-736 active at R² 0.883, lr 0.03) and has Adam's count at its best learning rates. Figure
 `diag_b5_optimizer`.
