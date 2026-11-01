@@ -4,7 +4,8 @@ Manuscript Figure 5 - A PER-UNIT PARTICIPATION DRIVE RECRUITS UNITS, AT A COST.
 
 Every rule that adds a per-unit drive raises the 3-bit flip-flop's active count above its control's;
 the multiplier and the cost in held-out R^2 and in stable training differ by rule; the recruited
-units carry task signal; and no combination of rules passes the pre-registered B3 test.
+units carry task signal; and combining two rules raises the count further at a larger R^2 cost
+(B3, read as between the bars: dead-relu-paper#17).
 
   (a) THE RULES          each remedy, its glyph and one line on what it does, grouped bio-inspired /
                          engineering (criteria: Extended Data Table 4).
@@ -16,7 +17,7 @@ units carry task signal; and no combination of rules passes the pre-registered B
                          Read at 1.05x each run's own noisy-loss floor (RMtop200,
                          read_remedies.py). Rescaling and read-out dropout have no floor read at
                          N >= 2000, so their whole series is drawn at 75k, open markers, dashed
-                         (dead-relu-paper#16, recommended option, until Pavel answers).
+                         (dead-relu-paper#16, as decided on 31 Oct).
   (d) RATE PENALTY ALONE (B2), N = 1000: active units over training, every run, against the
                          control's floor-read range; the noisy loss of the same runs above. No run
                          has a floor read.
@@ -84,7 +85,7 @@ COL = {"control": ps.BASE, "frm": ps.COND_COL["frm"], "synnoise": ps.COND_COL["s
 MARK = {"control": "o", "frm": "o", "synnoise": "s", "rescale": "D", "duplicate": "^",
         "dropout": "v", "frm+rws": "P"}
 # Remedies whose size series is drawn at 75k because they have no floor read at N >= 2000
-# (dead-relu-paper#16, option 1, the recommended one).
+# (dead-relu-paper#16, decided on 31 Oct).
 AT_75K = ("rescale", "dropout")
 
 B3_CELLS = ("none", "rate", "noise", "rescale", "rate+noise", "rate+rescale", "noise+rescale",
@@ -188,7 +189,8 @@ def per_run(series, fam, N, readout):
         readout: "floor" (1.05x each run's own floor) or "75k".
     Returns:
         dict with active (runs' counts), mult (count / control mean, same read-out), r2, dr2 (R^2
-        minus the control's mean R^2, same read-out; non-finite R^2 dropped), n_read, n_runs.
+        minus the control's mean R^2, same read-out; every run kept, non-finite R^2 included),
+        n_read, n_runs.
         Empty arrays when the cell is missing.
     """
     c, ctrl = series.get(fam, {}).get(N), series["control"][N]
@@ -229,7 +231,7 @@ def panel_rules(ax):
     ps.blank(ax)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    rows = [("head", "Bio-inspired: uses the unit's own activity and synapses")]
+    rows = [("head", "Bio-inspired: uses only the unit's own synapses and rate")]
     rows += [("fam", f) for f in BIO]
     rows += [("head", "Engineering: copies units or ranks the population")]
     rows += [("fam", f) for f in MAIN if f not in BIO]
@@ -266,7 +268,8 @@ def panel_one_size(ax, a3):
         open_ = fam == "frm"          # rate alone: the count at 75k is one moment of a swing (d)
         ax.scatter(a, r2, s=16, marker=MARK[fam], facecolor="none" if open_ else COL[fam],
                    edgecolor=COL[fam], lw=0.8, zorder=3)
-    ax.set_xlim(0, 1000)
+    ax.set_xlim(0, 1030)          # rate-penalty networks reach 995: whole markers, not halves
+    ax.set_xticks([0, 250, 500, 750, 1000])
     ax.set_ylim(0.920, 0.956)
     ax.set_xlabel("Active units (of 1000)")
     ax.set_ylabel("Held-out $R^2$")
@@ -502,7 +505,7 @@ def build():
     b2 = load_b2(1000)
 
     fig = plt.figure(figsize=(180 * ps.MM, 190 * ps.MM))
-    gs = GridSpec(3, 2, figure=fig, left=0.085, right=0.985, top=0.975, bottom=0.06,
+    gs = GridSpec(3, 2, figure=fig, left=0.085, right=0.985, top=0.975, bottom=0.068,
                   wspace=0.30, hspace=0.30, height_ratios=[0.85, 1.15, 1.0])
 
     ax_a = fig.add_subplot(gs[0, 0])

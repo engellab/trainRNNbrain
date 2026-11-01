@@ -15,17 +15,22 @@ floor margins (ED Fig. 9), and the rows of the remedies catalogue (ED Table 3, p
               when it has a crossing there (rm_exclusion_diag.py output); runs excluded for any
               other reason are excluded at every margin. Multiplier = the run's active count over
               the control's mean active count at the same N and margin.
-  ED Table 3  printed rows: remedy, N, runs read / found, active at the floor, multiplier and R^2
-              difference at the floor and at 75k, R^2 measured / estimated.
+  ED Table 3  printed rows: remedy, N, runs read / found, loss bursts per run (range over every run
+              trained, common.read_run's count as stored by read_remedies.py), active at the
+              floor, multiplier and R^2 difference at the floor and at 75k, R^2 measured /
+              estimated.
 
 Data and provenance: as fig_paper_F5_drive.py (data/remedy_reads_31oct/, the B2 runs under
-data/trained_RNNs/NBitFlipFlop_remedy_grid/).
+data/trained_RNNs/NBitFlipFlop_remedy_grid/), plus the per-run records of the same RMtop200 read
+(Della ~/rm_read/runs_*.json, copied to data/remedy_reads_31oct/rm_read_runs/), which hold each
+run's burst count.
 
 Usage:  python fig_ed_remedies.py
 Output: img/internal_figures/fig_ed_rate_alone.pdf, fig_ed_remedies_size.pdf (+ .svg), and the
         LaTeX rows of ED Table 3 on stdout.
 """
 
+import glob
 import json
 import os
 import sys
@@ -60,6 +65,33 @@ def load_diag():
             for r in json.load(fh):
                 out.setdefault(r["cell"], []).append(r)
     return out
+
+
+def load_bursts():
+    """Loss-burst counts of every run in the RMtop200 read (read_remedies.py per-run records).
+
+    A burst is common.read_run's: a stretch where the 51-iteration running median of the noisy loss
+    exceeds twice a wide reference curve, counted from the fit start (Methods, read-out).
+
+    Returns:
+        dict cell path -> list of int burst counts, one per run that has one (a diverged run, whose
+        folder is named nan, has none).
+    """
+    out = {}
+    for f in sorted(glob.glob(os.path.join(READS, "rm_read_runs", "runs_*.json"))):
+        with open(f) as fh:
+            for r in json.load(fh):
+                if "n_bursts" in r:
+                    out.setdefault(r["cell"], []).append(int(r["n_bursts"]))
+    return out
+
+
+def fmt_range(v):
+    """'57--60' for a list of ints, '57' when min equals max, '--' when empty."""
+    if not len(v):
+        return "--"
+    lo, hi = int(min(v)), int(max(v))
+    return str(lo) if lo == hi else f"{lo}--{hi}"
 
 
 def margin_counts(cell, key, diag):
@@ -149,7 +181,7 @@ def ed_rate_alone(series):
     ax.set_xticklabels([str(n) for n in SIZES], fontsize=6)
     ax.minorticks_off()
     ax.set_xlim(400, 5000)
-    ax.set_ylim(0.905, 0.972)
+    ax.set_ylim(0.905, 0.990)    # headroom above the data for the legend, inside the axes
     ax.set_xlabel("Network size $N$")
     ax.set_ylabel("Held-out $R^2$ at the floor")
     ax.text(450, 0.9075, "no floor read\nat $N \\leq$ 1000", fontsize=5.6, color=COL["frm"])
@@ -158,8 +190,9 @@ def ed_rate_alone(series):
          Line2D([], [], marker="o", mfc="none", color=COL["frm"], ls="none", ms=3,
                 label="rate, estimated"),
          Line2D([], [], color=ps.MUTED, ls=":", lw=0.7, label="control $-$ 0.02")]
-    ax.legend(handles=h, loc="upper center", fontsize=5.4, handletextpad=0.2, borderaxespad=0.1,
-              ncol=2, columnspacing=0.6, handlelength=1.2)
+    ax.set_yticks([0.91, 0.93, 0.95, 0.97])
+    ax.legend(handles=h, loc="upper right", fontsize=5.4, handletextpad=0.3, borderaxespad=0.15,
+              labelspacing=0.2, handlelength=1.2)
     for a, letter in zip(first + [ax], "abcd"):
         ps.panel_letter(a, letter, dx=-0.30 if a is not ax else -0.40, dy=1.10 if a is not ax else 1.02)
     return ps.save(fig, "fig_ed_rate_alone", w_mm=180)
@@ -194,6 +227,8 @@ def ed_margins(series, diag):
                 base, _ = margin_counts(series["control"][N], key, diag)
                 if not len(vals):
                     print(f"ED9 {lab}x {fam:9s} N={N}: no read (0/{n_runs})")
+                    xs.append(N * 10 ** offs[fam])
+                    ms.append(np.nan)        # a size with no read breaks the line there
                     continue
                 m = vals / base.mean()
                 x = N * 10 ** offs[fam]
@@ -250,14 +285,18 @@ def fmt_dr2(d):
     return s + ("$^\\dagger$" if (~ok).any() else "")
 
 
-def table_ed3(cat, series):
+def table_ed3(cat, series, bursts):
     """Print the LaTeX rows of ED Table 3 (one row per remedy and size, plus the redraw cells).
 
     Args:
-        cat: load_catalogue(); series: size_series(cat).
+        cat: load_catalogue(); series: size_series(cat); bursts: load_bursts().
     Returns:
         None.
     """
+    print("\n% control loss bursts per run, by N (ED Table 3 caption):")
+    for N in SIZES:
+        c = series["control"][N]
+        print(f"%   N={N}: {fmt_range(bursts.get(c['cell'], []))} ({len(bursts.get(c['cell'], []))} runs)")
     print("\n% ED Table 3 rows (fig_ed_remedies.py)")
     for fam in ED9_FAMS:
         for N in SIZES:
@@ -268,7 +307,9 @@ def table_ed3(cat, series):
             act = (f"{int(min(c['active']))}--{int(max(c['active']))}" if len(c["active"]) > 1
                    else (str(int(c["active"][0])) if len(c["active"]) else "--"))
             meas = f"{sum(c['r2_measured'])}/{len(c['r2_measured'])}" if c["r2_measured"] else "--"
-            print(f"{NAME[fam]} & {N} & {c['n_read']}/{c['n_runs']} & {act} & {fmt_mult(fl)} & "
+            b = bursts.get(c["cell"], [])
+            assert len(b) == c["n_runs"], f"burst counts for {len(b)} of {c['n_runs']} runs: {c['cell']}"
+            print(f"{NAME[fam]} & {N} & {c['n_read']}/{c['n_runs']} & {fmt_range(b)} & {act} & {fmt_mult(fl)} & "
                   f"{fmt_dr2(fl)} & {meas} & {fmt_mult(fx)} & {fmt_dr2(fx)} \\\\")
     for c in cat:
         if c["family"] == "redraw":
@@ -277,7 +318,7 @@ def table_ed3(cat, series):
             mult = np.mean(c["active"]) / np.mean(ctrl["active"])
             dr2 = np.mean(c["r2"]) - np.mean(ctrl["r2"])
             print(f"Redraw inactive units ({mode}) & 1000 & {c['n_read']}/{c['n_runs']} & "
-                  f"{min(c['active'])}--{max(c['active'])} & {mult:.2f} & {dr2:+.3f} & "
+                  f"{fmt_range(bursts.get(c['cell'], []))} & {min(c['active'])}--{max(c['active'])} & {mult:.2f} & {dr2:+.3f} & "
                   f"{sum(c['r2_measured'])}/{len(c['r2_measured'])} & -- & -- \\\\")
 
 
@@ -287,4 +328,4 @@ if __name__ == "__main__":
     series = size_series(cat)
     ed_rate_alone(series)
     ed_margins(series, load_diag())
-    table_ed3(cat, series)
+    table_ed3(cat, series, load_bursts())
