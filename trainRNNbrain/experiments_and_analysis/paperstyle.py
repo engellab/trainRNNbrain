@@ -1,146 +1,453 @@
 #!/usr/bin/env python3
 """
-House style and schematic primitives for the MANUSCRIPT figures (fig_paper_*.py).
+House style for the MANUSCRIPT figures (fig_paper_*.py, fig_supp_*.py, fig_ed_*.py): the style sheet
+every figure follows, the fonts, the palettes, the number format, and the schematic primitives.
 
-Distinct from `plotstyle.py` on purpose. `plotstyle.py` is the style for internal diagnostics:
-screen-sized, grid on, 9pt, one variable one visual channel. That is the right style for a figure
-whose only reader is us. A manuscript figure has a different job and therefore a different style:
+Distinct from `plotstyle.py` on purpose: `plotstyle.py` is the screen-sized, grid-on style for
+internal diagnostics. The reader's copy of this file is the paper repo's `docs/figure_style.md`.
 
-  - it is printed at a fixed physical width (Nature Communications: 88 mm single, 180 mm double)
-    and must stay legible after reduction, so sizes are specified in millimetres and the base font
-    is 7 pt, the journal's recommended minimum;
-  - it must EXPLAIN, not merely plot. A row of dot plots states a result without saying what the
-    intervention was or why the number moves. So this module carries schematic primitives -
-    unit-grid pictograms, circuit glyphs, annotated arrows - and every manuscript figure spends its
-    top row on them;
-  - grid lines are off by default; a manuscript axes earns its ink.
+STYLE SHEET (dead-relu-paper issues #40 and #15; reference: Tolmachev & Engel 2025, NMI)
+==========================================================================================
 
-THE PALETTE IS VALIDATED, NOT CHOSEN. The five categorical slots below pass all five checks of the
-dataviz validator at the light surface (#fcfcfb):
+Print size. The paper is `article`, 11 pt, letter paper, 1 in margins, so \\textwidth is 6.5 in =
+165.1 mm and \\textheight is 9 in = 228.6 mm (measured with \\the\\textwidth on 31 Oct 2026). A figure
+prints at 100% only if its PDF is exactly as wide as the space LaTeX gives it. So:
+  - draw a full-width figure at W_FULL_MM = 165.1 mm, a half-width one at W_HALF_MM = 80 mm (two
+    side by side leave a 5.1 mm gutter); make it with `figure(h_mm)` and save it with `save()`,
+    which writes the canvas exactly, without cropping, when the width is one of these two;
+  - keep a main figure at most MAX_H_MM = 141 mm tall: the main floats cap height at
+    0.62 \\textheight (141.7 mm), and a taller figure is shrunk to fit;
+  - include it at its own size, `\\includegraphics{fig.pdf}` (or width=\\textwidth, the same thing
+    for a 165.1 mm canvas).
+  The Nature journal widths (89 mm single, 183 mm double column) apply after conversion to the
+  journal class; a 165.1 mm figure fits inside 183 mm unscaled. W1/W2 (88/180 mm) are the old
+  widths: a 180 mm figure is printed at 92% (165.1/180), so its 7 pt text prints at 6.4 pt.
 
-    node scripts/validate_palette.js "#2a78d6,#d94f2b,#12916a,#8b46d6,#a67c00" --mode light
-    PASS lightness band | PASS chroma floor | PASS CVD separation (worst adjacent dE 10.3 deutan,
-    11.5 tritan) | PASS normal-vision floor (dE 27.3) | PASS contrast vs surface (all >= 3:1)
+Type. One family for every glyph, maths included: Helvetica (macOS), else Arial, else Liberation
+Sans, else DejaVu Sans. `setup()` registers the regular, bold, oblique and bold-oblique faces
+explicitly (matplotlib reads only the first face of macOS's Helvetica.ttc, which is why panel
+letters rendered regular: #15), and sets mathtext to a custom font set of the same family, so
+$R^2$, $N$ and $\\tau$ are Helvetica too. `pdffonts` on a figure lists that one family only.
+  LABEL_PT          6.5 pt   axis labels, panel titles, legend titles, in-figure text
+  TICK_PT           6 pt     tick labels, legend entries, small annotations
+  PANEL_LETTER_PT   8.5 pt   bold lower-case panel letters a, b, c, top-left of each panel
+  MIN_PT            5 pt     no base text smaller, anywhere
+  MIN_SCRIPT_PT     4.2 pt   mathtext sets sub- and superscripts at 70% of their base, so the
+                             'rec' of $\\sigma_{rec}$ in 6 pt text is 4.2 pt; nothing below that
+Strokes and marks, in points:
+  AXIS_LW 0.6 (spines, ticks; ticks 2.4 long), DATA_LW 1.0 (a data line), THIN_LW 0.5 (per-run
+  traces, guides, connectors), MARKER_PT 3.0 (marker diameter), SMALL_MARKER_PT 2.0 (one dot per run).
 
-An earlier version of this palette failed the contrast check on its green and gold; those two slots
-were darkened until it passed. Do not substitute colours by eye - re-run the validator.
+Colour: one colour per meaning, everywhere, and a colour is never reused for another meaning.
+  TASK_COLORS   3BFF blue, CDDM burnt orange, DMTS green. Reserved: no rule, setting, unit class or
+                annotation uses these hues.
+  RULE_COLORS   the training rules, in three hue families so that a family reads as one idea:
+                  activity penalties (violet): rate penalty, sparsity penalty, rate + sparsity
+                  noise during training (ochre): dropout, synaptic noise
+                  prune and reinitialise (magenta): duplicate, rescale
+  SETTING       one teal for "a standard training setting changed from its default"; SETTING_RAMP
+                (light to dark teal) for the ordered values of one setting (a ladder of weight
+                decays, SGD learning rates). Two categorical interventions in one panel take
+                SETTING_RAMP[1] and SETTING_RAMP[2] with direct labels.
+  BASELINE      light grey: the default or untreated reference every rule is compared against.
+  ACTIVE        near-black, INACTIVE light grey: unit classes (a raster, a unit grid, a count).
+  Text is always INK/MUTED, never a series colour. Status marks (a severed connection, a limit
+  line) are drawn in ink with a word and a line style; there is no red "bad" colour (BAD = INK).
+  Validated with the dataviz validator (`validate_palette.js --pairs all`, white surface) on the
+  sets that share a panel: the three tasks, worst colour-blind dE 9.7 (pass, target 8); the
+  Figure 5 set (baseline, ACTIVE, rate, rate + sparsity, dropout, synaptic noise, duplicate,
+  rescale), worst 8.0 (pass), normal-vision worst 15.5 (pass, floor 15); the Figure 3 set
+  (baseline, ACTIVE, the three penalties, SETTING_RAMP[1] and [2]), worst 8.9, normal-vision 15.9.
+  Tasks and rules are never colour-coded in the same panel: under deuteranopia DMTS green and
+  rescale magenta collapse (dE 2.7), as do 3BFF blue and sparsity violet (2.9), although they are
+  19-29 dE apart in normal vision. A panel that crosses tasks with rules gives tasks a facet or a
+  marker and rules the colour. The dark family tints fail the validator's lightness band on
+  purpose: lightness is what tells tints apart.
 
-BASELINE IS NOT A SERIES. The unpenalised network is the reference every remedy is measured
-against, so it is drawn in neutral ink (`BASE`), never in a categorical slot. `BASE` deliberately
-fails the chroma floor: that is what makes it read as "reference", not "condition 5".
+Words and numbers.
+  - Axis labels are lower case, a noun phrase with the unit or symbol last: LABELS["active"]
+    "active units", LABELS["size"] "network size $N$", LABELS["r2"] "held-out $R^2$",
+    LABELS["iteration"] "iteration". Panel titles follow the same case. Symbols are mathtext.
+  - Counts of units and iterations use one format, a comma every three digits, in labels, ticks,
+    legends and text alike: "1,000", "4,000", "75,000", "200,000" (`fmt_count`, `count_ticks`).
+    The paper's prose writes iterations "75{,}000 iterations"; ticks never say "1k" or
+    "(thousands)". Numbers below 1,000 have no separator.
+  - Panel letters: lower-case bold, PANEL_LETTER_PT, placed by `panel_letter(ax, "a")` a fixed
+    distance from the axes' top-left corner (PANEL_LETTER_X_MM left of the left spine,
+    PANEL_LETTER_Y_MM above the top), so every letter sits the same way on the page.
+  - Output is vector only: `save()` writes PDF and SVG, never PNG.
 
-Self-check: `python paperstyle.py` - writes a swatch-and-primitives sheet to img/internal_figures.
+Self-checks:
+  python trainRNNbrain/experiments_and_analysis/paperstyle.py   swatches + primitives sheet
+  python tests/test_paperstyle.py [figure.pdf ...]             fonts, bold face, sizes, page width
 """
 
+import logging
 import os
+import warnings
 
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from fontTools.ttLib import TTCollection
+from matplotlib import font_manager
 from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch, Rectangle
+from matplotlib.ticker import FuncFormatter, NullFormatter
+from matplotlib.transforms import ScaledTranslation
 
 from common import IMG_DIR
 
-MM = 1.0 / 25.4                 # millimetres -> inches, the unit the journal specifies widths in
-W1, W2 = 88 * MM, 180 * MM      # single- and double-column widths
+# --------------------------------------------------------------------------------------------
+# print size
+# --------------------------------------------------------------------------------------------
 
-# Neutral ink. Text greys and the reference condition.
+MM = 1.0 / 25.4                 # millimetres -> inches
+TEXTWIDTH_MM = 165.1            # \textwidth of main.tex (article, letter, 1 in margins) = 6.5 in
+TEXTHEIGHT_MM = 228.6           # \textheight = 9 in
+W_FULL_MM = TEXTWIDTH_MM        # a full-width figure prints at 100% at exactly this width
+W_HALF_MM = 80.0                # two half-width figures side by side, 5.1 mm gutter
+MAX_H_MM = 141.0                # main floats cap height at 0.62 \textheight = 141.7 mm
+PRINT_WIDTHS_MM = (W_FULL_MM, W_HALF_MM)
+W_FULL, W_HALF = W_FULL_MM * MM, W_HALF_MM * MM     # the same, in inches (figsize units)
+# Legacy widths (Nature Communications, 88/180 mm). LaTeX scales a 180 mm figure to 165.1 mm (92%).
+W1, W2 = 88 * MM, 180 * MM
+
+# --------------------------------------------------------------------------------------------
+# type, strokes, marks (points)
+# --------------------------------------------------------------------------------------------
+
+LABEL_PT = 6.5                  # axis labels, panel titles, in-figure text
+TICK_PT = 6.0                   # tick labels, legend entries, small annotations
+PANEL_LETTER_PT = 8.5           # bold panel letters
+MIN_PT = 5.0                    # the smallest base text allowed anywhere
+MIN_SCRIPT_PT = 0.7 * TICK_PT   # a sub/superscript of tick-size text (mathtext's fixed 70%)
+PANEL_LETTER_X_MM = 7.0         # letter's left edge this far left of the axes' left spine
+PANEL_LETTER_Y_MM = 2.0         # letter's baseline this far above the axes' top edge
+
+AXIS_LW = 0.6                   # spines and ticks
+TICK_LEN = 2.4                  # tick length
+DATA_LW = 1.0                   # a data line
+THIN_LW = 0.5                   # per-run traces, guides, connectors
+MARKER_PT = 3.0                 # marker diameter (matplotlib markersize)
+SMALL_MARKER_PT = 2.0           # one dot per run in a crowded strip
+
+# Font families tried in order; the first with regular, bold and oblique faces wins (`setup`).
+FONT_CANDIDATES = ("Helvetica", "Arial", "Liberation Sans", "DejaVu Sans")
+HELVETICA_TTC = "/System/Library/Fonts/Helvetica.ttc"   # macOS; faces 0-3 regular/bold/obl./bold-obl.
+FONT_CACHE_DIR = os.path.join(matplotlib.get_cachedir(), "paperstyle_fonts")
+FONT_FAMILY = None              # set by setup() to the family actually used
+
+# --------------------------------------------------------------------------------------------
+# colour, named by meaning
+# --------------------------------------------------------------------------------------------
+
+# Neutral ink: text, axes, guides.
 INK, MUTED, FAINT, GRID = "#0b0b0b", "#6b6963", "#a8a69e", "#e1e0d9"
-BASE = "#7a7a72"                # the unpenalised reference - neutral by design, not a series
-PAPER = "#fcfcfb"               # the surface the palette was validated against
+PAPER = "#fcfcfb"               # drawing surface; save() exports transparent
 
-# The five validated categorical slots, in fixed assignment order. A sixth condition does not get a
-# generated hue; it gets a facet or folds into "other".
-SLOTS = ["#2a78d6", "#d94f2b", "#12916a", "#8b46d6", "#a67c00"]
+# Unit classes and the reference condition.
+ACTIVE = "#1a1a1a"              # an active unit
+INACTIVE = "#c4c4c4"            # an inactive unit (drawn hollow or light, never omitted)
+BASELINE = "#a9a9a9"            # the default / untreated reference; never a series colour
 
-# Pruning and reinitialising a silent unit is ONE mechanism with two rules - duplicate a working
-# unit, or tilt the silent unit's own incoming weights - so the two rules share one hue in two tints
-# rather than taking two categorical slots, which there are not enough of. The hue is SLOTS[3],
-# freed when the `dead` dropout variant was dropped from the paper on 2026-09-21. The dark tint
-# was not passed through the slot validator (it is a tint, not a new slot); checked by hand at the
-# PAPER surface: contrast 9.4:1, and dE76 26.6 against SLOTS[3], well clear of the separation floor.
-RESCALE_TINT = "#5b2b8f"
+# Tasks. Reserved: these three hues mean a task and nothing else.
+TASK_3BFF = "#2a78d6"           # 3-bit flip-flop, blue
+TASK_CDDM = "#b35806"           # context-dependent decision making, burnt orange
+TASK_DMTS = "#12916a"           # delayed match-to-sample, green
+TASK_COLORS = {"3BFF": TASK_3BFF, "CDDM": TASK_CDDM, "DMTS": TASK_DMTS}
 
-# The same argument for the second family in Figure 2: dropout and synaptic noise are both noise
-# injected during training that the network must stay accurate under, one by hiding a unit from the
-# loss and one by redrawing every synapse each timestep. They share the dropout hue in two tints.
-# Checked by hand at the PAPER surface, as above: contrast 9.3:1, and the smallest dE76 among the
-# five colours Figure 2 uses is 26.6, well clear of the separation floor.
-SYNNOISE_TINT = "#17457f"
-
-# Semantic assignment used across every manuscript figure, so one colour means one thing everywhere.
-COND_COL = {
-    "baseline":  BASE,
-    "none":      BASE,
-    "dropout":   SLOTS[0],
-    "mute":      SLOTS[0],
-    "dead":      SLOTS[3],
-    "duplicate": SLOTS[3],
-    "rescale":   RESCALE_TINT,
-    "synnoise":  SYNNOISE_TINT,
-    "frm":       SLOTS[1],
-    "rws":       SLOTS[4],
-    "both":      SLOTS[2],
-    "frm + rws": SLOTS[2],
+# Training rules, three hue families. Within a family the members differ in lightness.
+RATE_PENALTY = "#7442b9"        # violet: the firing-rate penalty (frm)
+SPARSITY_PENALTY = "#ba6de0"    # light violet: the recurrent-weight sparsity penalty (rws)
+RATE_SPARSITY = "#4b0083"       # dark violet: both penalties (frm + rws)
+DROPOUT = "#aa8d0f"             # ochre: unit dropout during training
+SYNAPTIC_NOISE = "#664d00"      # dark ochre: synaptic noise during training
+DUPLICATE = "#701034"           # dark magenta: prune a silent unit, duplicate a working one
+RESCALE = "#bc3e79"             # magenta: rescale a silent unit's incoming weights
+RULE_COLORS = {
+    "rate penalty": RATE_PENALTY,
+    "sparsity penalty": SPARSITY_PENALTY,
+    "rate + sparsity": RATE_SPARSITY,
+    "dropout": DROPOUT,
+    "synaptic noise": SYNAPTIC_NOISE,
+    "duplicate": DUPLICATE,
+    "rescale": RESCALE,
 }
 
-# Semantic non-categorical colours. `GOOD`/`BAD` mark a verdict (recovered / failed) and are only
-# ever used with an accompanying word, never as the sole encoding.
-GOOD, BAD = "#12916a", "#c0392b"
+# Standard training settings (weight decay, noise level, initial scale, optimizer, interventions).
+SETTING_RAMP = ["#70c0c9", "#1894a1", "#0e5c64", "#043d43"]    # light -> dark teal, ordered values
+SETTING = SETTING_RAMP[2]       # "a setting changed from its default", one colour
+
+# Verdict marks are ink plus a word and a line style: no status hue may echo a task hue.
+GOOD = BAD = INK
+
+# --- legacy names, kept so every existing figure script still runs ---------------------------
+BASE = BASELINE                 # the unpenalised reference
+# The old five validated slots. New code uses the named colours above; SLOTS[0] and SLOTS[2] are
+# the 3BFF and DMTS task colours, so using them for anything else breaks the task reservation.
+SLOTS = ["#2a78d6", "#d94f2b", "#12916a", "#8b46d6", "#a67c00"]
+RESCALE_TINT = RESCALE
+SYNNOISE_TINT = SYNAPTIC_NOISE
+# Condition keys used by the existing scripts, mapped to the meaning-named colours.
+COND_COL = {
+    "baseline":  BASELINE,
+    "none":      BASELINE,
+    "dropout":   DROPOUT,
+    "mute":      DROPOUT,
+    "dead":      DROPOUT,
+    "duplicate": DUPLICATE,
+    "rescale":   RESCALE,
+    "synnoise":  SYNAPTIC_NOISE,
+    "frm":       RATE_PENALTY,
+    "rws":       SPARSITY_PENALTY,
+    "both":      RATE_SPARSITY,
+    "frm + rws": RATE_SPARSITY,
+}
+
+# --------------------------------------------------------------------------------------------
+# words and numbers
+# --------------------------------------------------------------------------------------------
+
+LABELS = {
+    "active": "active units",
+    "inactive": "inactive units",
+    "size": "network size $N$",
+    "r2": "held-out $R^2$",
+    "iteration": "iteration",
+    "participation": "participation $p$",
+    "loss": "training loss",
+}
+
+
+def fmt_count(n):
+    """Format a count of units or iterations the one way the paper does: '1,000', '75,000', '250'.
+
+    Args:
+        n: number (int or float); non-integers keep up to 3 significant decimals ('0.5').
+    Returns:
+        str.
+    """
+    n = float(n)
+    if n == round(n):
+        return f"{int(round(n)):,}"
+    return f"{n:,.3g}"
+
+
+def of_n(label, n):
+    """Label with the network size it is out of, e.g. of_n('active units', 1000) -> 'active units (of 1,000)'.
+
+    Args:
+        label: str; n: the total, a count.
+    Returns:
+        str.
+    """
+    return f"{label} (of {fmt_count(n)})"
+
+
+def count_ticks(axis):
+    """Make an axis label its ticks with `fmt_count` ('1,000', '200,000'); no '1k', no offset text.
+
+    On a log axis the minor tick labels are switched off, so only the chosen major ticks are labelled.
+
+    Args:
+        axis: a matplotlib Axis, e.g. ax.xaxis.
+    Returns:
+        None.
+    """
+    axis.set_major_formatter(FuncFormatter(lambda v, _pos: fmt_count(v)))
+    if axis.get_scale() == "log":
+        axis.set_minor_formatter(NullFormatter())
+
+
+# --------------------------------------------------------------------------------------------
+# fonts and rcParams
+# --------------------------------------------------------------------------------------------
+
+def _weight_of(entry):
+    """Numeric weight (100-900) of a matplotlib FontEntry, whose weight may be an int or a name."""
+    w = entry.weight
+    return w if isinstance(w, int) else font_manager.weight_dict.get(w, 400)
+
+
+def _helvetica_faces():
+    """Write the regular, bold, oblique and bold-oblique faces of macOS Helvetica.ttc as single TTFs.
+
+    matplotlib reads only face 0 (regular) of a .ttc, so a bold request silently falls back to the
+    regular face (#15). The four faces are extracted once into FONT_CACHE_DIR (matplotlib's cache,
+    outside the repository) and reused.
+
+    Returns:
+        list of str, paths of the four .ttf files; empty if Helvetica.ttc is not on this machine.
+    """
+    if not os.path.exists(HELVETICA_TTC):
+        return []
+    names = ["Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique"]
+    paths = [os.path.join(FONT_CACHE_DIR, f"{n}.ttf") for n in names]
+    if all(os.path.exists(p) for p in paths):
+        return paths
+    os.makedirs(FONT_CACHE_DIR, exist_ok=True)
+    faces = TTCollection(HELVETICA_TTC).fonts
+    for face in faces:
+        ps_name = face["name"].getDebugName(6)
+        if ps_name in names:
+            face.save(paths[names.index(ps_name)])
+    return [p for p in paths if os.path.exists(p)]
+
+
+def _has_three_faces(family):
+    """True if `family` resolves to a regular, a bold (>= 600) and an oblique/italic face of itself.
+
+    Args:
+        family: str, a font family name.
+    Returns:
+        bool.
+    """
+    entries = [f for f in font_manager.fontManager.ttflist if f.name == family]
+    regular = any(_weight_of(f) < 600 and f.style == "normal" for f in entries)
+    bold = any(_weight_of(f) >= 600 and f.style == "normal" for f in entries)
+    oblique = any(f.style in ("italic", "oblique") for f in entries)
+    return regular and bold and oblique
+
+
+def register_fonts():
+    """Register the house typeface's faces with matplotlib and return the family used.
+
+    Tries FONT_CANDIDATES in order; Helvetica's faces come from `_helvetica_faces`. Idempotent: the
+    faces are added once per process.
+
+    Returns:
+        str, the family name (also stored in FONT_FAMILY).
+    """
+    global FONT_FAMILY
+    if FONT_FAMILY is not None:
+        return FONT_FAMILY
+    # fontTools logs benign notes about Helvetica's tables ('extra bytes in post', 'created
+    # timestamp') when extracting the faces and when matplotlib subsets them into a PDF.
+    logging.getLogger("fontTools").setLevel(logging.ERROR)
+    for path in _helvetica_faces():
+        font_manager.fontManager.addfont(path)
+    for family in FONT_CANDIDATES:
+        if _has_three_faces(family):
+            FONT_FAMILY = family
+            break
+    else:
+        FONT_FAMILY = "DejaVu Sans"
+    if FONT_FAMILY != "Helvetica":
+        warnings.warn(f"paperstyle: Helvetica with a bold face not found; using {FONT_FAMILY}")
+    return FONT_FAMILY
 
 
 def setup():
-    """Apply the manuscript rcParams. Call once at the top of every fig_paper_*.py."""
+    """Apply the manuscript rcParams. Call once at the top of every figure script.
+
+    Registers the typeface (`register_fonts`), sets every text size, stroke and mark of the style
+    sheet, and points mathtext at the same family so no second typeface is embedded. A glyph the
+    family lacks (an arrow, $\\propto$, $\\sim$, angle brackets) falls back to STIX Sans and shows
+    up as a second family in `pdffonts`: write the word, or draw the arrow with `arrow()`.
+
+    Returns:
+        str, the font family in use.
+    """
+    family = register_fonts()
     plt.rcParams.update({
         "figure.dpi": 110,
-        "savefig.dpi": 400,                # journals want >= 300 dpi for raster panels
+        "savefig.dpi": 400,                # only for raster artists embedded in the vector file
         "savefig.facecolor": PAPER,
         "figure.facecolor": PAPER,
-        "font.size": 7,
         "font.family": "sans-serif",
-        "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
-        "axes.titlesize": 7.5,
-        "axes.labelsize": 7,
-        "axes.linewidth": 0.6,
+        "font.sans-serif": [family, "Arial", "DejaVu Sans"],   # later entries: per-glyph fallback
+        "font.size": LABEL_PT,
+        "mathtext.fontset": "custom",
+        "mathtext.rm": family,
+        "mathtext.sf": family,
+        "mathtext.it": f"{family}:italic",
+        "mathtext.bf": f"{family}:bold",
+        "mathtext.default": "it",
+        "mathtext.fallback": "stixsans",
+        "axes.titlesize": LABEL_PT,
+        "axes.titleweight": "normal",
+        "axes.labelsize": LABEL_PT,
+        "axes.linewidth": AXIS_LW,
         "axes.edgecolor": "#3a3a36",
+        "axes.labelcolor": INK,
         "axes.facecolor": PAPER,
         "axes.grid": False,                # a manuscript axes earns its ink
         "axes.spines.top": False,
         "axes.spines.right": False,
+        "axes.formatter.useoffset": False,
+        "axes.unicode_minus": True,        # U+2212, which Helvetica has
         "grid.alpha": 0.22,
-        "grid.linewidth": 0.5,
-        "xtick.labelsize": 6.5,
-        "ytick.labelsize": 6.5,
-        "xtick.major.width": 0.6,
-        "ytick.major.width": 0.6,
-        "xtick.major.size": 2.4,
-        "ytick.major.size": 2.4,
-        "legend.fontsize": 6.5,
+        "grid.linewidth": THIN_LW,
+        "xtick.labelsize": TICK_PT,
+        "ytick.labelsize": TICK_PT,
+        "xtick.color": INK,
+        "ytick.color": INK,
+        "xtick.major.width": AXIS_LW,
+        "ytick.major.width": AXIS_LW,
+        "xtick.major.size": TICK_LEN,
+        "ytick.major.size": TICK_LEN,
+        "xtick.minor.width": AXIS_LW * 0.75,
+        "ytick.minor.width": AXIS_LW * 0.75,
+        "xtick.minor.size": TICK_LEN * 0.6,
+        "ytick.minor.size": TICK_LEN * 0.6,
+        "legend.fontsize": TICK_PT,
+        "legend.title_fontsize": LABEL_PT,
         "legend.frameon": False,
         "legend.handlelength": 1.4,
         "legend.handletextpad": 0.5,
         "legend.labelspacing": 0.3,
-        "lines.linewidth": 1.1,
-        "lines.markersize": 3.2,
+        "lines.linewidth": DATA_LW,
+        "lines.markersize": MARKER_PT,
         "errorbar.capsize": 1.8,
-        "pdf.fonttype": 42,                # embed as TrueType so editors can select the text
+        "pdf.fonttype": 42,                # embed TrueType so editors can select the text
         "ps.fonttype": 42,
         "svg.fonttype": "none",            # SVG text stays text, not outlines
     })
+    return family
 
 
-def panel_letter(ax, letter, dx=-0.085, dy=1.045, size=9):
-    """Put a bold panel letter in the axes' top-left corner, outside the plot box.
+def figure(h_mm, w_mm=W_FULL_MM):
+    """A new figure at its printed size, to be laid out with explicit GridSpec margins.
 
     Args:
-        ax: axes; letter: the label, e.g. 'a'; dx, dy: position in axes coordinates;
-        size: font size in points.
+        h_mm: printed height in mm (a main figure: at most MAX_H_MM); w_mm: printed width in mm,
+            W_FULL_MM (default) or W_HALF_MM.
+    Returns:
+        matplotlib Figure.
+    """
+    if h_mm > MAX_H_MM:
+        warnings.warn(f"paperstyle.figure: {h_mm} mm is taller than MAX_H_MM = {MAX_H_MM} mm; "
+                      "a main float will shrink it")
+    return plt.figure(figsize=(w_mm * MM, h_mm * MM))
+
+
+def panel_letter(ax, letter, dx=None, dy=None, size=PANEL_LETTER_PT, x_mm=PANEL_LETTER_X_MM,
+                 y_mm=PANEL_LETTER_Y_MM):
+    """Put a bold lower-case panel letter at the top-left of an axes, outside the plot box.
+
+    Default placement is in millimetres from the axes' top-left corner, so every letter sits at the
+    same distance from its panel whatever the panel's size. Legacy calls that pass `dx`/`dy` (axes
+    fractions) keep their old placement.
+
+    Args:
+        ax: axes; letter: the label, e.g. 'a';
+        dx, dy: legacy position in axes coordinates (either given -> axes-fraction placement);
+        size: font size in points (PANEL_LETTER_PT);
+        x_mm: distance of the letter's left edge left of the left spine, mm;
+        y_mm: distance of the letter's baseline above the top edge, mm.
     Returns:
         the Text artist.
     """
-    return ax.text(dx, dy, letter, transform=ax.transAxes, fontsize=size,
-                   fontweight="bold", va="bottom", ha="left", color=INK)
+    if dx is not None or dy is not None:
+        x, y = (-0.085 if dx is None else dx), (1.045 if dy is None else dy)
+        transform, va = ax.transAxes, "bottom"
+    else:
+        x, y = 0.0, 1.0
+        transform = ax.transAxes + ScaledTranslation(-x_mm * MM, y_mm * MM, ax.figure.dpi_scale_trans)
+        va = "baseline"
+    return ax.text(x, y, letter, transform=transform, fontsize=size, fontweight="bold",
+                   va=va, ha="left", color=INK)
 
 
 def despine(ax, keep=("left", "bottom")):
@@ -175,7 +482,7 @@ def ygrid(ax, alpha=0.22):
 # schematic primitives - the reason this module exists
 # --------------------------------------------------------------------------------------------
 
-def unit_grid(ax, x0, y0, n_on, n_total=100, col="#2a78d6", off_col="#d8d7d0",
+def unit_grid(ax, x0, y0, n_on, n_total=100, col=ACTIVE, off_col=INACTIVE,
               side=None, pitch=1.0, s=7.0, lw=0.55, zorder=3):
     """Draw a square grid of unit glyphs with `n_on` of them filled - a pictogram of a live fraction.
 
@@ -315,83 +622,151 @@ def strip(ax, xs, groups, cols, width=0.24, jitter=0.055, rng=None, mean_lw=1.6,
     return out
 
 
-def save(fig, name, w_mm=180, h_mm=None):
-    """Save a manuscript figure at a physical width, into img/internal_figures. VECTOR ONLY.
 
-    Every panel in this paper is line art - dots, strokes and text - so a raster export is pure
-    loss: it fixes the resolution at export time, blurs the 5 pt annotations the moment anyone
-    scales the panel, and cannot be re-typeset by the journal. The PDF is the submission asset.
-    The SVG is written beside it because a Markdown working document renders an
-    inline `<img>` and a PDF is not one - so the working docs link the SVG and lose nothing.
+
+def _is_print_width(fig):
+    """True if the figure is W_FULL_MM or W_HALF_MM wide (within 0.05 mm)."""
+    w_mm = fig.get_figwidth() / MM
+    return any(abs(w_mm - w) < 0.05 for w in PRINT_WIDTHS_MM)
+
+
+def save(fig, name, w_mm=None, h_mm=None, tight=None, out_dir=IMG_DIR):
+    """Save a manuscript figure as PDF + SVG into img/internal_figures. VECTOR ONLY.
+
+    Every panel here is line art, so a raster export only loses: it fixes the resolution at export
+    time and cannot be re-typeset. The PDF is the submission asset; the SVG sits beside it because
+    the Markdown working documents render an inline <img>, which a PDF is not.
+
+    Canvas. A figure drawn at a print width (W_FULL_MM or W_HALF_MM) is written at exactly its canvas
+    size, uncropped, so it prints at 100%; anything drawn outside the canvas would be clipped, and a
+    warning names how far it overflows. Any other width keeps the old behaviour, a tight crop with
+    0.02 in padding, whose printed scale then depends on the crop.
 
     Args:
-        fig: the figure; name: file stem; w_mm: printed width in millimetres (88 or 180);
-        h_mm: printed height, or None to keep whatever the figure was created with.
+        fig: the figure; name: file stem;
+        w_mm, h_mm: resize the canvas to this printed size first (mm); None keeps the current size;
+        tight: True crops to the drawn content, False writes the canvas; None (default) chooses
+            False for a print-width figure and True otherwise;
+        out_dir: output directory (default img/internal_figures).
     Returns:
         the path of the PDF.
     """
-    if h_mm is not None:
-        fig.set_size_inches(w_mm * MM, h_mm * MM)
-    os.makedirs(IMG_DIR, exist_ok=True)
-    out = os.path.join(IMG_DIR, f"{name}.pdf")
-    # transparent=True, not the PAPER surface: the palette is validated against PAPER (#fcfcfb) and
-    # the figures are drawn on it, but an exported panel carrying that fill reads as a grey block
-    # against the white of a LaTeX page or a slide. Transparent export lets the page supply the
-    # surface; #fcfcfb and #ffffff differ too little for any contrast check to notice.
-    for path in (out, os.path.join(IMG_DIR, f"{name}.svg")):
-        fig.savefig(path, bbox_inches="tight", pad_inches=0.02, transparent=True)
+    if w_mm is not None or h_mm is not None:
+        fig.set_size_inches((w_mm * MM) if w_mm is not None else fig.get_figwidth(),
+                            (h_mm * MM) if h_mm is not None else fig.get_figheight())
+    if tight is None:
+        tight = not _is_print_width(fig)
+    if not tight:
+        renderer = fig.canvas.get_renderer()
+        bb = fig.get_tightbbox(renderer)            # inches
+        over_mm = max(-bb.x0, -bb.y0, bb.x1 - fig.get_figwidth(), bb.y1 - fig.get_figheight()) / MM
+        if over_mm > 0.2:
+            warnings.warn(f"paperstyle.save({name}): content extends {over_mm:.1f} mm outside the "
+                          "canvas and will be clipped; adjust the GridSpec margins")
+    os.makedirs(out_dir, exist_ok=True)
+    out = os.path.join(out_dir, f"{name}.pdf")
+    # transparent=True, not the PAPER surface: an exported panel carrying the #fcfcfb fill reads as
+    # a grey block on the white of a LaTeX page or a slide. The page supplies the surface.
+    kw = dict(bbox_inches="tight", pad_inches=0.02) if tight else dict(bbox_inches=None)
+    for path in (out, os.path.join(out_dir, f"{name}.svg")):
+        fig.savefig(path, transparent=True, **kw)
     plt.close(fig)
     print(f"wrote {out} (+ .svg)")
     return out
 
 
+def demo_figure():
+    """A full-width demo figure that uses every text role of the style sheet (for the self-checks).
+
+    Returns:
+        matplotlib Figure, W_FULL_MM x 50 mm, two panels with labels, maths, ticks, a legend and
+        panel letters.
+    """
+    setup()
+    fig = figure(50)
+    gs = fig.add_gridspec(1, 2, left=0.08, right=0.98, bottom=0.2, top=0.88, wspace=0.3)
+    ax_a, ax_b = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
+    sizes = np.array([250, 500, 1000, 2000, 4000])
+    for task, col in TASK_COLORS.items():
+        ax_a.plot(sizes, sizes * 0.3, "o-", color=col, label=task)
+    ax_a.set_xscale("log")
+    ax_a.set_xticks(sizes)
+    count_ticks(ax_a.xaxis)
+    count_ticks(ax_a.yaxis)
+    ax_a.set(xlabel=LABELS["size"], ylabel=LABELS["active"])
+    ax_a.legend(loc="upper left")
+    it = np.linspace(0, 200000, 50)
+    ax_b.plot(it, 1 - np.exp(-it / 40000), color=RATE_PENALTY, label="rate penalty")
+    ax_b.plot(it, 1 - np.exp(-it / 60000), color=BASELINE, label="no rule")
+    ax_b.set_xticks([0, 100000, 200000])
+    count_ticks(ax_b.xaxis)
+    ax_b.set(xlabel=LABELS["iteration"], ylabel=LABELS["r2"])
+    ax_b.text(150000, 0.2, r"$\tau = 2$, $\sigma_{rec}$ = 0.05, $-1$", fontsize=TICK_PT, color=MUTED)
+    panel_letter(ax_a, "a")
+    panel_letter(ax_b, "b")
+    return fig
+
+
 def _self_check():
-    """Draw every primitive once and assert the palette invariants. Raises on failure."""
-    assert len(SLOTS) == len(set(SLOTS)), "categorical slots must be distinct"
-    assert COND_COL["baseline"] == BASE, "baseline must be neutral ink, not a categorical slot"
-    assert BASE not in SLOTS, "the reference colour must not double as a series colour"
+    """Draw the palettes and every primitive once and assert the palette invariants. Raises on failure."""
+    task_hues = set(TASK_COLORS.values())
+    others = list(RULE_COLORS.values()) + SETTING_RAMP + [ACTIVE, INACTIVE, BASELINE, INK, MUTED]
+    assert not task_hues & set(others), "a task colour is reused for another meaning"
+    assert len(set(RULE_COLORS.values())) == len(RULE_COLORS), "two rules share a colour"
+    assert set(COND_COL.values()) <= set(RULE_COLORS.values()) | {BASELINE}, \
+        "a legacy condition key points outside the rule palette"
+    assert BASE == BASELINE and BASELINE not in RULE_COLORS.values(), "baseline must stay neutral"
 
     setup()
-    fig, axes = plt.subplots(1, 3, figsize=(W2, 38 * MM))
+    fig = figure(60)
+    gs = fig.add_gridspec(1, 3, left=0.02, right=0.98, bottom=0.04, top=0.86, wspace=0.08)
+    axes = [fig.add_subplot(gs[k]) for k in range(3)]
 
     ax = blank(axes[0])
-    for i, c in enumerate(SLOTS + [BASE]):
-        ax.add_patch(Rectangle((i, 0), 0.82, 1, color=c))
-        ax.text(i + 0.41, -0.22, c, ha="center", fontsize=5, color=MUTED, rotation=90, va="top")
-    ax.set(xlim=(-0.3, len(SLOTS) + 1.2), ylim=(-1.4, 1.3), title="validated slots + reference ink")
+    rows = ([(k, c) for k, c in TASK_COLORS.items()] + [(k, c) for k, c in RULE_COLORS.items()]
+            + [(f"setting {i}", c) for i, c in enumerate(SETTING_RAMP)]
+            + [("baseline", BASELINE), ("active", ACTIVE), ("inactive", INACTIVE)])
+    for i, (k, c) in enumerate(rows):
+        ax.add_patch(Rectangle((0, -i), 0.25, 0.8, color=c))
+        ax.text(0.3, -i + 0.4, f"{k}  {c}", va="center", fontsize=TICK_PT, color=INK)
+    ax.set(xlim=(0, 1.4), ylim=(-len(rows), 1.0))
+    ax.set_title("colours by meaning", loc="left")
 
     ax = blank(axes[1])
-    ax.set(xlim=(0, 1), ylim=(0, 1), title="unit_grid: 26% vs 97% alive")
+    ax.set(xlim=(0, 1), ylim=(0, 1))
+    ax.set_title("unit_grid: 26 vs 97 of 100 active", loc="left")
     fig.canvas.draw()                                  # square_pitch needs a laid-out axes
     dx = 0.035
     dy = square_pitch(ax, dx)
     assert dy > 0, "square_pitch must return a positive pitch"
-    w, _ = unit_grid(ax, 0.04, 0.92, 26, 100, col=SLOTS[0], pitch=(dx, dy))
-    unit_grid(ax, 0.04 + w + 0.12, 0.92, 97, 100, col=SLOTS[1], pitch=(dx, dy))
+    w, _ = unit_grid(ax, 0.04, 0.92, 26, 100, pitch=(dx, dy))
+    unit_grid(ax, 0.04 + w + 0.12, 0.92, 97, 100, pitch=(dx, dy))
 
     ax = blank(axes[2])
-    box(ax, 0.05, 0.55, 0.3, 0.3, "unit", col=SLOTS[2])
-    box(ax, 0.65, 0.55, 0.3, 0.3, "read-out", col=SLOTS[3])
+    box(ax, 0.05, 0.55, 0.3, 0.3, "unit", col=INK)
+    box(ax, 0.65, 0.55, 0.3, 0.3, "read-out", col=MUTED)
     arrow(ax, (0.36, 0.70), (0.64, 0.70), col=INK)
     arrow(ax, (0.36, 0.60), (0.64, 0.50), col=BAD, ls=":", rad=-0.3)
-    ax.set(xlim=(0, 1), ylim=(0.2, 1.05), title="box / arrow")
+    ax.set(xlim=(0, 1), ylim=(0.2, 1.05))
+    ax.set_title("box / arrow", loc="left")
 
     p = save(fig, "paperstyle_selfcheck")
     assert os.path.exists(p)
 
     rng = np.random.default_rng(1)
-    fig, ax = plt.subplots(figsize=(W1, 40 * MM))
-    res = strip(ax, [0, 1], [rng.normal(263, 13, 7), rng.normal(362, 8, 7)], [BASE, SLOTS[0]])
+    fig, ax = plt.subplots(figsize=(W_HALF, 40 * MM))
+    res = strip(ax, [0, 1], [rng.normal(263, 13, 7), rng.normal(362, 8, 7)], [BASELINE, RATE_PENALTY])
     assert res[0][2] == 7 and np.isfinite(res[0][0]), "strip must report mean, sd and n"
     plt.close(fig)
 
     # strip must survive an empty group rather than raising - some cells are still training
     fig, ax = plt.subplots()
-    res = strip(ax, [0, 1], [np.array([]), np.array([1.0, 2.0])], [BASE, SLOTS[0]])
+    res = strip(ax, [0, 1], [np.array([]), np.array([1.0, 2.0])], [BASELINE, RATE_PENALTY])
     assert res[0][2] == 0 and res[1][2] == 2
     plt.close(fig)
 
-    print("paperstyle.py self-check passed")
+    assert fmt_count(1000) == "1,000" and fmt_count(75000) == "75,000" and fmt_count(250) == "250"
+    print(f"paperstyle.py self-check passed (font family: {FONT_FAMILY})")
 
 
 if __name__ == "__main__":

@@ -16,34 +16,49 @@ improving. The standard knobs change how many units are lost, not the trend. Rul
 participation a drive of its own recruit units: bio-inspired ones (a two-sided firing-rate target,
 "the urge to spike, but not to overspike"; noisy synapses; rescaling a silent unit's incoming
 weights) and engineering ones (prune-and-duplicate, read-out dropout). As Dohare et al. (2024)
-concluded for continual learning, gradient descent on the task is not enough: participation needs
-its own drive, probably several.
+concluded for continual learning, gradient descent on the task loss alone does not keep units
+participating; participation needs a drive of its own (decision dead-relu-paper#17).
 
 **Terms.** *Standard network*: see the guide. *Pre-standard*: older sweeps with a trainable bias.
 *Multiplier*: an arm's active-unit count ÷ its own control's count, at the same N and read-out.
 *Rate penalty* (`frm`): a two-sided penalty around a target firing rate. *Sparsity penalty* (`rws`):
 charges a unit for spreading its input over many partners. *Tasks*: 3-bit flip-flop, CDDM
-(context-dependent decision making), DMTS (delayed match-to-sample).
+(context-dependent decision making), DMTS (delayed match-to-sample). The paper itself uses the
+round-2 glossary (blueprint section 2, decision dead-relu-paper#36): default network, fold change,
+per-unit rule, setting sweep, floor crossing, 75,000 iterations, rate-penalty size test (B2),
+combination test (B3), transfer test (B4), optimizer comparison (B5), removing the added units (A3).
+The board keeps its internal labels.
 
-**Figures.** F1, the phenomenon: (a) an example network, (b) the participation distribution,
-(c) size, (d) the ablation, (e) silencing after the floor. F2, everything that fails. F3, a
-bird's-eye view of what works.
+**Figures**, as the paper has them (dead-relu-paper `main`, round 2). F1, inactive units: (a) one
+3BFF network, (b) each unit's participation before and after training, (c) active units at
+N = 1000 on the three tasks, (d) held-out R² as units are removed. F2, network size and training
+time: (a) active units against N, (b) the active share, (c) the fitted size exponent, (d) N = 1000
+networks over training, (e) 3BFF networks trained past 150k. F3, standard training settings: (a)
+every value of every setting sweep at 75k, (b) weight decay on CDDM over training, (c) the initial
+input-weight scale on 3BFF, (d) the optimizer comparison, (e) interventions designed to raise the
+active count. F4, no route back (rebuilt by fig4-no-return, dead-relu-paper#8). F5, per-unit
+rules: (a) the five rules, (b) active units against R² at N = 1000, (c) fold change and R² cost
+against N, (d) the rate penalty alone, (e) removing the added units, (f) the combination test.
+Extended Data and Supplementary items are cited here by content, because their printed numbers
+follow first citation (blueprint section 7).
 
 ## Claims
 
 | # | Claim | Status | What remains |
 |---|---|---|---|
-| C1 | Training leaves most units inactive, and a network retrained without them scores within 0.004 R² of the intact network retrained the same way | **Done**: Figure 1 rebuilt (a-d) and panel d re-run at the current floor, rule passed (31 Oct) | Pavel: confirm the 3BFF N = 1000 straggler stays excluded (it now reads out: 277 active) |
-| C2 | Bigger networks keep a smaller share of units active | **Done**; Figure 1 synced to the paper 15 Oct | — |
+| C1 | Training leaves most units inactive, and a network retrained without them scores within 0.004 R² of the intact network retrained the same way | **Done**: Figure 1 rebuilt (a-d) and panel d re-run at the current floor, rule passed (31 Oct); the fourth 3BFF network at N = 1000 is counted (decision dead-relu-paper#20, option 2) | Fig. 1c, Results 1 and the caption with four 3BFF networks: fig1-r2 (dead-relu-paper#52) |
+| C2 | Bigger networks keep a smaller share of units active | **Done**: Figure 2 (31 Oct, entry 2026-10-31_1957) | Threshold sensitivity recomputed on the networks Fig. 2a fits (decision dead-relu-paper#21 item 2): methods-r2 (dead-relu-paper#51) |
 | C3 | Longer training keeps shedding units, and no run has stopped | **Done**; B5 complete, read at 75k (31 Oct) | — |
 | C4 | On CDDM 260-313 of 1,000 units are silent (never fire, no gradient); on 3BFF none is, and low-active units get gradient yet stay below threshold | **Done**: re-read at the current floor, rule passed (31 Oct, entry 2026-10-31_2207); Figure 4a-d, ED Figs 6-7 (dead-relu-paper#8) | — |
-| C5 | No standard setting stops the fall of the active count; at 75k CDDM settings move it by +116/−177 units, 3BFF input scale raises it 1.7× and the gain shrinks | **Done at 75k** (31 Oct, entry 2026-10-31_2010): Figure 3 rebuilt, floor read in ED Fig. 4 | wording: decision dead-relu-paper#24, option 1 |
-| C6 | Rules that give participation its own drive recruit units at a small cost | **Done**: remedies read at the floor and A3 done (31 Oct, entry 2026-10-31_1732); B2 failed its rule; Figure 5, Results 5, ED Figs 8-9 and ED Tables 3 and 5 built (entry 2026-10-31_1953, dead-relu-paper#9); rescaling and read-out dropout above N = 1000 reported at 75k (decision dead-relu-paper#16, 31 Oct) | — |
-| C7 | Participation needs its own drive, likely several; dead units cannot be called back | **Running**; B4 supports "cannot be called back" at N = 1000 and 4000 (31 Oct); B3 waits on Pavel (dead-relu-paper#17) | Pavel's B3 decision |
+| C5 | No standard setting stops the fall of the active count; at 75k CDDM settings move it by +116/−177 units, 3BFF input scale raises it 1.7× and the gain shrinks | **Done at 75k** (31 Oct, entry 2026-10-31_2010): Figure 3 rebuilt; both measurement points in the Extended Data figure of every standard-setting sweep | Wording: decision dead-relu-paper#24, option 1. The optimizer comparison merges into that Extended Data figure, and the CDDM rate-penalty values stay in Fig. 3a as a labelled reference (decision dead-relu-paper#35 item 4): fig3-r2 (dead-relu-paper#54) |
+| C6 | Rules that give participation its own drive recruit units at a small cost | **Done**: remedies read at the floor and A3 done (31 Oct, entry 2026-10-31_1732); B2 failed its rule; Figure 5, Results 5, the Extended Data figures of the rate penalty alone on 3BFF and of per-unit rules across sizes at three margins, the table of per-unit rules at every size and the table of pre-registered tests built (entry 2026-10-31_1953, dead-relu-paper#9); rescaling and read-out dropout above N = 1000 reported at 75k (decision dead-relu-paper#16, 31 Oct) | The rate penalty told once, in Results 5, with both tasks (decision dead-relu-paper#35 item 4); every R² in Figure 5 and the per-unit-rule table checked against loss bursts and non-finite stretches, affected values marked (decision dead-relu-paper#18): fig5-r2 (dead-relu-paper#55) |
+| C7 | Participation needs a drive of its own; inactive units do not become active again | **Data done**: B4 supports "do not become active again" at N = 1000 and 4000 (31 Oct); B3 inconclusive (decision dead-relu-paper#17, 31 Oct); the conclusion is "a drive of its own" | Results 4 and Figure 4 (transfer test): fig4-no-return (dead-relu-paper#8) |
+| C8 | Counting the inactive units changes some population statistics computed over all N units | **Pending**: pop-stats (dead-relu-paper#56) measures four statistics over all units and over active units on the nine N = 1000 networks of Fig. 1d; rule fixed before any value (decision dead-relu-paper#34, 31 Oct) | The outcome per statistic and task (changes, unchanged or mixed); the Introduction and Discussion keep a general claim only for statistics labelled "changes" on at least two of the three tasks |
 
 **C1.** Figure 1 (round 1, entries 2026-10-31_1702 and 1755). Active units at N = 1000, each run of
-the size series read at 1.05× its floor (read-out 79932ef): 3BFF 278 ± 33 (296, 297, 240; the
-straggler s3374117298 stays excluded and would read 277), CDDM 431 ± 10, DMTS 218 and 422 (a third
+the size series read at 1.05× its floor (read-out 79932ef): 3BFF 277.5 ± 26.6 (n = 4: 296, 277,
+297, 240; s3374117298 counted per decision dead-relu-paper#20, option 2; as in the Supplementary
+table of every network of Figs. 1 and 2), CDDM 431 ± 10, DMTS 218 and 422 (a third
 run has no read-out), at held-out R² 0.95, 0.83 and 0.999 (estimated from the end of training).
 Ablation, re-run on 31 Oct at each network's current crossing on
 three snapshot networks per task: removing every inactive unit leaves CDDM at 0.83 (changes of
@@ -52,7 +67,8 @@ random units take every network to 0.09 or below. A 3,000-iteration retrain with
 units ends within 0.004 of the intact network retrained the same way on every task (3BFF 0.945-0.948
 against 0.949-0.950); random pruning plus retrain reaches 0.920-0.930 on 3BFF but costs nothing on
 CDDM (0.821-0.828); on DMTS it reaches 0.998 in two networks and 0.419 in s3322309204. The pre-registered rule (entry 1702) passes in all nine networks. At the end of
-training, 36 networks of 500-4000 units (Extended Data Fig. 2): removing the inactive units changes
+training, 36 networks of 500-4000 units (the Extended Data figure of removing inactive units at
+every size): removing the inactive units changes
 R² by −0.010 to +0.001 on CDDM and −0.046 to −0.001 on DMTS.
 
 **C2.** Figure 2 (entry 2026-10-31_1957; Della job 16558986, read-out 79932ef). Read at 1.05× each
@@ -64,8 +80,8 @@ between 0.44 and 0.61 and every bootstrap 95% upper bound is below 0.79, so the 
 2026-10-31_1900 says C2 holds on all three tasks. 1,000 active units would need N ≈ 7,300 on CDDM,
 9,200 on DMTS and 14,200 on the flip-flop. The learning-rate confound (lr ∝ N^−1/3) is left in and
 handled by reading each network at its own floor; mean crossings move from 59k to 65k (flip-flop) and
-27k to 32k (CDDM) between N = 500 and 4000. The flip-flop N = 1000 straggler is counted, per
-dead-relu-paper#20's recommendation, until Pavel decides.
+27k to 32k (CDDM) between N = 500 and 4000. The fourth flip-flop network at N = 1000
+(s3374117298) is counted (decision dead-relu-paper#20, option 2), as in C1: 277.5 ± 26.6, n = 4.
 
 **C3.** CDDM, N = 1000: every weight-decay setting reaches its floor early and keeps losing units to
 200-300k with no gain in loss. Flip-flop (Figure 2e, entry 2026-10-31_1957): from 150k, 13 of 15 runs
@@ -77,7 +93,9 @@ AdamW (306-358, mean 325) have more at a higher R² (0.956-0.959), the direction
 CDDM; SGD has more units only at lower R² (721-759 at lr 0.03, R² 0.873-0.875) and 212-285 at lr 0.3-1
 (R² ≤ 0.915); lr 3 does not learn (R² 0.21-0.44 at 200k). Every Adam/AdamW arm keeps losing units to
 200k (169-226 at 200k; means from entry 2026-10-31_2035). Under the current read-out most SGD runs have no floor
-read, so the 14 Oct floor numbers are withdrawn. Figure: Extended Data Fig. 5 (`fig_ed_optimizer`).
+read, so the 14 Oct floor numbers are withdrawn. Figure: `fig_ed_optimizer`, which merges into the
+Extended Data figure of every standard-setting sweep (blueprint section 7), without the panel that
+repeats Fig. 3d.
 
 **C4.** Re-read at the current floor (entry 2026-10-31_2207, rule in 2026-10-31_2137, Della job
 16566988), on the six Figure 1d networks. On CDDM 260-313 of a network's 1,000 units are silent:
@@ -94,8 +112,8 @@ at the end, no fewer after lr/10). Tanh (CDDM, N = 1000, 9 networks, end of 150k
 output sensitive to the incoming weights of 25-147 units against 277-293 for ReLU. Figure 4a-d,
 Extended Data Figs 6-7.
 
-**C5.** Read at 75k, the same-size rule (entry 2026-10-31_2010; Figure 3, Extended Data Fig. 4 with
-both reads). On CDDM the default has 325-345 active at R² 0.833-0.835; 18 non-default values of weight
+**C5.** Read at 75k, the same-size rule (entry 2026-10-31_2010; Figure 3, and the Extended Data figure of every
+standard-setting sweep at both measurement points). On CDDM the default has 325-345 active at R² 0.833-0.835; 18 non-default values of weight
 decay, noise, metabolic penalty, spectral radius, recurrent-weight magnitude penalty, activation and sparsity give means of
 160-453 (largest gain +116, weight decay 0; largest loss −177, weight decay 1e-4); metabolic λ = 10
 costs R² (0.787-0.789) without adding units. The count falls under every setting (weight decay 0:
@@ -125,7 +143,8 @@ at N = 1000 (median R² 0.06-0.16 against 0.22-0.58) and for all five at 4000; r
 N = 1000 is the exception, where the two cost the same (0.18 against 0.19; entry 2026-10-31_1953).
 Figure 5 (entry 2026-10-31_1953) draws rescaling and read-out dropout at 75k at every size (decision
 #16); at 1.20x their floor margin has reads in 15 of 16 runs at
-N ≥ 2000, giving 1.60-1.90x (dropout) and 1.23-1.81x (rescaling) across N = 500-4000 (ED Fig. 9).
+N ≥ 2000, giving 1.60-1.90x (dropout) and 1.23-1.81x (rescaling) across N = 500-4000 (the
+Extended Data figure of per-unit rules across sizes at three margins).
 
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
@@ -140,7 +159,7 @@ reached only through its stability clause. Rate+noise reads at the floor and rat
 because its loss is still falling at 200k. Rate+noise has 970 active units against 556 for noise
 alone, at a cost of 0.04 in R². At 75k the verdict is between the bars. Decided on 31 Oct
 (dead-relu-paper#17, manager on Pavel's delegation): B3 is treated as between the bars. Figure 5f and
-ED Table 5 state both read-outs; Results 5 does not take B3 as evidence that raising the active count
+the Extended Data table of pre-registered tests state both measurement points; Results 5 does not take B3 as evidence that raising the active count
 requires combining rules.
 
 ## The remedies catalogue
@@ -154,18 +173,19 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
 |---|---|---|---|---|
 | Rate penalty | Bio-inspired | Two-sided penalty around a target rate | CDDM: all 1000; flip-flop 4.8× at N = 2000, 5.6× at 4000 | Flip-flop alone (B2): unstable at N ≤ 1000, −0.024 R² at N = 2000; its multiplier is above synaptic noise's |
 | Noisy synapses | Bio-inspired | Each weight × (1 + σ_w·noise), every step | 2.03×; 1.60× at N = 4000 (read in 14 of 14 runs, N = 500-4000) | −0.021 to −0.025 R² at N ≥ 1000 |
-| Rescaling incoming weights | Bio-inspired | Tilts a silent unit's input row toward its positive weights, at fixed length, until a release target | 1.51× (1 of 4 runs read); 1.95× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000: loss still falling at 200k (dead-relu-paper#16); 1.23-1.81× at 1.20× the floor (ED Fig. 9) |
+| Rescaling incoming weights | Bio-inspired | Tilts a silent unit's input row toward its positive weights, at fixed length, until a release target | 1.51× (1 of 4 runs read); 1.95× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000: loss still falling at 200k (dead-relu-paper#16); 1.23-1.81× at 1.20× the floor (Extended Data, per-unit rules across sizes) |
 | Threshold lift | Bio-inspired | Raises a silent unit's bias once | 1.36× | Screen only |
 | Prune-and-duplicate | Engineering | Overwrites a silent unit with a jittered copy of a working one | 2.77×; 3.59× at N = 4000 | −0.005 R² at N = 1000, −0.018 at 4000; fails on DMTS above N = 500 |
-| Read-out dropout | Engineering | Randomly hides busy units from the read-out | 1.81× (1 of 3 runs read); 2.01× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000 (dead-relu-paper#16); 1.60-1.90× at 1.20× the floor (ED Fig. 9); fails on DMTS |
+| Read-out dropout | Engineering | Randomly hides busy units from the read-out | 1.81× (1 of 3 runs read); 2.01× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000 (dead-relu-paper#16); 1.60-1.90× at 1.20× the floor (Extended Data, per-unit rules across sizes); fails on DMTS |
 | Full dropout | Engineering | Randomly removes busy units from the dynamics | 904/1000 | Parked: costs 12-17 R² points |
-| Redraw silent units | Engineering (≈ continual backprop / ReDo) | Re-initialises a silent unit | 0.84-0.96× | Negative (Figure 2) |
+| Redraw silent units | Engineering (≈ continual backprop / ReDo) | Re-initialises a silent unit | 0.84-0.96× | Negative (Fig. 3e) |
 | Rate + sparsity | Bio-inspired pair | Both penalties | 3.51×; 5.87× at N = 4000 (1 run) | Parked; the rate penalty alone replaces it |
 
-## Parked (do not restart without Pavel)
+## Parked (do not restart without a `decision` issue on dead-relu-paper; PROTOCOL.md, 31 Oct)
 
 - The selective/modular solution under rate + sparsity: burst units, assemblies, penalty switching.
-- Single-unit selectivity, clustering, cell types, NMF, wiring-versus-activity.
+- Single-unit selectivity, clustering, cell types, NMF, wiring-versus-activity. Exception: the four
+  population statistics of decision dead-relu-paper#34 (C8), measured by pop-stats.
 - The task-demand ceiling (M*, M ∝ N^b k^c), the Walsh and hyper flip-flops as a demand series,
   MultiRule15, Yang 20-task (except the A5 supplementary panel).
 - Long-delay DMTS.
@@ -189,12 +209,13 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
 - **B3.** Read 31 Oct (entry 2026-10-31_1750, Della job 16553903). At the floor: literal "supports",
   through the stability clause only. At 75k: between the bars. Rate+rescale skips 44-67% of updates
   and the triple 8-11%. Under today's read-out the λ = 0.03 pilot rung reads at 0 of 3 runs (2 of 3
-  when it was chosen). Stage 2 not run; waits on dead-relu-paper#17.
+  when it was chosen). Stage 2 not run (decision dead-relu-paper#17: inconclusive, no stage 2).
 - **B4.** Done. N = 1000 and N = 4000 both: inactive units do not come back (entries
   2026-10-31_1532 and 2026-10-31_1750).
 - **RMtop200.** Read 31 Oct (entry 2026-10-31_1732).
-- **Redo with snapshots (waiting on Pavel; after the initialisation decision):** retrain the size-series controls with snapshots every
-  1000 iterations (~800 GPU-h). CDDM regenerates exactly; flip-flop and DMTS give new networks.
+- **Redo with snapshots (not scheduled; after the initialisation question):** retrain the size-series
+  controls with snapshots every 1000 iterations (~800 GPU-h, so it needs the editor's written
+  go-ahead under PROTOCOL.md). CDDM regenerates exactly; flip-flop and DMTS give new networks.
 
 **Writing**
 - **W1.** Manuscript rewrite to this framing: merged into the paper's `main` (15 Oct); the C4
@@ -207,34 +228,58 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
 - A third seed on the weight-cap and spectral-radius ladders.
 - One Dale panel from existing runs.
 
-## Open decisions (Pavel)
+## Open questions
 
-- **Which biological penalty goes in the main text.** The decision "rate penalty alone" rested on
-  CDDM. On the flip-flop (B2) the same penalty trains unstably at N ≤ 1000 and costs 0.024 R² at
-  N = 2000. Options: keep it with the flip-flop failure stated; lower λ_frm (B3's pilot chose 0.03
-  at N = 1000); or lead with synaptic noise, the only remedy read at the floor in all 14 runs at
-  N = 500-4000 (1.5-2.0×, R² cost 0.021-0.025 at N ≥ 1000). Rescaling has no floor read above
-  N = 1000 (dead-relu-paper#16).
-- **Rescaling and read-out dropout above N = 1000** (dead-relu-paper#16): report at 75k, labelled, with the 1.20×
-  crossing in the supplement (recommended), or continue the 16 runs past 200k.
-- **Figure 1, flip-flop N = 1000:** FFseed4 landed; the cell now reads 4 runs at the floor (240,
-  277, 296, 297). Rebuild Figure 1 with all four, or keep the straggler excluded.
+Decisions are the team's (PROTOCOL.md, 31 Oct): an open question is settled on a `decision` issue on
+dead-relu-paper and recorded in a notebook entry.
 
-- **Conclusion wording.** Recommended: "gradient descent on the task loss alone does not keep units
-  participating; participation needs a drive of its own". B3's literal floor verdict "supports
-  several sources" rests only on rate+noise reaching a floor read where rate alone, whose loss is
-  still falling at 200k, does not; the cost is 0.04 R². At 75k it is between the bars. Options and
-  recommendation (keep "a drive of its own") in dead-relu-paper#17.
-- **Read-out limits found in B3, not patched:** non-finite losses are dropped before bursts are
-  counted, and floor R² can be taken on a snapshot inside a burst (dead-relu-paper#18). They may
-  affect the bursting remedy cells (B2, B3, RMtop200), not B4.
-- **C4 wording:** candidates in the 2026-10-15_1342 entry.
+- **C4 wording** (silent against low-active units): candidates in the 2026-10-15_1342 entry; the
+  glossary fixes the terms (decision dead-relu-paper#36), and fig4-no-return (dead-relu-paper#8)
+  writes Results 4.
 - **Does the old correlated initialisation change silencing?** 3 seeds at N = 1000, CDDM and the
   flip-flop, independent draws against the current controls (~45 GPU-h); entry 2026-10-15_2206.
-- **Redo with snapshots** (above). It should start after the initialisation decision, so the redo
+  Not scheduled in round 2; the Discussion states the shared initial draw as a limitation
+  (blueprint section 8, item 6).
+- **Redo with snapshots** (above). It should start after the initialisation question, so the redo
   is not run twice.
 
 ## Decisions taken
+
+Round 2 (31 Oct, editor; rationale on each issue and in notebook entry
+2026-10-31_2210_round-2-decisions):
+
+- **Population statistics: measure** (dead-relu-paper#34, option 1). Four statistics over all units
+  and over active units on the nine N = 1000 networks of Fig. 1d, under a rule fixed before any value
+  was computed; the paper keeps a general claim only for statistics that pass (C8, pop-stats,
+  dead-relu-paper#56).
+- **The rate penalty is told once, in Results 5** (dead-relu-paper#35, item 4). Results 3 keeps the
+  CDDM values in Fig. 3a as a labelled reference; Results 5 gives the CDDM result (λ_frm = 0.2, 75k)
+  and then the 3BFF result (λ_frm = 0.1, fails the rate-penalty size test), and attributes the
+  difference to neither task nor strength. This settles the earlier open question of which biological
+  penalty goes in the main text: the rate penalty stays, with both results.
+- **One name per thing** (dead-relu-paper#36): the glossary of blueprint section 2.
+- **No change to the floor-crossing code this round** (dead-relu-paper#18, option 2). fig5-r2 marks
+  every R² affected by loss bursts or non-finite stretches; the Discussion states the limitation.
+- **Threshold sensitivity recomputed on the networks Fig. 2a fits** (dead-relu-paper#21, comment 3
+  item 2), DMTS N = 500-4000 included, so that Methods gives Fig. 2a's exponents at the factor 0.05.
+- **Extended Data held to 10 items** (blueprint section 7; editor's round-2 plan on
+  dead-relu-paper#1): the task schematics, the list of every network, the per-unit-rule table at
+  every size and the criteria table move to Supplementary Information; the optimizer comparison
+  merges into the Extended Data figure of every standard-setting sweep.
+
+Round 1 (31 Oct, manager on Pavel's delegation):
+
+- **Rescaling and read-out dropout above N = 1000 are reported at 75k**, labelled, with their 1.20×
+  floor crossing in Extended Data; no continuation past 200k (dead-relu-paper#16).
+- **B3 is inconclusive** ("between the bars"). The conclusion is "participation needs a drive of its
+  own", without "several"; no stage 2 (dead-relu-paper#17). B3's literal floor verdict, "supports
+  several sources", came only through its stability clause and is reported as history.
+- **The fourth 3BFF network at N = 1000 (s3374117298) is counted**: 277.5 ± 26.6, n = 4
+  (dead-relu-paper#20, option 2). It supersedes the 15 Oct entry below.
+- **Results 3 and Figure 3 are about the fall of the active count** ("no standard training setting
+  stops the loss of active units"; dead-relu-paper#24, option 1).
+
+Earlier:
 
 - Read-out: the noisy training loss, 1.05× its fitted floor, with the smoothed-minimum fallback for
   plateaued fits; never the noise-free loss.
@@ -248,4 +293,5 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
 - Held-out scoring is seeded project-wide; new runs keep snapshots every 1000 iterations.
 - Initial weight matrices are drawn independently from 15 Oct (`init_draws: independent`).
 - The paper branches numbers-seeded, figure2-methods and w1-draft are merged (15 Oct).
-- The N = 1000 flip-flop straggler stays excluded; a new seed replaces it (Della 15657728_4).
+- (15 Oct, superseded by dead-relu-paper#20) The N = 1000 flip-flop straggler stays excluded; a new
+  seed replaces it (Della 15657728_4).
