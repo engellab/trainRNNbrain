@@ -77,13 +77,13 @@ under 1% per 100k from 150k. Text: entry 2026-10-16 (second draft).
 
 **C5.** Read at 75k, the same-size rule (entry 2026-10-31_2010; Figure 3, Extended Data Fig. 4 with
 both reads). On CDDM the default has 325-345 active at R² 0.833-0.835; 18 non-default values of weight
-decay, noise, metabolic penalty, spectral radius, W_rec penalty, activation and sparsity give means of
+decay, noise, metabolic penalty, spectral radius, recurrent-weight magnitude penalty, activation and sparsity give means of
 160-453 (largest gain +116, weight decay 0; largest loss −177, weight decay 1e-4); metabolic λ = 10
 costs R² (0.787-0.789) without adding units. The count falls under every setting (weight decay 0:
-466-494 at the floor, 442-469 at 75k, 400-428 at 200k). On 3BFF the input-weight scale 20 keeps 455-500
-against 245-296 at R² 0.953 vs 0.951 (1.7×), down from 2.5× at the floor (means 718 vs 283) and 1.6× at 150k (312-340
+466-494 at the floor, 442-469 at 75k, 400-428 at 200k). On 3BFF the input-weight norm 20 (400× the default draw's mean norm of 0.050; entry 2026-10-31_2051),
+the largest gain at equal R², keeps 455-500 (mean 477) against 245-296 (mean 275) at estimated R² 0.953 vs 0.951 (1.7×), down from 2.5× at the floor (means 718 vs 283) and 1.6× at 150k (312-340
 vs 189-235); wording "no standard setting stops the loss of active units" (decision
-dead-relu-paper#24, option 1). On CDDM, input scales 2-20 lower the count at 50k (166-268 vs 355-376).
+dead-relu-paper#24, option 1). On CDDM (default mean norm 0.074), input-weight norms 0.5-20 lower the count at 50k (166-336 vs 355-376).
 Interventions designed to raise the count add at most 60 units: the CDDM input-weight cap 0.3 gives
 390-400 at R² 0.827-0.832 (vs 332-340 at 0.833-0.835); re-initialising inactive units (CDDM 330-346)
 and redrawing them on 3BFF (205-274 vs 236-288) do not raise it. Only with the rate penalty, alone or

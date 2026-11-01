@@ -53,7 +53,7 @@ BLOCKS = [
     ("slide_k_recnoise", "recurrent noise $\\sigma_{rec}$ (CDDM)", ["0", "0.01", "0.05 (default)", "0.1"]),
     ("slide_k_metabolic", "metabolic penalty $\\lambda$ (CDDM)", ["0 (default)", "0.01", "0.1", "1", "10"]),
     ("slide_k_recgain", "initial spectral radius (CDDM)", ["0.5", "1.2 (default)", "2.0"]),
-    ("slide_k_rwm", "$W_{rec}$ magnitude penalty $\\lambda$ (CDDM)", ["0 (default)", "0.05", "0.2"]),
+    ("slide_k_rwm", "recurrent-weight magnitude penalty $\\lambda$ (CDDM)", ["0 (default)", "0.05", "0.2"]),
     ("slide_k_activation", "activation (CDDM)", ["ReLU (default)", "leaky ReLU", "softplus", "sigmoid"]),
     ("slide_k_frm_rws", "rate and sparsity penalties (CDDM)", ["none (default)", "rate", "sparsity", "both"]),
     ("slide_k_inputscale_cddm", "input-weight scale (CDDM, at 50k)", ["default", "0.5", "2", "5", "20"]),

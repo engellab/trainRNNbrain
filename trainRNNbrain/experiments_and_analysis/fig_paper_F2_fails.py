@@ -275,9 +275,9 @@ BORROW_LEGEND = {"slide_k_inputscale": "slide_k_inputscale_cddm"}
 # Short row labels for the bottom-line panel, by stem.
 SHORT = {"slide_k_weightdecay": "weight decay", "slide_k_recnoise": "recurrent noise",
          "slide_k_metabolic": "metabolic penalty", "slide_k_recgain": "spectral radius",
-         "slide_k_rwm": "$W_{rec}$ penalty", "slide_k_frm_rws": "rate / sparsity pen.",
-         "slide_k_activation": "activation", "slide_k_inputscale_cddm": "input scale",
-         "slide_k_inputscale": "input scale (3BFF)", "revival_cddm": "interventions",
+         "slide_k_rwm": "rec.-weight magnitude pen.", "slide_k_frm_rws": "rate / sparsity pen.",
+         "slide_k_activation": "activation", "slide_k_inputscale_cddm": "input-weight scale",
+         "slide_k_inputscale": "input-weight scale (3BFF)", "revival_cddm": "interventions",
          "revival_ff": "interventions (3BFF)"}
 
 
@@ -434,6 +434,14 @@ def bottom_line(ax, lads):
     return rows
 
 
+# The paper's name for a knob where it differs from the slide name in `fig_knobs_at_floor.LADDERS`
+# (one name per thing across Fig. 3, ED Fig. 4, Results 3 and Methods).
+PAPER_KNOB = {"slide_k_recgain": "initial spectral radius",
+              "slide_k_rwm": "recurrent-weight magnitude penalty",
+              "slide_k_inputscale": "initial input-weight scale",
+              "slide_k_inputscale_cddm": "initial input-weight scale"}
+
+
 def title_text(lad, pending=False):
     """Two-line pair title: the knob, then the task, where the floors fell, and the budget.
 
@@ -448,7 +456,7 @@ def title_text(lad, pending=False):
         return f"{spec['knob']}\n{task}: pending"
     cross = [r["t_star"] for rg in lad["rungs"] for r in rg["runs"] if np.isfinite(r["t_star"])]
     where = f"floors at {min(cross) / 1e3:.0f}-{max(cross) / 1e3:.0f}k" if cross else "no floor read"
-    knob = "initial spectral radius" if spec["stem"] == "slide_k_recgain" else spec["knob"]
+    knob = PAPER_KNOB.get(spec["stem"], spec["knob"])
     return f"{knob}\n{task}, {where}, budget {budget(lad) / 1e3:.0f}k"
 
 
