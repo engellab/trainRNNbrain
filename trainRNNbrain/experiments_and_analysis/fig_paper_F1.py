@@ -17,6 +17,12 @@ units scores as the intact network retrained the same way.
       of each sub-panel, stars (inactive removed) and triangles (as many removed at random), every
       mark filled because fill means the floor crossing in every figure. Inactive units in (a) are
       light grey dots, no longer hollow.
+  (e) round 7 (dead-relu-paper#127, plan risk R1): the fraction of units selective for a task
+      variable in the nine networks of (d), computed over all units and over the active units only
+      (panel_selective). Read from data/population_stats.json (population_stats.py; notebook
+      2026-10-31_2220), the file Extended Data Fig. 2 draws; nothing is recomputed here. Filled
+      markers: the weights are the floor-crossing snapshots of (d). Panel (e) sits under (c), and
+      (d) spans the height of both.
 
 ROUND 2 STYLE (dead-relu-paper#31, #40; paperstyle.py). Drawn at the printed width (W_FULL_MM).
 One meaning per colour: ACTIVE (near-black) and INACTIVE (light grey) for unit classes in (a), (b)
@@ -106,6 +112,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Patch, Rectangle
 from matplotlib.path import Path
+from matplotlib.transforms import offset_copy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
@@ -121,6 +128,7 @@ from trainRNNbrain.rnns.RNN_numpy import RNN_numpy
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 from trainRNNbrain.utils import filter_kwargs
 from gradient_participation import initial_params
+from fig_ed_population import load as load_population_stats
 
 CACHE = "data/fig_paper_F1_cache_v2.npz"   # v2: carries the untrained twin's participation
 # The example network is a STANDARD unpenalised 3-bit flip-flop control at N = 1000, trained for
@@ -1697,20 +1705,22 @@ def panel_knobs(ax):
 # Figure 1 layout (drawing stage), in millimetres on the printed page: the canvas is W_FULL_MM
 # (165.1 mm, \\textwidth) by FIG_H_MM, and every axes is placed by its left edge, top edge, width and
 # height measured from the canvas's top-left corner, so the printed sizes are exact.
-FIG_H_MM = 136.0
+FIG_H_MM = 140.0               # round 7: 136 -> 140 mm for panel (e); the cap is ps.MAX_H_MM
 LAYOUT_MM = {                  # name: (left, top, width, height)
     "net":   (1.0, 9.0, 52.0, 40.0),      # a, the circuit drawing
     "trace": (55.0, 10.0, 46.0, 42.0),    # a, eight random units
     "b_top": (111.0, 10.0, 51.0, 18.0),   # b, untrained
     "b_bot": (111.0, 36.5, 51.0, 18.0),   # b, trained
-    "c":     (14.0, 77.0, 40.0, 47.0),    # c, active units per task
-    "d_key": (69.0, 71.0, 93.0, 7.0),     # d, legend strip, above the sub-panels and off the data
-    "d":     (70.5, 86.0, 20.5, 38.0),    # d, first of three side-by-side sub-panels (removal curves)
+    "c":     (14.0, 73.0, 40.0, 25.0),    # c, active units per task
+    "e":     (14.0, 114.0, 40.0, 17.5),   # e, fraction of units selective, under c
+    "d_key": (69.0, 68.0, 93.0, 7.0),     # d, legend strip, above the sub-panels and off the data
+    "d":     (70.5, 83.0, 20.5, 49.0),    # d, first of three side-by-side sub-panels (removal curves)
 }
 D_GAP_MM = 3.5                 # gap between one task's retrain strip and the next task's sub-panel
 D_STRIP_MM = (1.5, 6.5)        # retrain strip right of each sub-panel: (gap, width)
-LETTER_X_MM = {"a": 1.0, "c": 1.0, "b": 100.0, "d": 59.0}  # panel letters: left edges, two columns
-LETTER_TOP_MM = {"a": 4.5, "b": 4.5, "c": 71.0, "d": 71.0}  # letter baseline, from the top
+LETTER_X_MM = {"a": 1.0, "c": 1.0, "e": 1.0, "b": 100.0, "d": 59.0}  # letters: left edges
+LETTER_TOP_MM = {"a": 4.5, "b": 4.5, "c": 68.0, "d": 68.0, "e": 110.0}  # letter baseline, from the top
+E_DX = 0.2                     # panel (e): the two sets of units sit this far either side of a task
 
 
 def ax_mm(fig, left, top, width, height):
@@ -1809,6 +1819,50 @@ def panel_tasks(ax, rows):
     ax.tick_params(axis="x", length=0, pad=3)
     ax.set_yticks([0, 250, 500, 750, 1000])
     ps.count_ticks(ax.yaxis)
+    return out
+
+
+def panel_selective(ax, res, seeds_d):
+    """Panel (e): fraction of units selective for a task variable, over all units and over active units.
+
+    One column per task, in the order of panel (c). Each network is a pair of filled markers in the
+    task's colour, joined by a thin line: left, the number of selective units divided by all N
+    units; right, the number of selective active units divided by the number of active units. Tick
+    labels "all" and "active" name the two sets under every pair, and the task names sit on a second
+    line below them, so no legend is needed (PR #147 review, row 10).
+
+    Args:
+        ax: axes; res: the per-network results of population_stats.py (fig_ed_population.load()),
+            each with "task", "seed", "N" and "S3a" = {"all", "act", "n_all", "n_act"};
+        seeds_d: set of int, the seeds of the panel (d) networks; the results must be those networks.
+    Returns:
+        list of (task, shares over all units, shares over active units), one per task.
+    """
+    seeds_e = {int(str(s["seed"]).lstrip("s")) for s in res}
+    assert seeds_e == seeds_d, ("panel e must draw the panel d networks", sorted(seeds_e), sorted(seeds_d))
+    out = []
+    offs = (-0.05, 0.0, 0.05)                 # the three networks of a task, side by side
+    for k, (label, _pat, col) in enumerate(PANEL_TASKS):
+        rows = [s for s in res if s["task"] == TASK_SHORT[label]]
+        y_all = np.array([s["S3a"]["n_all"] / s["N"] for s in rows])
+        y_act = np.array([s["S3a"]["act"] for s in rows])
+        for dx, ya, yb in zip(offs, y_all, y_act):
+            ax.plot([k - E_DX + dx, k + E_DX + dx], [ya, yb], color=col, lw=ps.THIN_LW, zorder=2)
+        for side, y in ((-E_DX, y_all), (E_DX, y_act)):
+            ax.plot(k + side + np.array(offs), y, "o", ms=ps.MARKER_PT, color=col, mec="white",
+                    mew=0.4, zorder=4, clip_on=False)
+        out.append((TASK_SHORT[label], y_all, y_act))
+    below = offset_copy(ax.get_xaxis_transform(), fig=ax.figure, y=-11.5, units="points")
+    for k, (label, _p, _c) in enumerate(PANEL_TASKS):
+        ax.text(k, 0, TASK_SHORT[label], transform=below, ha="center", va="top", fontsize=ps.TICK_PT,
+                color=ps.INK)
+    ax.set(xlim=(-0.5, len(PANEL_TASKS) - 0.45), ylim=(0, 1))
+    ax.set_ylabel("fraction of units\nselective")
+    ax.set_xticks([k + side for k in range(len(PANEL_TASKS)) for side in (-E_DX, E_DX)])
+    ax.set_xticklabels(["all", "active"] * len(PANEL_TASKS), fontsize=ps.TICK_PT)
+    ax.tick_params(axis="x", length=0, pad=2)
+    ax.set_yticks([0, 0.5, 1])
+    ax.set_yticklabels(["0", "0.5", "1"])
     return out
 
 
@@ -1958,6 +2012,11 @@ def main():
     rows_d = panel_d(axes_d, loaded=rec["ablation"], ax_key=ax_key, strips=strips_d)
     letter_mm(ax_key, "d")
 
+    ax_e = ax_mm(fig, *L["e"])
+    seeds_d = {int(re.search(r"__s(\d+)__", lab).group(1)) for lab in rec["floor_now"]}
+    rows_e = panel_selective(ax_e, load_population_stats(), seeds_d)
+    letter_mm(ax_e, "e")
+
     check_overlaps(fig)
     out = ps.save(fig, "fig_paper_F1")
 
@@ -1996,6 +2055,10 @@ def main():
         flag = "  !! STALE" if not np.isfinite(lag) or abs(lag) > 5000 else ""
         print(f"  panel d read-out check: {lab[-40:]} ablated at {d['iteration']:,}, current t* "
               f"{d['t_star']:,.0f} ({d['reason']}){flag}")
+    for task, y_all, y_act in rows_e:
+        print(f"  panel e: {task:5} fraction selective over all units "
+              f"{', '.join(f'{v:.3f}' for v in y_all)} ({y_all.min():.2f}-{y_all.max():.2f}); over active "
+              f"units {', '.join(f'{v:.3f}' for v in y_act)} ({y_act.min():.2f}-{y_act.max():.2f})")
     return out
 
 

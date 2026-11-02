@@ -26,10 +26,11 @@ and the combination test is inconclusive (dead-relu-paper#17). Drawn at its prin
        networks' mean; its k least participating active units) against removing k random active
        units; N = 1,000 filled, 4,000 open. Right: median R^2 after removing a random 10, 30 or 50%
        of all units, N = 1,000.
-  (f)  the combination test, N = 1,000: rate penalty (lambda 0.03), noisy synapses (sigma_w 1) and
-       rescaling, each present or absent (dot matrix), three networks per combination; active
-       units, R^2 and participation ratio at the floor crossing (filled) and at 75,000 iterations
-       (open).
+  Round 7 (dead-relu-paper#127): the combination test, panel (f) until then, is its own Extended
+  Data figure, `fig_ed_combination` (ed_combination below): N = 1,000, rate penalty (lambda 0.03),
+  noisy synapses (sigma_w 1) and rescaling, each present or absent, three networks per
+  combination; active units, R^2 and participation ratio at the floor crossing (filled) and at
+  75,000 iterations (open). In Figure 5, (e) moved under (c) and (d) spans the height of both.
 
 DATA. Read outputs copied from Della into data/remedy_reads_31oct/ (gitignored):
   remedies_catalogue.json  ~/rm_read/     (read_remedies.py 2d32b3b, Della array 16553347 + 16555725)
@@ -53,8 +54,8 @@ iterations either side of it (A_OFFSET), and in panel e two pairs of different r
 at their values get half-white faces (see_through). Open triangles are drawn 1.25 times larger (a circle's area). Check: tests/scan_open_markers.py.
 
 Usage:  python fig_paper_F5_drive.py
-Output: img/internal_figures/fig_paper_F5_drive.pdf (+ .svg), and a printout of every number the
-        caption and Results 5 quote.
+Output: img/internal_figures/fig_paper_F5_drive.pdf and fig_ed_combination.pdf (+ .svg), and a
+        printout of every number the captions and Results 5 quote.
 """
 
 import collections
@@ -76,7 +77,8 @@ from common import DATA_DIR, load_run, read_run
 READS = os.path.join(DATA_DIR, "..", "remedy_reads_31oct")
 B2_DIR = os.path.join(DATA_DIR, "NBitFlipFlop_remedy_grid")
 SIZES = (500, 1000, 2000, 4000)
-FIG_H_MM = 141.0                 # paperstyle MAX_H_MM
+FIG_H_MM = 133.0                 # round 7: 141 -> 133 mm, so a 320-word caption fits on the page
+EDC_H_MM = 62.0                  # the combination-test Extended Data figure
 
 # The per-unit rules in the main figure, in key order. Rate + sparsity appears only in the Extended
 # Data and Supplementary Table 2.
@@ -566,6 +568,17 @@ def panel_key(ax):
     leg = ax.legend(handles=h, loc="upper center", ncol=len(h), frameon=False, fontsize=ps.TICK_PT,
                     handlelength=1.5, columnspacing=1.2, handletextpad=0.35, borderaxespad=0)
     ax.add_artist(leg)
+    marker_key(ax, "lower center")
+
+
+def marker_key(ax, loc):
+    """One legend row of marker meanings: filled, open, ring and edge arrow.
+
+    Args:
+        ax: a blank axes; loc: legend location in that axes.
+    Returns:
+        None.
+    """
     h2 = [Line2D([], [], marker="o", ls="none", ms=3.4, label=ps.MARK_FLOOR_LABEL,
                  **ps.mark_floor(ps.INK)),
           Line2D([], [], marker="o", ls="none", ms=3.4, label=ps.MARK_75K_LABEL,
@@ -574,7 +587,7 @@ def panel_key(ax):
                  label="$R^2$ from weights inside a loss burst"),
           Line2D([], [], marker=r"$\leftarrow$", color=ps.INK, ls="none", ms=5,
                  label="value beyond the axis (at the edge)")]
-    ax.legend(handles=h2, loc="lower center", ncol=len(h2), frameon=False, fontsize=ps.TICK_PT,
+    ax.legend(handles=h2, loc=loc, ncol=len(h2), frameon=False, fontsize=ps.TICK_PT,
               handlelength=1.0, columnspacing=1.6, handletextpad=0.35, borderaxespad=0)
 
 
@@ -854,7 +867,7 @@ def panel_removal(axs, a3, marks):
 
 
 def panel_combination(ax_m, axs, b3, marks):
-    """Panel (f): the combination test, N = 1,000, per network, at the floor crossing and at 75,000.
+    """The combination test (Figure 5f until round 7; now the Extended Data figure ed_combination), N = 1,000, per network, at the floor crossing and at 75,000.
 
     Args:
         ax_m: axes for the row labels (which rules each combination has, in words); axs: three
@@ -968,42 +981,67 @@ def build():
     ax_key = fig.add_axes([0.0, y(8.5), 1.0, y(0.8) - y(8.5)])
     panel_key(ax_key)
 
-    # row 1 (a, b): axes 15-41 mm from the top
-    ax_a = fig.add_axes([L, y(41), W - L, y(15) - y(41)])
-    ax_b = fig.add_axes([M, y(41), R - M, y(15) - y(41)])
+    # row 1 (a, b): axes 14-40 mm from the top
+    ax_a = fig.add_axes([L, y(40), W - L, y(14) - y(40)])
+    ax_b = fig.add_axes([M, y(40), R - M, y(14) - y(40)])
     info_a = panel_traces(ax_a, series, traces)
     drawn_b = panel_one_size(ax_b, a3, marks)
 
-    # row 2 (c, d): 57.5-91 mm
+    # left column: c at 55-88 mm, e at 102-122.5 mm
     # c starts 0.016 right of the column edge: the lower axes' two-line y label needs the room
-    gc = fig.add_gridspec(2, 1, left=L + 0.016, right=W, top=y(57.5), bottom=y(91), hspace=0.12,
+    gc = fig.add_gridspec(2, 1, left=L + 0.016, right=W, top=y(55), bottom=y(88), hspace=0.12,
                           height_ratios=[1.45, 1])
     ax_cm, ax_cr = fig.add_subplot(gc[0]), fig.add_subplot(gc[1])
     drawn_c = panel_sizes(ax_cm, ax_cr, series, marks)
 
-    gd = fig.add_gridspec(2, 1, left=M, right=R, top=y(57.5), bottom=y(91), hspace=0.12,
-                          height_ratios=[1, 1.45])
-    ax_dl, ax_da = fig.add_subplot(gd[0]), fig.add_subplot(gd[1])
-    info_d = panel_rate_alone(ax_dl, ax_da, b2, series["control"][1000]["active"])
-
-    # row 3 (e, f): 107-127.5 mm; e takes less width than its column so that f's labels fit
-    ge = fig.add_gridspec(1, 2, left=L, right=0.385, top=y(107), bottom=y(127.5), wspace=0.12)
+    ge = fig.add_gridspec(1, 2, left=L, right=W, top=y(102), bottom=y(122.5), wspace=0.16)
     ax_e1 = fig.add_subplot(ge[0])
     ax_e2 = fig.add_subplot(ge[1], sharey=ax_e1)
     drawn_e = panel_removal([ax_e1, ax_e2], a3, marks)
 
-    gf = fig.add_gridspec(1, 4, left=0.445, right=R, top=y(107), bottom=y(127.5), wspace=0.22,
-                          width_ratios=[0.62, 1, 1, 1])
-    ax_fm = fig.add_subplot(gf[0])
-    axs_f = [fig.add_subplot(gf[i]) for i in (1, 2, 3)]
-    rows_f = panel_combination(ax_fm, axs_f, b3, marks)
+    # right column: d spans the height of c and e, 55-122.5 mm
+    gd = fig.add_gridspec(2, 1, left=M, right=R, top=y(55), bottom=y(122.5), hspace=0.08,
+                          height_ratios=[1, 1.45])
+    ax_dl, ax_da = fig.add_subplot(gd[0]), fig.add_subplot(gd[1])
+    info_d = panel_rate_alone(ax_dl, ax_da, b2, series["control"][1000]["active"])
 
     for ax, letter in ((ax_a, "a"), (ax_b, "b"), (ax_cm, "c"), (ax_dl, "d"), (ax_e1, "e")):
         ps.panel_letter(ax, letter, x_mm=10.5)
-    ps.panel_letter(ax_fm, "f", x_mm=6.0)
 
+    rows_f = ed_combination(b3, marks)
     report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3)
     return ps.save(fig, "fig_paper_F5_drive")
+
+
+def ed_combination(b3, marks):
+    """Draw the Extended Data figure of the combination test (Figure 5f until round 7) and save it.
+
+    A row of marker meanings on top; below it the row labels (which rules each combination has) and
+    three columns sharing the rows, lettered a-c: active units, held-out R^2 and dimensionality, each network at
+    its floor crossing (filled) and at 75,000 iterations (open).
+
+    Args:
+        b3: load_b3(); marks: load_marks().
+    Returns:
+        (rows panel_combination drew, for the printout; the PDF path written).
+    """
+    fig = ps.figure(h_mm=EDC_H_MM)
+
+    def y(mm):
+        """Figure fraction of a height given in mm from the figure's top edge."""
+        return 1.0 - mm / EDC_H_MM
+
+    ax_key = fig.add_axes([0.0, y(6.5), 1.0, y(0.8) - y(6.5)])
+    ps.blank(ax_key)
+    marker_key(ax_key, "center")
+    g = fig.add_gridspec(1, 4, left=0.02, right=0.985, top=y(12), bottom=y(52), wspace=0.12,
+                         width_ratios=[0.42, 1, 1, 1])
+    ax_m = fig.add_subplot(g[0])
+    axs = [fig.add_subplot(g[i]) for i in (1, 2, 3)]
+    rows = panel_combination(ax_m, axs, b3, marks)
+    for ax, letter in zip(axs, "abc"):              # a active units, b held-out R^2, c dimensionality
+        ps.panel_letter(ax, letter, x_mm=3.0)
+    return rows, ps.save(fig, "fig_ed_combination")
 
 
 def report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3):
@@ -1051,7 +1089,8 @@ def report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3):
         print(f"  N={k[0]} {k[1]:9s} added {rec}  random-k {rnd}  medians {np.median(rec):.2f} vs "
               f"{np.median(rnd):.2f}; random lower in {sum(x < y for x, y, _ in v)}/{len(v)};"
               f" in a burst {nb}")
-    print("\n(f) combination test outcomes:", b3["verdict"]["floor"]["verdict"], "(floor);",
+    rows_f, path_f = rows_f
+    print(f"\n(combination test, {path_f}) outcomes:", b3["verdict"]["floor"]["verdict"], "(floor);",
           b3["verdict"]["fixed"]["verdict"], "(75k)")
     for cell in B3_CELLS:
         for ro in ("floor", "fixed"):
