@@ -306,15 +306,15 @@ def pic_cddm(ax):
            fs=ps.TICK_PT, text_col=ps.INK)
     ps.box(ax, 0.64, 0.800, 0.31, 0.120, "COLOUR", col=ps.FAINT, lw=0.5, ls=(0, (2, 2)), fs=ps.TICK_PT,
            text_col=ps.FAINT)
-    ax.text(0.50, 0.995, "the cue names one of the two features", ha="center", va="top",
+    ax.text(0.50, 0.995, "the cue selects one of the two features", ha="center", va="top",
             fontsize=ps.TICK_PT, color=ps.MUTED)
 
     # the stimulus: a cloud of arrows. Direction is the motion feature, colour is the colour
     # feature, and on this trial they point opposite ways - which is the whole task.
-    ps.box(ax, 0.13, 0.320, 0.74, 0.42, col=ps.MUTED, face=ps.PAPER, lw=0.7)
+    ps.box(ax, 0.13, 0.410, 0.74, 0.35, col=ps.MUTED, face=ps.PAPER, lw=0.7)
     # Arrows sit on a jittered 6 x 4 grid, so no two overlap and every direction can be read.
     rng = np.random.default_rng(4)
-    gx, gy = np.meshgrid(np.linspace(0.21, 0.79, 6), np.linspace(0.40, 0.66, 4))
+    gx, gy = np.meshgrid(np.linspace(0.21, 0.79, 6), np.linspace(0.47, 0.70, 4))
     xs = gx.ravel() + rng.uniform(-0.025, 0.025, gx.size)
     ys = gy.ravel() + rng.uniform(-0.015, 0.015, gy.size)
     right = rng.permutation(np.arange(gx.size) < 17)    # motion evidence: 17 of 24 rightward
@@ -323,7 +323,7 @@ def pic_cddm(ax):
         d = 0.045 if r else -0.045
         ps.arrow(ax, (x - d / 2, y), (x + d / 2, y), col=COL_A if a else COL_B, lw=0.8,
                  mutation_scale=4.5, shrink=0, zorder=4)
-    ax.text(0.50, 0.300, "most arrows point RIGHT;  most are light grey",
+    ax.text(0.50, 0.390, "most arrows point RIGHT (motion);\nmost are light grey (colour: LEFT)",
             ha="center", va="top", fontsize=ps.TICK_PT, color=ps.MUTED)
 
     # LEFT on the left and RIGHT on the right: the choice is a direction, so putting the winning
@@ -334,7 +334,7 @@ def pic_cddm(ax):
            fs=ps.TICK_PT, text_col=ps.FAINT)
     ps.box(ax, 0.64, 0.070, 0.31, 0.120, "RIGHT", col=ps.TASK_CDDM, lw=0.9, fs=ps.TICK_PT,
            text_col=ps.TASK_CDDM)
-    ax.text(0.50, 0.045, "the shade alone would have said LEFT,\nand the cue says to ignore it",
+    ax.text(0.50, 0.045, "colour alone points LEFT; the cue\nselects motion, so the target is RIGHT",
             ha="center", va="top", fontsize=ps.TICK_PT, color=ps.MUTED, linespacing=1.3)
 
 

@@ -378,7 +378,8 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0):
         ax: axes (limits and scales already set); groups: list of `open_group` dicts;
         zorder: zorder of the markers, above the filled floor-crossing markers (6-7) so a crossing
             next to 75,000 iterations cannot fill an open marker; label_side: "left", "right" or
-            "below" the marker, for groups that do not set their own; max_shift: int, the most
+            "below" the marker (right-aligned 5% of the axes width left of it), for groups that do
+            not set their own; max_shift: int, the most
             steps a marker is moved right.
     Returns:
         list of (mean x, mean y, n) per group, in the order given.
@@ -413,8 +414,10 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0):
         ax.scatter([x0], [my], s=OPEN_S, marker=g["marker"], zorder=zorder, clip_on=False, **mk)
         if g["label"]:
             side = g.get("label_side") or label_side
-            if side == "below":                  # right-aligned under the marker
-                lx, ly = to_data.transform((px + 0.6 * d_px, py - 0.9 * d_px))
+            if side == "below":                  # below the marker, right-aligned 5% of the axes
+                # width left of its centre, clear of the 75,000-iteration line through that centre
+                w_px = ax.get_window_extent().width
+                lx, ly = to_data.transform((px - 0.05 * w_px, py - 0.9 * d_px))
                 ax.text(lx, ly, g["label"], ha="right", va="top", fontsize=ps.TICK_PT,
                         color=ps.INK, zorder=zorder)
             else:
@@ -670,7 +673,7 @@ def label_coincident(groups):
     for k, g in enumerate(tight):
         same = [h for h in tight if h["ys"][0] == g["ys"][0] and len(h["xs"]) == len(g["xs"])]
         if same[0] is g:
-            g["label"] = f"{len(g['xs'])} networks" + (" each" if len(same) > 1 else "")
+            g["label"] = f"{len(g['xs'])} networks" + ("\neach" if len(same) > 1 else "")
             g["label_side"] = "below"
 
 

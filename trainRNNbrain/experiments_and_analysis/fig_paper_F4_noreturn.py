@@ -638,7 +638,7 @@ def draw_gradient(fig, gs_cell, nets):
         ax.minorticks_off()
         ax.set_xlabel("fraction of steps with $x_i > 0$", labelpad=1)
         if col == 0:
-            ax.set_ylabel("incoming-weight gradient\n(95th percentile = 1)", labelpad=1)
+            ax.set_ylabel("incoming-weight gradient norm\n(95th percentile = 1)", labelpad=1)
         ax.set_title(f"{task}, $N$ = 1,000", pad=3)
         print(f"  panel b {task} s{r['seed']}: {r['act'].sum()} active, {r['low'].sum()} low-active "
               f"({(r['low'] & r['reach']).sum()} above the gradient threshold), {r['sil'].sum()} silent")
@@ -701,7 +701,7 @@ def draw_tanh_hist(fig, gs_cell, tanh):
     Returns:
         the left axes.
     """
-    sub = gs_cell.subgridspec(1, 2, wspace=0.1)
+    sub = gs_cell.subgridspec(1, 2, wspace=0.22)
     FLOOR = 1e-5
     bins = np.logspace(np.log10(FLOOR * 0.7), np.log10(40), 46)
     first = None
@@ -723,10 +723,11 @@ def draw_tanh_hist(fig, gs_cell, tanh):
         ax.minorticks_off()
         ax.set_ylim(0, ax.get_ylim()[1] * 1.15)
         ax.set_title(f"{act}, CDDM, $N$ = 1,000", pad=3)
-        ax.set_xlabel("gradient on $x_i$ / $L^{1/2}$\n(untrained 95th percentile = 1)", labelpad=1)
+        ax.set_xlabel("rms of $\\partial L/\\partial x_i$ / $L^{1/2}$\n(untrained 95th percentile = 1)", labelpad=1)
         if col == 0:
             ax.set_ylabel("units", labelpad=1)
-        else:
+            # legend in the ReLU axes' empty upper left: the narrower tanh axes (wspace 0.22) leave
+            # no room left of its threshold line
             ax.legend(loc="upper left", handlelength=1.2, borderaxespad=0.2, labelspacing=0.2)
         print(f"  panel d {act}: drawn seed {r['seed']}, {int(n[runs.index(r)])} at or above the untrained threshold, "
               f"median-unit drop {drop[runs.index(r)]:.1f}; "
@@ -936,7 +937,7 @@ def ed_mechanism(nets):
         ax.set_xscale("log")
         ax.set_xticks([1e-6, 1e-4, 1e-2, 1])
         ax.minorticks_off()
-        ax.set_xlabel("incoming-weight gradient\n(95th percentile = 1)", labelpad=1)
+        ax.set_xlabel("incoming-weight gradient norm\n(95th percentile = 1)", labelpad=1)
         ax.set_ylabel("units" if col == 0 else "")
         ax.set_ylim(0, ax.get_ylim()[1] * 1.6)
         ax.set_title(f"{task}, $N$ = 1,000, 3 networks", pad=3)
@@ -954,8 +955,8 @@ def ed_mechanism(nets):
     ax.set_xticks([1, 10])
     ax.set_xticklabels(["1", "10"])
     ax.minorticks_off()
-    ax.set_xlabel("gradient threshold (% of the 95th percentile)", labelpad=1)
-    ax.set_ylabel("units above threshold\n/ active units", labelpad=1)
+    ax.set_xlabel("gradient threshold\n(% of the 95th percentile)", labelpad=1)
+    ax.set_ylabel("units with gradient norm\nabove threshold / active units", labelpad=1)
     ax.legend(loc="upper right")
     ps.ygrid(ax)
     ps.panel_letter(ax, "b")
@@ -996,7 +997,7 @@ def ed_mechanism(nets):
         ps.count_ticks(a.xaxis)
         a.set_xlabel(ps.LABELS["iteration"], labelpad=1)
         ps.ygrid(a)
-    ax_c.set_ylabel("low-active units above threshold", labelpad=1)
+    ax_c.set_ylabel("low-active units with\ngradient norm above threshold", labelpad=1)
     ax_c.set_ylim(0, 340)
     ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
                                 **open_mark(TASK_COL["3BFF"]), label="3BFF"),
@@ -1072,7 +1073,7 @@ def ed_tanh(tanh, traces):
     ps.ygrid(ax)
     ps.panel_letter(ax, "a")
     ax = fig.add_subplot(gs[0, 1])
-    keys = [("g_state", "gradient\non $x_i$"), ("g_in_trial", "gradient\non incoming\nweights"),
+    keys = [("g_state", "$\\partial L/\\partial x_i$"), ("g_in_trial", "$\\partial L/\\partial$\nincoming\nweights"),
             ("s_in", "sensitivity\nto incoming\nweights"), ("s_state", "sensitivity\nto $x_i$")]
     for j, (k, _) in enumerate(keys):
         for dx, act in ((-0.21, "ReLU"), (0.21, "tanh")):
