@@ -7,19 +7,20 @@
      network per task, coloured active / low-active / silent
   c  what real training did next: share of each class (active, low-active above or below the gradient threshold, silent)
      active 500 and 5,000 iterations after the floor snapshot, every network
-  d  tanh against ReLU (CDDM, N = 1000, end of 150,000 iterations): per-unit loss gradient on the
-     state, per unit of error, trained against the same network untrained
-  e  B4: share of the units inactive at transfer (S0) that are active at the new task's floor, old
+  d  B4: share of the units inactive at transfer (S0) that are active at the new task's floor, old
      and young sources, N = 1000 and 4000, with the pre-registered 10% and 30% bars
-  f  B4: active units at the new task's floor, old / young / fresh, with the old networks' count at
+  e  B4: active units at the new task's floor, old / young / fresh, with the old networks' count at
      transfer and the gate bar; held-out R^2 under each group
+Round 7 (dead-relu-paper#127): the tanh panel that was d moved to the tanh Extended Data figure as its
+panel d, the transfer panels e and f became d and e, and c spans the full width of its row.
 
 Extended Data Fig. 6 (`fig_ed_mechanism`): the gradient analysis on all six networks (g_in by
 class, how the number of units above the gradient threshold depends on that threshold) and the
 convergence checks of C4b (units above the gradient threshold over
 training and after a ten-fold learning-rate cut, the batch-consistent share of the gradient, the
 noisy loss after the floor). Extended Data Fig. 7 (`fig_ed_tanh`): tanh against ReLU, nine networks
-each (state gradient, output sensitivity, activation slope).
+each (state gradient, output sensitivity, activation slope), and in d the per-unit loss gradient on
+the state of one network per activation, trained against untrained (Figure 4d until round 7).
 
 DEFINITIONS (as in the paper's Methods). Active: participation p >= 0.05 q95(p) on a noise-free
 batch. Silent: an inactive unit whose x_i is <= 0 on every step of every trial of the reference
@@ -286,7 +287,7 @@ def open_mark(col):
 
 REACH_REL = SILENT_REL                               # the gradient threshold, as a fraction of q95(g_in)
 BARS = np.geomspace(0.005, 0.5, 25)                  # ED6b: gradient thresholds swept, fraction of q95
-F4_H_MM = 140.0                                      # Figure 4 height; the cap is paperstyle.MAX_H_MM
+F4_H_MM = 131.0                                      # Figure 4 height; the cap is paperstyle.MAX_H_MM
 
 
 def load_c4():
@@ -691,15 +692,18 @@ def draw_drift(ax, summ):
     ps.ygrid(ax)
 
 
-def draw_tanh_hist(fig, gs_cell, tanh):
-    """Panel d: per-unit state gradient per unit of error, trained against untrained, ReLU and tanh.
+def draw_tanh_hist(fig, gs_cell, tanh, col):
+    """Extended Data tanh figure, panel d (Figure 4d until round 7): per-unit state gradient per unit
+    of error, trained against untrained, ReLU and tanh.
 
     One network per activation, the one whose number of units at or above the untrained threshold is the
     median of nine. Outlines only: no unit-class colour, since the threshold here is set on the
-    untrained network.
+    untrained network. The trained network takes its activation's colour from panels a-c (col);
+    the untrained network is a dotted ink outline.
 
     Args:
-        fig: figure; gs_cell: GridSpec cell; tanh: load_tanh() output.
+        fig: figure; gs_cell: GridSpec cell; tanh: load_tanh() output;
+        col: dict "ReLU"/"tanh" -> colour of the trained network's outline.
     Returns:
         the left axes.
     """
@@ -707,16 +711,16 @@ def draw_tanh_hist(fig, gs_cell, tanh):
     FLOOR = 1e-5
     bins = np.logspace(np.log10(FLOOR * 0.7), np.log10(40), 46)
     first = None
-    for col, act in enumerate(("ReLU", "tanh")):
+    for j, act in enumerate(("ReLU", "tanh")):
         runs = tanh[act]
         n = np.array([(r["g_state"] >= SILENT_REL).sum() for r in runs])
         r = runs[int(np.argsort(n)[len(n) // 2])]
         drop = [np.median(q["g_state0"]) / np.median(q["g_state"]) for q in runs]
-        ax = fig.add_subplot(sub[0, col])
+        ax = fig.add_subplot(sub[0, j])
         first = first or ax
         v, v0 = np.maximum(r["g_state"], FLOOR), np.maximum(r["g_state0"], FLOOR)
-        ax.hist(v0, bins=bins, histtype="step", color=ps.BASELINE, lw=ps.DATA_LW, label="untrained")
-        ax.hist(v, bins=bins, histtype="step", color=ps.INK, lw=ps.DATA_LW, label="trained")
+        ax.hist(v0, bins=bins, histtype="step", color=ps.INK, lw=ps.THIN_LW * 1.4, ls=":", label="untrained")
+        ax.hist(v, bins=bins, histtype="step", color=col[act], lw=ps.DATA_LW, label="trained")
         ax.axvline(SILENT_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", label="untrained\nthreshold")
         ax.set_xscale("log")
         ax.set_xlim(FLOOR * 0.7, 40)
@@ -726,12 +730,12 @@ def draw_tanh_hist(fig, gs_cell, tanh):
         ax.set_ylim(0, ax.get_ylim()[1] * 1.15)
         ax.set_title(f"{act}, CDDM, $N$ = 1,000", pad=3)
         ax.set_xlabel("rms of $\\partial L/\\partial x_i$ / $L^{1/2}$\n(untrained 95th percentile = 1)", labelpad=1)
-        if col == 0:
+        if j == 0:
             ax.set_ylabel("units", labelpad=1)
             # legend in the ReLU axes' empty upper left: the narrower tanh axes (wspace 0.22) leave
             # no room left of its threshold line
             ax.legend(loc="upper left", handlelength=1.2, borderaxespad=0.2, labelspacing=0.2)
-        print(f"  panel d {act}: drawn seed {r['seed']}, {int(n[runs.index(r)])} at or above the untrained threshold, "
+        print(f"  ED tanh d {act}: drawn seed {r['seed']}, {int(n[runs.index(r)])} at or above the untrained threshold, "
               f"median-unit drop {drop[runs.index(r)]:.1f}; "
               f"nine networks {sorted(int(k) for k in n)}; median-unit drop {np.median(drop):.1f} "
               f"({min(drop):.1f}-{max(drop):.1f})")
@@ -739,7 +743,7 @@ def draw_tanh_hist(fig, gs_cell, tanh):
 
 
 def draw_b4_revived(ax, b4):
-    """Panel e: share of S0 (units inactive when the new task starts) active at its floor crossing.
+    """Panel d: share of S0 (units inactive when the new task starts) active at its floor crossing.
 
     Args:
         ax: axes; b4: load_b4() output.
@@ -753,7 +757,7 @@ def draw_b4_revived(ax, b4):
         ax.plot([x - 0.22, x + 0.22], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW)
         s0 = [r["n_S0"] for r in b4[N][src]]
         labels.append(f"{src}\n{ps.fmt_count(int(np.median(s0)))}")
-        print(f"  panel e N={N} {src}: S0 {sorted(s0)} (median drawn), share active "
+        print(f"  panel d N={N} {src}: S0 {sorted(s0)} (median drawn), share active "
               f"{sorted(round(float(q), 1) for q in v)}%")
     ax.axhline(10, color=ps.INK, lw=ps.THIN_LW, ls="--")
     ax.axhline(30, color=ps.INK, lw=ps.THIN_LW, ls=":")
@@ -773,7 +777,7 @@ def draw_b4_revived(ax, b4):
 
 
 def draw_b4_active(ax, b4):
-    """Panel f: active units at the new task's floor crossing, old / young / fresh networks.
+    """Panel e: active units at the new task's floor crossing, old / young / fresh networks.
 
     Args:
         ax: axes; b4: load_b4() output.
@@ -793,7 +797,7 @@ def draw_b4_active(ax, b4):
             r2 = [r["r2"] for r in g[src]]
             ticks.append(x)
             labels.append(f"{src}\n{min(r2):.2f}" + (f"–{max(r2):.2f}" if f"{max(r2):.2f}" != f"{min(r2):.2f}" else ""))
-            print(f"  panel f N={N} {src}: active at the floor crossing {sorted(v.astype(int).tolist())}, "
+            print(f"  panel e N={N} {src}: active at the floor crossing {sorted(v.astype(int).tolist())}, "
                   f"R2 {min(r2):.3f}-{max(r2):.3f}")
         bar = g["fresh_mean"] - 3 * g["fresh_sd"]
         ax.plot([x0 - 0.65, x0 + 0.35], [bar] * 2, color=ps.INK, lw=ps.THIN_LW, ls="--")
@@ -873,33 +877,39 @@ def check_layout(fig, name):
     return n_text, n_line
 
 
-def figure4(nets, summ, tanh, b4):
-    """Draw Figure 4 (panels a-f in the module docstring) at the printed width.
+def figure4(nets, summ, b4):
+    """Draw Figure 4 (panels a-e in the module docstring) at the printed width.
+
+    Rows are placed in millimetres from the top edge: a and b, then c across the full width, then
+    d and e.
 
     Args:
-        nets: load_c4(); summ: report_c4(); tanh: load_tanh(); b4: load_b4().
+        nets: load_c4(); summ: report_c4(); b4: load_b4().
     Returns:
         the PDF path.
     """
     fig = ps.figure(h_mm=F4_H_MM)
-    r1 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.955, bottom=0.71, width_ratios=[1.1, 1],
+
+    def y(mm):
+        """Figure fraction of a height given in mm from the figure's top edge."""
+        return 1.0 - mm / F4_H_MM
+
+    r1 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=y(6.3), bottom=y(40.6), width_ratios=[1.1, 1],
                           wspace=0.28)
-    r2 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.585, bottom=0.40, width_ratios=[1.15, 1],
-                          wspace=0.24)
-    r3 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.255, bottom=0.075, width_ratios=[1, 1.35],
+    r2 = fig.add_gridspec(1, 1, left=0.085, right=0.99, top=y(55.5), bottom=y(81.5))
+    r3 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=y(97.5), bottom=y(121.5), width_ratios=[1, 1.35],
                           wspace=0.25)
     ps.panel_letter(draw_traces(fig, r1[0, 0], nets), "a")
     ps.panel_letter(draw_gradient(fig, r1[0, 1], nets), "b", x_mm=11)
     ax = fig.add_subplot(r2[0, 0])
     draw_drift(ax, summ)
     ps.panel_letter(ax, "c")
-    ps.panel_letter(draw_tanh_hist(fig, r2[0, 1], tanh), "d", x_mm=9)
     ax = fig.add_subplot(r3[0, 0])
     draw_b4_revived(ax, b4)
-    ps.panel_letter(ax, "e")
+    ps.panel_letter(ax, "d")
     ax = fig.add_subplot(r3[0, 1])
     draw_b4_active(ax, b4)
-    ps.panel_letter(ax, "f", x_mm=9)
+    ps.panel_letter(ax, "e", x_mm=9)
     ps.floor_label_pads(fig)                         # as save() will, so the layout check sees it
     check_layout(fig, "fig_paper_F4_noreturn")
     return ps.save(fig, "fig_paper_F4_noreturn")
@@ -1048,7 +1058,8 @@ def ed_tanh(tanh, traces):
 
     a  active count by the participation criterion over training; b units at or above 5% of the
     untrained network's 95th percentile, four per-unit measures; c median activation slope,
-    untrained against trained. The activation function is a standard training setting, so tanh
+    untrained against trained; d the state-gradient histograms of one network per activation
+    (draw_tanh_hist; Figure 4d until round 7). Rows: a, b on top; c, d below. The activation function is a standard training setting, so tanh
     takes the setting colour and ReLU, the default, the baseline grey.
 
     Args:
@@ -1056,11 +1067,19 @@ def ed_tanh(tanh, traces):
     Returns:
         the PDF path.
     """
-    fig = ps.figure(h_mm=52)
-    gs = fig.add_gridspec(1, 3, left=0.075, right=0.99, top=0.9, bottom=0.27, wspace=0.34,
-                          width_ratios=[1, 1.45, 0.7])
+    h_mm = 100.0
+    fig = ps.figure(h_mm=h_mm)
+
+    def y(mm):
+        """Figure fraction of a height given in mm from the figure's top edge."""
+        return 1.0 - mm / h_mm
+
+    r1 = fig.add_gridspec(1, 2, left=0.075, right=0.99, top=y(5), bottom=y(38), wspace=0.22,
+                          width_ratios=[1, 1.45])
+    r2 = fig.add_gridspec(1, 2, left=0.075, right=0.99, top=y(57), bottom=y(88), wspace=0.22,
+                          width_ratios=[0.55, 1.45])
     col = {"ReLU": ps.BASELINE, "tanh": ps.SETTING}
-    ax = fig.add_subplot(gs[0, 0])
+    ax = fig.add_subplot(r1[0, 0])
     for act in ("ReLU", "tanh"):
         it, cnt, _ = traces[act]
         for j, row in enumerate(cnt):
@@ -1074,7 +1093,7 @@ def ed_tanh(tanh, traces):
     ax.legend(loc="center right")
     ps.ygrid(ax)
     ps.panel_letter(ax, "a")
-    ax = fig.add_subplot(gs[0, 1])
+    ax = fig.add_subplot(r1[0, 1])
     keys = [("g_state", "$\\partial L/\\partial x_i$"), ("g_in_trial", "$\\partial L/\\partial$\nincoming\nweights"),
             ("s_in", "sensitivity\nto incoming\nweights"), ("s_state", "sensitivity\nto $x_i$")]
     for j, (k, _) in enumerate(keys):
@@ -1093,7 +1112,7 @@ def ed_tanh(tanh, traces):
               loc="upper right")
     ps.ygrid(ax)
     ps.panel_letter(ax, "b")
-    ax = fig.add_subplot(gs[0, 2])
+    ax = fig.add_subplot(r2[0, 0])
     # A tight cluster (range under CLUSTER of the axis) is one open marker at the median with a range
     # bar and its n; a spread set is one marker per network, spread in x by value so none stack.
     CLUSTER = 0.04
@@ -1124,6 +1143,7 @@ def ed_tanh(tanh, traces):
     ax.set_ylabel("median activation slope", labelpad=1)
     ps.ygrid(ax)
     ps.panel_letter(ax, "c")
+    ps.panel_letter(draw_tanh_hist(fig, r2[0, 1], tanh, col), "d", x_mm=9)
     ps.floor_label_pads(fig)                         # as save() will, so the layout check sees it
     check_layout(fig, "fig_ed_tanh")
     return ps.save(fig, "fig_ed_tanh")
@@ -1137,7 +1157,7 @@ def draw():
     b4 = load_b4()
     tanh = load_tanh()
     traces = tanh_traces()
-    print(figure4(nets, summ, tanh, b4))
+    print(figure4(nets, summ, b4))
     print(ed_mechanism(nets))
     print(ed_tanh(tanh, traces))
 
