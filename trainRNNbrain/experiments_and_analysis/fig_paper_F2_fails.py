@@ -314,7 +314,7 @@ TITLES = {
     "slide_k_inputscale": "initial input-weight scale, 3BFF",
     "slide_k_frm_rws": "rate and sparsity penalties, CDDM",
     "revival_cddm": "re-initialisation and input-weight cap, CDDM",
-    "revival_ff": "re-initialising inactive units, 3BFF",
+    "revival_ff": "re-initialisation, 3BFF",
 }
 # A ladder whose traces leave no room for a legend borrows the legend of a ladder with the same
 # values and colours; its dashed traces still mark the runs with no floor crossing.

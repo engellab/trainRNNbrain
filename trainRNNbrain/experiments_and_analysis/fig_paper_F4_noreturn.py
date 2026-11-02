@@ -636,7 +636,7 @@ def draw_gradient(fig, gs_cell, nets):
         if col:
             ax.set_yticklabels([])
         ax.minorticks_off()
-        ax.set_xlabel("share of steps with $x_i > 0$", labelpad=1)
+        ax.set_xlabel("fraction of steps with $x_i > 0$", labelpad=1)
         if col == 0:
             ax.set_ylabel("incoming-weight gradient\n(95th percentile = 1)", labelpad=1)
         ax.set_title(f"{task}, $N$ = 1,000", pad=3)
@@ -804,7 +804,7 @@ def draw_b4_active(ax, b4):
     ax.set_ylim(0, 1000)
     ps.count_ticks(ax.yaxis)
     ax.set_ylabel("active units at the\nfloor crossing", labelpad=1)
-    ax.legend(handles=[Line2D([], [], marker="x", ls="", color=ps.INK, ms=3, label="old, at the start"),
+    ax.legend(handles=[Line2D([], [], marker="x", ls="", color=ps.INK, ms=3, label="old, at transfer"),
                        Line2D([], [], ls="--", color=ps.INK, lw=ps.THIN_LW, label="pass threshold")],
               loc="upper left", handletextpad=0.3, borderaxespad=0.1, labelspacing=0.2)
     ps.ygrid(ax)
@@ -1006,7 +1006,7 @@ def ed_mechanism(nets):
                                 label="learning rate / 10")], loc="upper center", ncol=3,
                 handletextpad=0.3, columnspacing=0.7, borderaxespad=0.1)
     ps.panel_letter(ax_c, "c")
-    ax_d.set_ylabel("gradient share common\nto 32 batches", labelpad=1)
+    ax_d.set_ylabel("fraction of gradient common\nto 32 batches", labelpad=1)
     ax_d.set_ylim(0, 1.05)
     ps.panel_letter(ax_d, "d")
     ax = fig.add_subplot(bot[0, 2])
