@@ -123,7 +123,7 @@ reference batch, so there their rate and the loss gradient on their incoming wei
 zero (numpy float64 and autograd). Under the training noise they are above zero on about 1.6% of
 steps and their gradient is 94-155 times (median per network) below the reach threshold; 6 of 851
 cross it in some batch (entry 2026-11-01_0716 withdrew "only through weight decay"). At
-most 1 silent unit per network is active 5,500 iterations later. On 3BFF no unit is silent; the gradient
+most 1 silent unit per network is active 5,500 iterations later. In the three 3BFF networks of Fig. 1d no unit is silent (silent units were counted only there); the gradient
 reaches 136-161 of the 658-731 low-active units (5% of the network's q95 of g_in), whose current is
 positive on a median 2-4% of steps, almost always within 2τ of an input pulse. 5,500 iterations
 later 0.7-4.3% of them are active (0-1.3% after 500). These 3BFF numbers depend on the trial batch
