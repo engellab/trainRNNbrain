@@ -1203,9 +1203,11 @@ class Trainer():
         alone deliberately: their gradient is proportional to the unit's own firing rate and they
         are the only route by which the loss can find a use for it.
 
-        This also suspends weight decay on those rows, which is wanted rather than incidental: this
-        trainer uses Adam with coupled L2, so decay arrives through the gradient, and a unit being
-        held up should not be shrinking at the same time.
+        This does NOT suspend weight decay on those rows. torch.optim.Adam with weight_decay > 0
+        adds weight_decay * param to .grad inside step(), after this blanking (torch/optim/adam.py,
+        grad.add(param, alpha=weight_decay)), so the protected rows still receive the decay term,
+        normalised by Adam like any other gradient, and are pulled toward zero by it. Only the
+        task-loss gradient is removed.
 
         Returns:
             None; mutates .grad in place.
