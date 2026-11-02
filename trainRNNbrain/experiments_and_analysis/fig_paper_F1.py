@@ -112,6 +112,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Patch, Rectangle
 from matplotlib.path import Path
+from matplotlib.transforms import offset_copy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
@@ -1711,7 +1712,7 @@ LAYOUT_MM = {                  # name: (left, top, width, height)
     "b_top": (111.0, 10.0, 51.0, 18.0),   # b, untrained
     "b_bot": (111.0, 36.5, 51.0, 18.0),   # b, trained
     "c":     (14.0, 73.0, 40.0, 25.0),    # c, active units per task
-    "e":     (14.0, 114.0, 40.0, 19.0),   # e, fraction of units selective, under c
+    "e":     (14.0, 114.0, 40.0, 17.5),   # e, fraction of units selective, under c
     "d_key": (69.0, 68.0, 93.0, 7.0),     # d, legend strip, above the sub-panels and off the data
     "d":     (70.5, 83.0, 20.5, 49.0),    # d, first of three side-by-side sub-panels (removal curves)
 }
@@ -1826,8 +1827,9 @@ def panel_selective(ax, res, seeds_d):
 
     One column per task, in the order of panel (c). Each network is a pair of filled markers in the
     task's colour, joined by a thin line: left, the number of selective units divided by all N
-    units; right, the number of selective active units divided by the number of active units. Words
-    under the first pair name the two sets, so no legend is needed.
+    units; right, the number of selective active units divided by the number of active units. Tick
+    labels "all" and "active" name the two sets under every pair, and the task names sit on a second
+    line below them, so no legend is needed (PR #147 review, row 10).
 
     Args:
         ax: axes; res: the per-network results of population_stats.py (fig_ed_population.load()),
@@ -1847,19 +1849,18 @@ def panel_selective(ax, res, seeds_d):
         for dx, ya, yb in zip(offs, y_all, y_act):
             ax.plot([k - E_DX + dx, k + E_DX + dx], [ya, yb], color=col, lw=ps.THIN_LW, zorder=2)
         for side, y in ((-E_DX, y_all), (E_DX, y_act)):
-            ax.plot(k + side + np.array(offs), y, "o", ms=ps.MARKER_PT + 0.6, color=col, mec="white",
+            ax.plot(k + side + np.array(offs), y, "o", ms=ps.MARKER_PT, color=col, mec="white",
                     mew=0.4, zorder=4, clip_on=False)
-        if k == 0:
-            ax.text(-E_DX + 0.1, y_all.min() - 0.07, "all units", ha="center", va="top", fontsize=ps.TICK_PT,
-                    color=ps.INK)
-            ax.text(E_DX, y_act.max() + 0.07, "active units", ha="center", va="bottom",
-                    fontsize=ps.TICK_PT, color=ps.INK)
         out.append((TASK_SHORT[label], y_all, y_act))
+    below = offset_copy(ax.get_xaxis_transform(), fig=ax.figure, y=-11.5, units="points")
+    for k, (label, _p, _c) in enumerate(PANEL_TASKS):
+        ax.text(k, 0, TASK_SHORT[label], transform=below, ha="center", va="top", fontsize=ps.TICK_PT,
+                color=ps.INK)
     ax.set(xlim=(-0.5, len(PANEL_TASKS) - 0.45), ylim=(0, 1))
     ax.set_ylabel("fraction of units\nselective")
-    ax.set_xticks(range(len(PANEL_TASKS)))
-    ax.set_xticklabels([TASK_SHORT[label] for label, _p, _c in PANEL_TASKS], fontsize=ps.TICK_PT)
-    ax.tick_params(axis="x", length=0, pad=3)
+    ax.set_xticks([k + side for k in range(len(PANEL_TASKS)) for side in (-E_DX, E_DX)])
+    ax.set_xticklabels(["all", "active"] * len(PANEL_TASKS), fontsize=ps.TICK_PT)
+    ax.tick_params(axis="x", length=0, pad=2)
     ax.set_yticks([0, 0.5, 1])
     ax.set_yticklabels(["0", "0.5", "1"])
     return out
