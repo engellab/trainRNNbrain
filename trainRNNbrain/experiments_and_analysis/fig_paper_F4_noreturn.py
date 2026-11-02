@@ -573,7 +573,9 @@ def draw_traces(fig, gs_cell, nets):
             else:
                 ax.set_ylim(-1, 1)
                 ax.set_yticks([])
-                ax.text(0.5, 0.45, "no silent unit\nin any 3BFF network", transform=ax.transAxes,
+                # scoped to the networks measured (C4 on the Fig. 1d snapshots, notebook 2026-11-01_1021 and
+                # 2026-11-01_1200); no other 3BFF network was checked for silent units (#127, PR #140 N3)
+                ax.text(0.5, 0.45, "no silent unit in the\n3BFF networks of Fig. 1d", transform=ax.transAxes,
                         ha="center", va="center", fontsize=ps.TICK_PT, color=ps.MUTED)
             ax.yaxis.set_major_locator(plt.MaxNLocator(2, symmetric=True))
             if row < 2:
