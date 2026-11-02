@@ -22,6 +22,9 @@ spectral_rad: 1.2
 sigma_rec: .05
 sigma_inp: .05
 sigma_out: .03
+# Multiplicative synaptic noise on W_rec and W_inp, as in rnn_relu_standard.yaml; 0 = off.
+# Stated explicitly (2026-11-02, dead-relu-paper#137): RNN_torch also defaults to 0.0.
+sigma_w: 0.0
 bias_range: [0.0, 0.0]         # degenerate -> fixed, non-trainable bias = 0.
                                # Matched to rnn_relu_standard.yaml, which commit ae52c58 moved
                                # to a fixed bias. These three were missed, so an activation arm
