@@ -672,7 +672,7 @@ def panel_flat(ax, c3):
     ax.axhline(0, color=ps.MUTED, lw=ps.THIN_LW)
     # the losing-units threshold of the flat-loss test (entry 2026-10-15_0955)
     ax.axhline(DIE_BAR, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)))
-    ax.text(6.9, DIE_BAR + 1.5, "decrease of 5 units", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
+    ax.text(6.9, DIE_BAR + 1.5, "decrease of 5 active units", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
             va="bottom")
     handles = []
     for N in sorted(SIZE_MARK):
@@ -690,7 +690,7 @@ def panel_flat(ax, c3):
                           label=f"trained to {ps.fmt_count(300_000)}", **ps.mark_fixed(ps.INK)))
     ax.set(xlim=(-6, 7), ylim=(-15, 135),
            xlabel="loss change after iteration 150,000\n(% per 100,000 iterations)",
-           ylabel="decrease in active units\nper 100,000 iterations")
+           ylabel="decrease in the number of\nactive units per 100,000 iterations")
     ax.set_xticks([-6, -3, 0, 3, 6])
     ax.legend(handles=handles, loc="upper left", handletextpad=0.2, borderaxespad=0.2)
     ps.ygrid(ax)
