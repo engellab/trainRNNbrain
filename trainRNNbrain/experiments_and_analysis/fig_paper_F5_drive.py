@@ -735,7 +735,7 @@ def panel_sizes(ax_m, ax_r, series, marks):
     ax_m.set_yticks([1, 3, 5, 7])
     ax_m.set_ylabel("fold change")
     ax_r.set_yticks([-0.06, -0.03, 0])
-    ax_r.set_ylabel("$R^2$ minus control mean")
+    ax_r.set_ylabel("$R^2$ minus\ncontrol mean")
     ax_r.set_xlabel(ps.LABELS["size"])
     plt.setp(ax_m.get_xticklabels(), visible=False)
     ax_m.text(430, 3.6, "rate penalty: no floor\ncrossing at $N$ $\\leq$ 1,000", fontsize=ps.TICK_PT,
@@ -975,7 +975,8 @@ def build():
     drawn_b = panel_one_size(ax_b, a3, marks)
 
     # row 2 (c, d): 57.5-91 mm
-    gc = fig.add_gridspec(2, 1, left=L, right=W, top=y(57.5), bottom=y(91), hspace=0.12,
+    # c starts 0.016 right of the column edge: the lower axes' two-line y label needs the room
+    gc = fig.add_gridspec(2, 1, left=L + 0.016, right=W, top=y(57.5), bottom=y(91), hspace=0.12,
                           height_ratios=[1.45, 1])
     ax_cm, ax_cr = fig.add_subplot(gc[0]), fig.add_subplot(gc[1])
     drawn_c = panel_sizes(ax_cm, ax_cr, series, marks)
