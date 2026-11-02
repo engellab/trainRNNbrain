@@ -676,7 +676,7 @@ def short(name):
 
 
 def draw(nets, p1, p2, pairs, lad, out_stem):
-    """The report figure: d trajectories, absorption, straightness, silent counts with and without noise, the ladder.
+    """The report figure: d trajectories, fate of units silent at the crossing, straightness, noise-free vs default silent counts, the ladder, P4 fits.
 
     Args:
         nets: load_dist dict; p1, p2: name -> result dicts; pairs: p3b pairs; lad: p3a result;
@@ -686,9 +686,9 @@ def draw(nets, p1, p2, pairs, lad, out_stem):
     """
     ps.setup()
     fig = ps.figure(120)
-    gs = fig.add_gridspec(2, 3, left=0.07, right=0.98, bottom=0.09, top=0.95, wspace=0.38, hspace=0.45)
+    gs = fig.add_gridspec(2, 3, left=0.085, right=0.98, bottom=0.09, top=0.94, wspace=0.42, hspace=0.5)
     cddm = [n for n in nets if nets[n]["group"] == "cddm_control"]
-    # a: d of 40 crossing units of one control network
+    # a: d of 40 units that cross, symmetric-log axis so both sides of the boundary are visible
     ax = fig.add_subplot(gs[0, 0])
     if cddm:
         z = nets[cddm[0]]
@@ -698,26 +698,37 @@ def draw(nets, p1, p2, pairs, lad, out_stem):
         for i in rng.choice(idx, size=min(40, len(idx)), replace=False):
             ax.plot(z["it"] / 1e3, z["d"][:, i], lw=0.4, color=ps.INK, alpha=0.5)
         ax.axhline(0, color="0.5", lw=0.6, ls="--")
-        ax.set_ylim(-0.5, 0.6)
-        ax.set_xlabel("iteration (thousands)"); ax.set_ylabel("largest state $d_i$")
+        ax.set_yscale("symlog", linthresh=1e-3)
+        ax.set_ylim(-0.1, 1)
+        ax.set_xlabel("iteration (thousands)"); ax.set_ylabel("largest state $d_i$ (symlog)")
         ax.set_title(f"{short(cddm[0])}: 40 units that cross", fontsize=6)
-    # b: absorption A(s) per CDDM/DMTS network
+    # b: fate of the units silent at each network's floor crossing, CDDM controls
     ax = fig.add_subplot(gs[0, 1])
-    for n, z in nets.items():
-        if z["task"] in ("CDDM", "DMTS") and not z["group"].startswith("cddm_noise"):
-            its, A, cnt = absorption(z["it"], z["d"] <= 0, P1_FROM)
-            ax.plot(its / 1e3, A, lw=0.6, color="0.2" if z["task"] == "CDDM" else "0.6")
-    ax.axhline(P1_PASS_STAR, color="0.5", lw=0.5, ls="--")
-    ax.set_xlabel("snapshot iteration (thousands)"); ax.set_ylabel("absorption fraction $A(s)$")
-    ax.set_title("silent units silent at every later snapshot", fontsize=6)
-    # c: straightness distribution
+    for n in cddm:
+        z = nets[n]
+        j = nearest(z["it"], z["t_star"])
+        sil = z["d"][j] <= 0
+        t = (z["it"][j:] - z["it"][j]) / 1e3
+        ax.plot(t, (sil & (z["d"][j:] <= 0)).sum(axis=1), color=ps.INK, lw=0.7)
+        ax.plot(t, (sil & (z["d"][j:] > 0)).sum(axis=1), color=ps.MUTED, lw=0.7, ls="--")
+        ax.plot(t, [(sil & active_bar(pp)).sum() for pp in z["p"][j:]], color=ps.FAINT, lw=0.7, ls=":")
+    ax.set_xlabel("iterations after the floor crossing (thousands)")
+    ax.set_ylabel("units silent at the crossing")
+    ax.set_title("silent (solid), $d>0$ (dashed), active (dotted)", fontsize=6)
+    # c: straightness distribution by network group
     ax = fig.add_subplot(gs[0, 2])
-    allS = np.concatenate([p2[n]["S_all"] for n in p2 if len(p2[n]["S_all"])]) if p2 else np.zeros(0)
-    if allS.size:
-        ax.hist(allS, bins=np.linspace(0, 1, 26), color="0.4")
+    groups = (("CDDM default input scale", lambda z: z["group"] in ("cddm_control", "cddm_screen"), ps.INK),
+              ("CDDM input scale 5, 20", lambda z: z["group"] == "cddm_winp" and ("winp5" in z["name"] or "winp20" in z["name"]), ps.MUTED),
+              ("DMTS", lambda z: z["task"] == "DMTS", ps.FAINT))
+    for lab, f, col in groups:
+        S = [p2[n]["S_all"] for n in p2 if f(nets[n]) and len(p2[n]["S_all"])]
+        if S:
+            ax.hist(np.concatenate(S), bins=np.linspace(0, 1, 26), histtype="step", density=True,
+                    color=col, lw=0.9, label=lab)
     ax.axvline(1 / np.sqrt(P2_K), color="0.5", lw=0.6, ls="--")
-    ax.set_xlabel("straightness $S_i$ before crossing"); ax.set_ylabel("units")
-    ax.set_title("random walk 0.22, steady approach 1", fontsize=6)
+    ax.legend(frameon=False, fontsize=5, loc="upper center")
+    ax.set_xlabel("straightness $S_i$ before crossing"); ax.set_ylabel("density")
+    ax.set_title("random walk 0.22 (dashed), steady approach 1", fontsize=6)
     # d: silent count over training, noise-free vs default pairs
     ax = fig.add_subplot(gs[1, 0])
     for z in nets.values():
@@ -726,7 +737,7 @@ def draw(nets, p1, p2, pairs, lad, out_stem):
                     color="0.1" if z["group"].endswith("zero") else "0.6",
                     ls="-" if z["group"].endswith("zero") else "--")
     ax.set_xlabel("iteration (thousands)"); ax.set_ylabel("silent units (of 1,000)")
-    ax.set_title("CDDM: no training noise (solid) vs default (dashed)", fontsize=6)
+    ax.set_title("CDDM: noise-free (solid), default (dashed)", fontsize=6)
     # e: ladder slopes
     ax = fig.add_subplot(gs[1, 1])
     for budget, mk in ((200000, "o"), (75000, "s")):
@@ -748,6 +759,8 @@ def draw(nets, p1, p2, pairs, lad, out_stem):
         ax.legend(frameon=False, fontsize=5)
         ax.set_xlabel("iteration (thousands)"); ax.set_ylabel("share not yet silent")
         ax.set_title(f"{short(cddm[0])}: survival from 5k", fontsize=6)
+    for ax_, letter in zip(fig.axes, "abcdef"):
+        ps.panel_letter(ax_, letter)
     ps.save(fig, os.path.basename(out_stem), out_dir=os.path.dirname(out_stem))
 
 
@@ -813,6 +826,23 @@ def run_report(dist_dir, ladder_path, out_stem):
     for n, r in p2.items():
         if nets[n]["group"].startswith("cddm_noise"):
             print(f"  {short(n):28s} S_med {r['S_med']:.3f} rho1 {r['rho1']:.3f}")
+    print("== POST HOC (not pre-registered): fate of units silent at t*, CDDM controls and DMTS")
+    for n, z in nets.items():
+        if z["group"] in ("cddm_control", "dmts_control", "cddm_noise_zero", "cddm_noise_default") \
+                and np.isfinite(z["t_star"]):
+            j = nearest(z["it"], z["t_star"])
+            sil = z["d"][j] <= 0
+            act = active_bar(z["p"][j])
+            parts = []
+            for lag in (500, 5500, 25000, 50000, 74000):
+                k = nearest(z["it"], z["it"][j] + lag)
+                if z["it"][k] - z["it"][j] < lag - 600:
+                    continue
+                parts.append(f"+{lag}: silent {(sil & (z['d'][k] <= 0)).sum()} d>0 {(sil & (z['d'][k] > 0)).sum()} "
+                             f"active {(sil & active_bar(z['p'][k])).sum()} med d {np.median(z['d'][k][sil]):.1e} "
+                             f"w_inp {np.median(z['w_inp_row'][k][sil] / z['w_inp_row'][j][sil]):.2f}")
+            print(f"  {short(n):28s} silent@t* {sil.sum()} med d {np.median(z['d'][j][sil]):.1e} "
+                  f"(active units med d {np.median(z['d'][j][act]):.2f}); " + "; ".join(parts))
     print("== P4 survival-curve models (CDDM)")
     for n, z in nets.items():
         if z["task"] == "CDDM":
