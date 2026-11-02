@@ -126,6 +126,20 @@ Descriptive, not part of the rule: each arm's mean active units and R² against 
 crossing and at 75,000 iterations (the "settings change the number" half of Results 3), and the
 change per 10,000 iterations over the last third of training.
 
-### Submission
+### Submission (added after submitting, same session)
 
-Recorded in the entry that follows this one (command, commit, job ids).
+- Pinned worktree on Della: `~/trainRNNbrain_dmtsset`, detached at **ba4c29b** (main a8bdb68 plus
+  the launcher and this entry; `git diff --stat main ba4c29b` lists only those two files), moved
+  there as a git bundle and checked clean. A 30-iteration check on the login node (N = 50, `srun`
+  stubbed; arms default, rwm0.2, softplus25, winp20) ran to completion at ba4c29b under torch 2.7.
+- Command: `cd ~/trainRNNbrain_dmtsset && sbatch --chdir=$HOME/trainRNNbrain_dmtsset slurm/SilentReLU_dmts_settings_della.slurm`
+- **Job 16628171**, array 1-27 (gpu-short QOS, 14 h limit, `--constraint=gpu80`), submitted
+  2 Nov 00:27 ET. Before submitting, `squeue -u pt1290` showed 6 jobs (16628052_1-6, another package).
+  Task 1 started at 00:27 ET on della-l03g8; tasks 2-27 wait for resources (527 pending jobs
+  ask for gpu80 nodes).
+- Cost: 27 networks × about 6.5 GPU-h = about 176 GPU-h.
+- Output: `trained_RNNs/DMTS_std_settings/EqType=h_N=1000_arm=<arm>_iters=150000/`, snapshots under
+  `c1_snapshots/DMTS_std_settings/`, logs `~/trainRNNbrain_logs/DMTSset.16628171_<task>.out`.
+- Expected: each network about 6.5 h after it starts. The first finishes near 07:00 ET on 2 Nov.
+  The whole array finishes when the last task gets a GPU; at the current queue that is likely
+  within 3 Nov (ET).
