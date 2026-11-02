@@ -251,6 +251,13 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
   harder tasks recruit more units, no solved task fills the network. Not in the paper (round 2
   has no task-demand item, and the blueprint plans none); a re-run on the standard network would be
   needed before it could go in.
+- **Absorbing boundary (Pavel's proposed mechanism).** Not supported (2 Nov, entries
+  2026-11-01_2119 plan and 2026-11-02_0058 result; branch wp/absorb, 19.4 GPU-h). Silent CDDM and
+  DMTS units return above zero (d > 0) but not to activity; recurrent noise, and removing all
+  training noise, show that noise slows the loss of units instead of driving it (noise-free CDDM:
+  146-159 active at 75k, against 329-358 with the default noise, same seeds); the drift-diffusion
+  curve loses to a stretched exponential. No claim changes; the mechanism does not go into the
+  Discussion.
 
 **Training**
 - **B2.** Done, read 31 Oct: fails its rule (entry 2026-10-31_1532). Third test (against synaptic
