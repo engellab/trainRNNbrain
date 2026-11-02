@@ -103,7 +103,7 @@ def selectivity_panel(ax, res, share):
             v = s[key]
             x, y = (v["act"], v["all"]) if share else (v["n_act"], v["n_all"])
             dots(ax, x, y, s["task"], mixed=mixed)
-    ax.set_title("selective units, share" if share else "selective units, count")
+    ax.set_title("fraction of units selective" if share else "number of selective units")
 
 
 def k_panel(ax, res):
@@ -127,7 +127,7 @@ def share_panel(ax, res):
             dots(ax, sh_act, sh_all, s["task"], ms=ps.MARKER_PT)
     ax.set_xticks([0, 0.5, 1])
     ax.set_yticks([0, 0.5, 1])
-    ax.set_title("class shares, matched classes")
+    ax.set_title("fraction of units per matched class")
 
 
 def check_overlaps(fig):

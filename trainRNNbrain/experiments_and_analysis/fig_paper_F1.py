@@ -1449,7 +1449,7 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None):
                     ax_s.plot(1 + j, max(t["random_removed"][-1][1], 0), "^", ms=D_TRI_MS,
                               **ps.mark_floor(col), zorder=6, clip_on=False)
             ax_s.set(xlim=D_STRIP_XLIM, ylim=D_YLIM)
-            ax_s.set_title("retrained", fontsize=ps.TICK_PT, color=ps.MUTED, pad=D_TITLE_PAD_PT)
+            ax_s.set_title("trained\nfurther", fontsize=ps.TICK_PT, color=ps.MUTED, pad=D_TITLE_PAD_PT)
             ax_s.set_xticks([])
             ax_s.tick_params(labelleft=False)
             ax_s.set_yticks([0, 0.5, 1.0])
@@ -1479,14 +1479,14 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None):
     if ax_key is not None:
         ps.blank(ax_key)
         ax_key.legend(handles=[
-            Line2D([], [], color=ps.MUTED, lw=1.2, label="quietest first"),
+            Line2D([], [], color=ps.MUTED, lw=1.2, label="increasing participation"),
             Line2D([], [], color=ps.MUTED, lw=0.9, ls="--", label="random order"),
-            Line2D([], [], color=ps.MUTED, lw=1.1, ls=":", label="busiest first"),
+            Line2D([], [], color=ps.MUTED, lw=1.1, ls=":", label="decreasing participation"),
             Patch(color=SILENT_GREY, lw=0, label="inactive units"),
             Line2D([], [], marker="*", ls="", ms=D_STAR_MS, **ps.mark_floor(ps.MUTED),
-                   label="inactive units removed, then retrained"),
+                   label="inactive units removed,\nthen trained further"),
             Line2D([], [], marker="^", ls="", ms=D_TRI_MS, **ps.mark_floor(ps.MUTED),
-                   label="as many removed at random, then retrained")],
+                   label="as many removed at random,\nthen trained further")],
             loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=3, fontsize=ps.TICK_PT,
             handlelength=2.0, columnspacing=1.2, borderaxespad=0.0, borderpad=0.0, frameon=False)
     return rows

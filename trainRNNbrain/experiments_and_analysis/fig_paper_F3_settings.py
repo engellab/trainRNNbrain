@@ -438,8 +438,8 @@ def figure3(by_stem, b5):
                                means=True)
     legends.append((ax_e2, leg))
     ax_e2.tick_params(labelleft=False)
-    ax_e1.set_title("revival methods, CDDM", fontsize=ps.LABEL_PT, pad=2)
-    ax_e2.set_title("re-initialising, 3BFF", fontsize=ps.LABEL_PT, pad=2)
+    ax_e1.set_title("CDDM", fontsize=ps.LABEL_PT, pad=2)
+    ax_e2.set_title("3BFF", fontsize=ps.LABEL_PT, pad=2)
     for ax in (ax_b, ax_c, ax_e1):
         ax.set_ylabel(ps.LABELS["active"], labelpad=1)
     for ax, letter in ((ax_b, "b"), (ax_c, "c"), (ax_e1, "e")):

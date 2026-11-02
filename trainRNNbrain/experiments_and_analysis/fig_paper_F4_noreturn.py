@@ -5,7 +5,7 @@
      3BFF (one network each, at its loss floor)
   b  incoming-weight gradient g_in against the share of time steps with x_i > 0, every unit of one
      network per task, coloured active / low-active / silent
-  c  what real training did next: share of each class (active, low-active reached or not, silent)
+  c  what real training did next: share of each class (active, low-active above or below the gradient threshold, silent)
      active 500 and 5,000 iterations after the floor snapshot, every network
   d  tanh against ReLU (CDDM, N = 1000, end of 150,000 iterations): per-unit loss gradient on the
      state, per unit of error, trained against the same network untrained
@@ -15,14 +15,15 @@
      transfer and the gate bar; held-out R^2 under each group
 
 Extended Data Fig. 6 (`fig_ed_mechanism`): the gradient analysis on all six networks (g_in by
-class, how the reached count depends on the bar) and the convergence checks of C4b (reach over
+class, how the number of units above the gradient threshold depends on that threshold) and the
+convergence checks of C4b (units above the gradient threshold over
 training and after a ten-fold learning-rate cut, the batch-consistent share of the gradient, the
 noisy loss after the floor). Extended Data Fig. 7 (`fig_ed_tanh`): tanh against ReLU, nine networks
 each (state gradient, output sensitivity, activation slope).
 
 DEFINITIONS (as in the paper's Methods). Active: participation p >= 0.05 q95(p) on a noise-free
 batch. Silent: an inactive unit whose x_i is <= 0 on every step of every trial of the reference
-batch. Low-active: every other inactive unit. Reached: g_in >= 0.05 q95(g_in) of the same network
+batch. Low-active: every other inactive unit. Gradient threshold: 0.05 q95(g_in) of the same network
 (c4_gradient_mechanism.py, noise-free reference batch, task seed 12345).
 
 DATA. The six C4 networks are the Figure 1d networks with kept snapshots (three CDDM, three 3BFF;
@@ -283,8 +284,8 @@ def open_mark(col):
     return dict(ps.mark_fixed(col), mfc=ps.PAPER)
 
 
-REACH_REL = SILENT_REL                               # the reach threshold, as a fraction of q95(g_in)
-BARS = np.geomspace(0.005, 0.5, 25)                  # ED6b: reach thresholds swept, fraction of q95
+REACH_REL = SILENT_REL                               # the gradient threshold, as a fraction of q95(g_in)
+BARS = np.geomspace(0.005, 0.5, 25)                  # ED6b: gradient thresholds swept, fraction of q95
 F4_H_MM = 140.0                                      # Figure 4 height; the cap is paperstyle.MAX_H_MM
 
 
@@ -293,7 +294,7 @@ def load_c4():
 
     Returns:
         list of dicts (one per network, CDDM first) with task, seed, t (floor snapshot iteration),
-        masks act / low / sil / reach, on-share (share of reference-batch samples with x > 0), g
+        masks act / low / sil / reach (above the gradient threshold), on-share (share of reference-batch samples with x > 0), g
         (g_in over the network's q95 of g_in), p, the arrays act_<dt> for dt in LATER (units active
         that many iterations later; full reference batch) and the trace file, if present. Read from
         fig1d()'s outputs (the Figure 1d snapshots).
@@ -368,12 +369,12 @@ def report_c4(nets):
             print(f"  {r['task']} s{r['seed']}: silent units under the training noise (10 batches): x > 0 on a "
                   f"median {100 * s['noisy_on_share']:.2f}% of steps; {s['noisy_zero']} of {s['noisy_n']} "
                   f"per-batch gradients exactly 0; median g_in {s['noisy_med']:.1e} of the batch's q95 "
-                  f"({REACH_REL / s['noisy_med']:.0f}x below the reach threshold); {s['noisy_cross']} units "
+                  f"({REACH_REL / s['noisy_med']:.0f}x below the gradient threshold); {s['noisy_cross']} units "
                   f"at or above the threshold in some batch")
         summ.setdefault(r["task"], []).append(s)
         print(f"  {r['task']} s{r['seed']} t*={r['t']}: active {s['active']}, silent {s['silent']} "
-              f"(largest g_in {s['sil_gmax']:.1e}; autograd {s['sil_gmax_torch']:.1e}), low-active {s['low']} of which reached {s['low_reached']}; "
-              f"reached low-active: median on-share {s['on_med_low_reached']:.3f}, on in a median "
+              f"(largest g_in {s['sil_gmax']:.1e}; autograd {s['sil_gmax_torch']:.1e}), low-active {s['low']} of which above the gradient threshold {s['low_reached']}; "
+              f"low-active above the gradient threshold: median on-share {s['on_med_low_reached']:.3f}, on in a median "
               f"{s['trials_med_low_reached']:.0f} of {s['B']} trials, {s['near_input_share']:.2f} of their "
               f"on-steps within 2 tau of an input; largest on-share of any low-active unit {s['on_max_low']:.3f}")
         if f"active_{LATER[1]}" in s:
@@ -384,8 +385,8 @@ def report_c4(nets):
     rule = [("every 3BFF network has 0 silent units", all(s["silent"] == 0 for s in ff)),
             ("every CDDM network has >= 200 silent units with largest g_in exactly 0",
              all(s["silent"] >= 200 and s["sil_gmax"] == 0 for s in cd)),
-            ("every 3BFF network has >= 100 reached low-active units", all(s["low_reached"] >= 100 for s in ff)),
-            (f"in every 3BFF network < 10% of reached low-active units are active at t*+{LATER[1]}",
+            ("every 3BFF network has >= 100 low-active units above the gradient threshold", all(s["low_reached"] >= 100 for s in ff)),
+            (f"in every 3BFF network < 10% of low-active units above the gradient threshold are active at t*+{LATER[1]}",
              all(s.get(f"low_reached_{LATER[1]}", np.nan) < 0.10 for s in ff))]
     print("  RULE (notebook 2026-10-31_2137, read as in 2026-11-01_0948): " + "; ".join(f"{k}: {'PASS' if v else 'FAIL'}" for k, v in rule))
     return summ
@@ -505,7 +506,7 @@ def pick_trace_units(r, n_candidates=20):
     """Which units and trial panel a draws for one network.
 
     The active unit is the one at the 75th percentile of participation among active units. The low-active
-    unit is one of the n_candidates reached low-active units whose share of steps with x > 0 is
+    unit is one of the n_candidates low-active units above the gradient threshold whose share of steps with x > 0 is
     nearest the class median; among them and the stored trials on which that unit is on at least
     once, the pair is chosen on which the active unit's largest x_i is highest, so that both
     classes are visible on one trial. The silent unit (CDDM) is the middle one by index.
@@ -635,17 +636,17 @@ def draw_gradient(fig, gs_cell, nets):
         if col:
             ax.set_yticklabels([])
         ax.minorticks_off()
-        ax.set_xlabel("share of steps with $x_i > 0$", labelpad=1)
+        ax.set_xlabel("fraction of steps with $x_i > 0$", labelpad=1)
         if col == 0:
             ax.set_ylabel("incoming-weight gradient\n(95th percentile = 1)", labelpad=1)
         ax.set_title(f"{task}, $N$ = 1,000", pad=3)
         print(f"  panel b {task} s{r['seed']}: {r['act'].sum()} active, {r['low'].sum()} low-active "
-              f"({(r['low'] & r['reach']).sum()} reached), {r['sil'].sum()} silent")
+              f"({(r['low'] & r['reach']).sum()} above the gradient threshold), {r['sil'].sum()} silent")
     # one legend for both networks, in the 3BFF axes' empty lower right
     hs = [Line2D([], [], ls="", marker="o", ms=3, mfc=C_ACT, mec=C_ACT, label="active"),
           Line2D([], [], ls="", marker="o", ms=3, mfc=C_INA, mec=C_INA, label="low-active"),
           Line2D([], [], ls="", marker="D", ms=2.5, mfc=C_INA, mec=C_INA, label="silent"),
-          Line2D([], [], ls="--", color=ps.INK, lw=ps.THIN_LW, label="reach threshold")]
+          Line2D([], [], ls="--", color=ps.INK, lw=ps.THIN_LW, label="gradient threshold")]
     ax.legend(handles=hs, loc="lower right", handletextpad=0.2, borderaxespad=0.2, labelspacing=0.2)
     return first
 
@@ -669,7 +670,8 @@ def draw_drift(ax, summ):
             ax.plot([x + dx - 0.17, x + dx + 0.17], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW, zorder=2)
             ax.plot(x + dx + offs, v, ls="", marker=mk, ms=3, clip_on=False, zorder=3, **style[cls])
     ax.set_xticks(xs)
-    ax.set_xticklabels(["active", "reached", "not\nreached", "silent", "active", "reached", "not\nreached"])
+    ax.set_xticklabels(["active", "above\nthreshold", "below\nthreshold", "silent", "active", "above\nthreshold",
+                        "below\nthreshold"])
     for x0, x1 in ((1, 2), (5.6, 6.6)):                 # the two low-active groups share one label
         ax.annotate("", xy=(x0 - 0.35, -0.27), xytext=(x1 + 0.35, -0.27), xycoords=("data", "axes fraction"),
                     arrowprops=dict(arrowstyle="-", lw=ps.THIN_LW, color=ps.MUTED))
@@ -690,7 +692,7 @@ def draw_drift(ax, summ):
 def draw_tanh_hist(fig, gs_cell, tanh):
     """Panel d: per-unit state gradient per unit of error, trained against untrained, ReLU and tanh.
 
-    One network per activation, the one whose count at or above the reach threshold is the
+    One network per activation, the one whose number of units at or above the untrained threshold is the
     median of nine. Outlines only: no unit-class colour, since the threshold here is set on the
     untrained network.
 
@@ -726,7 +728,7 @@ def draw_tanh_hist(fig, gs_cell, tanh):
             ax.set_ylabel("units", labelpad=1)
         else:
             ax.legend(loc="upper left", handlelength=1.2, borderaxespad=0.2, labelspacing=0.2)
-        print(f"  panel d {act}: drawn seed {r['seed']}, {int(n[runs.index(r)])} at or above the reach threshold, "
+        print(f"  panel d {act}: drawn seed {r['seed']}, {int(n[runs.index(r)])} at or above the untrained threshold, "
               f"median-unit drop {drop[runs.index(r)]:.1f}; "
               f"nine networks {sorted(int(k) for k in n)}; median-unit drop {np.median(drop):.1f} "
               f"({min(drop):.1f}-{max(drop):.1f})")
@@ -802,7 +804,7 @@ def draw_b4_active(ax, b4):
     ax.set_ylim(0, 1000)
     ps.count_ticks(ax.yaxis)
     ax.set_ylabel("active units at the\nfloor crossing", labelpad=1)
-    ax.legend(handles=[Line2D([], [], marker="x", ls="", color=ps.INK, ms=3, label="old, at the start"),
+    ax.legend(handles=[Line2D([], [], marker="x", ls="", color=ps.INK, ms=3, label="old, at transfer"),
                        Line2D([], [], ls="--", color=ps.INK, lw=ps.THIN_LW, label="pass threshold")],
               loc="upper left", handletextpad=0.3, borderaxespad=0.1, labelspacing=0.2)
     ps.ygrid(ax)
@@ -879,7 +881,7 @@ def figure4(nets, summ, tanh, b4):
     fig = ps.figure(h_mm=F4_H_MM)
     r1 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.955, bottom=0.71, width_ratios=[1.1, 1],
                           wspace=0.28)
-    r2 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.585, bottom=0.40, width_ratios=[1, 1.15],
+    r2 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.585, bottom=0.40, width_ratios=[1.15, 1],
                           wspace=0.24)
     r3 = fig.add_gridspec(1, 2, left=0.085, right=0.99, top=0.255, bottom=0.075, width_ratios=[1, 1.35],
                           wspace=0.25)
@@ -901,11 +903,12 @@ def figure4(nets, summ, tanh, b4):
 
 
 def ed_mechanism(nets):
-    """Extended Data figure: gradient reach on all six networks and the C4b convergence checks.
+    """Extended Data figure: incoming-weight gradients on all six networks and the C4b convergence checks.
 
     a  g_in by class on the noise-free batch, three networks pooled per task, and the silent units'
-       g_in on the 10 batches under the training noise (outline); b reached / active against the
-       reach threshold; c low-active units reached at fixed iterations and after 300 iterations at a
+       g_in on the 10 batches under the training noise (outline); b units above the gradient threshold /
+       active units, against the gradient threshold; c low-active units above the gradient threshold at
+       fixed iterations and after 300 iterations at a
        tenth of the learning rate; d share of the per-batch gradient common to 32 batches;
        e noisy training loss over its final value.
 
@@ -921,7 +924,7 @@ def ed_mechanism(nets):
     for col, task in enumerate(("CDDM", "3BFF")):
         ax = fig.add_subplot(top[0, col])
         rs = [r for r in nets if r["task"] == task]
-        ax.axvline(REACH_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", label="reach threshold")
+        ax.axvline(REACH_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", label="gradient threshold")
         for key, kw, lab in (("low", dict(color=C_INA), "low-active"), ("act", dict(color=C_ACT, alpha=0.8), "active")):
             v = np.concatenate([r["g"][r[key]] for r in rs])
             ax.hist(np.maximum(v, 1.5e-7), bins=bins, lw=0, label=lab, **kw)
@@ -951,8 +954,8 @@ def ed_mechanism(nets):
     ax.set_xticks([1, 10])
     ax.set_xticklabels(["1", "10"])
     ax.minorticks_off()
-    ax.set_xlabel("reach threshold (% of the 95th percentile)", labelpad=1)
-    ax.set_ylabel("units reached / active units", labelpad=1)
+    ax.set_xlabel("gradient threshold (% of the 95th percentile)", labelpad=1)
+    ax.set_ylabel("units above threshold\n/ active units", labelpad=1)
     ax.legend(loc="upper right")
     ps.ygrid(ax)
     ps.panel_letter(ax, "b")
@@ -962,7 +965,7 @@ def ed_mechanism(nets):
         if not name.startswith("DMTS"):
             grads[(name, int(it))] = dict(np.load(f))
     ax_c, ax_d = fig.add_subplot(bot[0, 0]), fig.add_subplot(bot[0, 1])
-    print("\n== Extended Data figure (C4b, 14 Oct): low-active units reached, F_net, per measurement")
+    print("\n== Extended Data figure (C4b, 14 Oct): low-active units above the gradient threshold, F_net, per measurement")
     names = sorted({k[0] for k in grads})
     for name in names:
         task = "3BFF" if name.startswith("FF") else "CDDM"
@@ -979,7 +982,7 @@ def ed_mechanism(nets):
         for a, yv in ((ax_c, reach), (ax_d, fnet)):
             a.plot(xs_it, yv, "-", color=TASK_COL[task], lw=ps.THIN_LW * 1.5, zorder=2)
             a.plot(xs_it, yv, "o", ls="", ms=2.5, zorder=3, **open_mark(TASK_COL[task]))
-        line = f"  {name}: reached " + ", ".join(f"{i // 1000}k {n}" for i, n in zip(its, reach))
+        line = f"  {name}: above the gradient threshold " + ", ".join(f"{i // 1000}k {n}" for i, n in zip(its, reach))
         fa = glob.glob(os.path.join(C4B_DIR, f"ft_{name}_*_anneal.npz"))
         if fa:
             n_after = int(np.load(fa[0])["cls_silent_reached"].sum())
@@ -993,7 +996,7 @@ def ed_mechanism(nets):
         ps.count_ticks(a.xaxis)
         a.set_xlabel(ps.LABELS["iteration"], labelpad=1)
         ps.ygrid(a)
-    ax_c.set_ylabel("low-active units reached", labelpad=1)
+    ax_c.set_ylabel("low-active units above threshold", labelpad=1)
     ax_c.set_ylim(0, 340)
     ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
                                 **open_mark(TASK_COL["3BFF"]), label="3BFF"),
@@ -1003,7 +1006,7 @@ def ed_mechanism(nets):
                                 label="learning rate / 10")], loc="upper center", ncol=3,
                 handletextpad=0.3, columnspacing=0.7, borderaxespad=0.1)
     ps.panel_letter(ax_c, "c")
-    ax_d.set_ylabel("gradient share common\nto 32 batches", labelpad=1)
+    ax_d.set_ylabel("fraction of gradient common\nto 32 batches", labelpad=1)
     ax_d.set_ylim(0, 1.05)
     ps.panel_letter(ax_d, "d")
     ax = fig.add_subplot(bot[0, 2])

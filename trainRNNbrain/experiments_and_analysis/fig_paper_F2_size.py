@@ -559,7 +559,7 @@ def panel_size(ax_a, ax_b, series):
         ax_b.axhline(frac, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
         ax_b.text(80, frac + 1.5, lab, fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="bottom")
     ax_b.set(xscale="log", xlim=(75, 5500), ylim=(0, 100), xlabel=ps.LABELS["size"],
-             ylabel="active share (% of $N$)")
+             ylabel="active units (% of $N$)")
     for ax in (ax_a, ax_b):
         ax.set_xticks(SIZES)
         ax.xaxis.set_minor_locator(NullLocator())
@@ -592,7 +592,7 @@ def panel_margins(ax, series):
             ax.plot([x], [b], "o", ms=ps.MARKER_PT, mew=0, zorder=6, **ps.mark_floor(TASK_COL[task]))
             out[(task, d)] = (b, lo, hi, int(sum(len(v) for N, v in cells.items() if N >= FIT_MIN_N)))
     ax.axhline(1.0, color=ps.MUTED, lw=ps.THIN_LW, ls="-")
-    ax.text(2.45, 1.01, "constant share", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
+    ax.text(2.45, 1.01, "constant fraction", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
     ax.set_xticks(range(len(FLOOR_DELTAS)))
     ax.set_xticklabels([f"{1 + d:.2f}×" for d in FLOOR_DELTAS])
     ax.set(xlim=(-0.55, 2.55), ylim=(0, 1.1), xlabel="margin over the loss floor",
@@ -672,7 +672,7 @@ def panel_flat(ax, c3):
     ax.axhline(0, color=ps.MUTED, lw=ps.THIN_LW)
     # the losing-units threshold of the flat-loss test (entry 2026-10-15_0955)
     ax.axhline(DIE_BAR, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)))
-    ax.text(6.9, DIE_BAR + 1.5, "losing units", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
+    ax.text(6.9, DIE_BAR + 1.5, "decrease of 5 units", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
             va="bottom")
     handles = []
     for N in sorted(SIZE_MARK):
@@ -690,7 +690,7 @@ def panel_flat(ax, c3):
                           label=f"trained to {ps.fmt_count(300_000)}", **ps.mark_fixed(ps.INK)))
     ax.set(xlim=(-6, 7), ylim=(-15, 135),
            xlabel="loss change after iteration 150,000\n(% per 100,000 iterations)",
-           ylabel="units made inactive\nper 100,000 iterations")
+           ylabel="decrease in active units\nper 100,000 iterations")
     ax.set_xticks([-6, -3, 0, 3, 6])
     ax.legend(handles=handles, loc="upper left", handletextpad=0.2, borderaxespad=0.2)
     ps.ygrid(ax)

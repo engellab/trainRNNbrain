@@ -169,7 +169,7 @@ def main():
     axes_a[0].set_ylabel(ps.LABELS["r2"])
     axes_b[0].set_ylabel(ps.LABELS["r2"])
     axes_a[1].set_xlabel(ps.LABELS["size"])
-    axes_b[1].set_xlabel("units removed quietest first, in units of the network's own inactive count")
+    axes_b[1].set_xlabel("units removed in increasing order of participation / number of inactive units")
     axes_b[0].text(0.96, Y_FLOOR + 0.04, "every inactive\nunit removed", ha="right", va="bottom",
                    fontsize=ps.TICK_PT, color=ps.INK, linespacing=1.15)
     # the legend sits in the strip above row a, off the data

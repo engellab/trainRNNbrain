@@ -653,8 +653,8 @@ def panel_one_size(ax, a3, marks):
     ax.set_xlabel(ps.of_n("active units", 1000))
     ax.set_ylabel(ps.LABELS["r2"])
     ax.set_title("$N$ = 1,000; 75,000 iterations", fontsize=ps.LABEL_PT, pad=3)
-    ax.text(1035, 0.9195, "rate penalty: count oscillates during training (d)", fontsize=ps.TICK_PT,
-            color=ps.INK, ha="right", va="bottom")
+    ax.text(30, 0.9195, "rate penalty: the number\nof active units oscillates\nduring training (d)",
+            fontsize=ps.TICK_PT, color=ps.INK, ha="left", va="bottom")
     style_axes(ax)
     return drawn
 
@@ -843,7 +843,7 @@ def panel_removal(axs, a3, marks):
         style_axes(ax)
     axs[0].set_ylabel("$R^2$, $k$ added\nunits removed")
     axs[1].tick_params(labelleft=False)
-    axs[0].text(0.44, 0.47, "equal\ncost", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
+    axs[0].text(0.44, 0.47, "equal\n$R^2$", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
                 va="bottom")
     # one x-label centred under both sub-panels
     x0, x1 = axs[0].get_position().x0, axs[1].get_position().x1
