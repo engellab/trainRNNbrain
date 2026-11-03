@@ -45,7 +45,7 @@ from matplotlib.ticker import FuncFormatter, NullFormatter, NullLocator
 import paperstyle as ps
 from common import FLOOR_DELTAS, HOLD_FRAC
 from fig_paper_F2_size import (COLLECT, ORACLE_DIR, REPO, SIZES, TASK_COL, TASKS, apply_decisions,
-                               check_overlaps, is_read, network_offsets, seed_of)
+                               check_overlaps, is_read, network_xs, seed_of)
 
 BATCH_NOISE = os.path.join(REPO, "data", "fig_ed_readout_batch_noise.json")
 CDDM_DEFAULT = "CDDM_c1_snapshots__EqType=h_N=1000_arm=control__s"   # oracle folder prefix
@@ -202,26 +202,25 @@ def panel_tstar(ax, rec):
         dict task -> {N: mean t*}.
     """
     means = {}
-    n_cddm = {}       # CDDM networks per size: DMTS's row of points starts after them
-    for r in rec["series"]:
-        if r["task"] == "CDDM" and is_read(r):
-            n_cddm[r["N"]] = n_cddm.get(r["N"], 0) + 1
+    rows = [r for r in rec["series"] if is_read(r)]
+    # scales and limits first: network_xs places the dots in millimetres on the page
+    ax.set(xscale="log", yscale="log", xlim=(75, 5500), ylim=(8_000, 160_000))
     for task in TASKS:
-        rows = [r for r in rec["series"] if r["task"] == task and is_read(r)]
-        Ns = np.array([r["N"] for r in rows], float)
-        ts = np.array([r["t_star"] for r in rows])
-        uN = np.unique(Ns)
-        for n in uN:      # one point per network beside its size's mean, as in Fig. 2a,b
-            v = ts[Ns == n]
-            before = n_cddm.get(n, 0) if task == "DMTS" else 0
-            ax.plot(n * 10 ** network_offsets(task, len(v), before), v, "o", ms=ps.SMALL_MARKER_PT,
-                    mew=0, **ps.mark_floor(TASK_COL[task]))
-        m = [ts[Ns == n].mean() for n in uN]
-        ax.plot(uN, m, "o-", ms=ps.MARKER_PT, lw=ps.DATA_LW, color=TASK_COL[task], label=task,
-                **ps.mark_floor(TASK_COL[task]))
-        means[task] = dict(zip(uN.astype(int), m))
-    ax.set(xscale="log", yscale="log", xlim=(75, 5500), ylim=(8_000, 160_000),
-           xlabel=ps.LABELS["size"], ylabel="floor crossing $t^*$ (iterations)")
+        own = [r for r in rows if r["task"] == task]
+        means[task] = {N: float(np.mean([r["t_star"] for r in own if r["N"] == N]))
+                       for N in SIZES if any(r["N"] == N for r in own)}
+    # one point per network, in a narrow column centred on its size, as in Fig. 2a,b (network_xs)
+    for N in SIZES:
+        pts = [(r["task"], r["t_star"]) for r in rows if r["N"] == N]
+        vals = np.array([t for _, t in pts], float)
+        mean_ts = np.array([means[task][N] for task in TASKS if N in means[task]])
+        for (task, _), x, y in zip(pts, network_xs(ax, N, vals, mean_ts), vals):
+            ax.plot([x], [y], "o", ms=ps.SMALL_MARKER_PT, mew=0, **ps.mark_floor(TASK_COL[task]))
+    for task in TASKS:
+        uN = sorted(means[task])
+        ax.plot(uN, [means[task][N] for N in uN], "o-", ms=ps.MARKER_PT, lw=ps.DATA_LW,
+                color=TASK_COL[task], label=task, **ps.mark_floor(TASK_COL[task]))
+    ax.set(xlabel=ps.LABELS["size"], ylabel="floor crossing $t^*$ (iterations)")
     ax.set_xticks(SIZES)
     ax.set_yticks([10_000, 20_000, 50_000, 100_000])
     for axis in (ax.xaxis, ax.yaxis):
