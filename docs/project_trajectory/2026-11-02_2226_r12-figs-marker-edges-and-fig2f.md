@@ -54,11 +54,11 @@ collided with `mark_floor`'s edge width. Final scan: 0 fail, in all 14 figures
 
 **Check 2, open markers on the printed page (`tests/scan_open_markers.py`).** Fig. 2, Fig. 3, Fig. 5
 and the combination Extended Data figure pass. Extended Data Fig. 4 fails on main 2eb3c2f already
-(6 open-marker centres read dark, 4 overlapping pairs, all where groups of networks with near-equal
+(7 open-marker centres read dark, 5 overlapping pairs, all where groups of networks with near-equal
 values stack on a data axis). With the rim at full size the scan found 3 more there and 1 in Fig. 3d
 (the rim enlarges each marker by 0.35 pt, and a stacked marker then covers its neighbour's
-centre); with the size compensation above the failures are the same 10 as on main, at the same
-places. Those 10 predate this package and are reported on the board.
+centre); with the size compensation above the failures are the same 12 as on main, at the same
+places. Those 12 predate this package and are reported as dead-relu-paper #176.
 
 **Other checks.** `tests/test_no_function_imports.py`, `tests/test_scripts_start.py` and
 `tests/test_paperstyle.py` (also on the six main figures' PDFs) pass with plain `python3`;
