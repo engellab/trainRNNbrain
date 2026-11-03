@@ -220,9 +220,9 @@ def panel_a(ax_n, ax_r, by_stem):
                   fontsize=ps.LABEL_PT, color=ps.INK)
         row_y.append(y)
         y -= 1
-    # the two rate-penalty rows are a per-unit rule (Results 5), not a standard setting: say so in ink
+    # the two rate-penalty rows are a training technique (Results 5), not a standard setting: say so in ink
     y_rate = [yy for (blk, lab, stem, i), yy in zip(ROWS_A, row_y) if (stem, i) in RATE_RUNGS]
-    ax_n.text(640, np.mean(y_rate), "per-unit rule", ha="right", va="center", fontsize=ps.TICK_PT,
+    ax_n.text(640, np.mean(y_rate), "training\ntechnique", ha="right", va="center", fontsize=ps.TICK_PT,
               color=ps.MUTED)
     for x, y0, y1 in guide.values():           # the block default's mean, through its block
         ax_n.plot([x, x], [y1 - 0.45, y0 + 0.45], color=ps.FAINT, lw=ps.THIN_LW, ls=(0, (2, 1.5)),

@@ -884,7 +884,7 @@ def panel_combination(ax_m, axs, b3, marks):
     for cell in B3_CELLS:
         ax_m.text(1.0, ypos[cell], B3_LABEL[cell], fontsize=ps.TICK_PT, color=ps.INK,
                   ha="right", va="center")
-    ax_m.text(1.0, len(B3_CELLS) - 0.35, "rules present", fontsize=ps.TICK_PT, color=ps.MUTED,
+    ax_m.text(1.0, len(B3_CELLS) - 0.35, "techniques present", fontsize=ps.TICK_PT, color=ps.MUTED,
               ha="right", va="bottom")
     for ax, (lo, hi) in zip(axs, lims):
         ax.set_xlim(lo, hi)
