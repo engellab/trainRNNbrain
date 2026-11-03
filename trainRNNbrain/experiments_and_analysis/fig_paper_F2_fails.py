@@ -31,10 +31,12 @@ decay together) is one open marker at the group mean, white inside, with thin ra
 (`open_group`, `draw_open_groups`); groups whose networks coincide are labelled with their number.
 
 ROUND 13 (dead-relu-paper#176). Open markers of near-equal groups stacked, and the later marker's
-white inside hid the earlier marker's ring and centre. No marker is moved now, on any axis (the
-traces' open markers were stepped right along the iteration axis before; they are not any more).
-Every open marker is drawn as before (white inside, coloured ring, ink rim), and then every
-coloured ring is drawn again above all the insides (`ring_overlay`), so every ring stays visible.
+white inside hid the earlier marker's ring and centre. In the R^2 panels and panel l nothing moves:
+every open marker is drawn as before (white inside, coloured ring, ink rim), and then every coloured
+ring is drawn again above all the insides (`ring_overlay`), so every ring stays visible. In the
+trace panels every open marker sits at one read point (75,000 iterations or the budget); markers
+that would overlap are set beside it, to either side, by at most two steps of 1.15 diameters
+(main stepped them only to the right, and five groups in panel c ran out of steps).
 
 WHY TWO VIEWS PER KNOB. Each run is read where its noisy training loss first reaches 1.05x its own
 fitted floor (`common.noisy_floor`), the project's rule. Its blind spot: a knob that speeds
@@ -377,7 +379,8 @@ def open_group(xs, ys, marker, edge, label=None):
                 label=label)
 
 
-def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0, rings_on_top=False):
+def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0, rings_on_top=False,
+                     both_sides=False):
     """Draw open-marker groups on one axes: each one open marker (white inside, so lines and markers
     behind it do not fill it) at its group's mean, thin range bars along x and y where the group
     spreads, and its label. On an iteration axis (`max_shift` > 0), markers whose means would
@@ -395,7 +398,9 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0, rings
             next to 75,000 iterations cannot fill an open marker; label_side: "left", "right" or
             "below" the marker (right-aligned 5% of the axes width left of it), for groups that do
             not set their own; max_shift: int, the most
-            steps a marker is moved right; rings_on_top: bool, redraw every ring above every inside.
+            steps a marker is moved right; rings_on_top: bool, redraw every ring above every inside;
+        both_sides: bool, step a marker to either side of its read point (right 1, left 1, right 2,
+            left 2, ...; at most `max_shift` steps either way) instead of only to the right.
     Returns:
         list of (mean x, mean y, n) per group, in the order given.
     """
@@ -406,10 +411,20 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0, rings
     for g in groups:
         mx, my = float(np.mean(g["xs"])), float(np.mean(g["ys"]))
         px, py = ax.transData.transform((mx, my))
-        steps = 0
-        while steps < max_shift and any(np.hypot(px - qx, py - qy) < 1.15 * d_px for qx, qy in placed):
-            px += 1.15 * d_px
-            steps += 1
+        if both_sides:
+            # the first of 0, +1, -1, +2, -2, ... steps that clears every marker already placed;
+            # if none does, the marker stays at its read point
+            for k in [0] + [s * j for j in range(1, max_shift + 1) for s in (1, -1)]:
+                qx = px + k * 1.15 * d_px
+                if all(np.hypot(qx - ox, py - oy) >= 1.15 * d_px for ox, oy in placed):
+                    px = qx
+                    break
+        else:
+            steps = 0
+            while steps < max_shift and any(np.hypot(px - qx, py - qy) < 1.15 * d_px
+                                            for qx, qy in placed):
+                px += 1.15 * d_px
+                steps += 1
         placed.append((px, py))
         x0, _ = to_data.transform((px, py))
         shift = x0 - mx                                 # data-unit shift (linear axes)
@@ -695,7 +710,9 @@ def panel_pair(ax_r2, ax_tr, lad):
         ax.axhline(N_UNITS, color=ps.GRID, lw=0.6, zorder=0)
     ax_tr.tick_params(labelleft=False)
     label_coincident(tr_groups)
-    draw_open_groups(ax_tr, tr_groups, rings_on_top=True)    # nothing moves (#176)
+    # every open marker here is at one read point (75,000 iterations or the budget), so markers that
+    # would overlap are set beside it, to either side, by at most two steps (#176)
+    draw_open_groups(ax_tr, tr_groups, max_shift=2, both_sides=True)
     return handles, r2_groups
 
 
