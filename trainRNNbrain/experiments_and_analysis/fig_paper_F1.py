@@ -24,6 +24,12 @@ units scores as the intact network retrained the same way.
       markers: the weights are the floor-crossing snapshots of (d). Panel (e) sits under (c), and
       (d) spans the height of both.
 
+ROUND 13 (dead-relu-paper#165). The 24 trials of (a) and (b) are drawn from a seeded task: the
+flip-flop task draws its trials from its own generator, seeded from cfg.task.seed (null in every
+training config), so np.random.seed alone left the batch different on every call. Panels (a) and (b)
+are re-collected with `--collect-example` into COLLECT; the other panels keep the record of Della
+job 16556248.
+
 ROUND 2 STYLE (dead-relu-paper#31, #40; paperstyle.py). Drawn at the printed width (W_FULL_MM).
 One meaning per colour: ACTIVE (near-black) and INACTIVE (light grey) for unit classes in (a), (b)
 and the inactive band of (d); task colours only in (c) and (d); text in ink; the excitatory /
@@ -89,8 +95,11 @@ was until its 200k continuation landed - is drawn at the end of its budget, with
 the legend says so.
 
 Usage:  python fig_paper_F1.py --collect [--refresh]   on Della, from the checkout root; writes
-                                                       data/fig_paper_F1_collect.pkl (--refresh
-                                                       re-simulates the example network)
+                                                       COLLECT (--refresh re-simulates the example
+                                                       network)
+        python fig_paper_F1.py --collect-example data/fig_paper_F1_collect.pkl
+                                                       on Della: panels a and b only, the other
+                                                       panels kept from that record; writes COLLECT
         python fig_paper_F1.py                         on the Mac, with that pickle in data/
 Output: img/internal_figures/fig_paper_F1.pdf (+ .svg; vector only - see paperstyle.save)
 """
@@ -130,7 +139,9 @@ from trainRNNbrain.utils import filter_kwargs
 from gradient_participation import initial_params
 from fig_ed_population import load as load_population_stats
 
-CACHE = "data/fig_paper_F1_cache_v2.npz"   # v2: carries the untrained twin's participation
+# v3: the batch is drawn from a seeded task (#165); v2 (the untrained twin's participation added)
+# was drawn from an unseeded one
+CACHE = "data/fig_paper_F1_cache_v3.npz"
 # The example network is a STANDARD unpenalised 3-bit flip-flop control at N = 1000, trained for
 # 200,000 iterations (40k + a 35k top-up + a 125k top-up, one continuous chain): the flip-flop's
 # budget since its noisy loss was found still falling at 75k. Panel (b) draws it twice: as it was
@@ -225,7 +236,9 @@ PANEL_TASKS = [
 # are drawn: 277.5 +- 26.6 (n = 4). A collect record written under the old list is re-flagged by
 # apply_decisions, so the change needs no new Della read.
 EXCLUDED_RUNS = {}
-COLLECT = "data/fig_paper_F1_collect.pkl"   # everything the drawing stage reads, written on Della
+# everything the drawing stage reads. v2 (#165): panels (a) and (b) on the seeded 24-trial batch,
+# the other panels copied from v1 (data/fig_paper_F1_collect.pkl, Della job 16556248)
+COLLECT = "data/fig_paper_F1_collect_v2.pkl"
 
 # Every intervention we ran, grouped into families that share a task, an architecture, a read-out
 # iteration AND a silence criterion. The panel plots a CHANGE from each family's OWN reference,
@@ -624,6 +637,10 @@ def example_network_pair(refresh=False):
     folder = sorted(glob.glob(os.path.join(EXAMPLE_NET, "*/")))[0]
     cfg = OmegaConf.load(glob.glob(os.path.join(folder, "*_config.yaml"))[0])
     cfg.task.batch_size = N_TRIALS
+    # The task draws its trials from its own generator (self.rng, seeded from cfg.task.seed, which
+    # the training configs leave null), so np.random.seed alone does not fix the batch (#165). Seed
+    # the task itself, as active_before_after.py does.
+    cfg.task.seed = TRACE_SEED
     np.random.seed(TRACE_SEED)
     task = hydra.utils.instantiate(prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt))
     inputs, targets, _ = task.get_batch()
@@ -1961,10 +1978,7 @@ def collect(refresh=False):
             print(f"  .. panel d, {label:18} {r['label'][-24:]}: ablated at {r['iteration']:,}, "
                   f"current t* {rd['t_star']:,.0f} ({rd['reason']}), active there {rd['active']} "
                   f"vs {r['N'] - r['n_silent']} in the ablation file")
-    rates, targets, p, p_init, iterations = example_network_pair(refresh=refresh)
-    rec = dict(tasks=rows, ablation=ablation, floor_now=floor_now,
-               example=dict(rates=rates, p=p, p_init=p_init, iterations=iterations,
-                            p_exc=excitatory_fraction()))
+    rec = dict(tasks=rows, ablation=ablation, floor_now=floor_now, example=example_record(refresh))
     os.makedirs(os.path.dirname(COLLECT), exist_ok=True)
     with open(COLLECT, "wb") as fh:
         pickle.dump(rec, fh)
@@ -1975,13 +1989,51 @@ def collect(refresh=False):
     return COLLECT
 
 
+def example_record(refresh=False):
+    """Panels (a) and (b)'s entry of the collect record: the example network and its untrained twin.
+
+    Args:
+        refresh: re-simulate the example network instead of reading CACHE.
+    Returns:
+        dict with rates (N, T, B), participation p and p_init (N,), iterations (int) and p_exc
+        (float, excitatory_fraction).
+    """
+    rates, _targets, p, p_init, iterations = example_network_pair(refresh=refresh)
+    return dict(rates=rates, p=p, p_init=p_init, iterations=iterations, p_exc=excitatory_fraction())
+
+
+def collect_example(source):
+    """Re-collect panels (a) and (b) only, keeping every other panel of an existing record (#165).
+
+    Re-simulates the example network (refresh) and writes the record to COLLECT.
+
+    Args:
+        source: path of the collect record whose other panels are kept (v1: Della job 16556248).
+    Returns:
+        the path written.
+    """
+    with open(source, "rb") as fh:
+        rec = pickle.load(fh)
+    rec["example"] = example_record(refresh=True)
+    with open(COLLECT, "wb") as fh:
+        pickle.dump(rec, fh)
+    ex = rec["example"]
+    print(f"wrote {COLLECT} (other panels from {source}): {int(active_mask(ex['p_init']).sum())} "
+          f"active untrained, {int(active_mask(ex['p']).sum())} after {ex['iterations']:,} iterations")
+    return COLLECT
+
+
 def main():
     """Collect Figure 1's inputs (--collect, on Della) or draw it from them. Returns the path written."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--collect", action="store_true",
                     help="on Della: read every input and write COLLECT, then stop")
     ap.add_argument("--refresh", action="store_true", help="re-simulate the example network")
+    ap.add_argument("--collect-example", metavar="SOURCE",
+                    help="re-simulate panels a and b only; keep the other panels of record SOURCE")
     args = ap.parse_args()
+    if args.collect_example:
+        return collect_example(args.collect_example)
     if args.collect:
         return collect(refresh=args.refresh)
     with open(COLLECT, "rb") as fh:

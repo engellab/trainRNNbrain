@@ -30,6 +30,13 @@ fixed-iteration group (one value's networks; one optimizer setting's, SGD with a
 decay together) is one open marker at the group mean, white inside, with thin range bars
 (`open_group`, `draw_open_groups`); groups whose networks coincide are labelled with their number.
 
+ROUND 13 (dead-relu-paper#176). Open markers of near-equal groups stacked on the data axes, and the
+later one's ring covered the earlier one's centre (tests/scan_open_markers.py failed 11 times). Now
+an open marker that would overlap one already drawn is moved, with its range bars, by the smallest
+distance that leaves the two touching but not overlapping: along the iteration axis in a trace
+panel and along the R^2 axis in an R^2 panel and in panel l. The number of active units is never
+moved. The largest move along R^2 is printed per panel (at most 0.009, panel c).
+
 WHY TWO VIEWS PER KNOB. Each run is read where its noisy training loss first reaches 1.05x its own
 fitted floor (`common.noisy_floor`), the project's rule. Its blind spot: a knob that speeds
 convergence is read EARLIER, while more units are still active. CDDM input scale 2 reads ~700
@@ -370,53 +377,78 @@ def open_group(xs, ys, marker, edge, label=None):
                 label=label)
 
 
-def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0):
+def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0, free_axis=None):
     """Draw open-marker groups on one axes: each one open marker (white inside, so lines and markers
     behind it do not fill it) at its group's mean, thin range bars along x and y where the group
-    spreads, and its label. On an iteration axis (`max_shift` > 0), markers whose means would
-    overlap (centres closer than 1.15 marker diameters) are set side by side, each moved right of
-    the one before by up to `max_shift` steps, bars with them; beyond that, and on a data axis
-    (`max_shift` 0, where a shift would misstate the value), overlapping markers stack, the later one
-    drawn whole on top with its white inside.
+    spreads, and its label.
+
+    Overlapping markers cover each other's centres, so a reader sees one marker where there are two
+    values (dead-relu-paper #176). Two ways to set them apart, both moving a marker only along an
+    axis that does not carry the number of active units:
+      - `free_axis` "x" or "y" (Extended Data Fig. 4): the marker is moved along that axis, to
+        either side, by the smallest distance that leaves it at least one diameter from every marker
+        already placed (the two may touch, not overlap). On the
+        iteration axis of a trace panel and on the R^2 axis of an R^2 panel. The marker's range bars
+        move with it; the caller reports the largest displacement;
+      - `max_shift` > 0 (Figure 3's traces): each marker is moved right of the one before by up to
+        `max_shift` steps of 1.15 diameters, bars with it; beyond that, markers stack.
+    With neither (`max_shift` 0, no `free_axis`), overlapping markers stack, the later one drawn
+    whole on top with its white inside.
 
     Args:
         ax: axes (limits and scales already set); groups: list of `open_group` dicts;
         zorder: zorder of the markers, above the filled floor-crossing markers (6-7) so a crossing
             next to 75,000 iterations cannot fill an open marker; label_side: "left", "right" or
             "below" the marker (right-aligned 5% of the axes width left of it), for groups that do
-            not set their own; max_shift: int, the most
-            steps a marker is moved right.
+            not set their own; max_shift: int, the most steps a marker is moved right;
+        free_axis: None, "x" or "y", the axis along which a marker may be moved to either side.
     Returns:
-        list of (mean x, mean y, n) per group, in the order given.
+        list of (x, y, n) per group, in the order given: the drawn centre in data units (the group
+        mean, unless the marker was moved) and the number of networks.
     """
     fig = ax.figure
     d_px = np.sqrt(OPEN_S) * fig.dpi / 72              # marker diameter in display pixels
+    # least distance between two marker centres: 1.15 diameters when stepping right (Figure 3); one
+    # diameter when moving along free_axis, where markers may touch but never overlap, which keeps
+    # each move off the measured value as small as it can be
+    clear = (1.0 if free_axis else 1.15) * d_px
     placed, out = [], []
     to_data = ax.transData.inverted()
+    # candidate moves along free_axis, smallest first, in steps of 1/20 diameter, to either side
+    moves = [0.0] + [s * k * d_px / 20 for k in range(1, 401) for s in (1, -1)]
     for g in groups:
         mx, my = float(np.mean(g["xs"])), float(np.mean(g["ys"]))
         px, py = ax.transData.transform((mx, my))
-        steps = 0
-        while steps < max_shift and any(np.hypot(px - qx, py - qy) < 1.15 * d_px for qx, qy in placed):
-            px += 1.15 * d_px
-            steps += 1
-        placed.append((px, py))
-        x0, _ = to_data.transform((px, py))
-        shift = x0 - mx                                 # data-unit shift (linear axes)
-        if ax.get_xscale() == "log":
-            fx = x0 / mx
-            xs = g["xs"] * fx
+        if free_axis:
+            for m in moves:
+                qx, qy = (px + m, py) if free_axis == "x" else (px, py + m)
+                if all(np.hypot(qx - ax_, qy - ay_) >= clear for ax_, ay_ in placed):
+                    px, py = qx, qy
+                    break
+            else:
+                raise RuntimeError("no free place for an open marker within 20 diameters")
         else:
-            xs = g["xs"] + shift
+            steps = 0
+            while steps < max_shift and any(np.hypot(px - qx, py - qy) < clear for qx, qy in placed):
+                px += clear
+                steps += 1
+        placed.append((px, py))
+        x0, y0 = to_data.transform((px, py))
+        y0 = y0 if free_axis == "y" else my             # only a y move changes y
+        if ax.get_xscale() == "log":
+            xs = g["xs"] * (x0 / mx)
+        else:
+            xs = g["xs"] + (x0 - mx)
+        ys = g["ys"] + (y0 - my)                        # every y axis here is linear
         if np.ptp(g["xs"]) > 0:
-            ax.plot([xs.min(), xs.max()], [my, my], color=g["edge"], lw=ps.THIN_LW, zorder=zorder - 1,
+            ax.plot([xs.min(), xs.max()], [y0, y0], color=g["edge"], lw=ps.THIN_LW, zorder=zorder - 1,
                     solid_capstyle="butt", clip_on=False)
         if np.ptp(g["ys"]) > 0:
-            ax.plot([x0, x0], [g["ys"].min(), g["ys"].max()], color=g["edge"], lw=ps.THIN_LW,
+            ax.plot([x0, x0], [ys.min(), ys.max()], color=g["edge"], lw=ps.THIN_LW,
                     zorder=zorder - 1, solid_capstyle="butt", clip_on=False)
         mk = ps.mark_fixed(g["edge"], scatter=True)
         mk["facecolors"] = "white"
-        ax.scatter([x0], [my], s=OPEN_DRAW_S.get(g["marker"], OPEN_S), marker=g["marker"], zorder=zorder, clip_on=False, **mk)
+        ax.scatter([x0], [y0], s=OPEN_DRAW_S.get(g["marker"], OPEN_S), marker=g["marker"], zorder=zorder, clip_on=False, **mk)
         if g["label"]:
             side = g.get("label_side") or label_side
             if side == "below":                  # below the marker, right-aligned 5% of the axes
@@ -428,10 +460,26 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0):
             else:
                 off = (-0.9 if side == "left" else 0.9) * d_px
                 lx, _ = to_data.transform((px + off, py))
-                ax.text(lx, my, g["label"], ha="right" if side == "left" else "left",
+                ax.text(lx, y0, g["label"], ha="right" if side == "left" else "left",
                         va="center", fontsize=ps.TICK_PT, color=ps.INK, zorder=zorder)
-        out.append((x0, my, len(g["xs"])))
+        out.append((x0, y0, len(g["xs"])))
     return out
+
+
+def report_moves(groups, drawn, axis, where):
+    """Print the largest distance an open marker was moved off its group mean along the R^2 axis.
+
+    Args:
+        groups: the `open_group` dicts drawn; drawn: what `draw_open_groups` returned for them;
+        axis: "x" or "y", the R^2 axis; where: str naming the panel in the printout.
+    Returns:
+        float, the largest move in R^2 (0 if no marker was moved).
+    """
+    k = 0 if axis == "x" else 1
+    move = max(abs(d[k] - np.mean(g["xs" if axis == "x" else "ys"])) for g, d in zip(groups, drawn))
+    if move > 0:
+        print(f"  open markers moved along R^2 in {where}: at most {move:.4f}")
+    return move
 
 
 def rung_style(spec, i, n):
@@ -505,7 +553,7 @@ def b5_points(rows, key):
     return [(a, v) for a, v in pts if np.isfinite(a) and np.isfinite(v)]
 
 
-def b5_scatter(ax, b5, key, skip_lr=(), y_hi=0.97):
+def b5_scatter(ax, b5, key, skip_lr=(), y_hi=0.97, free_axis=None):
     """Every optimizer-comparison run on one axes: held-out R^2 against active units.
 
     Filled markers, one per network, at the floor crossing (key "floor"). At a fixed iteration
@@ -516,7 +564,9 @@ def b5_scatter(ax, b5, key, skip_lr=(), y_hi=0.97):
 
     Args:
         ax: axes; b5: b5_read rows, a list of ((opt, wd, lr), runs); key: "floor", "fixed" or "end";
-        skip_lr: SGD learning rates (strings) not drawn; y_hi: upper R^2 limit.
+        skip_lr: SGD learning rates (strings) not drawn; y_hi: upper R^2 limit; free_axis: passed
+        to `draw_open_groups` ("y" moves an overlapping open marker along R^2; None stacks it, as
+        Figure 3d draws it).
     Returns:
         (list of (arm, [active], [R^2]) per arm drawn, list of legend handles, one per distinct
         style).
@@ -553,8 +603,8 @@ def b5_scatter(ax, b5, key, skip_lr=(), y_hi=0.97):
     ps.count_ticks(ax.xaxis)
     ax.set_ylim(OPT_Y_MIN, y_hi)
     if groups:
-        draw_open_groups(ax, [open_group(g["xs"], g["ys"], g["marker"], g["edge"])
-                              for g in groups.values()])
+        gs = [open_group(g["xs"], g["ys"], g["marker"], g["edge"]) for g in groups.values()]
+        report_moves(gs, draw_open_groups(ax, gs, free_axis=free_axis), "y", f"optimizer, {key}")
     return out, handles
 
 
@@ -664,7 +714,7 @@ def panel_pair(ax_r2, ax_tr, lad):
         ax.axhline(N_UNITS, color=ps.GRID, lw=0.6, zorder=0)
     ax_tr.tick_params(labelleft=False)
     label_coincident(tr_groups)
-    draw_open_groups(ax_tr, tr_groups, max_shift=2)
+    draw_open_groups(ax_tr, tr_groups, free_axis="x")
     return handles, r2_groups
 
 
@@ -834,7 +884,7 @@ def optimizer_pair(ax_fl, ax_end, b5):
     nums = {}
     for ax, key, title in ((ax_fl, "floor", "floor crossing"),
                            (ax_end, "end", "200,000 iterations")):
-        nums[key], _ = b5_scatter(ax, b5, key, y_hi=1.0)
+        nums[key], _ = b5_scatter(ax, b5, key, y_hi=1.0, free_axis="y")
         ax.set_title(title, fontsize=ps.LABEL_PT, pad=2)
         ax.set_xlabel(ps.LABELS["active"], labelpad=1)
     ax_fl.set_xticks([0, 500])
@@ -907,8 +957,9 @@ def draw(data, b5):
         ax_r2.set_xlim(lo, hi)
         ax_r2.set_xticks(ticks)
         ax_r2.xaxis.set_major_formatter(FuncFormatter(lambda v, _, d=dec: f"{v:.{d}f}"))
-    for ax_r2, r2_groups in pending:             # now that each R^2 panel has its x range
-        draw_open_groups(ax_r2, r2_groups)
+    for (ax_r2, r2_groups), (_, _, lad, _) in zip(pending, pairs):   # now each has its x range
+        report_moves(r2_groups, draw_open_groups(ax_r2, r2_groups, free_axis="x"), "x",
+                     f"R^2 panel of {lad['spec']['stem']}")
     for i, (ax_r2, ax_tr, lad, handles) in enumerate(pairs):
         pos_l, pos_r = ax_r2.get_position(), ax_tr.get_position()
         fig.text((pos_l.x0 + pos_r.x1) / 2, pos_l.y1 + 0.006, TITLES[lad["spec"]["stem"]],
