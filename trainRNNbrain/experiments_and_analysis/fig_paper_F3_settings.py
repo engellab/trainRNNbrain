@@ -152,9 +152,10 @@ def panel_a(ax_n, ax_r, by_stem):
     """The rows Results 3 discusses, at 75,000 iterations: active units (ax_n) and R^2 minus default (ax_r).
 
     One open marker per row (open = 75,000 iterations, the paper-wide marker rule) at the mean of
-    the row's networks, with a bar over their range (`fig_paper_F2_fails.draw_open_groups`); the
-    default rows have an ink edge. R^2 is taken relative to the mean of the same sweep's default networks;
-    whether it was measured or estimated is returned per network and stated in the caption, not drawn.
+    the row's networks, with a bar over their range (`fig_paper_F2_fails.draw_open_groups`); every
+    marker has paperstyle's ink edge, and the default rows are grey circles. R^2 is taken relative
+    to the mean of the same sweep's default networks; whether it was measured or estimated is
+    returned per network and stated in the caption, not drawn.
     The "15 other values" row draws the range of the remaining CDDM values' means as a bar with end
     ticks in both halves; their networks are in Extended Data Fig. 4.
 
@@ -250,8 +251,9 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
     """Active units against iteration for every run of a sweep (linear axis), binned medians.
 
     The floor crossing of each run that has one is a filled symbol at its raw count; the 75,000
-    iteration measurement is an open symbol (the paper-wide marker rule); the default's symbols have
-    an ink edge; a dashed vertical line marks 75,000 iterations. Each value's networks at 75,000
+    iteration measurement is an open symbol (the paper-wide marker rule); the default's symbols are
+    grey squares in a sweep of ordered values (`fig_paper_F2_fails.rung_style`); a dashed vertical
+    line marks 75,000 iterations. Each value's networks at 75,000
     iterations are ONE open marker at their mean count with a bar over their range
     (`fig_paper_F2_fails.draw_open_groups`, which also sets overlapping values' markers side by side,
     right of 75,000, unclipped): open markers of close counts print solid otherwise

@@ -14,8 +14,11 @@ Pass rules, fixed before the first scan:
      whose width is OPEN_MARKER_EW plus twice MARKER_EW) drawn round it;
   3. no artist without a marker carries the ink rim (an error bar or a data line drawn with the
      rim would be outlined in black).
-A marker that is a stroke by its shape ('x', '+', '|', '_', '1'-'4': no inside, so no edge round it) is
-not checked; each figure's count of them is printed. Neither is a ring: an ink circle with no face,
+A marker that is a stroke by its shape ('x', '+', '|', '_', '1'-'4': no inside, so no edge round it,
+error-bar caps included) gets no edge. Rule 4, added after the review of PR #177: a stroke glyph
+drawn with a stroke width equal to MARKER_EW fails, because that width came from paperstyle's
+rcParam for marker edges and not from the script (Fig. 2c caps and the Fig. 4 legend 'x' were
+thinned that way). Each figure's count of glyphs is printed. Neither is a ring: an ink circle with no face,
 at least RING_MIN_PT across, drawn round a marker as an annotation (Fig. 5's "R^2 from weights inside
 a loss burst"); rings are counted with the glyphs.
 
@@ -167,7 +170,12 @@ def scan(fig):
                     fails[key] = fails.get(key, 0) + 1
                 continue
             if mk in GLYPHS:
-                n_glyph += max(len(np.atleast_1d(art.get_xdata())), 1)
+                n = max(len(np.atleast_1d(art.get_xdata())), 1)
+                if abs(art.get_markeredgewidth() - ps.MARKER_EW) < 1e-6:
+                    key = (where, "Line2D", str(mk), "stroke glyph at the rcParam edge width", "", "")
+                    fails[key] = fails.get(key, 0) + n
+                else:
+                    n_glyph += n
                 continue
             face = to_rgba(art.get_markerfacecolor())
             edge = to_rgba(art.get_markeredgecolor())

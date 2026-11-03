@@ -1071,7 +1071,7 @@ def panel_c(ax):
                     mec=col if readout == "end" else "none", mew=0.5, zorder=4)
         xs, ys, sds = np.array(xs, float), np.array(ys, float), np.array(sds, float)
         ax.errorbar(xs, ys, yerr=sds, fmt="o-" if readout == "floor" else "o--", color=col,
-                    mfc=mfc, ms=3.4, lw=1.1, zorder=5, capsize=1.6)
+                    mfc=mfc, ms=3.4, lw=1.1, zorder=5, capsize=1.6, capthick=ps.DATA_LW)
         tag = "" if readout == "floor" else ", end of training"
         if task in NO_FIT:
             print(f"  !! {task}: not fitted - {NO_FIT[task]}")

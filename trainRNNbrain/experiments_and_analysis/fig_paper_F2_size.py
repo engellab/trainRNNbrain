@@ -462,6 +462,7 @@ BOOT_SEED = 20261031
 # Panel f: one line per network, coloured by N in shades of the 3BFF blue (every network is 3BFF),
 # light to dark with size (round 12, Pavel's item 55)
 FLAT_SHADE = {500: "#86b3ea", 1000: "#4f91de", 2000: "#2363b4", 4000: "#123f78"}
+FLAT_OFF = ps.FAINT     # panel f: a network whose loss is not flat, in both rows (review of PR #177)
 # Panels a-b: one network's point is drawn at a display offset beside its size N, never at a moved N
 # (decision #83). The offsets are set in millimetres on the page (network_xs): every size's dots form
 # one narrow column centred on N, each dot at the slot nearest N (0, then -/+ NET_MIN_MM, -/+ 2
@@ -626,7 +627,7 @@ def panel_size(ax_a, ax_b, series):
             # no caps, bars drawn under the mean's marker, so a small s.d. does not turn the round
             # marker into a square
             ax.errorbar(Ns, m * sc, yerr=sd * sc, fmt="none", ecolor=col, lw=1.0, capsize=0,
-                        zorder=5)
+                        capthick=ps.DATA_LW, zorder=5)
             ax.plot(Ns, m * sc, "o", ms=ps.MARKER_PT, zorder=6, **ps.mark_floor(col))
         ax_b.plot(Ns, m * 100.0 / Ns, "-", color=col, lw=0.9, zorder=3)
         xf = np.array([FIT_MIN_N * 0.85, 4000 * 1.15])
@@ -676,7 +677,7 @@ def panel_margins(ax, series):
             lo, hi = boot_exponent({N: v for N, v in cells.items() if N >= FIT_MIN_N}, rng)
             x = j + (k - 1) * 0.22
             ax.errorbar([x], [b], yerr=[[b - lo], [hi - b]], fmt="none", ecolor=TASK_COL[task],
-                        lw=ps.DATA_LW, capsize=1.0, zorder=5)       # caps under the marker, as a-b
+                        lw=ps.DATA_LW, capsize=1.0, capthick=ps.DATA_LW, zorder=5)   # caps under the marker
             ax.plot([x], [b], "o", ms=ps.MARKER_PT, zorder=6, **ps.mark_floor(TASK_COL[task]))
             out[(task, d)] = (b, lo, hi, int(sum(len(v) for N, v in cells.items() if N >= FIT_MIN_N)))
     ax.axhline(1.0, color=ps.MUTED, lw=ps.THIN_LW, ls="-")
@@ -772,8 +773,8 @@ def flat_quantities(row):
         row: one row of the FLAT record (it_loss, loss, it_act, active).
     Returns:
         dict: tc, rel (block centres and the loss as % change from the first block), pct100 (loss
-        change, % per 100,000), ta, da (count block centres and block medians minus the fitted count
-        at T_FLAT), slope (fitted change in active units per 100,000 iterations; minus the decrease),
+        change, % per 100,000), ta, da (count block centres, and block medians minus the first block's
+        median, so the line starts at zero), slope (fitted change in active units per 100,000 iterations; minus the decrease),
         t_last (last probe), end (last loss iteration).
     """
     it, L = np.asarray(row["it_loss"], float), np.asarray(row["loss"], float)
@@ -782,9 +783,9 @@ def flat_quantities(row):
     pct100 = rel[-1] / ((tc[-1] - tc[0]) / 1e5)
     ia, act = np.asarray(row["it_act"], float), np.asarray(row["active"], float)
     k = ia >= T_FLAT
-    slope, icpt = np.polyfit((ia[k] - T_FLAT) / 1e5, act[k], 1)
+    slope = np.polyfit((ia[k] - T_FLAT) / 1e5, act[k], 1)[0]
     ta, ma = block_medians(ia, act, t_end=it[-1])
-    return dict(tc=tc, rel=rel, pct100=float(pct100), ta=ta, da=ma - icpt, slope=float(slope),
+    return dict(tc=tc, rel=rel, pct100=float(pct100), ta=ta, da=ma - ma[0], slope=float(slope),
                 t_last=float(ia[k][-1]), end=float(it[-1]))
 
 
@@ -795,11 +796,14 @@ def panel_flat(axes, c3, flat):
     own iteration axis. Top: the noisy training loss as medians over 5,000-iteration blocks, as a %
     change from the first block after 150,000; the grey wedge is the flat-loss band, a change of less
     than FLAT_PCT % per 100,000 iterations, opening from that first block's centre, so a line that
-    ends inside the wedge is a flat loss. Bottom: each network's least-squares line of the active
-    count from 150,000 on (thick; drawn from its value at 150,000) over its block medians (thin),
-    and the decrease of DIE_BAR units per 100,000 iterations (dashed), so a thick line that ends
-    below the dashed one is a decreasing count. Lines are coloured by N, shades of the 3BFF blue.
-    No marker: every network is a line, so the panel carries no marker encoding.
+    ends inside the wedge is a flat loss. Bottom: the change in the number of active units since the
+    first 5,000-iteration block after 150,000, as block medians (thin, starting at zero), and each
+    network's least-squares line of the count from 150,000 on, drawn from zero at 150,000 (thick);
+    the dashed line is the decrease of DIE_BAR units per 100,000 iterations, drawn over the data, so
+    a thick line that ends below it is a decreasing count. Networks with a flat loss are coloured by
+    N in shades of the 3BFF blue; the networks whose loss is not flat are FLAT_OFF grey in both rows
+    and drawn under the others (review of PR #177, row 2), so the coloured thick lines are the test's
+    15 networks. No marker: every network is a line, so the panel carries no marker encoding.
 
     The test quantities are recomputed here (`flat_quantities`, separate code) and must equal the
     collect record's panel-(f) rows to 1e-6.
@@ -820,18 +824,19 @@ def panel_flat(axes, c3, flat):
         at.fill_between(x, -FLAT_PCT * (x - t0) / 1e5, FLAT_PCT * (x - t0) / 1e5, color=ps.GRID,
                         lw=0, zorder=0)
         x = np.array([T_FLAT, hi])
-        ab.plot(x, -DIE_BAR * (x - T_FLAT) / 1e5, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)), zorder=4)
+        ab.plot(x, -DIE_BAR * (x - T_FLAT) / 1e5, color=ps.INK, lw=0.9, ls=(0, (3, 1.5)), zorder=6)
         for r in sorted(flat, key=lambda r: r["N"]):
             q = flat_quantities(r)
             if abs(q["end"] - hi) > 1:
                 continue
             c = rec[r["seed"]]
             assert abs(q["pct100"] - c["pct100"]) < 1e-6 and abs(-q["slope"] - c["lost"]) < 1e-6, r["seed"]
-            shade = FLAT_SHADE[r["N"]]
-            at.plot(q["tc"], q["rel"], color=shade, lw=0.7, zorder=3)
-            ab.plot(q["ta"], q["da"], color=shade, lw=0.35, alpha=0.6, zorder=2)
+            flat_loss = abs(q["pct100"]) < FLAT_PCT
+            shade, z = (FLAT_SHADE[r["N"]], 3) if flat_loss else (FLAT_OFF, 1)
+            at.plot(q["tc"], q["rel"], color=shade, lw=0.7, zorder=z + 1)
+            ab.plot(q["ta"], q["da"], color=shade, lw=0.35, alpha=0.6, zorder=z)
             ab.plot([T_FLAT, q["t_last"]], [0.0, q["slope"] * (q["t_last"] - T_FLAT) / 1e5],
-                    color=shade, lw=1.0, zorder=3, solid_capstyle="butt")
+                    color=shade, lw=1.0, zorder=z + 2, solid_capstyle="butt")
             rows.append((r["N"], r["seed"], q["end"], q["pct100"], -q["slope"],
                          abs(q["pct100"]) < FLAT_PCT, -q["slope"] >= DIE_BAR))
         at.set_title(title, pad=2)
@@ -840,10 +845,10 @@ def panel_flat(axes, c3, flat):
             ax.set_xticks([T_FLAT, hi] if col == 0 else [200_000, hi])
             ps.count_ticks(ax.xaxis)
             ps.ygrid(ax)
-        at.set_ylim(-6, 5)
+        at.set_ylim(-6, 5.5)
         at.set_yticks([-4, -2, 0, 2, 4])
-        ab.set_ylim(-70, 20)
-        ab.set_yticks([-60, -40, -20, 0, 20])
+        ab.set_ylim(-76, 14)              # the block medians span -72 to +10 units
+        ab.set_yticks([-60, -40, -20, 0])
         at.tick_params(labelbottom=False)
         if col:
             at.tick_params(labelleft=False)
@@ -861,6 +866,10 @@ def panel_flat(axes, c3, flat):
     # below every loss line of the left column (none falls under -2%), where the axes is empty
     axes[0][0].legend(handles=handles, loc="lower left", ncol=2, handlelength=1.0,
                       handletextpad=0.3, borderaxespad=0.1, labelspacing=0.1, columnspacing=0.6)
+    # the grey key, top right of the right column, over the wedge's fill where no line runs (on the
+    # left it touched the loss bump near 207,000)
+    axes[0][1].legend(handles=[Line2D([], [], color=FLAT_OFF, lw=1.0, label="loss not flat")],
+                      loc="upper right", handlelength=1.0, handletextpad=0.3, borderaxespad=0.1)
     return rows
 
 

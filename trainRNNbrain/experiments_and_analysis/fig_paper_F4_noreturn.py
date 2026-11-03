@@ -812,7 +812,7 @@ def draw_b4_active(ax, b4):
     ax.set_ylim(0, 1000)
     ps.count_ticks(ax.yaxis)
     ax.set_ylabel("active units at the\nfloor crossing", labelpad=1)
-    ax.legend(handles=[Line2D([], [], marker="x", ls="", color=ps.INK, ms=3, label="old, at transfer"),
+    ax.legend(handles=[Line2D([], [], marker="x", ls="", color=ps.INK, ms=3, mew=0.7, label="old, at transfer"),
                        Line2D([], [], ls="--", color=ps.INK, lw=ps.THIN_LW, label="pass threshold")],
               loc="upper left", handletextpad=0.3, borderaxespad=0.1, labelspacing=0.2)
     ps.ygrid(ax)

@@ -69,6 +69,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.markers import MarkerStyle
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
@@ -98,7 +99,12 @@ AT_75K = ("rescale", "dropout")
 B3_CELLS = ("none", "rate", "noise", "rescale", "rate+noise", "rate+rescale", "noise+rescale",
             "rate+noise+rescale")
 B3_PARTS = (("rate", "frm"), ("noise", "synnoise"), ("rescale", "rescale"))
-RING_S = 34                    # scatter size of the ring that marks an R^2 inside a burst
+RING_S = 34                    # scatter size of the ring that marks an R^2 inside a burst (smallest)
+RING_LW = 0.5                  # the ring's stroke, pt
+# white gap between a ring's inner edge and the outer edge of the marker it circles, pt (review of
+# dead-relu-paper PR #177, row 4: the ink rim of an open marker had closed the gap, so the ring read
+# as a thick marker edge); each ring is sized to its marker by ring_size
+RING_GAP_PT = 0.3
 # Open markers (dead-relu-paper#104). An open marker has a white inside and is drawn above lines,
 # filled markers and rings, so nothing behind it shows through. Networks of one rule whose open
 # markers or rings would overlap are drawn as one marker at their mean, with thin bars over their
@@ -275,17 +281,51 @@ def per_run(series, fam, N, readout, marks=None):
                 n_read=len(c[ka]), n_runs=c["n_runs"])
 
 
-def ring(ax, x, y):
+def ring_size(marker, s, is_open):
+    """Scatter size (pt^2) of the ring drawn round one marker, leaving RING_GAP_PT of paper between.
+
+    The marker's outer edge is the farthest vertex of its drawn path (a corner of a square, diamond
+    or triangle) plus its stroke: half the 0.35 pt ink edge for a filled marker; half the coloured
+    ring plus the ink rim for an open one (paperstyle.open_rim). The ring is never smaller than
+    RING_S.
+
+    Args:
+        marker: matplotlib marker of the circled point; s: its scatter size (pt^2), as drawn;
+        is_open: bool, True for an open marker.
+    Returns:
+        float, the ring's scatter size.
+    """
+    ms = MarkerStyle(marker)
+    verts = ms.get_path().transformed(ms.get_transform()).vertices
+    r_out = np.max(np.hypot(verts[:, 0], verts[:, 1])) * np.sqrt(s)
+    r_out += ps.OPEN_MARKER_EW / 2 + ps.MARKER_EW if is_open else ps.MARKER_EW / 2
+    return max(RING_S, (2 * (r_out + RING_GAP_PT + RING_LW / 2)) ** 2)
+
+
+def ring_radius(g):
+    """Radius (pt) of the ring drawn round an open-marker group (`ring_size`), for label placement.
+
+    Args:
+        g: an open_groups() dict (marker, s).
+    Returns:
+        float.
+    """
+    return np.sqrt(ring_size(g["marker"], g["s"], True)) / 2
+
+
+def ring(ax, x, y, marker, s, is_open):
     """Draw the ink ring that marks an R^2 from weights inside a loss burst around points (x, y).
 
     Args:
-        ax: axes; x, y: array-likes of positions (data coordinates).
+        ax: axes; x, y: array-likes of positions (data coordinates);
+        marker, s, is_open: the circled marker's shape, scatter size (pt^2) and fill, which set the
+            ring's size (`ring_size`).
     Returns:
         None.
     """
     if len(np.atleast_1d(x)):
-        ax.scatter(x, y, s=RING_S, marker="o", facecolor="none", edgecolor=ps.INK, lw=0.5,
-                   zorder=4, clip_on=False)
+        ax.scatter(x, y, s=ring_size(marker, s, is_open), marker="o", facecolor="none",
+                   edgecolor=ps.INK, lw=RING_LW, zorder=4, clip_on=False)
 
 
 def open_size(marker, s):
@@ -450,7 +490,6 @@ def draw_groups(ax, groups, label_side="right", box=False):
         list of (x drawn, y drawn, n networks, n ringed) per group.
     """
     to_pt = 72 / ax.figure.dpi
-    r_ring = np.sqrt(RING_S) / 2
     circles = []                                 # markers already drawn on the axes
     for c in ax.collections:
         if len(c.get_offsets()) and len(c.get_sizes()):
@@ -458,7 +497,7 @@ def draw_groups(ax, groups, label_side="right", box=False):
             circles += [(x, y, np.sqrt(c.get_sizes()[0]) / 2) for x, y in off]
     centres = [ax.transData.transform((g["x"], g["y"])) * to_pt for g in groups]
     for g, (px, py) in zip(groups, centres):
-        circles.append((px, py, r_ring if g["k"] else np.sqrt(g["s"]) / 2))
+        circles.append((px, py, ring_radius(g) if g["k"] else np.sqrt(g["s"]) / 2))
     boxes, out = [], []
     for i, (g, (px, py)) in enumerate(zip(groups, centres)):
         x0, my, n, k, col = g["x"], g["y"], g["n"], g["k"], g["col"]
@@ -472,10 +511,10 @@ def draw_groups(ax, groups, label_side="right", box=False):
         kw["facecolors"] = g.get("face", OPEN_FACE)
         ax.scatter([x0], [my], s=g["s"], marker=g["marker"], zorder=Z_OPEN, clip_on=False, **kw)
         if k:
-            ring(ax, [x0], [my])
+            ring(ax, [x0], [my], g["marker"], g["s"], True)
         if n > 1:
             text = f"{k}/{n}" if 0 < k < n else str(n)
-            off = (r_ring if k else np.sqrt(g["s"]) / 2) + 0.8
+            off = (ring_radius(g) if k else np.sqrt(g["s"]) / 2) + 0.8
             others = [c for j, c in enumerate(circles) if j != len(circles) - len(groups) + i]
             first = "left" if g.get("at_edge") else g.get("side", label_side)
             cands = [first, "left" if first == "right" else "right", "below", "above"]
@@ -724,11 +763,13 @@ def panel_sizes(ax_m, ax_r, series, marks):
                              **kw)
                 ax_r.scatter(np.full(ok.sum(), x), d["dr2"][ok], s=7, marker=MARK[fam], zorder=3,
                              **kw)
-                ring(ax_r, np.full(int((ok & d["burst"]).sum()), x), d["dr2"][ok & d["burst"]])
+                ring(ax_r, np.full(int((ok & d["burst"]).sum()), x), d["dr2"][ok & d["burst"]],
+                     MARK[fam], 7, False)
             for _ in range(int((~ok).sum())):
                 edge_arrow(ax_r, x, y_edge, "v", COL[fam], ro != "75k", MARK[fam], s=7)
             ring(ax_r, np.full(int((~ok & d["burst"]).sum()), x),
-                 np.full(int((~ok & d["burst"]).sum()), y_edge))
+                 np.full(int((~ok & d["burst"]).sum()), y_edge), MARK[fam],
+                 7 if ro != "75k" else open_size(MARK[fam], 7), ro == "75k")
             xs.append(x)
             mm.append(d["mult"].mean())
             rr.append(np.median(d["dr2"]))
@@ -840,7 +881,7 @@ def panel_removal(axs, a3, marks):
                 xd, yd = (lo + 0.01, y) if x < lo else (x, lo + 0.012)
                 edge_arrow(ax, xd, yd, "<" if x < lo else "v", COL[fam], False, MARK[fam], s=11)
                 if where != "calm":
-                    ring(ax, [xd], [yd])
+                    ring(ax, [xd], [yd], MARK[fam], open_size(MARK[fam], 11), True)
             else:
                 inside[fam].append((x, y, where != "calm"))
             out.setdefault((N, fam), []).append((x, y, where))
@@ -910,14 +951,14 @@ def panel_combination(ax_m, axs, b3, marks):
                         xr = lo + 0.015 * (hi - lo)
                         edge_arrow(ax, xr, y, "<", ps.INK, True, "o", s=8)
                         if ringed:
-                            ring(ax, [xr], [y])
+                            ring(ax, [xr], [y], "o", 8, False)
                     elif off_axis:                      # open, at the edge with an arrow
                         at_edge[k].append((lo + 0.015 * (hi - lo), ringed))
                     elif ro == "floor":
                         ax.scatter([v], [y], s=8, marker="o", zorder=3,
                                    **ps.mark_floor(ps.INK, scatter=True))
                         if ringed:
-                            ring(ax, [v], [y])
+                            ring(ax, [v], [y], "o", 8, False)
                     else:
                         inside[k].append((v, ringed))
             # 75,000 iterations: open markers, one per network or per group of overlapping networks
