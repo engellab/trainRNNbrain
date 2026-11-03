@@ -450,7 +450,7 @@ def collect():
 # ---------------------------------------------------------------------------------------------
 # drawing
 # ---------------------------------------------------------------------------------------------
-FIG2_H_MM = 125.0       # printed height of Figure 2 (width is \textwidth, 165.1 mm)
+FIG2_H_MM = 117.0       # printed height of Figure 2 (width is \textwidth, 165.1 mm)
 FIG2_BOTTOM_WIDTHS = [2.15, 1.35]       # bottom row: panel e (three tasks), panel f (two columns)
 TOP_WIDTHS = [1.2, 1.2, 0.64, 0.86]     # top row: panels a, b, c, d
 TOP_WSPACE = 0.37       # gaps of the top row, as a fraction of the mean panel width (about 11 mm)

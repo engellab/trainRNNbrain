@@ -52,6 +52,11 @@ Fig. 5's 17 rings were under 0.3 pt.
 **Row 7 (optional).** `fig_paper_F3_settings.py` docstrings of `panel_a` and `traces` describe the
 grey circles and squares instead of the ink edge.
 
+**Fig. 2 height.** With the counts added, the Fig. 2 float (figure and caption) was 11-23 pt taller
+than the page. `FIG2_H_MM` is now 117 mm (was 125); the GridSpec margins are fractions, so every
+panel shrinks by 6%. The overlap check, the panel-f line test and `test_paperstyle.py` pass at the
+new height, and the paper builds with no float too large.
+
 **Checks.** `tests/scan_marker_edges.py` on the 14 figures: PASS (rules 1-4).
 `tests/scan_open_markers.py` passes on Figs. 2, 3 and 5. Extended Data Fig. 4 keeps only its failures
 from main (#176), 11 now. Panel f: no drawn line crosses any text or key (line-segment test on
