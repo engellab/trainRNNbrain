@@ -772,8 +772,10 @@ def panel_floor_schematic(ax, ex):
            ylabel="smoothed loss / loss floor")
     ax.text(x_hi * 0.02, 1.0 - 0.005, "loss floor", fontsize=ps.TICK_PT, color=ps.INK, ha="left",
             va="top", zorder=7)
-    ax.text(x_hi * 0.98, bar + 0.005, f"{bar:.2f}× floor", fontsize=ps.TICK_PT, color=ps.INK,
-            ha="right", va="bottom", zorder=7)
+    # left, above the band and under the curve's start: at the right end its first glyph sat over the
+    # t* marker (review of dead-relu-paper PR #170, row 2)
+    ax.text(x_hi * 0.02, bar + 0.005, f"{bar:.2f}× floor", fontsize=ps.TICK_PT, color=ps.INK,
+            ha="left", va="bottom", zorder=7)
     # the asterisk is Helvetica's own (raised) glyph: mathtext's \ast would add a second font family
     ax.text(t_star, 0.976, "$t$* ", fontsize=ps.TICK_PT, color=ps.INK, ha="right", va="top")
     ax.text(t_hold, 0.976, f" {1 + HOLD_FRAC:.1f}$\\,t$*", fontsize=ps.TICK_PT,
@@ -877,12 +879,13 @@ def draw_fig2(rec):
     return out
 
 
-def tex_row(r, in_e):
+def tex_row(r, in_e, ed3a):
     """One LaTeX row of Extended Data Table 2 for one run record.
 
     Args:
         r: a size-series, trajectory or ablation row of the collect record.
         in_e: dict seed -> training length (iterations) of the panel-(f) networks (3BFF only).
+        ed3a: set of (task, seed) of the networks Extended Data Fig. 3a draws (size series).
     Returns:
         str ending in a LaTeX line break.
     """
@@ -901,6 +904,8 @@ def tex_row(r, in_e):
     fig = {"size series": "2a--c", "trajectory": "2e", "Fig. 1d ablation": "1d"}[r["role"]]
     if r["role"] == "size series" and r["N"] == 1000:
         fig = "1c, 2a--c" + (", 2e" if r["task"] != "CDDM" else "")
+        if (r["task"], r["seed"]) == (SCHEMATIC_TASK, SCHEMATIC_SEED):
+            fig += ", 2d"      # the floor-crossing schematic (review of dead-relu-paper PR #170, row 1)
     if not read:      # a network with no read-out is drawn only as a panel-(e) trajectory, if at all
         in_d = r["role"] == "trajectory" or (r["role"] == "size series" and r["N"] == 1000
                                               and r["task"] != "CDDM" and r.get("excluded") is None)
@@ -918,6 +923,8 @@ def tex_row(r, in_e):
         fig += ", 4e,f"      # transfer-test source at N = 4,000, young and old (dead-relu-paper #111)
     if r["role"] == "size series" and r["seed"] in ED1_NETWORKS[r["task"]]:
         fig = "ED1" if fig == "--" else fig + ", ED1"      # tested in Extended Data Fig. 1
+    if r["role"] == "size series" and (r["task"], r["seed"]) in ed3a:
+        fig = "ED3a" if fig == "--" else fig + ", ED3a"    # read-out example of Extended Data Fig. 3a
     note = re.sub(r" \(held-out R\$\^2\$ [0-9.]+\)", "", note)   # the R^2 column already shows it
     note = note.replace("_", r"\_").replace("%", r"\%")
     return (f"{r['task']} & {r['N']:,} & {r['seed']} & {fig} & {trained} & {t} & {a} & "
@@ -943,7 +950,11 @@ def write_table(rec):
     assert len(in_e) == len(rec["c3"]) and sorted(hits) == sorted(in_e), (sorted(in_e), hits)
     n_ed1 = sum(r["role"] == "size series" and r["seed"] in ED1_NETWORKS[r["task"]] for r in rows)
     assert n_ed1 == sum(len(v) for v in ED1_NETWORKS.values()) == 35, n_ed1
-    lines = [tex_row(r, in_e) for r in rows]
+    # Extended Data Fig. 3a draws each task's first read-out example (fig_ed_readout.panel_examples)
+    ed3a = {(task, seed_of(rec["examples"][task][0]["name"])) for task in TASKS}
+    lines = [tex_row(r, in_e, ed3a) for r in rows]
+    figcol = [line.split(" & ")[3] for line in lines]
+    assert sum("ED3a" in f for f in figcol) == len(ed3a) and sum("2d" in f.split(", ") for f in figcol) == 1
     # Fig. 4e,f draws six 3BFF networks: three at N = 1,000 (Fig. 1d) and three at N = 4,000 (#111)
     n_4ef = [r["N"] for r, line in zip(rows, lines) if "4e,f" in line.split(" & ")[3]]
     assert all(r["task"] == "3BFF" for r, line in zip(rows, lines) if "4e,f" in line.split(" & ")[3])
