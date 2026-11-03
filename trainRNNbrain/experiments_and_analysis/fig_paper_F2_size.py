@@ -1067,6 +1067,10 @@ def tex_row(r, in_e, ed3a):
     if r["role"] == "size series" and (r["task"], r["seed"]) in ed3a:
         fig = "ED3a" if fig == "--" else fig + ", ED3a"    # read-out example of Extended Data Fig. 3a
     note = re.sub(r" \(held-out R\$\^2\$ [0-9.]+\)", "", note)   # the R^2 column already shows it
+    if (r.get("excluded") or "").startswith("never learned"):
+        # the paper's wording for the MIN_R2 exclusion (dead-relu-paper #168); the collect-time
+        # string stays, because apply_decisions and threshold_sensitivity match its prefix
+        note = f"final $R^2$ below {MIN_R2[r['task']]}"
     note = note.replace("_", r"\_").replace("%", r"\%")
     return (f"{r['task']} & {r['N']:,} & {r['seed']} & {fig} & {trained} & {t} & {a} & "
             f"{r2} & {note} \\\\")
