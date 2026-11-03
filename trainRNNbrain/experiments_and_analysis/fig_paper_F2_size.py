@@ -13,10 +13,13 @@ floor makes more units inactive.
       floor, the band to 1.05x the floor, t* and the hold to 1.2 t* (Pavel's feedback item 47).
   (e) the noisy training loss over its own start and the inactive-unit count against iteration,
       every run at N = 1000, one column per task; dashed lines at each run's own 1.05x crossing.
-  (f) units made inactive per 100,000 iterations from 150,000 iterations on, against the change of
-      the loss over the same window, every 3BFF run trained to 200,000 or 300,000 iterations
-      (c3_flat_loss_units: loss_change, loss_rate). Open markers (dead-relu-paper#104): a slope
-      over a window is not read at the floor crossing, the one meaning of a filled marker.
+  (f) the flat-loss test drawn from its raw quantities (round 12, Pavel's item 55), every 3BFF run
+      trained to 200,000 or 300,000 iterations, one column per training length: top, the noisy
+      loss as 5,000-iteration block medians, % change from the first block after 150,000, inside
+      or outside the flat-loss wedge (3% per 100,000 iterations); bottom, the least-squares line
+      of the active count from 150,000 against the decrease of 5 units per 100,000 iterations
+      (dashed). Raw traces from --collect-flat (FLAT); both test quantities are recomputed from
+      them and checked against the collect record (c3_flat_loss_units: loss_change, loss_rate).
 Extended Data Fig. 3 is drawn by fig_ed_readout.py from this script's collect record (examples, size
 series and the snapshot oracle of /scratch/gpfs/TENGEL/pt1290/oracle_readout, Della job 15635966,
 entry 2026-10-15_2054). The drawing stage also writes the rows of Supplementary Table 1 (every run of
@@ -38,6 +41,7 @@ read-out (otherwise it would be drawn at the end of training and labelled; it do
 Runs without a read-out are counted and listed with their reason in Extended Data Table 2.
 
 Usage:  python fig_paper_F2_size.py --collect      (Della)
+        python fig_paper_F2_size.py --collect-flat (Della; panel f's raw traces, CPU, under a minute)
         python fig_paper_F2_size.py                (Mac)
 """
 
@@ -55,16 +59,20 @@ matplotlib.use("Agg")
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FuncFormatter, NullLocator
+from matplotlib.transforms import ScaledTranslation
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 import heldout_r2 as heldout
 from common import (DATA_DIR, FLOOR_DELTAS, HOLD_FRAC, IMG_DIR, floor_curve, logbin, read_run,
                     runs_with_loss, warm_start_chain)
-from c3_flat_loss_units import CELLS as C3_CELLS, DIE_BAR, T_FLAT, FLAT_PCT, loss_change, loss_rate
+from c3_flat_loss_units import (BLOCK as FLAT_BLOCK, CELLS as C3_CELLS, DIE_BAR, T_FLAT, FLAT_PCT,
+                                loss_change, loss_rate)
 
 REPO = os.path.normpath(os.path.join(DATA_DIR, "..", ".."))
 COLLECT = os.path.join(REPO, "data", "fig_paper_F2_size_collect.pkl")
+# panel (f)'s raw traces from iteration 150,000 on (collect_flat; Della, --collect-flat)
+FLAT = os.path.join(REPO, "data", "fig_paper_F2_size_flat.pkl")
 ORACLE_DIR = "/scratch/gpfs/TENGEL/pt1290/oracle_readout"
 
 # ---------------------------------------------------------------------------------------------
@@ -303,6 +311,57 @@ def oracle_read(folder, rd):
     return dict(t_rule=float(rd["t_star"]), t_oracle=t_or, n_snap=len(t))
 
 
+def flat_lineages():
+    """The 3BFF lineages of panel (f), walked the way c3_flat_loss_units walks them.
+
+    A run continued further is read once, as its longest continuation (the cells are listed longest
+    first); a lineage trained less than 40,000 iterations past T_FLAT is skipped.
+
+    Returns:
+        list of (size label, common.runs_with_loss dict), one per lineage, in C3_CELLS + C3_EXTRA order.
+    """
+    out, seen = [], set()
+    for size, rel in C3_CELLS + C3_EXTRA:
+        for r in runs_with_loss(os.path.join(DATA_DIR, rel)):
+            chain = [os.path.basename(d.rstrip("/")) for d in warm_start_chain(r["run_dir"])]
+            if r["name"] in seen:
+                continue
+            seen.update(chain)
+            if r["it_loss"][-1] < T_FLAT + 40_000:
+                continue
+            out.append((size, r))
+    return out
+
+
+def collect_flat():
+    """Read the raw traces panel (f) draws, from T_FLAT on, and pickle them to FLAT.
+
+    For each lineage of `flat_lineages`: the noisy training loss (iterations > T_FLAT - BLOCK) and the
+    active count at every participation probe (iterations >= T_FLAT - BLOCK), plus the two test
+    quantities recomputed with c3_flat_loss_units' own functions, so the drawing stage can check them
+    against the collect record's panel-(f) rows.
+
+    Returns:
+        the path written.
+    """
+    rows = []
+    for size, r in flat_lineages():
+        it, L = np.asarray(r["it_loss"], float), np.asarray(r["loss"], float)
+        ita, act = np.asarray(r["it_act"], float), np.asarray(r["active"], float)
+        _, _, _, pct100 = loss_change(it, L)
+        lost, se = loss_rate(ita, act)
+        keep, keep_a = it > T_FLAT - FLAT_BLOCK, ita >= T_FLAT - FLAT_BLOCK
+        rows.append(dict(N=int(size.split("=")[1].split()[0]), seed=seed_of(r["name"]), name=r["name"],
+                         it_loss=it[keep], loss=L[keep], it_act=ita[keep_a], active=act[keep_a],
+                         pct100=float(pct100), lost=float(lost), se=float(se)))
+        print(f"  .. flat {size} s{rows[-1]['seed']}: end {it[-1]:,.0f}, loss {pct100:+.2f}%/100k, "
+              f"lost {lost:.2f} +- {se:.2f} per 100k")
+    with open(FLAT, "wb") as fh:
+        pickle.dump(rows, fh)
+    print(f"wrote {FLAT} ({len(rows)} lineages)")
+    return FLAT
+
+
 def collect():
     """Read every input of Figure 2, Extended Data Fig. 3 and Extended Data Table 2; pickle to COLLECT.
 
@@ -345,26 +404,19 @@ def collect():
             ablation.append(rec)
     # panel (f): c3_flat_loss_units' own lineage walk (a run continued further is read once, as its
     # longest continuation), on its cells plus the N = 4000 controls
-    c3, seen = [], set()
-    for size, rel in C3_CELLS + C3_EXTRA:
-        for r in runs_with_loss(os.path.join(DATA_DIR, rel)):
-            chain = [os.path.basename(d.rstrip("/")) for d in warm_start_chain(r["run_dir"])]
-            if r["name"] in seen:
-                continue
-            seen.update(chain)
-            it, L = np.asarray(r["it_loss"], float), np.asarray(r["loss"], float)
-            ita, act = np.asarray(r["it_act"], float), np.asarray(r["active"], float)
-            if it[-1] < T_FLAT + 40_000:
-                continue
-            rd = read_run(r["run_dir"], run=r)
-            _, _, pct, pct100 = loss_change(it, L)
-            lost, se = loss_rate(ita, act)
-            c3.append(dict(N=int(size.split("=")[1].split()[0]), label=size, name=r["name"],
-                           seed=seed_of(r["name"]), end=float(it[-1]), t_star=float(rd["t_star"]),
-                           reason=rd["reason"], pct=pct, pct100=pct100, lost=lost, se=se,
-                           excluded=excluded_by_decision(r["name"])))
-            print(f"  .. C3 {size} s{seed_of(r['name'])}: end {it[-1]:,.0f}, t* {rd['t_star']:,.0f}, "
-                  f"loss {pct100:+.1f}%/100k, lost {lost:.1f} +- {se:.1f} per 100k")
+    c3 = []
+    for size, r in flat_lineages():
+        it, L = np.asarray(r["it_loss"], float), np.asarray(r["loss"], float)
+        ita, act = np.asarray(r["it_act"], float), np.asarray(r["active"], float)
+        rd = read_run(r["run_dir"], run=r)
+        _, _, pct, pct100 = loss_change(it, L)
+        lost, se = loss_rate(ita, act)
+        c3.append(dict(N=int(size.split("=")[1].split()[0]), label=size, name=r["name"],
+                       seed=seed_of(r["name"]), end=float(it[-1]), t_star=float(rd["t_star"]),
+                       reason=rd["reason"], pct=pct, pct100=pct100, lost=lost, se=se,
+                       excluded=excluded_by_decision(r["name"])))
+        print(f"  .. C3 {size} s{seed_of(r['name'])}: end {it[-1]:,.0f}, t* {rd['t_star']:,.0f}, "
+              f"loss {pct100:+.1f}%/100k, lost {lost:.1f} +- {se:.1f} per 100k")
     # Extended Data Fig. 3c: every run with scored snapshots
     oracle = []
     for folder in sorted(glob.glob(os.path.join(ORACLE_DIR, "*__*__s*"))):
@@ -398,7 +450,8 @@ def collect():
 # ---------------------------------------------------------------------------------------------
 # drawing
 # ---------------------------------------------------------------------------------------------
-FIG2_H_MM = 125.0       # printed height of Figure 2 (width is \textwidth, 165.1 mm)
+FIG2_H_MM = 117.0       # printed height of Figure 2 (width is \textwidth, 165.1 mm)
+FIG2_BOTTOM_WIDTHS = [2.15, 1.35]       # bottom row: panel e (three tasks), panel f (two columns)
 TOP_WIDTHS = [1.2, 1.2, 0.64, 0.86]     # top row: panels a, b, c, d
 TOP_WSPACE = 0.37       # gaps of the top row, as a fraction of the mean panel width (about 11 mm)
 # x range of panels a-b: 80 to 4,800 gives 20 mm per factor of 10 in N at print size, so the tick
@@ -406,11 +459,10 @@ TOP_WSPACE = 0.37       # gaps of the top row, as a fraction of the mean panel w
 SIZE_XLIM = (80, 4800)
 N_BOOT = 2000           # bootstrap resamples for the exponent's interval (panel c)
 BOOT_SEED = 20261031
-SIZE_MARK = {500: "o", 1000: "s", 2000: "D", 4000: "^"}
-# Panel f markersize per N: a matplotlib triangle of markersize m has half the area of the square
-# m x m and 64% of a circle's, and an open 3 pt triangle prints with its inside nearly closed
-# (dead-relu-paper#104 scan); 1.25 times the size gives it a circle's area.
-SIZE_MS = {N: ps.MARKER_PT * (1.25 if m == "^" else 1.0) for N, m in SIZE_MARK.items()}
+# Panel f: one line per network, coloured by N in shades of the 3BFF blue (every network is 3BFF),
+# light to dark with size (round 12, Pavel's item 55)
+FLAT_SHADE = {500: "#86b3ea", 1000: "#4f91de", 2000: "#2363b4", 4000: "#123f78"}
+FLAT_OFF = ps.FAINT     # panel f: a network whose loss is not flat, in both rows (review of PR #177)
 # Panels a-b: one network's point is drawn at a display offset beside its size N, never at a moved N
 # (decision #83). The offsets are set in millimetres on the page (network_xs): every size's dots form
 # one narrow column centred on N, each dot at the slot nearest N (0, then -/+ NET_MIN_MM, -/+ 2
@@ -557,7 +609,7 @@ def panel_size(ax_a, ax_b, series):
             vals = np.array([v for _, v in pts], float) * scale
             means = np.array([all_cells[task][N].mean() for task in TASKS if N in all_cells[task]]) * scale
             for (task, _), x, y in zip(pts, network_xs(ax, N, vals, means), vals):
-                ax.plot([x], [y], "o", ms=ps.SMALL_MARKER_PT, mew=0, zorder=4,
+                ax.plot([x], [y], "o", ms=ps.SMALL_MARKER_PT, zorder=4,
                         **ps.mark_floor(TASK_COL[task]))
     for task in TASKS:
         col = TASK_COL[task]
@@ -575,8 +627,8 @@ def panel_size(ax_a, ax_b, series):
             # no caps, bars drawn under the mean's marker, so a small s.d. does not turn the round
             # marker into a square
             ax.errorbar(Ns, m * sc, yerr=sd * sc, fmt="none", ecolor=col, lw=1.0, capsize=0,
-                        zorder=5)
-            ax.plot(Ns, m * sc, "o", ms=ps.MARKER_PT, mew=0, zorder=6, **ps.mark_floor(col))
+                        capthick=ps.DATA_LW, zorder=5)
+            ax.plot(Ns, m * sc, "o", ms=ps.MARKER_PT, zorder=6, **ps.mark_floor(col))
         ax_b.plot(Ns, m * 100.0 / Ns, "-", color=col, lw=0.9, zorder=3)
         xf = np.array([FIT_MIN_N * 0.85, 4000 * 1.15])
         ax_a.plot(xf, A * xf ** b, ls="-", lw=0.9, color=col, zorder=3)
@@ -625,8 +677,8 @@ def panel_margins(ax, series):
             lo, hi = boot_exponent({N: v for N, v in cells.items() if N >= FIT_MIN_N}, rng)
             x = j + (k - 1) * 0.22
             ax.errorbar([x], [b], yerr=[[b - lo], [hi - b]], fmt="none", ecolor=TASK_COL[task],
-                        lw=ps.DATA_LW, capsize=1.0, zorder=5)       # caps under the marker, as a-b
-            ax.plot([x], [b], "o", ms=ps.MARKER_PT, mew=0, zorder=6, **ps.mark_floor(TASK_COL[task]))
+                        lw=ps.DATA_LW, capsize=1.0, capthick=ps.DATA_LW, zorder=5)   # caps under the marker
+            ax.plot([x], [b], "o", ms=ps.MARKER_PT, zorder=6, **ps.mark_floor(TASK_COL[task]))
             out[(task, d)] = (b, lo, hi, int(sum(len(v) for N, v in cells.items() if N >= FIT_MIN_N)))
     ax.axhline(1.0, color=ps.MUTED, lw=ps.THIN_LW, ls="-")
     ax.text(2.4, 1.01, "constant fraction", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
@@ -689,51 +741,136 @@ def panel_trajectories(axes_top, axes_bot, traj):
     return rows
 
 
-def panel_flat(ax, c3):
-    """Panel (f): units made inactive per 100,000 iterations from 150,000 on, against the loss change.
-
-    Every network is 3BFF, so all marks take the 3BFF colour; marker shape codes N. Markers are open
-    (dead-relu-paper#104): a slope over iterations 150,000 to the end of training is not read at the
-    floor crossing, and filled means the floor crossing in every figure. Their inside is white and
-    drawn above the error bar, so the bar does not fill them; an ink edge marks a network trained
-    to 300,000 iterations.
+def block_medians(t, y, t0=T_FLAT, block=FLAT_BLOCK, t_end=None):
+    """Medians of y over consecutive blocks (a, a + block] from t0 to t_end, written apart from
+    c3_flat_loss_units.loss_change so that panel (f) checks the record rather than repeats it.
 
     Args:
-        ax: axes; c3: the collect record's panel-(f) rows (one per 3BFF lineage).
+        t, y: float arrays of the same length (iterations, values); t0: start of the first block;
+        block: block length in iterations; t_end: end of the last block (default: t's last value).
     Returns:
-        the rows drawn.
+        (block centres, block medians), float arrays; blocks with no sample are left out.
     """
-    col = TASK_COL["3BFF"]
-    ax.axvspan(-FLAT_PCT, FLAT_PCT, color=ps.GRID, alpha=0.6, lw=0, zorder=0)
-    ax.text(0, -13, "flat loss", fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="bottom")
-    ax.axhline(0, color=ps.MUTED, lw=ps.THIN_LW)
-    # the losing-units threshold of the flat-loss test (entry 2026-10-15_0955)
-    ax.axhline(DIE_BAR, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)))
-    # two lines, right of the flat-loss band, where no network lies (#169: on one line it ran into
-    # an N = 500 marker at a loss change of -1.3%)
-    ax.text(6.98, DIE_BAR + 2.0, "decrease of\n5 active units", fontsize=ps.TICK_PT, color=ps.INK,
-            ha="right", va="bottom", linespacing=1.1)
-    handles = []
-    for N in sorted(SIZE_MARK):
-        rows = [r for r in c3 if r["N"] == N]
-        for r in rows:
-            long_run = r["end"] > 250_000
-            ax.errorbar([r["pct100"]], [r["lost"]], yerr=[r["se"]], fmt="none", ecolor=col, lw=0.8,
-                        capsize=1.2, zorder=4)
-            ax.plot([r["pct100"]], [r["lost"]], ls="none", marker=SIZE_MARK[N], ms=SIZE_MS[N],
-                    zorder=5, **dict(ps.mark_fixed(ps.INK if long_run else col), mfc="white"))
-        if rows:
-            handles.append(Line2D([], [], ls="none", marker=SIZE_MARK[N], ms=SIZE_MS[N],
-                                  label=f"$N$ = {ps.fmt_count(N)}", **ps.mark_fixed(col)))
-    handles.append(Line2D([], [], ls="none", marker="s", ms=ps.MARKER_PT,
-                          label=f"trained to {ps.fmt_count(300_000)}", **ps.mark_fixed(ps.INK)))
-    ax.set(xlim=(-6, 7), ylim=(-15, 135),
-           xlabel="loss change after iteration 150,000\n(% per 100,000 iterations)",
-           ylabel="decrease in the number of\nactive units per 100,000 iterations")
-    ax.set_xticks([-6, -3, 0, 3, 6])
-    ax.legend(handles=handles, loc="upper left", handletextpad=0.2, borderaxespad=0.2)
-    ps.ygrid(ax)
-    return c3
+    t_end = t[-1] if t_end is None else t_end
+    starts = np.arange(t0, t_end - block + 1, block)
+    centres, meds = [], []
+    for a in starts:
+        m = (t > a) & (t <= a + block)
+        if m.any():
+            centres.append(a + block / 2)
+            meds.append(np.median(y[m]))
+    return np.array(centres), np.array(meds)
+
+
+def flat_quantities(row):
+    """The two quantities of the flat-loss test for one network, from its raw traces.
+
+    Loss: the last 5,000-iteration block median over the first, as a % change per 100,000 iterations
+    between the block centres. Active units: the least-squares slope of the count against iteration
+    over every probe from T_FLAT on (np.polyfit), per 100,000 iterations.
+
+    Args:
+        row: one row of the FLAT record (it_loss, loss, it_act, active).
+    Returns:
+        dict: tc, rel (block centres and the loss as % change from the first block), pct100 (loss
+        change, % per 100,000), ta, da (count block centres, and block medians minus the first block's
+        median, so the line starts at zero), slope (fitted change in active units per 100,000 iterations; minus the decrease),
+        t_last (last probe), end (last loss iteration).
+    """
+    it, L = np.asarray(row["it_loss"], float), np.asarray(row["loss"], float)
+    tc, med = block_medians(it, L)
+    rel = 100.0 * (med / med[0] - 1.0)
+    pct100 = rel[-1] / ((tc[-1] - tc[0]) / 1e5)
+    ia, act = np.asarray(row["it_act"], float), np.asarray(row["active"], float)
+    k = ia >= T_FLAT
+    slope = np.polyfit((ia[k] - T_FLAT) / 1e5, act[k], 1)[0]
+    ta, ma = block_medians(ia, act, t_end=it[-1])
+    return dict(tc=tc, rel=rel, pct100=float(pct100), ta=ta, da=ma - ma[0], slope=float(slope),
+                t_last=float(ia[k][-1]), end=float(it[-1]))
+
+
+def panel_flat(axes, c3, flat):
+    """Panel (f): the raw quantities of the flat-loss test, every 3BFF network trained past 190,000.
+
+    Two columns, by training length (left: to 200,000 iterations; right: to 300,000), each with its
+    own iteration axis. Top: the noisy training loss as medians over 5,000-iteration blocks, as a %
+    change from the first block after 150,000; the grey wedge is the flat-loss band, a change of less
+    than FLAT_PCT % per 100,000 iterations, opening from that first block's centre, so a line that
+    ends inside the wedge is a flat loss. Bottom: the change in the number of active units since the
+    first 5,000-iteration block after 150,000, as block medians (thin, starting at zero), and each
+    network's least-squares line of the count from 150,000 on, drawn from zero at 150,000 (thick);
+    the dashed line is the decrease of DIE_BAR units per 100,000 iterations, drawn over the data, so
+    a thick line that ends below it is a decreasing count. Networks with a flat loss are coloured by
+    N in shades of the 3BFF blue; the networks whose loss is not flat are FLAT_OFF grey in both rows
+    and drawn under the others (review of PR #177, row 2), so the coloured thick lines are the test's
+    15 networks. No marker: every network is a line, so the panel carries no marker encoding.
+
+    The test quantities are recomputed here (`flat_quantities`, separate code) and must equal the
+    collect record's panel-(f) rows to 1e-6.
+
+    Args:
+        axes: 2 x 2 nested list of axes [[top left, top right], [bottom left, bottom right]];
+        c3: the collect record's panel-(f) rows; flat: the FLAT record's rows (raw traces).
+    Returns:
+        list of (N, seed, end, loss % per 100k, decrease per 100k, flat, decreasing), one per network.
+    """
+    rec = {r["seed"]: r for r in c3}
+    assert sorted(rec) == sorted(r["seed"] for r in flat), "FLAT and the collect record differ"
+    rows = []
+    for col, (hi, title) in enumerate(((200_000, "trained to 200,000"), (300_000, "trained to 300,000"))):
+        at, ab = axes[0][col], axes[1][col]
+        t0 = T_FLAT + FLAT_BLOCK / 2                      # centre of the first loss block
+        x = np.array([t0, hi])
+        at.fill_between(x, -FLAT_PCT * (x - t0) / 1e5, FLAT_PCT * (x - t0) / 1e5, color=ps.GRID,
+                        lw=0, zorder=0)
+        x = np.array([T_FLAT, hi])
+        ab.plot(x, -DIE_BAR * (x - T_FLAT) / 1e5, color=ps.INK, lw=0.9, ls=(0, (3, 1.5)), zorder=6)
+        for r in sorted(flat, key=lambda r: r["N"]):
+            q = flat_quantities(r)
+            if abs(q["end"] - hi) > 1:
+                continue
+            c = rec[r["seed"]]
+            assert abs(q["pct100"] - c["pct100"]) < 1e-6 and abs(-q["slope"] - c["lost"]) < 1e-6, r["seed"]
+            flat_loss = abs(q["pct100"]) < FLAT_PCT
+            shade, z = (FLAT_SHADE[r["N"]], 3) if flat_loss else (FLAT_OFF, 1)
+            at.plot(q["tc"], q["rel"], color=shade, lw=0.7, zorder=z + 1)
+            ab.plot(q["ta"], q["da"], color=shade, lw=0.35, alpha=0.6, zorder=z)
+            ab.plot([T_FLAT, q["t_last"]], [0.0, q["slope"] * (q["t_last"] - T_FLAT) / 1e5],
+                    color=shade, lw=1.0, zorder=z + 2, solid_capstyle="butt")
+            rows.append((r["N"], r["seed"], q["end"], q["pct100"], -q["slope"],
+                         abs(q["pct100"]) < FLAT_PCT, -q["slope"] >= DIE_BAR))
+        at.set_title(title, pad=2)
+        for ax in (at, ab):
+            ax.set_xlim(T_FLAT, hi)
+            ax.set_xticks([T_FLAT, hi] if col == 0 else [200_000, hi])
+            ps.count_ticks(ax.xaxis)
+            ps.ygrid(ax)
+        at.set_ylim(-6, 5.5)
+        at.set_yticks([-4, -2, 0, 2, 4])
+        ab.set_ylim(-76, 14)              # the block medians span -72 to +10 units
+        ab.set_yticks([-60, -40, -20, 0])
+        at.tick_params(labelbottom=False)
+        if col:
+            at.tick_params(labelleft=False)
+            ab.tick_params(labelleft=False)
+    assert len(rows) == len(flat), "a network of panel (f) is in neither column"
+    axes[0][0].set_ylabel("loss change (%)")
+    axes[1][0].set_ylabel("change in\nactive units")
+    # words on the two thresholds, in the right column where the wedge and the line are widest
+    axes[0][1].text(298_000, -4.6, f"flat: under {FLAT_PCT:.0f}%\nper 100,000", fontsize=ps.TICK_PT,
+                    color=ps.MUTED, ha="right", va="bottom", linespacing=1.0)
+    axes[1][1].text(298_000, -4.0, f"−{DIE_BAR:.0f} per\n100,000", fontsize=ps.TICK_PT,
+                    color=ps.INK, ha="right", va="bottom", linespacing=1.0)
+    handles = [Line2D([], [], color=FLAT_SHADE[N], lw=1.0, label=f"$N$ = {ps.fmt_count(N)}")
+               for N in sorted(FLAT_SHADE)]
+    # below every loss line of the left column (none falls under -2%), where the axes is empty
+    axes[0][0].legend(handles=handles, loc="lower left", ncol=2, handlelength=1.0,
+                      handletextpad=0.3, borderaxespad=0.1, labelspacing=0.1, columnspacing=0.6)
+    # the grey key, top right of the right column, over the wedge's fill where no line runs (on the
+    # left it touched the loss bump near 207,000)
+    axes[0][1].legend(handles=[Line2D([], [], color=FLAT_OFF, lw=1.0, label="loss not flat")],
+                      loc="upper right", handlelength=1.0, handletextpad=0.3, borderaxespad=0.1)
+    return rows
 
 
 def panel_floor_schematic(ax, ex):
@@ -767,7 +904,7 @@ def panel_floor_schematic(ax, ex):
     ps.arrow(ax, (t_star, 0.985), (t_hold, 0.985), col=ps.INK, lw=ps.THIN_LW, style="<|-|>",
              mutation_scale=5, shrink=0)
     ax.plot(ts, ys, "-", color=ps.INK, lw=ps.DATA_LW, zorder=5)
-    ax.plot([t_star], [y_star], "o", ms=ps.MARKER_PT, mew=0, zorder=6, **ps.mark_floor(ps.INK))
+    ax.plot([t_star], [y_star], "o", ms=ps.MARKER_PT, zorder=6, **ps.mark_floor(ps.INK))
     ax.set(xlim=(0, x_hi), ylim=(y_lo, y_hi), xlabel="training iteration",
            ylabel="smoothed loss / loss floor")
     ax.text(x_hi * 0.02, 1.0 - 0.005, "loss floor", fontsize=ps.TICK_PT, color=ps.INK, ha="left",
@@ -818,11 +955,11 @@ def check_overlaps(fig):
     return hits
 
 
-def draw_fig2(rec):
+def draw_fig2(rec, flat):
     """Draw Figure 2 from the collect record and print every number it shows.
 
     Args:
-        rec: the unpickled COLLECT record.
+        rec: the unpickled COLLECT record; flat: the unpickled FLAT record (panel f's raw traces).
     Returns:
         path of the PDF written.
     """
@@ -830,25 +967,35 @@ def draw_fig2(rec):
     fig = ps.figure(h_mm=FIG2_H_MM)
     # margins in figure fractions of 165.1 x FIG2_H_MM mm; panel letters sit 7 mm left of each spine
     gs = GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.2], hspace=0.36,
-                  left=0.075, right=0.99, top=0.955, bottom=0.095)
+                  left=0.075, right=0.975, top=0.955, bottom=0.095)
     # top row: a, b, c and the floor-crossing schematic d beside the margins panel c (item 47)
     top = GridSpecFromSubplotSpec(1, 4, subplot_spec=gs[0], width_ratios=TOP_WIDTHS, wspace=TOP_WSPACE)
-    bot = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], width_ratios=[2.5, 1.0], wspace=0.30)
+    bot = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], width_ratios=FIG2_BOTTOM_WIDTHS, wspace=0.27)
     egs = GridSpecFromSubplotSpec(2, 3, subplot_spec=bot[0], height_ratios=[1.0, 1.3], hspace=0.12,
                                   wspace=0.16)
     ax_a, ax_b, ax_c, ax_d = (fig.add_subplot(top[i]) for i in range(4))
     e_top = [fig.add_subplot(egs[0, k]) for k in range(3)]
     e_bot = [fig.add_subplot(egs[1, k], sharex=e_top[k]) for k in range(3)]
-    ax_f = fig.add_subplot(bot[1])
+    # panel f: two columns (trained to 200,000 / 300,000) of two rows (loss, active units)
+    fgs = GridSpecFromSubplotSpec(2, 2, subplot_spec=bot[1], width_ratios=[1.25, 1.0], hspace=0.12,
+                                  wspace=0.24)
+    f_ax = [[None, None], [None, None]]
+    f_ax[0][0] = fig.add_subplot(fgs[0, 0])
+    f_ax[1][0] = fig.add_subplot(fgs[1, 0], sharex=f_ax[0][0])
+    f_ax[0][1] = fig.add_subplot(fgs[0, 1], sharey=f_ax[0][0])
+    f_ax[1][1] = fig.add_subplot(fgs[1, 1], sharex=f_ax[0][1], sharey=f_ax[1][0])
 
     fits = panel_size(ax_a, ax_b, rec["series"])
     margins = panel_margins(ax_c, rec["series"])
     example = next(e for e in rec["examples"][SCHEMATIC_TASK] if seed_of(e["name"]) == SCHEMATIC_SEED)
     schem = panel_floor_schematic(ax_d, example)
     trows = panel_trajectories(e_top, e_bot, rec["traj"])
-    panel_flat(ax_f, rec["c3"])
-    for ax, L in ((ax_a, "a"), (ax_b, "b"), (ax_c, "c"), (ax_d, "d"), (e_top[0], "e"), (ax_f, "f")):
-        ps.panel_letter(ax, L, x_mm=9.0 if ax is ax_f else ps.PANEL_LETTER_X_MM)
+    frows = panel_flat(f_ax, rec["c3"], flat)
+    f_ax[1][0].set_xlabel("training iteration")
+    f_ax[1][0].xaxis.set_label_coords(1.05, 0, transform=f_ax[1][0].transAxes + ScaledTranslation(
+        0, -ps.TICK_PT * 1.6 / 72 - ps.LABEL_PAD_PT / 72, fig.dpi_scale_trans))   # under both columns
+    for ax, L in ((ax_a, "a"), (ax_b, "b"), (ax_c, "c"), (ax_d, "d"), (e_top[0], "e"), (f_ax[0][0], "f")):
+        ps.panel_letter(ax, L, x_mm=9.0 if ax is f_ax[0][0] else ps.PANEL_LETTER_X_MM)
     check_overlaps(fig)
     out = ps.save(fig, "fig_paper_F2_size")
 
@@ -871,11 +1018,14 @@ def draw_fig2(rec):
     print("Panel e (task, seed, t*, inactive at t*, inactive at end, end):")
     for row in trows:
         print("  ", row, f"-> {row[4] - row[3]:+.0f} after the floor" if np.isfinite(row[3]) else "")
-    print("Panel f (N, seed, end, t*, loss %/100k, lost/100k +- se):")
-    for r in sorted(rec["c3"], key=lambda r: (r["N"], r["seed"])):
-        print(f"   N={r['N']} s{r['seed']} end {r['end']:,.0f} t* {r['t_star']:,.0f} "
-              f"loss {r['pct100']:+.2f} lost {r['lost']:.1f} +- {r['se']:.1f}"
-              f"{'  FLAT' if abs(r['pct100']) < FLAT_PCT else ''}")
+    print("Panel f (N, seed, end, loss %/100k, decrease/100k, flat, decreasing), recomputed from the "
+          "raw traces and equal to the collect record to 1e-6:")
+    for row in sorted(frows):
+        print(f"   N={row[0]} s{row[1]} end {row[2]:,.0f} loss {row[3]:+.2f} decrease {row[4]:.1f}"
+              f"{'  FLAT' if row[5] else ''}{'  DECREASING' if row[6] else ''}")
+    n_flat = sum(r[5] for r in frows)
+    print(f"  {len(frows)} networks, {n_flat} with a flat loss, {sum(r[5] and r[6] for r in frows)} "
+          f"of those with a decreasing number of active units")
     return out
 
 
@@ -975,11 +1125,17 @@ def write_table(rec):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--collect", action="store_true", help="on Della: read every run, write COLLECT")
+    ap.add_argument("--collect-flat", action="store_true",
+                    help="on Della: read panel (f)'s raw traces, write FLAT")
     args = ap.parse_args()
     if args.collect:
         collect()
+    elif args.collect_flat:
+        collect_flat()
     else:
         with open(COLLECT, "rb") as fh:
             record = apply_decisions(pickle.load(fh))
-        draw_fig2(record)
+        with open(FLAT, "rb") as fh:
+            flat_record = pickle.load(fh)
+        draw_fig2(record, flat_record)
         write_table(record)

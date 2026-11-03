@@ -215,7 +215,7 @@ def panel_tstar(ax, rec):
         vals = np.array([t for _, t in pts], float)
         mean_ts = np.array([means[task][N] for task in TASKS if N in means[task]])
         for (task, _), x, y in zip(pts, network_xs(ax, N, vals, mean_ts), vals):
-            ax.plot([x], [y], "o", ms=ps.SMALL_MARKER_PT, mew=0, **ps.mark_floor(TASK_COL[task]))
+            ax.plot([x], [y], "o", ms=ps.SMALL_MARKER_PT, **ps.mark_floor(TASK_COL[task]))
     for task in TASKS:
         uN = sorted(means[task])
         ax.plot(uN, [means[task][N] for N in uN], "o-", ms=ps.MARKER_PT, lw=ps.DATA_LW,
@@ -260,13 +260,13 @@ def panel_snapshot(ax_c, ax_d, rec, noise):
         for mask, is_default, centre, step in ((default, True, -0.2 if split else 0.0, 0.12),
                                                (~default, False, 0.18, 0.028)):
             mk = DEFAULT_MARK if is_default else SCALED_MARK
-            ax_c.plot(to[mask], tr[mask], mk, ms=ps.MARKER_PT, mew=0, zorder=4,
+            ax_c.plot(to[mask], tr[mask], mk, ms=ps.MARKER_PT, zorder=4,
                       **ps.mark_floor(TASK_COL[task]))
             n = int(mask.sum())
             xs = k + centre + step * (np.arange(n) - (n - 1) / 2)
             if is_default and not split:
                 xs = k + np.linspace(-0.12, 0.12, max(n, 1))[:n]
-            ax_d.plot(xs, diff[mask], mk, ms=ps.MARKER_PT, mew=0, zorder=4,
+            ax_d.plot(xs, diff[mask], mk, ms=ps.MARKER_PT, zorder=4,
                       **ps.mark_floor(TASK_COL[task]))
             for x, xo in zip(np.array(o)[mask], xs):
                 seed = x["name"].split("__s")[-1]
@@ -287,9 +287,9 @@ def panel_snapshot(ax_c, ax_d, rec, noise):
         axis.set_minor_locator(NullLocator())
         ps.count_ticks(axis)
     ax_c.legend(handles=[Line2D([], [], ls="none", marker=DEFAULT_MARK, ms=ps.MARKER_PT, color=ps.INK,
-                                mew=0, label="default network"),
+                                label="default network"),
                          Line2D([], [], ls="none", marker=SCALED_MARK, ms=ps.MARKER_PT, color=ps.INK,
-                                mew=0, label="input weights scaled")],
+                                label="input weights scaled")],
                 loc="upper left", borderaxespad=0.2, handletextpad=0.2)
     ps.ygrid(ax_c)
     ax_d.axhspan(-10, 10, color=ps.GRID, lw=0, zorder=0)
