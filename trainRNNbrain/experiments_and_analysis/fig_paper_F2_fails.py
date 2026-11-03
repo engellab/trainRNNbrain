@@ -33,7 +33,9 @@ decay together) is one open marker at the group mean, white inside, with thin ra
 ROUND 13 (dead-relu-paper#176). Open markers of near-equal groups stacked, and the later marker's
 white inside hid the earlier marker's ring and centre. In the R^2 panels and panel l nothing moves:
 every open marker is drawn as before (white inside, coloured ring, ink rim), and then every coloured
-ring is drawn again above all the insides (`ring_overlay`), so every ring stays visible. In the
+ring is drawn again above all the insides (`ring_overlay`), so every ring stays visible; two
+markers nearly at one point are drawn nested, a small one inside a large one (`nested_sizes`; c and
+l, review of PR #179). In the
 trace panels every open marker sits at one read point (75,000 iterations or the budget); markers
 that would overlap are set beside it, to either side, by at most two steps of 1.15 diameters
 (main stepped them only to the right, and five groups in panel c ran out of steps).
@@ -356,6 +358,12 @@ OPEN_S = 11                 # area (pt^2) of the one open marker that stands for
 # its white inside would close up (tests/scan_open_markers.py, rule 1).
 OPEN_DRAW_S = {m: (np.sqrt(OPEN_S) - 2 * ps.MARKER_EW) ** 2 for m in "osD"}
 RING_OVERLAY = "ring-overlay"   # gid of a ring redrawn above every white inside (ring_overlay, #176)
+# Two open markers whose centres are closer than NEST_FRAC of a diameter are nested (nested_sizes):
+# the inner one at NEST_INNER and the outer one at NEST_OUTER times the usual width. With a 0.7 pt
+# ring and a 0.35 pt ink rim, that leaves about 0.45 pt of paper between the two rings and keeps
+# the inner marker's own inside 0.8 pt in radius, enough for both centres to read as paper
+# (tests/scan_open_markers.py, rules 1 and 2''; at 0.75 the inside was too small for rule 1).
+NEST_FRAC, NEST_INNER, NEST_OUTER = 0.25, 0.9, 2.1
 MIN_GAP_MM = 2.0            # least horizontal gap between two texts on one baseline (dead-relu-paper#88)
 # Every legend gets an opaque white box (no edge) above the guide lines, so no line crosses its text.
 LEGEND_BOX = dict(frameon=True, facecolor="white", edgecolor="none", framealpha=1.0, borderpad=0.25)
@@ -408,6 +416,8 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0, rings
     d_px = np.sqrt(OPEN_S) * fig.dpi / 72              # marker diameter in display pixels
     placed, out = [], []
     to_data = ax.transData.inverted()
+    sizes = nested_sizes(ax, groups) if rings_on_top else [OPEN_DRAW_S.get(g["marker"], OPEN_S)
+                                                            for g in groups]
     for g in groups:
         mx, my = float(np.mean(g["xs"])), float(np.mean(g["ys"]))
         px, py = ax.transData.transform((mx, my))
@@ -441,7 +451,7 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0, rings
                     zorder=zorder - 1, solid_capstyle="butt", clip_on=False)
         mk = ps.mark_fixed(g["edge"], scatter=True)
         mk["facecolors"] = "white"
-        ax.scatter([x0], [my], s=OPEN_DRAW_S.get(g["marker"], OPEN_S), marker=g["marker"], zorder=zorder, clip_on=False, **mk)
+        ax.scatter([x0], [my], s=sizes[len(out)], marker=g["marker"], zorder=zorder, clip_on=False, **mk)
         if g["label"]:
             side = g.get("label_side") or label_side
             if side == "below":                  # below the marker, right-aligned 5% of the axes
@@ -457,12 +467,39 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0, rings
                         va="center", fontsize=ps.TICK_PT, color=ps.INK, zorder=zorder)
         out.append((x0, my, len(g["xs"])))
     if rings_on_top:
-        for g, (x0, my, _n) in zip(groups, out):
-            ring_overlay(ax, x0, my, g["marker"], g["edge"], zorder + 0.5)
+        for g, (x0, my, _n), size in zip(groups, out, sizes):
+            ring_overlay(ax, x0, my, g["marker"], g["edge"], zorder + 0.5, size)
     return out
 
 
-def ring_overlay(ax, x, y, marker, edge, zorder):
+def nested_sizes(ax, groups):
+    """Marker sizes for a panel where nothing moves: two near-coincident markers are nested.
+
+    Two open markers whose centres are closer than NEST_FRAC of a diameter print as one symbol, even
+    with their rings on top (review of PR #179: Extended Data Fig. 4l, two means 0.05 mm apart in one
+    colour). Such a pair is drawn concentric at two sizes: the circle (or, if neither or both are
+    circles, the later group) at NEST_INNER times its usual width, the other at NEST_OUTER times, so
+    the small marker sits inside the large one's white inside with paper between the two rings.
+
+    Args:
+        ax: axes with limits set; groups: list of `open_group` dicts.
+    Returns:
+        list of scatter sizes (pt^2), one per group.
+    """
+    sizes = [OPEN_DRAW_S.get(g["marker"], OPEN_S) for g in groups]
+    d_px = np.sqrt(OPEN_S) * ax.figure.dpi / 72
+    pos = [ax.transData.transform((np.mean(g["xs"]), np.mean(g["ys"]))) for g in groups]
+    for j in range(len(groups)):
+        for i in range(j):
+            if np.hypot(*(pos[i] - pos[j])) < NEST_FRAC * d_px:
+                inner = i if groups[i]["marker"] == "o" and groups[j]["marker"] != "o" else j
+                outer = j if inner == i else i
+                sizes[inner] = OPEN_DRAW_S.get(groups[inner]["marker"], OPEN_S) * NEST_INNER ** 2
+                sizes[outer] = OPEN_DRAW_S.get(groups[outer]["marker"], OPEN_S) * NEST_OUTER ** 2
+    return sizes
+
+
+def ring_overlay(ax, x, y, marker, edge, zorder, size):
     """Redraw an open marker's coloured ring, with no face and no rim, above every white inside.
 
     The artist carries the gid RING_OVERLAY, so tests/scan_open_markers.py and
@@ -470,11 +507,11 @@ def ring_overlay(ax, x, y, marker, edge, zorder):
 
     Args:
         ax: axes; x, y: the marker's centre (data units); marker: matplotlib marker; edge: ring
-        colour; zorder: above the markers' zorder.
+        colour; zorder: above the markers' zorder; size: the marker's scatter size (pt^2).
     Returns:
         the PathCollection drawn.
     """
-    return ax.scatter([x], [y], s=OPEN_DRAW_S.get(marker, OPEN_S), marker=marker, facecolors="none",
+    return ax.scatter([x], [y], s=size, marker=marker, facecolors="none",
                       edgecolors=edge, linewidths=ps.OPEN_MARKER_EW, zorder=zorder, clip_on=False,
                       gid=RING_OVERLAY)
 

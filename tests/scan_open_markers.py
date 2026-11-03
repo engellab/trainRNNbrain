@@ -29,8 +29,13 @@ both at their measured values avoids that. For two markers that both have a ring
       ink rim, plus the 3 x 3 pixel block and anti-aliasing). Nothing else can darken such a
       centre: lines and filled markers lie under the white insides. Any other dark centre fails;
   2'. overlap: a pair closer than rule 2's distance is printed as "rings on top" and not counted
-      if the two differ in colour or in marker shape, so the two rings tell the two values apart.
-      A pair of the same colour and shape still fails: it prints as one marker.
+      if the two differ in colour, so the two rings tell the two values apart. A difference in
+      shape alone does not excuse a pair (review of PR #179): concentric rings of one colour print
+      as one symbol;
+  2''. nested: a pair is printed as "nested" and not counted if the smaller marker's outline lies
+      wholly inside the larger one's, at least NEST_GAP_MM from it everywhere (the two half rings,
+      the inner marker's rim and 0.1 mm of paper), so the two rings stay apart with paper between
+      them (fig_paper_F2_fails.nested_sizes). Rule 1 still applies to both centres.
 A marker without a ring on top is scanned exactly as before.
 A check of the coordinate mapping, not a pass rule: the centre of nearly every filled marker must
 read dark (darkest channel under 200); if it does not, the centres are in the wrong place and the
@@ -51,6 +56,7 @@ from matplotlib.colors import to_rgba
 from matplotlib.legend import Legend
 from matplotlib.lines import Line2D
 from matplotlib.markers import MarkerStyle
+from matplotlib.path import Path as MplPath
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EA = os.path.join(REPO, "trainRNNbrain", "experiments_and_analysis")
@@ -67,6 +73,8 @@ RING_OVERLAY = "ring-overlay"   # gid of a ring redrawn over its own open marker
 # rule 1': half the ring (OPEN_MARKER_EW / 2) and the ink rim (MARKER_EW) in mm, plus half the 3 x 3
 # block at DPI and 0.05 mm of anti-aliasing
 CROSS_MM = (ps.OPEN_MARKER_EW / 2 + ps.MARKER_EW) * 25.4 / 72 + 1.5 * 25.4 / DPI + 0.05
+# rule 2'': the outer ring's inner half, the inner ring's outer half and rim, and 0.1 mm of paper
+NEST_GAP_MM = (ps.OPEN_MARKER_EW + ps.MARKER_EW) * 25.4 / 72 + 0.1
 
 
 def run_and_capture(script):
@@ -181,7 +189,7 @@ def markers_of(fig):
         """Append the drawn points of one artist to `out` (anchor and centre of the inside).
 
         outline_pt: (n, 2) polygon of the marker's outline in pt round its anchor (y up), kept for
-        rule 1' with `on_top` (a ring redrawn over this marker) and `shape` (for rule 2').
+        rules 1' and 2'' with `on_top` (a ring redrawn over this marker).
         """
         xy = np.atleast_2d(np.asarray(xy, float))
         if not len(xy):
@@ -198,7 +206,7 @@ def markers_of(fig):
             out.append(dict(kind=kind, x_mm=x_mm, y_mm=y_mm, cx_mm=x_mm + dx * MM_PER_PT,
                             cy_mm=y_mm - dy * MM_PER_PT, d_mm=d_pt * MM_PER_PT, axes=artist.axes,
                             legend=id(artist) in in_legend, edge=edge, thin=thin, on_top=on_top,
-                            outline=outline, shape=str(np.round(verts_pt / max(d_pt, 1e-9), 2).tolist())))
+                            outline=outline))
 
     ticks = {id(a) for ax in fig.axes for axis in (ax.xaxis, ax.yaxis) for a in axis.findobj()}
     for ln in fig.findobj(Line2D):
@@ -252,6 +260,22 @@ def outline_distance(outline, x, y):
                 np.maximum((ab ** 2).sum(1), 1e-12), 0, 1)
     px, py = a[:, 0] + t * ab[:, 0], a[:, 1] + t * ab[:, 1]
     return float(np.min(np.hypot(px - x, py - y)))
+
+
+def nested(a, b):
+    """Rule 2'': True if the smaller of two markers lies wholly inside the larger, NEST_GAP_MM clear.
+
+    Args:
+        a, b: marker dicts from markers_of with "outline" polygons (page mm).
+    Returns:
+        bool.
+    """
+    if a["outline"] is None or b["outline"] is None:
+        return False
+    small, big = (a, b) if a["d_mm"] < b["d_mm"] else (b, a)
+    if not np.all(MplPath(big["outline"]).contains_points(small["outline"])):
+        return False
+    return min(outline_distance(big["outline"], x, y) for x, y in small["outline"]) >= NEST_GAP_MM
 
 
 def ps_hex(c):
@@ -347,8 +371,12 @@ def scan(fig, pdf):
                                   f"{b['edge']} at ({a['x_mm']:.1f}, {a['y_mm']:.1f}) mm, "
                                   f"{dist:.2f} mm apart")
                             continue
-                        if a["on_top"] and b["on_top"] and \
-                                (a["edge"], a["shape"]) != (b["edge"], b["shape"]):
+                        if a["on_top"] and b["on_top"] and nested(a, b):
+                            print(f"  nested (not counted): {axes_name(ax)}: {a['edge']} and "
+                                  f"{b['edge']} at ({a['x_mm']:.1f}, {a['y_mm']:.1f}) mm, "
+                                  f"{dist:.2f} mm apart")
+                            continue
+                        if a["on_top"] and b["on_top"] and a["edge"] != b["edge"]:
                             print(f"  rings on top (not counted): {axes_name(ax)}: {a['edge']} and "
                                   f"{b['edge']} at ({a['x_mm']:.1f}, {a['y_mm']:.1f}) mm, "
                                   f"{dist:.2f} mm apart")
