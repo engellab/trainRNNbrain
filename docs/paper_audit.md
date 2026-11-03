@@ -258,6 +258,7 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
   146-159 active at 75k, against 329-358 with the default noise, same seeds); the drift-diffusion
   curve loses to a stretched exponential. No claim changes; the mechanism does not go into the
   Discussion.
+- **DMTS setting sweeps (C5 on DMTS).** Fails its rule (2 Nov, entries 2026-11-01_2124 plan and 2026-11-02_1822 result; Della jobs 16628171, 16697623; branch wp/dmts-readout): of 9 networks that learned and have a floor crossing, 8 end with fewer active units, 1 (σ_rec 0.1, s4098854564) ends with more (288 → 308); weight decay 0, metabolic penalty 1 and recurrent-weight penalty 0.2 are untested. C5 stays scoped to CDDM and 3BFF.
 
 **Training**
 - **B2.** Done, read 31 Oct: fails its rule (entry 2026-10-31_1532). Third test (against synaptic

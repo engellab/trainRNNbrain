@@ -275,34 +275,40 @@ def report():
 
 
 def draw(rows):
-    """Active units over training, one panel per arm, floor crossings marked (img/internal_figures)."""
+    """Active units over training, one panel per arm (img/internal_figures).
+
+    Filled circle: the probe nearest the floor crossing; open circle: the probe nearest the end of
+    training; both only for networks that enter the rule. Dashed grey: did not learn (R^2 < 0.8).
+    Dotted line: 75,000 iterations.
+    """
     ps.setup()
-    fig = ps.figure(h_mm=150, w_mm=ps.W_FULL_MM)
-    gs = fig.add_gridspec(3, 3, left=0.08, right=0.98, bottom=0.07, top=0.95, hspace=0.45, wspace=0.28)
+    fig = ps.figure(h_mm=140, w_mm=ps.W_FULL_MM)
+    gs = fig.add_gridspec(3, 3, left=0.08, right=0.985, bottom=0.07, top=0.965, hspace=0.42, wspace=0.26)
     cols = ps.SLOTS[:3]
     for i, arm in enumerate(ARMS):
         ax = fig.add_subplot(gs[i // 3, i % 3])
-        for j, r in enumerate([r for r in rows if r["arm"] == arm]):
+        arm_rows = [r for r in rows if r["arm"] == arm]
+        for j, r in enumerate(arm_rows):
             learned = r["r2_end"] >= LEARNED_R2
             c = cols[j] if learned else ps.INACTIVE
-            ax.plot(r["it_act"] / 1e3, r["active"], color=c, lw=ps.THIN_LW,
-                    ls="-" if learned else "--",
+            ax.plot(r["it_act"] / 1e3, r["active"], color=c, lw=ps.THIN_LW, ls="-" if learned else "--",
                     label=f"s{r['seed']}, R² {r['r2_end']:.2f}" + ("" if learned else " (not learned)"))
             if status(r) == "rule":
                 ax.plot(r["probe_cross"] / 1e3, r["act_cross"], "o", ms=ps.MARKER_PT + 1, color=c,
                         mec="k", mew=0.4, zorder=5)
+                ax.plot(r["probe_end"] / 1e3, r["act_end"], "o", ms=ps.MARKER_PT + 1, mfc="white",
+                        mec=c, mew=ps.OPEN_MARKER_EW + 0.3, zorder=5, clip_on=False)
         ax.axvline(FIXED_IT / 1e3, color=ps.BASELINE, lw=ps.THIN_LW, ls=":")
-        ax.set_title(ARM_LABEL[arm], fontsize=ps.LABEL_PT)
+        ax.set_title(ARM_LABEL[arm], fontsize=ps.LABEL_PT, pad=2)
         ax.set_xlim(0, BUDGET / 1e3)
-        ax.set_ylim(0, None)
-        ax.legend(fontsize=ps.TICK_PT - 1, frameon=False, loc="upper right", handlelength=1.2)
+        ax.set_ylim(0, 1.45 * max(r["active"].max() for r in arm_rows))
+        ax.legend(fontsize=ps.TICK_PT - 1, frameon=False, loc="upper right", handlelength=1.2,
+                  borderaxespad=0.2, labelspacing=0.25)
         ps.despine(ax)
         if i // 3 == 2:
             ax.set_xlabel("iteration (thousands)")
         if i % 3 == 0:
             ax.set_ylabel("active units (of 1,000)")
-    fig.suptitle("DMTS setting sweeps, N = 1,000: active units over training; "
-                 "filled circle = floor crossing (1.05x floor); dotted line = 75,000", fontsize=ps.LABEL_PT)
     ps.save(fig, "dmts_settings_active_over_training")
 
 
