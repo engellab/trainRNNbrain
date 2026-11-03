@@ -49,6 +49,9 @@ EW_RANGE = (0.3, 0.4)       # rule 1: edge width of a filled marker, pt
 NO_MARKER = (None, "None", "none", "", " ")
 GLYPHS = ("x", "+", "|", "_", "1", "2", "3", "4")   # a stroke, not a shape: no inside, no edge
 RING_MIN_PT = 5.0           # an ink circle with no face at least this wide is an annotation ring
+# The coloured ring of an open marker already drawn (and scanned, with its ink rim), redrawn alone
+# above every white inside (fig_paper_F2_fails.ring_overlay, #176): it is that marker, not another.
+RING_OVERLAY = "ring-overlay"
 # the paths ax.scatter stores for the stroke glyphs (marker path in its own transform)
 GLYPH_PATHS = [MarkerStyle(m).get_path().transformed(MarkerStyle(m).get_transform()).vertices
                for m in GLYPHS]
@@ -156,7 +159,7 @@ def scan(fig):
     """
     n_ok, n_glyph, fails = 0, 0, {}
     for art in fig.findobj(lambda a: isinstance(a, (Line2D, PathCollection))):
-        if not art.get_visible():
+        if not art.get_visible() or art.get_gid() == RING_OVERLAY:
             continue
         ax = art.axes
         where = axes_name(fig, ax) if ax is not None else "legend"

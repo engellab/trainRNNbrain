@@ -18,6 +18,25 @@ Pass rules, fixed before the first scan (#104):
      half-transparent white (fig_paper_F5_drive.see_through, Fig. 5e) is a deliberate overlap at
      the measured values; it is printed as "see-through" and not counted;
   3. rings: no two rings of one axes have centres closer than 1.0 mm.
+Rings on top (dead-relu-paper #176, round 13). Extended Data Fig. 4 keeps every open marker at its
+measured value and redraws each marker's coloured ring above all the white insides
+(fig_paper_F2_fails.ring_overlay; the redrawn ring carries the gid RING_OVERLAY and is read as the
+marker it redraws, not as another marker). Two open markers whose centres are closer than one
+diameter then cross: each one's ring runs over or near the other's centre, and no drawing that keeps
+both at their measured values avoids that. For two markers that both have a ring on top:
+  1'. centre: a centre that reads dark is printed as "ring crossing" and not counted if the outline
+      of another such marker of the same axes passes within CROSS_MM of it (half the ring and its
+      ink rim, plus the 3 x 3 pixel block and anti-aliasing). Nothing else can darken such a
+      centre: lines and filled markers lie under the white insides. Any other dark centre fails;
+  2'. overlap: a pair closer than rule 2's distance is printed as "rings on top" and not counted
+      if the two differ in colour, so the two rings tell the two values apart. A difference in
+      shape alone does not excuse a pair (review of PR #179): concentric rings of one colour print
+      as one symbol;
+  2''. nested: a pair is printed as "nested" and not counted if the smaller marker's outline lies
+      wholly inside the larger one's, at least NEST_GAP_MM from it everywhere (the two half rings,
+      the inner marker's rim and 0.1 mm of paper), so the two rings stay apart with paper between
+      them (fig_paper_F2_fails.nested_sizes). Rule 1 still applies to both centres.
+A marker without a ring on top is scanned exactly as before.
 A check of the coordinate mapping, not a pass rule: the centre of nearly every filled marker must
 read dark (darkest channel under 200); if it does not, the centres are in the wrong place and the
 scan proves nothing.
@@ -37,6 +56,7 @@ from matplotlib.colors import to_rgba
 from matplotlib.legend import Legend
 from matplotlib.lines import Line2D
 from matplotlib.markers import MarkerStyle
+from matplotlib.path import Path as MplPath
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EA = os.path.join(REPO, "trainRNNbrain", "experiments_and_analysis")
@@ -49,6 +69,12 @@ MM_PER_PT = 25.4 / 72
 CENTRE_MIN = 200            # rule 1, darkest channel at an open-marker centre (0-255)
 RING_MIN_MM = 1.0           # rule 3
 RING_SIZE_MIN = 30          # scatter size from which an open ink circle is a ring (RING_S = 34)
+RING_OVERLAY = "ring-overlay"   # gid of a ring redrawn over its own open marker (fig_paper_F2_fails)
+# rule 1': half the ring (OPEN_MARKER_EW / 2) and the ink rim (MARKER_EW) in mm, plus half the 3 x 3
+# block at DPI and 0.05 mm of anti-aliasing
+CROSS_MM = (ps.OPEN_MARKER_EW / 2 + ps.MARKER_EW) * 25.4 / 72 + 1.5 * 25.4 / DPI + 0.05
+# rule 2'': the outer ring's inner half, the inner ring's outer half and rim, and 0.1 mm of paper
+NEST_GAP_MM = (ps.OPEN_MARKER_EW + ps.MARKER_EW) * 25.4 / 72 + 0.1
 
 
 def run_and_capture(script):
@@ -153,8 +179,18 @@ def markers_of(fig):
     px_to_mm = 25.4 / fig.dpi
     out = []
 
-    def add(artist, xy, kind, d_pt, edge, verts_pt, thin=False):
-        """Append the drawn points of one artist to `out` (anchor and centre of the inside)."""
+    overlays = []                         # (axes, x mm, y mm) of every ring redrawn on top
+    for col in fig.findobj(PathCollection):
+        if col.get_visible() and col.get_gid() == RING_OVERLAY and len(col.get_offsets()):
+            for x, y in col.get_offset_transform().transform(col.get_offsets()):
+                overlays.append((col.axes, x * px_to_mm, (h_px - y) * px_to_mm))
+
+    def add(artist, xy, kind, d_pt, edge, verts_pt, thin=False, outline_pt=None):
+        """Append the drawn points of one artist to `out` (anchor and centre of the inside).
+
+        outline_pt: (n, 2) polygon of the marker's outline in pt round its anchor (y up), kept for
+        rules 1' and 2'' with `on_top` (a ring redrawn over this marker).
+        """
         xy = np.atleast_2d(np.asarray(xy, float))
         if not len(xy):
             return
@@ -162,9 +198,15 @@ def markers_of(fig):
         ok = inside_axes(artist, xy) & np.all(np.isfinite(xy), axis=1)
         for (x, y) in xy[ok]:
             x_mm, y_mm = x * px_to_mm, (h_px - y) * px_to_mm
+            on_top = any(a is artist.axes and abs(ox - x_mm) < 0.01 and abs(oy - y_mm) < 0.01
+                         for a, ox, oy in overlays)
+            outline = None
+            if outline_pt is not None:
+                outline = np.c_[x_mm + outline_pt[:, 0] * MM_PER_PT, y_mm - outline_pt[:, 1] * MM_PER_PT]
             out.append(dict(kind=kind, x_mm=x_mm, y_mm=y_mm, cx_mm=x_mm + dx * MM_PER_PT,
                             cy_mm=y_mm - dy * MM_PER_PT, d_mm=d_pt * MM_PER_PT, axes=artist.axes,
-                            legend=id(artist) in in_legend, edge=edge, thin=thin))
+                            legend=id(artist) in in_legend, edge=edge, thin=thin, on_top=on_top,
+                            outline=outline))
 
     ticks = {id(a) for ax in fig.axes for axis in (ax.xaxis, ax.yaxis) for a in axis.findobj()}
     for ln in fig.findobj(Line2D):
@@ -184,7 +226,7 @@ def markers_of(fig):
         add(ln, xy, kind, ln.get_markersize(), ps_hex(ln.get_markeredgecolor()), verts,
             see_through(face))
     for col in fig.findobj(PathCollection):
-        if not col.get_visible() or not len(col.get_offsets()):
+        if not col.get_visible() or not len(col.get_offsets()) or col.get_gid() == RING_OVERLAY:
             continue
         faces = col.get_facecolor()
         edges = col.get_edgecolor()
@@ -196,9 +238,44 @@ def markers_of(fig):
         if open_:
             kind = "ring" if (s >= RING_SIZE_MIN and edge == ps_hex(ps.INK)) else "open"
         xy = col.get_offset_transform().transform(col.get_offsets())
+        polys = col.get_paths()[0].to_polygons(closed_only=False)
         add(col, xy, kind, np.sqrt(s), edge, col.get_paths()[0].vertices * np.sqrt(s),
-            len(faces) > 0 and all(see_through(f) for f in faces))
+            len(faces) > 0 and all(see_through(f) for f in faces),
+            np.vstack(polys) * np.sqrt(s) if polys else None)
     return out
+
+
+def outline_distance(outline, x, y):
+    """Shortest distance (mm) from a point to a closed polygon outline (rule 1').
+
+    Args:
+        outline: (n, 2) polygon vertices in page mm; x, y: the point in page mm.
+    Returns:
+        float.
+    """
+    a = outline
+    b = np.roll(outline, -1, axis=0)
+    ab = b - a
+    t = np.clip(((x - a[:, 0]) * ab[:, 0] + (y - a[:, 1]) * ab[:, 1]) /
+                np.maximum((ab ** 2).sum(1), 1e-12), 0, 1)
+    px, py = a[:, 0] + t * ab[:, 0], a[:, 1] + t * ab[:, 1]
+    return float(np.min(np.hypot(px - x, py - y)))
+
+
+def nested(a, b):
+    """Rule 2'': True if the smaller of two markers lies wholly inside the larger, NEST_GAP_MM clear.
+
+    Args:
+        a, b: marker dicts from markers_of with "outline" polygons (page mm).
+    Returns:
+        bool.
+    """
+    if a["outline"] is None or b["outline"] is None:
+        return False
+    small, big = (a, b) if a["d_mm"] < b["d_mm"] else (b, a)
+    if not np.all(MplPath(big["outline"]).contains_points(small["outline"])):
+        return False
+    return min(outline_distance(big["outline"], x, y) for x, y in small["outline"]) >= NEST_GAP_MM
 
 
 def ps_hex(c):
@@ -270,7 +347,19 @@ def scan(fig, pdf):
         rg = [m for m in ms if m["kind"] == "ring"]
         if not op and not rg:
             continue
-        bad = [m for m in op if m["dark"] < CENTRE_MIN]
+        bad = []
+        for m in op:
+            if m["dark"] >= CENTRE_MIN:
+                continue
+            crossing = [o for o in op if o is not m and m["on_top"] and o["on_top"] and
+                        o["outline"] is not None and
+                        outline_distance(o["outline"], m["cx_mm"], m["cy_mm"]) <= CROSS_MM]
+            if crossing:
+                print(f"  ring crossing (not counted): {axes_name(ax)}: {m['edge']} marker at "
+                      f"({m['x_mm']:.1f}, {m['y_mm']:.1f}) mm, darkest channel {m['dark']}, under the "
+                      f"ring of {', '.join(o['edge'] for o in crossing)}")
+                continue
+            bad.append(m)
         pairs = 0
         if not leg:
             for i, a in enumerate(op):
@@ -279,6 +368,16 @@ def scan(fig, pdf):
                     if dist < 0.5 * max(a["d_mm"], b["d_mm"]):
                         if a["thin"] and b["thin"]:
                             print(f"  see-through (not counted): {axes_name(ax)}: {a['edge']} and "
+                                  f"{b['edge']} at ({a['x_mm']:.1f}, {a['y_mm']:.1f}) mm, "
+                                  f"{dist:.2f} mm apart")
+                            continue
+                        if a["on_top"] and b["on_top"] and nested(a, b):
+                            print(f"  nested (not counted): {axes_name(ax)}: {a['edge']} and "
+                                  f"{b['edge']} at ({a['x_mm']:.1f}, {a['y_mm']:.1f}) mm, "
+                                  f"{dist:.2f} mm apart")
+                            continue
+                        if a["on_top"] and b["on_top"] and a["edge"] != b["edge"]:
+                            print(f"  rings on top (not counted): {axes_name(ax)}: {a['edge']} and "
                                   f"{b['edge']} at ({a['x_mm']:.1f}, {a['y_mm']:.1f}) mm, "
                                   f"{dist:.2f} mm apart")
                             continue
