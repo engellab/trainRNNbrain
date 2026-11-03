@@ -425,10 +425,6 @@ MEAN_CLEAR_MM = 0.88    # least distance from a mean marker's centre (radii 0.53
 # independent recomputation of its t* from the stored smoothed curve gave 27,295 against the rule's
 # 27,259 (notebook entry 2026-11-02_2102_r11-fig2-jitter-and-floor-schematic).
 SCHEMATIC_TASK, SCHEMATIC_SEED = "CDDM", "3833537590"
-# Extended Data Fig. 3b (fig_ed_readout.py) still places its network points with network_offsets,
-# the rows Figure 2 used before round 11.
-NET_GAP_DEX = 0.04      # first network point this far (log10 N) from its size's mean
-NET_STEP_DEX = 0.025    # and the next ones this far apart
 
 
 def is_read(r, margin=0.05):
@@ -481,23 +477,6 @@ def boot_exponent(cells, rng):
     for _ in range(N_BOOT):
         bs.append(power_fit({N: rng.choice(v, len(v)) for N, v in cells.items()})[0])
     return tuple(np.percentile(bs, [2.5, 97.5]))
-
-
-def network_offsets(task, n, n_before=0):
-    """Horizontal offsets (log10 units) of one size's network points beside that size's mean.
-
-    3BFF's points sit to the left of the mean; CDDM's and DMTS's share the right side, DMTS's row
-    starting where CDDM's ends (n_before points in), so no DMTS point lands on a CDDM point.
-    Neighbouring points are NET_STEP_DEX apart, the row starting NET_GAP_DEX from the mean.
-
-    Args:
-        task: "3BFF", "CDDM" or "DMTS"; n: int, networks of this task at this size;
-        n_before: int, points already placed on the same side at this size (CDDM's count for DMTS).
-    Returns:
-        float array of shape (n,), added to log10 N.
-    """
-    side = -1.0 if task == "3BFF" else 1.0
-    return side * (NET_GAP_DEX + NET_STEP_DEX * (n_before + np.arange(n)))
 
 
 def network_xs(ax, N, values, means):
@@ -730,8 +709,10 @@ def panel_flat(ax, c3):
     ax.axhline(0, color=ps.MUTED, lw=ps.THIN_LW)
     # the losing-units threshold of the flat-loss test (entry 2026-10-15_0955)
     ax.axhline(DIE_BAR, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)))
-    ax.text(6.9, DIE_BAR + 1.5, "decrease of 5 active units", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
-            va="bottom")
+    # two lines, right of the flat-loss band, where no network lies (#169: on one line it ran into
+    # an N = 500 marker at a loss change of -1.3%)
+    ax.text(6.98, DIE_BAR + 2.0, "decrease of\n5 active units", fontsize=ps.TICK_PT, color=ps.INK,
+            ha="right", va="bottom", linespacing=1.1)
     handles = []
     for N in sorted(SIZE_MARK):
         rows = [r for r in c3 if r["N"] == N]
