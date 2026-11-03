@@ -9,8 +9,9 @@ floor makes more units inactive.
   (b) the same runs as a percentage of N, guides at 50% and 10%.
   (c) the fitted exponent at the 1.05x, 1.10x and 1.20x margins, with a bootstrap 95% interval
       (runs resampled within each size).
-  (d) the floor crossing drawn on one CDDM N = 1000 network's smoothed loss (an example): the fitted
-      floor, the band to 1.05x the floor, t* and the hold to 1.2 t* (Pavel's feedback item 47).
+  (d) a schematic of the floor crossing (Pavel's feedback item 47; schematic since 3 Nov): an
+      idealised loss on the curve of Eq. (floor), its floor, the band to 1.05x the floor, t* and the
+      hold to 1.2 t*. No network's data; Extended Data Fig. 3a shows real losses and fits.
   (e) the noisy training loss over its own start and the inactive-unit count against iteration,
       every run at N = 1000, one column per task; dashed lines at each run's own 1.05x crossing.
   (f) the flat-loss test drawn from its raw quantities (round 12, Pavel's item 55), every 3BFF run
@@ -472,11 +473,17 @@ FLAT_OFF = ps.FAINT     # panel f: a network whose loss is not flat, in both row
 # reached more than half of that gap and read as random sizes.
 NET_MIN_MM = 0.5        # least distance between two dots' centres (a 2 pt dot is 0.71 mm wide)
 MEAN_CLEAR_MM = 0.88    # least distance from a mean marker's centre (radii 0.53 + 0.35 mm): never hidden
-# Panel d: the floor-crossing schematic is drawn on one real network's loss, the first CDDM N = 1,000
-# read-out example of the collect record (no loss bursts, one entry into the 1.05x band). An
-# independent recomputation of its t* from the stored smoothed curve gave 27,295 against the rule's
-# 27,259 (notebook entry 2026-11-02_2102_r11-fig2-jitter-and-floor-schematic).
-SCHEMATIC_TASK, SCHEMATIC_SEED = "CDDM", "3833537590"
+# Panel d: a schematic of the floor-crossing definition, not data (Pavel, 3 Nov: the real CDDM loss
+# ended at 1.03x its floor and never showed the approach). The curve is Eq. (floor) of Methods,
+# L_inf + A exp[-((t - t0)/s)^beta], drawn divided by L_inf. Its shape is the fit of 3BFF N = 1,000
+# seed 1914910909 (a read-out example of the collect record), whose parameters were recovered by
+# refitting the stored fitted curve (notebook entry 2026-11-03_0851): A/L_inf = 2.55, s = 9,253,
+# beta = 0.70, t0 = 145 (rounded below). With these the curve is within 0.15% of the floor at
+# 2.5 t*. The three CDDM N = 1,000 example fits have beta of 0.24 to 0.30 and come that close only
+# after 10 to 15 t* (270,000 to 420,000 iterations, beyond their 100,000), which would squeeze the
+# hold window to under 1 mm of the panel.
+SCHEMATIC_A, SCHEMATIC_S, SCHEMATIC_BETA, SCHEMATIC_T0 = 2.55, 9_250.0, 0.70, 145.0
+SCHEMATIC_X_END = 2.5   # the iteration axis runs to this multiple of the schematic's t*
 
 
 def is_read(r, margin=0.05):
@@ -873,32 +880,35 @@ def panel_flat(axes, c3, flat):
     return rows
 
 
-def panel_floor_schematic(ax, ex):
-    """Panel (d): what the floor crossing is, drawn on one real network's loss (an example).
+def panel_floor_schematic(ax):
+    """Panel (d): a schematic of the floor-crossing definition, drawn on an idealised loss, not data.
 
-    Everything is divided by the fitted loss floor L_inf, so the floor is 1 and the band is
-    [1, 1 + FLOOR_DELTAS[0]] (grey). Drawn: the smoothed noisy training loss (ink), the floor and the
-    band's top, the crossing t* (filled marker: a floor-crossing value, #83) and the hold from t* to
-    (1 + HOLD_FRAC) t* (double arrow), through which the smoothed loss stays at or below the band's
-    top. The noisy loss and the fitted floor curve are left out: the curve lies on the smoothed loss
-    at print size, and the noisy loss's 10th-90th percentile (0.93 to 1.18 of the floor near t*)
-    would cover the panel.
+    The curve is Eq. (floor) with L_inf = 1, i.e. 1 + A exp[-((t - t0)/s)^beta] with the SCHEMATIC_*
+    parameters, so it is the loss divided by its floor and approaches 1 from above without crossing
+    it. The band is [1, 1 + FLOOR_DELTAS[0]] (grey). Drawn: the curve (ink), the floor and the band's
+    top, the crossing t* (filled marker: a floor-crossing value, #83) and the hold from t* to
+    (1 + HOLD_FRAC) t* (double arrow). The curve falls monotonically, so t* is where it meets the
+    band's top and it stays in the band through the hold. The iteration axis has no tick values, so
+    the panel cannot be read as one network's data.
 
     Args:
-        ax: axes; ex: one entry of the collect record's examples (readout_example's dict plus name).
+        ax: matplotlib axes to draw into.
     Returns:
-        (t*, floor, smoothed loss / floor at t*).
+        (t*, axis end, curve value at the axis end), the iterations in the schematic's own units.
     """
-    fl, bar = ex["floor"], 1.0 + FLOOR_DELTAS[0]
-    t_star = ex["t_stars"][FLOOR_DELTAS[0]]
+    bar = 1.0 + FLOOR_DELTAS[0]
+    fit = (1.0, SCHEMATIC_A, SCHEMATIC_S, SCHEMATIC_BETA)
+    # the monotone curve meets the band's top where A exp[-((t - t0)/s)^beta] = FLOOR_DELTAS[0]
+    t_star = SCHEMATIC_T0 + SCHEMATIC_S * np.log(SCHEMATIC_A / FLOOR_DELTAS[0]) ** (1.0 / SCHEMATIC_BETA)
     t_hold = (1.0 + HOLD_FRAC) * t_star
-    ts, ys = np.asarray(ex["ts"], float), np.asarray(ex["ys"], float) / fl
-    y_star = float(np.interp(t_star, ts, ys))
-    x_hi, y_lo, y_hi = 45_000, 0.94, 1.25
+    x_hi, y_lo, y_hi = SCHEMATIC_X_END * t_star, 0.94, 1.25
+    ts = np.linspace(SCHEMATIC_T0, x_hi, 600)
+    ys = floor_curve(ts - SCHEMATIC_T0, fit)
+    y_star = float(floor_curve(t_star - SCHEMATIC_T0, fit))
     ax.axhspan(1.0, bar, color=ps.GRID, lw=0, zorder=1)
     ax.axhline(1.0, color=ps.INK, lw=ps.THIN_LW, zorder=3)
     ax.axhline(bar, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)), zorder=3)
-    for t in (t_star, t_hold):      # from the bottom up to the smoothed loss, clear of the labels
+    for t in (t_star, t_hold):      # from the bottom up to the curve, clear of the labels
         ax.plot([t, t], [y_lo, np.interp(t, ts, ys)], color=ps.MUTED, lw=ps.THIN_LW,
                 ls=(0, (3, 2)), zorder=2)
     ps.arrow(ax, (t_star, 0.985), (t_hold, 0.985), col=ps.INK, lw=ps.THIN_LW, style="<|-|>",
@@ -909,19 +919,18 @@ def panel_floor_schematic(ax, ex):
            ylabel="smoothed loss / loss floor")
     ax.text(x_hi * 0.02, 1.0 - 0.005, "loss floor", fontsize=ps.TICK_PT, color=ps.INK, ha="left",
             va="top", zorder=7)
-    # left, above the band and under the curve's start: at the right end its first glyph sat over the
-    # t* marker (review of dead-relu-paper PR #170, row 2)
-    ax.text(x_hi * 0.02, bar + 0.005, f"{bar:.2f}× floor", fontsize=ps.TICK_PT, color=ps.INK,
-            ha="left", va="bottom", zorder=7)
+    # right, above the band: the schematic's t* lies at 40% of the axis, so the label is clear of the
+    # marker (PR #170, row 2), and the curve there is already inside the band, under the label
+    ax.text(x_hi * 0.98, bar + 0.005, f"{bar:.2f}× floor", fontsize=ps.TICK_PT, color=ps.INK,
+            ha="right", va="bottom", zorder=7)
     # the asterisk is Helvetica's own (raised) glyph: mathtext's \ast would add a second font family
     ax.text(t_star, 0.976, "$t$* ", fontsize=ps.TICK_PT, color=ps.INK, ha="right", va="top")
     ax.text(t_hold, 0.976, f" {1 + HOLD_FRAC:.1f}$\\,t$*", fontsize=ps.TICK_PT,
             color=ps.INK, ha="left", va="top")
-    ax.set_title(f"{SCHEMATIC_TASK} example", pad=2)       # N = 1,000: the caption says so
-    ax.set_xticks([0, 20_000, 40_000])
+    ax.set_title("schematic", pad=2)
+    ax.set_xticks([])       # no iteration values: a schematic, not one network's data
     ax.set_yticks([1.0, 1.1, 1.2])
-    ps.count_ticks(ax.xaxis)
-    return t_star, fl, y_star
+    return t_star, x_hi, float(ys[-1])
 
 
 def check_overlaps(fig):
@@ -987,8 +996,7 @@ def draw_fig2(rec, flat):
 
     fits = panel_size(ax_a, ax_b, rec["series"])
     margins = panel_margins(ax_c, rec["series"])
-    example = next(e for e in rec["examples"][SCHEMATIC_TASK] if seed_of(e["name"]) == SCHEMATIC_SEED)
-    schem = panel_floor_schematic(ax_d, example)
+    schem = panel_floor_schematic(ax_d)
     trows = panel_trajectories(e_top, e_bot, rec["traj"])
     frows = panel_flat(f_ax, rec["c3"], flat)
     f_ax[1][0].set_xlabel("training iteration")
@@ -1013,8 +1021,9 @@ def draw_fig2(rec, flat):
             top = leave_one_out(rec["series"], task, d)[:2]
             print(f"  {task} {1 + d:.2f}x: " + "; ".join(f"{hi:.3f} (b {b:.3f}) without N={N} s{sd}"
                                                          for hi, b, N, sd in top))
-    print(f"Panel d (example {SCHEMATIC_TASK} s{SCHEMATIC_SEED}): t* {schem[0]:,.0f}, hold to "
-          f"{(1 + HOLD_FRAC) * schem[0]:,.0f}, floor {schem[1]:.5f}, smoothed loss / floor at t* {schem[2]:.4f}")
+    print(f"Panel d (schematic, Eq. floor with A/L_inf {SCHEMATIC_A}, s {SCHEMATIC_S:,.0f}, beta "
+          f"{SCHEMATIC_BETA}, t0 {SCHEMATIC_T0:.0f}): t* {schem[0]:,.0f}, hold to "
+          f"{(1 + HOLD_FRAC) * schem[0]:,.0f}, axis end {schem[1]:,.0f}, loss / floor there {schem[2]:.5f}")
     print("Panel e (task, seed, t*, inactive at t*, inactive at end, end):")
     for row in trows:
         print("  ", row, f"-> {row[4] - row[3]:+.0f} after the floor" if np.isfinite(row[3]) else "")
@@ -1054,8 +1063,6 @@ def tex_row(r, in_e, ed3a):
     fig = {"size series": "2a--c", "trajectory": "2e", "Fig. 1d ablation": "1d"}[r["role"]]
     if r["role"] == "size series" and r["N"] == 1000:
         fig = "1c, 2a--c" + (", 2e" if r["task"] != "CDDM" else "")
-        if (r["task"], r["seed"]) == (SCHEMATIC_TASK, SCHEMATIC_SEED):
-            fig += ", 2d"      # the floor-crossing schematic (review of dead-relu-paper PR #170, row 1)
     if not read:      # a network with no read-out is drawn only as a panel-(e) trajectory, if at all
         in_d = r["role"] == "trajectory" or (r["role"] == "size series" and r["N"] == 1000
                                               and r["task"] != "CDDM" and r.get("excluded") is None)
@@ -1108,7 +1115,8 @@ def write_table(rec):
     ed3a = {(task, seed_of(rec["examples"][task][0]["name"])) for task in TASKS}
     lines = [tex_row(r, in_e, ed3a) for r in rows]
     figcol = [line.split(" & ")[3] for line in lines]
-    assert sum("ED3a" in f for f in figcol) == len(ed3a) and sum("2d" in f.split(", ") for f in figcol) == 1
+    # panel d is a schematic and draws no network (3 Nov)
+    assert sum("ED3a" in f for f in figcol) == len(ed3a) and sum("2d" in f.split(", ") for f in figcol) == 0
     # Fig. 4e,f draws six 3BFF networks: three at N = 1,000 (Fig. 1d) and three at N = 4,000 (#111)
     n_4ef = [r["N"] for r, line in zip(rows, lines) if "4e,f" in line.split(" & ")[3]]
     assert all(r["task"] == "3BFF" for r, line in zip(rows, lines) if "4e,f" in line.split(" & ")[3])
