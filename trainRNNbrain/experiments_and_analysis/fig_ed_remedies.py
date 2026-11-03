@@ -279,8 +279,8 @@ def ed_margins(series, diag):
                     ms.append(np.nan)        # a size with no crossing breaks the line there
                     continue
                 m = vals / base.mean()
-                ax.scatter(np.full(len(m), x), m, s=6, marker=MARK[fam], color=COL[fam], lw=0.5,
-                           zorder=3)
+                ax.scatter(np.full(len(m), x), m, s=6, marker=MARK[fam], zorder=3,
+                           **ps.mark_floor(COL[fam], scatter=True))
                 xs.append(x)
                 ms.append(m.mean())
                 print(f"ED8 {lab}x {fam:9s} N={N}: {len(vals)}/{n_runs} networks, fold "

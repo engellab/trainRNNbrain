@@ -342,6 +342,11 @@ SGD_MARKER = "^"
 OPT_R2_LO = 0.86            # R^2 below this is drawn as an arrowhead inside the bottom edge
 OPT_Y_MIN = 0.852           # lower limit of the optimizer R^2 axis: the arrowheads sit above the spine
 OPEN_S = 11                 # area (pt^2) of the one open marker that stands for a group of networks
+# drawn size of that marker: its ink rim (paperstyle.open_rim) adds MARKER_EW round the ring, so a
+# circle, square or diamond is drawn 2 MARKER_EW narrower and its outer edge stays where it was
+# before the rim (round 12): stacked markers overlap no more than they did. A triangle keeps OPEN_S:
+# its white inside would close up (tests/scan_open_markers.py, rule 1).
+OPEN_DRAW_S = {m: (np.sqrt(OPEN_S) - 2 * ps.MARKER_EW) ** 2 for m in "osD"}
 MIN_GAP_MM = 2.0            # least horizontal gap between two texts on one baseline (dead-relu-paper#88)
 # Every legend gets an opaque white box (no edge) above the guide lines, so no line crosses its text.
 LEGEND_BOX = dict(frameon=True, facecolor="white", edgecolor="none", framealpha=1.0, borderpad=0.25)
@@ -411,7 +416,7 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0):
                     zorder=zorder - 1, solid_capstyle="butt", clip_on=False)
         mk = ps.mark_fixed(g["edge"], scatter=True)
         mk["facecolors"] = "white"
-        ax.scatter([x0], [my], s=OPEN_S, marker=g["marker"], zorder=zorder, clip_on=False, **mk)
+        ax.scatter([x0], [my], s=OPEN_DRAW_S.get(g["marker"], OPEN_S), marker=g["marker"], zorder=zorder, clip_on=False, **mk)
         if g["label"]:
             side = g.get("label_side") or label_side
             if side == "below":                  # below the marker, right-aligned 5% of the axes
@@ -432,7 +437,9 @@ def draw_open_groups(ax, groups, zorder=8, label_side="left", max_shift=0):
 def rung_style(spec, i, n):
     """Colour and marker of value i of a sweep, by meaning (paperstyle palettes).
 
-    The default value is BASELINE grey. The rate penalty (alone or with the sparsity penalty) takes
+    The default value is BASELINE grey: a square in a sweep of ordered values, whose other values are
+    all circles (one of them SETTING_RAMP[0], close to grey: paperstyle's palette notes), and a circle
+    where the other values have shapes of their own. The rate penalty (alone or with the sparsity penalty) takes
     the violet rule family. The revival methods follow REVIVAL_STYLE. Every other value takes the teal
     setting ramp: ordered values light to dark in sweep order (circles); unordered values (activation
     function, sparsity penalty) ramp steps 1-3 with one marker shape each. No task colour is used.
@@ -443,7 +450,9 @@ def rung_style(spec, i, n):
         (colour, marker).
     """
     if i == spec["ref"]:
-        return ps.BASELINE, "o"
+        own_shapes = spec.get("categorical", False) or any(
+            (spec["stem"], k) in PENALTY_COLORS or (spec["stem"], k) in REVIVAL_STYLE for k in range(n))
+        return ps.BASELINE, "o" if own_shapes else "s"
     if (spec["stem"], i) in PENALTY_COLORS:
         return PENALTY_COLORS[(spec["stem"], i)], MARKERS[i]
     if (spec["stem"], i) in REVIVAL_STYLE:
@@ -522,13 +531,13 @@ def b5_scatter(ax, b5, key, skip_lr=(), y_hi=0.97):
         pts = b5_points(rows, key)
         out.append(((opt, wd, lr), [a for a, _ in pts], [v for _, v in pts]))
         is_ref = opt == "adam" and wd == "1e-6"
-        edge = ps.INK if is_ref else st["color"]
+        edge = st["color"]                           # the ring of an open marker
         for a, v in pts:
             low = v < OPT_R2_LO
             if filled:
                 ax.scatter([a], [OPT_R2_LO if low else v], s=12 if low else 10,
                            marker="v" if low else st["marker"], zorder=4 + is_ref, clip_on=False,
-                           facecolors=st["color"], edgecolors=edge, linewidths=0.6)
+                           **ps.mark_floor(st["color"], scatter=True))
             else:
                 g = groups.setdefault((st["label"], low), dict(xs=[], ys=[], edge=edge,
                                                                 marker="v" if low else st["marker"]))
@@ -536,7 +545,7 @@ def b5_scatter(ax, b5, key, skip_lr=(), y_hi=0.97):
                 g["ys"].append(OPT_R2_LO if low else v)
         if st["label"] not in seen:
             seen.add(st["label"])
-            mark = dict(mfc=st["color"], mec=edge, mew=0.6) if filled else ps.mark_fixed(edge)
+            mark = ps.mark_floor(st["color"]) if filled else ps.mark_fixed(edge)
             handles.append(Line2D([], [], ls="none", marker=st["marker"], ms=3.0, label=st["label"],
                                   **mark))
     ax.set_xlim(0, N_UNITS)
@@ -567,8 +576,8 @@ def value_handle(spec, col, mk, ref, label):
     shapes = len({rung_style(spec, k, len(spec["rungs"]))[1] for k in range(len(spec["rungs"]))}) > 1
     if not shapes:
         return Line2D([], [], color=col, lw=1.2, label=label)
-    return Line2D([], [], color=col, marker=mk, ms=3.0, lw=0.8, mec=ps.INK if ref else col,
-                  mew=0.5 if ref else 0, label=label)
+    return Line2D([], [], color=col, marker=mk, ms=3.0, lw=0.8, mec=ps.INK, mew=ps.MARKER_EW,
+                  label=label)
 
 
 def budget(lad):
@@ -593,8 +602,9 @@ def panel_pair(ax_r2, ax_tr, lad):
     iterations, or a shorter budget), at the mean of the value's networks with range bars
     (`draw_open_groups`). Right: active units over training for every run (log iteration axis),
     each run's floor crossing marked with the filled symbol and each value's fixed-point mean with
-    the open one. A run with no floor crossing is drawn dashed. The default value's markers have an
-    ink edge, filled or open. A dashed vertical line marks
+    the open one. A run with no floor crossing is drawn dashed. Every marker has paperstyle's ink
+    edge, which carries no meaning; the default value is told apart by colour, size and, in a sweep
+    of ordered values, its square shape (`rung_style`). A dashed vertical line marks
     75,000 iterations where the budget is longer; the dotted one the budget.
 
     Each trace is drawn as medians in TRACE_BINS log-spaced bins (common.logbin). Probe-to-probe
@@ -620,12 +630,11 @@ def panel_pair(ax_r2, ax_tr, lad):
     for i, rg in enumerate(lad["rungs"]):
         col, mk = rung_style(spec, i, n)
         ref = i == spec["ref"]
-        edge = ps.INK if ref else "none"
         rd = rg["read"]
-        ring = ps.INK if ref else col                  # edge of the open (fixed-point) markers
+        ring = col                                     # the ring of the open (fixed-point) markers
         if rd is not None and len(rd["floor"]):
-            ax_r2.scatter(rd["r2"], rd["floor"], s=13 if ref else 10, marker=mk, color=col,
-                          edgecolors=edge, linewidths=0.6, zorder=4 + ref)
+            ax_r2.scatter(rd["r2"], rd["floor"], s=13 if ref else 10, marker=mk, zorder=4 + ref,
+                          **ps.mark_floor(col, scatter=True))
         fx = [r["fixed"] for r in rg["runs"]]
         r2_groups.append(open_group([f["r2"] for f in fx], [f["active"] for f in fx], mk, ring))
         tr_groups.append(open_group([f["probe"] for f in fx], [f["active"] for f in fx], mk, ring))
@@ -637,7 +646,7 @@ def panel_pair(ax_r2, ax_tr, lad):
         for r in rg["runs"]:
             if np.isfinite(r["t_star"]):
                 ax_tr.scatter([r["t_star"]], [active_at(r, r["t_star"])], s=13 if ref else 10,
-                              marker=mk, color=col, edgecolors=edge, linewidths=0.6, zorder=6 + ref)
+                              marker=mk, zorder=6 + ref, **ps.mark_floor(col, scatter=True))
         # runs with no floor crossing are dashed; the caption says so, the legend does not count them
         handles.append(value_handle(spec, col, mk, ref, labels[i]))
     ax_tr.set_xscale("log")

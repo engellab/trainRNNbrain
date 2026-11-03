@@ -152,9 +152,10 @@ def panel_a(ax_n, ax_r, by_stem):
     """The rows Results 3 discusses, at 75,000 iterations: active units (ax_n) and R^2 minus default (ax_r).
 
     One open marker per row (open = 75,000 iterations, the paper-wide marker rule) at the mean of
-    the row's networks, with a bar over their range (`fig_paper_F2_fails.draw_open_groups`); the
-    default rows have an ink edge. R^2 is taken relative to the mean of the same sweep's default networks;
-    whether it was measured or estimated is returned per network and stated in the caption, not drawn.
+    the row's networks, with a bar over their range (`fig_paper_F2_fails.draw_open_groups`); every
+    marker has paperstyle's ink edge, and the default rows are grey circles. R^2 is taken relative
+    to the mean of the same sweep's default networks; whether it was measured or estimated is
+    returned per network and stated in the caption, not drawn.
     The "15 other values" row draws the range of the remaining CDDM values' means as a bar with end
     ticks in both halves; their networks are in Extended Data Fig. 4.
 
@@ -203,7 +204,7 @@ def panel_a(ax_n, ax_r, by_stem):
             act, r2, how = fixed_of(lad, i)
             dr2 = r2 - fixed_of(lad, ref)[1].mean()
             is_ref = i == ref
-            edge = ps.INK if is_ref else col
+            edge = col                                   # the ring of the open marker
             # one open marker per row at the mean of its networks, with a range bar (open markers of
             # close values print solid otherwise); a row whose networks all share one value (the rate
             # penalty, all 1,000 active) has no bar, so it is labelled with its number of networks
@@ -250,8 +251,9 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
     """Active units against iteration for every run of a sweep (linear axis), binned medians.
 
     The floor crossing of each run that has one is a filled symbol at its raw count; the 75,000
-    iteration measurement is an open symbol (the paper-wide marker rule); the default's symbols have
-    an ink edge; a dashed vertical line marks 75,000 iterations. Each value's networks at 75,000
+    iteration measurement is an open symbol (the paper-wide marker rule); the default's symbols are
+    grey squares in a sweep of ordered values (`fig_paper_F2_fails.rung_style`); a dashed vertical
+    line marks 75,000 iterations. Each value's networks at 75,000
     iterations are ONE open marker at their mean count with a bar over their range
     (`fig_paper_F2_fails.draw_open_groups`, which also sets overlapping values' markers side by side,
     right of 75,000, unclipped): open markers of close counts print solid otherwise
@@ -280,7 +282,7 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
         col, mk = F2F.rung_style(spec, i, n)
         is_ref = i == spec["ref"]
         cross, at_floor, at_end, binned = [], [], [], {}
-        edge = ps.INK if is_ref else col
+        edge = col                                       # the ring of the open markers
         for r in rg["runs"]:
             keep = r["it_act"] <= x_max
             tb, yb = linbin(r["it_act"][keep], r["active"][keep])
@@ -294,14 +296,14 @@ def traces(ax, lad, x_max, ticks, legend_loc, ncol=1, median=False, means=False)
                 cross.append(r["t_star"])
                 at_floor.append(F2F.active_at(r, r["t_star"]))
                 if not means:
-                    ax.scatter([r["t_star"]], [at_floor[-1]], s=10, marker=mk, color=col,
-                               edgecolors=edge, linewidths=0.5, zorder=6)
+                    ax.scatter([r["t_star"]], [at_floor[-1]], s=10, marker=mk, zorder=6,
+                               **ps.mark_floor(col, scatter=True))
             at_end.append(F2F.active_at(r, x_max))
         groups.append(F2F.open_group([r["fixed"]["probe"] for r in rg["runs"]],
                                      [r["fixed"]["active"] for r in rg["runs"]], mk, edge))
         if means:
-            ax.scatter([np.mean(cross)], [np.mean(at_floor)], s=12, marker=mk, color=col,
-                       edgecolors=edge, linewidths=0.5, zorder=6)
+            ax.scatter([np.mean(cross)], [np.mean(at_floor)], s=12, marker=mk, zorder=6,
+                       **ps.mark_floor(col, scatter=True))
         if median:
             tm = np.array(sorted(binned))
             ax.plot(tm, [np.median(binned[t]) for t in tm], color=col, lw=1.4, zorder=3 + is_ref)
@@ -349,7 +351,7 @@ def panel_d(ax, b5):
                              ("sgd", "1e-6", "0.1", "SGD")):
         st = F2F.b5_style(opt, wd, lr)
         handles.append(Line2D([], [], ls="none", marker=st["marker"], ms=3.0, label=lab,
-                              **ps.mark_fixed(ps.INK if lab.endswith("(default)") else st["color"])))
+                              **ps.mark_fixed(st["color"])))
     for text, x, y in SGD_LABELS:
         ax.text(x, y, text, fontsize=ps.TICK_PT, color=ps.INK, va="center", ha="left")
     ax.set_xlabel(ps.LABELS["active"], labelpad=1)

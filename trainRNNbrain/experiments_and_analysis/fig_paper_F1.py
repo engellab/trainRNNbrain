@@ -857,8 +857,10 @@ def panel_a(ax_net, ax_tr, rates, p):
 
     # both classes are filled and told apart by colour: fill marks the floor crossing in every
     # figure and means nothing else (dead-relu-paper#83)
-    ax_net.scatter(gx[~on], gy[~on], s=DOT_S, color=SILENT_GREY, edgecolor="none", zorder=3)
-    ax_net.scatter(gx[on], gy[on], s=DOT_S, color=ACTIVE_COL, edgecolor="none", zorder=4)
+    ax_net.scatter(gx[~on], gy[~on], s=DOT_S, color=SILENT_GREY, edgecolors=ps.INK,
+                   linewidths=ps.MARKER_EW, zorder=3)
+    ax_net.scatter(gx[on], gy[on], s=DOT_S, color=ACTIVE_COL, edgecolors=ps.INK,
+                   linewidths=ps.MARKER_EW, zorder=4)
 
     # inputs and outputs: what makes it a circuit rather than a bag of units. The task is named in
     # the panel title, not explained - its trial structure is Supplementary Fig. 1.
@@ -870,11 +872,13 @@ def panel_a(ax_net, ax_tr, rates, p):
     ax_net.text(1.30, 0.44, "outputs", ha="center", va="bottom", fontsize=ps.TICK_PT, color=ps.INK)
 
     # the key: a near-black dot is an active unit, a light grey one an inactive unit, with the counts
-    ax_net.scatter([-1.62], [-1.32], s=DOT_S, color=ACTIVE_COL, edgecolor="none", zorder=4,
+    ax_net.scatter([-1.62], [-1.32], s=DOT_S, color=ACTIVE_COL, edgecolors=ps.INK,
+                   linewidths=ps.MARKER_EW, zorder=4,
                    clip_on=False)
     ax_net.text(-1.50, -1.32, f"{ps.fmt_count(n_live)} active", ha="left", va="center",
                 fontsize=ps.TICK_PT, color=ps.INK)
-    ax_net.scatter([0.16], [-1.32], s=DOT_S, color=SILENT_GREY, edgecolor="none", zorder=4,
+    ax_net.scatter([0.16], [-1.32], s=DOT_S, color=SILENT_GREY, edgecolors=ps.INK,
+                   linewidths=ps.MARKER_EW, zorder=4,
                    clip_on=False)
     ax_net.text(0.28, -1.32, f"{ps.fmt_count(N - n_live)} inactive", ha="left", va="center",
                 fontsize=ps.TICK_PT, color=ps.INK)
@@ -1067,7 +1071,7 @@ def panel_c(ax):
                     mec=col if readout == "end" else "none", mew=0.5, zorder=4)
         xs, ys, sds = np.array(xs, float), np.array(ys, float), np.array(sds, float)
         ax.errorbar(xs, ys, yerr=sds, fmt="o-" if readout == "floor" else "o--", color=col,
-                    mfc=mfc, ms=3.4, lw=1.1, zorder=5, capsize=1.6)
+                    mfc=mfc, ms=3.4, lw=1.1, zorder=5, capsize=1.6, capthick=ps.DATA_LW)
         tag = "" if readout == "floor" else ", end of training"
         if task in NO_FIT:
             print(f"  !! {task}: not fitted - {NO_FIT[task]}")
@@ -1803,7 +1807,7 @@ def panel_tasks(ax, rows):
         xs = k + np.linspace(-0.12, 0.12, len(y)) if len(y) > 1 else np.full(len(y), float(k))
         ax.plot([k - 0.26, k + 0.26], [y.mean()] * 2, lw=1.2, color=col, zorder=3,
                 solid_capstyle="butt")
-        ax.plot(xs, y, "o", ms=ps.MARKER_PT + 0.6, color=col, mec="white", mew=0.4, zorder=4)
+        ax.plot(xs, y, "o", ms=ps.MARKER_PT + 0.6, color=col, zorder=4)
         ax.text(k + 0.31, y.mean(), f"{y.mean():.0f}", ha="left", va="center", fontsize=ps.TICK_PT,
                 color=ps.INK)
         ticks.append(f"{TASK_SHORT.get(label, label)}\n$R^2$ = {r2.mean():.3f}\n$n$ = {len(y)}")
@@ -1849,8 +1853,8 @@ def panel_selective(ax, res, seeds_d):
         for dx, ya, yb in zip(offs, y_all, y_act):
             ax.plot([k - E_DX + dx, k + E_DX + dx], [ya, yb], color=col, lw=ps.THIN_LW, zorder=2)
         for side, y in ((-E_DX, y_all), (E_DX, y_act)):
-            ax.plot(k + side + np.array(offs), y, "o", ms=ps.MARKER_PT, color=col, mec="white",
-                    mew=0.4, zorder=4, clip_on=False)
+            ax.plot(k + side + np.array(offs), y, "o", ms=ps.MARKER_PT, color=col, zorder=4,
+                    clip_on=False)
         out.append((TASK_SHORT[label], y_all, y_act))
     below = offset_copy(ax.get_xaxis_transform(), fig=ax.figure, y=-11.5, units="points")
     for k, (label, _p, _c) in enumerate(PANEL_TASKS):
