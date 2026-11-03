@@ -29,8 +29,6 @@ import json
 import os
 import sys
 
-import matplotlib.patheffects as patheffects
-
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps                                   # noqa: E402
 
@@ -40,9 +38,7 @@ OUT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 # written by connectivity_confirm.py (its OUT)
 CONFIRM = os.path.join(os.path.dirname(OUT), "connectivity_confirm.json")
 W1_LIM = (0.003, 0.3)          # panel a, both axes (log)
-# Every marker has a thin ink edge (Pavel's item 54). paperstyle sets it once (MARKER_EW, PR #177 of
-# r12-figs); until that lands on main, the same edge is set here.
-MARKER_EW = getattr(ps, "MARKER_EW", 0.35)
+# Every marker has a thin ink edge (Pavel's item 54): ps.mark_floor / ps.mark_fixed set it (MARKER_EW).
 
 TASKS = ("3BFF", "CDDM", "DMTS")
 MARKER = {"3BFF": "o", "CDDM": "s", "DMTS": "^"}
@@ -50,24 +46,6 @@ MIXED_MARKER = "x"             # mixed-selective units in panels c and d, in the
 # panel e: each network is shifted ALONG the diagonal (the same amount in x and y), so equal values
 # stay on the identity line; tasks get separate stretches of the diagonal, networks 0.1 apart, at most 0.3 from the true value
 K_SHIFT = {"3BFF": (-0.3, -0.2, -0.1), "CDDM": (0.1, 0.2, 0.3), "DMTS": (-0.1, 0.0, 0.1)}
-
-
-def mark_floor(col):
-    """Filled marker (weights at the floor crossing) with the ink edge: ps.mark_floor once it sets
-    the edge, else the same keywords here."""
-    if hasattr(ps, "MARKER_EW"):
-        return ps.mark_floor(col)
-    return dict(mfc=col, mec=ps.INK, mew=MARKER_EW)
-
-
-def mark_fixed(col):
-    """Open marker (weights at a fixed iteration): white inside, a ring of the series colour and an
-    ink rim round the ring, as ps.mark_fixed draws it once it sets the edge."""
-    if hasattr(ps, "MARKER_EW"):
-        return ps.mark_fixed(col)
-    return dict(mfc="white", mec=col, mew=ps.OPEN_MARKER_EW,
-                path_effects=[patheffects.Stroke(linewidth=ps.OPEN_MARKER_EW + 2 * MARKER_EW, foreground=ps.INK),
-                              patheffects.Normal()])
 
 
 def load_confirm():
@@ -103,7 +81,7 @@ def dots(ax, x, y, task, mixed=False, ms=ps.MARKER_PT + 0.6):
     if mixed:
         ax.plot(x, y, MIXED_MARKER, ms=ms + 0.4, mec=col, mew=0.8, zorder=3, clip_on=False)
     else:
-        ax.plot(x, y, MARKER[task], ms=ms, **mark_floor(col), zorder=3, clip_on=False)
+        ax.plot(x, y, MARKER[task], ms=ms, **ps.mark_floor(col), zorder=3, clip_on=False)
 
 
 def scalar_panel(ax, res, key, lo, hi, title, ticks):
@@ -142,7 +120,7 @@ def weight_panel(ax, conf):
         # filled = weights at the floor crossing (a kept snapshot within 1,000 iterations after it);
         # open = weights saved at a fixed iteration (Methods)
         at_floor = r["t_star"] == r["t_star"] and 0 <= r["read_iter"] - r["t_star"] <= 1000
-        kw = mark_floor(col) if at_floor else mark_fixed(col)
+        kw = ps.mark_floor(col) if at_floor else ps.mark_fixed(col)
         ax.plot(r["act"]["W1"], r["all"]["W1"], MARKER[r["task"]], ms=ps.MARKER_PT + 0.2, ls="none",
                 zorder=3, clip_on=False, **kw)
     ticks = [0.003, 0.01, 0.03, 0.1, 0.3]
@@ -150,8 +128,8 @@ def weight_panel(ax, conf):
     ax.set_xticks(ticks, labels)
     ax.set_yticks(ticks, labels)
     ax.minorticks_off()
-    handles = [ax.plot([], [], "o", ms=ps.MARKER_PT + 0.2, ls="none", **mark_fixed(ps.MUTED))[0],
-               ax.plot([], [], "o", ms=ps.MARKER_PT + 0.2, ls="none", **mark_floor(ps.MUTED))[0],
+    handles = [ax.plot([], [], "o", ms=ps.MARKER_PT + 0.2, ls="none", **ps.mark_fixed(ps.MUTED))[0],
+               ax.plot([], [], "o", ms=ps.MARKER_PT + 0.2, ls="none", **ps.mark_floor(ps.MUTED))[0],
                ax.plot([], [], color=ps.FAINT, lw=ps.THIN_LW)[0]]
     ax.legend(handles, ["fixed iteration", "floor crossing", "random unit sets"], loc="upper left",
               frameon=False, handlelength=1.2, handletextpad=0.4, borderaxespad=0.2, labelspacing=0.25)
@@ -250,11 +228,11 @@ def main():
         ax.set_ylabel("over all units")
         ps.panel_letter(ax, letter)
     # legends above the panels, outside the data: tasks (shape and colour), and the shape key of c, d
-    handles = [axes[0].plot([], [], MARKER[t], ms=ps.MARKER_PT + 0.6, ls="none", **mark_floor(ps.TASK_COLORS[t]))[0]
+    handles = [axes[0].plot([], [], MARKER[t], ms=ps.MARKER_PT + 0.6, ls="none", **ps.mark_floor(ps.TASK_COLORS[t]))[0]
                for t in TASKS]
     fig.legend(handles, TASKS, loc="upper left", bbox_to_anchor=(0.06, 0.995), ncol=3,
                frameon=False, handletextpad=0.3, columnspacing=1.2)
-    fill = [axes[0].plot([], [], "o", ms=ps.MARKER_PT + 0.6, ls="none", **mark_floor(ps.INK))[0],
+    fill = [axes[0].plot([], [], "o", ms=ps.MARKER_PT + 0.6, ls="none", **ps.mark_floor(ps.INK))[0],
             axes[0].plot([], [], MIXED_MARKER, ms=ps.MARKER_PT + 1.0, mec=ps.INK, mew=0.8,
                          ls="none")[0]]
     fig.legend(fill, ["selective (task marker)", "mixed-selective"], loc="upper right", bbox_to_anchor=(0.985, 0.995),
