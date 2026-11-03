@@ -563,7 +563,7 @@ def panel_key(ax):
         None.
     """
     ps.blank(ax)
-    h = [Line2D([], [], marker=MARK[f], color=COL[f], mec=COL[f], ls="-", lw=ps.DATA_LW,
+    h = [Line2D([], [], marker=MARK[f], color=COL[f], ls="-", lw=ps.DATA_LW,
                 ms=3.4, label=NAME[f]) for f in ("control",) + MAIN]
     leg = ax.legend(handles=h, loc="upper center", ncol=len(h), frameon=False, fontsize=ps.TICK_PT,
                     handlelength=1.5, columnspacing=1.2, handletextpad=0.35, borderaxespad=0)
@@ -755,9 +755,9 @@ def panel_sizes(ax_m, ax_r, series, marks):
               color=ps.INK, ha="left", va="center")
     h = [Line2D([], [], ls="-", marker="o", ms=3, lw=0.9, color=ps.MUTED,
                 label=ps.MARK_FLOOR_LABEL, **ps.mark_floor(ps.MUTED)),
-         Line2D([], [], ls="--", marker="o", ms=3, lw=0.9, color=ps.MUTED,
-                label=ps.MARK_75K_LABEL, **dict(ps.mark_75k(ps.MUTED), mfc=OPEN_FACE))]
-    ax_m.legend(handles=h, loc="upper left", fontsize=ps.TICK_PT, handlelength=2.2,
+         ps.open_key(ps.MUTED, ms=3, ls="--", lw=0.9, face=OPEN_FACE)]
+    ax_m.legend(handles=h, labels=[ps.MARK_FLOOR_LABEL, ps.MARK_75K_LABEL], loc="upper left",
+                fontsize=ps.TICK_PT, handlelength=2.2,
                 borderaxespad=0.1, frameon=False)
     return drawn
 

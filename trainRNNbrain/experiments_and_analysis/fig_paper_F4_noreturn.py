@@ -622,9 +622,10 @@ def draw_gradient(fig, gs_cell, nets):
         first = first or ax
         rng = np.random.default_rng(0)
         ax.axhline(REACH_REL, color=ps.INK, lw=ps.THIN_LW, ls="--", zorder=1)
-        for m, kw in ((r["sil"], dict(marker="D", c=C_INA, lw=0, s=3)),
-                      (r["low"], dict(c=C_INA, lw=0, s=2.5)),
-                      (r["act"], dict(c=C_ACT, lw=0, s=2.5))):
+        edge = dict(edgecolors=ps.INK, linewidths=ps.MARKER_EW)      # every marker's ink edge
+        for m, kw in ((r["sil"], dict(marker="D", c=C_INA, s=3, **edge)),
+                      (r["low"], dict(c=C_INA, s=2.5, **edge)),
+                      (r["act"], dict(c=C_ACT, s=2.5, **edge))):
             if not m.any():
                 continue
             xs = np.where(r["on"][m] > 0, r["on"][m], XZ * np.exp(rng.normal(0, 0.25, m.sum())))
@@ -646,9 +647,9 @@ def draw_gradient(fig, gs_cell, nets):
         print(f"  panel b {task} s{r['seed']}: {r['act'].sum()} active, {r['low'].sum()} low-active "
               f"({(r['low'] & r['reach']).sum()} above the gradient threshold), {r['sil'].sum()} silent")
     # one legend for both networks, in the 3BFF axes' empty lower right
-    hs = [Line2D([], [], ls="", marker="o", ms=3, mfc=C_ACT, mec=C_ACT, label="active"),
-          Line2D([], [], ls="", marker="o", ms=3, mfc=C_INA, mec=C_INA, label="low-active"),
-          Line2D([], [], ls="", marker="D", ms=2.5, mfc=C_INA, mec=C_INA, label="silent"),
+    hs = [Line2D([], [], ls="", marker="o", ms=3, mfc=C_ACT, label="active"),
+          Line2D([], [], ls="", marker="o", ms=3, mfc=C_INA, label="low-active"),
+          Line2D([], [], ls="", marker="D", ms=2.5, mfc=C_INA, label="silent"),
           Line2D([], [], ls="--", color=ps.INK, lw=ps.THIN_LW, label="gradient threshold")]
     ax.legend(handles=hs, loc="lower right", handletextpad=0.2, borderaxespad=0.2, labelspacing=0.2)
     return first
@@ -753,7 +754,7 @@ def draw_b4_revived(ax, b4):
     labels = []
     for (N, src), x in xs.items():
         v = np.array([100 * r["revived"] / r["n_S0"] for r in b4[N][src]])
-        ax.plot(x + rng.normal(0, 0.04, len(v)), v, ls="", ms=3, mew=0.6, zorder=3, **SRC_STYLE[src])
+        ax.plot(x + rng.normal(0, 0.04, len(v)), v, ls="", ms=3, zorder=3, **SRC_STYLE[src])
         ax.plot([x - 0.22, x + 0.22], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW)
         s0 = [r["n_S0"] for r in b4[N][src]]
         labels.append(f"{src}\n{ps.fmt_count(int(np.median(s0)))}")
@@ -789,7 +790,7 @@ def draw_b4_active(ax, b4):
         for j, src in enumerate(("old", "young", "fresh")):
             x = x0 + j
             v = np.array([r["active_star"] for r in g[src]], float)
-            ax.plot(x + rng.normal(0, 0.04, len(v)), v, ls="", ms=3, mew=0.6, zorder=3, **SRC_STYLE[src])
+            ax.plot(x + rng.normal(0, 0.04, len(v)), v, ls="", ms=3, zorder=3, **SRC_STYLE[src])
             ax.plot([x - 0.22, x + 0.22], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW)
             if src == "old":
                 v0 = np.array([r["active0"] for r in g[src]], float)
@@ -1011,12 +1012,10 @@ def ed_mechanism(nets):
         ps.ygrid(a)
     ax_c.set_ylabel("low-active units with\ngradient norm above threshold", labelpad=1)
     ax_c.set_ylim(0, 340)
-    ax_c.legend(handles=[Line2D([], [], color=TASK_COL["3BFF"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
-                                **open_mark(TASK_COL["3BFF"]), label="3BFF"),
-                         Line2D([], [], color=TASK_COL["CDDM"], marker="o", ms=2.5, lw=ps.THIN_LW * 1.5,
-                                **open_mark(TASK_COL["CDDM"]), label="CDDM"),
-                         Line2D([], [], ls="", marker="s", ms=3, **open_mark(ps.INK),
-                                label="learning rate / 10")], loc="upper center", ncol=3,
+    ax_c.legend(handles=[ps.open_key(TASK_COL["3BFF"], ms=2.5, lw=ps.THIN_LW * 1.5, face=ps.PAPER),
+                         ps.open_key(TASK_COL["CDDM"], ms=2.5, lw=ps.THIN_LW * 1.5, face=ps.PAPER),
+                         Line2D([], [], ls="", marker="s", ms=3, **open_mark(ps.INK))],
+                labels=["3BFF", "CDDM", "learning rate / 10"], loc="upper center", ncol=3,
                 handletextpad=0.3, columnspacing=0.7, borderaxespad=0.1)
     ps.panel_letter(ax_c, "c")
     ax_d.set_ylabel("fraction of gradient common\nto 32 batches", labelpad=1)

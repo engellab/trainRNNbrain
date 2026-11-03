@@ -37,7 +37,8 @@ $R^2$, $N$ and $\\tau$ are Helvetica too. `pdffonts` on a figure lists that one 
 Strokes and marks, in points:
   AXIS_LW 0.6 (spines, ticks; ticks 2.4 long), DATA_LW 1.0 (a data line), THIN_LW 0.5 (per-run
   traces, guides, connectors), MARKER_PT 3.0 (marker diameter), SMALL_MARKER_PT 2.0 (one dot per run),
-  OPEN_MARKER_EW 0.7 (edge of an open marker).
+  MARKER_EW 0.35 (the ink edge of every marker), OPEN_MARKER_EW 0.7 (the coloured ring of an open
+  marker).
 Spacing: LABEL_PAD_PT 4.0 pt between an axis label and its tick labels (matplotlib's own default).
   `save()` raises any smaller pad to it, so a script's `labelpad=1` no longer reaches the page;
   measured between PyMuPDF text boxes, a y-label then sits 1.36 mm from its tick labels
@@ -82,9 +83,9 @@ Colour: one colour per meaning, everywhere, and a colour is never reused for ano
     simulations) or with the setting teals (SETTING_RAMP[0]: 3.8 under protanopia, 10.0 in normal
     vision). ACTIVE and SETTING_RAMP[3] (12.4 in normal vision) never share a panel.
   - BASELINE and SETTING_RAMP[0] are 4.4 apart under deuteranopia and 8.3 in normal vision. A sweep
-    that uses both draws the default's markers with an ink edge and names it in the legend (the
+    that uses both draws the default with its own marker shape and names it in the legend (the
     metabolic-penalty and input-weight-scale panels of the Extended Data figure of every
-    standard-setting sweep).
+    standard-setting sweep); a marker edge carries no meaning (see Markers).
   - SETTING_RAMP[2] and SETTING_RAMP[3] are 10.7 apart in normal vision. The teals are the ordered
     values of one setting, read by lightness; every value is named in a legend or a direct label.
   - BASELINE has a contrast of 2.35:1 on white, under the validator's 3:1 for a mark. A BASELINE
@@ -120,6 +121,14 @@ carries no other meaning anywhere; any other distinction (measured against estim
 against another, one rule against another) uses marker shape, colour or words. Draw them with
 `mark_floor(col)` and `mark_fixed(col)` (alias `mark_75k`); name them in a legend with
 MARK_FLOOR_LABEL and MARK_75K_LABEL, or f"{fmt_count(it)} iterations" for another fixed iteration.
+Edges (Pavel's item 54, round 12): every marker has a thin ink edge, MARKER_EW = 0.35 pt, and the
+edge carries no meaning. A filled marker is its series colour inside an ink edge. An open marker is
+a white inside, a ring of its series colour (OPEN_MARKER_EW) and an ink rim round the ring
+(`open_rim`, a path-effect stroke), so it still reads as open. setup() makes the ink edge the
+default of ax.plot / ax.errorbar markers and of ax.scatter; ax.scatter's edge width is not an
+rcParam, so pass `linewidths=MARKER_EW` (mark_floor(col, scatter=True) does). Draw an open marker
+apart from its error bar (errorbar fmt="none", then ax.plot): the rim would outline the bar too.
+Check a figure with `python tests/scan_marker_edges.py <script>`.
 
 Self-checks:
   python trainRNNbrain/experiments_and_analysis/paperstyle.py   swatches + primitives sheet
@@ -133,9 +142,11 @@ import warnings
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.patheffects as patheffects
 import matplotlib.pyplot as plt
 from fontTools.ttLib import TTCollection
 from matplotlib import font_manager
+from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch, Rectangle
 from matplotlib.ticker import FuncFormatter, NullFormatter
 from matplotlib.transforms import ScaledTranslation
@@ -176,7 +187,8 @@ DATA_LW = 1.0                   # a data line
 THIN_LW = 0.5                   # per-run traces, guides, connectors
 MARKER_PT = 3.0                 # marker diameter (matplotlib markersize)
 SMALL_MARKER_PT = 2.0           # one dot per run in a crowded strip
-OPEN_MARKER_EW = 0.7            # edge width of an open marker
+MARKER_EW = 0.35                # the ink edge of every marker (Pavel's item 54)
+OPEN_MARKER_EW = 0.7            # the coloured ring of an open marker
 
 # Font families tried in order; the first with regular, bold and oblique faces wins (`setup`).
 FONT_CANDIDATES = ("Helvetica", "Arial", "Liberation Sans", "DejaVu Sans")
@@ -315,42 +327,79 @@ MARK_75K_LABEL = "75,000 iterations"        # legend words for an open marker re
                                             # another fixed iteration: f"{fmt_count(it)} iterations"
 
 
+def open_rim():
+    """The ink rim drawn round an open marker's coloured ring, as matplotlib path effects.
+
+    An ink stroke OPEN_MARKER_EW + 2 MARKER_EW wide is drawn first; the marker is then drawn over
+    it with its white face and its coloured ring, which leaves MARKER_EW of ink outside the ring.
+    The white face covers the stroke's inner half, so the inside stays white.
+
+    Returns:
+        list of path effects, for the `path_effects` keyword of ax.plot, Line2D or ax.scatter.
+    """
+    return [patheffects.Stroke(linewidth=OPEN_MARKER_EW + 2 * MARKER_EW, foreground=INK),
+            patheffects.Normal()]
+
+
 def mark_floor(col, scatter=False):
     """Marker colours for a value read at the floor crossing: FILLED, in every figure.
 
     Fill means the measurement point and nothing else; the caller picks the marker shape and size.
+    The edge is ink, MARKER_EW wide, as on every marker.
 
     Args:
         col: str, the series colour.
-        scatter: bool, False for keyword names of ax.plot / ax.errorbar / Line2D (mfc, mec),
-            True for ax.scatter (facecolors, edgecolors).
+        scatter: bool, False for keyword names of ax.plot / ax.errorbar / Line2D (mfc, mec, mew),
+            True for ax.scatter (facecolors, edgecolors, linewidths).
     Returns:
         dict of keyword arguments, e.g. ax.plot(x, y, "o", **mark_floor(ps.RATE_PENALTY)).
     """
     if scatter:
-        return dict(facecolors=col, edgecolors=col)
-    return dict(mfc=col, mec=col)
+        return dict(facecolors=col, edgecolors=INK, linewidths=MARKER_EW)
+    return dict(mfc=col, mec=INK, mew=MARKER_EW)
 
 
 def mark_fixed(col, scatter=False):
     """Marker colours for a value read at a fixed iteration: OPEN, in every figure.
 
     The fixed iteration is 75,000 iterations or the end of a fixed training budget; the caption
-    names which (dead-relu-paper #83, decision update).
+    names which (dead-relu-paper #83, decision update). The marker is a white inside, a ring of the
+    series colour OPEN_MARKER_EW wide, and an ink rim MARKER_EW wide round the ring (`open_rim`).
+    Use it on markers only (ls="none" or fmt="none" bars drawn separately): the rim outlines any
+    line of the same artist.
 
     Args:
-        col: str, the series colour (drawn as the edge; the inside is empty).
-        scatter: bool, False for ax.plot / ax.errorbar / Line2D keywords (mfc, mec, mew),
-            True for ax.scatter (facecolors, edgecolors, linewidths).
+        col: str, the series colour (drawn as the ring).
+        scatter: bool, False for ax.plot / ax.errorbar / Line2D keywords (mfc, mec, mew,
+            path_effects), True for ax.scatter (facecolors, edgecolors, linewidths, path_effects).
     Returns:
-        dict of keyword arguments with an OPEN_MARKER_EW pt edge.
+        dict of keyword arguments.
     """
     if scatter:
-        return dict(facecolors="none", edgecolors=col, linewidths=OPEN_MARKER_EW)
-    return dict(mfc="none", mec=col, mew=OPEN_MARKER_EW)
+        return dict(facecolors="white", edgecolors=col, linewidths=OPEN_MARKER_EW,
+                    path_effects=open_rim())
+    return dict(mfc="white", mec=col, mew=OPEN_MARKER_EW, path_effects=open_rim())
 
 
 mark_75k = mark_fixed           # the first name of `mark_fixed`, kept for scripts that use it
+
+
+def open_key(col, marker="o", ms=MARKER_PT, ls="-", lw=DATA_LW, face="white"):
+    """A legend key of a line through an open marker, as a (line, marker) pair of artists.
+
+    One Line2D with both a line and `mark_fixed` keywords would draw the ink rim round the line too;
+    the pair is drawn by matplotlib's default HandlerTuple, line first, marker on top. Pass the label
+    through ax.legend(handles=[...], labels=[...]).
+
+    Args:
+        col: str, the series colour; marker: matplotlib marker; ms: marker size (pt);
+        ls, lw: line style and width of the key's line; face: the open marker's inside colour.
+    Returns:
+        tuple (Line2D line, Line2D marker).
+    """
+    line = Line2D([], [], color=col, ls=ls, lw=lw)
+    mark = Line2D([], [], ls="none", marker=marker, ms=ms, **dict(mark_fixed(col), mfc=face))
+    return line, mark
 
 
 # --------------------------------------------------------------------------------------------
@@ -493,6 +542,9 @@ def setup():
         "legend.labelspacing": 0.3,
         "lines.linewidth": DATA_LW,
         "lines.markersize": MARKER_PT,
+        "lines.markeredgecolor": INK,      # every marker has a thin ink edge (item 54)
+        "lines.markeredgewidth": MARKER_EW,
+        "scatter.edgecolors": INK,         # scatter's edge width is not an rcParam: pass MARKER_EW
         "errorbar.capsize": 1.8,
         "pdf.fonttype": 42,                # embed TrueType so editors can select the text
         "ps.fonttype": 42,
@@ -709,7 +761,7 @@ def strip(ax, xs, groups, cols, width=0.24, jitter=0.055, rng=None, mean_lw=1.6,
             out.append((np.nan, np.nan, 0))
             continue
         ax.plot(x + rng.normal(0, jitter, len(g)), g, "o", ms=ms, color=c, alpha=alpha,
-                mec="none", zorder=zorder, clip_on=False)
+                mec=INK, mew=MARKER_EW, zorder=zorder, clip_on=False)
         ax.plot([x - width, x + width], [g.mean()] * 2, "-", lw=mean_lw, color=c,
                 zorder=zorder + 1, solid_capstyle="butt")
         out.append((float(g.mean()), float(g.std(ddof=1)) if len(g) > 1 else 0.0, len(g)))
