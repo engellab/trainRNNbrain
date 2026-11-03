@@ -4,10 +4,15 @@ Extended Data Fig. 2 (dead-relu-paper #56): population statistics over all units
 statistics over the active units only, every network drawn.
 
 Draws data/population_stats.json, written by population_stats.py (notebook entries
-2026-10-31_2212_population-stats-rule.md and 2026-10-31_2220_population-stats-results.md). Nothing
-is computed here beyond reading that file.
+2026-10-31_2212_population-stats-rule.md and 2026-10-31_2220_population-stats-results.md), and, for
+panel a, data/connectivity_confirm.json, written by connectivity_confirm.py (notebook entries
+2026-11-02_2218_connectivity-confirm-rule.md and 2026-11-02_2232_connectivity-confirm-result.md).
+Nothing is computed here beyond reading those files.
 
-  (a) participation ratio of the rate covariance
+  (a) s.d. of the recurrent weights (W1) of the 39 networks of the confirmatory test, over all units
+      against over the active units (the active-active submatrix), with the range of the same
+      statistic over 200 random sets of as many units as are active (round 12, r12-weights; this
+      panel replaced the participation ratio of the rate covariance)
   (b) participation ratio after dividing each unit's rates by their standard deviation
   (c) selective (task marker) and mixed-selective (x) unit counts. Every marker is filled or a
       cross, never open: the weights are the floor-crossing snapshots, and fill means the floor
@@ -24,12 +29,20 @@ import json
 import os
 import sys
 
+import matplotlib.patheffects as patheffects
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps                                   # noqa: E402
 
 # written by population_stats.py (its OUT); a path here, so drawing does not load torch and hydra
 OUT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data",
                                     "population_stats.json"))
+# written by connectivity_confirm.py (its OUT)
+CONFIRM = os.path.join(os.path.dirname(OUT), "connectivity_confirm.json")
+W1_LIM = (0.003, 0.3)          # panel a, both axes (log)
+# Every marker has a thin ink edge (Pavel's item 54). paperstyle sets it once (MARKER_EW, PR #177 of
+# r12-figs); until that lands on main, the same edge is set here.
+MARKER_EW = getattr(ps, "MARKER_EW", 0.35)
 
 TASKS = ("3BFF", "CDDM", "DMTS")
 MARKER = {"3BFF": "o", "CDDM": "s", "DMTS": "^"}
@@ -37,6 +50,30 @@ MIXED_MARKER = "x"             # mixed-selective units in panels c and d, in the
 # panel e: each network is shifted ALONG the diagonal (the same amount in x and y), so equal values
 # stay on the identity line; tasks get separate stretches of the diagonal, networks 0.1 apart, at most 0.3 from the true value
 K_SHIFT = {"3BFF": (-0.3, -0.2, -0.1), "CDDM": (0.1, 0.2, 0.3), "DMTS": (-0.1, 0.0, 0.1)}
+
+
+def mark_floor(col):
+    """Filled marker (weights at the floor crossing) with the ink edge: ps.mark_floor once it sets
+    the edge, else the same keywords here."""
+    if hasattr(ps, "MARKER_EW"):
+        return ps.mark_floor(col)
+    return dict(mfc=col, mec=ps.INK, mew=MARKER_EW)
+
+
+def mark_fixed(col):
+    """Open marker (weights at a fixed iteration): white inside, a ring of the series colour and an
+    ink rim round the ring, as ps.mark_fixed draws it once it sets the edge."""
+    if hasattr(ps, "MARKER_EW"):
+        return ps.mark_fixed(col)
+    return dict(mfc="white", mec=col, mew=ps.OPEN_MARKER_EW,
+                path_effects=[patheffects.Stroke(linewidth=ps.OPEN_MARKER_EW + 2 * MARKER_EW, foreground=ps.INK),
+                              patheffects.Normal()])
+
+
+def load_confirm():
+    """The per-network results of connectivity_confirm.py (the 39 networks of the main test)."""
+    with open(CONFIRM) as fh:
+        return json.load(fh)["results"]
 
 
 def load():
@@ -66,11 +103,11 @@ def dots(ax, x, y, task, mixed=False, ms=ps.MARKER_PT + 0.6):
     if mixed:
         ax.plot(x, y, MIXED_MARKER, ms=ms + 0.4, mec=col, mew=0.8, zorder=3, clip_on=False)
     else:
-        ax.plot(x, y, MARKER[task], ms=ms, mew=0.7, **ps.mark_floor(col), zorder=3, clip_on=False)
+        ax.plot(x, y, MARKER[task], ms=ms, **mark_floor(col), zorder=3, clip_on=False)
 
 
 def scalar_panel(ax, res, key, lo, hi, title, ticks):
-    """Panels a and b: one statistic over all units against over the active units.
+    """Panel b: one statistic over all units against over the active units.
 
     Args:
         ax: axes; res: results; key: "S1" or "S2"; lo, hi: axis range; title: panel title;
@@ -82,6 +119,43 @@ def scalar_panel(ax, res, key, lo, hi, title, ticks):
     ax.set_xticks(ticks)
     ax.set_yticks(ticks)
     ax.set_title(title)
+
+
+def weight_panel(ax, conf):
+    """Panel a: s.d. of the recurrent weights over all units against over the active units, one
+    marker per network of the confirmatory test, and a line spanning the range over 200 random sets
+    of as many units as are active (at the network's value over all units).
+
+    Args:
+        ax: axes; conf: records of data/connectivity_confirm.json.
+    """
+    lo, hi = W1_LIM
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    identity(ax, lo, hi)
+    for r in conf:
+        y = r["all"]["W1"]
+        ax.plot([r["sub_min"]["W1"], r["sub_max"]["W1"]], [y, y], color=ps.FAINT, lw=ps.THIN_LW,
+                solid_capstyle="butt", zorder=2)
+    for r in conf:
+        col = ps.TASK_COLORS[r["task"]]
+        # filled = weights at the floor crossing (a kept snapshot within 1,000 iterations after it);
+        # open = weights saved at a fixed iteration (Methods)
+        at_floor = r["t_star"] == r["t_star"] and 0 <= r["read_iter"] - r["t_star"] <= 1000
+        kw = mark_floor(col) if at_floor else mark_fixed(col)
+        ax.plot(r["act"]["W1"], r["all"]["W1"], MARKER[r["task"]], ms=ps.MARKER_PT + 0.2, ls="none",
+                zorder=3, clip_on=False, **kw)
+    ticks = [0.003, 0.01, 0.03, 0.1, 0.3]
+    labels = ["0.003", "0.01", "0.03", "0.1", "0.3"]
+    ax.set_xticks(ticks, labels)
+    ax.set_yticks(ticks, labels)
+    ax.minorticks_off()
+    handles = [ax.plot([], [], "o", ms=ps.MARKER_PT + 0.2, ls="none", **mark_fixed(ps.MUTED))[0],
+               ax.plot([], [], "o", ms=ps.MARKER_PT + 0.2, ls="none", **mark_floor(ps.MUTED))[0],
+               ax.plot([], [], color=ps.FAINT, lw=ps.THIN_LW)[0]]
+    ax.legend(handles, ["fixed iteration", "floor crossing", "random unit sets"], loc="upper left",
+              frameon=False, handlelength=1.2, handletextpad=0.4, borderaxespad=0.2, labelspacing=0.25)
+    ax.set_title("s.d. of recurrent weights")
 
 
 def selectivity_panel(ax, res, share):
@@ -159,12 +233,13 @@ def check_overlaps(fig):
 def main():
     """Draw the figure from the results file and save it as PDF and SVG."""
     res = load()
+    conf = load_confirm()
     ps.setup()
     fig = ps.figure(h_mm=112)
     gs = fig.add_gridspec(2, 3, left=0.075, right=0.985, bottom=0.075, top=0.86,
                           wspace=0.42, hspace=0.52)
     axes = [fig.add_subplot(gs[i, j]) for i in range(2) for j in range(3)]
-    scalar_panel(axes[0], res, "S1", 0, 6, "dimensionality of rates", [0, 2, 4, 6])
+    weight_panel(axes[0], conf)
     scalar_panel(axes[1], res, "S2", 0, 30, "dimensionality of normalised rates", [0, 10, 20, 30])
     selectivity_panel(axes[2], res, share=False)
     selectivity_panel(axes[3], res, share=True)
@@ -175,11 +250,11 @@ def main():
         ax.set_ylabel("over all units")
         ps.panel_letter(ax, letter)
     # legends above the panels, outside the data: tasks (shape and colour), and the shape key of c, d
-    handles = [axes[0].plot([], [], MARKER[t], ms=ps.MARKER_PT + 0.6, mfc=ps.TASK_COLORS[t],
-                            mec=ps.TASK_COLORS[t], ls="none")[0] for t in TASKS]
+    handles = [axes[0].plot([], [], MARKER[t], ms=ps.MARKER_PT + 0.6, ls="none", **mark_floor(ps.TASK_COLORS[t]))[0]
+               for t in TASKS]
     fig.legend(handles, TASKS, loc="upper left", bbox_to_anchor=(0.06, 0.995), ncol=3,
                frameon=False, handletextpad=0.3, columnspacing=1.2)
-    fill = [axes[0].plot([], [], "o", ms=ps.MARKER_PT + 0.6, mfc=ps.INK, mec=ps.INK, ls="none")[0],
+    fill = [axes[0].plot([], [], "o", ms=ps.MARKER_PT + 0.6, ls="none", **mark_floor(ps.INK))[0],
             axes[0].plot([], [], MIXED_MARKER, ms=ps.MARKER_PT + 1.0, mec=ps.INK, mew=0.8,
                          ls="none")[0]]
     fig.legend(fill, ["selective (task marker)", "mixed-selective"], loc="upper right", bbox_to_anchor=(0.985, 0.995),
