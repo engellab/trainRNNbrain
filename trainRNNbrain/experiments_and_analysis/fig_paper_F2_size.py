@@ -9,9 +9,11 @@ floor makes more units inactive.
   (b) the same runs as a percentage of N, guides at 50% and 10%.
   (c) the fitted exponent at the 1.05x, 1.10x and 1.20x margins, with a bootstrap 95% interval
       (runs resampled within each size).
-  (d) the noisy training loss over its own start and the inactive-unit count against iteration,
+  (d) the floor crossing drawn on one CDDM N = 1000 network's smoothed loss (an example): the fitted
+      floor, the band to 1.05x the floor, t* and the hold to 1.2 t* (Pavel's feedback item 47).
+  (e) the noisy training loss over its own start and the inactive-unit count against iteration,
       every run at N = 1000, one column per task; dashed lines at each run's own 1.05x crossing.
-  (e) units made inactive per 100,000 iterations from 150,000 iterations on, against the change of
+  (f) units made inactive per 100,000 iterations from 150,000 iterations on, against the change of
       the loss over the same window, every 3BFF run trained to 200,000 or 300,000 iterations
       (c3_flat_loss_units: loss_change, loss_rate). Open markers (dead-relu-paper#104): a slope
       over a window is not read at the floor crossing, the one meaning of a filled marker.
@@ -99,7 +101,7 @@ MIN_R2 = {"DMTS": 0.8}
 # (277 active), and dead-relu-paper#20 recommends drawing all four networks; followed until Pavel
 # answers. A collect record written under an earlier list is re-flagged by apply_decisions.
 EXCLUDED_RUNS = {}
-# Panel (d): every run of one N = 1000 cell per task. CDDM uses its longest standard control (200k),
+# Panel (e): every run of one N = 1000 cell per task. CDDM uses its longest standard control (200k),
 # because the panel is about what happens long after the floor; the size series' CDDM runs stop at 100k.
 TRAJ = {"3BFF": FF200.format(N=1000),
         "CDDM": "CDDM_std_g0_drift_bias0/EqType=h_N=1000_iters=200000",
@@ -108,9 +110,9 @@ TRAJ = {"3BFF": FF200.format(N=1000),
 ABLATION_CELLS = {"3BFF": "NBitFlipFlop_c1_snapshots_c200000/EqType=h_N=1000_arm=control",
                   "CDDM": "CDDM_c1_snapshots/EqType=h_N=1000_arm=control",
                   "DMTS": "DMTS_c1_snapshots/EqType=h_N=1000_arm=control"}
-# Panel (e): the lineages c3_flat_loss_units reads, plus the N = 4000 controls continued to 200k.
+# Panel (f): the lineages c3_flat_loss_units reads, plus the N = 4000 controls continued to 200k.
 C3_EXTRA = [("N=4000", "NBitFlipFlop_paper_grid_c200000/EqType=h_N=4000_arm=control")]
-# Panel (e) reads two Fig. 1d networks as their 300k continuations, whose folders carry new seeds.
+# Panel (f) reads two Fig. 1d networks as their 300k continuations, whose folders carry new seeds.
 # Continuation seed -> the 200k network's seed (its row in Extended Data Table 2), from each
 # continuation's paths.init_from in NBitFlipFlop_c1_snapshots_c300000 (read on Della, 31 Oct).
 C3_CONTINUED = {"3204992658": "4113307577", "3194339211": "2461724787"}
@@ -341,7 +343,7 @@ def collect():
             rec, _ = read_one(r, cache)
             rec.update(task=task, cell=rel, role="Fig. 1d ablation", excluded=None)
             ablation.append(rec)
-    # panel (e): c3_flat_loss_units' own lineage walk (a run continued further is read once, as its
+    # panel (f): c3_flat_loss_units' own lineage walk (a run continued further is read once, as its
     # longest continuation), on its cells plus the N = 4000 controls
     c3, seen = [], set()
     for size, rel in C3_CELLS + C3_EXTRA:
@@ -397,15 +399,36 @@ def collect():
 # drawing
 # ---------------------------------------------------------------------------------------------
 FIG2_H_MM = 125.0       # printed height of Figure 2 (width is \textwidth, 165.1 mm)
+TOP_WIDTHS = [1.2, 1.2, 0.64, 0.86]     # top row: panels a, b, c, d
+TOP_WSPACE = 0.37       # gaps of the top row, as a fraction of the mean panel width (about 11 mm)
+# x range of panels a-b: 80 to 4,800 gives 20 mm per factor of 10 in N at print size, so the tick
+# labels 1,000, 2,000 and 4,000 (5.3 mm wide at 6 pt, 6.2 mm apart) stay apart
+SIZE_XLIM = (80, 4800)
 N_BOOT = 2000           # bootstrap resamples for the exponent's interval (panel c)
 BOOT_SEED = 20261031
 SIZE_MARK = {500: "o", 1000: "s", 2000: "D", 4000: "^"}
-# Panel e markersize per N: a matplotlib triangle of markersize m has half the area of the square
+# Panel f markersize per N: a matplotlib triangle of markersize m has half the area of the square
 # m x m and 64% of a circle's, and an open 3 pt triangle prints with its inside nearly closed
 # (dead-relu-paper#104 scan); 1.25 times the size gives it a circle's area.
 SIZE_MS = {N: ps.MARKER_PT * (1.25 if m == "^" else 1.0) for N, m in SIZE_MARK.items()}
-NET_GAP_DEX = 0.04      # panels a-b: first network point this far (log10 N) from its size's mean
-NET_STEP_DEX = 0.025    # and the next ones this far apart (0.6 mm in panel a at print size; a 2 pt dot is 0.7 mm)
+# Panels a-b: one network's point is drawn at a display offset beside its size N, never at a moved N
+# (decision #83). The offsets are set in millimetres on the page (network_xs): every size's dots form
+# one narrow column centred on N, each dot at the slot nearest N (0, then -/+ NET_MIN_MM, -/+ 2
+# NET_MIN_MM, ...) at which it is at least NET_MIN_MM from every dot already placed and MEAN_CLEAR_MM
+# from every mean marker. At print size the widest offset is 1.5 mm, a quarter of the narrowest gap
+# between sizes (1,000 to 2,000, 6.2 mm in panel a). Item 46 of Pavel's 1 Nov feedback: the old rows
+# reached more than half of that gap and read as random sizes.
+NET_MIN_MM = 0.5        # least distance between two dots' centres (a 2 pt dot is 0.71 mm wide)
+MEAN_CLEAR_MM = 0.88    # least distance from a mean marker's centre (radii 0.53 + 0.35 mm): never hidden
+# Panel d: the floor-crossing schematic is drawn on one real network's loss, the first CDDM N = 1,000
+# read-out example of the collect record (no loss bursts, one entry into the 1.05x band). An
+# independent recomputation of its t* from the stored smoothed curve gave 27,295 against the rule's
+# 27,259 (notebook entry 2026-11-02_2102_r11-fig2-jitter-and-floor-schematic).
+SCHEMATIC_TASK, SCHEMATIC_SEED = "CDDM", "3833537590"
+# Extended Data Fig. 3b (fig_ed_readout.py) still places its network points with network_offsets,
+# the rows Figure 2 used before round 11.
+NET_GAP_DEX = 0.04      # first network point this far (log10 N) from its size's mean
+NET_STEP_DEX = 0.025    # and the next ones this far apart
 
 
 def is_read(r, margin=0.05):
@@ -477,6 +500,36 @@ def network_offsets(task, n, n_before=0):
     return side * (NET_GAP_DEX + NET_STEP_DEX * (n_before + np.arange(n)))
 
 
+def network_xs(ax, N, values, means):
+    """Drawing positions on the x axis of one size's network dots: a narrow column centred on N.
+
+    The dots are placed in order of value. Each takes the first slot, in page millimetres from N,
+    of 0, -NET_MIN_MM, +NET_MIN_MM, -2 NET_MIN_MM, ... at which it lies at least NET_MIN_MM from every
+    dot already placed and at least MEAN_CLEAR_MM from every mean marker (drawn at N). The y values
+    are not changed. The axes' scales and limits must be set before the call.
+
+    Args:
+        ax: axes; N: int, the network size;
+        values: float array (n,), the dots' y values in data units (every task at this size);
+        means: float array, the y values of the mean markers drawn at N.
+    Returns:
+        float array of shape (n,): x positions in data units, for drawing only.
+    """
+    px_per_mm = ax.figure.dpi / 25.4
+    disp = ax.transData.transform(np.column_stack([np.full(len(values), float(N)), values]))
+    y_mm = disp[:, 1] / px_per_mm
+    m_mm = ax.transData.transform(np.column_stack([np.full(len(means), float(N)), means]))[:, 1] / px_per_mm
+    slots = [0.0] + [sign * k * NET_MIN_MM for k in range(1, 20) for sign in (-1.0, 1.0)]
+    x_mm, placed = np.zeros(len(values)), []
+    for i in np.argsort(y_mm, kind="stable"):
+        x_mm[i] = next(x for x in slots
+                       if all(np.hypot(x, y_mm[i] - m) >= MEAN_CLEAR_MM for m in m_mm)
+                       and all(np.hypot(x - px, y_mm[i] - py) >= NET_MIN_MM for px, py in placed))
+        placed.append((x_mm[i], y_mm[i]))
+    x_disp = disp[:, 0] + x_mm * px_per_mm
+    return ax.transData.inverted().transform(np.column_stack([x_disp, disp[:, 1]]))[:, 0]
+
+
 def leave_one_out(series, task, margin):
     """Exponent and bootstrap upper end of one fit with each network left out in turn.
 
@@ -513,10 +566,23 @@ def panel_size(ax_a, ax_b, series):
         dict task -> (exponent, prefactor, {N: (mean, SD, n)}).
     """
     fits, handles = {}, []
-    cddm = cells_of(series, "CDDM")      # DMTS's row of points starts after CDDM's
+    all_cells = {task: cells_of(series, task) for task in TASKS}
+    # scales and limits first: network_xs places the dots in millimetres on the page
+    ax_a.set(xscale="log", yscale="log", xlim=SIZE_XLIM, ylim=(50, 2500))
+    ax_b.set(xscale="log", xlim=SIZE_XLIM, ylim=(0, 100))
+    # one point per network, in a narrow column centred on its size (network_xs)
+    for ax, pct in ((ax_a, False), (ax_b, True)):
+        for N in SIZES:
+            scale = 100.0 / N if pct else 1.0
+            pts = [(task, v) for task in TASKS for v in all_cells[task].get(N, [])]
+            vals = np.array([v for _, v in pts], float) * scale
+            means = np.array([all_cells[task][N].mean() for task in TASKS if N in all_cells[task]]) * scale
+            for (task, _), x, y in zip(pts, network_xs(ax, N, vals, means), vals):
+                ax.plot([x], [y], "o", ms=ps.SMALL_MARKER_PT, mew=0, zorder=4,
+                        **ps.mark_floor(TASK_COL[task]))
     for task in TASKS:
         col = TASK_COL[task]
-        cells = cells_of(series, task)
+        cells = all_cells[task]
         missing = [N for N in SIZES if N not in cells]
         assert not missing, f"{task}: no read-out at N = {missing}; the series would have to be drawn at end of training"
         b, A = power_fit(cells)
@@ -525,13 +591,6 @@ def panel_size(ax_a, ax_b, series):
         sd = np.array([cells[N].std(ddof=1) if len(cells[N]) > 1 else 0.0 for N in Ns])
         for ax, scale in ((ax_a, 1.0), (ax_b, 100.0 / Ns)):
             sc = np.atleast_1d(scale) * np.ones(len(Ns))
-            # one point per network, in a short row beside its size's mean (3BFF to the left, CDDM
-            # and DMTS to the right, so 3BFF and DMTS, whose counts overlap, do not hide each other)
-            for N, s in zip(Ns, sc):
-                v = cells[N] * s
-                before = len(cddm.get(N, [])) if task == "DMTS" else 0
-                ax.plot(N * 10 ** network_offsets(task, len(v), before), v, "o",
-                        ms=ps.SMALL_MARKER_PT, mew=0, zorder=4, **ps.mark_floor(col))
             # every value is read at the floor crossing, so every marker is filled (#83); N = 100 is
             # set apart by the fitted line, which starts above it
             # no caps, bars drawn under the mean's marker, so a small s.d. does not turn the round
@@ -547,19 +606,18 @@ def panel_size(ax_a, ax_b, series):
         fits[task] = (b, A, {int(N): (float(mm), float(s), len(cells[N])) for N, mm, s in zip(Ns, m, sd)})
     nn = np.array([80, 5000.0])
     ax_a.plot(nn, nn, "-", lw=ps.THIN_LW, color=ps.MUTED, zorder=2)
-    ax_a.text(135, 175, "every unit active", rotation=37, fontsize=ps.TICK_PT, color=ps.MUTED,
-              ha="center", va="bottom", rotation_mode="anchor")
-    ax_a.set(xscale="log", yscale="log", xlim=(75, 5500), ylim=(50, 2500),
-             xlabel=ps.LABELS["size"], ylabel=ps.LABELS["active"])
+    # the label's angle follows the diagonal on screen, whatever the panel's aspect
+    ax_a.text(250, 250, "every unit active", rotation=45, transform_rotates_text=True,
+              fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="bottom", rotation_mode="anchor")
+    ax_a.set(xlabel=ps.LABELS["size"], ylabel=ps.LABELS["active"])
     ax_a.set_yticks([50, 100, 200, 500, 1000, 2000])
     ax_a.yaxis.set_minor_locator(NullLocator())
     ps.count_ticks(ax_a.yaxis)
     ax_a.legend(handles=handles, loc="lower right", handlelength=1.8, borderaxespad=0.2)
     for frac, lab in ((50, "50%"), (10, "10%")):
         ax_b.axhline(frac, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
-        ax_b.text(80, frac + 1.5, lab, fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="bottom")
-    ax_b.set(xscale="log", xlim=(75, 5500), ylim=(0, 100), xlabel=ps.LABELS["size"],
-             ylabel="active units (% of $N$)")
+        ax_b.text(SIZE_XLIM[0] * 1.03, frac + 1.5, lab, fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="bottom")
+    ax_b.set(xlabel=ps.LABELS["size"], ylabel="active units (% of $N$)")
     for ax in (ax_a, ax_b):
         ax.set_xticks(SIZES)
         ax.xaxis.set_minor_locator(NullLocator())
@@ -592,17 +650,17 @@ def panel_margins(ax, series):
             ax.plot([x], [b], "o", ms=ps.MARKER_PT, mew=0, zorder=6, **ps.mark_floor(TASK_COL[task]))
             out[(task, d)] = (b, lo, hi, int(sum(len(v) for N, v in cells.items() if N >= FIT_MIN_N)))
     ax.axhline(1.0, color=ps.MUTED, lw=ps.THIN_LW, ls="-")
-    ax.text(2.45, 1.01, "constant fraction", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
+    ax.text(2.4, 1.01, "constant fraction", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
     ax.set_xticks(range(len(FLOOR_DELTAS)))
     ax.set_xticklabels([f"{1 + d:.2f}×" for d in FLOOR_DELTAS])
-    ax.set(xlim=(-0.55, 2.55), ylim=(0, 1.1), xlabel="margin over the loss floor",
+    ax.set(xlim=(-0.45, 2.45), ylim=(0, 1.1), xlabel="margin over the loss floor",
            ylabel="exponent $b$")
     ps.ygrid(ax)
     return out
 
 
 def panel_trajectories(axes_top, axes_bot, traj):
-    """Panel (d): noisy loss over its start (top) and inactive units (bottom) against iteration.
+    """Panel (e): noisy loss over its start (top) and inactive units (bottom) against iteration.
 
     Args:
         axes_top, axes_bot: one axes per task each; traj: the collect record's trajectory rows.
@@ -653,7 +711,7 @@ def panel_trajectories(axes_top, axes_bot, traj):
 
 
 def panel_flat(ax, c3):
-    """Panel (e): units made inactive per 100,000 iterations from 150,000 on, against the loss change.
+    """Panel (f): units made inactive per 100,000 iterations from 150,000 on, against the loss change.
 
     Every network is 3BFF, so all marks take the 3BFF colour; marker shape codes N. Markers are open
     (dead-relu-paper#104): a slope over iterations 150,000 to the end of training is not read at the
@@ -662,7 +720,7 @@ def panel_flat(ax, c3):
     to 300,000 iterations.
 
     Args:
-        ax: axes; c3: the collect record's panel-(e) rows (one per 3BFF lineage).
+        ax: axes; c3: the collect record's panel-(f) rows (one per 3BFF lineage).
     Returns:
         the rows drawn.
     """
@@ -695,6 +753,55 @@ def panel_flat(ax, c3):
     ax.legend(handles=handles, loc="upper left", handletextpad=0.2, borderaxespad=0.2)
     ps.ygrid(ax)
     return c3
+
+
+def panel_floor_schematic(ax, ex):
+    """Panel (d): what the floor crossing is, drawn on one real network's loss (an example).
+
+    Everything is divided by the fitted loss floor L_inf, so the floor is 1 and the band is
+    [1, 1 + FLOOR_DELTAS[0]] (grey). Drawn: the smoothed noisy training loss (ink), the floor and the
+    band's top, the crossing t* (filled marker: a floor-crossing value, #83) and the hold from t* to
+    (1 + HOLD_FRAC) t* (double arrow), through which the smoothed loss stays at or below the band's
+    top. The noisy loss and the fitted floor curve are left out: the curve lies on the smoothed loss
+    at print size, and the noisy loss's 10th-90th percentile (0.93 to 1.18 of the floor near t*)
+    would cover the panel.
+
+    Args:
+        ax: axes; ex: one entry of the collect record's examples (readout_example's dict plus name).
+    Returns:
+        (t*, floor, smoothed loss / floor at t*).
+    """
+    fl, bar = ex["floor"], 1.0 + FLOOR_DELTAS[0]
+    t_star = ex["t_stars"][FLOOR_DELTAS[0]]
+    t_hold = (1.0 + HOLD_FRAC) * t_star
+    ts, ys = np.asarray(ex["ts"], float), np.asarray(ex["ys"], float) / fl
+    y_star = float(np.interp(t_star, ts, ys))
+    x_hi, y_lo, y_hi = 45_000, 0.94, 1.25
+    ax.axhspan(1.0, bar, color=ps.GRID, lw=0, zorder=1)
+    ax.axhline(1.0, color=ps.INK, lw=ps.THIN_LW, zorder=3)
+    ax.axhline(bar, color=ps.INK, lw=ps.THIN_LW, ls=(0, (3, 2)), zorder=3)
+    for t in (t_star, t_hold):      # from the bottom up to the smoothed loss, clear of the labels
+        ax.plot([t, t], [y_lo, np.interp(t, ts, ys)], color=ps.MUTED, lw=ps.THIN_LW,
+                ls=(0, (3, 2)), zorder=2)
+    ps.arrow(ax, (t_star, 0.985), (t_hold, 0.985), col=ps.INK, lw=ps.THIN_LW, style="<|-|>",
+             mutation_scale=5, shrink=0)
+    ax.plot(ts, ys, "-", color=ps.INK, lw=ps.DATA_LW, zorder=5)
+    ax.plot([t_star], [y_star], "o", ms=ps.MARKER_PT, mew=0, zorder=6, **ps.mark_floor(ps.INK))
+    ax.set(xlim=(0, x_hi), ylim=(y_lo, y_hi), xlabel="training iteration",
+           ylabel="smoothed loss / loss floor")
+    ax.text(x_hi * 0.02, 1.0 - 0.005, "loss floor", fontsize=ps.TICK_PT, color=ps.INK, ha="left",
+            va="top", zorder=7)
+    ax.text(x_hi * 0.98, bar + 0.005, f"{bar:.2f}× floor", fontsize=ps.TICK_PT, color=ps.INK,
+            ha="right", va="bottom", zorder=7)
+    # the asterisk is Helvetica's own (raised) glyph: mathtext's \ast would add a second font family
+    ax.text(t_star, 0.976, "$t$* ", fontsize=ps.TICK_PT, color=ps.INK, ha="right", va="top")
+    ax.text(t_hold, 0.976, f" {1 + HOLD_FRAC:.1f}$\\,t$*", fontsize=ps.TICK_PT,
+            color=ps.INK, ha="left", va="top")
+    ax.set_title(f"{SCHEMATIC_TASK} example", pad=2)       # N = 1,000: the caption says so
+    ax.set_xticks([0, 20_000, 40_000])
+    ax.set_yticks([1.0, 1.1, 1.2])
+    ps.count_ticks(ax.xaxis)
+    return t_star, fl, y_star
 
 
 def check_overlaps(fig):
@@ -741,21 +848,24 @@ def draw_fig2(rec):
     # margins in figure fractions of 165.1 x FIG2_H_MM mm; panel letters sit 7 mm left of each spine
     gs = GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.2], hspace=0.36,
                   left=0.075, right=0.99, top=0.955, bottom=0.095)
-    top = GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[0], width_ratios=[1.2, 1.2, 0.85], wspace=0.36)
+    # top row: a, b, c and the floor-crossing schematic d beside the margins panel c (item 47)
+    top = GridSpecFromSubplotSpec(1, 4, subplot_spec=gs[0], width_ratios=TOP_WIDTHS, wspace=TOP_WSPACE)
     bot = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], width_ratios=[2.5, 1.0], wspace=0.30)
-    dgs = GridSpecFromSubplotSpec(2, 3, subplot_spec=bot[0], height_ratios=[1.0, 1.3], hspace=0.12,
+    egs = GridSpecFromSubplotSpec(2, 3, subplot_spec=bot[0], height_ratios=[1.0, 1.3], hspace=0.12,
                                   wspace=0.16)
-    ax_a, ax_b, ax_c = (fig.add_subplot(top[i]) for i in range(3))
-    d_top = [fig.add_subplot(dgs[0, k]) for k in range(3)]
-    d_bot = [fig.add_subplot(dgs[1, k], sharex=d_top[k]) for k in range(3)]
-    ax_e = fig.add_subplot(bot[1])
+    ax_a, ax_b, ax_c, ax_d = (fig.add_subplot(top[i]) for i in range(4))
+    e_top = [fig.add_subplot(egs[0, k]) for k in range(3)]
+    e_bot = [fig.add_subplot(egs[1, k], sharex=e_top[k]) for k in range(3)]
+    ax_f = fig.add_subplot(bot[1])
 
     fits = panel_size(ax_a, ax_b, rec["series"])
     margins = panel_margins(ax_c, rec["series"])
-    trows = panel_trajectories(d_top, d_bot, rec["traj"])
-    panel_flat(ax_e, rec["c3"])
-    for ax, L in ((ax_a, "a"), (ax_b, "b"), (ax_c, "c"), (d_top[0], "d"), (ax_e, "e")):
-        ps.panel_letter(ax, L, x_mm=9.0 if ax is ax_e else ps.PANEL_LETTER_X_MM)
+    example = next(e for e in rec["examples"][SCHEMATIC_TASK] if seed_of(e["name"]) == SCHEMATIC_SEED)
+    schem = panel_floor_schematic(ax_d, example)
+    trows = panel_trajectories(e_top, e_bot, rec["traj"])
+    panel_flat(ax_f, rec["c3"])
+    for ax, L in ((ax_a, "a"), (ax_b, "b"), (ax_c, "c"), (ax_d, "d"), (e_top[0], "e"), (ax_f, "f")):
+        ps.panel_letter(ax, L, x_mm=9.0 if ax is ax_f else ps.PANEL_LETTER_X_MM)
     check_overlaps(fig)
     out = ps.save(fig, "fig_paper_F2_size")
 
@@ -773,10 +883,12 @@ def draw_fig2(rec):
             top = leave_one_out(rec["series"], task, d)[:2]
             print(f"  {task} {1 + d:.2f}x: " + "; ".join(f"{hi:.3f} (b {b:.3f}) without N={N} s{sd}"
                                                          for hi, b, N, sd in top))
-    print("Panel d (task, seed, t*, inactive at t*, inactive at end, end):")
+    print(f"Panel d (example {SCHEMATIC_TASK} s{SCHEMATIC_SEED}): t* {schem[0]:,.0f}, hold to "
+          f"{(1 + HOLD_FRAC) * schem[0]:,.0f}, floor {schem[1]:.5f}, smoothed loss / floor at t* {schem[2]:.4f}")
+    print("Panel e (task, seed, t*, inactive at t*, inactive at end, end):")
     for row in trows:
         print("  ", row, f"-> {row[4] - row[3]:+.0f} after the floor" if np.isfinite(row[3]) else "")
-    print("Panel e (N, seed, end, t*, loss %/100k, lost/100k +- se):")
+    print("Panel f (N, seed, end, t*, loss %/100k, lost/100k +- se):")
     for r in sorted(rec["c3"], key=lambda r: (r["N"], r["seed"])):
         print(f"   N={r['N']} s{r['seed']} end {r['end']:,.0f} t* {r['t_star']:,.0f} "
               f"loss {r['pct100']:+.2f} lost {r['lost']:.1f} +- {r['se']:.1f}"
@@ -789,7 +901,7 @@ def tex_row(r, in_e):
 
     Args:
         r: a size-series, trajectory or ablation row of the collect record.
-        in_e: dict seed -> training length (iterations) of the panel-(e) networks (3BFF only).
+        in_e: dict seed -> training length (iterations) of the panel-(f) networks (3BFF only).
     Returns:
         str ending in a LaTeX line break.
     """
@@ -805,17 +917,17 @@ def tex_row(r, in_e):
     note = r.get("excluded") or (r["reason"] or "")
     if read:
         note = ""
-    fig = {"size series": "2a--c", "trajectory": "2d", "Fig. 1d ablation": "1d"}[r["role"]]
+    fig = {"size series": "2a--c", "trajectory": "2e", "Fig. 1d ablation": "1d"}[r["role"]]
     if r["role"] == "size series" and r["N"] == 1000:
-        fig = "1c, 2a--c" + (", 2d" if r["task"] != "CDDM" else "")
-    if not read:      # a network with no read-out is drawn only as a panel-(d) trajectory, if at all
+        fig = "1c, 2a--c" + (", 2e" if r["task"] != "CDDM" else "")
+    if not read:      # a network with no read-out is drawn only as a panel-(e) trajectory, if at all
         in_d = r["role"] == "trajectory" or (r["role"] == "size series" and r["N"] == 1000
                                               and r["task"] != "CDDM" and r.get("excluded") is None)
-        fig = "2d" if in_d else "--"
+        fig = "2e" if in_d else "--"
     trained = ps.fmt_count(1000 * round(r["it_end"] / 1e3))       # nearest 1,000
     if r["task"] == "3BFF" and r["seed"] in in_e:
-        fig = "2e" if fig == "--" else fig + ", 2e"
-        if in_e[r["seed"]] > r["it_end"]:      # continued for panel (e)
+        fig = "2f" if fig == "--" else fig + ", 2f"
+        if in_e[r["seed"]] > r["it_end"]:      # continued for panel (f)
             trained += "$^{c}$"                # trained on to 300,000 (table footnote)
     if r["role"] == "Fig. 1d ablation" and r["task"] in ("3BFF", "CDDM"):
         # Fig. 4a-c draws the same weights as Fig. 1d for these six networks (dead-relu-paper #100,
@@ -839,12 +951,12 @@ def write_table(rec):
     Returns:
         path written.
     """
-    # grouped by task (size series, then the CDDM panel-d networks), seeds sorted as numbers
+    # grouped by task (size series, then the CDDM panel-e networks), seeds sorted as numbers
     grouped = [(r, 0) for r in rec["series"]] + [(r, 1) for r in rec["traj"] if r["task"] == "CDDM"]
     grouped.sort(key=lambda rk: (TASKS.index(rk[0]["task"]), rk[1], rk[0]["N"], int(rk[0]["seed"])))
     rows = [r for r, _ in grouped]
     rows += sorted(rec["ablation"], key=lambda r: (TASKS.index(r["task"]), int(r["seed"])))
-    # panel (e): every network it draws must be exactly one 3BFF row of the table
+    # panel (f): every network it draws must be exactly one 3BFF row of the table
     in_e = {C3_CONTINUED.get(r["seed"], r["seed"]): r["end"] for r in rec["c3"]}
     hits = [r["seed"] for r in rows if r["task"] == "3BFF" and r["seed"] in in_e]
     assert len(in_e) == len(rec["c3"]) and sorted(hits) == sorted(in_e), (sorted(in_e), hits)
