@@ -66,7 +66,7 @@ TASK_SEED=(0 1 2 1 2 1 2 1 2)
 
 i=$SLURM_ARRAY_TASK_ID
 N=${TASK_N[$i]}; CUE=${TASK_CUE[$i]}; SEED=${TASK_SEED[$i]}
-TAG="first/N=${N}_cue=${CUE}"
+TAG="second/N=${N}_cue=${CUE}"   # "first/" holds array 16790695 (one RNN step per decision)
 echo "Task ${i}: N=${N} goal_cue=${CUE} seed=${SEED} -> ${SAVE_TO}_rl_maze/Maze_${TAG}/s${SEED}"
 
 srun python "$REPO/trainRNNbrain/rl/run_maze_ppo.py" \
