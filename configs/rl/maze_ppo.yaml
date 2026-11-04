@@ -1,0 +1,63 @@
+# @package _global_
+# THE MAZE TASK, trained with PPO (trainRNNbrain/rl/run_maze_ppo.py). One fixed maze; each episode
+# drops every agent in a random free cell with a random heading; the RNN steers (turn) and sets the
+# speed; the cheese 'C' is the goal. Task definition in trainRNNbrain/rl/maze_env.py. The network is
+# the project's standard RNN (model group below), untouched: 2 outputs (turn, speed), inputs =
+# env.n_rays (+ 2 with env.goal_cue).
+defaults:
+  - /model: rnn_relu_standard
+  - /paths: paths_local
+  - _self_
+
+experiment_tag: "maze_ppo"
+seed: 0                       # int, or "random" (the seed used is written back into the saved config)
+
+env:
+  # 11 x 11, cheese in the centre, reached only through the inner ring from above or below; the
+  # right-hand corridor connects to it only around the outside (geodesic 24 cells from the far side).
+  maze:
+    - "###########"
+    - "#.........#"
+    - "#.#####.#.#"
+    - "#.#...#.#.#"
+    - "#.#.#.#.#.#"
+    - "#...#C#...#"
+    - "#.#.#.#.#.#"
+    - "#.#...#.#.#"
+    - "#.#####.#.#"
+    - "#.........#"
+    - "###########"
+  n_rays: 8                   # range sensors over 360 degrees, ray 0 along the heading
+  ray_max: 4.0                # cells; corridors are 1 wide, so most rays return within 1-2 cells
+  ray_step: 0.1               # cells; ray-marching resolution (40 samples per ray)
+  v_max: 0.2                  # cells per step at speed 1: 120 steps for the longest route (24 cells)
+  turn_max: 0.3               # radians per step at turn 1 (a U-turn in ~10 steps)
+  goal_radius: 0.5            # cells from the cheese centre that ends the episode
+  goal_cue: false             # true adds cos/sin of the bearing to the cheese (the "cue" arm)
+  reward:
+    goal: 5.0                 # once, on reaching the cheese
+    step: -0.01               # every step: be quick
+    wall: -0.05               # every blocked move
+    shape: 0.2                # per cell of geodesic progress (potential-based, optimum unchanged)
+
+ppo:
+  n_episodes: 256             # parallel episodes per update (the batch)
+  T: 300                      # steps per episode (= RNN steps; alpha = 0.1 in the model group)
+  n_updates: 1500
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip: 0.2
+  n_epochs: 4                 # passes over the rollout per update
+  n_minibatches: 2            # episodes split per epoch; each minibatch is one full BPTT pass
+  value_coef: 0.5
+  entropy_coef: 0.0           # log_std is learned through the policy gradient alone
+  log_std_init: -0.7          # std 0.5 in raw action units (turn in [-1, 1], speed in [0, 1])
+  lr: 0.001                   # scaled by (100 / N) ** lr_scale_exp, the supervised trainer's rule
+  lr_scale_exp: 0.3333333333333333
+  weight_decay: 1.0e-6        # Adam's coupled L2, as in the supervised trainer
+  max_grad_norm: 0.5
+  probe_every: 10             # updates between clean probes (noise-free, mean action, fixed drops)
+  probe_episodes: 128
+  probe_seed: 20261103        # the probe's drops: the same starts at every probe of every run
+  store_participation_every: 5   # probes between stored full participation vectors
+  checkpoint_every: 100       # updates between writes of the run folder
