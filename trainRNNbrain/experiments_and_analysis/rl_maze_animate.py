@@ -2,8 +2,8 @@
 
 Question. What does a trained agent do in the maze, step by step?
 
-Method. The policy is rebuilt from a run folder (config.yaml + PolicyState.pt, the full
-state_dict written by run_maze_ppo.py) on the CPU and played on fixed probe drops with the RNN's
+Method. The policy is rebuilt from a run folder (config.yaml + PolicyState.pt, written by
+run_maze_ppo.py; trainRNNbrain.rl.saved.load_run) on the CPU and played on fixed probe drops with the RNN's
 noise off and the policy mean as the action, the same clean rollout as the training probe. Each
 frame is one decision: every agent is a dot with a short heading tick and a trail of its last
 `trail` positions; an agent that reached the cheese turns into a hollow marker and stops. The
@@ -16,41 +16,15 @@ Run: python trainRNNbrain/experiments_and_analysis/rl_maze_animate.py --run <fol
 import argparse
 import math
 import os
-import hydra
 import numpy as np
 import torch
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
-from omegaconf import OmegaConf
 from common import IMG_DIR
-from trainRNNbrain.rnns.RNN_torch import RNN_torch
-from trainRNNbrain.utils import filter_kwargs
-from trainRNNbrain.rl.maze_env import MazeEnv
-from trainRNNbrain.rl.policy import MazePolicy
 from trainRNNbrain.rl.ppo import rollout
-
-
-def load_run(folder):
-    """Rebuild the env and the trained policy of a run folder on the CPU.
-
-    Args:
-        folder: str, a run folder holding config.yaml and PolicyState.pt.
-    Returns:
-        (cfg, env, policy): the saved DictConfig, the MazeEnv, the MazePolicy with trained weights.
-    """
-    cfg = OmegaConf.load(os.path.join(folder, "config.yaml"))
-    env_args = dict(cfg.env)
-    env_args.setdefault("action_feedback", False)     # runs before 4 Nov 2026 had no such key
-    env = MazeEnv(**env_args, device=torch.device("cpu"), seed=cfg.seed + 1)
-    args = filter_kwargs(RNN_torch, cfg.model)
-    args.seed = cfg.seed
-    # runs before 4 Nov 2026 saved a learned log-std and a separate value head too; strict=False
-    # skips them, and their fixed-std clean rollout uses the RNN's read-out alone, as the probe did
-    policy = MazePolicy(hydra.utils.instantiate(args), cfg.ppo.get("action_std", 0.5), cfg.ppo.substeps)
-    policy.load_state_dict(torch.load(os.path.join(folder, "PolicyState.pt"), map_location="cpu"), strict=False)
-    return cfg, env, policy
+from trainRNNbrain.rl.saved import load_run
 
 
 def animate(cfg, env, out, path, every, trail, fps):
