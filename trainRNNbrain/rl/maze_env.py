@@ -12,17 +12,20 @@ wall along ray i (ray marching with step `ray_step`), so a wall at the nose read
 reads 0. With `goal_cue` two more inputs give cos and sin of the bearing to the cheese relative to
 the heading (a "scent"); without it the agent sees walls only and has to localise from memory.
 
-Action (2 raw policy outputs per agent): a[0] turn, clipped to [-1, 1] and scaled by `turn_max`
-(radians per step); a[1] speed, clipped to [0, 1] and scaled by `v_max` (cells per step). A move
+Action (2 raw policy outputs per agent, squashed here, not clipped, so no sample is ever stuck
+at a bound): turn = turn_max * tanh(a[0]) (radians per step); speed = v_max * sigmoid(a[1])
+(cells per step; an untrained policy with a[1] near 0 moves at v_max / 2). A move
 whose end point lies in a wall cell, or which cuts a corner between two wall cells, is cancelled:
 the agent keeps its position (the new heading is kept) and pays `reward["wall"]`.
 
 Reward per step: `reward["step"]` (a cost, negative), `reward["wall"]` if the move was blocked,
 `reward["goal"]` once, on coming within `goal_radius` of the cheese centre (the episode ends for that
-agent), and the potential-based shaping `reward["shape"] * (d - gamma * d')`, with d and d' the
-breadth-first geodesic cell distance to the cheese before and after the move. Potential-based
-shaping leaves the optimal policy unchanged (Ng, Harada and Russell, 1999); it only makes the
-reward dense.
+agent), and the shaping `reward["shape"] * (d - d')`, with d and d' the breadth-first geodesic cell
+distance to the cheese before and after the move, so every cell of progress pays and standing
+still pays nothing. The shaping is deliberately NOT the discounted potential-based form
+`d - gamma * d'` (Ng, Harada and Russell, 1999): with the discount inside, a stationary agent earns
+shape * (1 - gamma) * d per step, which at 10 cells from the cheese outpaces the step cost, and the
+first PPO runs (Della array 16790695, 3 Nov 2026) converged to standing still.
 
 Every tensor has the batch as its LAST axis for observations (n_inputs, B) and actions (2, B), the
 RNN's convention; the internal state uses (B, ...) because torch indexing is easier that way.
@@ -85,18 +88,17 @@ class MazeEnv:
     """A batch of agents in one fixed maze. See the module docstring for the task definition."""
 
     def __init__(self, maze, n_rays, ray_max, ray_step, v_max, turn_max, goal_radius, goal_cue,
-                 reward, gamma, device, seed):
+                 reward, device, seed):
         """Build the maze tables and the drop generator; no agents exist until `reset`.
 
         Args:
             maze: list of str, the ASCII grid (see the module docstring).
             n_rays: int, range sensors per agent.
             ray_max: float, cells, sensor range; ray_step: float, cells, ray-marching step.
-            v_max: float, cells per step at speed 1; turn_max: float, radians per step at turn 1.
+            v_max: float, cells per step at full speed; turn_max: float, radians per step at full turn.
             goal_radius: float, cells, distance from the cheese centre that ends the episode.
             goal_cue: bool, add the two bearing-to-cheese inputs.
             reward: mapping with float entries goal, step, wall, shape.
-            gamma: float, the discount factor, used in the shaping term.
             device: torch.device; seed: int, seeds the drop generator.
         """
         wall, goal = parse_maze(maze)
@@ -114,7 +116,6 @@ class MazeEnv:
         self.v_max, self.turn_max, self.goal_radius = float(v_max), float(turn_max), float(goal_radius)
         self.goal_cue = bool(goal_cue)
         self.reward = {k: float(reward[k]) for k in ("goal", "step", "wall", "shape")}
-        self.gamma = float(gamma)
         self.device = device
         self.generator = torch.Generator(device=device)
         self.generator.manual_seed(int(seed))
@@ -170,14 +171,14 @@ class MazeEnv:
         """Advance every agent whose episode is still running by one step.
 
         Args:
-            action: (2, B) raw policy outputs, turn and speed (see the module docstring).
+            action: (2, B) raw policy outputs, squashed here to turn and speed (module docstring).
         Returns:
             (obs, reward, done): obs (n_inputs, B); reward (B,) float, 0 for finished agents;
             done (B,) bool, True once the agent has reached the cheese at this step or earlier.
         """
         live = ~self.done
-        turn = action[0].clamp(-1.0, 1.0) * self.turn_max * live
-        speed = action[1].clamp(0.0, 1.0) * self.v_max * live
+        turn = torch.tanh(action[0]) * self.turn_max * live
+        speed = torch.sigmoid(action[1]) * self.v_max * live
         heading = self.heading + turn
         new_xy = self.xy + torch.stack([heading.cos(), heading.sin()], dim=1) * speed[:, None]
         # blocked if the end point is in a wall, or if the step cuts a corner between two wall
@@ -193,7 +194,7 @@ class MazeEnv:
         reached = live & ((self.xy - self.goal_xy[None, :]).norm(dim=1) < self.goal_radius)
         reward = (self.reward["step"]
                   + self.reward["wall"] * blocked.float()
-                  + self.reward["shape"] * (d_before - self.gamma * d_after)
+                  + self.reward["shape"] * (d_before - d_after)
                   + self.reward["goal"] * reached.float()) * live.float()
         self.done = self.done | reached
         return self.observe(), reward, self.done.clone()

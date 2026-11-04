@@ -13,10 +13,11 @@ others, but through a CLIPPED SURROGATE: the probability ratio new/old is clippe
 The critic is fitted to the observed returns at the same time (value loss).
 
 Shapes follow the RNN's convention, batch last: observations u (n_inputs, T + 1, B), actions
-(2, T, B), everything per step (T, B). At step t the RNN consumes observation u_t and emits action
-a_t; the environment returns reward r_t, observation u_{t+1} and whether the episode ended. The
-RNN is stepped once more on the final observation u_T, which gives the bootstrap value (`values`
-has T + 1 rows). `alive[t]` is 1 while the episode had not ended before step t (so alive[0] = 1 and
+(2, T, B), everything per step (T, B). A step here is one decision; the RNN runs policy.substeps
+of its own steps per decision. At step t the RNN consumes observation u_t and emits action a_t;
+the environment returns reward r_t, observation u_{t+1} and whether the episode ended. The RNN is
+stepped once more on the final observation u_T, which gives the bootstrap value (`values` has
+T + 1 rows). `alive[t]` is 1 while the episode had not ended before step t (so alive[0] = 1 and
 alive has T + 1 rows), and every loss is a mean over alive steps only.
 """
 import torch
@@ -32,26 +33,29 @@ def rollout(env, policy, n_episodes, T, clean=False, generator=None):
         generator: torch.Generator on the env's device for the drops, the RNN noise and the action
             noise, or None for the env's and the RNN's own generators and torch's global one.
     Returns:
-        dict: u (n_inputs, T+1, B); noise, the dict from policy.draw_noise for T+1 steps;
+        dict: u (n_inputs, T+1, B); noise, the dict from policy.draw_noise for (T+1) * substeps
+        RNN steps;
         actions (2, T, B); logp (T, B); values (T+1, B); rewards (T, B); alive (T+1, B) float;
         success (B,) bool, reached the cheese; steps (B,) float, steps taken until the cheese
         (T if never); xy (T+1, B, 2) positions. The RNN states are not kept (they are large);
         policy.sequence(u, noise) recomputes them exactly.
     """
+    k = policy.substeps
     with torch.no_grad():
         u = [env.reset(n_episodes, generator)]
-        noise = policy.draw_noise(T + 1, n_episodes, not clean, generator)
+        noise = policy.draw_noise((T + 1) * k, n_episodes, not clean, generator)
         x = policy.initial_state(n_episodes)
         alive = [torch.ones(n_episodes, device=env.device)]
         xy = [env.xy.clone()]
         actions, logp, values, rewards = [], [], [], []
         for t in range(T):
-            x = policy.step(x, u[-1], noise["rec"][:, t], noise["inp"][:, t])
+            for s in range(t * k, (t + 1) * k):
+                x = policy.step(x, u[-1], noise["rec"][:, s], noise["inp"][:, s])
             mean, value = policy.heads(x, noise["out"][:, 0])
             if clean:
                 action = mean
             else:
-                action = mean + policy.log_std.exp()[:, None] * torch.randn(
+                action = mean + policy.std()[:, None] * torch.randn(
                     mean.shape, generator=generator, device=mean.device)
             obs, reward, done = env.step(action)
             actions.append(action)
@@ -61,7 +65,8 @@ def rollout(env, policy, n_episodes, T, clean=False, generator=None):
             u.append(obs)
             alive.append((~done).float())
             xy.append(env.xy.clone())
-        x = policy.step(x, u[-1], noise["rec"][:, T], noise["inp"][:, T])
+        for s in range(T * k, (T + 1) * k):
+            x = policy.step(x, u[-1], noise["rec"][:, s], noise["inp"][:, s])
         values.append(policy.heads(x, noise["out"][:, 0])[1])
     alive = torch.stack(alive)
     return {"u": torch.stack(u, dim=1), "noise": noise, "actions": torch.stack(actions, dim=1),

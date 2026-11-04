@@ -55,15 +55,16 @@ def probe(env, policy, n_episodes, T, probe_seed):
         probe_seed: int, seeds the drops (the same every call).
     Returns:
         (n_active, p, out): n_active int, active units under common.active_mask; p (N,) float
-        participation over the alive steps of the probe; out, the rollout dict.
+        participation over every RNN step of the probe before the cheese; out, the rollout dict.
     """
     g = torch.Generator(device=env.device)
     g.manual_seed(int(probe_seed))
     out = rollout(env, policy, n_episodes, T, clean=True, generator=g)
+    k = policy.substeps
     with torch.no_grad():
-        states = policy.sequence(out["u"], out["noise"])[0][:, :T]              # (N, T, B)
+        states = policy.sequence(out["u"], out["noise"])[0][:, :T * k]          # (N, T * k, B)
     rates = policy.rnn.get_firing_rates(states).cpu().numpy()
-    alive = out["alive"][:-1].bool().cpu().numpy()                               # (T, B)
+    alive = out["alive"][:-1].bool().repeat_interleave(k, dim=0).cpu().numpy()  # (T * k, B)
     p = participation(rates[:, alive])
     return int(active_mask(p).sum()), p, out
 
@@ -155,12 +156,12 @@ def main(cfg: DictConfig) -> None:
     np.random.seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     hp = cfg.ppo
-    env = MazeEnv(**cfg.env, gamma=hp.gamma, device=device, seed=seed + 1)
+    env = MazeEnv(**cfg.env, device=device, seed=seed + 1)
     cfg.model.n_inputs, cfg.model.n_outputs = env.n_inputs, env.n_actions   # recorded, not chosen
     rnn_args = filter_kwargs(RNN_torch, cfg.model)
     rnn_args.seed = seed
     rnn = hydra.utils.instantiate(rnn_args)
-    policy = MazePolicy(rnn, hp.log_std_init)
+    policy = MazePolicy(rnn, hp.log_std_init, hp.log_std_min, hp.substeps)
     lr = hp.lr * (100.0 / float(cfg.model.N)) ** hp.lr_scale_exp      # the trainer's size rule
     optimizer = torch.optim.Adam(policy.parameters(), lr=lr, weight_decay=hp.weight_decay)
     folder = os.path.join(f"{cfg.paths.save_to}_rl_maze", f"Maze_{cfg.experiment_tag}", f"s{seed}")
@@ -182,7 +183,7 @@ def main(cfg: DictConfig) -> None:
                          "discounted_return": (batch["rewards"] * discount).sum(dim=0).mean().item(),
                          "success": batch["success"].float().mean().item(),
                          "steps": batch["steps"].mean().item(),
-                         "log_std": [float(v) for v in policy.log_std.detach().cpu()],
+                         "log_std": [float(v) for v in policy.std().log().detach().cpu()],
                          **stats})
         if it == 1 or it % hp.probe_every == 0:
             n_active, p, out = probe(env, policy, hp.probe_episodes, hp.T, hp.probe_seed)

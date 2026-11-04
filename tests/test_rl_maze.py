@@ -23,21 +23,22 @@ MAZE = ["#######",
         "#######"]
 REWARD = {"goal": 5.0, "step": -0.01, "wall": -0.05, "shape": 0.2}
 CPU = torch.device("cpu")
+FULL = torch.tensor([[0.0], [20.0]])      # raw action: no turn, sigmoid(20) = 1 -> full speed
 
 
 def make_env(goal_cue=False, seed=0):
     """The small test maze on CPU: ray range 3, speed 0.2, turn 0.3, goal radius 0.4."""
     return MazeEnv(MAZE, n_rays=8, ray_max=3.0, ray_step=0.1, v_max=0.2, turn_max=0.3, goal_radius=0.4,
-                   goal_cue=goal_cue, reward=REWARD, gamma=0.99, device=CPU, seed=seed)
+                   goal_cue=goal_cue, reward=REWARD, device=CPU, seed=seed)
 
 
-def make_policy(n_inputs, N=32, seed=0):
+def make_policy(n_inputs, N=32, seed=0, substeps=1):
     """A small standard-style RNN (ReLU, equation h, no Dale, fixed zero bias) wrapped as a policy."""
     rnn = RNN_torch(N=N, activation_args={"name": "relu", "slope": 1.0}, equation_type="h", dt=1, tau=10,
                     dale=False, io_nonnegativity=False, self_connections=True, gamma=0,
                     bias_range=[0.0, 0.0], sigma_rec=0.05, sigma_inp=0.05, sigma_out=0.03,
                     n_inputs=n_inputs, n_outputs=2, seed=seed, init_draws="independent")
-    return MazePolicy(rnn, log_std_init=-0.7)
+    return MazePolicy(rnn, log_std_init=-0.7, log_std_min=-2.3, substeps=substeps)
 
 
 def test_maze_tables():
@@ -63,21 +64,24 @@ def test_sensors():
 
 
 def test_step_wall_and_goal():
-    """A move into a wall is cancelled and costs the wall penalty; the cheese ends the episode."""
+    """A move into a wall is cancelled and costs the wall penalty; standing still earns only the
+    step cost; a cell of progress pays the shaping; the cheese ends the episode."""
     env = make_env()
     env.reset(1)
     env.xy[:] = torch.tensor([[3.5, 1.95]])
     env.heading[:] = math.pi / 2                          # +y, into the wall of row 2
-    _, r, done = env.step(torch.tensor([[0.0], [1.0]]))
+    _, r, done = env.step(FULL)
     assert torch.allclose(env.xy, torch.tensor([[3.5, 1.95]]))
-    assert abs(r.item() - (-0.01 - 0.05 + 0.2 * 10 * (1 - 0.99))) < 1e-5 and not done.item()
+    assert abs(r.item() - (-0.01 - 0.05)) < 1e-6 and not done.item()
+    _, r, _ = env.step(torch.tensor([[0.0], [-20.0]]))    # sigmoid(-20) = 0: standing still
+    assert abs(r.item() - (-0.01)) < 1e-6 and torch.allclose(env.xy, torch.tensor([[3.5, 1.95]]))
     env.xy[:] = torch.tensor([[3.5, 4.2]])
     env.heading[:] = -math.pi / 2                         # -y, towards the cheese at (3.5, 3.5)
-    _, r, done = env.step(torch.tensor([[0.0], [1.0]]))   # y = 4.0: 0.5 away, not yet
-    assert not done.item() and r.item() < 5
-    _, r, done = env.step(torch.tensor([[0.0], [1.0]]))   # y = 3.8: 0.3 away, reached
+    _, r, done = env.step(FULL)                           # y = 4.0: cell (4,3), one cell closer
+    assert not done.item() and abs(r.item() - (-0.01 + 0.2)) < 1e-6
+    _, r, done = env.step(FULL)                           # y = 3.8: 0.3 away, reached
     assert done.item() and r.item() > 4.5
-    _, r, done = env.step(torch.tensor([[0.0], [1.0]]))   # finished agents do not move or earn
+    _, r, done = env.step(FULL)                           # finished agents do not move or earn
     assert done.item() and r.item() == 0 and abs(env.xy[0, 1].item() - 3.8) < 1e-6
 
 
@@ -87,10 +91,10 @@ def test_corner_is_not_cut():
     env.reset(1)
     env.xy[:] = torch.tensor([[3.05, 4.95]])
     env.heading[:] = 3 * math.pi / 4                      # (-x, +y): end point (2.91, 5.09)
-    _, r, done = env.step(torch.tensor([[0.0], [1.0]]))
+    _, r, done = env.step(FULL)
     assert torch.allclose(env.xy, torch.tensor([[3.05, 4.95]])) and r.item() < -0.05 and not done.item()
     env.heading[:] = math.pi / 2                          # straight down into (5,3): free
-    env.step(torch.tensor([[0.0], [1.0]]))
+    env.step(FULL)
     assert abs(env.xy[0, 1].item() - 5.15) < 1e-6
 
 
@@ -108,18 +112,22 @@ def test_gae_known_case():
 
 def test_recompute_matches_rollout():
     """With the stored noise, the sequence recompute gives the rollout's means, values and
-    log-probabilities exactly, so the PPO ratio starts at 1."""
-    torch.manual_seed(0)
-    env = make_env(goal_cue=True)
-    policy = make_policy(env.n_inputs)
-    T, B = 25, 6
-    out = rollout(env, policy, B, T)
-    _, means, values = policy.sequence(out["u"], out["noise"])
-    logp = policy.log_prob(out["actions"], means[:, :T])
-    assert torch.allclose(logp, out["logp"], atol=1e-5)
-    assert torch.allclose(values, out["values"], atol=1e-5)
-    assert out["noise"]["out"].shape == (32, 1, B)      # one output-noise draw per episode, as forward
-    assert torch.allclose((logp - out["logp"]).exp(), torch.ones_like(logp), atol=1e-4)
+    log-probabilities exactly, so the PPO ratio starts at 1; with one and with three RNN steps
+    per decision."""
+    for substeps in (1, 3):
+        torch.manual_seed(0)
+        env = make_env(goal_cue=True)
+        policy = make_policy(env.n_inputs, substeps=substeps)
+        T, B = 25, 6
+        out = rollout(env, policy, B, T)
+        states, means, values = policy.sequence(out["u"], out["noise"])
+        logp = policy.log_prob(out["actions"], means[:, :T])
+        assert states.shape == (32, (T + 1) * substeps, B)
+        assert out["noise"]["rec"].shape == (32, (T + 1) * substeps, B)
+        assert torch.allclose(logp, out["logp"], atol=1e-5)
+        assert torch.allclose(values, out["values"], atol=1e-5)
+        assert out["noise"]["out"].shape == (32, 1, B)  # one output-noise draw per episode, as forward
+        assert torch.allclose((logp - out["logp"]).exp(), torch.ones_like(logp), atol=1e-4)
 
 
 def test_ppo_update_runs():

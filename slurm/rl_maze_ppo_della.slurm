@@ -8,7 +8,9 @@
 #   3-4   N=1000  blind                seeds 1, 2
 #   5-6   N= 500  cue (bearing input)  seeds 1, 2
 #   7-8   N=1000  cue                  seeds 1, 2
-# Everything else comes from the config (1500 updates of 256 episodes x 300 steps).
+# Everything else comes from the config (1000 updates of 256 episodes x 300 decisions, 5 RNN
+# steps per decision). The first array (16790695, one RNN step per decision, discounted shaping,
+# clipped actions) converged to standing still in every run; see issue #2 and the notebook.
 #
 # PASS/FAIL, set before submission (issue #2): the cue arm reaches a probe success rate of 0.8 by the
 # end of training at both sizes. The blind arm's result is a measurement, not a pass condition.
@@ -22,7 +24,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=nomig
 #SBATCH --mem-per-gpu=32G
-#SBATCH --time=04:00:00
+#SBATCH --time=06:00:00
 #SBATCH --array=1-8%8
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu

@@ -1,11 +1,14 @@
 """The project's standard RNN as a stochastic policy with a value head, run one step at a time.
 
 The RNN is `RNN_torch` unchanged: its own W_inp, W_rec, W_out, activation, alpha and training
-noise. One environment step is one RNN step, x <- x + alpha * rhs(x, u, noise), through the RNN's
-own `rhs`. The policy mean is the RNN's ordinary read-out, W_out @ (r + output noise), with two
+noise. One environment step (a decision) is `substeps` RNN steps, x <- x + alpha * rhs(x, u, noise),
+through the RNN's own `rhs`, with the observation held; the action is read from the state after
+the last of them (with alpha = 0.1 the network needs several steps to respond to what it sees, see
+configs/rl/maze_ppo.yaml). The policy mean is the RNN's ordinary read-out, W_out @ (r + output noise), with two
 outputs (turn, speed); the action is a sample from a Gaussian around it with one learned log-std
-per output; the value is a separate linear read-out of the rates, so the RNN's W_out is trained by
-the policy gradient only, as a task read-out should be.
+per output, floored at `log_std_min` so exploration cannot vanish (it fell from -0.7 to -3.4 in the
+first runs, which had converged to standing still); the value is a separate linear read-out of the
+rates, so the RNN's W_out is trained by the policy gradient only, as a task read-out should be.
 
 THE NOISE IS THE SAME AS IN RNN_torch.forward. Recurrent and input noise are fresh at every step,
 with the scale sqrt(2 / alpha) * sigma. Output noise is drawn ONCE per episode and unit, shape
@@ -30,10 +33,13 @@ LOG_2PI = math.log(2 * math.pi)
 class MazePolicy(torch.nn.Module):
     """Actor (the RNN and a log-std) and critic (a linear read-out of the rates) in one module."""
 
-    def __init__(self, rnn, log_std_init):
+    def __init__(self, rnn, log_std_init, log_std_min, substeps=1):
         """Args:
             rnn: RNN_torch built with n_outputs == 2 (turn, speed) and sigma_w == 0.
             log_std_init: float, the initial log standard deviation of both action outputs.
+            log_std_min: float, the floor of the log standard deviation (`log_std` is clamped to
+                it wherever it is used, so the parameter can fall below it but the policy cannot).
+            substeps: int >= 1, RNN steps per decision (the observation is held over them).
         Raises:
             ValueError if rnn.sigma_w is not 0: `step` runs the RNN's rhs with fixed weights and
             would silently drop the synaptic noise that RNN_torch.forward applies.
@@ -43,6 +49,8 @@ class MazePolicy(torch.nn.Module):
             raise ValueError(f"MazePolicy does not implement synaptic noise; model.sigma_w is {rnn.sigma_w}")
         self.rnn = rnn
         self.log_std = torch.nn.Parameter(torch.full((2,), float(log_std_init), device=rnn.device))
+        self.log_std_min = float(log_std_min)
+        self.substeps = int(substeps)
         self.value_w = torch.nn.Parameter(torch.zeros(rnn.N, device=rnn.device))
         self.value_b = torch.nn.Parameter(torch.zeros((), device=rnn.device))
 
@@ -68,6 +76,10 @@ class MazePolicy(torch.nn.Module):
             else:
                 noise[key] = torch.zeros(shape, device=rnn.device)
         return noise
+
+    def std(self):
+        """The policy's standard deviation per action output, (2,), with the floor applied."""
+        return self.log_std.clamp(min=self.log_std_min).exp()
 
     def initial_state(self, B):
         """The RNN state every episode starts from: y_init repeated, (N, B)."""
@@ -106,19 +118,22 @@ class MazePolicy(torch.nn.Module):
         """Re-run the RNN over a stored observation sequence with stored noise (the PPO recompute).
 
         Args:
-            u: (n_inputs, T, B) observations; noise: dict from `draw_noise` for T steps.
+            u: (n_inputs, T, B) observations, one per decision;
+            noise: dict from `draw_noise` for T * substeps RNN steps.
         Returns:
-            (states, means, values): states (N, T, B), the state after each step; means (2, T, B);
-            values (T, B).
+            (states, means, values): states (N, T * substeps, B), the state after every RNN step;
+            means (2, T, B) and values (T, B), read from the state after the last substep of each
+            decision.
         """
         T, B = u.shape[1], u.shape[2]
         x = self.initial_state(B)
         states = []
         for t in range(T):
-            x = self.step(x, u[:, t], noise["rec"][:, t], noise["inp"][:, t])
-            states.append(x)
+            for s in range(t * self.substeps, (t + 1) * self.substeps):
+                x = self.step(x, u[:, t], noise["rec"][:, s], noise["inp"][:, s])
+                states.append(x)
         states = torch.stack(states, dim=1)
-        means, values = self.heads(states, noise["out"])
+        means, values = self.heads(states[:, self.substeps - 1::self.substeps], noise["out"])
         return states, means, values
 
     def log_prob(self, action, mean):
@@ -129,10 +144,10 @@ class MazePolicy(torch.nn.Module):
         Returns:
             (...) tensor, the log density summed over the two action outputs.
         """
-        log_std = self.log_std.reshape((2,) + (1,) * (mean.ndim - 1))
+        log_std = self.std().log().reshape((2,) + (1,) * (mean.ndim - 1))
         z = (action - mean) / log_std.exp()
         return (-0.5 * z ** 2 - log_std - 0.5 * LOG_2PI).sum(dim=0)
 
     def entropy(self):
-        """Entropy of the Gaussian policy, a function of log_std alone: a scalar tensor."""
-        return (self.log_std + 0.5 * (LOG_2PI + 1.0)).sum()
+        """Entropy of the Gaussian policy, a function of the (floored) log_std alone: a scalar."""
+        return (self.std().log() + 0.5 * (LOG_2PI + 1.0)).sum()
