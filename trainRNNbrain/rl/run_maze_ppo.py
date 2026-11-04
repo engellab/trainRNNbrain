@@ -18,7 +18,8 @@ runs' folder, so no inventory of supervised cells ever sees these files):
   Progress.json       one dict per update: update, discounted_return (mean over the batch of
                       sum_t gamma^t r_t, the quantity PPO maximises), success (share of the batch
                       that reached the cheese), steps (mean steps to the cheese, T if never),
-                      and the PPO statistics from ppo_update
+                      restored (rollouts discarded and weights rolled back, see ppo.safe_rollout)
+                      and the PPO statistics from ppo_update (including skipped minibatches)
   Participation.npz   per probe: update (the update index), active (active units under the
                       project's rule, p = std + q0.9), active_mod (active units under the
                       modulation criterion, std alone at or above 5 percent of its 95th
@@ -48,7 +49,7 @@ from trainRNNbrain.utils import filter_kwargs
 from trainRNNbrain.experiments_and_analysis.common import participation, active_mask
 from trainRNNbrain.rl.maze_env import MazeEnv
 from trainRNNbrain.rl.policy import MazePolicy
-from trainRNNbrain.rl.ppo import rollout, gae, mc_advantages, ppo_update
+from trainRNNbrain.rl.ppo import rollout, safe_rollout, gae, mc_advantages, ppo_update
 
 
 def probe(env, policy, n_episodes, T, probe_seed):
@@ -181,9 +182,12 @@ def main(cfg: DictConfig) -> None:
     progress = []
     probes = {"update": [], "active": [], "active_mod": [], "probe_success": [], "p_update": [], "p": []}
     out = None
+    good = {k: v.detach().clone() for k, v in policy.state_dict().items()}   # last finite weights
     tic = time.perf_counter()
     for it in range(1, hp.n_updates + 1):
-        batch = rollout(env, policy, hp.n_episodes, hp.T)
+        batch, restored = safe_rollout(env, policy, good, hp.n_episodes, hp.T)
+        if restored:
+            print(f"update {it}: rollout not finite, weights restored ({restored} tries)", flush=True)
         if hp.critic:
             adv, ret = gae(batch["rewards"], batch["values"], batch["alive"], hp.gamma, hp.gae_lambda)
         else:
@@ -194,7 +198,9 @@ def main(cfg: DictConfig) -> None:
                          "discounted_return": (batch["rewards"] * discount).sum(dim=0).mean().item(),
                          "success": batch["success"].float().mean().item(),
                          "steps": batch["steps"].mean().item(),
+                         "restored": restored,
                          **stats})
+        good = {k: v.detach().clone() for k, v in policy.state_dict().items()}
         if it == 1 or it % hp.probe_every == 0:
             n_active, n_active_mod, p, out = probe(env, policy, hp.probe_episodes, hp.T, hp.probe_seed)
             probes["update"].append(it)

@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.rl.maze_env import MazeEnv, parse_maze, bfs_distance
 from trainRNNbrain.rl.policy import MazePolicy
-from trainRNNbrain.rl.ppo import rollout, gae, mc_advantages, ppo_update
+from trainRNNbrain.rl.ppo import rollout, safe_rollout, gae, mc_advantages, ppo_update
 
 MAZE = ["#######",
         "#.....#",
@@ -218,12 +218,28 @@ def test_ppo_update_guards():
     assert stats["skipped"] == 1 and torch.equal(before, policy.rnn.W_rec)
 
 
+def test_safe_rollout_restores():
+    """With NaN written into W_rec the rollout is not finite; safe_rollout restores the saved
+    weights and returns a finite rollout, counting one restore."""
+    torch.manual_seed(3)
+    env = make_env()
+    policy = make_policy(env.n_inputs, critic=False)
+    good = {k: v.detach().clone() for k, v in policy.state_dict().items()}
+    with torch.no_grad():
+        policy.rnn.W_rec[0, 0] = float("nan")
+    batch, restored = safe_rollout(env, policy, good, 4, 10)
+    assert restored == 1 and torch.isfinite(batch["logp"]).all()
+    assert torch.equal(policy.rnn.W_rec, good["rnn.W_rec"])
+    batch, restored = safe_rollout(env, policy, good, 4, 10)
+    assert restored == 0
+
+
 def main():
     """Run every check and print one line each."""
     for fn in (test_maze_tables, test_sensors, test_step_wall_and_goal, test_corner_is_not_cut_but_slides,
                test_slide_along_wall, test_only_the_rnn_is_trained, test_gae_known_case,
                test_mc_advantages_known_case, test_recompute_matches_rollout, test_ppo_update_runs,
-               test_ppo_update_guards):
+               test_ppo_update_guards, test_safe_rollout_restores):
         fn()
         print(f"ok: {fn.__name__}")
 

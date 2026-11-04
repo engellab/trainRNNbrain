@@ -97,6 +97,34 @@ def mc_advantages(rewards, alive, gamma):
     return (ret - baseline) * m, ret
 
 
+def safe_rollout(env, policy, good, n_episodes, T, tries=3):
+    """A rollout that is finite, or the last finite weights restored and the rollout replayed.
+
+    The maze counterpart of the supervised trainer's rollback: at N = 2,000 the recurrent dynamics
+    blew up (states to infinity over the 2,500-step episode) after a few updates at the paper's
+    learning rate (arrays 16856487 and 16859389, 4 Nov 2026), and every later loss was skipped.
+    Here a rollout whose log-probabilities or rewards are not finite is discarded, the weights are
+    restored from `good` (the state_dict after the last update whose rollout was finite), and the
+    rollout is played again with fresh noise.
+
+    Args:
+        env: MazeEnv; policy: MazePolicy; good: dict, policy.state_dict() tensors (copied);
+        n_episodes, T: ints; tries: int, attempts before giving up.
+    Returns:
+        (batch, restored): the finite rollout dict and the number of restores (0 normally).
+    Raises:
+        RuntimeError if no finite rollout was obtained in `tries` attempts.
+    """
+    restored = 0
+    for _ in range(tries):
+        batch = rollout(env, policy, n_episodes, T)
+        if torch.isfinite(batch["logp"]).all() and torch.isfinite(batch["rewards"]).all():
+            return batch, restored
+        policy.load_state_dict(good)
+        restored += 1
+    raise RuntimeError(f"the rollout was not finite {tries} times in a row; the run is stopped")
+
+
 def gae(rewards, values, alive, gamma, lam):
     """Generalised advantage estimation over a batch of episodes.
 
