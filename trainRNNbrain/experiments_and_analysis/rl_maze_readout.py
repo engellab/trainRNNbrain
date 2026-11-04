@@ -12,10 +12,11 @@ action, fixed drops), so its success rate is the performance measure and its act
 participation measure; the training batch's success is shown faint for comparison.
 
 Two read-out points per run (pre-registered on engellab/trainRNNbrain issue #3): "learned", the
-first probe at which the probe success stays at or above LEARNED_SUCCESS for LEARNED_HOLD probes
-in a row, and "end", the last probe. Runs with other activations than ReLU are drawn in their own
-figure, with the modulation count (std alone, saved as active_mod) beside the p-rule count, since
-tanh and sigmoid resting rates clear the p bar on their own.
+first probe at which the probe success stays at or above common.MAZE_LEARNED_SUCCESS for
+common.MAZE_LEARNED_HOLD probes in a row (common.maze_learned_index), and "end", the last probe.
+Runs with other activations than ReLU are drawn in their own figure, with the modulation count
+(std alone, saved as active_mod) beside the p-rule count, since tanh and sigmoid resting rates
+clear the p bar on their own.
 
 Output. img/internal_figures/rl_maze_<name>.png (ReLU curves and endpoints),
 rl_maze_<name>_activations.png (when several activations are present),
@@ -26,70 +27,26 @@ cheese in the last 50 updates, the update at which the task was learned, and the
 Run: python trainRNNbrain/experiments_and_analysis/rl_maze_readout.py [--root DIR] [--name first]
 """
 import argparse
-import glob
-import json
 import os
 import numpy as np
-import yaml
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from common import IMG_DIR
+from common import IMG_DIR, maze_learned_index, maze_load_runs
 from plotstyle import col_n
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ARM_STYLE = {False: ("--", "walls-only"), True: ("-", "cue")}
-LEARNED_SUCCESS = 0.9      # the "learned" read-out: probe success at or above this ...
-LEARNED_HOLD = 5           # ... for this many probes in a row (50 updates at probe_every 10)
 ACT_COLORS = {"relu": "#1a1a1a", "tanh": "#d62728", "sigmoid": "#1f77b4", "softplus": "#2ca02c",
               "leaky_relu": "#9467bd"}
-
-
-def learned_index(probe_success, hold=LEARNED_HOLD, level=LEARNED_SUCCESS):
-    """Index of the first probe from which the success stays at or above `level` for `hold` probes.
-
-    Args:
-        probe_success: (n_probes,) array; hold: int; level: float.
-    Returns:
-        int index into the probe arrays, or None if the task was never learned by that rule.
-    """
-    ok = np.asarray(probe_success) >= level
-    for i in range(len(ok) - hold + 1):
-        if ok[i:i + hold].all():
-            return i
-    return None
-
-
-def load_runs(root):
-    """Every finished run under root.
-
-    Args:
-        root: str, folder holding <cell>/s<seed>/ run folders (any depth-2 layout).
-    Returns:
-        list of dicts: N (int), act (str, the activation name), cue (bool), seed (int), folder
-        (str), progress (list of dicts), probes (dict of arrays: update, active, active_mod if
-        saved, probe_success, p_update, p), sorted by N, act, cue, seed.
-    """
-    runs = []
-    for cfg_path in sorted(glob.glob(os.path.join(root, "*", "s*", "config.yaml"))):
-        folder = os.path.dirname(cfg_path)
-        with open(cfg_path) as fh:
-            cfg = yaml.safe_load(fh)
-        with open(os.path.join(folder, "Progress.json")) as fh:
-            progress = json.load(fh)
-        probes = dict(np.load(os.path.join(folder, "Participation.npz")))
-        runs.append({"N": int(cfg["model"]["N"]), "act": str(cfg["model"]["activation_args"]["name"]),
-                     "cue": bool(cfg["env"]["goal_cue"]), "seed": int(cfg["seed"]),
-                     "folder": folder, "progress": progress, "probes": probes})
-    return sorted(runs, key=lambda r: (r["N"], r["act"], r["cue"], r["seed"]))
 
 
 def summarise(runs):
     """One row per run, printed as a table.
 
     Args:
-        runs: list from load_runs.
+        runs: list from maze_load_runs.
     Returns:
         list of dicts with N, act, arm, seed, updates, probe_success (last probe), train_success
         (mean of the last 50 updates), steps (same window), learned (update of the "learned"
@@ -100,7 +57,7 @@ def summarise(runs):
     for r in runs:
         tail = r["progress"][-50:]
         pr = r["probes"]
-        li = learned_index(pr["probe_success"])
+        li = maze_learned_index(pr["probe_success"])
         rows.append({"N": r["N"], "act": r["act"], "arm": ARM_STYLE[r["cue"]][1], "seed": r["seed"],
                      "updates": r["progress"][-1]["update"],
                      "probe_success": float(pr["probe_success"][-1]),
@@ -125,7 +82,7 @@ def draw_curves(runs, rows, path):
     """Probe success and active count against updates, and the final active count against N.
 
     Args:
-        runs: list from load_runs; rows: list from summarise; path: str, PNG to write.
+        runs: list from maze_load_runs; rows: list from summarise; path: str, PNG to write.
     """
     fig, axes = plt.subplots(1, 3, figsize=(13, 3.6))
     for r in runs:
@@ -165,7 +122,7 @@ def draw_activations(runs, path):
     the counts at the end per activation; one size. PNG at path.
 
     Args:
-        runs: list from load_runs (all sizes; only the most common N is drawn); path: str.
+        runs: list from maze_load_runs (all sizes; only the most common N is drawn); path: str.
     """
     N = max({r["N"] for r in runs}, key=lambda n: sum(r["N"] == n for r in runs))
     sel = [r for r in runs if r["N"] == N]
@@ -202,7 +159,7 @@ def draw_trajectories(runs, path):
     """Tile the runs' own trajectories.png (written at their last checkpoint), one panel per run.
 
     Args:
-        runs: list from load_runs; path: str, PNG to write.
+        runs: list from maze_load_runs; path: str, PNG to write.
     """
     n = len(runs)
     cols = min(4, n)
@@ -224,7 +181,7 @@ def main():
     ap.add_argument("--root", default=os.path.join(REPO, "data", "trained_RNNs_rl_maze", "Maze_first"))
     ap.add_argument("--name", default="first", help="suffix of the output figures")
     args = ap.parse_args()
-    runs = load_runs(args.root)
+    runs = maze_load_runs(args.root)
     if not runs:
         raise SystemExit(f"no runs under {args.root}")
     rows = summarise(runs)

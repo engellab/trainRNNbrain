@@ -27,6 +27,7 @@ import re
 import json
 import glob
 import pickle
+import yaml
 import numpy as np
 from omegaconf import OmegaConf
 from scipy.ndimage import median_filter
@@ -992,6 +993,64 @@ def r2_from_dir(leaf_dir):
 
 
 # --------------------------------------------------------------------------------------------
+# maze runs (PPO): the run folders of trainRNNbrain/rl/run_maze_ppo.py and their "learned" point
+# --------------------------------------------------------------------------------------------
+# A maze run is read at two points (pre-registered on engellab/trainRNNbrain issue #3): "learned",
+# the first probe from which the clean probe's success rate stays at or above MAZE_LEARNED_SUCCESS
+# for MAZE_LEARNED_HOLD probes in a row, and "end", the last probe (update 2,000 in the suite). The
+# probe runs every 10 updates, so the hold is 50 updates.
+
+MAZE_LEARNED_SUCCESS = 0.9      # the "learned" read-out: probe success at or above this ...
+MAZE_LEARNED_HOLD = 5           # ... for this many probes in a row
+
+
+def maze_learned_index(probe_success, hold=MAZE_LEARNED_HOLD, level=MAZE_LEARNED_SUCCESS):
+    """Index of the first probe from which the success rate stays at or above `level` for `hold` probes.
+
+    The "learned" read-out point of a maze run (issue #3). It is the maze counterpart of the
+    supervised floor crossing: a point set by the run's own performance, not by a fixed iteration.
+
+    Args:
+        probe_success: (n_probes,) array of the clean probe's success rate, one entry per probe in
+            training order; hold: int, probes in a row; level: float, success rate in [0, 1].
+    Returns:
+        int index into the probe arrays, or None if the task was never learned by that rule.
+    """
+    ok = np.asarray(probe_success) >= level
+    for i in range(len(ok) - hold + 1):
+        if ok[i:i + hold].all():
+            return i
+    return None
+
+
+def maze_load_runs(root):
+    """Every finished maze run under a root folder (rl_maze_readout.py and fig_ed_maze.py read it).
+
+    Args:
+        root: str, folder holding <cell>/s<seed>/ run folders (any depth-2 layout), each with
+            config.yaml, Progress.json and Participation.npz as run_maze_ppo.py writes them.
+    Returns:
+        list of dicts: N (int), act (str, the saved activation name: relu, tanh, sigmoid, softplus,
+        leaky_relu), cue (bool, env.goal_cue), seed (int), folder (str), progress (list of dicts, one
+        per PPO update: update, discounted_return, success, steps, ...), probes (dict of arrays over
+        probes: update, active, active_mod when the run saved it, probe_success, p_update, p),
+        sorted by N, act, cue, seed.
+    """
+    runs = []
+    for cfg_path in sorted(glob.glob(os.path.join(root, "*", "s*", "config.yaml"))):
+        folder = os.path.dirname(cfg_path)
+        with open(cfg_path) as fh:
+            cfg = yaml.safe_load(fh)
+        with open(os.path.join(folder, "Progress.json")) as fh:
+            progress = json.load(fh)
+        probes = dict(np.load(os.path.join(folder, "Participation.npz")))
+        runs.append({"N": int(cfg["model"]["N"]), "act": str(cfg["model"]["activation_args"]["name"]),
+                     "cue": bool(cfg["env"]["goal_cue"]), "seed": int(cfg["seed"]),
+                     "folder": folder, "progress": progress, "probes": probes})
+    return sorted(runs, key=lambda r: (r["N"], r["act"], r["cue"], r["seed"]))
+
+
+# --------------------------------------------------------------------------------------------
 # weight drift: is the optimiser still making directed progress, or just jittering?
 # --------------------------------------------------------------------------------------------
 
@@ -1246,6 +1305,10 @@ def _self_check():
         t_f = excess_time(A, tau, beta, frac, t0)
         e0 = stretched(t0, 0.0, A, tau, beta)
         assert abs(stretched(t_f, 0.0, A, tau, beta) / e0 - frac) < 1e-9, frac
+
+    # maze_learned_index: the first probe from which the hold is met, never a lone pass
+    s = np.array([0.0, 0.95, 0.5, 0.9, 0.92, 0.95, 0.9, 0.99, 0.8, 1.0])
+    assert maze_learned_index(s, hold=5) == 3 and maze_learned_index(s, hold=6) is None
 
     # aicc penalises the extra parameter when the fit is not improved
     assert aicc(1.0, 50, 3) < aicc(1.0, 50, 4)
