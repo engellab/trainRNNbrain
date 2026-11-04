@@ -130,20 +130,28 @@ def ppo_update(policy, optimizer, batch, adv, ret, clip, n_epochs, n_minibatches
     Returns:
         dict of floats averaged over the minibatch steps: policy_loss, value_loss, entropy,
         approx_kl (mean of old minus new log-probability), clip_frac (share of steps with the
-        ratio outside the clip range).
+        ratio outside the clip range), and skipped, the number of minibatch steps whose loss was
+        not finite and which were therefore not applied.
+
+    TWO GUARDS, both inert while everything is finite (added 4 Nov 2026 after two N = 2,000 runs
+    died in their first update, array 16856487): the log-ratio is clamped to [-20, 20] before it
+    is exponentiated, so an action that the updated policy finds very unlikely gives a ratio of
+    e^-20 instead of 0 or inf; and a minibatch whose loss is not finite is skipped, so one bad
+    pass cannot write NaN into the weights for the rest of the run.
     """
     T, B = adv.shape
     alive = batch["alive"][:T]
     adv = (adv - adv[alive > 0].mean()) / (adv[alive > 0].std() + 1e-8)
     sums = {"policy_loss": 0.0, "value_loss": 0.0, "entropy": 0.0, "approx_kl": 0.0, "clip_frac": 0.0}
     n = 0
+    skipped = 0
     for _ in range(n_epochs):
         for idx in torch.randperm(B, device=adv.device).chunk(n_minibatches):
             noise = {k: v[:, :, idx] for k, v in batch["noise"].items()}
             _, means, values = policy.sequence(batch["u"][:, :, idx], noise)
             logp = policy.log_prob(batch["actions"][:, :, idx], means[:, :T])
             m = alive[:, idx]
-            ratio = (logp - batch["logp"][:, idx]).exp()
+            ratio = (logp - batch["logp"][:, idx]).clamp(-20.0, 20.0).exp()
             a = adv[:, idx]
             surrogate = torch.min(ratio * a, ratio.clamp(1 - clip, 1 + clip) * a)
             policy_loss = -(surrogate * m).sum() / m.sum()
@@ -151,6 +159,9 @@ def ppo_update(policy, optimizer, batch, adv, ret, clip, n_epochs, n_minibatches
                           if policy.critic else torch.zeros((), device=adv.device))
             entropy = policy.entropy()
             loss = policy_loss + value_coef * value_loss - entropy_coef * entropy
+            if not torch.isfinite(loss):
+                skipped += 1
+                continue
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(policy.parameters(), max_grad_norm)
@@ -162,4 +173,6 @@ def ppo_update(policy, optimizer, batch, adv, ret, clip, n_epochs, n_minibatches
                 sums["approx_kl"] += ((batch["logp"][:, idx] - logp) * m).sum().item() / m.sum().item()
                 sums["clip_frac"] += (((ratio - 1).abs() > clip).float() * m).sum().item() / m.sum().item()
             n += 1
-    return {k: v / n for k, v in sums.items()}
+    out = {k: v / max(n, 1) for k, v in sums.items()}
+    out["skipped"] = float(skipped)
+    return out

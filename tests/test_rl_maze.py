@@ -193,13 +193,37 @@ def test_ppo_update_runs():
         assert all(np.isfinite(v) for v in stats.values()), stats
         assert not torch.allclose(before, policy.rnn.W_rec)
         assert (stats["value_loss"] == 0) == (not critic)
+        assert stats["skipped"] == 0
+
+
+def test_ppo_update_guards():
+    """A stored log-probability far below the recomputed one gives a finite, clamped ratio and
+    a finite update; a non-finite advantage makes the loss non-finite, and that minibatch is
+    skipped with the weights untouched."""
+    torch.manual_seed(2)
+    env = make_env()
+    policy = make_policy(env.n_inputs, critic=False)
+    opt = torch.optim.Adam(policy.parameters(), lr=1e-3)
+    out = rollout(env, policy, 8, 20)
+    adv, ret = mc_advantages(out["rewards"], out["alive"], 0.99)
+    out["logp"] = out["logp"] - 1000.0                     # ratio would be e^1000 without the clamp
+    stats = ppo_update(policy, opt, out, adv, ret, clip=0.2, n_epochs=1, n_minibatches=1,
+                       value_coef=0.5, entropy_coef=0.0, max_grad_norm=0.5)
+    assert np.isfinite(stats["policy_loss"]) and stats["skipped"] == 0
+    assert all(torch.isfinite(p).all() for p in policy.parameters())
+    before = policy.rnn.W_rec.detach().clone()
+    adv[0, 0] = float("nan")
+    stats = ppo_update(policy, opt, out, adv, ret, clip=0.2, n_epochs=1, n_minibatches=1,
+                       value_coef=0.5, entropy_coef=0.0, max_grad_norm=0.5)
+    assert stats["skipped"] == 1 and torch.equal(before, policy.rnn.W_rec)
 
 
 def main():
     """Run every check and print one line each."""
     for fn in (test_maze_tables, test_sensors, test_step_wall_and_goal, test_corner_is_not_cut_but_slides,
                test_slide_along_wall, test_only_the_rnn_is_trained, test_gae_known_case,
-               test_mc_advantages_known_case, test_recompute_matches_rollout, test_ppo_update_runs):
+               test_mc_advantages_known_case, test_recompute_matches_rollout, test_ppo_update_runs,
+               test_ppo_update_guards):
         fn()
         print(f"ok: {fn.__name__}")
 
