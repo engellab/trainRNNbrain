@@ -45,8 +45,8 @@ Spacing: LABEL_PAD_PT 4.0 pt between an axis label and its tick labels (matplotl
   (0.3 mm at labelpad=1; tests/test_paperstyle.py fails under 1 mm; dead-relu-paper #63).
 
 Colour: one colour per meaning, everywhere, and a colour is never reused for another meaning.
-  TASK_COLORS   3BFF blue, CDDM burnt orange, DMTS green. Reserved: no rule, setting, unit class or
-                annotation uses these hues.
+  TASK_COLORS   3BFF blue, CDDM burnt orange, DMTS green, Maze raspberry. Reserved: no rule,
+                setting, unit class or annotation uses these hues.
   RULE_COLORS   the training rules, in three hue families so that a family reads as one idea:
                   activity penalties (violet): rate penalty, sparsity penalty, rate + sparsity
                   noise during training (ochre): dropout, synaptic noise
@@ -60,21 +60,24 @@ Colour: one colour per meaning, everywhere, and a colour is never reused for ano
   Text is always INK/MUTED, never a series colour. Status marks (a severed connection, a limit
   line) are drawn in ink with a word and a line style; there is no red "bad" colour (BAD = INK).
   Validated with the dataviz validator (`validate_palette.js --pairs all`, white surface) on the
-  sets that share a panel: the three tasks, worst colour-blind dE 9.7 (pass, target 8); the
-  Figure 5 set (baseline, ACTIVE, rate, rate + sparsity, dropout, synaptic noise, duplicate,
-  rescale), worst 8.0 (pass), normal-vision worst 15.5 (pass, floor 15); the Figure 3 set
+  sets that share a panel: the four tasks, worst colour-blind dE 9.7 (DMTS and CDDM; pass,
+  target 8), normal-vision worst 19.7 (Maze and CDDM; pass, floor 15); the Figure 5 set
+  (baseline, ACTIVE, rate, rate + sparsity, dropout, synaptic noise, duplicate, rescale), worst
+  8.0 (pass), normal-vision worst 15.5 (pass, floor 15); the Figure 3 set
   (baseline, ACTIVE, the three penalties, SETTING_RAMP[1] and [2]), worst 8.9, normal-vision 15.9.
   Pairs that fail the checks, and the limitation each one carries (dead-relu-paper#63). Every pair
-  of the 17 series colours above (tasks, rules, the four teals, BASELINE, ACTIVE, INACTIVE) was
+  of the 18 series colours above (tasks, rules, the four teals, BASELINE, ACTIVE, INACTIVE) was
   run; every pair under 8 in a colour-blind simulation or under 15 in normal vision is listed here.
   The validator and an independent Machado-2009 / OKLab script agree on every value.
   - Tasks and rules are never colour-coded in the same panel: DMTS and rescale are 2.7 apart under
     deuteranopia; 3BFF and sparsity 2.9 under protanopia (11.1 under deuteranopia); 3BFF and rate
-    penalty 7.2 under deuteranopia and 14.8 in normal vision; CDDM and dropout 13.2 in normal vision.
+    penalty 7.2 under deuteranopia and 14.8 in normal vision; CDDM and dropout 13.2 in normal vision;
+    Maze and duplicate 10.5 in normal vision (9.5 under protanopia); Maze and rescale 11.0 in both.
     A panel that crosses tasks with rules gives tasks a facet or a marker and rules the colour.
   - Tasks and the setting teals are never colour-coded in the same panel: DMTS and SETTING_RAMP[1]
     are 7.7 apart under deuteranopia and 8.3 in normal vision; 3BFF and SETTING_RAMP[1] 12.8 in
-    normal vision.
+    normal vision; Maze and SETTING_RAMP[2] 3.3 under deuteranopia, Maze and SETTING_RAMP[3] 5.5
+    under protanopia.
   - The setting teals never share a panel with rescale, duplicate or synaptic noise: SETTING
     (SETTING_RAMP[2]) and rescale are 3.7 apart under protanopia; SETTING_RAMP[1] and rescale 6.4
     under deuteranopia; SETTING_RAMP[3] and duplicate 5.2 under protanopia; SETTING and synaptic
@@ -209,11 +212,13 @@ ACTIVE = "#1a1a1a"              # an active unit
 INACTIVE = "#c4c4c4"            # an inactive unit (drawn hollow or light, never omitted)
 BASELINE = "#a9a9a9"            # the default / untreated reference; never a series colour
 
-# Tasks. Reserved: these three hues mean a task and nothing else.
+# Tasks. Reserved: these four hues mean a task and nothing else.
 TASK_3BFF = "#2a78d6"           # 3-bit flip-flop, blue
 TASK_CDDM = "#b35806"           # context-dependent decision making, burnt orange
 TASK_DMTS = "#12916a"           # delayed match-to-sample, green
-TASK_COLORS = {"3BFF": TASK_3BFF, "CDDM": TASK_CDDM, "DMTS": TASK_DMTS}
+TASK_MAZE = "#941862"           # maze running (PPO), raspberry: the one hue that clears every check
+                                # against the other three (validator, 4 Nov 2026); see the limitations
+TASK_COLORS = {"3BFF": TASK_3BFF, "CDDM": TASK_CDDM, "DMTS": TASK_DMTS, "Maze": TASK_MAZE}
 
 # Training rules, three hue families. Within a family the members differ in lightness.
 RATE_PENALTY = "#7442b9"        # violet: the firing-rate penalty (frm)
