@@ -1,7 +1,7 @@
 ## 2026-11-03 21:49 — Maze task, array 16794613: the task is learnable, and 100-390 units per network stay inactive (issue #2)
 
 Follows `2026-11-03_2007_rl-maze-first-array-fails-substeps-second-array.md` and the correction
-`2026-11-03_20xx_rl-maze-second-array-resubmitted-16794613.md` (same day, 16794613 at 9e5d8d1).
+`2026-11-03_2008_rl-maze-second-array-resubmitted-16794613.md` (same day, 16794613 at 9e5d8d1).
 
 **What ran.** Della array 16794613 from `~/trainRNNbrain_rlmaze` at 9e5d8d1: N in {500, 1,000} ×
 arms {blind, cue} × seeds {1, 2}; 1,000 PPO updates of 256 episodes × 300 decisions, 5 RNN steps
