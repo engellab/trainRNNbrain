@@ -37,7 +37,8 @@ def rollout(env, policy, n_episodes, T, clean=False, generator=None):
         RNN steps;
         actions (2, T, B); logp (T, B); values (T+1, B); rewards (T, B); alive (T+1, B) float;
         success (B,) bool, reached the cheese; steps (B,) float, steps taken until the cheese
-        (T if never); xy (T+1, B, 2) positions. The RNN states are not kept (they are large);
+        (T if never); xy (T+1, B, 2) positions and heading (T+1, B) radians, for figures and
+        animations. The RNN states are not kept (they are large);
         policy.sequence(u, noise) recomputes them exactly.
     """
     k = policy.substeps
@@ -46,7 +47,7 @@ def rollout(env, policy, n_episodes, T, clean=False, generator=None):
         noise = policy.draw_noise((T + 1) * k, n_episodes, not clean, generator)
         x = policy.initial_state(n_episodes)
         alive = [torch.ones(n_episodes, device=env.device)]
-        xy = [env.xy.clone()]
+        xy, heading = [env.xy.clone()], [env.heading.clone()]
         actions, logp, values, rewards = [], [], [], []
         for t in range(T):
             for s in range(t * k, (t + 1) * k):
@@ -65,6 +66,7 @@ def rollout(env, policy, n_episodes, T, clean=False, generator=None):
             u.append(obs)
             alive.append((~done).float())
             xy.append(env.xy.clone())
+            heading.append(env.heading.clone())
         for s in range(T * k, (T + 1) * k):
             x = policy.step(x, u[-1], noise["rec"][:, s], noise["inp"][:, s])
         values.append(policy.heads(x, noise["out"][:, 0])[1])
@@ -72,7 +74,7 @@ def rollout(env, policy, n_episodes, T, clean=False, generator=None):
     return {"u": torch.stack(u, dim=1), "noise": noise, "actions": torch.stack(actions, dim=1),
             "logp": torch.stack(logp), "values": torch.stack(values), "rewards": torch.stack(rewards),
             "alive": alive, "success": alive[-1] == 0, "steps": alive[:-1].sum(dim=0),
-            "xy": torch.stack(xy)}
+            "xy": torch.stack(xy), "heading": torch.stack(heading)}
 
 
 def gae(rewards, values, alive, gamma, lam):
