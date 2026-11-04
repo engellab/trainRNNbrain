@@ -20,9 +20,13 @@ runs' folder, so no inventory of supervised cells ever sees these files):
                       that reached the cheese), steps (mean steps to the cheese, T if never),
                       log_std, and the PPO statistics from ppo_update
   Participation.npz   per probe: update (the update index), active (active units under the
-                      project's rule), probe_success (share of probe episodes that reached the
-                      cheese); and every store_participation_every-th probe's full participation
-                      vector: p (n_stored, N) with its update index p_update (n_stored,)
+                      project's rule, p = std + q0.9), active_mod (active units under the
+                      modulation criterion, std alone at or above 5 percent of its 95th
+                      percentile: the count to read for tanh and sigmoid networks, whose resting
+                      rate is not 0 and clears the p bar on its own), probe_success (share of
+                      probe episodes that reached the cheese); and every
+                      store_participation_every-th probe's full participation vector:
+                      p (n_stored, N) with its update index p_update (n_stored,)
   progress.png        discounted return, success and active count against updates
   trajectories.png    the maze with the probe episodes' paths at the last checkpoint
 A probe is a noise-free rollout with the policy mean on a fixed batch of drops (the same drops at
@@ -54,8 +58,9 @@ def probe(env, policy, n_episodes, T, probe_seed):
         env: MazeEnv; policy: MazePolicy; n_episodes, T: ints, the probe batch and episode length;
         probe_seed: int, seeds the drops (the same every call).
     Returns:
-        (n_active, p, out): n_active int, active units under common.active_mask; p (N,) float
-        participation over every RNN step of the probe before the cheese; out, the rollout dict.
+        (n_active, n_active_mod, p, out): n_active int, active units under common.active_mask on
+        p; n_active_mod int, the same bar on the std alone (the modulation criterion); p (N,)
+        float participation over every RNN step of the probe before the cheese; out, the rollout.
     """
     g = torch.Generator(device=env.device)
     g.manual_seed(int(probe_seed))
@@ -66,7 +71,8 @@ def probe(env, policy, n_episodes, T, probe_seed):
     rates = policy.rnn.get_firing_rates(states).cpu().numpy()
     alive = out["alive"][:-1].bool().repeat_interleave(k, dim=0).cpu().numpy()  # (T * k, B)
     p = participation(rates[:, alive])
-    return int(active_mask(p).sum()), p, out
+    n_active_mod = int(active_mask(rates[:, alive].std(axis=1)).sum())
+    return int(active_mask(p).sum()), n_active_mod, p, out
 
 
 def save_run(folder, cfg, policy, progress, probes):
@@ -171,7 +177,7 @@ def main(cfg: DictConfig) -> None:
           f"device={device}\n -> {folder}", flush=True)
 
     progress = []
-    probes = {"update": [], "active": [], "probe_success": [], "p_update": [], "p": []}
+    probes = {"update": [], "active": [], "active_mod": [], "probe_success": [], "p_update": [], "p": []}
     out = None
     tic = time.perf_counter()
     for it in range(1, hp.n_updates + 1):
@@ -186,9 +192,10 @@ def main(cfg: DictConfig) -> None:
                          "log_std": [float(v) for v in policy.std().log().detach().cpu()],
                          **stats})
         if it == 1 or it % hp.probe_every == 0:
-            n_active, p, out = probe(env, policy, hp.probe_episodes, hp.T, hp.probe_seed)
+            n_active, n_active_mod, p, out = probe(env, policy, hp.probe_episodes, hp.T, hp.probe_seed)
             probes["update"].append(it)
             probes["active"].append(n_active)
+            probes["active_mod"].append(n_active_mod)
             probes["probe_success"].append(out["success"].float().mean().item())
             if (len(probes["update"]) - 1) % hp.store_participation_every == 0:
                 probes["p_update"].append(it)
@@ -197,7 +204,7 @@ def main(cfg: DictConfig) -> None:
             print(f"update {it:5d}/{hp.n_updates}  disc. return {r['discounted_return']:7.3f}"
                   f"  success {r['success']:.2f}  steps {r['steps']:6.1f}"
                   f"  probe success {probes['probe_success'][-1]:.2f}"
-                  f"  active {n_active}/{cfg.model.N}  kl {r['approx_kl']:.4f}  clip {r['clip_frac']:.2f}"
+                  f"  active {n_active} (mod {n_active_mod})/{cfg.model.N}  kl {r['approx_kl']:.4f}  clip {r['clip_frac']:.2f}"
                   f"  {(time.perf_counter() - tic) / it:.2f} s/update", flush=True)
         if it % hp.checkpoint_every == 0 or it == hp.n_updates:
             save_run(folder, cfg, policy, progress, probes)

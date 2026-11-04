@@ -13,40 +13,51 @@ experiment_tag: "maze_ppo"
 seed: 0                       # int, or "random" (the seed used is written back into the saved config)
 
 env:
-  # 11 x 11, cheese in the centre, reached only through the inner ring from above or below; the
-  # right-hand corridor connects to it only around the outside (geodesic 24 cells from the far side).
+  # 15 x 15 (since 4 Nov 2026): `python trainRNNbrain/rl/make_maze.py --cells 7 --seed 6 --loops 4`,
+  # a depth-first-search maze with 4 walls removed for loops; cheese at the centre in a pocket
+  # entered only from above; 36 cells from the far end, 22 on average over free cells, 9 dead
+  # ends. The first two arrays (16790695, 16794613) used an 11 x 11 hand-drawn maze, 24 cells from
+  # the far end and no dead ends (git history of this file).
   maze:
-    - "###########"
-    - "#.........#"
-    - "#.#####.#.#"
-    - "#.#...#.#.#"
-    - "#.#.#.#.#.#"
-    - "#...#C#...#"
-    - "#.#.#.#.#.#"
-    - "#.#...#.#.#"
-    - "#.#####.#.#"
-    - "#.........#"
-    - "###########"
+    - "###############"
+    - "#.............#"
+    - "#.###.#.####.##"
+    - "#.....#.#.....#"
+    - "#.###.###.###.#"
+    - "#...#.#...#...#"
+    - "#####.#.###.###"
+    - "#...#.#C#.#...#"
+    - "#.#.#.###.###.#"
+    - "#.#.........#.#"
+    - "#.#.#..######.#"
+    - "#.#.#.....#...#"
+    - "#.###.###.#.###"
+    - "#.......#.....#"
+    - "###############"
   n_rays: 8                   # range sensors over 360 degrees, ray 0 along the heading
   ray_max: 4.0                # cells; corridors are 1 wide, so most rays return within 1-2 cells
   ray_step: 0.1               # cells; ray-marching resolution (40 samples per ray)
   v_max: 0.2                  # cells per decision at full speed (speed = v_max * sigmoid(output)):
-                              # 120 decisions for the longest route (24 cells)
+                              # 180 decisions for the longest route (36 cells)
   turn_max: 0.3               # radians per decision at full turn (turn = turn_max * tanh(output)):
                               # a U-turn in ~10 decisions
   goal_radius: 0.5            # cells from the cheese centre that ends the episode
-  goal_cue: false             # true adds cos/sin of the bearing to the cheese (the "cue" arm)
+  goal_cue: false             # the task: walls only (8 sensors). true adds cos/sin of the bearing
+                              # to the cheese, the "cue" arm of the first two arrays
   reward:
     goal: 5.0                 # once, on reaching the cheese
     step: -0.01               # every decision: be quick
-    wall: -0.02               # every blocked move (small, so bumps while exploring do not dominate)
+    wall: -0.02               # every step on which the agent is stuck: a move into a wall slides
+                              # along it (maze_env.py, since 4 Nov 2026) and costs nothing unless
+                              # neither component of the move is free
     shape: 0.2                # per cell of geodesic progress, undiscounted: standing still earns 0
                               # (the discounted form paid a stationary agent and the first runs,
                               # array 16790695, converged to standing still)
 
 ppo:
   n_episodes: 256             # parallel episodes per update (the batch)
-  T: 300                      # decisions per episode (RNN steps = T * substeps)
+  T: 500                      # decisions per episode (RNN steps = T * substeps): 2.8x the longest
+                              # route at full speed
   # ONE DECISION PER `substeps` RNN STEPS. The standard RNN has alpha = dt/tau = 0.1, so it reacts
   # about 10 steps late. With one decision per RNN step (the first runs, array 16790695) the agent
   # moved 2 cells before seeing a wall, and slowing to a stop was the safe policy: probe success
@@ -56,7 +67,7 @@ ppo:
   # `substeps` of its own steps per decision, with the observation held; the action is read from
   # the state after the last of them. Training cost scales with substeps.
   substeps: 5
-  n_updates: 1000
+  n_updates: 2000             # the task is learned within ~500; the rest measures the decline after
   gamma: 0.99
   gae_lambda: 0.95
   clip: 0.2

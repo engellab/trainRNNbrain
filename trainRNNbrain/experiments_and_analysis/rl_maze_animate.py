@@ -76,7 +76,7 @@ def animate(cfg, env, out, path, every, trail, fps):
     ticks = [ax.plot([], [], color="k", lw=1, zorder=5)[0] for b in range(B)]
     rays = [ax.plot([], [], color="grey", lw=0.5, alpha=0.7)[0] for _ in range(env.n_rays)]
     title = ax.set_title("", fontsize=9)
-    label = (f"N = {cfg.model.N}, {'cue' if cfg.env.goal_cue else 'blind'}, seed {cfg.seed}: "
+    label = (f"N = {cfg.model.N}, {'cue' if cfg.env.goal_cue else 'walls-only'}, seed {cfg.seed}: "
              f"{success.mean():.2f} of {B} reached the cheese")
     offsets = env.ray_offsets.numpy()
 

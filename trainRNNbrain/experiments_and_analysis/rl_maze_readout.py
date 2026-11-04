@@ -3,7 +3,7 @@ active?
 
 Question. For every run under a root folder (default data/trained_RNNs_rl_maze/Maze_first): the
 probe success rate and the active-unit count against PPO updates, and the active count at the last
-probe against N. Arms (blind: walls only; cue: bearing to the cheese) are line styles, N is the
+probe against N. Arms (walls-only; cue: bearing to the cheese added) are line styles, N is the
 project's fixed colour map (plotstyle.col_n), seeds are separate thin lines.
 
 Method. Each run folder holds Progress.json (per update) and Participation.npz (per probe), written
@@ -31,7 +31,7 @@ from common import IMG_DIR
 from plotstyle import col_n
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-ARM_STYLE = {False: ("--", "blind"), True: ("-", "cue")}
+ARM_STYLE = {False: ("--", "walls-only"), True: ("-", "cue")}
 
 
 def load_runs(root):
@@ -40,8 +40,9 @@ def load_runs(root):
     Args:
         root: str, folder holding <cell>/s<seed>/ run folders (any depth-2 layout).
     Returns:
-        list of dicts: N (int), cue (bool), seed (int), folder (str), progress (list of dicts),
-        probes (dict of arrays: update, active, probe_success, p_update, p), sorted by N, cue, seed.
+        list of dicts: N (int), act (str, the activation name), cue (bool), seed (int), folder
+        (str), progress (list of dicts), probes (dict of arrays: update, active, active_mod if
+        saved, probe_success, p_update, p), sorted by N, act, cue, seed.
     """
     runs = []
     for cfg_path in sorted(glob.glob(os.path.join(root, "*", "s*", "config.yaml"))):
@@ -51,9 +52,10 @@ def load_runs(root):
         with open(os.path.join(folder, "Progress.json")) as fh:
             progress = json.load(fh)
         probes = dict(np.load(os.path.join(folder, "Participation.npz")))
-        runs.append({"N": int(cfg["model"]["N"]), "cue": bool(cfg["env"]["goal_cue"]), "seed": int(cfg["seed"]),
+        runs.append({"N": int(cfg["model"]["N"]), "act": str(cfg["model"]["activation_args"]["name"]),
+                     "cue": bool(cfg["env"]["goal_cue"]), "seed": int(cfg["seed"]),
                      "folder": folder, "progress": progress, "probes": probes})
-    return sorted(runs, key=lambda r: (r["N"], r["cue"], r["seed"]))
+    return sorted(runs, key=lambda r: (r["N"], r["act"], r["cue"], r["seed"]))
 
 
 def summarise(runs):
@@ -68,16 +70,16 @@ def summarise(runs):
     rows = []
     for r in runs:
         tail = r["progress"][-50:]
-        rows.append({"N": r["N"], "arm": ARM_STYLE[r["cue"]][1], "seed": r["seed"],
+        rows.append({"N": r["N"], "act": r["act"], "arm": ARM_STYLE[r["cue"]][1], "seed": r["seed"],
                      "updates": r["progress"][-1]["update"],
                      "probe_success": float(r["probes"]["probe_success"][-1]),
                      "train_success": float(np.mean([p["success"] for p in tail])),
                      "steps": float(np.mean([p["steps"] for p in tail])),
                      "active": int(r["probes"]["active"][-1]),
                      "active_min": int(r["probes"]["active"].min())})
-    print(f"{'N':>5} {'arm':>5} {'seed':>4} {'updates':>7} {'probe succ':>10} {'train succ':>10} {'steps':>6} {'active':>6} {'min':>5}")
+    print(f"{'N':>5} {'act':>15} {'arm':>10} {'seed':>4} {'updates':>7} {'probe succ':>10} {'train succ':>10} {'steps':>6} {'active':>6} {'min':>5}")
     for w in rows:
-        print(f"{w['N']:>5} {w['arm']:>5} {w['seed']:>4} {w['updates']:>7} {w['probe_success']:>10.2f} "
+        print(f"{w['N']:>5} {w['act']:>15} {w['arm']:>10} {w['seed']:>4} {w['updates']:>7} {w['probe_success']:>10.2f} "
               f"{w['train_success']:>10.2f} {w['steps']:>6.0f} {w['active']:>6} {w['active_min']:>5}")
     return rows
 
@@ -114,7 +116,7 @@ def draw_curves(runs, rows, path):
     handles += [Line2D([], [], color="k", ls=ARM_STYLE[a][0], lw=1.0, label=ARM_STYLE[a][1]) for a in (False, True)]
     axes[1].legend(handles=handles, frameon=False, fontsize=8)
     axes[2].legend(handles=[Line2D([], [], marker="o", color="k", mfc="k", ls="none", label="cue"),
-                            Line2D([], [], marker="o", color="k", mfc="white", ls="none", label="blind")],
+                            Line2D([], [], marker="o", color="k", mfc="white", ls="none", label="walls-only")],
                    frameon=False, fontsize=8)
     fig.tight_layout()
     fig.savefig(path, dpi=130)

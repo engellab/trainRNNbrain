@@ -85,17 +85,30 @@ def test_step_wall_and_goal():
     assert done.item() and r.item() == 0 and abs(env.xy[0, 1].item() - 3.8) < 1e-6
 
 
-def test_corner_is_not_cut():
-    """A diagonal step from cell (4,3) into (5,2) passes the corner of the wall cell (4,2): blocked."""
+def test_corner_is_not_cut_but_slides():
+    """A diagonal step from cell (4,3) into (5,2) passes the corner of the wall cell (4,2): the x
+    part is blocked by that wall, the y part is free, so the agent slides down into (5,3) and pays
+    no wall cost."""
     env = make_env()
     env.reset(1)
     env.xy[:] = torch.tensor([[3.05, 4.95]])
     env.heading[:] = 3 * math.pi / 4                      # (-x, +y): end point (2.91, 5.09)
     _, r, done = env.step(FULL)
-    assert torch.allclose(env.xy, torch.tensor([[3.05, 4.95]])) and r.item() < -0.05 and not done.item()
-    env.heading[:] = math.pi / 2                          # straight down into (5,3): free
-    env.step(FULL)
-    assert abs(env.xy[0, 1].item() - 5.15) < 1e-6
+    assert torch.allclose(env.xy, torch.tensor([[3.05, 4.95 + 0.2 * math.sin(3 * math.pi / 4)]]), atol=1e-5)
+    assert not done.item()
+    assert abs(r.item() - (-0.01 - 0.2)) < 1e-5           # one cell further from the cheese, no wall cost
+
+
+def test_slide_along_wall():
+    """Heading 45 degrees into the top wall from the top corridor: the y part is blocked, the x part
+    is free, so the agent moves along the corridor at the x component of its speed."""
+    env = make_env()
+    env.reset(1)
+    env.xy[:] = torch.tensor([[2.5, 1.05]])
+    env.heading[:] = -math.pi / 4                         # (+x, -y), -y is into the border wall
+    _, r, _ = env.step(FULL)
+    assert abs(env.xy[0, 0].item() - (2.5 + 0.2 * math.cos(math.pi / 4))) < 1e-5
+    assert abs(env.xy[0, 1].item() - 1.05) < 1e-6 and r.item() > -0.05
 
 
 def test_gae_known_case():
@@ -147,8 +160,9 @@ def test_ppo_update_runs():
 
 def main():
     """Run every check and print one line each."""
-    for fn in (test_maze_tables, test_sensors, test_step_wall_and_goal, test_corner_is_not_cut,
-               test_gae_known_case, test_recompute_matches_rollout, test_ppo_update_runs):
+    for fn in (test_maze_tables, test_sensors, test_step_wall_and_goal, test_corner_is_not_cut_but_slides,
+               test_slide_along_wall, test_gae_known_case, test_recompute_matches_rollout,
+               test_ppo_update_runs):
         fn()
         print(f"ok: {fn.__name__}")
 

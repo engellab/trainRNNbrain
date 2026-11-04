@@ -14,11 +14,15 @@ the heading (a "scent"); without it the agent sees walls only and has to localis
 
 Action (2 raw policy outputs per agent, squashed here, not clipped, so no sample is ever stuck
 at a bound): turn = turn_max * tanh(a[0]) (radians per step); speed = v_max * sigmoid(a[1])
-(cells per step; an untrained policy with a[1] near 0 moves at v_max / 2). A move
-whose end point lies in a wall cell, or which cuts a corner between two wall cells, is cancelled:
-the agent keeps its position (the new heading is kept) and pays `reward["wall"]`.
+(cells per step; an untrained policy with a[1] near 0 moves at v_max / 2). A move whose end
+point lies in a wall cell, or which cuts a corner between two wall cells, is not cancelled
+outright: the agent SLIDES, keeping the component of the move that stays free (x first, then y),
+as a body pressed against a wall does. Only when neither component is free does it stay put
+(the new heading is kept) and pay `reward["wall"]`. Without sliding, an untrained agent in a
+one-cell-wide corridor stood wedged against a wall in 77 to 93 of 100 steps (4 Nov 2026) and
+learned only not to bump.
 
-Reward per step: `reward["step"]` (a cost, negative), `reward["wall"]` if the move was blocked,
+Reward per step: `reward["step"]` (a cost, negative), `reward["wall"]` if the agent was stuck,
 `reward["goal"]` once, on coming within `goal_radius` of the cheese centre (the episode ends for that
 agent), and the shaping `reward["shape"] * (d - d')`, with d and d' the breadth-first geodesic cell
 distance to the cheese before and after the move, so every cell of progress pays and standing
@@ -130,6 +134,15 @@ class MazeEnv:
         row = xy[:, 1].floor().long().clamp(0, H - 1)
         return row, col
 
+    def blocked(self, xy, new_xy):
+        """Which moves from xy to new_xy (both (n, 2)) end in a wall or cut a corner between two
+        wall cells (a step is shorter than a cell, so it crosses at most one row and one column
+        line). Returns an (n,) bool tensor."""
+        r0, c0 = self.cell(xy)
+        r1, c1 = self.cell(new_xy)
+        corner = (r0 != r1) & (c0 != c1)
+        return self.wall[r1, c1] | (corner & (self.wall[r0, c1] | self.wall[r1, c0]))
+
     def reset(self, n, generator=None):
         """Drop n agents: a random reachable free cell (never the cheese), a uniform position inside
         it, a uniform heading.
@@ -180,20 +193,23 @@ class MazeEnv:
         turn = torch.tanh(action[0]) * self.turn_max * live
         speed = torch.sigmoid(action[1]) * self.v_max * live
         heading = self.heading + turn
-        new_xy = self.xy + torch.stack([heading.cos(), heading.sin()], dim=1) * speed[:, None]
-        # blocked if the end point is in a wall, or if the step cuts a corner between two wall
-        # cells (a step is shorter than a cell, so it crosses at most one row and one column line)
-        r0, c0 = self.cell(self.xy)
-        r1, c1 = self.cell(new_xy)
-        corner = (r0 != r1) & (c0 != c1)
-        blocked = self.wall[r1, c1] | (corner & (self.wall[r0, c1] | self.wall[r1, c0]))
-        d_before = self.dist[r0, c0]
-        self.xy = torch.where(blocked[:, None], self.xy, new_xy)
+        full = self.xy + torch.stack([heading.cos(), heading.sin()], dim=1) * speed[:, None]
+        hit = self.blocked(self.xy, full)
+        # slide: keep the free component of a blocked move, x first, then y; an axis-aligned
+        # partial move crosses one grid line at most, so it cannot cut a corner
+        slide_x = torch.stack([full[:, 0], self.xy[:, 1]], dim=1)
+        slide_y = torch.stack([self.xy[:, 0], full[:, 1]], dim=1)
+        ok_x = ~self.blocked(self.xy, slide_x) & (slide_x[:, 0] != self.xy[:, 0])
+        ok_y = ~self.blocked(self.xy, slide_y) & (slide_y[:, 1] != self.xy[:, 1])
+        slid = torch.where(ok_x[:, None], slide_x, torch.where(ok_y[:, None], slide_y, self.xy))
+        stuck = hit & ~ok_x & ~ok_y
+        d_before = self.dist[self.cell(self.xy)]
+        self.xy = torch.where(hit[:, None], slid, full)
         self.heading = heading
         d_after = self.dist[self.cell(self.xy)]
         reached = live & ((self.xy - self.goal_xy[None, :]).norm(dim=1) < self.goal_radius)
         reward = (self.reward["step"]
-                  + self.reward["wall"] * blocked.float()
+                  + self.reward["wall"] * stuck.float()
                   + self.reward["shape"] * (d_before - d_after)
                   + self.reward["goal"] * reached.float()) * live.float()
         self.done = self.done | reached
