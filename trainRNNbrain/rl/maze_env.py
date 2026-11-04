@@ -9,20 +9,25 @@ episode drops every agent in a random reachable free cell with a random heading.
 Observation (the RNN's inputs): `n_rays` range sensors spread evenly over 360 degrees, egocentric
 (ray 0 points along the heading). Input i is 1 - d_i / ray_max, with d_i the distance to the first
 wall along ray i (ray marching with step `ray_step`), so a wall at the nose reads 1 and open space
-reads 0. With `goal_cue` two more inputs give cos and sin of the bearing to the cheese relative to
-the heading (a "scent"); without it the agent sees walls only and has to localise from memory.
+reads 0. With `action_feedback` two more inputs carry the agent's own previous executed action,
+turn / turn_max in [-1, 1] and speed / v_max in [0, 1] (zeros at the first step): an efference
+copy, so the network knows what it actually did, exploration noise included, and can dead-reckon
+(Pavel, 4 Nov 2026). With `goal_cue` two more inputs give cos and sin of the bearing to the cheese
+relative to the heading (a "scent"); without it the agent has no information about the cheese and
+has to localise from the walls and its memory.
 
 Action (2 raw policy outputs per agent, squashed here, not clipped, so no sample is ever stuck
 at a bound): turn = turn_max * tanh(a[0]) (radians per step); speed = v_max * sigmoid(a[1])
 (cells per step; an untrained policy with a[1] near 0 moves at v_max / 2). A move whose end
 point lies in a wall cell, or which cuts a corner between two wall cells, is not cancelled
 outright: the agent SLIDES, keeping the component of the move that stays free (x first, then y),
-as a body pressed against a wall does. Only when neither component is free does it stay put
-(the new heading is kept) and pay `reward["wall"]`. Without sliding, an untrained agent in a
-one-cell-wide corridor stood wedged against a wall in 77 to 93 of 100 steps (4 Nov 2026) and
-learned only not to bump.
+as a body pressed against a wall does; when neither component is free it stays put (the new
+heading is kept). Every bump, a move whose intended end point was blocked, slid or not, costs
+`reward["wall"]` (Pavel, 4 Nov 2026: a small cost for bumping into walls). Without sliding, an
+untrained agent in a one-cell-wide corridor stood wedged against a wall in 77 to 93 of 100 steps
+(4 Nov 2026) and learned only not to bump.
 
-Reward per step: `reward["step"]` (a cost, negative), `reward["wall"]` if the agent was stuck,
+Reward per step: `reward["step"]` (a cost, negative), `reward["wall"]` on a bump,
 `reward["goal"]` once, on coming within `goal_radius` of the cheese centre (the episode ends for that
 agent), and the shaping `reward["shape"] * (d - d')`, with d and d' the breadth-first geodesic cell
 distance to the cheese before and after the move, so every cell of progress pays and standing
@@ -92,7 +97,7 @@ class MazeEnv:
     """A batch of agents in one fixed maze. See the module docstring for the task definition."""
 
     def __init__(self, maze, n_rays, ray_max, ray_step, v_max, turn_max, goal_radius, goal_cue,
-                 reward, device, seed):
+                 action_feedback, reward, device, seed):
         """Build the maze tables and the drop generator; no agents exist until `reset`.
 
         Args:
@@ -102,6 +107,7 @@ class MazeEnv:
             v_max: float, cells per step at full speed; turn_max: float, radians per step at full turn.
             goal_radius: float, cells, distance from the cheese centre that ends the episode.
             goal_cue: bool, add the two bearing-to-cheese inputs.
+            action_feedback: bool, add the two previous-executed-action inputs.
             reward: mapping with float entries goal, step, wall, shape.
             device: torch.device; seed: int, seeds the drop generator.
         """
@@ -119,13 +125,14 @@ class MazeEnv:
         self.ray_samples = torch.arange(1, n_samples + 1, device=device, dtype=torch.float32) * self.ray_step
         self.v_max, self.turn_max, self.goal_radius = float(v_max), float(turn_max), float(goal_radius)
         self.goal_cue = bool(goal_cue)
+        self.action_feedback = bool(action_feedback)
         self.reward = {k: float(reward[k]) for k in ("goal", "step", "wall", "shape")}
         self.device = device
         self.generator = torch.Generator(device=device)
         self.generator.manual_seed(int(seed))
-        self.n_inputs = self.n_rays + (2 if self.goal_cue else 0)
+        self.n_inputs = self.n_rays + (2 if self.action_feedback else 0) + (2 if self.goal_cue else 0)
         self.n_actions = 2
-        self.xy = self.heading = self.done = None
+        self.xy = self.heading = self.done = self.last_action = None
 
     def cell(self, xy):
         """(row, col) long tensors of the cells containing the points xy (n, 2), clamped into the grid."""
@@ -160,6 +167,7 @@ class MazeEnv:
         self.xy = torch.stack([cells[:, 1] + offset[:, 0], cells[:, 0] + offset[:, 1]], dim=1)
         self.heading = torch.rand((n,), generator=g, device=self.device) * (2 * math.pi)
         self.done = torch.zeros(n, dtype=torch.bool, device=self.device)
+        self.last_action = torch.zeros((n, 2), device=self.device)      # (turn, speed), scaled
         return self.observe()
 
     def observe(self):
@@ -174,6 +182,8 @@ class MazeEnv:
         dist = (first + 1).float() * self.ray_step
         dist = torch.where(hit.any(dim=2), dist, torch.full_like(dist, self.ray_max))
         obs = 1.0 - dist / self.ray_max                                                # (B, R)
+        if self.action_feedback:
+            obs = torch.cat([obs, self.last_action], dim=1)
         if self.goal_cue:
             to_goal = self.goal_xy[None, :] - self.xy
             bearing = torch.atan2(to_goal[:, 1], to_goal[:, 0]) - self.heading
@@ -192,6 +202,7 @@ class MazeEnv:
         live = ~self.done
         turn = torch.tanh(action[0]) * self.turn_max * live
         speed = torch.sigmoid(action[1]) * self.v_max * live
+        self.last_action = torch.stack([turn / self.turn_max, speed / self.v_max], dim=1)
         heading = self.heading + turn
         full = self.xy + torch.stack([heading.cos(), heading.sin()], dim=1) * speed[:, None]
         hit = self.blocked(self.xy, full)
@@ -202,14 +213,13 @@ class MazeEnv:
         ok_x = ~self.blocked(self.xy, slide_x) & (slide_x[:, 0] != self.xy[:, 0])
         ok_y = ~self.blocked(self.xy, slide_y) & (slide_y[:, 1] != self.xy[:, 1])
         slid = torch.where(ok_x[:, None], slide_x, torch.where(ok_y[:, None], slide_y, self.xy))
-        stuck = hit & ~ok_x & ~ok_y
         d_before = self.dist[self.cell(self.xy)]
         self.xy = torch.where(hit[:, None], slid, full)
         self.heading = heading
         d_after = self.dist[self.cell(self.xy)]
         reached = live & ((self.xy - self.goal_xy[None, :]).norm(dim=1) < self.goal_radius)
         reward = (self.reward["step"]
-                  + self.reward["wall"] * stuck.float()
+                  + self.reward["wall"] * hit.float()
                   + self.reward["shape"] * (d_before - d_after)
                   + self.reward["goal"] * reached.float()) * live.float()
         self.done = self.done | reached

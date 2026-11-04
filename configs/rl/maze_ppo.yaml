@@ -2,8 +2,9 @@
 # THE MAZE TASK, trained with PPO (trainRNNbrain/rl/run_maze_ppo.py). One fixed maze; each episode
 # drops every agent in a random free cell with a random heading; the RNN steers (turn) and sets the
 # speed; the cheese 'C' is the goal. Task definition in trainRNNbrain/rl/maze_env.py. The network is
-# the project's standard RNN (model group below), untouched: 2 outputs (turn, speed), inputs =
-# env.n_rays (+ 2 with env.goal_cue).
+# the project's standard RNN (model group below), untouched, and it is the whole agent: inputs =
+# env.n_rays sensors + 2 efference-copy inputs (+ 2 with env.goal_cue); read-out rows = turn and
+# speed (+ the value with ppo.critic).
 defaults:
   - /model: rnn_relu_standard
   - /paths: paths_local
@@ -13,50 +14,53 @@ experiment_tag: "maze_ppo"
 seed: 0                       # int, or "random" (the seed used is written back into the saved config)
 
 env:
-  # 15 x 15 (since 4 Nov 2026): `python trainRNNbrain/rl/make_maze.py --cells 7 --seed 6 --loops 4`,
-  # a depth-first-search maze with 4 walls removed for loops; cheese at the centre in a pocket
-  # entered only from above; 36 cells from the far end, 22 on average over free cells, 9 dead
-  # ends. The first two arrays (16790695, 16794613) used an 11 x 11 hand-drawn maze, 24 cells from
-  # the far end and no dead ends (git history of this file).
+  # 15 x 15 (since 4 Nov 2026): `python trainRNNbrain/rl/make_maze.py --cells 7 --seed 20 --loops 4`,
+  # a depth-first-search maze with 4 walls removed for loops, cheese at the centre; 29 cells from
+  # the far end, 15.9 on average over free cells, 6 dead ends. Chosen by a local calibration at
+  # N = 100, 300 updates, with the final design (issue #3): probe success 0.69 and 0.25 for two
+  # seeds, against 0.00 and 0.00 on seed 15 (32 cells, 17.5 on average) and 0.02 on seed 6 (36
+  # cells, 22 on average), which are too hard at that scale. The first two arrays (16790695, 16794613) used an 11 x 11
+  # hand-drawn maze, 24 cells from the far end and no dead ends (git history of this file).
   maze:
     - "###############"
-    - "#.............#"
-    - "#.###.#.####.##"
-    - "#.....#.#.....#"
-    - "#.###.###.###.#"
-    - "#...#.#...#...#"
-    - "#####.#.###.###"
-    - "#...#.#C#.#...#"
-    - "#.#.#.###.###.#"
-    - "#.#.........#.#"
-    - "#.#.#..######.#"
-    - "#.#.#.....#...#"
-    - "#.###.###.#.###"
+    - "#.........#...#"
+    - "#.#########.#.#"
+    - "#...........#.#"
+    - "#.###########.#"
+    - "#.........#.#.#"
+    - "###.#####.#.#.#"
+    - "#...#..C#.#.#.#"
+    - "#.#.#.###.#.#.#"
+    - "#.#.#.#.....#.#"
+    - "#.#.#.##.##...#"
+    - "#.#.......#.#.#"
+    - "#.#.#####.###.#"
     - "#.......#.....#"
     - "###############"
   n_rays: 8                   # range sensors over 360 degrees, ray 0 along the heading
   ray_max: 4.0                # cells; corridors are 1 wide, so most rays return within 1-2 cells
   ray_step: 0.1               # cells; ray-marching resolution (40 samples per ray)
   v_max: 0.2                  # cells per decision at full speed (speed = v_max * sigmoid(output)):
-                              # 180 decisions for the longest route (36 cells)
+                              # 145 decisions for the longest route (29 cells)
   turn_max: 0.3               # radians per decision at full turn (turn = turn_max * tanh(output)):
                               # a U-turn in ~10 decisions
   goal_radius: 0.5            # cells from the cheese centre that ends the episode
-  goal_cue: false             # the task: walls only (8 sensors). true adds cos/sin of the bearing
-                              # to the cheese, the "cue" arm of the first two arrays
+  action_feedback: true       # 2 inputs: the previous executed turn and speed (efference copy),
+                              # so the network can dead-reckon from what it actually did
+  goal_cue: false             # the task: no information about the cheese. true adds cos/sin of
+                              # the bearing to the cheese, the "cue" arm of the first two arrays
   reward:
     goal: 5.0                 # once, on reaching the cheese
     step: -0.01               # every decision: be quick
-    wall: -0.02               # every step on which the agent is stuck: a move into a wall slides
-                              # along it (maze_env.py, since 4 Nov 2026) and costs nothing unless
-                              # neither component of the move is free
+    wall: -0.02               # every bump: a move whose intended end point was in a wall, whether
+                              # the agent then slid along it or stayed (Pavel, 4 Nov 2026)
     shape: 0.2                # per cell of geodesic progress, undiscounted: standing still earns 0
                               # (the discounted form paid a stationary agent and the first runs,
                               # array 16790695, converged to standing still)
 
 ppo:
   n_episodes: 256             # parallel episodes per update (the batch)
-  T: 500                      # decisions per episode (RNN steps = T * substeps): 2.8x the longest
+  T: 500                      # decisions per episode (RNN steps = T * substeps): 3.4x the longest
                               # route at full speed
   # ONE DECISION PER `substeps` RNN STEPS. The standard RNN has alpha = dt/tau = 0.1, so it reacts
   # about 10 steps late. With one decision per RNN step (the first runs, array 16790695) the agent
@@ -74,10 +78,18 @@ ppo:
   n_epochs: 4                 # passes over the rollout per update
   n_minibatches: 2            # episodes split per epoch; each minibatch is one full BPTT pass
   value_coef: 0.5
-  entropy_coef: 0.0           # log_std is learned through the policy gradient alone
-  log_std_init: -0.7          # std 0.5 in raw output units (squashed by tanh / sigmoid in the env)
-  log_std_min: -2.3           # floor, std 0.1: exploration cannot vanish (it fell to std 0.03 in
-                              # the first runs)
+  entropy_coef: 0.0           # inert: with a fixed action_std the entropy is a constant
+  # THE RNN IS THE WHOLE AGENT (Pavel, 4 Nov 2026): no value network, no learned exploration
+  # parameters. With critic: true the RNN has a third read-out row, the value, trained by the value
+  # loss through the same W_out and recurrent weights, and advantages come from GAE; with
+  # critic: false the RNN has 2 read-out rows and advantages are Monte-Carlo returns minus their
+  # batch mean at each step (no parameters). The exploration noise is a fixed std in raw output
+  # units (a learned log-std collapsed to -3.4 in the first runs). critic: false since the
+  # comparison of 4 Nov 2026 (issue #3): on the old maze at N = 100, 300 updates, probe success
+  # 0.52 and 0.77 without a critic against 0.69 and 0.41 with one; the one-epoch unclipped
+  # variants (A2C-like, REINFORCE) diverged.
+  critic: false
+  action_std: 0.5
   lr: 0.001                   # scaled by (100 / N) ** lr_scale_exp, the supervised trainer's rule
   lr_scale_exp: 0.3333333333333333
   weight_decay: 1.0e-6        # Adam's coupled L2, as in the supervised trainer

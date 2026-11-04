@@ -77,6 +77,26 @@ def rollout(env, policy, n_episodes, T, clean=False, generator=None):
             "xy": torch.stack(xy), "heading": torch.stack(heading)}
 
 
+def mc_advantages(rewards, alive, gamma):
+    """Critic-free advantages: the discounted reward-to-go minus its mean over the alive episodes
+    at the same step (a baseline with no parameters). An episode cut off at T gets no bootstrap.
+
+    Args:
+        rewards: (T, B); alive: (T+1, B) float, see the module docstring; gamma: float.
+    Returns:
+        (advantages, returns), both (T, B), zero at steps that are not alive.
+    """
+    T = rewards.shape[0]
+    ret = torch.zeros_like(rewards)
+    last = torch.zeros_like(rewards[0])
+    for t in reversed(range(T)):
+        last = rewards[t] + gamma * alive[t + 1] * last
+        ret[t] = last * alive[t]
+    m = alive[:T]
+    baseline = (ret * m).sum(dim=1, keepdim=True) / m.sum(dim=1, keepdim=True).clamp_min(1.0)
+    return (ret - baseline) * m, ret
+
+
 def gae(rewards, values, alive, gamma, lam):
     """Generalised advantage estimation over a batch of episodes.
 
@@ -127,7 +147,8 @@ def ppo_update(policy, optimizer, batch, adv, ret, clip, n_epochs, n_minibatches
             a = adv[:, idx]
             surrogate = torch.min(ratio * a, ratio.clamp(1 - clip, 1 + clip) * a)
             policy_loss = -(surrogate * m).sum() / m.sum()
-            value_loss = 0.5 * ((values[:T] - ret[:, idx]) ** 2 * m).sum() / m.sum()
+            value_loss = (0.5 * ((values[:T] - ret[:, idx]) ** 2 * m).sum() / m.sum()
+                          if policy.critic else torch.zeros((), device=adv.device))
             entropy = policy.entropy()
             loss = policy_loss + value_coef * value_loss - entropy_coef * entropy
             optimizer.zero_grad()

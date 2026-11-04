@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.rl.maze_env import MazeEnv, parse_maze, bfs_distance
 from trainRNNbrain.rl.policy import MazePolicy
-from trainRNNbrain.rl.ppo import rollout, gae, ppo_update
+from trainRNNbrain.rl.ppo import rollout, gae, mc_advantages, ppo_update
 
 MAZE = ["#######",
         "#.....#",
@@ -26,19 +26,44 @@ CPU = torch.device("cpu")
 FULL = torch.tensor([[0.0], [20.0]])      # raw action: no turn, sigmoid(20) = 1 -> full speed
 
 
-def make_env(goal_cue=False, seed=0):
+def make_env(goal_cue=False, action_feedback=False, seed=0):
     """The small test maze on CPU: ray range 3, speed 0.2, turn 0.3, goal radius 0.4."""
     return MazeEnv(MAZE, n_rays=8, ray_max=3.0, ray_step=0.1, v_max=0.2, turn_max=0.3, goal_radius=0.4,
-                   goal_cue=goal_cue, reward=REWARD, device=CPU, seed=seed)
+                   goal_cue=goal_cue, action_feedback=action_feedback, reward=REWARD, device=CPU, seed=seed)
 
 
-def make_policy(n_inputs, N=32, seed=0, substeps=1):
-    """A small standard-style RNN (ReLU, equation h, no Dale, fixed zero bias) wrapped as a policy."""
+def make_policy(n_inputs, N=32, seed=0, substeps=1, critic=True):
+    """A small standard-style RNN (ReLU, equation h, no Dale, fixed zero bias) as the agent, with
+    the value as its third read-out row (critic=True) or without one."""
     rnn = RNN_torch(N=N, activation_args={"name": "relu", "slope": 1.0}, equation_type="h", dt=1, tau=10,
                     dale=False, io_nonnegativity=False, self_connections=True, gamma=0,
                     bias_range=[0.0, 0.0], sigma_rec=0.05, sigma_inp=0.05, sigma_out=0.03,
-                    n_inputs=n_inputs, n_outputs=2, seed=seed, init_draws="independent")
-    return MazePolicy(rnn, log_std_init=-0.7, log_std_min=-2.3, substeps=substeps)
+                    n_inputs=n_inputs, n_outputs=3 if critic else 2, seed=seed, init_draws="independent")
+    return MazePolicy(rnn, action_std=0.5, substeps=substeps)
+
+
+def test_only_the_rnn_is_trained():
+    """The policy's parameters are exactly the RNN's W_out, W_rec and W_inp."""
+    env = make_env()
+    for critic in (True, False):
+        policy = make_policy(env.n_inputs, critic=critic)
+        assert sorted(n for n, _ in policy.named_parameters()) == ["rnn.W_inp", "rnn.W_out", "rnn.W_rec"]
+        assert policy.rnn.W_out.shape[0] == (3 if critic else 2)
+
+
+def test_mc_advantages_known_case():
+    """Two episodes, rewards 1 and 0 throughout, no termination: returns are the geometric sums
+    and the advantages are plus and minus half of them."""
+    T = 10
+    rewards = torch.stack([torch.ones(T), torch.zeros(T)], dim=1)
+    alive = torch.ones(T + 1, 2)
+    adv, ret = mc_advantages(rewards, alive, gamma=0.5)
+    g0 = sum(0.5 ** k for k in range(T))
+    assert abs(ret[0, 0].item() - g0) < 1e-6 and ret[0, 1].item() == 0
+    assert abs(adv[0, 0].item() - g0 / 2) < 1e-6 and abs(adv[0, 1].item() + g0 / 2) < 1e-6
+    alive[3:, 0] = 0                                     # the first episode ended after step 2
+    adv, ret = mc_advantages(rewards, alive, gamma=0.5)
+    assert abs(ret[0, 0].item() - (1 + 0.5 + 0.25)) < 1e-6 and ret[3:, 0].abs().sum() == 0
 
 
 def test_maze_tables():
@@ -61,6 +86,11 @@ def test_sensors():
     for ray, val in expect.items():
         assert abs(obs[ray].item() - val) < 0.04, (ray, obs[ray].item(), val)
     assert env.n_inputs == 8 and make_env(goal_cue=True).n_inputs == 10
+    env = make_env(action_feedback=True)
+    obs = env.reset(1)
+    assert env.n_inputs == 10 and obs[8:, 0].abs().sum() == 0          # no previous action yet
+    obs, _, _ = env.step(torch.tensor([[0.0], [20.0]]))               # straight, full speed
+    assert abs(obs[8, 0].item()) < 1e-6 and abs(obs[9, 0].item() - 1.0) < 1e-6
 
 
 def test_step_wall_and_goal():
@@ -87,8 +117,8 @@ def test_step_wall_and_goal():
 
 def test_corner_is_not_cut_but_slides():
     """A diagonal step from cell (4,3) into (5,2) passes the corner of the wall cell (4,2): the x
-    part is blocked by that wall, the y part is free, so the agent slides down into (5,3) and pays
-    no wall cost."""
+    part is blocked by that wall, the y part is free, so the agent slides down into (5,3); it
+    bumped, so it pays the wall cost."""
     env = make_env()
     env.reset(1)
     env.xy[:] = torch.tensor([[3.05, 4.95]])
@@ -96,19 +126,20 @@ def test_corner_is_not_cut_but_slides():
     _, r, done = env.step(FULL)
     assert torch.allclose(env.xy, torch.tensor([[3.05, 4.95 + 0.2 * math.sin(3 * math.pi / 4)]]), atol=1e-5)
     assert not done.item()
-    assert abs(r.item() - (-0.01 - 0.2)) < 1e-5           # one cell further from the cheese, no wall cost
+    assert abs(r.item() - (-0.01 - 0.05 - 0.2)) < 1e-5    # step, bump, one cell further from the cheese
 
 
 def test_slide_along_wall():
     """Heading 45 degrees into the top wall from the top corridor: the y part is blocked, the x part
-    is free, so the agent moves along the corridor at the x component of its speed."""
+    is free, so the agent moves along the corridor at the x component of its speed, and pays the
+    bump."""
     env = make_env()
     env.reset(1)
     env.xy[:] = torch.tensor([[2.5, 1.05]])
     env.heading[:] = -math.pi / 4                         # (+x, -y), -y is into the border wall
     _, r, _ = env.step(FULL)
     assert abs(env.xy[0, 0].item() - (2.5 + 0.2 * math.cos(math.pi / 4))) < 1e-5
-    assert abs(env.xy[0, 1].item() - 1.05) < 1e-6 and r.item() > -0.05
+    assert abs(env.xy[0, 1].item() - 1.05) < 1e-6 and abs(r.item() - (-0.01 - 0.05)) < 1e-5
 
 
 def test_gae_known_case():
@@ -129,7 +160,7 @@ def test_recompute_matches_rollout():
     per decision."""
     for substeps in (1, 3):
         torch.manual_seed(0)
-        env = make_env(goal_cue=True)
+        env = make_env(goal_cue=True, action_feedback=True)
         policy = make_policy(env.n_inputs, substeps=substeps)
         T, B = 25, 6
         out = rollout(env, policy, B, T)
@@ -144,25 +175,31 @@ def test_recompute_matches_rollout():
 
 
 def test_ppo_update_runs():
-    """One update changes the recurrent weights and returns finite statistics."""
-    torch.manual_seed(1)
-    env = make_env()
-    policy = make_policy(env.n_inputs)
-    opt = torch.optim.Adam(policy.parameters(), lr=1e-3)
-    out = rollout(env, policy, 8, 30)
-    adv, ret = gae(out["rewards"], out["values"], out["alive"], 0.99, 0.95)
-    before = policy.rnn.W_rec.detach().clone()
-    stats = ppo_update(policy, opt, out, adv, ret, clip=0.2, n_epochs=2, n_minibatches=2,
-                       value_coef=0.5, entropy_coef=0.0, max_grad_norm=0.5)
-    assert all(np.isfinite(v) for v in stats.values()), stats
-    assert not torch.allclose(before, policy.rnn.W_rec)
+    """One update changes the recurrent weights and returns finite statistics, with and without
+    a critic."""
+    for critic in (True, False):
+        torch.manual_seed(1)
+        env = make_env()
+        policy = make_policy(env.n_inputs, critic=critic)
+        opt = torch.optim.Adam(policy.parameters(), lr=1e-3)
+        out = rollout(env, policy, 8, 30)
+        if critic:
+            adv, ret = gae(out["rewards"], out["values"], out["alive"], 0.99, 0.95)
+        else:
+            adv, ret = mc_advantages(out["rewards"], out["alive"], 0.99)
+        before = policy.rnn.W_rec.detach().clone()
+        stats = ppo_update(policy, opt, out, adv, ret, clip=0.2, n_epochs=2, n_minibatches=2,
+                           value_coef=0.5, entropy_coef=0.0, max_grad_norm=0.5)
+        assert all(np.isfinite(v) for v in stats.values()), stats
+        assert not torch.allclose(before, policy.rnn.W_rec)
+        assert (stats["value_loss"] == 0) == (not critic)
 
 
 def main():
     """Run every check and print one line each."""
     for fn in (test_maze_tables, test_sensors, test_step_wall_and_goal, test_corner_is_not_cut_but_slides,
-               test_slide_along_wall, test_gae_known_case, test_recompute_matches_rollout,
-               test_ppo_update_runs):
+               test_slide_along_wall, test_only_the_rnn_is_trained, test_gae_known_case,
+               test_mc_advantages_known_case, test_recompute_matches_rollout, test_ppo_update_runs):
         fn()
         print(f"ok: {fn.__name__}")
 

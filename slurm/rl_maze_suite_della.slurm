@@ -1,6 +1,7 @@
 #!/bin/bash
 # THE MAZE SUITE (DELLA): does the loss of participation seen on the 3-bit flip-flop and CDDM
-# appear under PPO on the maze? Sensors only (8 egocentric range sensors), the 15 x 15 maze of
+# appear under PPO on the maze? 8 egocentric range sensors plus the efference copy of the previous
+# action, nothing about the cheese; the 15 x 15 maze of
 # configs/rl/maze_ppo.yaml, 2,000 updates of 256 episodes x 500 decisions (5 RNN steps each).
 # Tracking issue: engellab/trainRNNbrain #3, which holds the pre-registration (read-out points,
 # what would falsify "the problem persists"); the notebook entry written at submission names it.

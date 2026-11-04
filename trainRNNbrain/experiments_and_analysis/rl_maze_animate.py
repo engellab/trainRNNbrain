@@ -41,12 +41,15 @@ def load_run(folder):
         (cfg, env, policy): the saved DictConfig, the MazeEnv, the MazePolicy with trained weights.
     """
     cfg = OmegaConf.load(os.path.join(folder, "config.yaml"))
-    env = MazeEnv(**cfg.env, device=torch.device("cpu"), seed=cfg.seed + 1)
+    env_args = dict(cfg.env)
+    env_args.setdefault("action_feedback", False)     # runs before 4 Nov 2026 had no such key
+    env = MazeEnv(**env_args, device=torch.device("cpu"), seed=cfg.seed + 1)
     args = filter_kwargs(RNN_torch, cfg.model)
     args.seed = cfg.seed
-    policy = MazePolicy(hydra.utils.instantiate(args), cfg.ppo.log_std_init, cfg.ppo.log_std_min,
-                        cfg.ppo.substeps)
-    policy.load_state_dict(torch.load(os.path.join(folder, "PolicyState.pt"), map_location="cpu"))
+    # runs before 4 Nov 2026 saved a learned log-std and a separate value head too; strict=False
+    # skips them, and their fixed-std clean rollout uses the RNN's read-out alone, as the probe did
+    policy = MazePolicy(hydra.utils.instantiate(args), cfg.ppo.get("action_std", 0.5), cfg.ppo.substeps)
+    policy.load_state_dict(torch.load(os.path.join(folder, "PolicyState.pt"), map_location="cpu"), strict=False)
     return cfg, env, policy
 
 

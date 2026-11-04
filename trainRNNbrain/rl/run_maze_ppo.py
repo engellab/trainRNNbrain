@@ -6,19 +6,19 @@ Config: configs/rl/maze_ppo.yaml (the maze, the sensors, the rewards, PPO) on to
 standard model config (configs/model/rnn_relu_standard.yaml) and the paths group. This script reads
 the resolved config and overrides nothing; a launcher varies only the keys it sweeps. Three values
 are written back into the saved config as a record of what was used: the seed (when "random"), and
-model.n_inputs and model.n_outputs, which follow from the env, so that the network can be rebuilt
-from the saved config alone. Seeds: the RNN (its initial weights and its noise) is seeded with
+model.n_inputs (from the env) and model.n_outputs (2, or 3 with ppo.critic), so that the network
+can be rebuilt from the saved config alone. Seeds: the RNN (its initial weights and its noise) is seeded with
 `seed`, the env's drops with `seed + 1`, so the two streams differ.
 
 Output, under <paths.save_to>_rl_maze/Maze_<experiment_tag>/s<seed>/ (a sibling of the supervised
 runs' folder, so no inventory of supervised cells ever sees these files):
   config.yaml         the resolved config, with the seed actually used written back
   Params_Maze.npz     RNN_torch.get_params(): W_rec, W_inp, W_out, y_init and the rest
-  PolicyState.pt      the full policy state_dict (RNN, log_std, value head) for an exact rebuild
+  PolicyState.pt      the policy state_dict (the RNN's parameters, nothing else) for an exact rebuild
   Progress.json       one dict per update: update, discounted_return (mean over the batch of
                       sum_t gamma^t r_t, the quantity PPO maximises), success (share of the batch
                       that reached the cheese), steps (mean steps to the cheese, T if never),
-                      log_std, and the PPO statistics from ppo_update
+                      and the PPO statistics from ppo_update
   Participation.npz   per probe: update (the update index), active (active units under the
                       project's rule, p = std + q0.9), active_mod (active units under the
                       modulation criterion, std alone at or above 5 percent of its 95th
@@ -48,7 +48,7 @@ from trainRNNbrain.utils import filter_kwargs
 from trainRNNbrain.experiments_and_analysis.common import participation, active_mask
 from trainRNNbrain.rl.maze_env import MazeEnv
 from trainRNNbrain.rl.policy import MazePolicy
-from trainRNNbrain.rl.ppo import rollout, gae, ppo_update
+from trainRNNbrain.rl.ppo import rollout, gae, mc_advantages, ppo_update
 
 
 def probe(env, policy, n_episodes, T, probe_seed):
@@ -163,11 +163,13 @@ def main(cfg: DictConfig) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     hp = cfg.ppo
     env = MazeEnv(**cfg.env, device=device, seed=seed + 1)
-    cfg.model.n_inputs, cfg.model.n_outputs = env.n_inputs, env.n_actions   # recorded, not chosen
+    # recorded, not chosen: the inputs follow from the env, the outputs from the algorithm (a
+    # third read-out row is the critic's value)
+    cfg.model.n_inputs, cfg.model.n_outputs = env.n_inputs, env.n_actions + (1 if hp.critic else 0)
     rnn_args = filter_kwargs(RNN_torch, cfg.model)
     rnn_args.seed = seed
     rnn = hydra.utils.instantiate(rnn_args)
-    policy = MazePolicy(rnn, hp.log_std_init, hp.log_std_min, hp.substeps)
+    policy = MazePolicy(rnn, hp.action_std, hp.substeps)
     lr = hp.lr * (100.0 / float(cfg.model.N)) ** hp.lr_scale_exp      # the trainer's size rule
     optimizer = torch.optim.Adam(policy.parameters(), lr=lr, weight_decay=hp.weight_decay)
     folder = os.path.join(f"{cfg.paths.save_to}_rl_maze", f"Maze_{cfg.experiment_tag}", f"s{seed}")
@@ -182,14 +184,16 @@ def main(cfg: DictConfig) -> None:
     tic = time.perf_counter()
     for it in range(1, hp.n_updates + 1):
         batch = rollout(env, policy, hp.n_episodes, hp.T)
-        adv, ret = gae(batch["rewards"], batch["values"], batch["alive"], hp.gamma, hp.gae_lambda)
+        if hp.critic:
+            adv, ret = gae(batch["rewards"], batch["values"], batch["alive"], hp.gamma, hp.gae_lambda)
+        else:
+            adv, ret = mc_advantages(batch["rewards"], batch["alive"], hp.gamma)
         stats = ppo_update(policy, optimizer, batch, adv, ret, hp.clip, hp.n_epochs,
                            hp.n_minibatches, hp.value_coef, hp.entropy_coef, hp.max_grad_norm)
         progress.append({"update": it,
                          "discounted_return": (batch["rewards"] * discount).sum(dim=0).mean().item(),
                          "success": batch["success"].float().mean().item(),
                          "steps": batch["steps"].mean().item(),
-                         "log_std": [float(v) for v in policy.std().log().detach().cpu()],
                          **stats})
         if it == 1 or it % hp.probe_every == 0:
             n_active, n_active_mod, p, out = probe(env, policy, hp.probe_episodes, hp.T, hp.probe_seed)
