@@ -41,8 +41,9 @@ and it has no entry for N = 250. Text is INK or MUTED.
 
 DATA. --root (default data/trained_RNNs_rl_maze/Maze_suite): N = 250, 500, 1000, 2000 x seeds 1-3,
 ReLU, and tanh, sigmoid (shifted), softplus (beta 25), leaky_relu at N = 1000, seeds 1-2 (the
-launcher slurm/rl_maze_suite_della.slurm). Each run folder holds config.yaml, Progress.json and
-Participation.npz (common.maze_load_runs). Runs with env.goal_cue true (the "cue" arm of the first
+launcher slurm/rl_maze_suite_della.slurm). Each run folder holds a saved config, a *Progress.json and
+a *Participation.npz (common.maze_load_runs reads the layout of run_rl.py and the earlier one of
+trainRNNbrain/rl/run_maze_ppo.py). Runs with the goal cue on (the "cue" arm of the first
 two arrays) are dropped unless --keep-cue. --ablation (default data/rl_maze_ablation): the JSONs of
 rl_maze_ablate.py. The suite lands cell by cell: every panel draws what exists and the script
 prints which expected cells are missing.

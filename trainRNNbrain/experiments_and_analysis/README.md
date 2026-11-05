@@ -17,6 +17,7 @@ about how the code is written.
 | [`fig_paper_F2_fails.py`](fig_paper_F2_fails.py), [`fig_knobs_at_floor.py`](fig_knobs_at_floor.py) | Figure 2 (what fails): knob ladders and revival screens at the floor |
 | [`fig_paper_F2.py`](fig_paper_F2.py), [`f2_remedies_cache.py`](f2_remedies_cache.py) | the remedies figure and its cache (becomes Figure 3) |
 | `fig_paper_F3.py` … `fig_paper_F5.py`, `fig_supp_*.py` | figures the paper's `main` still includes |
+| [`rl_maze_readout.py`](rl_maze_readout.py), [`rl_maze_ablate.py`](rl_maze_ablate.py), [`rl_maze_animate.py`](rl_maze_animate.py), [`fig_ed_maze.py`](fig_ed_maze.py) | the maze (reinforcement learning, issue #3): read-out of the run folders (`common.maze_load_runs`, `common.maze_learned_index`), ablation under the training noise, a GIF of a trained agent, the Extended Data figure. A trained agent is rebuilt with `trainRNNbrain.trainer.TrainerPPO.load_run` (task, RNN, trainer), which reads the layout `training/run_rl.py` writes and the earlier one of the deleted `trainRNNbrain/rl/` |
 | [`paperstyle.py`](paperstyle.py) | how manuscript figures look; [`plotstyle.py`](plotstyle.py) is the deck's equivalent |
 | `fig_slides.py`, `deck_pngs.py`, `deck_html.py`, `check_presentation.py` | the talk deck, `docs/presentation.md` |
 
