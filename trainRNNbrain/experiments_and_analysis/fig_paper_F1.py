@@ -802,32 +802,54 @@ def plan_connections(gx, gy, rng, n_want, lo, hi, clear, bend, trim, r_max=0.99)
     rng.shuffle(cand)
 
     out, taken, used = [], [], set()
-    for a, b in cand:
-        if len(out) >= n_want:
-            break
+
+    def try_add(a, b):
+        """Accept the arrow a -> b if it passes every test; returns True when it was added."""
         if (a, b) in used or (b, a) in used:
-            continue                                   # one arrow per pair of units
+            return False                               # one arrow per pair of units
         pts = arc_points(P[a], P[b], bend)
         if np.hypot(pts[:, 0], pts[:, 1]).max() > r_max:
-            continue                                   # would leave the boundary
+            return False                               # would leave the boundary
         d = np.linalg.norm(pts[:, None, :] - P[None, :, :], axis=2)   # (samples, units)
         d[:, [a, b]] = np.inf
         if d.min() < clear:
-            continue                                   # passes over a unit
+            return False                               # passes over a unit
         seg = inked_span(pts, trim)
         if seg is None:
-            continue
+            return False
         path = Path(seg)
         if any(path.intersects_path(q, filled=False) for q in taken):
-            continue                                   # crosses an arrow already placed
+            return False                               # crosses an arrow already placed
         out.append((a, b, bend, pts))
         taken.append(path)
         used.add((a, b))
+        return True
+
+    # Every unit takes part in the circuit (Pavel, 4 Nov 2026: an unconnected unit in the drawing
+    # reads as a unit outside the network). The cover pass runs FIRST, on the empty canvas, so no
+    # unit is boxed in by arrows placed for others: each unit tries its partners nearest first,
+    # within the normal separation range and then within twice it.
+    order = list(range(len(P)))
+    rng.shuffle(order)
+    for u in order:
+        if any(u in pair for pair in used):
+            continue
+        for reach in (hi, 2.0 * hi):
+            near = sorted(((a, b) for a in range(len(P)) for b in range(len(P)) if u in (a, b)
+                           and a != b and lo <= np.hypot(*(P[b] - P[a])) <= reach),
+                          key=lambda pair: np.hypot(*(P[pair[1]] - P[pair[0]])))
+            if any(try_add(a, b) for a, b in near):
+                break
+    for a, b in cand:
+        if len(out) >= n_want:
+            break
+        try_add(a, b)
     return out
 
 
 def check_connections(conns, gx, gy, clear, trim):
-    """Assert the invariants `plan_connections` promises. Raises AssertionError on failure.
+    """Assert the invariants `plan_connections` promises, including that every unit has at least
+    one connection. Raises AssertionError on failure.
 
     A drawing whose whole point is "no arrow crosses anything" should fail loudly rather than ship
     a scribble, so this runs on every build.
@@ -838,6 +860,8 @@ def check_connections(conns, gx, gy, clear, trim):
     Returns:
         None.
     """
+    touched = {i for src, dst, _, _ in conns for i in (src, dst)}
+    assert touched == set(range(len(gx))), f"units without a connection: {sorted(set(range(len(gx))) - touched)}"
     P = np.column_stack([gx, gy])
     paths = [Path(inked_span(pts, trim)) for _, _, _, pts in conns]
     for k, (a, b, _, pts) in enumerate(conns):
