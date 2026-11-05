@@ -51,6 +51,14 @@ this one counts optimizer steps, n_epochs x n_minibatches per update (the docstr
 `prune_and_reinit` lists each quantity). With the option off the run is bit-identical to one made
 before it existed (checked at N = 40, 3 updates, seed 7, against main at 9a49c9e).
 
+A CONTINUATION (paths.init_from, since 5 Nov 2026) is a run built by run_rl.py from a finished maze
+run's weights and, with paths.init_adam, its Adam moments; this trainer takes two facts about it,
+`iter_offset` (the parent's last recorded update, added to every update index it records, so the
+continuation's records start where the parent's end and common.maze_load_runs reads the two as one
+run) and `adam_restored` (the moments were loaded, so the warm-up ramp is not run again). Nothing
+else of the parent's trainer is carried over: the rescale rule's state and the dropout
+participation EMA are not saved, as in the supervised trainer, and start afresh.
+
 WHY THE NOISE IS DRAWN UP FRONT. PPO recomputes the log-probability of the rollout's actions under
 the updated parameters by re-running the RNN over the stored observations. The noise is part of
 that forward pass, so a recompute with fresh noise would give a different mean even at the old
@@ -131,7 +139,8 @@ class TrainerPPO:
                  probe_every=10, probe_episodes=128, probe_seed=20261103,
                  store_participation_every=5, checkpoint_every=100,
                  lambda_frm=0.0, frm_args=None, lambda_rws=0.0, rws_args=None,
-                 dropout=False, dropout_args=None, prune_reinit=False, prune_args=None):
+                 dropout=False, dropout_args=None, prune_reinit=False, prune_args=None,
+                 iter_offset=0, adam_restored=False):
         """Args:
             RNN: RNN_torch with n_outputs 2 + critic (turn, speed, and the value row with a
                 critic), on the task's device. Its sigma_w (model.sigma_w) switches synaptic noise
@@ -172,6 +181,18 @@ class TrainerPPO:
                 rescale_target_frac, which must be > 0; rescale_cap; rescale_protect_frac;
                 rescale_active_only; rescale_normalize; rescale_norm_mode, which must be "self"),
                 required when prune_reinit is True.
+            iter_offset: int >= 0, the absolute update count at which this run's clock starts: 0
+                for a fresh run, the parent's last recorded update for a continuation
+                (paths.init_from; run_rl.py resolves trainer.iter_offset "auto" to it). Added to
+                every update index written to progress and probes, so a continuation's records
+                start where its parent's end. The loop, the probe grid, the checkpoint grid and
+                the warm-up ramp count this run's own updates from 1, as the supervised Trainer's
+                track grid does.
+            adam_restored: bool, True when the run script loaded the parent's Adam moments into
+                `optimizer` (paths.init_adam). The warm-up ramp is then not run: it exists to tame
+                Adam's first steps before its moment estimates exist, and a restored state has them
+                (configs/trainer/trainer_ppo.yaml, warmup_updates). A continuation without the
+                moments ramps again.
         Raises:
             ValueError if RNN.n_outputs is not 2 + critic; if dropout is on without dropout_args
             or with a dropout_kind other than "mute" ("dead" also removes the unit from the recurrent
@@ -244,6 +265,8 @@ class TrainerPPO:
         self.value_coef, self.entropy_coef = float(value_coef), float(entropy_coef)
         self.max_grad_norm = float(max_grad_norm)
         self.warmup_updates = int(warmup_updates or 0)
+        self.iter_offset = int(iter_offset)
+        self.adam_restored = bool(adam_restored)
         # the base learning rate, as the run script set it (the size rule); the warm-up ramps to it
         self.lr = None if optimizer is None else float(optimizer.param_groups[0]["lr"])
         self.probe_every, self.probe_episodes = int(probe_every), int(probe_episodes)
@@ -1043,7 +1066,8 @@ class TrainerPPO:
     def run_training(self):
         """Train for n_updates PPO updates, probing and checkpointing on the way.
 
-        Every update: the learning rate for this update (the warm-up ramp), a finite rollout
+        Every update: the learning rate for this update (the warm-up ramp, unless the Adam moments
+        were restored), a finite rollout
         (safe_rollout, rolling back to the last finite weights if needed), with dropout on the
         participation EMA p_bar updated from that rollout's states as the supervised train_step
         updates it (`self.participation = (1 - eta) * self.participation + eta * new_part`, after the
@@ -1056,14 +1080,15 @@ class TrainerPPO:
 
         Returns:
             (RNN, progress, probes, last_probe): the trained RNN; progress, a list with one dict per
-            update: update, discounted_return (mean over the batch of sum_t gamma^t r_t, the quantity
+            update: update (iter_offset + this run's own count, so a continuation's records continue
+            its parent's), discounted_return (mean over the batch of sum_t gamma^t r_t, the quantity
             PPO maximises), success (share of the batch that reached the cheese), steps (mean steps
             to the cheese, T if never), restored (rollouts discarded and weights rolled back), lr
             (the rate used, after the warm-up ramp), the statistics of ppo_update (including
             skipped minibatches, when a penalty is on its raw value, and with the rescale rule on
             its counts of that update: rescale_opened, rescale_graduated and rescale_spent summed
             over the update's checks, rescale_growing after the last one); probes, a dict of lists
-            over probes: update (the update index),
+            over probes: update (the update index, offset the same way),
             active, active_mod, probe_success, and p_update and p, the stored participation vectors
             (N,) with their update index; last_probe, the last probe's rollout dict.
         """
@@ -1075,7 +1100,8 @@ class TrainerPPO:
         good = {k: v.detach().clone() for k, v in self.RNN.state_dict().items()}   # last finite weights
         tic = time.perf_counter()
         for it in range(1, hp.n_updates + 1):
-            lr_now = self.lr * min(1.0, it / hp.warmup_updates) if hp.warmup_updates else self.lr
+            ramp = hp.warmup_updates and not self.adam_restored
+            lr_now = self.lr * min(1.0, it / hp.warmup_updates) if ramp else self.lr
             for group in self.optimizer.param_groups:
                 group["lr"] = lr_now
             batch, restored = self.safe_rollout(good, hp.n_episodes, hp.T)
@@ -1089,7 +1115,7 @@ class TrainerPPO:
             else:
                 adv, ret = self.mc_advantages(batch["rewards"], batch["alive"], hp.gamma)
             stats = self.ppo_update(batch, adv, ret)
-            progress.append({"update": it,
+            progress.append({"update": hp.iter_offset + it,
                              "discounted_return": (batch["rewards"] * discount).sum(dim=0).mean().item(),
                              "success": batch["success"].float().mean().item(),
                              "steps": batch["steps"].mean().item(),
@@ -1100,12 +1126,12 @@ class TrainerPPO:
             if it == 1 or it % hp.probe_every == 0:
                 n_active, n_active_mod, p, out = self.probe()
                 self.last_probe = out
-                probes["update"].append(it)
+                probes["update"].append(hp.iter_offset + it)
                 probes["active"].append(n_active)
                 probes["active_mod"].append(n_active_mod)
                 probes["probe_success"].append(out["success"].float().mean().item())
                 if (len(probes["update"]) - 1) % hp.store_participation_every == 0:
-                    probes["p_update"].append(it)
+                    probes["p_update"].append(hp.iter_offset + it)
                     probes["p"].append(p)
                 r = progress[-1]
                 print(f"update {it:5d}/{hp.n_updates}  disc. return {r['discounted_return']:7.3f}"

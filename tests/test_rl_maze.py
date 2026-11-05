@@ -9,18 +9,24 @@ mask in the recompute (ratio 1, dropped columns zero in both passes), the penalt
 update statistics, and the refusal of dropout kind "dead"; and the rescale rule (stage 2 of
 issue #5): the three states of two units forced silent against numpy re-implementations of the
 tilt, the participation and the soft-max rate, the blanked gradient of a growing unit, the rule's
-counts in the progress records and the refusal of the modes that are not mirrored. The 13 checks
-before the options were added run with every option off, as the default is.
-Run: python tests/test_rl_maze.py   (CPU, about a minute)
+counts in the progress records and the refusal of the modes that are not mirrored; and the
+continuation of a run from its folder (paths.init_from, paths.init_adam, trainer.iter_offset): the
+weights, the absolute update indices, the joined record of common.maze_load_runs, and the warm-up
+ramp skipped with the Adam moments and repeated without them. The 13 checks before the options were
+added run with every option off, as the default is.
+Run: python tests/test_rl_maze.py   (CPU, about a minute and a half)
 """
 import glob
+import json
 import math
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import numpy as np
 import torch
+from omegaconf import OmegaConf
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.tasks.TaskMaze import TaskMaze, parse_maze, bfs_distance
@@ -294,7 +300,8 @@ def test_run_script_writes_standard_layout():
     """The training script, dispatched to the maze by trainer=trainer_ppo, writes
     <save_to>/Maze_<tag>/s<seed>/ with s<seed>_config.yaml (seed and channel counts recorded),
     s<seed>_Params_Maze.npz (no *LastParams* file, so no cell inventory counts the run),
-    s<seed>_Progress.json, s<seed>_Participation.npz and the two PNGs, at N = 40 for 2 updates;
+    s<seed>_Progress.json, s<seed>_Participation.npz, s<seed>_AdamState_Maze.pt and the two PNGs,
+    at N = 40 for 2 updates;
     common.maze_load_runs reads it back and TrainerPPO.load_run rebuilds the agent with the
     saved weights."""
     scratch = os.path.join(os.environ.get("CLAUDE_SCRATCHPAD",
@@ -311,8 +318,8 @@ def test_run_script_writes_standard_layout():
     assert r.returncode == 0, r.stderr[-2000:]
     folder = os.path.join(save_to, "Maze_check", "s3")
     names = sorted(os.listdir(folder))
-    assert names == ["progress.png", "s3_Params_Maze.npz", "s3_Participation.npz", "s3_Progress.json",
-                     "s3_config.yaml", "trajectories.png"], names
+    assert names == ["progress.png", "s3_AdamState_Maze.pt", "s3_Params_Maze.npz", "s3_Participation.npz",
+                     "s3_Progress.json", "s3_config.yaml", "trajectories.png"], names
     assert not glob.glob(os.path.join(save_to, "**", "*LastParams*"), recursive=True)
     runs = maze_load_runs(save_to)
     assert len(runs) == 1 and runs[0]["N"] == 40 and runs[0]["seed"] == 3 and runs[0]["cue"] is False
@@ -324,6 +331,82 @@ def test_run_script_writes_standard_layout():
     assert task.n_inputs == 10 and trainer.T == 6 and trainer.probe_episodes == 4
     saved = np.load(os.path.join(folder, "s3_Params_Maze.npz"))
     assert np.array_equal(trainer.RNN.W_rec.detach().numpy(), saved["W_rec"])
+
+
+def run_maze_script(save_to, tag, extra, seed=3):
+    """Run the training script on the maze at N = 40, seed 3, 2 updates of 4 episodes x 6 decisions,
+    probe every 2 updates, warm-up 2, into <save_to>/Maze_<tag>/s<seed>, with `extra` overrides.
+
+    Args:
+        save_to: str, paths.save_to; tag: str, experiment_tag; extra: list of str, further
+        command-line overrides; seed: int.
+    Returns:
+        str, the run folder.
+    """
+    cmd = [sys.executable, os.path.join(REPO, "trainRNNbrain", "training", "run_experiment.py"),
+           "task=Maze", "trainer=trainer_ppo", "model=rnn_relu_standard", "model.N=40", f"seed={seed}",
+           "trainer.n_updates=2", "trainer.n_episodes=4", "trainer.T=6", "trainer.probe_episodes=4",
+           "trainer.probe_every=2", "trainer.checkpoint_every=0", "trainer.warmup_updates=2",
+           f"paths.save_to={save_to}", f"experiment_tag={tag}",
+           f"hydra.run.dir={os.path.join(os.path.dirname(save_to), 'hydra')}"] + extra
+    env = dict(os.environ, PYTHONPATH=REPO, CUDA_VISIBLE_DEVICES="")
+    r = subprocess.run(cmd, cwd=REPO, env=env, capture_output=True, text=True, timeout=600)
+    assert r.returncode == 0, r.stderr[-2000:]
+    return os.path.join(save_to, f"Maze_{tag}", f"s{seed}")
+
+
+def test_continuation_from_folder():
+    """A 2-update run, then continuations from its folder (paths.init_from), each 2 updates with the
+    warm-up at 2 updates: with init_adam, the first update's rate is the full rate (no ramp), the
+    progress and probe updates are 3 and 4 (trainer.iter_offset resolved to 2 and recorded), and
+    maze_load_runs returns the parent and the child as one record with 4 updates in order, the
+    parent's probes first, the parent not listed on its own; without init_adam the ramp is repeated
+    (the first update's rate is lr / warmup_updates); and with init_adam at rate 0 the saved
+    weights equal the parent's last bitwise, so the continuation starts from them."""
+    scratch = os.path.join(os.environ.get("CLAUDE_SCRATCHPAD",
+                                          os.path.join(tempfile.gettempdir(), "trainRNNbrain_scratch")),
+                           "maze-resume", "continuation_check")
+    shutil.rmtree(scratch, ignore_errors=True)
+    save_to = os.path.join(scratch, "trained_RNNs")
+    parent = run_maze_script(save_to, "parent", [])
+    with open(os.path.join(parent, "s3_Progress.json")) as fh:
+        parent_progress = json.load(fh)
+    lr = parent_progress[-1]["lr"]                       # the full rate: the parent's ramp is over at update 2
+    assert [p["update"] for p in parent_progress] == [1, 2] and parent_progress[0]["lr"] == lr / 2
+    assert os.path.isfile(os.path.join(parent, "s3_AdamState_Maze.pt"))
+
+    child = run_maze_script(save_to, "child", [f"paths.init_from={parent}", "paths.init_adam=true"])
+    with open(os.path.join(child, "s3_Progress.json")) as fh:
+        child_progress = json.load(fh)
+    assert [p["update"] for p in child_progress] == [3, 4], child_progress
+    assert [p["lr"] for p in child_progress] == [lr, lr], [p["lr"] for p in child_progress]
+    child_probes = np.load(os.path.join(child, "s3_Participation.npz"))
+    assert list(child_probes["update"]) == [3, 4] and list(child_probes["p_update"]) == [3]
+    saved_cfg = OmegaConf.load(os.path.join(child, "s3_config.yaml"))
+    assert saved_cfg.trainer.iter_offset == 2 and saved_cfg.paths.init_from == parent and saved_cfg.paths.init_adam
+
+    fresh = run_maze_script(save_to, "fresh_adam", [f"paths.init_from={parent}", "paths.init_adam=false"])
+    with open(os.path.join(fresh, "s3_Progress.json")) as fh:
+        fresh_progress = json.load(fh)
+    assert [p["update"] for p in fresh_progress] == [3, 4]
+    assert fresh_progress[0]["lr"] == lr / 2 and fresh_progress[1]["lr"] == lr, [p["lr"] for p in fresh_progress]
+
+    still = run_maze_script(save_to, "still", [f"paths.init_from={parent}", "paths.init_adam=true", "trainer.lr=0"])
+    a, b = np.load(os.path.join(parent, "s3_Params_Maze.npz")), np.load(os.path.join(still, "s3_Params_Maze.npz"))
+    for key in ("W_rec", "W_inp", "W_out", "y_init"):
+        assert np.array_equal(a[key], b[key]), key
+
+    runs = maze_load_runs(save_to)
+    assert [os.path.basename(os.path.dirname(r["folder"])) for r in runs] == ["Maze_child", "Maze_fresh_adam", "Maze_still"]
+    joined = runs[0]
+    assert joined["chain"] == [os.path.abspath(parent), os.path.abspath(child)]
+    assert [p["update"] for p in joined["progress"]] == [1, 2, 3, 4]
+    assert list(joined["probes"]["update"]) == [1, 2, 3, 4] and list(joined["probes"]["p_update"]) == [1, 3]
+    assert joined["probes"]["p"].shape == (2, 40) and len(joined["probes"]["active"]) == 4
+    parent_probes = np.load(os.path.join(parent, "s3_Participation.npz"))
+    assert np.array_equal(joined["probes"]["probe_success"][:2], parent_probes["probe_success"])
+    assert np.array_equal(joined["probes"]["probe_success"][2:], child_probes["probe_success"])
+    assert joined["progress"][:2] == parent_progress and joined["progress"][2:] == child_progress
 
 
 def test_fr_magnitude_penalty_matches_formula():
@@ -663,6 +746,7 @@ def main():
                test_slide_along_wall, test_only_the_rnn_is_trained, test_gae_known_case,
                test_mc_advantages_known_case, test_recompute_matches_rollout, test_ppo_update_runs,
                test_ppo_update_guards, test_safe_rollout_restores, test_run_script_writes_standard_layout,
+               test_continuation_from_folder,
                test_fr_magnitude_penalty_matches_formula, test_rec_weights_sparsity_penalty_matches_formula,
                test_synaptic_noise_replay, test_dropout_replay, test_penalties_in_update_statistics,
                test_dead_dropout_refused, test_rescale_rule_three_states,

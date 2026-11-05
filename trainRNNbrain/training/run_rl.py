@@ -30,6 +30,9 @@ run_experiment builds it) and the file stem s<seed>:
                               TrainerPPO.safe_rollout), lr (the learning rate used, after the
                               warm-up ramp) and the PPO statistics from TrainerPPO.ppo_update
                               (including skipped minibatches)
+  s<seed>_AdamState_Maze.pt   the optimizer's state_dict (Adam's two moments per parameter), so the
+                              run can be continued (below) rather than restarted; written as
+                              run_experiment writes it for the supervised runs
   s<seed>_Participation.npz   per probe: update (the update index), active (active units under the
                               project's rule, p = std + q0.9), active_mod (active units under the
                               modulation criterion, std alone at or above 5 percent of its 95th
@@ -50,7 +53,20 @@ or in a sibling tree; the suite launchers use <save_to>_rl_maze, where every maz
 Runs written before 5 Nov 2026 by trainRNNbrain/rl/run_maze_ppo.py have the same files without the
 stem (config.yaml, Params_Maze.npz, ...) plus PolicyState.pt, a copy of the weights that the
 parameter file already holds; the readers (common.maze_load_runs, TrainerPPO.load_run) read both.
+
+A CONTINUATION (since 5 Nov 2026) mirrors the supervised warm start of run_experiment.py:
+`paths.init_from` names a finished maze run's folder, whose W_inp, W_rec, W_out and y_init replace
+this run's fresh draw before training (load_warm_start); with `paths.init_adam: true` its AdamState
+replaces the fresh optimizer state too, and the warm-up ramp is then not run again (TrainerPPO,
+adam_restored; configs/trainer/trainer_ppo.yaml says why). `trainer.iter_offset` ("auto" = the
+parent's last recorded update, 0 without a parent; warm_start_offset) is resolved here and written
+back into the saved config, and every update index in Progress.json and Participation.npz is
+iter_offset + the run's own count, so the continuation's records start where the parent's end and
+common.maze_load_runs joins the chain into one run. The parent's config names the chain: a run's
+`paths.init_from` is its parent. Not carried over, as in the supervised trainer: the rescale rule's
+state and the dropout participation EMA, which are not saved, start afresh in the continuation.
 """
+import glob
 import json
 import os
 import random
@@ -67,13 +83,14 @@ from trainRNNbrain.trainer.TrainerPPO import TrainerPPO
 from trainRNNbrain.utils import filter_kwargs, import_any
 
 
-def save_run(folder, stem, taskname, cfg, params, progress, probes):
-    """Write (overwrite) the four data files of the run folder listed in the module docstring.
+def save_run(folder, stem, taskname, cfg, params, progress, probes, opt):
+    """Write (overwrite) the five data files of the run folder listed in the module docstring.
 
     Args:
         folder: str; stem: str, the file prefix (s<seed>); taskname: str, "Maze";
         cfg: the DictConfig, saved resolved; params: dict, RNN_torch.get_params();
-        progress: list of dicts, one per update; probes: dict of lists, one entry per probe.
+        progress: list of dicts, one per update; probes: dict of lists, one entry per probe;
+        opt: the torch optimizer, whose state_dict is the AdamState file.
     """
     OmegaConf.save(cfg, os.path.join(folder, f"{stem}_config.yaml"), resolve=True)
     # mappings become 0-d object arrays, as run_experiment.storable_ does; not imported from there
@@ -91,6 +108,82 @@ def save_run(folder, stem, taskname, cfg, params, progress, probes):
         json.dump(progress, fh)
     np.savez_compressed(os.path.join(folder, f"{stem}_Participation.npz"),
                         **{k: np.array(v) for k, v in probes.items()})
+    # Adam's moment estimates, so a run can be CONTINUED (paths.init_from + paths.init_adam) rather
+    # than restarted, as run_experiment saves them: two moments per parameter, and they cannot be
+    # reconstructed after the fact. A failure is reported, never allowed to kill the run.
+    try:
+        torch.save(opt.state_dict(), os.path.join(folder, f"{stem}_AdamState_{taskname}.pt"))
+    except Exception as e:
+        print(f"WARNING: could not save Adam state: {e}", flush=True)
+
+
+def load_warm_start(rnn, folder):
+    """Copy a finished maze run's weights into a freshly built RNN: the warm start (paths.init_from).
+
+    The counterpart of run_experiment.load_warm_start for the maze layout, whose parameter file is
+    *Params_<task>.npz (never *LastParams*, see the module docstring); not imported from there
+    because run_experiment imports this module. Every trainable parameter of `rnn` (W_inp, W_rec,
+    W_out) is copied from the file with its shape checked, and y_init (the initial state, saved
+    too and part of the dynamics; a plain attribute, not a parameter) with it. The RNN must
+    already be built from this run's config: the file carries arrays, not an architecture.
+
+    Args:
+        rnn: RNN_torch, built from this run's config.
+        folder: str, a maze run folder holding one *Params_*.npz.
+    Returns:
+        str, the path of the file read.
+    Raises:
+        FileNotFoundError: no *Params_*.npz in `folder`.
+        KeyError: a parameter of `rnn` is missing from the file.
+        ValueError: a parameter's shape differs between the file and `rnn`.
+    """
+    src = sorted(glob.glob(os.path.join(folder, "*Params_*.npz")))
+    if not src:
+        raise FileNotFoundError(f"warm start: no *Params_*.npz in {folder}")
+    saved = np.load(src[0], allow_pickle=True)
+    with torch.no_grad():
+        for name, prm in rnn.named_parameters():
+            if name not in saved.files:
+                raise KeyError(f"warm start: '{name}' missing from {src[0]}; the file has {sorted(saved.files)}")
+            arr = np.asarray(saved[name], dtype=np.float32)
+            if tuple(arr.shape) != tuple(prm.shape):
+                raise ValueError(f"warm start: '{name}' is {arr.shape} in {src[0]} but {tuple(prm.shape)} "
+                                 f"in this model (N or the channel counts differ?)")
+            prm.copy_(torch.from_numpy(arr).to(prm.device, prm.dtype))
+    rnn.y_init = torch.as_tensor(np.asarray(saved["y_init"], dtype=np.float32),
+                                 device=rnn.y_init.device, dtype=rnn.y_init.dtype)
+    print(f"warm start: loaded {[n for n, _ in rnn.named_parameters()] + ['y_init']} from {src[0]}", flush=True)
+    return src[0]
+
+
+def warm_start_offset(init_from):
+    """The absolute update at which a continuation's clock starts: its parent's last recorded update.
+
+    Read from the parent's *Progress.json, not from its config: a run killed by its wall clock
+    leaves a config whose trainer.n_updates is the budget, while its records hold the updates
+    completed, and a parent's records are absolute already, so the count accumulates down a
+    chain. (The supervised run_experiment.warm_start_offset reads the parent's config, whose
+    max_iter its checkpoint stamps with the iterations done; the maze checkpoint overwrites the run
+    folder in place and stamps nothing.)
+
+    Args:
+        init_from: str, a finished maze run's folder, or None/"" for a run starting from scratch.
+    Returns:
+        int: the parent's last update index, or 0 when there is no parent.
+    Raises:
+        FileNotFoundError: no *Progress.json in `init_from`; ValueError: it holds no update.
+    """
+    if not init_from:
+        return 0
+    src = sorted(glob.glob(os.path.join(init_from, "*Progress.json")))
+    if not src:
+        raise FileNotFoundError(f"warm start: no *Progress.json in {init_from}, so the update window "
+                                f"this run covers cannot be established")
+    with open(src[0]) as fh:
+        progress = json.load(fh)
+    if not progress:
+        raise ValueError(f"warm start: {src[0]} records no update")
+    return int(progress[-1]["update"])
 
 
 def draw_progress(progress, probes, path):
@@ -188,9 +281,39 @@ def run_rl(cfg):
     rnn = hydra.utils.instantiate(rnn_args)
     lr = cfg.trainer.lr * (100.0 / float(cfg.model.N)) ** cfg.trainer.lr_scale_exp   # the trainer's size rule
     opt = torch.optim.Adam(rnn.parameters(), lr=lr, weight_decay=cfg.trainer.weight_decay)
+    # WARM START (paths.init_from): a finished maze run's weights replace this run's fresh draw, and
+    # with paths.init_adam its Adam moments replace the fresh optimizer state, so training continues
+    # from that network; the counterpart of run_experiment's warm-start block. Everything else comes
+    # from THIS run's config: the trainer's options, the task, and the rate (the size rule above; a
+    # restored state carries the parent's last rate and weight decay in its param_groups, and those
+    # are set back to this run's values). Two parts of the parent's trainer are not saved and start
+    # afresh, as in the supervised trainer: the rescale rule's state (strikes, utilities, factors,
+    # the growing set, the step clock) and the dropout participation EMA.
+    init_from = cfg.paths.get("init_from", None) if "paths" in cfg else None
+    init_adam = bool(init_from) and bool(cfg.paths.get("init_adam", False))
+    if init_from:
+        load_warm_start(rnn, init_from)
+        if init_adam:
+            ast = sorted(glob.glob(os.path.join(init_from, "*AdamState*.pt")))
+            if not ast:
+                raise FileNotFoundError(f"warm start: init_adam set but no *AdamState*.pt in {init_from}")
+            opt.load_state_dict(torch.load(ast[0], map_location=device))
+            for group in opt.param_groups:
+                group["lr"], group["weight_decay"] = lr, float(cfg.trainer.weight_decay)
+            print(f"warm start: restored Adam moments from {ast[0]}", flush=True)
+    # THE UPDATE CLOCK: trainer.iter_offset "auto" means "carry on counting from the parent", 0 when
+    # there is no parent. Resolved here and written back, so the saved config records the absolute
+    # window this run covers, as run_experiment records it for the supervised path.
+    off = cfg.trainer.get("iter_offset", "auto")
+    if not isinstance(off, (int, float)):
+        off = warm_start_offset(init_from)
+    cfg.trainer.iter_offset = int(off)
+    if off:
+        print(f"update clock: this run records updates {off + 1}-{off + int(cfg.trainer.n_updates)}", flush=True)
     trainer_cls = import_any(cfg.trainer._target_)
     trainer = hydra.utils.instantiate(filter_kwargs(trainer_cls, cfg.trainer),
-                                      RNN=rnn, Task=task, optimizer=opt, _convert_="none")
+                                      RNN=rnn, Task=task, optimizer=opt, adam_restored=init_adam,
+                                      _convert_="none")
 
     folder = os.path.join(cfg.paths.save_to, f"{taskname}_{folder_tag}", f"s{seed}")
     stem = f"s{seed}"
@@ -204,7 +327,7 @@ def run_rl(cfg):
         Args:
             params: dict, RNN_torch.get_params() at this point of training.
         """
-        save_run(folder, stem, taskname, cfg, params, trainer.progress, trainer.probes)
+        save_run(folder, stem, taskname, cfg, params, trainer.progress, trainer.probes, opt)
         draw_progress(trainer.progress, trainer.probes, os.path.join(folder, "progress.png"))
         draw_trajectories(task, trainer.last_probe, os.path.join(folder, "trajectories.png"))
 
