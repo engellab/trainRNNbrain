@@ -62,6 +62,14 @@
 #
 # ~3h20m per job at N=1000 measured on this cell. 6 h requested.
 # Output: $SAVE_TO/NBitFlipFlop_target_ladder/EqType=h_k=3_N=1000_tgt=<t>/
+#
+# TASK SWITCH (5 Nov 2026; the uniform-interventions programme, engellab/trainRNNbrain issue #6,
+# docs/interventions_matrix.md). TASK unset or ff runs the ladder exactly as above. TASK=cddm runs
+# the same rule with the same words on CDDM (task=CDDM; its task config carries the input and
+# output counts, so K is not passed and the folder carries no k) at the 75,000-iteration same-size
+# budget of silent_units_largeN. The paper's arm is cell 2 (target 10.0), 3 seeds, indices 9-11:
+#   TASK=cddm sbatch --time=08:00:00 --constraint=nomig --array=9-11 slurm/SilentReLU_target_ladder_della.slurm
+# Output: $SAVE_TO/CDDM_target_ladder/EqType=h_N=1000_tgt=<t>/
 
 #SBATCH --job-name=TgtLadder
 #SBATCH --nodes=1
@@ -109,7 +117,13 @@ fi
 
 K=3
 N=1000
-IT=40000
+
+# TASK selects the task words, the budget, the folder prefix and the k in the tag (see the header).
+case "${TASK:-ff}" in
+  ff)   TASK_ARGS=(task=NBitFlipFlop task.n_inputs="$K" task.n_outputs="$K"); IT=40000; PREFIX=NBitFlipFlop; TAGK="_k=${K}" ;;
+  cddm) TASK_ARGS=(task=CDDM);                                                IT=75000; PREFIX=CDDM;         TAGK="" ;;
+  *) echo "FATAL: TASK must be ff or cddm; got '${TASK}'" >&2; exit 1 ;;
+esac
 
 CELL_TGT=(6.0 8.0 10.0)
 
@@ -117,16 +131,15 @@ TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 4)); CELL=$((TID / 4))
 TGT=${CELL_TGT[$CELL]}
 
-TAG="target_ladder/EqType=h_k=${K}_N=${N}_tgt=${TGT}"
-mkdir -p "${SAVE_TO}/NBitFlipFlop_target_ladder"
-echo "Task ${SLURM_ARRAY_TASK_ID}: cell=${CELL} target=${TGT} rep=${REP} iters=${IT}"
-echo "  -> ${SAVE_TO}/NBitFlipFlop_${TAG}"
+TAG="target_ladder/EqType=h${TAGK}_N=${N}_tgt=${TGT}"
+mkdir -p "${SAVE_TO}/${PREFIX}_target_ladder"
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${TASK:-ff} cell=${CELL} target=${TGT} rep=${REP} iters=${IT}"
+echo "  -> ${SAVE_TO}/${PREFIX}_${TAG}"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
   +experiment=silent_units_largeN \
-  task=NBitFlipFlop \
-  task.n_inputs="$K" task.n_outputs="$K" \
+  "${TASK_ARGS[@]}" \
   model=rnn_relu_standard trainer=trainer_ptrack_freshbatch \
   model.equation_type=h model.N="$N" \
   trainer.max_iter="$IT" \

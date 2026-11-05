@@ -22,6 +22,18 @@
 #
 # Runtime ~8 h per job (measured on the drift sweep).
 # Output: $SAVE_TO/CDDM_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=<wd>_iters=200000/<per-net subfolder>
+#
+# TASK SWITCH (5 Nov 2026; the uniform-interventions programme, engellab/trainRNNbrain issue #6,
+# docs/interventions_matrix.md). TASK unset or cddm runs the ladder exactly as above. TASK=ff runs
+# the same three weight decays on the 3-bit flip-flop (task=NBitFlipFlop, 3 bits) with
+# trainer_ptrack_freshbatch, the trainer of every 3BFF control and of the B5 wd 0 cell
+# (NBitFlipFlop_b5_optimizer), at the 75,000-iteration same-size budget of silent_units_largeN.
+# The CDDM ladder's trainer_ptrack_plain reuses one batch of trials for every iteration
+# (same_batch true; the saved configs of the three CDDM cells say so); the 3BFF controls draw a
+# fresh batch each iteration, so the ff arm matches them and not the CDDM arm. wd 0 on 3BFF exists
+# (B5), so the missing cells are wd 1e-5 and 1e-4, indices 4-9:
+#   TASK=ff sbatch --time=08:00:00 --constraint=nomig --array=4-9 slurm/b0_wd.slurm
+# Output: $SAVE_TO/NBitFlipFlop_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=<wd>_iters=75000/<per-net subfolder>
 
 #SBATCH --job-name=WdB0
 #SBATCH --nodes=1
@@ -61,21 +73,29 @@ if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
 fi
 
 N=${N_OVERRIDE:-1000}
-IT=${ITERS_OVERRIDE:-200000}
 WDS=(0 1e-5 1e-4)
+
+# TASK selects the task words, the trainer, the budget and the folder prefix (see the header).
+case "${TASK:-cddm}" in
+  cddm) TASK_ARGS=(task=CDDM);                                          TRAINER=trainer_ptrack_plain;      IT=200000; PREFIX=CDDM ;;
+  ff)   TASK_ARGS=(task=NBitFlipFlop task.n_inputs=3 task.n_outputs=3); TRAINER=trainer_ptrack_freshbatch; IT=75000;  PREFIX=NBitFlipFlop ;;
+  *) echo "FATAL: TASK must be cddm or ff; got '${TASK}'" >&2; exit 1 ;;
+esac
+IT=${ITERS_OVERRIDE:-$IT}
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); WD=${WDS[$((TID / 3))]}
 
 TAG="std_g0_weightdecay_bias0/EqType=h_N=${N}_wd=${WD}_iters=${IT}"
-mkdir -p "${SAVE_TO}/CDDM_std_g0_weightdecay_bias0"
-echo "Task ${SLURM_ARRAY_TASK_ID}: N=${N} weight_decay=${WD} rep=${REP} iters=${IT}"
-echo "  -> ${SAVE_TO}/CDDM_${TAG}"
+mkdir -p "${SAVE_TO}/${PREFIX}_std_g0_weightdecay_bias0"
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${TASK:-cddm} N=${N} weight_decay=${WD} rep=${REP} iters=${IT}"
+echo "  -> ${SAVE_TO}/${PREFIX}_${TAG}"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
   +experiment=silent_units_largeN \
-  model=rnn_relu_standard trainer=trainer_ptrack_plain \
+  "${TASK_ARGS[@]}" \
+  model=rnn_relu_standard trainer="$TRAINER" \
   model.equation_type=h model.N="$N" \
   trainer.max_iter="$IT" trainer.weight_decay="$WD" \
   trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \
