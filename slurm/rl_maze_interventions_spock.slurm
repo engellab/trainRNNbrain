@@ -11,7 +11,7 @@
 # than the squared error; read-out as in #3; "works" = more active units than every control at a
 # probe success within 0.05 of the controls'. The notebook entry written at submission names it.
 #
-# GRID (21 jobs), one per array index; arm = (i - 1) / 3, seed = (i - 1) % 3 + 1:
+# GRID (24 jobs), one per array index; arm = (i - 1) / 3, seed = (i - 1) % 3 + 1:
 #   1-3     control           no option
 #   4-6     frm0.03           trainer.lambda_frm=0.03
 #   7-9     frm0.1            trainer.lambda_frm=0.1                          (the paper's flip-flop value)
@@ -23,8 +23,14 @@
 #                             GPU: submit indices 16-18 with --time=24:00:00)
 #   19-21   dropout0.2_beta4  trainer.dropout=true                            (drop_rate 0.2, beta 4,
 #                             kind mute, rescale on: the dropout_args block of trainer_ppo.yaml)
+#   22-24   rescale           trainer.prune_reinit=true and the paper's rescaling arm as swept keys
+#                             (slurm/SilentReLU_size_series_della.slurm lines 124-133: reinit_mode
+#                             rescale, norm_mode self, target 10 x the rate cap, active sources
+#                             only, normalised rows, alpha 1.002 per update, cap 64, protect 0.2 N,
+#                             a check every update, patience 1); stage 2 of issue #5, added after
+#                             indices 1-21 were submitted (7383696, 7383697)
 # The launcher passes only what an arm sweeps, plus N; every other value is the config's.
-# Expected: about 5.5 h per run at N = 1,000 on a 40 GB card (the suite's rate), 21 runs.
+# Expected: about 5.5 h per run at N = 1,000 on a 40 GB card (the suite's rate), 24 runs.
 #
 # SUBMIT:  sbatch slurm/rl_maze_interventions_spock.slurm
 #
@@ -36,7 +42,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=48G
 #SBATCH --time=12:00:00
-#SBATCH --array=1-21%21
+#SBATCH --array=1-24%24
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
@@ -75,9 +81,10 @@ echo "code: $PKG @ $GITSHA"
 # one entry per arm; the overrides of an arm are separate words on the command line
 # indices 1-3 (control) duplicate the uniform series' N = 1000 ReLU runs (same seeds, the
 # same code with every option off): do not submit them; the series' runs are the controls.
-ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4)
+ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4 rescale)
 ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.lambda_frm=0.3"
-               "trainer.lambda_frm=0.1 trainer.lambda_rws=0.05" "model.sigma_w=1.0" "trainer.dropout=true")
+               "trainer.lambda_frm=0.1 trainer.lambda_rws=0.05" "model.sigma_w=1.0" "trainer.dropout=true"
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1")
 
 i=$SLURM_ARRAY_TASK_ID
 a=$(( (i - 1) / 3 )); SEED=$(( (i - 1) % 3 + 1 ))
