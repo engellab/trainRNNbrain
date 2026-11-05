@@ -41,12 +41,14 @@ import os
 import sys
 
 import numpy as np
-import torch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from common import participation, active_mask, maze_learned_index           # noqa: E402
+# population_stats (scikit-learn) before torch: the other order loads two OpenMP runtimes on the
+# Mac and its k-means hangs or aborts (population_stats.py says the same at its imports)
 from population_stats import population_statistics, _jsonable                # noqa: E402
+import torch                                                                 # noqa: E402
+from common import participation, active_mask, maze_learned_index           # noqa: E402
 from trainRNNbrain.trainer.TrainerPPO import load_run                        # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(HERE))
