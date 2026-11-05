@@ -26,9 +26,9 @@
 #   22-24   rescale           trainer.prune_reinit=true and the paper's rescaling arm as swept keys
 #                             (slurm/SilentReLU_size_series_della.slurm lines 124-133: reinit_mode
 #                             rescale, norm_mode self, target 10 x the rate cap, active sources
-#                             only, normalised rows, alpha 1.002 per update, cap 64, protect 0.2 N,
-#                             a check every update, patience 1); stage 2 of issue #5, added after
-#                             indices 1-21 were submitted (7383696, 7383697)
+#                             only, normalised rows, alpha 1.002 per optimizer step, cap 64, protect
+#                             0.2 N, a check every optimizer step, patience 1); stage 2 of issue #5,
+#                             added after indices 1-21 were submitted (7383696, 7383697)
 # The launcher passes only what an arm sweeps, plus N; every other value is the config's.
 # Expected: about 5.5 h per run at N = 1,000 on a 40 GB card (the suite's rate), 24 runs.
 #
