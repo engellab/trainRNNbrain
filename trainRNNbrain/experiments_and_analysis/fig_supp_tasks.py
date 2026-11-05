@@ -15,7 +15,7 @@ so the task definitions belong here, once, and the main text keeps its panels fo
                    report. The hard part is ignoring the other.
   row 3  DMTS      delayed match-to-sample. A sample stimulus, an empty delay, a test stimulus, and
                    a judgement of whether the two were the same, reported after a go cue.
-  row 4  Maze      maze running, trained by PPO (trainRNNbrain/rl/maze_env.py). The network is the
+  row 4  Maze      maze running, trained by PPO (trainRNNbrain/tasks/TaskMaze.py). The network is the
                    whole agent: 8 egocentric range sensors and an efference copy of its last turn
                    and speed come in, a turn and a speed go out, one decision every 5 RNN steps
                    (0.5 tau), and reaching the cheese ends the episode. Nothing tells the agent
@@ -34,8 +34,9 @@ Row 4 has no target stream. Its stack shows the inputs and the executed outputs 
 EPISODE (the RNN's noise off, the policy mean as the action, the training probe's drops) of the
 first seed under MAZE_RUN, the final design's N = 1000 cell (Maze_suite, issue #3): of the probe
 episodes that reach the cheese, the one of median length. The pictogram's maze is that run's
-config, the path is that episode's. With no run folder yet, configs/rl/maze_ppo.yaml is composed,
-an untrained network is played the same way and the row says so, as the other rows do.
+config, the path is that episode's. With no run folder yet, configs/task/Maze.yaml and
+configs/trainer/trainer_ppo.yaml are composed, an untrained network is played the same way and the
+row says so, as the other rows do.
 
 Usage:  python fig_supp_tasks.py
 Output: img/internal_figures/fig_supp_tasks.pdf (+ .svg; vector only - see paperstyle.save)
@@ -60,11 +61,9 @@ from omegaconf import OmegaConf
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 from common import DATA_DIR
-from trainRNNbrain.rl.maze_env import MazeEnv
-from trainRNNbrain.rl.policy import MazePolicy
-from trainRNNbrain.rl.ppo import rollout
-from trainRNNbrain.rl.saved import load_run
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
+from trainRNNbrain.tasks.TaskMaze import TaskMaze
+from trainRNNbrain.trainer.TrainerPPO import TrainerPPO, load_run
 from trainRNNbrain.training.training_utils import prepare_task_arguments
 from trainRNNbrain.utils import filter_kwargs
 
@@ -81,7 +80,8 @@ H_MM = 176.0                 # printed height; the width is paperstyle.W_FULL_MM
 MAZE_ROW = 1.3               # height of row d relative to a supervised row: 12 channels, not 6-8
 # The maze runs of the final design (issue #3), the N = 1000 ReLU cell; seeds land as s1, s2, ...
 MAZE_RUN = f"{DATA_DIR}_rl_maze/Maze_suite/N=1000_act=relu"
-MAZE_CFG = "rl/maze_ppo"     # composed from configs/ for the pending fallback, no run folder yet
+MAZE_OVERRIDES = ["task=Maze", "trainer=trainer_ppo"]   # composed on configs/base.yaml for the pending
+                                                        # fallback, no run folder yet
 PENDING_DECISIONS = 60       # an untrained agent never reaches the cheese: its episode is cut here
 
 # The two features of CDDM's stimulus. Motion is drawn as arrow DIRECTION and colour as arrow
@@ -208,13 +208,13 @@ def build(name):
 def build_maze():
     """One clean episode of a trained maze agent: its inputs, its outputs and the scene to draw.
 
-    The run is the first seed under MAZE_RUN, rebuilt by trainRNNbrain.rl.saved.load_run and played
-    noise-free with the policy mean as the action on the training probe's drops
-    (cfg.ppo.probe_episodes episodes from cfg.ppo.probe_seed). Of the episodes that reach the
+    The run is the first seed under MAZE_RUN, rebuilt by trainRNNbrain.trainer.TrainerPPO.load_run
+    and played noise-free with the policy mean as the action on the training probe's drops
+    (the trainer's probe_episodes episodes from its probe_seed). Of the episodes that reach the
     cheese, the one with the median number of decisions is shown. With no run folder yet, the
-    config the runs will use (configs/rl/maze_ppo.yaml) is composed, an untrained network is
-    played the same way and the row is marked pending; an untrained agent does not reach the
-    cheese, so its episode is cut at PENDING_DECISIONS.
+    config the runs will use (configs/task/Maze.yaml, configs/trainer/trainer_ppo.yaml) is
+    composed, an untrained network is played the same way and the row is marked pending; an
+    untrained agent does not reach the cheese, so its episode is cut at PENDING_DECISIONS.
 
     Returns:
         (inp, tgt, dt_over_tau, pending, spec, scene):
@@ -234,23 +234,25 @@ def build_maze():
     """
     folders = sorted(glob.glob(os.path.join(MAZE_RUN, "s*", "")))
     if folders:
-        cfg, env, policy = load_run(folders[0])
+        cfg, task, trainer = load_run(folders[0])
         pending = False
     else:
         config_dir = os.path.abspath(os.path.join(CFG_DIR, ".."))
         with hydra.initialize_config_dir(version_base="1.3", config_dir=config_dir):
-            cfg = hydra.compose(config_name=MAZE_CFG)
-        env = MazeEnv(**dict(cfg.env), device=torch.device("cpu"), seed=int(cfg.seed) + 1)
+            cfg = hydra.compose(config_name="base", overrides=MAZE_OVERRIDES)
+        task = hydra.utils.instantiate(filter_kwargs(TaskMaze, cfg.task), device=torch.device("cpu"))
         args = filter_kwargs(RNN_torch, cfg.model)
-        args.seed, args.n_inputs = int(cfg.seed), env.n_inputs
-        args.n_outputs = env.n_actions + (1 if cfg.ppo.critic else 0)
-        policy = MazePolicy(hydra.utils.instantiate(args), cfg.ppo.action_std, cfg.ppo.substeps)
+        args.seed, args.n_inputs = int(cfg.seed), task.n_inputs
+        args.n_outputs = task.n_actions + (1 if cfg.trainer.critic else 0)
+        hp = OmegaConf.to_container(filter_kwargs(TrainerPPO, cfg.trainer), resolve=True)
+        hp.pop("_target_", None)
+        trainer = TrainerPPO(hydra.utils.instantiate(args), task, None, **hp)
         pending = True
-    assert not env.goal_cue, \
+    assert not task.goal_cue, \
         "the maze row labels sensors and the efference copy only; this run has a goal cue"
     g = torch.Generator()
-    g.manual_seed(int(cfg.ppo.probe_seed))
-    out = rollout(env, policy, int(cfg.ppo.probe_episodes), int(cfg.ppo.T), clean=True, generator=g)
+    g.manual_seed(trainer.probe_seed)
+    out = trainer.rollout(trainer.probe_episodes, trainer.T, clean=True, generator=g)
     steps, success = out["steps"].int(), out["success"]
     if success.any():
         ok = torch.nonzero(success).flatten()
@@ -258,24 +260,24 @@ def build_maze():
         b = int(ok[len(ok) // 2])                       # the successful episode of median length
         n, reached = int(steps[b]), True
     else:
-        b, n, reached = 0, min(PENDING_DECISIONS, int(cfg.ppo.T)), False
+        b, n, reached = 0, min(PENDING_DECISIONS, trainer.T), False
 
     inp = out["u"][:, :n, b].numpy()
     act = out["actions"][:, :n, b]
     tgt = np.stack([torch.tanh(act[0]).numpy(), torch.sigmoid(act[1]).numpy()])
-    dt_over_tau = policy.substeps * float(cfg.model.dt) / float(cfg.model.tau)
-    angles = [f"{int(round(np.degrees(float(o))))}\u00b0" for o in env.ray_offsets]   # 0°, 45°, ...
-    feedback = ["turn", "speed"] if env.action_feedback else []
+    dt_over_tau = trainer.substeps * float(cfg.model.dt) / float(cfg.model.tau)
+    angles = [f"{int(round(np.degrees(float(o))))}\u00b0" for o in task.ray_offsets]   # 0°, 45°, ...
+    feedback = ["turn", "speed"] if task.action_feedback else []
     spec = dict(TASKS["Maze"],
                 inputs=angles + feedback,
-                in_cols=[SENS_COL] * env.n_rays + [CUE_COL] * len(feedback),
-                braces=[(0, env.n_rays - 1, "sensors", 0)]
-                       + ([(env.n_rays, env.n_rays + 1, "efference\ncopy", 0)] if feedback else []))
+                in_cols=[SENS_COL] * task.n_rays + [CUE_COL] * len(feedback),
+                braces=[(0, task.n_rays - 1, "sensors", 0)]
+                       + ([(task.n_rays, task.n_rays + 1, "efference\ncopy", 0)] if feedback else []))
     assert len(spec["inputs"]) == inp.shape[0], \
         f"Maze: {inp.shape[0]} input channels in the run, {len(spec['inputs'])} labels"
-    scene = dict(wall=env.wall.numpy(), goal=env.goal_xy.numpy(),
+    scene = dict(wall=task.wall.numpy(), goal=task.goal_xy.numpy(),
                  xy=out["xy"][:n + 1, b].numpy(), heading=out["heading"][:n + 1, b].numpy(),
-                 rays=(1.0 - inp[:env.n_rays, 0]) * env.ray_max, ray_offsets=env.ray_offsets.numpy(),
+                 rays=(1.0 - inp[:task.n_rays, 0]) * task.ray_max, ray_offsets=task.ray_offsets.numpy(),
                  reached=reached)
     return inp, tgt, dt_over_tau, pending, spec, scene
 

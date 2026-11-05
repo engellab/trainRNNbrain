@@ -2,7 +2,7 @@
 
 The maze counterpart of ablate_silent_units.py (claim 1 on the supervised tasks), with the same
 removal and the same three orders. One network at a time:
-  1. Rebuild the agent from its run folder (trainRNNbrain.rl.saved.load_run).
+  1. Rebuild the agent from its run folder (trainRNNbrain.trainer.TrainerPPO.load_run).
   2. Order the units by participation p = std(r) + q0.9(|r|) over the clean probe (noise off, mean
      action, PROBE_DROPS fixed drops, every RNN step before the cheese), the probe the training
      logged; active = p >= 0.05 q95(p) (common.active_mask).
@@ -27,46 +27,46 @@ import os
 import numpy as np
 import torch
 from common import participation, active_mask
-from trainRNNbrain.rl.ppo import rollout
-from trainRNNbrain.rl.saved import load_run
+from trainRNNbrain.trainer.TrainerPPO import load_run
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT_DIR = os.path.join(REPO, "data", "rl_maze_ablation")
 SCORE_SEED = 20261104      # the scoring drops; noise draw d is seeded SCORE_SEED + 1 + d
 
 
-def probe_participation(env, policy, T, n_drops, probe_seed):
+def probe_participation(task, trainer, T, n_drops, probe_seed):
     """Participation per unit over the clean probe (the training's probe, same drops).
 
     Args:
-        env: MazeEnv; policy: MazePolicy; T: int, decisions; n_drops: int; probe_seed: int.
+        task: TaskMaze; trainer: TrainerPPO holding the trained RNN; T: int, decisions;
+        n_drops: int; probe_seed: int.
     Returns:
         (p, success): p (N,) float; success float, the clean probe's success rate.
     """
-    g = torch.Generator(device=env.device)
+    g = torch.Generator(device=task.device)
     g.manual_seed(int(probe_seed))
-    out = rollout(env, policy, n_drops, T, clean=True, generator=g)
-    k = policy.substeps
+    out = trainer.rollout(n_drops, T, clean=True, generator=g)
+    k = trainer.substeps
     with torch.no_grad():
-        states = policy.sequence(out["u"], out["noise"])[0][:, :T * k]
-    rates = policy.rnn.get_firing_rates(states).cpu().numpy()
+        states = trainer.sequence(out["u"], out["noise"])[0][:, :T * k]
+    rates = trainer.RNN.get_firing_rates(states).cpu().numpy()
     alive = out["alive"][:-1].bool().repeat_interleave(k, dim=0).cpu().numpy()
     return participation(rates[:, alive]), float(out["success"].float().mean())
 
 
-def score(env, policy, T, n_drops, draws):
+def score(task, trainer, T, n_drops, draws):
     """Success rate with the training noise on and the mean action, over fixed drops and draws.
 
     Args:
-        env, policy, T, n_drops: as above; draws: int, seeded noise draws.
+        task, trainer, T, n_drops: as above; draws: int, seeded noise draws.
     Returns:
         float, the mean success rate over the draws.
     """
     s = []
     for d in range(draws):
-        g = torch.Generator(device=env.device)
+        g = torch.Generator(device=task.device)
         g.manual_seed(SCORE_SEED + 1 + d)
-        out = rollout(env, policy, n_drops, T, clean=False, generator=g)
+        out = trainer.rollout(n_drops, T, clean=False, generator=g)
         s.append(float(out["success"].float().mean()))
     return float(np.mean(s))
 
@@ -84,16 +84,16 @@ def k_grid(N, n_inactive):
     return sorted(k for k in ks if 0 <= k < N)
 
 
-def removed_score(env, policy, T, n_drops, draws, order, ks):
+def removed_score(task, trainer, T, n_drops, draws, order, ks):
     """Score the agent with the first k units of `order` removed, for every k in ks.
 
     Args:
-        env, policy, T, n_drops, draws: as in `score`; order: (N,) int array, the removal order;
+        task, trainer, T, n_drops, draws: as in `score`; order: (N,) int array, the removal order;
         ks: list of ints.
     Returns:
         list of floats, one score per k. The weights are restored afterwards.
     """
-    rnn = policy.rnn
+    rnn = trainer.RNN
     order = np.array(order, dtype=np.int64)          # a plain copy: a reversed view has a negative stride
     W_rec, W_out = rnn.W_rec.detach().clone(), rnn.W_out.detach().clone()
     scores = []
@@ -104,7 +104,7 @@ def removed_score(env, policy, T, n_drops, draws, order, ks):
             idx = torch.as_tensor(order[:k], device=rnn.device, dtype=torch.long)
             rnn.W_rec[:, idx] = 0.0
             rnn.W_out[:, idx] = 0.0
-            scores.append(score(env, policy, T, n_drops, draws))
+            scores.append(score(task, trainer, T, n_drops, draws))
         rnn.W_rec.copy_(W_rec)
         rnn.W_out.copy_(W_out)
     return scores
@@ -119,9 +119,9 @@ def ablate(run_dir, out_dir, score_drops, draws, probe_drops, n_random):
         the result dict that was written.
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    cfg, env, policy = load_run(run_dir, device)
-    T = int(cfg.ppo.T)
-    p, clean_full = probe_participation(env, policy, T, probe_drops, cfg.ppo.probe_seed)
+    cfg, task, trainer = load_run(run_dir, device)
+    T = trainer.T                      # the run's episode length, whichever config layout it has
+    p, clean_full = probe_participation(task, trainer, T, probe_drops, trainer.probe_seed)
     active = active_mask(p)
     N, n_active = len(p), int(active.sum())
     ks = k_grid(N, N - n_active)
@@ -130,10 +130,10 @@ def ablate(run_dir, out_dir, score_drops, draws, probe_drops, n_random):
     res = {"run_dir": run_dir, "N": N, "n_active": n_active, "ks": ks, "T": T,
            "score_drops": score_drops, "draws": draws, "clean_full": clean_full,
            "label": f"N={N}_act={cfg.model.activation_args['name']}_s{cfg.seed}"}
-    res["score_full"] = score(env, policy, T, score_drops, draws)
-    res["score_quiet"] = removed_score(env, policy, T, score_drops, draws, quiet, ks)
-    res["score_busy"] = removed_score(env, policy, T, score_drops, draws, quiet[::-1], ks)
-    res["score_random"] = [removed_score(env, policy, T, score_drops, draws, rng.permutation(N), ks)
+    res["score_full"] = score(task, trainer, T, score_drops, draws)
+    res["score_quiet"] = removed_score(task, trainer, T, score_drops, draws, quiet, ks)
+    res["score_busy"] = removed_score(task, trainer, T, score_drops, draws, quiet[::-1], ks)
+    res["score_random"] = [removed_score(task, trainer, T, score_drops, draws, rng.permutation(N), ks)
                            for _ in range(n_random)]
     os.makedirs(out_dir, exist_ok=True)
     cell = os.path.basename(os.path.dirname(run_dir.rstrip("/")))

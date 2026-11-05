@@ -1,8 +1,8 @@
 #!/bin/bash
 # THE MAZE SUITE (DELLA): does the loss of participation seen on the 3-bit flip-flop and CDDM
 # appear under PPO on the maze? 8 egocentric range sensors plus the efference copy of the previous
-# action, nothing about the cheese; the 15 x 15 maze of
-# configs/rl/maze_ppo.yaml, 2,000 updates of 256 episodes x 500 decisions (5 RNN steps each).
+# action, nothing about the cheese; the 15 x 15 maze of configs/task/Maze.yaml, trained by
+# configs/trainer/trainer_ppo.yaml: 2,000 updates of 256 episodes x 500 decisions (5 RNN steps each).
 # Tracking issue: engellab/trainRNNbrain #3, which holds the pre-registration (read-out points,
 # what would falsify "the problem persists"); the notebook entry written at submission names it.
 #
@@ -18,7 +18,7 @@
 #   21-23   N= 4000  relu              seeds 1-3        (80 GB cards: --constraint=gpu80)
 # Model configs: configs/model/rnn_<act>_standard.yaml, the same files the supervised series use.
 # ONE PROTOCOL FOR EVERY SIZE: the paper's learning-rate rule with the warm-up of
-# configs/rl/maze_ppo.yaml (ppo.warmup_updates). Before the warm-up existed, every N = 2000 run
+# configs/trainer/trainer_ppo.yaml (trainer.warmup_updates). Before the warm-up existed, every N = 2000 run
 # at the paper's rate diverged within its first updates (arrays 16856487 and 16859389, 4 Nov
 # 2026) and three seeds ran at a quarter of the rate instead (array 16866951); those are the
 # exception data, not part of the uniform series.
@@ -54,7 +54,10 @@ export PYTHONUNBUFFERED=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 REPO="${REPO:-$HOME/trainRNNbrain_rlmaze}"
-SAVE_TO="${SAVE_TO:-$HOME/trainRNNbrain/data/trained_RNNs}"   # runs land in ${SAVE_TO}_rl_maze
+SAVE_TO="${SAVE_TO:-$HOME/trainRNNbrain/data/trained_RNNs_rl_maze}"   # the maze suite's own tree, a sibling
+                                                                     # of the supervised runs' folder, where every
+                                                                     # maze run so far is; run_rl.py writes the
+                                                                     # standard layout under it
 
 export PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}"
 PKG=$(python -c "import trainRNNbrain, os; print(os.path.realpath(os.path.dirname(os.path.dirname(trainRNNbrain.__file__))))")
@@ -79,8 +82,8 @@ TASK_SEED=(0 1 2 3 1 2 3 1 2 3 1 2 3 1 2 1 2 1 2 1 2 1 2 3)
 i=$SLURM_ARRAY_TASK_ID
 N=${TASK_N[$i]}; ACT=${TASK_ACT[$i]}; SEED=${TASK_SEED[$i]}
 TAG="suite/N=${N}_act=${ACT}"
-echo "Task ${i}: N=${N} model=rnn_${ACT}_standard seed=${SEED} -> ${SAVE_TO}_rl_maze/Maze_${TAG}/s${SEED}"
+echo "Task ${i}: N=${N} model=rnn_${ACT}_standard seed=${SEED} -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 
-srun python "$REPO/trainRNNbrain/rl/run_maze_ppo.py" \
-  seed="$SEED" model="rnn_${ACT}_standard" model.N="$N" \
+srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
+  task=Maze trainer=trainer_ppo seed="$SEED" model="rnn_${ACT}_standard" model.N="$N" \
   paths=paths_DELLA paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\""

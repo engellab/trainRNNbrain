@@ -1475,7 +1475,7 @@ def maze_ablation(folder=MAZE_ABLATION_DIR, N=N_UNITS):
 
     Every JSON of a ReLU network of size N under `folder` is read, so the sub-panel grows as seeds
     land. The maze ablation removes units from the network at the end of training (update 2,000,
-    the weights in Params_Maze.npz; no earlier snapshot of a maze run is saved), not at the learned
+    the weights in the run's *Params_Maze.npz; no earlier snapshot of a maze run is saved), not at the learned
     probe of panel (c). Its score is the success rate over fixed drops under the training noise,
     the counterpart of the supervised held-out R^2; it is stored under the r2_* keys because
     panel_d reads those, and SCORE labels the axis "success rate". The scores with exactly the
@@ -1496,7 +1496,7 @@ def maze_ablation(folder=MAZE_ABLATION_DIR, N=N_UNITS):
         with open(path) as fh:
             a = json.load(fh)
         ks, n_silent = np.asarray(a["ks"], float), a["N"] - a["n_active"]
-        probes = np.load(os.path.join(REPO_ROOT, a["run_dir"], "Participation.npz"))
+        probes = np.load(sorted(glob.glob(os.path.join(REPO_ROOT, a["run_dir"], "*Participation.npz")))[0])
         res.append(dict(N=a["N"], n_active=a["n_active"], n_silent=n_silent, ks=a["ks"],
                         quiet_first=a["score_quiet"], busy_first=a["score_busy"],
                         random=a["score_random"], r2_full=a["score_full"],

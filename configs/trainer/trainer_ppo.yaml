@@ -1,0 +1,59 @@
+# @package trainer
+# PPO FOR THE MAZE (trainRNNbrain/trainer/TrainerPPO.py), the trainer of configs/task/Maze.yaml. The RNN
+# is the whole agent, run one step at a time through its own right-hand side; the trainer plays
+# episodes, computes advantages and applies the clipped PPO update, probes participation on fixed
+# drops, and asks the run script to write a checkpoint through the same checkpoint_fn hook the
+# supervised Trainer has. Until 5 Nov 2026 this block was `ppo:` in configs/rl/maze_ppo.yaml; every
+# value is as it was. lr, lr_scale_exp and weight_decay are read by run_rl.py, which builds the Adam
+# optimizer with the supervised size rule (as run_experiment.py does for the supervised Trainer).
+_target_: trainRNNbrain.trainer.TrainerPPO.TrainerPPO
+trainer_tag: ""             # empty, so a run lands in <save_to>/Maze_<experiment_tag>/, the maze
+                            # suite's cell names (Maze_suite/N=<N>_act=<act>/)
+n_episodes: 256             # parallel episodes per update (the batch)
+T: 500                      # decisions per episode (RNN steps = T * substeps): 3.4x the longest
+                            # route at full speed
+# ONE DECISION PER `substeps` RNN STEPS. The standard RNN has alpha = dt/tau = 0.1, so it reacts
+# about 10 steps late. With one decision per RNN step (the first runs, array 16790695) the agent
+# moved 2 cells before seeing a wall, and slowing to a stop was the safe policy: probe success
+# 0.02 at N = 100 after 150 updates, against 0.30 for a network with alpha = 0.5 (local check,
+# 3 Nov 2026). Slowing the agent 5x at one decision per step did not help either (0.09): the
+# per-step action noise then averages out over a cell. So the network is unchanged and gets
+# `substeps` of its own steps per decision, with the observation held; the action is read from
+# the state after the last of them. Training cost scales with substeps.
+substeps: 5
+n_updates: 2000             # the task is learned within ~500; the rest measures the decline after
+gamma: 0.99
+gae_lambda: 0.95
+clip: 0.2
+n_epochs: 4                 # passes over the rollout per update
+n_minibatches: 2            # episodes split per epoch; each minibatch is one full BPTT pass
+value_coef: 0.5
+entropy_coef: 0.0           # inert: with a fixed action_std the entropy is a constant
+# THE RNN IS THE WHOLE AGENT (Pavel, 4 Nov 2026): no value network, no learned exploration
+# parameters. With critic: true the RNN has a third read-out row, the value, trained by the value
+# loss through the same W_out and recurrent weights, and advantages come from GAE; with
+# critic: false the RNN has 2 read-out rows and advantages are Monte-Carlo returns minus their
+# batch mean at each step (no parameters). The exploration noise is a fixed std in raw output
+# units (a learned log-std collapsed to -3.4 in the first runs). critic: false since the
+# comparison of 4 Nov 2026 (issue #3): on the old maze at N = 100, 300 updates, probe success
+# 0.52 and 0.77 without a critic against 0.69 and 0.41 with one; the one-epoch unclipped
+# variants (A2C-like, REINFORCE) diverged.
+critic: false
+action_std: 0.5
+lr: 0.001                   # scaled by (100 / N) ** lr_scale_exp, the supervised trainer's rule
+# LEARNING-RATE WARM-UP (since 4 Nov 2026): the rate ramps linearly from 0 to its value over the
+# first warmup_updates updates. Adam's first steps move every parameter by about lr before its
+# moment estimates exist, so the read-out's first change scales with lr x N: in the suite the
+# first update's KL grew from 0.04 at N = 250 to 0.15 at N = 1,000 and 0.24 at N = 2,000 (every
+# later update 0.003 at every size), and at N = 2,000 the recurrent dynamics blew up over the
+# 2,500-step episode (arrays 16856487, 16859389). The ramp removes that jump at every size
+# without changing the rate rule, so one protocol serves N = 250 to 4,000. 0 switches it off.
+warmup_updates: 50
+lr_scale_exp: 0.3333333333333333
+weight_decay: 1.0e-6        # Adam's coupled L2, as in the supervised trainer
+max_grad_norm: 0.5
+probe_every: 10             # updates between clean probes (noise-free, mean action, fixed drops)
+probe_episodes: 128
+probe_seed: 20261103        # the probe's drops: the same starts at every probe of every run
+store_participation_every: 5   # probes between stored full participation vectors
+checkpoint_every: 100       # updates between writes of the run folder (run_rl.py's checkpoint_fn)

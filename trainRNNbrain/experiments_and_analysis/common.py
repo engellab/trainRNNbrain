@@ -993,7 +993,7 @@ def r2_from_dir(leaf_dir):
 
 
 # --------------------------------------------------------------------------------------------
-# maze runs (PPO): the run folders of trainRNNbrain/rl/run_maze_ppo.py and their "learned" point
+# maze runs (PPO): the run folders of trainRNNbrain/training/run_rl.py and their "learned" point
 # --------------------------------------------------------------------------------------------
 # A maze run is read at two points (pre-registered on engellab/trainRNNbrain issue #3): "learned",
 # the first probe from which the clean probe's success rate stays at or above MAZE_LEARNED_SUCCESS
@@ -1026,26 +1026,35 @@ def maze_learned_index(probe_success, hold=MAZE_LEARNED_HOLD, level=MAZE_LEARNED
 def maze_load_runs(root):
     """Every finished maze run under a root folder (rl_maze_readout.py and fig_ed_maze.py read it).
 
+    Both layouts are read: the one run_rl.py writes since 5 Nov 2026 (s<seed>_config.yaml,
+    s<seed>_Progress.json, s<seed>_Participation.npz; the task block under `task`) and the one
+    trainRNNbrain/rl/run_maze_ppo.py wrote before (config.yaml, Progress.json, Participation.npz;
+    the task block under `env`). Nothing on disk was converted.
+
     Args:
-        root: str, folder holding <cell>/s<seed>/ run folders (any depth-2 layout), each with
-            config.yaml, Progress.json and Participation.npz as run_maze_ppo.py writes them.
+        root: str, folder holding <cell>/s<seed>/ run folders (any depth-2 layout), each with a
+            *config.yaml, a *Progress.json and a *Participation.npz.
     Returns:
         list of dicts: N (int), act (str, the saved activation name: relu, tanh, sigmoid, softplus,
-        leaky_relu), cue (bool, env.goal_cue), seed (int), folder (str), progress (list of dicts, one
-        per PPO update: update, discounted_return, success, steps, ...), probes (dict of arrays over
-        probes: update, active, active_mod when the run saved it, probe_success, p_update, p),
-        sorted by N, act, cue, seed.
+        leaky_relu), cue (bool, the task's goal_cue), seed (int), folder (str), progress (list of
+        dicts, one per PPO update: update, discounted_return, success, steps, ...), probes (dict of
+        arrays over probes: update, active, active_mod when the run saved it, probe_success,
+        p_update, p), sorted by N, act, cue, seed.
     """
     runs = []
-    for cfg_path in sorted(glob.glob(os.path.join(root, "*", "s*", "config.yaml"))):
-        folder = os.path.dirname(cfg_path)
-        with open(cfg_path) as fh:
+    for folder in sorted(glob.glob(os.path.join(root, "*", "s*", ""))):
+        folder = folder.rstrip("/")
+        cfgs = sorted(glob.glob(os.path.join(folder, "*config.yaml")))
+        if not cfgs:
+            continue
+        with open(cfgs[0]) as fh:
             cfg = yaml.safe_load(fh)
-        with open(os.path.join(folder, "Progress.json")) as fh:
+        with open(sorted(glob.glob(os.path.join(folder, "*Progress.json")))[0]) as fh:
             progress = json.load(fh)
-        probes = dict(np.load(os.path.join(folder, "Participation.npz")))
+        probes = dict(np.load(sorted(glob.glob(os.path.join(folder, "*Participation.npz")))[0]))
+        task_block = cfg["task"] if "task" in cfg else cfg["env"]
         runs.append({"N": int(cfg["model"]["N"]), "act": str(cfg["model"]["activation_args"]["name"]),
-                     "cue": bool(cfg["env"]["goal_cue"]), "seed": int(cfg["seed"]),
+                     "cue": bool(task_block["goal_cue"]), "seed": int(cfg["seed"]),
                      "folder": folder, "progress": progress, "probes": probes})
     return sorted(runs, key=lambda r: (r["N"], r["act"], r["cue"], r["seed"]))
 

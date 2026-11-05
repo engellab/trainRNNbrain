@@ -1,4 +1,4 @@
-"""Read-out of the maze-PPO runs (trainRNNbrain/rl): does the agent learn, and how many units stay
+"""Read-out of the maze-PPO runs (TaskMaze + TrainerPPO): does the agent learn, and how many units stay
 active?
 
 Question. For every run under a root folder (default data/trained_RNNs_rl_maze/Maze_first): the
@@ -6,8 +6,10 @@ probe success rate and the active-unit count against PPO updates, and the active
 probe against N. Arms (walls-only; cue: bearing to the cheese added) are line styles, N is the
 project's fixed colour map (plotstyle.col_n), seeds are separate thin lines.
 
-Method. Each run folder holds Progress.json (per update) and Participation.npz (per probe), written
-by run_maze_ppo.py; nothing is recomputed here. The probe is the clean read-out (noise-free, mean
+Method. Each run folder holds a *Progress.json (per update) and a *Participation.npz (per probe),
+written by trainRNNbrain/training/run_rl.py (before 5 Nov 2026 by trainRNNbrain/rl/run_maze_ppo.py,
+without the s<seed>_ stem; common.maze_load_runs reads both); nothing is recomputed here. The probe
+is the clean read-out (noise-free, mean
 action, fixed drops), so its success rate is the performance measure and its active count the
 participation measure; the training batch's success is shown faint for comparison.
 
