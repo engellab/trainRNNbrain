@@ -6,8 +6,11 @@ rollback, that the training script writes the standard run layout that common.ma
 reads back, and the paper's interventions as trainer options (issue #5): the two penalties against
 the supervised formulas re-typed here, the replay of synaptic noise and of the read-out dropout
 mask in the recompute (ratio 1, dropped columns zero in both passes), the penalty values in the
-update statistics, and the refusal of dropout kind "dead". The 13 checks before the options were
-added run with every option off, as the default is.
+update statistics, and the refusal of dropout kind "dead"; and the rescale rule (stage 2 of
+issue #5): the three states of two units forced silent against numpy re-implementations of the
+tilt, the participation and the soft-max rate, the blanked gradient of a growing unit, the rule's
+counts in the progress records and the refusal of the modes that are not mirrored. The 13 checks
+before the options were added run with every option off, as the default is.
 Run: python tests/test_rl_maze.py   (CPU, about a minute)
 """
 import glob
@@ -58,6 +61,42 @@ def make_trainer(task, N=32, seed=0, substeps=1, critic=True, sigma_w=0.0, **hp)
 
 DROPOUT_ARGS = {"dropout_kind": "mute", "sampling_method": "participation", "eta": 0.5, "active_rel": 0.05,
                 "drop_rate": 0.5, "rescale": True, "p_max": 0.9, "dropout_beta": 4.0, "activity_q": 0.9}
+# the paper's rescaling arm (slurm/SilentReLU_size_series_della.slurm), the prune_args block of trainer_ppo.yaml
+RESCALE_ARGS = {"reinit_mode": "rescale", "check_every": 1, "patience": 1, "active_rel": 0.05,
+                "utility": "participation", "utility_decay": 0.99, "maturity": 0, "max_replace_frac": 1.0,
+                "rescale_alpha": 1.002, "rescale_target_frac": 10.0, "rescale_cap": 64.0, "rescale_protect_frac": 0.20,
+                "rescale_active_only": True, "rescale_normalize": True, "rescale_norm_mode": "self"}
+
+
+def tilt_by_hand(row, alpha, live=None):
+    """The rescale tilt of one incoming row, in numpy float64: entries above 0 times alpha, the
+    rest divided by alpha, only in the columns `live` marks when it is given, and the row then
+    scaled back to the norm it had.
+
+    Args:
+        row: (n,) float array; alpha: float; live: (n,) bool array, or None for every column.
+    Returns:
+        (n,) float64 array.
+    """
+    row = row.astype(np.float64)
+    tilted = np.where(row > 0, row * alpha, row / alpha)
+    if live is not None:
+        tilted = np.where(live, tilted, row)
+    return tilted * (np.linalg.norm(row) / np.linalg.norm(tilted))
+
+
+def soft_max_rate(states, tau=0.1):
+    """Per-unit soft maximum of the ReLU rate over every step and episode, tau x (logsumexp(r / tau)
+    - log(n)), in numpy float64 (the statistic the rate penalty and the rescale target use).
+
+    Args:
+        states: (N, S, B) array of pre-activations; tau: float.
+    Returns:
+        (N,) float64 array.
+    """
+    a = np.maximum(states.reshape(states.shape[0], -1).astype(np.float64), 0.0) / tau
+    m = a.max(axis=1, keepdims=True)
+    return tau * (np.log(np.exp(a - m).sum(axis=1)) + m[:, 0] - math.log(a.shape[1]))
 
 
 def test_only_the_rnn_is_trained():
@@ -445,6 +484,170 @@ def test_dead_dropout_refused():
         raise AssertionError("dropout_kind 'dead' was accepted")
 
 
+def test_rescale_rule_three_states():
+    """The rescale rule on two units forced silent, A (incoming rows negative but for one input and
+    a few live sources, so the tilt can revive it) and B (every incoming entry negative, so nothing
+    can), the rule called once per rollout with no optimizer step in between, at the paper's values
+    but patience 2, alpha 2, target 0.3 x the rate cap and no ceiling on the growing set. The
+    oracles are numpy: common.participation for the silent set, tilt_by_hand, soft_max_rate.
+    Check 1: both silent, one strike, nothing opened, no weight touched. Check 2 (patience): both
+    open; the W_rec and W_out columns of every opened unit are the next draws of the RNN's generator
+    at 1/sqrt(N) and every other column is untouched; the input rows of A and B are the hand-tilted
+    rows at the same norm (1e-6); their factor is alpha. Check 3: the recurrent row of A and of B
+    is the hand-tilted row over the live columns only, at the same norm; the factor is alpha^2; the
+    columns opened at check 2 are not redrawn again. A graduates at the first check at which its
+    soft-max rate reaches the target, untouched by that check and by every later one. B never
+    fires: its factor doubles per check up to the cap (64 = 2^6) and never above it; at the cap B
+    stops growing with its rows left as they are, and two checks later (patience) a new episode
+    opens with a fresh factor of alpha and a redrawn column."""
+    torch.manual_seed(8)
+    task = make_task()
+    N, B, T, alpha, cap = 32, 6, 10, 2.0, 64.0
+    args = {**RESCALE_ARGS, "patience": 2, "rescale_alpha": alpha, "rescale_target_frac": 0.3, "rescale_protect_frac": 1.0}
+    trainer = make_trainer(task, N=N, critic=False, prune_reinit=True, prune_args=args)
+    rnn = trainer.RNN
+    A, Bu = 3, 5
+    g1 = torch.Generator().manual_seed(1)
+    with torch.no_grad():
+        rnn.W_inp[A, :] = -0.3
+        rnn.W_inp[A, 0] = 0.05
+        rnn.W_rec[A, :] = -0.3 * torch.rand(N, generator=g1)
+        rnn.W_rec[A, 10:20] = 0.02
+        rnn.W_inp[Bu, :] = -0.3
+        rnn.W_rec[Bu, :] = -0.3 * torch.rand(N, generator=g1)
+    target = 0.3 * 0.3 * math.log1p(100) / math.log1p(N)
+    std = 1 / math.sqrt(N)
+    graduated_at, spent_at = None, None
+    for k in range(1, 15):
+        out = trainer.rollout(B, T)
+        st = out["states"]
+        assert st.shape == (N, T + 1, B)
+        p = participation(rnn.get_firing_rates(st).numpy())
+        silent = p < 0.05 * np.quantile(p, 0.95)
+        act = soft_max_rate(st.numpy())
+        W_rec0, W_inp0, W_out0 = rnn.W_rec.detach().clone(), rnn.W_inp.detach().clone(), rnn.W_out.detach().clone()
+        growing0, cum0 = trainer._rescale_growing.clone(), trainer._rescale_cum.clone()
+        gstate = rnn.random_generator.get_state()
+        counts = trainer.prune_and_reinit(st)
+        growing, cum = trainer._rescale_growing, trainer._rescale_cum
+        assert counts["rescale_growing"] == int(growing.sum()) and trainer.update_n == k
+        if k == 1:
+            assert silent[A] and silent[Bu] and counts["rescale_opened"] == 0
+            assert not growing[A] and not growing[Bu] and trainer._reinit_strikes[A] == 1 and trainer._reinit_strikes[Bu] == 1
+            assert torch.equal(rnn.W_rec, W_rec0) and torch.equal(rnn.W_inp, W_inp0) and torch.equal(rnn.W_out, W_out0)
+        elif k == 2:
+            opened = torch.nonzero(growing & ~growing0).flatten()
+            assert growing[A] and growing[Bu] and counts["rescale_opened"] == opened.numel() >= 2
+            g = torch.Generator()
+            g.set_state(gstate)
+            exp_rec = torch.randn(N, opened.numel(), generator=g) * std
+            exp_out = torch.randn(2, opened.numel(), generator=g) * std
+            free = ~growing                                      # rows the tilt did not touch
+            assert torch.equal(rnn.W_rec[free][:, opened], exp_rec[free]) and torch.equal(rnn.W_out[:, opened], exp_out)
+            kept = torch.ones(N, dtype=torch.bool)
+            kept[opened] = False
+            assert torch.equal(rnn.W_rec[free][:, kept], W_rec0[free][:, kept]) and torch.equal(rnn.W_out[:, kept], W_out0[:, kept])
+            for i in (A, Bu):
+                assert abs(float(cum[i]) - alpha) < 1e-6
+                assert np.allclose(rnn.W_inp[i].detach().numpy(), tilt_by_hand(W_inp0[i].numpy(), alpha), atol=1e-6)
+                assert abs(float(rnn.W_inp[i].detach().norm()) - float(W_inp0[i].norm())) < 1e-6
+        elif k == 3:
+            for i in (A, Bu):
+                assert growing0[i] and growing[i] and abs(float(cum[i]) - alpha ** 2) < 1e-5
+                assert np.allclose(rnn.W_rec[i].detach().numpy(), tilt_by_hand(W_rec0[i].numpy(), alpha, live=~silent), atol=1e-6)
+                assert abs(float(rnn.W_rec[i].detach().norm()) - float(W_rec0[i].norm())) < 1e-6
+                assert np.allclose(rnn.W_inp[i].detach().numpy(), tilt_by_hand(W_inp0[i].numpy(), alpha), atol=1e-6)
+                assert torch.equal(rnn.W_rec[~growing][:, i], W_rec0[~growing][:, i]) and torch.equal(rnn.W_out[:, i], W_out0[:, i])
+        if graduated_at is None and growing0[A]:
+            if act[A] >= target:
+                graduated_at = k
+                assert not growing[A] and counts["rescale_graduated"] >= 1
+                assert torch.equal(rnn.W_rec[A], W_rec0[A]) and torch.equal(rnn.W_inp[A], W_inp0[A])
+            else:
+                assert growing[A]
+        elif graduated_at is not None:
+            assert not growing[A] and not silent[A] and torch.equal(rnn.W_inp[A], W_inp0[A])
+        assert act[Bu] == 0 and silent[Bu] and float(cum[Bu]) <= cap
+        if growing0[Bu]:
+            if float(cum0[Bu]) >= cap:
+                spent_at = k
+                assert not growing[Bu] and counts["rescale_spent"] >= 1 and float(cum[Bu]) == cap
+                assert torch.equal(rnn.W_rec[Bu], W_rec0[Bu]) and torch.equal(rnn.W_inp[Bu], W_inp0[Bu])
+            else:
+                assert growing[Bu] and abs(float(cum[Bu]) - alpha * float(cum0[Bu])) < 1e-4
+        elif spent_at is not None and k == spent_at + 2:
+            assert growing[Bu] and abs(float(cum[Bu]) - alpha) < 1e-6 and not torch.equal(rnn.W_out[:, Bu], W_out0[:, Bu])
+    assert graduated_at is not None and 3 < graduated_at < spent_at == 8, (graduated_at, spent_at)
+    assert float(trainer._rescale_cum[A]) == alpha ** (graduated_at - 2)
+
+
+def test_rescale_protection_blanks_the_incoming_gradient():
+    """A growing unit's incoming rows take no task gradient and do not move in an update while its
+    outgoing column trains: with the most active unit j marked growing by hand, one update (one
+    epoch, one minibatch) leaves W_rec.grad[j, :] and W_inp.grad[j, :] at exactly 0 after the
+    blanking, W_rec[j, :] and W_inp[j, :] unchanged (Adam's moments start at 0), W_rec[:, j] and
+    W_out[:, j] changed with a gradient, and other rows changed; the same rollout through a trainer
+    without the option moves row j, so the row's gradient is not zero on its own."""
+    torch.manual_seed(9)
+    task = make_task()
+    trainer = make_trainer(task, critic=False, n_epochs=1, n_minibatches=1, prune_reinit=True, prune_args=RESCALE_ARGS)
+    plain = make_trainer(task, critic=False, n_epochs=1, n_minibatches=1)
+    assert torch.equal(trainer.RNN.W_rec, plain.RNN.W_rec) and plain.rollout(2, 3)["states"] is None
+    out = trainer.rollout(6, 12)
+    adv, ret = trainer.mc_advantages(out["rewards"], out["alive"], 0.99)
+    j = int(trainer.participation_from_states(out["states"]).argmax())
+    trainer._rescale_growing[j] = True
+    W_rec0, W_inp0 = trainer.RNN.W_rec.detach().clone(), trainer.RNN.W_inp.detach().clone()
+    trainer.ppo_update(out, adv, ret)
+    g_rec, g_inp, g_out = trainer.RNN.W_rec.grad, trainer.RNN.W_inp.grad, trainer.RNN.W_out.grad
+    others = [i for i in range(32) if i != j]
+    assert g_rec[j].abs().max() == 0 and g_inp[j].abs().max() == 0
+    assert g_rec[others][:, j].abs().sum() > 0 and g_out[:, j].abs().sum() > 0 and g_rec[others].abs().sum() > 0
+    assert torch.equal(trainer.RNN.W_rec[j], W_rec0[j]) and torch.equal(trainer.RNN.W_inp[j], W_inp0[j])
+    assert not torch.equal(trainer.RNN.W_rec[others][:, j], W_rec0[others][:, j])
+    assert (trainer.RNN.W_rec[others] != W_rec0[others]).any()
+    plain.ppo_update(out, adv, ret)
+    assert not torch.equal(plain.RNN.W_rec[j], W_rec0[j]) and not torch.equal(plain.RNN.W_inp[j], W_inp0[j])
+
+
+def test_rescale_counts_in_progress():
+    """run_training with the rule on (the paper's values, three units forced silent) records in
+    every update the four counts rescale_growing, rescale_opened, rescale_graduated and
+    rescale_spent as integers, with at least one episode opened, the growing set never above
+    round(0.2 N) = 6, and the update clock at n_updates at the end; without the option the records
+    have no such keys."""
+    torch.manual_seed(10)
+    task = make_task()
+    hp = dict(n_updates=4, n_episodes=6, T=10, probe_episodes=4, probe_every=2, warmup_updates=1, checkpoint_every=0)
+    trainer = make_trainer(task, critic=False, prune_reinit=True, prune_args=RESCALE_ARGS, **hp)
+    with torch.no_grad():
+        trainer.RNN.W_inp[:3, :] = -0.5
+        trainer.RNN.W_rec[:3, :] = -0.3
+    _, progress, _, _ = trainer.run_training()
+    keys = {"rescale_growing", "rescale_opened", "rescale_graduated", "rescale_spent"}
+    assert all(keys <= set(r) for r in progress)
+    assert all(isinstance(r[k], int) and r[k] >= 0 for r in progress for k in keys)
+    assert sum(r["rescale_opened"] for r in progress) >= 1 and max(r["rescale_growing"] for r in progress) <= 6
+    assert trainer.update_n == 4
+    plain = make_trainer(task, critic=False, **hp)
+    _, progress, _, _ = plain.run_training()
+    assert not any(keys & set(r) for r in progress)
+
+
+def test_rescale_other_modes_refused():
+    """prune_reinit without prune_args, a reinit_mode other than "rescale", the legacy
+    rescale_target_frac 0 and rescale_norm_mode "median_active" are refused at construction."""
+    task = make_task()
+    for bad in (None, {**RESCALE_ARGS, "reinit_mode": "copy"}, {**RESCALE_ARGS, "rescale_target_frac": 0.0},
+                {**RESCALE_ARGS, "rescale_norm_mode": "median_active"}, {**RESCALE_ARGS, "rescale_refractory": 5}):
+        try:
+            make_trainer(task, prune_reinit=True, prune_args=bad)
+        except ValueError as err:
+            assert "rescale" in str(err) or "prune_args" in str(err)
+        else:
+            raise AssertionError(f"prune_args {bad} were accepted")
+
+
 def main():
     """Run every check and print one line each."""
     for fn in (test_maze_tables, test_sensors, test_step_wall_and_goal, test_corner_is_not_cut_but_slides,
@@ -453,7 +656,9 @@ def main():
                test_ppo_update_guards, test_safe_rollout_restores, test_run_script_writes_standard_layout,
                test_fr_magnitude_penalty_matches_formula, test_rec_weights_sparsity_penalty_matches_formula,
                test_synaptic_noise_replay, test_dropout_replay, test_penalties_in_update_statistics,
-               test_dead_dropout_refused):
+               test_dead_dropout_refused, test_rescale_rule_three_states,
+               test_rescale_protection_blanks_the_incoming_gradient, test_rescale_counts_in_progress,
+               test_rescale_other_modes_refused):
         fn()
         print(f"ok: {fn.__name__}")
 

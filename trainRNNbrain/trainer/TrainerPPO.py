@@ -38,6 +38,17 @@ the recompute, `draw_dropout_mask` and `readout_weights`). With every option off
 them draws a random number or adds a term to the loss, and a run is bit-identical to one made
 before they existed (checked 5 Nov 2026 at N = 40, 3 updates, seed 7, against main at 9cc1aac).
 
+RESCALING (issue #5, stage 2) is the fifth option, `prune_reinit` and `prune_args`: the supervised
+`Trainer.prune_and_reinit_` in reinit_mode "rescale" with a fixed target, the three-state rule
+dormant -> growing -> mature that the paper's rescaling arm runs
+(slurm/SilentReLU_size_series_della.slurm). `prune_and_reinit` runs once per update, after the
+update's optimizer steps, on the participation of that update's training rollout; the rollout
+keeps its states for it (batch["states"]). `zero_protected_grads` blanks the task gradient on the
+growing units' incoming rows in every minibatch of `ppo_update`. Where the supervised rule counts
+iterations, this one counts updates (the docstring of `prune_and_reinit` lists each quantity).
+With the option off the run is bit-identical to one made before it existed (checked at N = 40, 3
+updates, seed 7, against main at 9a49c9e).
+
 WHY THE NOISE IS DRAWN UP FRONT. PPO recomputes the log-probability of the rollout's actions under
 the updated parameters by re-running the RNN over the stored observations. The noise is part of
 that forward pass, so a recompute with fresh noise would give a different mean even at the old
@@ -118,7 +129,7 @@ class TrainerPPO:
                  probe_every=10, probe_episodes=128, probe_seed=20261103,
                  store_participation_every=5, checkpoint_every=100,
                  lambda_frm=0.0, frm_args=None, lambda_rws=0.0, rws_args=None,
-                 dropout=False, dropout_args=None):
+                 dropout=False, dropout_args=None, prune_reinit=False, prune_args=None):
         """Args:
             RNN: RNN_torch with n_outputs 2 + critic (turn, speed, and the value row with a
                 critic), on the task's device. Its sigma_w (model.sigma_w) switches synaptic noise
@@ -152,10 +163,22 @@ class TrainerPPO:
                 dropout_args: dict with the keys of the supervised dropout_args block (dropout_kind,
                 which must be "mute"; sampling_method; drop_rate; dropout_beta; eta; active_rel;
                 rescale; p_max; activity_q), required when dropout is True.
+            prune_reinit: bool, the rescale rule (`prune_and_reinit`) once per update; prune_args:
+                dict with the keys of the supervised prune_args block that the rule reads
+                (reinit_mode, which must be "rescale"; check_every and maturity, in updates;
+                patience; active_rel; utility; utility_decay; max_replace_frac; rescale_alpha;
+                rescale_target_frac, which must be > 0; rescale_cap; rescale_protect_frac;
+                rescale_active_only; rescale_normalize; rescale_norm_mode, which must be "self"),
+                required when prune_reinit is True.
         Raises:
-            ValueError if RNN.n_outputs is not 2 + critic, or if dropout is on without dropout_args
+            ValueError if RNN.n_outputs is not 2 + critic; if dropout is on without dropout_args
             or with a dropout_kind other than "mute" ("dead" also removes the unit from the recurrent
-            dynamics through the RNN's rhs; its replay in the recompute is not mirrored yet).
+            dynamics through the RNN's rhs; its replay in the recompute is not mirrored yet); if
+            prune_reinit is on without prune_args, with a reinit_mode other than "rescale" (random,
+            zero_out, orth, mix, bias_kick and copy are not mirrored), with rescale_target_frac <= 0
+            (the legacy stop-at-the-floor path, not mirrored), or with a revive_op other than
+            "rescale", a rescale_norm_mode other than "self" or a rescale_refractory above 0 (the
+            arms of the supervised rule the paper does not run; not mirrored).
         """
         if RNN.n_outputs != 2 + int(bool(critic)):
             raise ValueError(f"the RNN needs {2 + int(bool(critic))} outputs with critic={critic} "
@@ -178,6 +201,34 @@ class TrainerPPO:
         # `self.participation`, started at 1e-6 as there (so the first mask is drawn with every unit
         # in the pool at equal participation); updated after every training rollout (run_training)
         self.p_bar = (1e-6 * torch.ones(RNN.N, device=RNN.device)) if self.dropout else None
+        self.prune_reinit = bool(prune_reinit)
+        self.prune_args = None if prune_args is None else dict(prune_args)
+        if self.prune_reinit:
+            if self.prune_args is None:
+                raise ValueError("prune_reinit=True needs prune_args (the keys of the supervised prune_args block)")
+            args = self.prune_args
+            if args.get("reinit_mode") != "rescale":
+                raise ValueError(f"TrainerPPO mirrors reinit_mode 'rescale' only; reinit_mode is "
+                                 f"{args.get('reinit_mode')!r}")
+            if float(args.get("rescale_target_frac", 0.0)) <= 0.0:
+                raise ValueError("TrainerPPO mirrors the three-state rescale rule only, which needs "
+                                 "rescale_target_frac > 0 (the legacy path at 0 is not mirrored)")
+            for key, only in (("revive_op", "rescale"), ("rescale_norm_mode", "self"), ("rescale_refractory", 0)):
+                if args.get(key, only) != only:
+                    raise ValueError(f"TrainerPPO mirrors the rescale rule with {key}={only!r} only; "
+                                     f"it is {args.get(key)!r}")
+        # THE RULE'S STATE, the supervised Trainer's tensors of the same names, one entry per unit:
+        # consecutive silent checks; the running contribution utility; the update at which the unit
+        # was last doomed (maturity), -1e9 for never; the cumulative tilt factor of the current
+        # episode; whether the unit is growing (tilted and gradient-protected). update_n counts
+        # the updates completed before the current check, as the supervised iter_n does for
+        # iterations: 0 at the first check.
+        self._reinit_strikes = torch.zeros(RNN.N, device=RNN.device)
+        self._unit_utility = torch.zeros(RNN.N, device=RNN.device)
+        self._last_replaced = torch.full((RNN.N,), -1e9, device=RNN.device)
+        self._rescale_cum = torch.ones(RNN.N, device=RNN.device)
+        self._rescale_growing = torch.zeros(RNN.N, dtype=torch.bool, device=RNN.device)
+        self.update_n = 0
         self.RNN = RNN
         self.Task = Task
         self.optimizer = optimizer
@@ -495,6 +546,218 @@ class TrainerPPO:
         over = torch.relu(S - tg_deg)
         return (over ** 2).mean() / (tg_deg ** 2)
 
+    # ------------------------------------------------------------------ rescaling (prune_reinit)
+
+    def frm_activity_cap(self):
+        """The rate cap of the rate penalty for this network's size, cap_fr x log1p(100) / log1p(N)
+        (the supervised Trainer.frm_activity_cap_, with Penalties.UpV = 100 and cap_fr from
+        frm_args). The rescale rule's target is rescale_target_frac times this number.
+
+        Returns:
+            float, in the units of `frm_activity`.
+        """
+        cap_fr = float(self.frm_args.get("cap_fr", 0.3))
+        return cap_fr * float(np.log1p(UNITS_PER_VOLUME) / np.log1p(self.RNN.N))
+
+    def frm_activity(self, states):
+        """Per-unit soft maximum of the rate over every step and episode, the statistic of the rate
+        penalty (the supervised Trainer.frm_activity_):
+            x = states.detach().reshape(states.shape[0], -1);  x = self.RNN.activation(x)   # equation "h"
+            return tau * (torch.logsumexp(x / tau, dim=1) - torch.log(n))
+        with tau from frm_args and n the number of steps x episodes. The rescale rule graduates a
+        unit when this reaches its target, so "reached the target" means what the penalty means.
+        Computed PARTICIPATION_CHUNK units at a time (the supervised code takes the whole tensor at
+        once); the rows are independent, so the values are the same.
+
+        Args:
+            states: (N, S, B) RNN states, S RNN steps of B episodes.
+        Returns:
+            (N,) tensor in the states' dtype on their device.
+        """
+        tau = float(self.frm_args.get("tau", 0.1))
+        N, chunk = states.size(0), PARTICIPATION_CHUNK
+        x = states.detach()
+        n = torch.as_tensor(float(x.shape[1] * x.shape[2]), device=x.device, dtype=x.dtype)
+        out = torch.empty(N, device=x.device, dtype=x.dtype)
+        for i in range(0, N, chunk):
+            blk = self.RNN.get_firing_rates(x[i:i + chunk].reshape(min(chunk, N - i), -1))
+            out[i:i + chunk] = tau * (torch.logsumexp(blk / tau, dim=1) - torch.log(n))
+        return out
+
+    def rescale_rows(self, idx, alpha, normalize, live=None):
+        """Tilt the incoming rows of the given units from inhibition toward excitation: the
+        supervised Trainer.rescale_rows_ with rescale_norm_mode "self". In W_rec[idx, :] and
+        W_inp[idx, :] the entries above 0 are multiplied by alpha and the others divided by it, the
+        recurrent row only in the columns `live` marks when it is given, and with `normalize` each
+        row is then scaled back to the L2 norm it had before, so the tilt moves weight from
+        inhibition to excitation at a fixed total synaptic weight. The supervised lines:
+            before = blk.norm(dim=1, keepdim=True)
+            tilted = torch.where(blk > 0, blk * alpha, blk / alpha)
+            blk = torch.where(restrict.unsqueeze(0), tilted, blk)      # with `live`; else tilted
+            blk = blk * (before / blk.norm(dim=1, keepdim=True).clamp_min(1e-12))   # with normalize
+        The input row is always tilted in full: every input is a live source.
+
+        Args:
+            idx: (k,) long tensor of unit indices; alpha: float > 1; normalize: bool;
+            live: (N,) bool tensor over source units, or None for the whole recurrent row.
+        Returns:
+            None; W_rec and W_inp are changed in place (call under torch.no_grad()).
+        """
+        for W, restrict in ((self.RNN.W_rec, live), (self.RNN.W_inp, None)):
+            blk = W[idx, :]
+            before = blk.norm(dim=1, keepdim=True)
+            tilted = torch.where(blk > 0, blk * alpha, blk / alpha)
+            blk = tilted if restrict is None else torch.where(restrict.unsqueeze(0), tilted, blk)
+            if normalize:
+                blk = blk * (before / blk.norm(dim=1, keepdim=True).clamp_min(1e-12))
+            W[idx, :] = blk
+        return None
+
+    def zero_protected_grads(self):
+        """Blank the task gradient on the incoming rows W_rec[i, :] and W_inp[i, :] of the units the
+        rescale rule is growing: the supervised Trainer.zero_protected_grads_. ppo_update calls it
+        in every minibatch after backward() and the gradient clip and before the optimizer step,
+        where the supervised train_step calls it once per iteration between its clip and its step.
+        The outgoing weights W_rec[:, i] and W_out[:, i] keep their gradient, and Adam's weight
+        decay is not suspended (step() adds it after this). Nothing happens with prune_reinit off.
+
+        Returns:
+            None; .grad of W_rec and W_inp changed in place.
+        """
+        if not self.prune_reinit:
+            return None
+        idx = torch.nonzero(self._rescale_growing, as_tuple=True)[0]
+        if idx.numel() == 0:
+            return None
+        for W in (self.RNN.W_rec, self.RNN.W_inp):
+            if W.grad is not None:
+                W.grad[idx, :] = 0.0
+        return None
+
+    def prune_and_reinit(self, states):
+        """One check of the rescale rule: the supervised Trainer.prune_and_reinit_ in reinit_mode
+        "rescale" with rescale_target_frac > 0, the three-state rule dormant -> growing -> mature,
+        step for step and in the same order. The supervised rule runs once per iteration, after
+        the optimizer step, on the noisy training batch of that iteration; this one runs once per
+        update, after the update's n_epochs x n_minibatches optimizer steps, on the training
+        rollout of that update (noisy, every RNN step of every decision).
+
+        WHAT COUNTS UPDATES HERE AND ITERATIONS THERE. check_every (checks every check_every-th
+        call, the first at update_n = 0); patience (consecutive silent checks, one check per
+        update); maturity (updates since the unit was last doomed, from _last_replaced); the
+        participation p and the soft-max activity (one update's rollout in place of one
+        iteration's batch); the tilt (once per update in place of once per iteration, so
+        rescale_alpha is a per-update factor); the gradient blanking (every minibatch step of the
+        update, zero_protected_grads, in place of the one step of an iteration). The random draws
+        of the outgoing redraw come from the RNN's generator, as there.
+
+        The steps, with the supervised lines:
+          participation p = participation_from_states(states) (std + q0.9 of the rate);
+            silent = p < active_rel * torch.quantile(p, 0.95)
+          the contribution utility, every check:
+            out_w = W_rec.abs().sum(dim=0) + W_out.abs().sum(dim=0)
+            u <- utility_decay * u + (1 - utility_decay) * p * out_w;  score = u if utility ==
+            "contribution" else p
+          strikes = where(silent, strikes + 1, 0); mature = (update_n - last_replaced) >= maturity;
+            doomed = (strikes >= patience) & mature; return if none is doomed and none is growing;
+          at most round(max_replace_frac * N) doomed per check, the lowest score first;
+          1) GRADUATE: a growing unit whose frm_activity reaches target = rescale_target_frac *
+             frm_activity_cap() stops growing;
+          2) OPEN an episode for every doomed unit not growing, up to round(rescale_protect_frac *
+             N) growing at once, the lowest score first: W_rec[:, i] and W_out[:, i] redrawn from
+             N(0, 1/sqrt(N)) once, cum[i] = 1, growing[i] = True;
+          3) SPEND: a growing unit with cum >= rescale_cap stops growing (tested before the boost,
+             so cum ends at most rescale_cap * rescale_alpha); then BOOST every growing unit:
+             rescale_rows(grow, rescale_alpha, rescale_normalize, live = ~silent if
+             rescale_active_only else None); cum *= rescale_alpha;
+          Adam's exp_avg and exp_avg_sq on the outgoing columns W_rec[:, i] and W_out[:, i] of every
+            doomed unit set to 0 (every check the unit is doomed, not only the one that opens its
+            episode: the supervised block zeroes `idx`, the doomed indices);
+          strikes[doomed] = 0; last_replaced[doomed] = update_n.
+
+        Args:
+            states: (N, S, B) the training rollout's states under the training noise, every RNN
+                step of every decision including the (T + 1)-th decision's substeps, as the rollout
+                stacks them (batch["states"]); S = (T + 1) * substeps.
+        Returns:
+            dict of ints: rescale_growing (units growing after this check), rescale_opened
+            (episodes opened at this check), rescale_graduated (units that reached the target at
+            this check) and rescale_spent (units whose cumulative factor reached the cap at this
+            check); zeros apart from rescale_growing when the check is skipped. The call advances
+            update_n by one.
+        """
+        args = self.prune_args
+        n_done = self.update_n
+        self.update_n += 1
+        counts = {"rescale_growing": int(self._rescale_growing.sum()), "rescale_opened": 0,
+                  "rescale_graduated": 0, "rescale_spent": 0}
+        if n_done % int(args["check_every"]) != 0:
+            return counts
+        p = self.participation_from_states(states).detach()
+        silent = p < float(args["active_rel"]) * torch.quantile(p, 0.95)
+        with torch.no_grad():
+            out_w = self.RNN.W_rec.abs().sum(dim=0) + self.RNN.W_out.abs().sum(dim=0)
+            d = float(args.get("utility_decay", 0.99))
+            self._unit_utility = d * self._unit_utility + (1.0 - d) * p * out_w
+        score = (self._unit_utility if args.get("utility", "participation") == "contribution" else p)
+        self._reinit_strikes = torch.where(silent, self._reinit_strikes + 1, torch.zeros_like(self._reinit_strikes))
+        mature = (n_done - self._last_replaced) >= int(args.get("maturity", 0))
+        doomed = (self._reinit_strikes >= int(args["patience"])) & mature
+        n = int(doomed.sum())
+        if n == 0 and not bool(self._rescale_growing.any()):
+            return counts
+        cap = max(1, int(round(float(args.get("max_replace_frac", 1.0)) * self.RNN.N)))
+        if n > cap:
+            cand = torch.nonzero(doomed, as_tuple=True)[0]
+            keep = cand[torch.argsort(score[cand])[:cap]]
+            doomed = torch.zeros_like(doomed)
+            doomed[keep] = True
+            n = cap
+        std = 1.0 / np.sqrt(self.RNN.N)
+        a = float(args.get("rescale_alpha", 1.0005))
+        cum_cap = float(args.get("rescale_cap", 8.0))
+        protect_cap = int(round(float(args.get("rescale_protect_frac", 0.20)) * self.RNN.N))
+        with torch.no_grad():
+            idx = torch.nonzero(doomed, as_tuple=True)[0]
+            target = float(args["rescale_target_frac"]) * self.frm_activity_cap()
+            activity = self.frm_activity(states)
+            # 1) GRADUATE
+            graduated = self._rescale_growing & (activity >= target)
+            self._rescale_growing[graduated] = False
+            # 2) OPEN an episode for doomed units not already growing, up to the ceiling
+            room = max(0, protect_cap - int(self._rescale_growing.sum()))
+            fresh = doomed & ~self._rescale_growing
+            cand = torch.nonzero(fresh, as_tuple=True)[0]
+            if cand.numel() > room:
+                cand = cand[torch.argsort(score[cand])[:room]]
+            live_mask = ~silent if bool(args.get("rescale_active_only", False)) else None
+            if cand.numel() > 0:
+                self.RNN.W_rec[:, cand] = torch.randn(self.RNN.N, cand.numel(), device=self.RNN.device,
+                                                      generator=self.RNN.random_generator) * std
+                self.RNN.W_out[:, cand] = torch.randn(self.RNN.W_out.shape[0], cand.numel(), device=self.RNN.device,
+                                                      generator=self.RNN.random_generator) * std
+                self._rescale_cum[cand] = 1.0
+                self._rescale_growing[cand] = True
+            # 3) SPEND, then BOOST every unit still growing
+            spent = self._rescale_growing & (self._rescale_cum >= cum_cap)
+            self._rescale_growing[spent] = False
+            grow = torch.nonzero(self._rescale_growing, as_tuple=True)[0]
+            if grow.numel() > 0:
+                self.rescale_rows(grow, a, bool(args.get("rescale_normalize", True)), live=live_mask)
+                self._rescale_cum[grow] *= a
+            # Adam's moments on the outgoing columns of the doomed units
+            for prm in (self.RNN.W_rec, self.RNN.W_out):
+                st = self.optimizer.state.get(prm, None)
+                if st:
+                    for key in ("exp_avg", "exp_avg_sq"):
+                        if key in st:
+                            st[key][:, idx] = 0.0
+        self._reinit_strikes[doomed] = 0
+        self._last_replaced[doomed] = float(n_done)
+        counts.update(rescale_growing=int(self._rescale_growing.sum()), rescale_opened=int(cand.numel()),
+                      rescale_graduated=int(graduated.sum()), rescale_spent=int(spent.sum()))
+        return counts
+
     def log_prob(self, action, mean):
         """Log density of actions under the diagonal Gaussian N(mean, action_std^2).
 
@@ -531,9 +794,12 @@ class TrainerPPO:
             sigma_w is 0 or the pass is clean; outgoing, the read-out dropout mask (N, 1) of this
             rollout, None when dropout is off or the pass is clean; participation (N,), std +
             q(activity_q) of every unit's rate over every RNN step of every decision of this
-            rollout, the new value for the EMA p_bar, None unless a mask was drawn. The RNN states
-            are not kept (they are large; with dropout on they are held until the participation is
-            taken and released); sequence(u, noise, w_seed, outgoing) recomputes them exactly.
+            rollout, the new value for the EMA p_bar, None unless a mask was drawn; states, the
+            RNN states (N, (T + 1) * substeps, B) after every RNN step, kept only for the rescale
+            rule (prune_reinit on and the pass noisy), None otherwise: the states are large, so
+            without the rule they are not kept (with dropout on they are held until the
+            participation is taken and released); sequence(u, noise, w_seed, outgoing) recomputes
+            them exactly.
 
         THE TWO INTERVENTIONS THAT ACT HERE are drawn before anything else, in this order: the
         synaptic-noise seed (one integer from the RNN's generator) and the dropout mask (Bernoulli
@@ -545,7 +811,8 @@ class TrainerPPO:
         with torch.no_grad():
             w_seed = self.draw_synaptic_seed(generator) if (self.sigma_w > 0 and not clean) else None
             outgoing = self.draw_dropout_mask() if (self.dropout and not clean) else None
-            keep_states = outgoing is not None
+            keep_rule = self.prune_reinit and not clean
+            keep_states = outgoing is not None or keep_rule
             u = [task.reset(n_episodes, generator)]
             noise = self.draw_noise((T + 1) * k, n_episodes, not clean, generator)
             x = self.initial_state(n_episodes)
@@ -577,16 +844,19 @@ class TrainerPPO:
                 if keep_states:
                     states.append(x)
             values.append(self.heads(x, noise["out"][:, 0], outgoing)[1])
-            p_new = None
+            p_new, all_states = None, None
             if keep_states:
-                p_new = self.participation_from_states(torch.stack(states, dim=1),
-                                                       float(self.dropout_args["activity_q"]))
+                all_states = torch.stack(states, dim=1)
+                if outgoing is not None:
+                    p_new = self.participation_from_states(all_states, float(self.dropout_args["activity_q"]))
+                if not keep_rule:
+                    all_states = None
         alive = torch.stack(alive)
         return {"u": torch.stack(u, dim=1), "noise": noise, "actions": torch.stack(actions, dim=1),
                 "logp": torch.stack(logp), "values": torch.stack(values), "rewards": torch.stack(rewards),
                 "alive": alive, "success": alive[-1] == 0, "steps": alive[:-1].sum(dim=0),
                 "xy": torch.stack(xy), "heading": torch.stack(heading),
-                "w_seed": w_seed, "outgoing": outgoing, "participation": p_new}
+                "w_seed": w_seed, "outgoing": outgoing, "participation": p_new, "states": all_states}
 
     def safe_rollout(self, good, n_episodes, T, tries=3):
         """A rollout that is finite, or the last finite weights restored and the rollout replayed.
@@ -675,6 +945,8 @@ class TrainerPPO:
         them, loss += lambda_frm x P_frm + lambda_rws x P_rws, with P_frm on the states of this
         minibatch's recompute (the noisy rollout states) and P_rws on W_rec. The recompute replays
         the rollout's synaptic noise (batch["w_seed"]) and read-out mask (batch["outgoing"]).
+        With the rescale rule on, every minibatch's gradient is blanked on the incoming rows of
+        the units growing at that time (zero_protected_grads) after the clip and before the step.
 
         TWO GUARDS, both inert while everything is finite (added 4 Nov 2026 after two N = 2,000 runs
         died in their first update, array 16856487): the log-ratio is clamped to [-20, 20] before it
@@ -721,6 +993,7 @@ class TrainerPPO:
                 self.optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.RNN.parameters(), self.max_grad_norm)
+                self.zero_protected_grads()
                 self.optimizer.step()
                 with torch.no_grad():
                     sums["policy_loss"] += policy_loss.item()
@@ -765,7 +1038,9 @@ class TrainerPPO:
         participation EMA p_bar updated from that rollout's states as the supervised train_step
         updates it (`self.participation = (1 - eta) * self.participation + eta * new_part`, after the
         mask of the same batch was drawn from the old value), advantages (GAE with a critic,
-        Monte-Carlo without), the clipped update, and one progress record. The first update and
+        Monte-Carlo without), the clipped update, with the rescale rule on one check of
+        prune_and_reinit on the rollout's states (after the update's optimizer steps, before the
+        weights are saved as the last finite ones), and one progress record. The first update and
         every probe_every-th one are followed by a probe. Every checkpoint_every-th update, except
         the last (the caller saves the finished run), calls checkpoint_fn(updates_done, params) if
         one was set.
@@ -775,8 +1050,10 @@ class TrainerPPO:
             update: update, discounted_return (mean over the batch of sum_t gamma^t r_t, the quantity
             PPO maximises), success (share of the batch that reached the cheese), steps (mean steps
             to the cheese, T if never), restored (rollouts discarded and weights rolled back), lr
-            (the rate used, after the warm-up ramp) and the statistics of ppo_update (including
-            skipped minibatches and, when a penalty is on, its raw value); probes, a dict of lists
+            (the rate used, after the warm-up ramp), the statistics of ppo_update (including
+            skipped minibatches and, when a penalty is on, its raw value) and, with the rescale
+            rule on, its counts of that update (rescale_growing, rescale_opened, rescale_graduated,
+            rescale_spent, the dict prune_and_reinit returns); probes, a dict of lists
             over probes: update (the update index),
             active, active_mod, probe_success, and p_update and p, the stored participation vectors
             (N,) with their update index; last_probe, the last probe's rollout dict.
@@ -803,13 +1080,14 @@ class TrainerPPO:
             else:
                 adv, ret = self.mc_advantages(batch["rewards"], batch["alive"], hp.gamma)
             stats = self.ppo_update(batch, adv, ret)
+            rule = self.prune_and_reinit(batch["states"]) if self.prune_reinit else {}
             progress.append({"update": it,
                              "discounted_return": (batch["rewards"] * discount).sum(dim=0).mean().item(),
                              "success": batch["success"].float().mean().item(),
                              "steps": batch["steps"].mean().item(),
                              "restored": restored,
                              "lr": lr_now,
-                             **stats})
+                             **stats, **rule})
             good = {k: v.detach().clone() for k, v in self.RNN.state_dict().items()}
             if it == 1 or it % hp.probe_every == 0:
                 n_active, n_active_mod, p, out = self.probe()
@@ -826,7 +1104,8 @@ class TrainerPPO:
                       f"  success {r['success']:.2f}  steps {r['steps']:6.1f}"
                       f"  probe success {probes['probe_success'][-1]:.2f}"
                       f"  active {n_active} (mod {n_active_mod})/{self.RNN.N}  kl {r['approx_kl']:.4f}  clip {r['clip_frac']:.2f}"
-                      f"  {(time.perf_counter() - tic) / it:.2f} s/update", flush=True)
+                      + (f"  growing {rule['rescale_growing']}" if rule else "")
+                      + f"  {(time.perf_counter() - tic) / it:.2f} s/update", flush=True)
             if (self.checkpoint_fn is not None and self.checkpoint_every
                     and it % self.checkpoint_every == 0 and it < hp.n_updates):
                 self.checkpoint_fn(it, self.RNN.get_params())
