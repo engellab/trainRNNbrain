@@ -1,7 +1,8 @@
 #!/bin/bash
 # THE MAZE TASK, FIRST LOOK (DELLA). Does the standard RNN learn to run the maze under PPO, and do
-# its units go dormant there too? Task and read-out: configs/rl/maze_ppo.yaml and
-# trainRNNbrain/rl/run_maze_ppo.py. Tracking issue: engellab/trainRNNbrain #2.
+# its units go dormant there too? Task and read-out: configs/task/Maze.yaml, configs/trainer/trainer_ppo.yaml
+# and trainRNNbrain/training/run_rl.py (until 5 Nov 2026 configs/rl/maze_ppo.yaml and
+# trainRNNbrain/rl/run_maze_ppo.py, which this array ran with). Tracking issue: engellab/trainRNNbrain #2.
 #
 # GRID (8 jobs), one per array index:
 #   1-2   N= 500  blind (walls only)   seeds 1, 2
@@ -42,7 +43,8 @@ export PYTHONUNBUFFERED=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 REPO="${REPO:-$HOME/trainRNNbrain_rlmaze}"
-SAVE_TO="${SAVE_TO:-$HOME/trainRNNbrain/data/trained_RNNs}"   # runs land in ${SAVE_TO}_rl_maze
+SAVE_TO="${SAVE_TO:-$HOME/trainRNNbrain/data/trained_RNNs_rl_maze}"   # the maze runs' own tree, a sibling of
+                                                                     # the supervised runs' folder
 
 export PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}"
 PKG=$(python -c "import trainRNNbrain, os; print(os.path.realpath(os.path.dirname(os.path.dirname(trainRNNbrain.__file__))))")
@@ -67,8 +69,8 @@ TASK_SEED=(0 1 2 1 2 1 2 1 2)
 i=$SLURM_ARRAY_TASK_ID
 N=${TASK_N[$i]}; CUE=${TASK_CUE[$i]}; SEED=${TASK_SEED[$i]}
 TAG="second/N=${N}_cue=${CUE}"   # "first/" holds array 16790695 (one RNN step per decision)
-echo "Task ${i}: N=${N} goal_cue=${CUE} seed=${SEED} -> ${SAVE_TO}_rl_maze/Maze_${TAG}/s${SEED}"
+echo "Task ${i}: N=${N} goal_cue=${CUE} seed=${SEED} -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 
-srun python "$REPO/trainRNNbrain/rl/run_maze_ppo.py" \
-  seed="$SEED" model.N="$N" env.goal_cue="$CUE" \
+srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
+  task=Maze trainer=trainer_ppo seed="$SEED" model.N="$N" task.goal_cue="$CUE" \
   paths=paths_DELLA paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\""
