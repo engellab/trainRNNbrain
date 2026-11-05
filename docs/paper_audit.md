@@ -83,6 +83,23 @@ s632794669 (N = 2000) and s2627187151 (N = 4000), and every N = 100 network. A 3
 DMTS s597040509 at N = 2000 (R² 0.417), never learned the task and is left out. Removing the inactive units changes R² by −0.010 to +0.001 on CDDM and
 −0.046 to −0.001 on DMTS, and in all 35 networks it costs less than removing as many units at random.
 
+**C1 on the maze (5 Nov; trainRNNbrain issue #3, dead-relu-paper#182).** The maze replaces DMTS
+in Figure 1c-e. Of the three N = 1,000 ReLU agents of the uniform series (2,000 PPO updates),
+seeds 1 and 2 learned the task (probe success at or above 0.9 for 5 probes and at the end) and
+seed 3 ended at 0.73 and enters no participation statistic. Active units at the learned point: 451
+and 517 (panel c, success 0.945 and 0.914); at the end, 421 and 451. Ablation at the end weights
+(entry 2026-11-05 maze-ablations-uniform-series; data/rl_maze_ablation): removing every inactive
+unit changes the success under the training noise by -0.01 to +0.03 in all six networks ablated
+(N = 250 to 2,000), as many units at random lower it to 0.07-0.31, the active units removed to
+0.01-0.03. Prune-and-retrain (rl_maze_retrain.py; pre-registered rule in entry 2026-11-05_0832:
+within 0.05 of the intact agent retrained the same way, 200 further updates) is running on Spock
+(7384815); the strip of panel d reads "no data" until it lands. Selectivity (entry
+2026-11-05_0845; data/population_stats_maze.json): 154 and 200 of 1,000 units selective over all
+units, 154 of 421 and 199 of 451 over the active units, 0 and 1 inactive units counted selective
+(as on 3BFF); the raw-rate dimensionality is the same over all and over active units (10.7 against
+10.6, 10.3 against 10.2) and the standardised-rate one is more than twice as large over all units
+(46 against 20, 43 against 20), as on the supervised tasks (C8).
+
 **C2.** Figure 2 (entry 2026-10-31_1957; Della job 16558986, read-out 79932ef). Read at 1.05× each
 run's floor and fitted on the size means from N = 500, the active count grows as N^0.48 on the 3-bit
 flip-flop (41% of 500 units active, 14% of 4000), N^0.44 on CDDM (298 of 500, 767 of 4000) and N^0.55 on
@@ -190,6 +207,25 @@ lies inside a loss burst or a non-finite stretch; 21 networks of the per-unit-ru
 their 75k weights inside one (rescaling 14, rate penalty 3, rate + sparsity 3, prune-and-duplicate
 1), and Fig. 5 rings every affected value it draws. The 3BFF rate-penalty networks at N = 2000 and 4000 have
 500-3,686 non-finite loss values each (entries _0813 and _0833).
+
+**C6 across the three tasks (5 Nov; Pavel's instruction, trainRNNbrain issue #6, dead-relu-paper#183:
+report the rules that work on every task first).** Criterion per cell at N = 1,000: more active
+units than every control in all seeds at a performance within the tolerance (held-out R^2 within
+0.01 of the controls' mean at 75k; maze success within 0.05 at update 2,000). CDDM, read on 5 Nov
+(entry 2026-11-05_0926; read_uniform_cells.py): read-out dropout works (517 against 336 active,
+1.54x, R^2 0.826 against 0.834), prune-and-duplicate works (709, 2.11x, R^2 0.830), noisy synapses
+sigma_w 1.0 fail the tolerance (495, 1.47x, R^2 0.819, 0.015 below), as on 3BFF (2.03x at 0.021-0.025
+below). Maze (entry 2026-11-05_0812 and the interventions read-out on issue #5): the rate penalty
+at 0.03 and 0.3 works (1.9x and 2.1x the learned controls' 437, success unchanged), at 0.1 and with
+the sparsity penalty one seed fails on success; read-out dropout fails (1.0x, success 0.19 below);
+rescaling at the paper's values blew up at the end of the warm-up ramp (two gentler arms running,
+Spock 7384816); noisy synapses running (7383697); prune-and-duplicate ported to TrainerPPO (entry
+2026-11-05_0907) and queued. 3BFF input-weight cap 0.1, 0.5, 2.0 fails (R^2 0.019-0.105 below).
+Removing the recruited units of the maze rate-penalty networks lowers success from 0.84-0.96 to
+0.55-0.77, as many at random to 0.07-0.35 (entry 2026-11-05 maze-rate-penalty-ablations): the maze
+form of A3. Queued or pending: CDDM rescaling and 3BFF weight decay 1e-5/1e-4 (Della, launchers
+99530cf), maze weight decay and input norm (Spock, 3e0595e); package 2 (the remaining settings on
+3BFF and the maze, about 550 GPU-h) awaits Pavel.
 
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
