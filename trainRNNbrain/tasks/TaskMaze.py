@@ -1,4 +1,11 @@
-"""A fixed maze run by a batch of point agents in parallel, in torch, on the policy's device.
+"""The maze task: a fixed maze run by a batch of point agents in parallel, in torch, on the RNN's device.
+
+The reinforcement-learning task of the project, in the place of a supervised Task. It has no input and
+target batches (`get_batch` raises): the agent's observations depend on what it did, so the trainer
+(trainRNNbrain/trainer/TrainerPPO.py) plays episodes through `reset`, `observe` and `step` and trains
+the RNN on what it saw and did. Built from configs/task/Maze.yaml. Until 5 Nov 2026 this class was
+`MazeEnv` in trainRNNbrain/rl/maze_env.py; the tables, the sensors, the move, the slide and the reward
+are unchanged.
 
 The maze is an ASCII grid: '#' wall, '.' free, 'C' the cheese (exactly one cell). Every border
 cell must be a wall, so an agent can never leave the grid and every sensor ray hits something.
@@ -43,6 +50,7 @@ import collections
 import math
 import numpy as np
 import torch
+from trainRNNbrain.tasks.TaskBase import Task
 
 STEPS_4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
@@ -93,11 +101,17 @@ def bfs_distance(wall, goal):
     return dist
 
 
-class MazeEnv:
-    """A batch of agents in one fixed maze. See the module docstring for the task definition."""
+class TaskMaze(Task):
+    """A batch of agents in one fixed maze. See the module docstring for the task definition.
+
+    Attributes the trainer and the analysis read: n_inputs (sensors plus the optional inputs),
+    n_outputs and n_actions (2, turn and speed), device, goal_cue, action_feedback, n_rays, ray_max,
+    ray_offsets, wall (H, W) bool tensor, goal_xy (2,) the cheese centre as (x, y), and after a
+    `reset` the state xy (B, 2), heading (B,), done (B,) and last_action (B, 2).
+    """
 
     def __init__(self, maze, n_rays, ray_max, ray_step, v_max, turn_max, goal_radius, goal_cue,
-                 action_feedback, reward, device, seed):
+                 action_feedback, reward, seed, n_inputs=None, n_outputs=None, device=None):
         """Build the maze tables and the drop generator; no agents exist until `reset`.
 
         Args:
@@ -109,10 +123,21 @@ class MazeEnv:
             goal_cue: bool, add the two bearing-to-cheese inputs.
             action_feedback: bool, add the two previous-executed-action inputs.
             reward: mapping with float entries goal, step, wall, shape.
-            device: torch.device; seed: int, seeds the drop generator.
+            seed: int, the run seed. The drop generator is seeded with seed + 1, so its stream
+                differs from the RNN's, which the run script seeds with the run seed itself (the
+                seeding of the maze runs before 5 Nov 2026, so a rerun reproduces their drops).
+            n_inputs: int or None. The number of inputs is derived from the sensors, n_rays + 2 with
+                action_feedback + 2 with goal_cue; a value given here is checked against it, so a
+                saved config cannot disagree with the task it describes. None accepts the derived
+                number (the run script records it in the saved config).
+            n_outputs: int or None, likewise for the 2 action outputs (turn and speed).
+            device: torch.device, or None for CUDA when available, else the CPU (the RNN's choice).
+        Raises:
+            ValueError if n_inputs or n_outputs is given and does not match the derived number.
         """
         wall, goal = parse_maze(maze)
         dist = bfs_distance(wall, goal)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if device is None else device
         self.wall = torch.as_tensor(wall, device=device)
         self.dist = torch.as_tensor(dist, dtype=torch.float32, device=device)
         self.goal_xy = torch.tensor([goal[1] + 0.5, goal[0] + 0.5], device=device)
@@ -129,10 +154,23 @@ class MazeEnv:
         self.reward = {k: float(reward[k]) for k in ("goal", "step", "wall", "shape")}
         self.device = device
         self.generator = torch.Generator(device=device)
-        self.generator.manual_seed(int(seed))
-        self.n_inputs = self.n_rays + (2 if self.action_feedback else 0) + (2 if self.goal_cue else 0)
+        self.generator.manual_seed(int(seed) + 1)
+        derived_inputs = self.n_rays + (2 if self.action_feedback else 0) + (2 if self.goal_cue else 0)
         self.n_actions = 2
+        if n_inputs is not None and int(n_inputs) != derived_inputs:
+            raise ValueError(f"task.n_inputs is {n_inputs}, but the sensors give {derived_inputs} inputs "
+                             f"(n_rays {self.n_rays}, action_feedback {self.action_feedback}, "
+                             f"goal_cue {self.goal_cue}); leave it null to record the derived number")
+        if n_outputs is not None and int(n_outputs) != self.n_actions:
+            raise ValueError(f"task.n_outputs is {n_outputs}, but the maze has {self.n_actions} actions "
+                             f"(turn and speed); leave it null")
+        # no trial length: an episode's length in decisions is the trainer's T
+        Task.__init__(self, n_steps=None, n_inputs=derived_inputs, n_outputs=self.n_actions, seed=seed)
         self.xy = self.heading = self.done = self.last_action = None
+
+    def get_batch(self, **kwargs):
+        """The maze has no input and target batches: TrainerPPO.rollout plays episodes instead."""
+        raise NotImplementedError("the maze has no input/target batches; TrainerPPO.rollout plays episodes")
 
     def cell(self, xy):
         """(row, col) long tensors of the cells containing the points xy (n, 2), clamped into the grid."""
@@ -155,8 +193,8 @@ class MazeEnv:
         it, a uniform heading.
 
         Args:
-            n: int, number of agents (the batch); generator: torch.Generator on this env's device,
-            or None for the env's own (a fixed generator gives the same drops every call).
+            n: int, number of agents (the batch); generator: torch.Generator on this task's device,
+            or None for the task's own (a fixed generator gives the same drops every call).
         Returns:
             observations, (n_inputs, n) float tensor.
         """

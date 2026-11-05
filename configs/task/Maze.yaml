@@ -1,0 +1,62 @@
+# @package task
+# THE MAZE TASK, trained with PPO: trainRNNbrain/tasks/TaskMaze.py (this block), configs/trainer/trainer_ppo.yaml
+# and trainRNNbrain/trainer/TrainerPPO.py (the algorithm), entry point
+#   python trainRNNbrain/training/run_experiment.py task=Maze trainer=trainer_ppo model=rnn_relu_standard model.N=500 seed=1
+# One fixed maze; each episode drops every agent in a random free cell with a random heading; the RNN
+# steers (turn) and sets the speed; the cheese 'C' is the goal. The network is the project's standard
+# RNN (model group), untouched, and it is the whole agent: inputs = n_rays sensors + 2 efference-copy
+# inputs (+ 2 with goal_cue); read-out rows = turn and speed (+ the value with trainer.critic).
+# Until 5 Nov 2026 this block was `env:` in configs/rl/maze_ppo.yaml; every value is as it was.
+taskname: "Maze"
+_target_: trainRNNbrain.tasks.TaskMaze.TaskMaze
+seed: ${seed}               # the run seed. TaskMaze seeds its drop generator with seed + 1 and the run script
+                            # seeds the RNN with seed, so the two streams differ (as every maze run so far)
+# RECORDED, NOT CHOSEN (like model.n_inputs and model.n_outputs, which run_rl.py writes back too): the
+# task derives n_inputs from its sensors, n_rays + 2 efference-copy inputs (+ 2 with goal_cue), and has
+# 2 outputs, turn and speed. null accepts the derived numbers and the saved config carries them; a
+# number given here is checked against the derivation, so the config cannot disagree with the task.
+n_inputs: null
+n_outputs: null
+# 15 x 15 (since 4 Nov 2026): `python trainRNNbrain/tasks/make_maze.py --cells 7 --seed 20 --loops 4`,
+# a depth-first-search maze with 4 walls removed for loops, cheese at the centre; 29 cells from
+# the far end, 15.9 on average over free cells, 6 dead ends. Chosen by a local calibration at
+# N = 100, 300 updates, with the final design (issue #3): probe success 0.69 and 0.25 for two
+# seeds, against 0.00 and 0.00 on seed 15 (32 cells, 17.5 on average) and 0.02 on seed 6 (36
+# cells, 22 on average), which are too hard at that scale. The first two arrays (16790695, 16794613) used an 11 x 11
+# hand-drawn maze, 24 cells from the far end and no dead ends (git history of configs/rl/maze_ppo.yaml).
+maze:
+  - "###############"
+  - "#.........#...#"
+  - "#.#########.#.#"
+  - "#...........#.#"
+  - "#.###########.#"
+  - "#.........#.#.#"
+  - "###.#####.#.#.#"
+  - "#...#..C#.#.#.#"
+  - "#.#.#.###.#.#.#"
+  - "#.#.#.#.....#.#"
+  - "#.#.#.##.##...#"
+  - "#.#.......#.#.#"
+  - "#.#.#####.###.#"
+  - "#.......#.....#"
+  - "###############"
+n_rays: 8                   # range sensors over 360 degrees, ray 0 along the heading
+ray_max: 4.0                # cells; corridors are 1 wide, so most rays return within 1-2 cells
+ray_step: 0.1               # cells; ray-marching resolution (40 samples per ray)
+v_max: 0.2                  # cells per decision at full speed (speed = v_max * sigmoid(output)):
+                            # 145 decisions for the longest route (29 cells)
+turn_max: 0.3               # radians per decision at full turn (turn = turn_max * tanh(output)):
+                            # a U-turn in ~10 decisions
+goal_radius: 0.5            # cells from the cheese centre that ends the episode
+action_feedback: true       # 2 inputs: the previous executed turn and speed (efference copy),
+                            # so the network can dead-reckon from what it actually did
+goal_cue: false             # the task: no information about the cheese. true adds cos/sin of
+                            # the bearing to the cheese, the "cue" arm of the first two arrays
+reward:
+  goal: 5.0                 # once, on reaching the cheese
+  step: -0.01               # every decision: be quick
+  wall: -0.02               # every bump: a move whose intended end point was in a wall, whether
+                            # the agent then slid along it or stayed (Pavel, 4 Nov 2026)
+  shape: 0.2                # per cell of geodesic progress, undiscounted: standing still earns 0
+                            # (the discounted form paid a stationary agent and the first runs,
+                            # array 16790695, converged to standing still)

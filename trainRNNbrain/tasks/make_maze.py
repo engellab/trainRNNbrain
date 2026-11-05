@@ -1,4 +1,4 @@
-"""Make the maze for configs/rl/maze_ppo.yaml, reproducibly.
+"""Make the maze for configs/task/Maze.yaml, reproducibly.
 
 A perfect maze (one route between any two cells, many dead ends) by depth-first search on a
 `cells` x `cells` lattice, which gives a (2 cells + 1) x (2 cells + 1) grid with an all-wall border;
@@ -7,11 +7,14 @@ and the maze is not a single winding path; the cheese is the centre lattice cell
 printed as the YAML list to paste into the config, with the geodesic statistics (maximum and mean
 cell distance to the cheese over free cells, number of dead ends).
 
-Run: python trainRNNbrain/rl/make_maze.py --cells 7 --seed 6 --loops 4   (the config's maze)
+Kept beside TaskMaze.py because it writes the one thing the task config holds that cannot be typed
+by hand; it is a generator script, not a Task class, and nothing imports it.
+
+Run: python trainRNNbrain/tasks/make_maze.py --cells 7 --seed 20 --loops 4   (the config's maze)
 """
 import argparse
 import numpy as np
-from trainRNNbrain.rl.maze_env import bfs_distance, STEPS_4
+from trainRNNbrain.tasks.TaskMaze import bfs_distance, STEPS_4
 
 
 def dfs_maze(cells, rng):

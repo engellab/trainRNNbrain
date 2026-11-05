@@ -19,6 +19,7 @@ import inspect
 from collections.abc import Mapping
 from pathlib import Path
 from trainRNNbrain.utils import import_any, get_source_code, make_subfolder_tag, filter_kwargs
+from trainRNNbrain.training.run_rl import run_rl
 from pprint import pprint
 from omegaconf import DictConfig, ListConfig
 OmegaConf.register_new_resolver("eval", eval)
@@ -330,6 +331,13 @@ def join_parent_trace(mon, init_from):
 
 @hydra.main(version_base="1.3", config_path="../../configs/", config_name=f"base")
 def run_training(cfg: DictConfig) -> None:
+    # THE REINFORCEMENT-LEARNING PATH (the maze, trainer=trainer_ppo): no batches, no mask, no R^2.
+    # The run is built, trained and saved by trainRNNbrain/training/run_rl.py, in the layout
+    # described there (it resolves the seed as the block below does). Everything after this
+    # branch is the supervised path, unchanged.
+    if str(cfg.trainer.get("_target_", "")).endswith("TrainerPPO"):
+        run_rl(cfg)
+        return
     monitor = cfg.trainer.monitor
     print(f"Training started at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     experiment_tag = cfg.experiment_tag
