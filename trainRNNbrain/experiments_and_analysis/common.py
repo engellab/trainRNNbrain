@@ -1010,13 +1010,21 @@ def maze_learned_index(probe_success, hold=MAZE_LEARNED_HOLD, level=MAZE_LEARNED
     The "learned" read-out point of a maze run (issue #3). It is the maze counterpart of the
     supervised floor crossing: a point set by the run's own performance, not by a fixed iteration.
 
+    A run whose LAST probe is below `level` did not learn the task, whatever happened earlier
+    (the pre-registered exclusion of issue #3: such a run is reported but enters no participation
+    statistic), so it returns None too; one N = 1,000 run of the uniform series held 0.91 to 0.98
+    for six probes around update 1,750 and ended at 0.73.
+
     Args:
         probe_success: (n_probes,) array of the clean probe's success rate, one entry per probe in
             training order; hold: int, probes in a row; level: float, success rate in [0, 1].
     Returns:
-        int index into the probe arrays, or None if the task was never learned by that rule.
+        int index into the probe arrays, or None if the task was never learned by that rule or
+        the last probe is below `level`.
     """
     ok = np.asarray(probe_success) >= level
+    if len(ok) == 0 or not ok[-1]:
+        return None
     for i in range(len(ok) - hold + 1):
         if ok[i:i + hold].all():
             return i
