@@ -93,13 +93,18 @@ from trainRNNbrain.experiments_and_analysis.common import participation, active_
 
 LOG_2PI = math.log(2 * math.pi)
 # the generator seed of RNN step s of a rollout with synaptic-noise seed w_seed is
-# w_seed * SEED_STRIDE + s (synaptic_weights); 2^20 steps is more than any episode has
-SEED_STRIDE = 2 ** 20
+# w_seed * SEED_STRIDE + s (synaptic_weights). w_seed is drawn below 2^20 and the stride is 2^12
+# (4,096 steps, more than any episode has), so every seed stays below 2^32: the CPU generator
+# keeps only the low 32 bits of a manual seed (review of 4 Nov 2026), and the CUDA one 64
+SEED_STRIDE = 2 ** 12
+W_SEED_MAX = 2 ** 20
 # the supervised Penalties.UpV ("N units per unit of volume, hard constant!"), the 100 in the rate
 # cap cap_fr * log1p(100) / log1p(N)
 UNITS_PER_VOLUME = 100.0
-# torch.quantile refuses an input above this many entries (float32 rank arithmetic)
-QUANTILE_MAX_ENTRIES = 2 ** 24
+# units per chunk of the participation computation, the supervised trainer's value
+# (Trainer.participation_from_states_); torch.quantile's limit is on the length of the reduced
+# dimension (2^24 entries), which 2,505 steps x 256 episodes stays under
+PARTICIPATION_CHUNK = 512
 
 
 class TrainerPPO:
@@ -261,7 +266,7 @@ class TrainerPPO:
             int.
         """
         g = self.RNN.random_generator if generator is None else generator
-        return int(torch.randint(0, 2 ** 31 - 1, (1,), generator=g, device=self.device).item())
+        return int(torch.randint(0, W_SEED_MAX, (1,), generator=g, device=self.device).item())
 
     def synaptic_weights(self, w_seed, s):
         """W_rec and W_inp with the synaptic noise of RNN step s, as RNN_torch.forward applies it
@@ -333,9 +338,9 @@ class TrainerPPO:
         and episode: the supervised Trainer.participation_from_states_, "THE SINGLE DEFINITION OF
         PARTICIPATION" behind its logged trace and its dropout sampler:
             out[i:i + chunk] = (blk.std(dim=1, unbiased=False) + torch.quantile(blk.abs(), q, dim=1))
-        on the firing rates (the activation applied for equation "h"). The supervised code takes 512
-        units per chunk; here the chunk is the largest that keeps torch.quantile under its
-        2^24-entry limit (26 units at 2,505 steps x 256 episodes). The per-unit values are the same.
+        on the firing rates (the activation applied for equation "h"), 512 units per chunk as in
+        the supervised code (torch.quantile's 2^24-entry limit applies to the reduced dimension,
+        the steps x episodes, which stays under it).
 
         Args:
             states: (N, T, B) RNN states; q: float in (0, 1), the quantile
@@ -344,7 +349,7 @@ class TrainerPPO:
             (N,) tensor >= 0, in the states' dtype and on their device.
         """
         N = states.size(0)
-        chunk = max(1, QUANTILE_MAX_ENTRIES // states[0].numel())
+        chunk = PARTICIPATION_CHUNK
         out = torch.empty(N, device=states.device, dtype=states.dtype)
         for i in range(0, N, chunk):
             blk = self.RNN.get_firing_rates(states[i:i + chunk].reshape(min(chunk, N - i), -1))

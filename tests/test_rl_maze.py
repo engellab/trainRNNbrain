@@ -310,7 +310,7 @@ def test_fr_magnitude_penalty_matches_formula():
     expect = per_unit.mean()
     got = trainer.fr_magnitude_penalty(torch.tensor(states))
     assert got.dtype == torch.float64
-    assert abs(got.item() - expect) < 1e-5 * expect, (got.item(), expect)
+    assert abs(got.item() - expect) < 1e-9 * expect, (got.item(), expect)    # tight: g_bot = 5 would fail
     assert per_unit[1] == 1.0 and per_unit[2] < 1e-12 and per_unit[0] > 1e4
 
 

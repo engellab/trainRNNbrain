@@ -19,7 +19,8 @@
 #   13-15   frm0.1_rws0.05    trainer.lambda_frm=0.1 trainer.lambda_rws=0.05  (the paper's pair)
 #   16-18   sigmaw1.0         model.sigma_w=1.0                               (the paper's value; the
 #                             recompute regenerates every step's weight draws, forward and backward,
-#                             so this arm runs slower than the others: allow about 1.5x)
+#                             so this arm runs slower than the others, about 2 to 2.5x on a
+#                             GPU: submit indices 16-18 with --time=24:00:00)
 #   19-21   dropout0.2_beta4  trainer.dropout=true                            (drop_rate 0.2, beta 4,
 #                             kind mute, rescale on: the dropout_args block of trainer_ppo.yaml)
 # The launcher passes only what an arm sweeps, plus N; every other value is the config's.
@@ -72,6 +73,8 @@ fi
 echo "code: $PKG @ $GITSHA"
 
 # one entry per arm; the overrides of an arm are separate words on the command line
+# indices 1-3 (control) duplicate the uniform series' N = 1000 ReLU runs (same seeds, the
+# same code with every option off): do not submit them; the series' runs are the controls.
 ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4)
 ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.lambda_frm=0.3"
                "trainer.lambda_frm=0.1 trainer.lambda_rws=0.05" "model.sigma_w=1.0" "trainer.dropout=true")
