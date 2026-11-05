@@ -94,7 +94,6 @@ BOOT_SEED = 20261104
 X_OFF = 1.07                      # panel c: "learned" at N / X_OFF, "end" at N * X_OFF (log axis)
 BAR_HALF = 1.035                  # panel c: a mean bar spans x / BAR_HALF to x * BAR_HALF
 D_YLIM = (0.0, 1.14)              # panel d: room above success = 1 for the inactive-count labels
-D_LABEL_Y = (1.035, 1.095)        # panel d: the labels alternate between these two heights
 
 # layout in millimetres from the canvas's top-left corner: (left, top, width, height)
 FIG_H_MM = 107.0
@@ -398,8 +397,8 @@ def panel_ablation(ax, ax_key, abl):
 
     Per network, in its size's shade: quietest first (solid), busiest first (dotted), the mean over
     the random orders (dashed) with their range as a band; a thin vertical line at its inactive
-    count. One label per size at the mean inactive share, "<count> of N", alternating between two
-    heights above the data. The legend sits in `ax_key`, above the panel and off the data, because
+    count (the counts are printed and belong in the caption: with three sizes within 36 to 57
+    percent, labels on the axes overlapped). The legend sits in `ax_key`, above the panel and off the data, because
     a network with more than half its units inactive runs its quietest-first curve at success 1
     across the top of the axes.
 
@@ -428,10 +427,6 @@ def panel_ablation(ax, ax_key, abl):
         rows.append(dict(label=a["label"], N=N, n_inactive=n_in, full=a["score_full"],
                          quiet_at_inactive=a["score_quiet"][i], random_at_inactive=float(rand.mean(0)[i]),
                          busy_at_inactive=a["score_busy"][i]))
-    for j, N in enumerate(sorted({a["N"] for a in drawn})):
-        n_in = np.mean([a["N"] - a["n_active"] for a in drawn if a["N"] == N])
-        ax.text(100.0 * n_in / N, D_LABEL_Y[j % 2], f"{n_in:.0f} of {ps.fmt_count(N)}",
-                ha="center", va="bottom", fontsize=ps.TICK_PT, color=ps.INK, clip_on=False)
     if not drawn:
         ax.text(0.5, 0.5, "no ablation results", transform=ax.transAxes, ha="center", va="center",
                 fontsize=ps.TICK_PT, color=ps.MUTED)
