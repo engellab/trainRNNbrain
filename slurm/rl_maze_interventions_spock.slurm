@@ -11,7 +11,7 @@
 # than the squared error; read-out as in #3; "works" = more active units than every control at a
 # probe success within 0.05 of the controls'. The notebook entry written at submission names it.
 #
-# GRID (30 jobs), one per array index; arm = (i - 1) / 3, seed = (i - 1) % 3 + 1:
+# GRID (51 jobs), one per array index; arm = (i - 1) / 3, seed = (i - 1) % 3 + 1:
 #   1-3     control           no option
 #   4-6     frm0.03           trainer.lambda_frm=0.03
 #   7-9     frm0.1            trainer.lambda_frm=0.1                          (the paper's flip-flop value)
@@ -40,6 +40,13 @@
 #   28-30   rescale_few       the paper's arm with rescale_protect_frac 0.05 instead of 0.20: at
 #                             most 50 of the 1,000 units growing at once, so the tilt moves a
 #                             twentieth of the recurrent columns instead of a fifth. Same question.
+#   31-39   wd0, wd1e-5, wd1e-4   trainer.weight_decay=0 / 1e-5 / 1e-4 (the config's 1e-6 is the
+#                             control): the weight-decay rung of the standard-settings ladder
+#                             (Figure 3 on CDDM: 0, 1e-6, 1e-5, 1e-4), the same values on every task
+#                             (issue #6, Pavel's 5 Nov instruction: the same settings on all three tasks)
+#   40-51   inorm0.5, inorm2, inorm5, inorm20   model.input_row_norm=0.5 / 2 / 5 / 20: every W_inp
+#                             row rescaled to this norm at initialisation (the 3BFF and CDDM ladders'
+#                             values; the default draw's mean row norm is about 0.05 at N = 1,000)
 # The launcher passes only what an arm sweeps, plus N; every other value is the config's.
 # Expected: about 5.5 h per run at N = 1,000 on a 40 GB card (the suite's rate), 24 runs.
 #
@@ -53,7 +60,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=48G
 #SBATCH --time=12:00:00
-#SBATCH --array=1-30%30
+#SBATCH --array=1-51%51
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
@@ -92,12 +99,15 @@ echo "code: $PKG @ $GITSHA"
 # one entry per arm; the overrides of an arm are separate words on the command line
 # indices 1-3 (control) duplicate the uniform series' N = 1000 ReLU runs (same seeds, the
 # same code with every option off): do not submit them; the series' runs are the controls.
-ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4 rescale rescale_mild rescale_few)
+ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4 rescale rescale_mild rescale_few
+         wd0 wd1e-5 wd1e-4 inorm0.5 inorm2 inorm5 inorm20)
 ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.lambda_frm=0.3"
                "trainer.lambda_frm=0.1 trainer.lambda_rws=0.05" "model.sigma_w=1.0" "trainer.dropout=true"
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.0005 trainer.prune_args.rescale_cap=8.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
-               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.05 trainer.prune_args.check_every=1 trainer.prune_args.patience=1")
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.05 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
+               "trainer.weight_decay=0" "trainer.weight_decay=1e-5" "trainer.weight_decay=1e-4"
+               "model.input_row_norm=0.5" "model.input_row_norm=2" "model.input_row_norm=5" "model.input_row_norm=20")
 
 i=$SLURM_ARRAY_TASK_ID
 a=$(( (i - 1) / 3 )); SEED=$(( (i - 1) % 3 + 1 ))
