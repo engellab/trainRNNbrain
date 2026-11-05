@@ -881,32 +881,41 @@ class TrainerPPO:
                 "xy": torch.stack(xy), "heading": torch.stack(heading),
                 "w_seed": w_seed, "outgoing": outgoing, "participation": p_new}
 
-    def safe_rollout(self, good, n_episodes, T, tries=3):
-        """A rollout that is finite, or the last finite weights restored and the rollout replayed.
+    def safe_rollout(self, good, n_episodes, T, tries=3, snapshot=None):
+        """A rollout that is finite, or the last finite weights restored and the rollout replayed,
+        or, failing that, the last checkpoint's weights restored.
 
         The maze counterpart of the supervised trainer's rollback: at N = 2,000 the recurrent dynamics
         blew up (states to infinity over the 2,500-step episode) after a few updates at the paper's
         learning rate (arrays 16856487 and 16859389, 4 Nov 2026), and every later loss was skipped.
         Here a rollout whose log-probabilities or rewards are not finite is discarded, the weights are
         restored from `good` (the RNN's state_dict after the last update whose rollout was finite),
-        and the rollout is played again with fresh noise.
+        and the rollout is played again with fresh noise. When `tries` replays from `good` all fail,
+        the weights after the last update are themselves unstable (the N = 2,000 seed-3 runs of
+        5 Nov died this way at updates 341 and 1,225); then, as the supervised trainer restores its
+        last snapshot after repeated skips, the weights of the last checkpoint (`snapshot`, up to
+        checkpoint_every updates earlier) are restored and `tries` more replays are made. The
+        optimizer's moments are kept as they are in both cases.
 
         Args:
             good: dict, RNN.state_dict() tensors (copied); n_episodes, T: ints; tries: int,
-            attempts before giving up.
+            attempts from `good` and then from `snapshot`; snapshot: dict like `good` from the
+            last checkpoint, or None.
         Returns:
-            (batch, restored): the finite rollout dict and the number of restores (0 normally).
+            (batch, restored): the finite rollout dict and the number of restores; a restore from
+            the snapshot counts tries + 1 or more, so a reader can tell the two apart.
         Raises:
-            RuntimeError if no finite rollout was obtained in `tries` attempts.
+            RuntimeError if no finite rollout was obtained.
         """
         restored = 0
-        for _ in range(tries):
-            batch = self.rollout(n_episodes, T)
-            if torch.isfinite(batch["logp"]).all() and torch.isfinite(batch["rewards"]).all():
-                return batch, restored
-            self.RNN.load_state_dict(good)
-            restored += 1
-        raise RuntimeError(f"the rollout was not finite {tries} times in a row; the run is stopped")
+        for source in ([good] if snapshot is None else [good, snapshot]):
+            for _ in range(tries):
+                batch = self.rollout(n_episodes, T)
+                if torch.isfinite(batch["logp"]).all() and torch.isfinite(batch["rewards"]).all():
+                    return batch, restored
+                self.RNN.load_state_dict(source)
+                restored += 1
+        raise RuntimeError(f"the rollout was not finite {restored} times in a row; the run is stopped")
 
     @staticmethod
     def mc_advantages(rewards, alive, gamma):
@@ -1098,15 +1107,17 @@ class TrainerPPO:
         self.progress, self.probes, self.last_probe = progress, probes, None
         discount = hp.gamma ** torch.arange(hp.T, device=self.device, dtype=torch.float32)[:, None]
         good = {k: v.detach().clone() for k, v in self.RNN.state_dict().items()}   # last finite weights
+        snapshot = {k: v.clone() for k, v in good.items()}                         # the last checkpoint's
         tic = time.perf_counter()
         for it in range(1, hp.n_updates + 1):
             ramp = hp.warmup_updates and not self.adam_restored
             lr_now = self.lr * min(1.0, it / hp.warmup_updates) if ramp else self.lr
             for group in self.optimizer.param_groups:
                 group["lr"] = lr_now
-            batch, restored = self.safe_rollout(good, hp.n_episodes, hp.T)
+            batch, restored = self.safe_rollout(good, hp.n_episodes, hp.T, snapshot=snapshot)
             if restored:
-                print(f"update {it}: rollout not finite, weights restored ({restored} tries)", flush=True)
+                print(f"update {it}: rollout not finite, weights restored ({restored} tries"
+                      f"{', from the last checkpoint' if restored > 3 else ''})", flush=True)
             if batch["participation"] is not None:
                 eta = float(self.dropout_args.get("eta", 0.5))
                 self.p_bar = (1 - eta) * self.p_bar + eta * batch["participation"]
@@ -1140,9 +1151,10 @@ class TrainerPPO:
                       f"  active {n_active} (mod {n_active_mod})/{self.RNN.N}  kl {r['approx_kl']:.4f}  clip {r['clip_frac']:.2f}"
                       + (f"  growing {r['rescale_growing']}" if "rescale_growing" in r else "")
                       + f"  {(time.perf_counter() - tic) / it:.2f} s/update", flush=True)
-            if (self.checkpoint_fn is not None and self.checkpoint_every
-                    and it % self.checkpoint_every == 0 and it < hp.n_updates):
-                self.checkpoint_fn(it, self.RNN.get_params())
+            if self.checkpoint_every and it % self.checkpoint_every == 0:
+                snapshot = {k: v.clone() for k, v in good.items()}      # the fallback of safe_rollout
+                if self.checkpoint_fn is not None and it < hp.n_updates:
+                    self.checkpoint_fn(it, self.RNN.get_params())
         print(f"done: {hp.n_updates} updates in {time.perf_counter() - tic:.0f} s", flush=True)
         return self.RNN, progress, probes, self.last_probe
 

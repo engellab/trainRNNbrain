@@ -100,11 +100,11 @@ if [ -n "${PARENT_ROOT:-}" ]; then
   fi
   INIT_ADAM="${INIT_ADAM:-true}"
   PARENT="${PARENT_ROOT}/N=${N}_act=${ACT}/s${SEED}"
-  if [ ! -f "${PARENT}/s${SEED}_Params_Maze.npz" ]; then
-    echo "FATAL: ${PARENT} has no s${SEED}_Params_Maze.npz to continue from." >&2; exit 1
+  if ! ls "${PARENT}"/*Params_Maze.npz >/dev/null 2>&1; then     # s<seed>_Params_Maze.npz, or
+    echo "FATAL: ${PARENT} has no *Params_Maze.npz to continue from." >&2; exit 1   # Params_Maze.npz (runs before 5 Nov)
   fi
-  if [ "$INIT_ADAM" = true ] && [ ! -f "${PARENT}/s${SEED}_AdamState_Maze.pt" ]; then
-    echo "FATAL: ${PARENT} has no s${SEED}_AdamState_Maze.pt; continue it with INIT_ADAM=false." >&2; exit 1
+  if [ "$INIT_ADAM" = true ] && ! ls "${PARENT}"/*AdamState_Maze.pt >/dev/null 2>&1; then
+    echo "FATAL: ${PARENT} has no *AdamState_Maze.pt; continue it with INIT_ADAM=false." >&2; exit 1
   fi
   TAG="${TAG}_cont"
   # the path is quoted for Hydra's override grammar, which refuses an unquoted value holding '=' (the

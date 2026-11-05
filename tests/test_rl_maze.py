@@ -294,6 +294,16 @@ def test_safe_rollout_restores():
     assert torch.equal(trainer.RNN.W_rec, good["W_rec"])
     batch, restored = trainer.safe_rollout(good, 4, 10)
     assert restored == 0
+    # the weights after the last update are themselves unstable: every replay from `good` fails
+    # and the last checkpoint's weights are restored instead (counted beyond the three tries)
+    snapshot = {k: v.clone() for k, v in good.items()}
+    bad = {k: v.clone() for k, v in good.items()}
+    bad["W_rec"][0, 0] = float("nan")
+    with torch.no_grad():
+        trainer.RNN.W_rec[0, 0] = float("nan")
+    batch, restored = trainer.safe_rollout(bad, 4, 10, snapshot=snapshot)
+    assert restored == 4 and torch.isfinite(batch["logp"]).all()
+    assert torch.equal(trainer.RNN.W_rec, snapshot["W_rec"])
 
 
 def test_run_script_writes_standard_layout():
