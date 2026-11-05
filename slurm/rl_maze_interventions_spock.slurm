@@ -11,7 +11,7 @@
 # than the squared error; read-out as in #3; "works" = more active units than every control at a
 # probe success within 0.05 of the controls'. The notebook entry written at submission names it.
 #
-# GRID (24 jobs), one per array index; arm = (i - 1) / 3, seed = (i - 1) % 3 + 1:
+# GRID (30 jobs), one per array index; arm = (i - 1) / 3, seed = (i - 1) % 3 + 1:
 #   1-3     control           no option
 #   4-6     frm0.03           trainer.lambda_frm=0.03
 #   7-9     frm0.1            trainer.lambda_frm=0.1                          (the paper's flip-flop value)
@@ -29,6 +29,17 @@
 #                             only, normalised rows, alpha 1.002 per optimizer step, cap 64, protect
 #                             0.2 N, a check every optimizer step, patience 1); stage 2 of issue #5,
 #                             added after indices 1-21 were submitted (7383696, 7383697)
+#   25-27   rescale_mild      the rescaling arm with the supervised defaults for the tilt and the
+#                             cap (trainer_ptrack_freshbatch.yaml: alpha 1.0005 per optimizer step,
+#                             cap 8, so an episode ends after log(8)/log(1.0005) = 4,159 steps, 520
+#                             updates, instead of 2,083 steps at alpha 1.002 and cap 64); every
+#                             other key the paper's. Added 5 Nov after the three paper-value runs
+#                             (22-24) blew up at the end of the warm-up ramp (updates 52-60, the
+#                             rollback guard stopped them): the question is whether a slower tilt
+#                             keeps the recurrent dynamics finite under PPO.
+#   28-30   rescale_few       the paper's arm with rescale_protect_frac 0.05 instead of 0.20: at
+#                             most 50 of the 1,000 units growing at once, so the tilt moves a
+#                             twentieth of the recurrent columns instead of a fifth. Same question.
 # The launcher passes only what an arm sweeps, plus N; every other value is the config's.
 # Expected: about 5.5 h per run at N = 1,000 on a 40 GB card (the suite's rate), 24 runs.
 #
@@ -42,7 +53,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=48G
 #SBATCH --time=12:00:00
-#SBATCH --array=1-24%24
+#SBATCH --array=1-30%30
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
@@ -81,10 +92,12 @@ echo "code: $PKG @ $GITSHA"
 # one entry per arm; the overrides of an arm are separate words on the command line
 # indices 1-3 (control) duplicate the uniform series' N = 1000 ReLU runs (same seeds, the
 # same code with every option off): do not submit them; the series' runs are the controls.
-ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4 rescale)
+ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4 rescale rescale_mild rescale_few)
 ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.lambda_frm=0.3"
                "trainer.lambda_frm=0.1 trainer.lambda_rws=0.05" "model.sigma_w=1.0" "trainer.dropout=true"
-               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1")
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.0005 trainer.prune_args.rescale_cap=8.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.05 trainer.prune_args.check_every=1 trainer.prune_args.patience=1")
 
 i=$SLURM_ARRAY_TASK_ID
 a=$(( (i - 1) / 3 )); SEED=$(( (i - 1) % 3 + 1 ))

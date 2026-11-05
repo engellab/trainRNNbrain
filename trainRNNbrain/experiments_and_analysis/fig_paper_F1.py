@@ -43,8 +43,15 @@ and 404; those are not drawn). Its tick label gives the probe success rate at th
 not an R^2. Panel (d)'s maze sub-panel draws the success rate under the training noise against
 units removed, in the three orders of the other sub-panels, on a y axis of its own labelled
 "success rate" (D_YLABEL_MM of room before it); the ablated weights are the final ones, because no
-earlier snapshot of a maze run is saved. No prune-and-retrain and no selectivity analysis has been
-run on the maze, so its retrain strip in (d) and its column in (e) read "no data".
+earlier snapshot of a maze run is saved. The maze's prune-and-retrain (rl_maze_retrain.py: the
+inactive units removed, or as many at random, or none, and the agent trained 200 further PPO
+updates; MAZE_RETRAIN_DIR, maze_retrain) fills its retrain strip in (d), and its selectivity
+(rl_maze_population_stats.py, the partial-R^2 rule of population_stats.py against the turn and
+speed commands, the distance to the cheese and the heading; data/population_stats_maze.json,
+load_population_stats_all) fills its column in (e). Both are read at the end of training, a fixed
+budget, so the maze's markers in the (d) strip and in (e) are OPEN (mark_fixed), where the
+supervised networks' are filled (their floor-crossing snapshots; #83). Either reads "no data" until
+its file exists.
 
 ROUND 13 (dead-relu-paper#165). The 24 trials of (a) and (b) are drawn from a seeded task: the
 flip-flop task draws its trials from its own generator, seeded from cfg.task.seed (null in every
@@ -245,6 +252,55 @@ MAZE_LABEL = "Maze"
 REPO_ROOT = os.path.normpath(os.path.join(DATA_DIR, "..", ".."))
 MAZE_ROOT = os.path.join(REPO_ROOT, "data", "trained_RNNs_rl_maze", "Maze_suite")
 MAZE_ABLATION_DIR = os.path.join(REPO_ROOT, "data", "rl_maze_ablation")
+MAZE_RETRAIN_DIR = os.path.join(REPO_ROOT, "data", "rl_maze_retrain")          # rl_maze_retrain.py
+MAZE_POP_STATS = os.path.join(REPO_ROOT, "data", "population_stats_maze.json")  # rl_maze_population_stats.py
+
+
+def load_population_stats_all():
+    """The per-network results of population_stats.py plus the maze's, when its file exists.
+
+    The maze results (rl_maze_population_stats.py, task "Maze") live in their own file because
+    fig_ed_population.load sorts data/population_stats.json by the three supervised tasks.
+
+    Returns:
+        list of result dicts, the supervised ones first; the maze's are left out when
+        MAZE_POP_STATS does not exist, and panel (e) then reads "no data" for the maze.
+    """
+    res = load_population_stats()
+    if os.path.exists(MAZE_POP_STATS):
+        with open(MAZE_POP_STATS) as fh:
+            res = res + json.load(fh)["results"]
+    return res
+
+
+def maze_retrain(folder=MAZE_RETRAIN_DIR, N=N_UNITS):
+    """Panel (d)'s maze retrain strip: the JSONs of rl_maze_retrain.py, one dict per network.
+
+    rl_maze_retrain.py writes one file per (network, arm), <cell>__s<seed>__<arm>.json, each with a
+    `curve` of (update, success score) pairs, the score of the ablation curves (success under the
+    training noise); the arms are intact, silent_removed and random_removed. They are joined here
+    into the shape the supervised retrain dicts have (ablate_silent_units.retrain_test): label, N,
+    n_silent and one curve per arm, so panel_d draws them unchanged. A network is listed once its
+    silent_removed file exists; a missing arm is left out of its dict.
+
+    Args:
+        folder: str; N: int, the network size.
+    Returns:
+        list of dicts, one per network, in seed order.
+    """
+    out = []
+    for path in sorted(glob.glob(os.path.join(folder, f"N={N}_act=relu__s*__silent_removed.json"))):
+        d = {}
+        for arm in ("intact", "silent_removed", "random_removed"):
+            f = path.replace("__silent_removed.json", f"__{arm}.json")
+            if os.path.exists(f):
+                with open(f) as fh:
+                    a = json.load(fh)
+                d[arm] = [tuple(pt) for pt in a["curve"]]
+                d.update(label=a["label"], N=a["N"], n_silent=a["n_silent"], n_active=a["n_active"],
+                         retrain_updates=a["retrain_updates"], run_dir=a["run_dir"])
+        out.append(d)
+    return out
 
 # Figure 1 names each task in full once (panel a, and the caption) and then by the abbreviation the
 # paper defines; the series labels above stay as they are, because the Figure 2 legends use them.
@@ -1480,13 +1536,13 @@ def maze_ablation(folder=MAZE_ABLATION_DIR, N=N_UNITS):
     the counterpart of the supervised held-out R^2; it is stored under the r2_* keys because
     panel_d reads those, and SCORE labels the axis "success rate". The scores with exactly the
     inactive units removed sit on the k grid (rl_maze_ablate.py puts the inactive count on it); the
-    score with the active units removed is interpolated between grid points. No prune-and-retrain
-    has been run on the maze, so the retrain list is empty and the strip reads "no data".
+    score with the active units removed is interpolated between grid points. The retrain list is
+    maze_retrain()'s (empty until rl_maze_retrain.py has run, when the strip reads "no data").
 
     Args:
         folder: str, the folder of the JSONs; N: int, the network size.
     Returns:
-        (ablation dicts, [], "end") as ablation_for returns them; each dict holds N, n_active,
+        (ablation dicts, maze_retrain(), "end") as ablation_for returns them; each dict holds N, n_active,
         n_silent, ks, quiet_first, busy_first, random (one list per random order), r2_full,
         r2_no_silent, r2_random_same_count, r2_no_active, iteration (the last probe's PPO update),
         label and run_dir.
@@ -1506,7 +1562,7 @@ def maze_ablation(folder=MAZE_ABLATION_DIR, N=N_UNITS):
                         r2_no_active=float(np.interp(a["n_active"], ks, a["score_busy"])),
                         iteration=int(probes["update"][-1]), label=a["label"],
                         run_dir=a["run_dir"]))
-    return res, [], "end"
+    return res, maze_retrain(), "end"
 
 
 def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
@@ -1573,23 +1629,26 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
         ax.plot(x, rand.mean(0), "--", lw=0.9, color=col, zorder=4)
         ax.plot(x, busy.mean(0), ":", lw=1.1, color=col, zorder=4)
         ax.spines["left"].set_position(("outward", D_SPINE_OUT_PT))
+        # fill means the floor crossing (#83): a task read at the end of a fixed budget (the maze,
+        # read-out "end") gets open markers
+        mark = ps.mark_fixed(col) if readout == "end" else ps.mark_floor(col)
         if ax_s is None:
             for t in ret:
                 xs = 100 * t["n_silent"] / t["N"]
-                ax.plot(xs, t["silent_removed"][-1][1], "*", ms=D_STAR_MS, **ps.mark_floor(col),
+                ax.plot(xs, t["silent_removed"][-1][1], "*", ms=D_STAR_MS, **mark,
                         zorder=7, clip_on=False)
                 if t.get("random_removed"):
-                    ax.plot(xs, t["random_removed"][-1][1], "^", ms=D_TRI_MS, **ps.mark_floor(col),
+                    ax.plot(xs, t["random_removed"][-1][1], "^", ms=D_TRI_MS, **mark,
                             zorder=6, clip_on=False)
         else:
             # one column per retraining, the networks spread a little within it
             dx = np.linspace(-D_STRIP_JITTER, D_STRIP_JITTER, len(ret)) if len(ret) > 1 else [0.0]
             for j, t in zip(dx, ret):
                 ax_s.plot(j, max(t["silent_removed"][-1][1], 0), "*", ms=D_STAR_MS,
-                          **ps.mark_floor(col), zorder=7, clip_on=False)
+                          **mark, zorder=7, clip_on=False)
                 if t.get("random_removed"):
                     ax_s.plot(1 + j, max(t["random_removed"][-1][1], 0), "^", ms=D_TRI_MS,
-                              **ps.mark_floor(col), zorder=6, clip_on=False)
+                              **mark, zorder=6, clip_on=False)
             ax_s.set(xlim=D_STRIP_XLIM, ylim=D_YLIM)
             ax_s.set_title("trained\nfurther", fontsize=ps.TICK_PT, color=ps.MUTED, pad=D_TITLE_PAD_PT)
             ax_s.set_xticks([])
@@ -2042,19 +2101,21 @@ def panel_selective(ax, res, seeds_d, tasks=MAIN_TASKS):
     units; right, the number of selective active units divided by the number of active units. Tick
     labels "all" and "active" name the two sets under every pair, and the task names sit on a second
     line below them, so no legend is needed (PR #147 review, row 10). A task with no network in
-    `res` (the maze, until population_stats.py scores it; #182) gets "no data" in its column.
+    `res` (the maze, until rl_maze_population_stats.py has run; #182) gets "no data" in its column.
+    The maze networks are read at the end of training, a fixed budget, so their markers are open
+    (mark_fixed), where the supervised ones, the floor-crossing snapshots of (d), are filled (#83).
 
     Args:
         ax: axes; res: the per-network results of population_stats.py (fig_ed_population.load()),
             each with "task", "seed", "N" and "S3a" = {"all", "act", "n_all", "n_act"};
-        seeds_d: set of int, the seeds of the supervised panel (d) networks; the results must be
-            those networks;
+        seeds_d: set of int, the seeds of the supervised panel (d) networks; the supervised
+            results must be those networks (the maze's seeds are 1-3 and are not checked here);
         tasks: the task labels to draw, left to right (default MAIN_TASKS).
     Returns:
         list of (task, shares over all units, shares over active units), one per task; both arrays
         empty for a task with no data.
     """
-    seeds_e = {int(str(s["seed"]).lstrip("s")) for s in res}
+    seeds_e = {int(str(s["seed"]).lstrip("s")) for s in res if s["task"] != TASK_SHORT[MAZE_LABEL]}
     assert seeds_e == seeds_d, ("panel e must draw the panel d networks", sorted(seeds_e), sorted(seeds_d))
     out = []
     offs = (-0.05, 0.0, 0.05)                 # the three networks of a task, side by side
@@ -2069,8 +2130,9 @@ def panel_selective(ax, res, seeds_d, tasks=MAIN_TASKS):
         y_act = np.array([s["S3a"]["act"] for s in rows])
         for dx, ya, yb in zip(offs, y_all, y_act):
             ax.plot([k - E_DX + dx, k + E_DX + dx], [ya, yb], color=col, lw=ps.THIN_LW, zorder=2)
+        mark = ps.mark_fixed(col) if label == MAZE_LABEL else ps.mark_floor(col)
         for side, y in ((-E_DX, y_all), (E_DX, y_act)):
-            ax.plot(k + side + np.array(offs), y, "o", ms=ps.MARKER_PT, color=col, zorder=4,
+            ax.plot(k + side + np.array(offs), y, "o", ms=ps.MARKER_PT, ls="none", **mark, zorder=4,
                     clip_on=False)
         out.append((TASK_SHORT[label], y_all, y_act))
     below = offset_copy(ax.get_xaxis_transform(), fig=ax.figure, y=-11.5, units="points")
@@ -2275,7 +2337,7 @@ def main():
 
     ax_e = ax_mm(fig, *L["e"])
     seeds_d = {int(re.search(r"__s(\d+)__", lab).group(1)) for lab in rec["floor_now"]}
-    rows_e = panel_selective(ax_e, load_population_stats(), seeds_d)
+    rows_e = panel_selective(ax_e, load_population_stats_all(), seeds_d)
     letter_mm(ax_e, "e")
 
     check_overlaps(fig)
