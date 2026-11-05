@@ -81,6 +81,38 @@ N=${TASK_N[$i]}; ACT=${TASK_ACT[$i]}; SEED=${TASK_SEED[$i]}
 TAG="suite/N=${N}_act=${ACT}"
 echo "Task ${i}: N=${N} model=rnn_${ACT}_standard seed=${SEED} -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 
+# CONTINUATION (optional, since 5 Nov 2026). With PARENT_ROOT set to the folder holding the cells to
+# continue (the suite's <SAVE_TO>/Maze_suite) and EXTRA_UPDATES to the number of further updates,
+# each index continues its cell's run (same N, activation, seed) from the parent's weights
+# (paths.init_from) and, with INIT_ADAM=true (the default), its Adam moments (paths.init_adam; the
+# warm-up ramp is then not repeated), counting updates on from the parent's last
+# (trainer.iter_offset=auto), into the cell <tag>_cont beside the parent, which the readers
+# (common.maze_load_runs) join with the parent into one run. A parent written before the AdamState
+# file existed (every run of the first uniform series) is continued with INIT_ADAM=false: Adam
+# starts afresh and the ramp runs again. Without PARENT_ROOT the extra arguments are empty and the
+# run is the fresh one above. The paper's interventions keep their launcher; this one is the suite.
+#   PARENT_ROOT=$HOME/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite EXTRA_UPDATES=2000 INIT_ADAM=false \
+#     sbatch --array=10-12 --time=24:00:00 slurm/rl_maze_suite_spock.slurm
+CONT=()
+if [ -n "${PARENT_ROOT:-}" ]; then
+  if [ -z "${EXTRA_UPDATES:-}" ]; then
+    echo "FATAL: PARENT_ROOT is set but EXTRA_UPDATES (the number of further updates) is not." >&2; exit 1
+  fi
+  INIT_ADAM="${INIT_ADAM:-true}"
+  PARENT="${PARENT_ROOT}/N=${N}_act=${ACT}/s${SEED}"
+  if [ ! -f "${PARENT}/s${SEED}_Params_Maze.npz" ]; then
+    echo "FATAL: ${PARENT} has no s${SEED}_Params_Maze.npz to continue from." >&2; exit 1
+  fi
+  if [ "$INIT_ADAM" = true ] && [ ! -f "${PARENT}/s${SEED}_AdamState_Maze.pt" ]; then
+    echo "FATAL: ${PARENT} has no s${SEED}_AdamState_Maze.pt; continue it with INIT_ADAM=false." >&2; exit 1
+  fi
+  TAG="${TAG}_cont"
+  # the path is quoted for Hydra's override grammar, which refuses an unquoted value holding '=' (the
+  # cell name N=<N>_act=<act>), as experiment_tag is below
+  CONT=(paths.init_from="\"${PARENT}\"" paths.init_adam="$INIT_ADAM" trainer.n_updates="$EXTRA_UPDATES" trainer.iter_offset=auto)
+  echo "continuation: from ${PARENT} (init_adam=${INIT_ADAM}), ${EXTRA_UPDATES} further updates -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
+fi
+
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   task=Maze trainer=trainer_ppo seed="$SEED" model="rnn_${ACT}_standard" model.N="$N" \
-  paths=paths_local paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\""
+  paths=paths_local paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\"" "${CONT[@]}"

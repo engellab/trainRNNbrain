@@ -22,6 +22,13 @@ T: 500                      # decisions per episode (RNN steps = T * substeps): 
 # the state after the last of them. Training cost scales with substeps.
 substeps: 5
 n_updates: 2000             # the task is learned within ~500; the rest measures the decline after
+# THE UPDATE CLOCK of a continuation (paths.init_from): the absolute update at which this run's count
+# starts, added to every update index in Progress.json and Participation.npz, so the continuation's
+# records start where the parent's end and common.maze_load_runs reads the chain as one run. `auto`
+# = the parent's last recorded update when paths.init_from is set, else 0. Resolved in run_rl.py and
+# written back, so the saved config records the window this run covers (as the supervised trainer
+# configs' iter_offset is).
+iter_offset: auto
 gamma: 0.99
 gae_lambda: 0.95
 clip: 0.2
@@ -48,6 +55,11 @@ lr: 0.001                   # scaled by (100 / N) ** lr_scale_exp, the supervise
 # later update 0.003 at every size), and at N = 2,000 the recurrent dynamics blew up over the
 # 2,500-step episode (arrays 16856487, 16859389). The ramp removes that jump at every size
 # without changing the rate rule, so one protocol serves N = 250 to 4,000. 0 switches it off.
+# A CONTINUATION that restores its parent's Adam moments (paths.init_from with paths.init_adam:
+# true) does not ramp again: the jump the ramp removes comes from Adam's first steps before its
+# moment estimates exist, and a restored state has them, so a second ramp would only slow the
+# continuation's first warmup_updates updates. A continuation without the moments (paths.init_adam:
+# false, or a parent written before the AdamState file existed) starts Adam afresh and ramps again.
 warmup_updates: 50
 lr_scale_exp: 0.3333333333333333
 weight_decay: 1.0e-6        # Adam's coupled L2, as in the supervised trainer

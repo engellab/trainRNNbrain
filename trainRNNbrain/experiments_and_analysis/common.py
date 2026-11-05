@@ -1023,6 +1023,58 @@ def maze_learned_index(probe_success, hold=MAZE_LEARNED_HOLD, level=MAZE_LEARNED
     return None
 
 
+def maze_run_chain(folder, root=None):
+    """A maze run and every run it continues, oldest first: the maze counterpart of warm_start_chain.
+
+    Follows `paths.init_from` in each saved config (run_rl.py's warm start). A parent that is not
+    at its recorded path (a local copy of a cluster tree) is looked for under `root` by the last two
+    components of the recorded path (<cell>/s<seed>, the layout run_rl.py writes), then as a nested
+    `parent_*` folder, as warm_start_chain does; when neither exists the chain stops there and a
+    warning says so, since the run's records then start at its own offset.
+
+    Args:
+        folder: str, a maze run folder; root: str or None, the folder the runs are read from.
+    Returns:
+        list of run folders (absolute paths), the original run first and `folder` last.
+    """
+    chain, d = [], os.path.abspath(folder)
+    while d and d not in chain:
+        chain.append(d)
+        cfgs = sorted(glob.glob(os.path.join(d, "*config.yaml")))
+        parent = None
+        if cfgs:
+            with open(cfgs[0]) as fh:
+                parent = (yaml.safe_load(fh).get("paths") or {}).get("init_from", None)
+        if parent and not os.path.isdir(parent):
+            cell, seed = os.path.split(os.path.dirname(parent.rstrip("/")))[1], os.path.basename(parent.rstrip("/"))
+            local = os.path.join(root, cell, seed) if root else None
+            nested = sorted(glob.glob(os.path.join(d, "parent_*", "")))
+            found = local if (local and os.path.isdir(local)) else (nested[0] if nested else None)
+            if found is None:
+                print(f"WARNING: {d} continues {parent}, which is not on disk (nor {local}); "
+                      f"its records start at its own offset")
+            parent = found
+        d = os.path.abspath(parent) if parent else None
+    return chain[::-1]
+
+
+def _maze_read_run(folder):
+    """The three data files of one maze run folder.
+
+    Args:
+        folder: str, a run folder with a *config.yaml, a *Progress.json and a *Participation.npz.
+    Returns:
+        dict: cfg (the saved config as a plain dict), progress (list of dicts, one per update),
+        probes (dict of arrays over probes).
+    """
+    with open(sorted(glob.glob(os.path.join(folder, "*config.yaml")))[0]) as fh:
+        cfg = yaml.safe_load(fh)
+    with open(sorted(glob.glob(os.path.join(folder, "*Progress.json")))[0]) as fh:
+        progress = json.load(fh)
+    probes = dict(np.load(sorted(glob.glob(os.path.join(folder, "*Participation.npz")))[0]))
+    return {"cfg": cfg, "progress": progress, "probes": probes}
+
+
 def maze_load_runs(root):
     """Every finished maze run under a root folder (rl_maze_readout.py and fig_ed_maze.py read it).
 
@@ -1031,31 +1083,49 @@ def maze_load_runs(root):
     trainRNNbrain/rl/run_maze_ppo.py wrote before (config.yaml, Progress.json, Participation.npz;
     the task block under `env`). Nothing on disk was converted.
 
+    A CONTINUED RUN IS ONE RUN. A run whose saved config names a parent under `paths.init_from`
+    (run_rl.py's warm start) is read together with every run of its chain (maze_run_chain), the
+    progress records and the probe arrays concatenated in update order, the parent's first: the
+    update indices are absolute (trainer.iter_offset), so the joined series is one run's, and
+    maze_learned_index works on the joined probes. The parents are not listed again on their own.
+    The record's folder is the last run's; `chain` lists every folder of the chain, oldest first
+    (one entry for a run without a parent). A probe key that not every run of the chain saved is
+    left out of the joined probes. A chain whose update indices do not increase from one run to the
+    next (a parent continued twice into the same root, or a child dated wrongly) stops the reader.
+
     Args:
         root: str, folder holding <cell>/s<seed>/ run folders (any depth-2 layout), each with a
             *config.yaml, a *Progress.json and a *Participation.npz.
     Returns:
         list of dicts: N (int), act (str, the saved activation name: relu, tanh, sigmoid, softplus,
-        leaky_relu), cue (bool, the task's goal_cue), seed (int), folder (str), progress (list of
-        dicts, one per PPO update: update, discounted_return, success, steps, ...), probes (dict of
-        arrays over probes: update, active, active_mod when the run saved it, probe_success,
-        p_update, p), sorted by N, act, cue, seed.
+        leaky_relu), cue (bool, the task's goal_cue), seed (int), folder (str), chain (list of str),
+        progress (list of dicts, one per PPO update: update, discounted_return, success, steps,
+        ...), probes (dict of arrays over probes: update, active, active_mod when the run saved it,
+        probe_success, p_update, p), sorted by N, act, cue, seed.
     """
+    folders = [os.path.abspath(f.rstrip("/")) for f in sorted(glob.glob(os.path.join(root, "*", "s*", "")))]
+    folders = [f for f in folders if glob.glob(os.path.join(f, "*config.yaml"))]
+    chains = {f: maze_run_chain(f, root) for f in folders}
+    continued = {p for chain in chains.values() for p in chain[:-1]}
     runs = []
-    for folder in sorted(glob.glob(os.path.join(root, "*", "s*", ""))):
-        folder = folder.rstrip("/")
-        cfgs = sorted(glob.glob(os.path.join(folder, "*config.yaml")))
-        if not cfgs:
+    for folder in folders:
+        if folder in continued:
             continue
-        with open(cfgs[0]) as fh:
-            cfg = yaml.safe_load(fh)
-        with open(sorted(glob.glob(os.path.join(folder, "*Progress.json")))[0]) as fh:
-            progress = json.load(fh)
-        probes = dict(np.load(sorted(glob.glob(os.path.join(folder, "*Participation.npz")))[0]))
+        chain = chains[folder]
+        parts = [_maze_read_run(d) for d in chain]
+        cfg = parts[-1]["cfg"]
+        progress = [rec for part in parts for rec in part["progress"]]
+        updates = [rec["update"] for rec in progress]
+        if any(b <= a for a, b in zip(updates, updates[1:])):
+            raise ValueError(f"maze_load_runs: the update indices of the chain {chain} do not increase "
+                             f"(the runs' first and last: "
+                             f"{[(p['progress'][0]['update'], p['progress'][-1]['update']) for p in parts]})")
+        keys = [k for k in parts[-1]["probes"] if all(k in part["probes"] for part in parts)]
+        probes = {k: np.concatenate([part["probes"][k] for part in parts]) for k in keys}
         task_block = cfg["task"] if "task" in cfg else cfg["env"]
         runs.append({"N": int(cfg["model"]["N"]), "act": str(cfg["model"]["activation_args"]["name"]),
                      "cue": bool(task_block["goal_cue"]), "seed": int(cfg["seed"]),
-                     "folder": folder, "progress": progress, "probes": probes})
+                     "folder": folder, "chain": chain, "progress": progress, "probes": probes})
     return sorted(runs, key=lambda r: (r["N"], r["act"], r["cue"], r["seed"]))
 
 

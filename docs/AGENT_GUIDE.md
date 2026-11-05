@@ -135,6 +135,9 @@ direct route; relay through the Mac (`slurm/sync_b5_spock_to_della.sh`).
   `common.warm_start_chain`. `paths.transfer_from` copies W_rec/W_inp/y_init into a new task with a
   fresh W_out and starts its own chain. Top-ups: `SilentReLU_ff_topup200k_della.slurm` (`PARENTS`,
   `TARGET`, `KEEP=1`). The rescale rule's internal state is not saved, so every warm start resets it.
+  A maze run is continued the same way (`run_rl.py`: `paths.init_from` + `init_adam`, the update
+  clock from `trainer.iter_offset: auto`); `common.maze_load_runs` joins the chain into one run, and
+  the suite launchers continue a cell with `PARENT_ROOT` and `EXTRA_UPDATES`.
 - **Snapshots:** every 1000 iterations, kept (`checkpoint_every: 1000`, `checkpoint_keep: true`),
   W_rec in float16, compressed with `np.savez_compressed`; an exact float32 copy with Adam state in
   `resume/`. float16 changes R² by less than 1e-5 and leaves the active set identical.

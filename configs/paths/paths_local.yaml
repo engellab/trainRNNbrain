@@ -8,6 +8,12 @@ init_from: null
 # Restore the source run's Adam moments too. OFF by default: carrying momentum shaped by the old
 # objective across a penalty SWITCH imports the old search direction and confounds the very effect
 # being measured. Turn on only when continuing under the SAME penalty.
+# A MAZE RUN (task=Maze, trainRNNbrain/training/run_rl.py) is continued the same way: init_from names a
+# finished maze run folder, whose *Params_Maze.npz gives the weights and, with init_adam, whose
+# *AdamState_Maze.pt gives the moments (the warm-up ramp is then not repeated, see
+# configs/trainer/trainer_ppo.yaml); the update clock continues from the parent's last update
+# (trainer.iter_offset: auto) and common.maze_load_runs reads the chain as one run. Not saved, so a
+# continuation restarts them: the rescale rule's state and the dropout participation EMA.
 init_adam: false
 
 # Transfer to a NEW TASK (B4): folder of a finished run or kept snapshot whose W_rec, W_inp, bias
