@@ -487,9 +487,10 @@ def test_dead_dropout_refused():
 def test_rescale_rule_three_states():
     """The rescale rule on two units forced silent, A (incoming rows negative but for one input and
     a few live sources, so the tilt can revive it) and B (every incoming entry negative, so nothing
-    can), the rule called once per rollout with no optimizer step in between, at the paper's values
-    but patience 2, alpha 2, target 0.3 x the rate cap and no ceiling on the growing set. The
-    oracles are numpy: common.participation for the silent set, tilt_by_hand, soft_max_rate.
+    can), the rule called once per check on the states `sequence` recomputes for a fresh rollout
+    (what ppo_update hands it after each optimizer step), with no optimizer step in between, at the
+    paper's values but patience 2, alpha 2, target 0.3 x the rate cap and no ceiling on the growing
+    set. The oracles are numpy: common.participation for the silent set, tilt_by_hand, soft_max_rate.
     Check 1: both silent, one strike, nothing opened, no weight touched. Check 2 (patience): both
     open; the W_rec and W_out columns of every opened unit are the next draws of the RNN's generator
     at 1/sqrt(N) and every other column is untouched; the input rows of A and B are the hand-tilted
@@ -520,8 +521,9 @@ def test_rescale_rule_three_states():
     graduated_at, spent_at = None, None
     for k in range(1, 15):
         out = trainer.rollout(B, T)
-        st = out["states"]
-        assert st.shape == (N, T + 1, B)
+        with torch.no_grad():
+            st = trainer.sequence(out["u"], out["noise"])[0]
+        assert st.shape == (N, T + 1, B)                     # T decisions plus the bootstrap one, as ppo_update has them
         p = participation(rnn.get_firing_rates(st).numpy())
         silent = p < 0.05 * np.quantile(p, 0.95)
         act = soft_max_rate(st.numpy())
@@ -530,7 +532,7 @@ def test_rescale_rule_three_states():
         gstate = rnn.random_generator.get_state()
         counts = trainer.prune_and_reinit(st)
         growing, cum = trainer._rescale_growing, trainer._rescale_cum
-        assert counts["rescale_growing"] == int(growing.sum()) and trainer.update_n == k
+        assert counts["rescale_growing"] == int(growing.sum()) and trainer.step_n == k
         if k == 1:
             assert silent[A] and silent[Bu] and counts["rescale_opened"] == 0
             assert not growing[A] and not growing[Bu] and trainer._reinit_strikes[A] == 1 and trainer._reinit_strikes[Bu] == 1
@@ -587,18 +589,24 @@ def test_rescale_protection_blanks_the_incoming_gradient():
     epoch, one minibatch) leaves W_rec.grad[j, :] and W_inp.grad[j, :] at exactly 0 after the
     blanking, W_rec[j, :] and W_inp[j, :] unchanged (Adam's moments start at 0), W_rec[:, j] and
     W_out[:, j] changed with a gradient, and other rows changed; the same rollout through a trainer
-    without the option moves row j, so the row's gradient is not zero on its own."""
+    without the option moves row j, so the row's gradient is not zero on its own. The rule's check
+    after the step (patience 10^6, target 1e-6 x the cap) dooms no unit and graduates j without a
+    tilt, so the weights after the update are the optimizer's alone; the step clock reads 1."""
     torch.manual_seed(9)
     task = make_task()
-    trainer = make_trainer(task, critic=False, n_epochs=1, n_minibatches=1, prune_reinit=True, prune_args=RESCALE_ARGS)
+    args = {**RESCALE_ARGS, "patience": 10 ** 6, "rescale_target_frac": 1e-6}
+    trainer = make_trainer(task, critic=False, n_epochs=1, n_minibatches=1, prune_reinit=True, prune_args=args)
     plain = make_trainer(task, critic=False, n_epochs=1, n_minibatches=1)
-    assert torch.equal(trainer.RNN.W_rec, plain.RNN.W_rec) and plain.rollout(2, 3)["states"] is None
+    assert torch.equal(trainer.RNN.W_rec, plain.RNN.W_rec)
     out = trainer.rollout(6, 12)
     adv, ret = trainer.mc_advantages(out["rewards"], out["alive"], 0.99)
-    j = int(trainer.participation_from_states(out["states"]).argmax())
+    with torch.no_grad():
+        j = int(trainer.participation_from_states(trainer.sequence(out["u"], out["noise"])[0]).argmax())
     trainer._rescale_growing[j] = True
     W_rec0, W_inp0 = trainer.RNN.W_rec.detach().clone(), trainer.RNN.W_inp.detach().clone()
-    trainer.ppo_update(out, adv, ret)
+    stats = trainer.ppo_update(out, adv, ret)
+    assert trainer.step_n == 1 and not trainer._rescale_growing[j]
+    assert stats["rescale_graduated"] == 1 and stats["rescale_opened"] == 0 and stats["rescale_growing"] == 0
     g_rec, g_inp, g_out = trainer.RNN.W_rec.grad, trainer.RNN.W_inp.grad, trainer.RNN.W_out.grad
     others = [i for i in range(32) if i != j]
     assert g_rec[j].abs().max() == 0 and g_inp[j].abs().max() == 0
@@ -613,9 +621,10 @@ def test_rescale_protection_blanks_the_incoming_gradient():
 def test_rescale_counts_in_progress():
     """run_training with the rule on (the paper's values, three units forced silent) records in
     every update the four counts rescale_growing, rescale_opened, rescale_graduated and
-    rescale_spent as integers, with at least one episode opened, the growing set never above
-    round(0.2 N) = 6, and the update clock at n_updates at the end; without the option the records
-    have no such keys."""
+    rescale_spent as integers (opened, graduated and spent summed over the update's checks, one per
+    optimizer step; growing after the last), with at least one episode opened, the growing set
+    never above round(0.2 N) = 6, and the step clock at n_updates x n_epochs x n_minibatches =
+    4 x 4 x 2 = 32 at the end; without the option the records have no such keys."""
     torch.manual_seed(10)
     task = make_task()
     hp = dict(n_updates=4, n_episodes=6, T=10, probe_episodes=4, probe_every=2, warmup_updates=1, checkpoint_every=0)
@@ -628,7 +637,7 @@ def test_rescale_counts_in_progress():
     assert all(keys <= set(r) for r in progress)
     assert all(isinstance(r[k], int) and r[k] >= 0 for r in progress for k in keys)
     assert sum(r["rescale_opened"] for r in progress) >= 1 and max(r["rescale_growing"] for r in progress) <= 6
-    assert trainer.update_n == 4
+    assert trainer.step_n == 32 and all(r["skipped"] == 0 for r in progress)
     plain = make_trainer(task, critic=False, **hp)
     _, progress, _, _ = plain.run_training()
     assert not any(keys & set(r) for r in progress)

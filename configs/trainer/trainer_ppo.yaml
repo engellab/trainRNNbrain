@@ -98,35 +98,37 @@ dropout_args:               # the supervised block, with drop_rate and dropout_b
   activity_q: 0.9           # the quantile in p = std(r) + q(|r|) of the EMA's input
 # --- RESCALING (issue #5, stage 2): the supervised prune_and_reinit_ in reinit_mode "rescale" with a
 # fixed target, the three-state rule dormant -> growing -> mature (TrainerPPO.prune_and_reinit).
-# Once per update, after the update's optimizer steps, on the participation of that update's
-# training rollout: a unit silent (p < active_rel x q95(p)) for `patience` checks opens an episode,
-# in which its outgoing column is redrawn once, its incoming rows are tilted from inhibition toward
-# excitation by rescale_alpha per update and held out of the task gradient, until its soft-max rate
-# reaches the target or its cumulative factor reaches rescale_cap. The values below are the paper's
-# arm (slurm/SilentReLU_size_series_della.slurm), which the maze launcher passes as swept keys as
-# well; where the supervised default (trainer_ptrack_freshbatch.yaml) differs, it is noted. What is
-# counted in iterations there is counted in PPO updates here (check_every, maturity, the strikes).
+# Once per gradient step (after every optimizer step of ppo_update, n_epochs x n_minibatches per
+# update), on the participation of the states recomputed for that minibatch, the noisy rollout
+# states of its episodes: a unit silent (p < active_rel x q95(p)) for `patience` checks opens an
+# episode, in which its outgoing column is redrawn once, its incoming rows are tilted from inhibition
+# toward excitation by rescale_alpha per step and held out of the task gradient, until its soft-max
+# rate reaches the target or its cumulative factor reaches rescale_cap. The values below are the
+# paper's arm (slurm/SilentReLU_size_series_della.slurm), which the maze launcher passes as swept
+# keys as well; where the supervised default (trainer_ptrack_freshbatch.yaml) differs, it is noted.
+# What is counted in iterations there is counted in optimizer steps here (check_every, maturity, the
+# strikes): 16,000 steps in a 2,000-update run at 4 epochs x 2 minibatches.
 prune_reinit: false         # true switches the rule on at the values below
 prune_args:
   reinit_mode: rescale      # the only mode mirrored; random, zero_out, orth, mix, bias_kick and
                             # copy are refused at construction
-  check_every: 1            # updates between checks (paper 1 iteration; supervised default 100)
+  check_every: 1            # optimizer steps between checks (paper 1 iteration; supervised default 100)
   patience: 1               # consecutive silent checks before a unit is doomed (paper 1; supervised default 3)
   active_rel: 0.05          # silent if participation < this x q95(participation), the project's rule
   utility: participation    # the score that orders candidates when more are doomed than may be
                             # opened: "participation" = p itself; "contribution" = the running mean
                             # of p x sum|outgoing weight| (Dohare et al. 2024), decayed by utility_decay
   utility_decay: 0.99       # running-average rate of the contribution utility (updated every check)
-  maturity: 0               # updates of unconditional protection after a unit is doomed (0 = off)
+  maturity: 0               # optimizer steps of unconditional protection after a unit is doomed (0 = off)
   max_replace_frac: 1.0     # ceiling on the fraction of units doomed per check, lowest score first
-  rescale_alpha: 1.002      # the tilt per update: positive incoming entries x alpha, negative / alpha
-                            # (paper 1.002 per iteration; supervised default 1.0005)
+  rescale_alpha: 1.002      # the tilt per optimizer step: positive incoming entries x alpha, negative
+                            # / alpha (paper 1.002 per iteration; supervised default 1.0005)
   rescale_target_frac: 10.0 # a growing unit graduates when its soft-max rate (the rate penalty's
                             # statistic, tau from frm_args) reaches this x the rate cap
                             # cap_fr x log1p(100) / log1p(N) (paper 10; supervised default 0.0, the
                             # legacy stop-at-the-floor path, which is refused here)
-  rescale_cap: 64.0         # an episode ends unrevived when the cumulative factor reaches this
-                            # (paper 64; supervised default 8)
+  rescale_cap: 64.0         # an episode ends unrevived when the cumulative factor reaches this, after
+                            # log(64) / log(1.002) = 2,083 steps (paper 64; supervised default 8)
   rescale_protect_frac: 0.20  # ceiling on the fraction of units growing, and so gradient-protected,
                             # at once (paper 0.2)
   rescale_active_only: true # tilt only the W_rec columns of sources that are firing (not silent) at

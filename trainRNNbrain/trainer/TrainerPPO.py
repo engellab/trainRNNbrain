@@ -41,13 +41,15 @@ before they existed (checked 5 Nov 2026 at N = 40, 3 updates, seed 7, against ma
 RESCALING (issue #5, stage 2) is the fifth option, `prune_reinit` and `prune_args`: the supervised
 `Trainer.prune_and_reinit_` in reinit_mode "rescale" with a fixed target, the three-state rule
 dormant -> growing -> mature that the paper's rescaling arm runs
-(slurm/SilentReLU_size_series_della.slurm). `prune_and_reinit` runs once per update, after the
-update's optimizer steps, on the participation of that update's training rollout; the rollout
-keeps its states for it (batch["states"]). `zero_protected_grads` blanks the task gradient on the
-growing units' incoming rows in every minibatch of `ppo_update`. Where the supervised rule counts
-iterations, this one counts updates (the docstring of `prune_and_reinit` lists each quantity).
-With the option off the run is bit-identical to one made before it existed (checked at N = 40, 3
-updates, seed 7, against main at 9a49c9e).
+(slurm/SilentReLU_size_series_della.slurm). `prune_and_reinit` runs once per gradient step, inside
+`ppo_update` after every optimizer step, on the states `sequence` recomputed for that minibatch
+(the noisy rollout states of its episodes under the weights before the step, the counterpart of
+the supervised noisy training pass), so the rule and the optimizer share one clock as they do in
+the supervised train_step. `zero_protected_grads` blanks the task gradient on the growing units'
+incoming rows in every minibatch of `ppo_update`. Where the supervised rule counts iterations,
+this one counts optimizer steps, n_epochs x n_minibatches per update (the docstring of
+`prune_and_reinit` lists each quantity). With the option off the run is bit-identical to one made
+before it existed (checked at N = 40, 3 updates, seed 7, against main at 9a49c9e).
 
 WHY THE NOISE IS DRAWN UP FRONT. PPO recomputes the log-probability of the rollout's actions under
 the updated parameters by re-running the RNN over the stored observations. The noise is part of
@@ -220,15 +222,15 @@ class TrainerPPO:
         # THE RULE'S STATE, the supervised Trainer's tensors of the same names, one entry per unit:
         # consecutive silent checks; the running contribution utility; the update at which the unit
         # was last doomed (maturity), -1e9 for never; the cumulative tilt factor of the current
-        # episode; whether the unit is growing (tilted and gradient-protected). update_n counts
-        # the updates completed before the current check, as the supervised iter_n does for
-        # iterations: 0 at the first check.
+        # episode; whether the unit is growing (tilted and gradient-protected). step_n counts the
+        # optimizer steps completed before the current check, as the supervised iter_n counts the
+        # iterations completed before its check: 0 at the first check.
         self._reinit_strikes = torch.zeros(RNN.N, device=RNN.device)
         self._unit_utility = torch.zeros(RNN.N, device=RNN.device)
         self._last_replaced = torch.full((RNN.N,), -1e9, device=RNN.device)
         self._rescale_cum = torch.ones(RNN.N, device=RNN.device)
         self._rescale_growing = torch.zeros(RNN.N, dtype=torch.bool, device=RNN.device)
-        self.update_n = 0
+        self.step_n = 0
         self.RNN = RNN
         self.Task = Task
         self.optimizer = optimizer
@@ -639,17 +641,21 @@ class TrainerPPO:
         "rescale" with rescale_target_frac > 0, the three-state rule dormant -> growing -> mature,
         step for step and in the same order. The supervised rule runs once per iteration, after
         the optimizer step, on the noisy training batch of that iteration; this one runs once per
-        update, after the update's n_epochs x n_minibatches optimizer steps, on the training
-        rollout of that update (noisy, every RNN step of every decision).
+        gradient step, in ppo_update after every optimizer step, on the states `sequence`
+        recomputed for that minibatch (noisy, every RNN step of every decision of the minibatch's
+        episodes, under the weights before the step).
 
-        WHAT COUNTS UPDATES HERE AND ITERATIONS THERE. check_every (checks every check_every-th
-        call, the first at update_n = 0); patience (consecutive silent checks, one check per
-        update); maturity (updates since the unit was last doomed, from _last_replaced); the
-        participation p and the soft-max activity (one update's rollout in place of one
-        iteration's batch); the tilt (once per update in place of once per iteration, so
-        rescale_alpha is a per-update factor); the gradient blanking (every minibatch step of the
-        update, zero_protected_grads, in place of the one step of an iteration). The random draws
-        of the outgoing redraw come from the RNN's generator, as there.
+        WHAT COUNTS OPTIMIZER STEPS HERE AND ITERATIONS THERE. check_every (a check every
+        check_every-th step, the first at step_n = 0); patience (consecutive silent checks, one
+        check per step); maturity (steps since the unit was last doomed, from _last_replaced); the
+        participation p and the soft-max activity (one minibatch's recomputed states, n_episodes /
+        n_minibatches episodes, in place of one iteration's batch); the tilt (once per step, as
+        there, so rescale_alpha is a per-step factor and rescale_cap is reached after
+        log(cap) / log(alpha) steps, 2,083 at the paper's values); the gradient blanking (once per
+        step, zero_protected_grads, as there). A minibatch whose loss is not finite is skipped
+        without an optimizer step and without a check (the supervised rule also runs after a
+        skipped step, but the PPO skip means the states themselves are not finite). The random
+        draws of the outgoing redraw come from the RNN's generator, as there.
 
         The steps, with the supervised lines:
           participation p = participation_from_states(states) (std + q0.9 of the rate);
@@ -658,7 +664,7 @@ class TrainerPPO:
             out_w = W_rec.abs().sum(dim=0) + W_out.abs().sum(dim=0)
             u <- utility_decay * u + (1 - utility_decay) * p * out_w;  score = u if utility ==
             "contribution" else p
-          strikes = where(silent, strikes + 1, 0); mature = (update_n - last_replaced) >= maturity;
+          strikes = where(silent, strikes + 1, 0); mature = (step_n - last_replaced) >= maturity;
             doomed = (strikes >= patience) & mature; return if none is doomed and none is growing;
           at most round(max_replace_frac * N) doomed per check, the lowest score first;
           1) GRADUATE: a growing unit whose frm_activity reaches target = rescale_target_frac *
@@ -673,22 +679,23 @@ class TrainerPPO:
           Adam's exp_avg and exp_avg_sq on the outgoing columns W_rec[:, i] and W_out[:, i] of every
             doomed unit set to 0 (every check the unit is doomed, not only the one that opens its
             episode: the supervised block zeroes `idx`, the doomed indices);
-          strikes[doomed] = 0; last_replaced[doomed] = update_n.
+          strikes[doomed] = 0; last_replaced[doomed] = step_n.
 
         Args:
-            states: (N, S, B) the training rollout's states under the training noise, every RNN
-                step of every decision including the (T + 1)-th decision's substeps, as the rollout
-                stacks them (batch["states"]); S = (T + 1) * substeps.
+            states: (N, S, B) RNN states under the training noise, detached: in ppo_update the
+                states `sequence` returned for the minibatch, every RNN step of every decision of
+                its B episodes including the (T + 1)-th decision's bootstrap steps and the steps
+                after an episode ended, as the rate penalty pools them; S = (T + 1) * substeps.
         Returns:
             dict of ints: rescale_growing (units growing after this check), rescale_opened
             (episodes opened at this check), rescale_graduated (units that reached the target at
             this check) and rescale_spent (units whose cumulative factor reached the cap at this
             check); zeros apart from rescale_growing when the check is skipped. The call advances
-            update_n by one.
+            step_n by one.
         """
         args = self.prune_args
-        n_done = self.update_n
-        self.update_n += 1
+        n_done = self.step_n
+        self.step_n += 1
         counts = {"rescale_growing": int(self._rescale_growing.sum()), "rescale_opened": 0,
                   "rescale_graduated": 0, "rescale_spent": 0}
         if n_done % int(args["check_every"]) != 0:
@@ -794,12 +801,9 @@ class TrainerPPO:
             sigma_w is 0 or the pass is clean; outgoing, the read-out dropout mask (N, 1) of this
             rollout, None when dropout is off or the pass is clean; participation (N,), std +
             q(activity_q) of every unit's rate over every RNN step of every decision of this
-            rollout, the new value for the EMA p_bar, None unless a mask was drawn; states, the
-            RNN states (N, (T + 1) * substeps, B) after every RNN step, kept only for the rescale
-            rule (prune_reinit on and the pass noisy), None otherwise: the states are large, so
-            without the rule they are not kept (with dropout on they are held until the
-            participation is taken and released); sequence(u, noise, w_seed, outgoing) recomputes
-            them exactly.
+            rollout, the new value for the EMA p_bar, None unless a mask was drawn. The RNN states
+            are not kept (they are large; with dropout on they are held until the participation is
+            taken and released); sequence(u, noise, w_seed, outgoing) recomputes them exactly.
 
         THE TWO INTERVENTIONS THAT ACT HERE are drawn before anything else, in this order: the
         synaptic-noise seed (one integer from the RNN's generator) and the dropout mask (Bernoulli
@@ -811,8 +815,7 @@ class TrainerPPO:
         with torch.no_grad():
             w_seed = self.draw_synaptic_seed(generator) if (self.sigma_w > 0 and not clean) else None
             outgoing = self.draw_dropout_mask() if (self.dropout and not clean) else None
-            keep_rule = self.prune_reinit and not clean
-            keep_states = outgoing is not None or keep_rule
+            keep_states = outgoing is not None
             u = [task.reset(n_episodes, generator)]
             noise = self.draw_noise((T + 1) * k, n_episodes, not clean, generator)
             x = self.initial_state(n_episodes)
@@ -844,19 +847,16 @@ class TrainerPPO:
                 if keep_states:
                     states.append(x)
             values.append(self.heads(x, noise["out"][:, 0], outgoing)[1])
-            p_new, all_states = None, None
+            p_new = None
             if keep_states:
-                all_states = torch.stack(states, dim=1)
-                if outgoing is not None:
-                    p_new = self.participation_from_states(all_states, float(self.dropout_args["activity_q"]))
-                if not keep_rule:
-                    all_states = None
+                p_new = self.participation_from_states(torch.stack(states, dim=1),
+                                                       float(self.dropout_args["activity_q"]))
         alive = torch.stack(alive)
         return {"u": torch.stack(u, dim=1), "noise": noise, "actions": torch.stack(actions, dim=1),
                 "logp": torch.stack(logp), "values": torch.stack(values), "rewards": torch.stack(rewards),
                 "alive": alive, "success": alive[-1] == 0, "steps": alive[:-1].sum(dim=0),
                 "xy": torch.stack(xy), "heading": torch.stack(heading),
-                "w_seed": w_seed, "outgoing": outgoing, "participation": p_new, "states": all_states}
+                "w_seed": w_seed, "outgoing": outgoing, "participation": p_new}
 
     def safe_rollout(self, good, n_episodes, T, tries=3):
         """A rollout that is finite, or the last finite weights restored and the rollout replayed.
@@ -939,14 +939,19 @@ class TrainerPPO:
             ratio outside the clip range), skipped, the number of minibatch steps whose loss was
             not finite and which were therefore not applied, and, only when the option is on, the
             raw penalty values fr_magnitude (lambda_frm > 0) and rec_weights_sparsity
-            (lambda_rws > 0), before their lambda.
+            (lambda_rws > 0), before their lambda; with the rescale rule on, four ints:
+            rescale_opened, rescale_graduated and rescale_spent summed over this update's checks
+            (one per optimizer step) and rescale_growing, the number growing after the last check.
 
         THE PENALTIES are added to the loss of every minibatch as the supervised train_step adds
         them, loss += lambda_frm x P_frm + lambda_rws x P_rws, with P_frm on the states of this
         minibatch's recompute (the noisy rollout states) and P_rws on W_rec. The recompute replays
         the rollout's synaptic noise (batch["w_seed"]) and read-out mask (batch["outgoing"]).
         With the rescale rule on, every minibatch's gradient is blanked on the incoming rows of
-        the units growing at that time (zero_protected_grads) after the clip and before the step.
+        the units growing at that time (zero_protected_grads) after the clip and before the step,
+        and after the step the rule checks once (prune_and_reinit) on this minibatch's recomputed
+        states, detached: the supervised order of one iteration, forward, backward, blank, step,
+        check, at every optimizer step.
 
         TWO GUARDS, both inert while everything is finite (added 4 Nov 2026 after two N = 2,000 runs
         died in their first update, array 16856487): the log-ratio is clamped to [-20, 20] before it
@@ -965,6 +970,7 @@ class TrainerPPO:
             sums["rec_weights_sparsity"] = 0.0
         n = 0
         skipped = 0
+        rule = {}
         for _ in range(self.n_epochs):
             for idx in torch.randperm(B, device=adv.device).chunk(self.n_minibatches):
                 noise = {k: v[:, :, idx] for k, v in batch["noise"].items()}
@@ -995,6 +1001,9 @@ class TrainerPPO:
                 torch.nn.utils.clip_grad_norm_(self.RNN.parameters(), self.max_grad_norm)
                 self.zero_protected_grads()
                 self.optimizer.step()
+                if self.prune_reinit:
+                    counts = self.prune_and_reinit(states.detach())
+                    rule = {k: (v if k == "rescale_growing" else rule.get(k, 0) + v) for k, v in counts.items()}
                 with torch.no_grad():
                     sums["policy_loss"] += policy_loss.item()
                     sums["value_loss"] += value_loss.item()
@@ -1006,6 +1015,7 @@ class TrainerPPO:
                 n += 1
         out = {k: v / max(n, 1) for k, v in sums.items()}
         out["skipped"] = float(skipped)
+        out.update(rule)
         return out
 
     # ------------------------------------------------------------------ the probe and the run
@@ -1038,12 +1048,11 @@ class TrainerPPO:
         participation EMA p_bar updated from that rollout's states as the supervised train_step
         updates it (`self.participation = (1 - eta) * self.participation + eta * new_part`, after the
         mask of the same batch was drawn from the old value), advantages (GAE with a critic,
-        Monte-Carlo without), the clipped update, with the rescale rule on one check of
-        prune_and_reinit on the rollout's states (after the update's optimizer steps, before the
-        weights are saved as the last finite ones), and one progress record. The first update and
-        every probe_every-th one are followed by a probe. Every checkpoint_every-th update, except
-        the last (the caller saves the finished run), calls checkpoint_fn(updates_done, params) if
-        one was set.
+        Monte-Carlo without), the clipped update (with the rescale rule on, one check of
+        prune_and_reinit after each of its optimizer steps), and one progress record. The first
+        update and every probe_every-th one are followed by a probe. Every checkpoint_every-th
+        update, except the last (the caller saves the finished run), calls
+        checkpoint_fn(updates_done, params) if one was set.
 
         Returns:
             (RNN, progress, probes, last_probe): the trained RNN; progress, a list with one dict per
@@ -1051,9 +1060,9 @@ class TrainerPPO:
             PPO maximises), success (share of the batch that reached the cheese), steps (mean steps
             to the cheese, T if never), restored (rollouts discarded and weights rolled back), lr
             (the rate used, after the warm-up ramp), the statistics of ppo_update (including
-            skipped minibatches and, when a penalty is on, its raw value) and, with the rescale
-            rule on, its counts of that update (rescale_growing, rescale_opened, rescale_graduated,
-            rescale_spent, the dict prune_and_reinit returns); probes, a dict of lists
+            skipped minibatches, when a penalty is on its raw value, and with the rescale rule on
+            its counts of that update: rescale_opened, rescale_graduated and rescale_spent summed
+            over the update's checks, rescale_growing after the last one); probes, a dict of lists
             over probes: update (the update index),
             active, active_mod, probe_success, and p_update and p, the stored participation vectors
             (N,) with their update index; last_probe, the last probe's rollout dict.
@@ -1080,14 +1089,13 @@ class TrainerPPO:
             else:
                 adv, ret = self.mc_advantages(batch["rewards"], batch["alive"], hp.gamma)
             stats = self.ppo_update(batch, adv, ret)
-            rule = self.prune_and_reinit(batch["states"]) if self.prune_reinit else {}
             progress.append({"update": it,
                              "discounted_return": (batch["rewards"] * discount).sum(dim=0).mean().item(),
                              "success": batch["success"].float().mean().item(),
                              "steps": batch["steps"].mean().item(),
                              "restored": restored,
                              "lr": lr_now,
-                             **stats, **rule})
+                             **stats})
             good = {k: v.detach().clone() for k, v in self.RNN.state_dict().items()}
             if it == 1 or it % hp.probe_every == 0:
                 n_active, n_active_mod, p, out = self.probe()
@@ -1104,7 +1112,7 @@ class TrainerPPO:
                       f"  success {r['success']:.2f}  steps {r['steps']:6.1f}"
                       f"  probe success {probes['probe_success'][-1]:.2f}"
                       f"  active {n_active} (mod {n_active_mod})/{self.RNN.N}  kl {r['approx_kl']:.4f}  clip {r['clip_frac']:.2f}"
-                      + (f"  growing {rule['rescale_growing']}" if rule else "")
+                      + (f"  growing {r['rescale_growing']}" if "rescale_growing" in r else "")
                       + f"  {(time.perf_counter() - tic) / it:.2f} s/update", flush=True)
             if (self.checkpoint_fn is not None and self.checkpoint_every
                     and it % self.checkpoint_every == 0 and it < hp.n_updates):
