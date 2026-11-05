@@ -151,7 +151,7 @@ def main():
     table(results)
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     with open(a.out, "w") as fh:
-        json.dump({"results": _jsonable(results), "variables": VARIABLES}, fh, indent=1)
+        json.dump({"results": results, "variables": VARIABLES}, fh, indent=1, default=_jsonable)
     print(f"-> {a.out}")
 
 

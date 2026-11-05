@@ -262,6 +262,10 @@ def load_population_stats_all():
     The maze results (rl_maze_population_stats.py, task "Maze") live in their own file because
     fig_ed_population.load sorts data/population_stats.json by the three supervised tasks.
 
+    Only the maze networks whose run learned the task are kept (the file's `learned` flag,
+    common.maze_learned_index; the pre-registered exclusion of issue #3), the networks of the maze
+    sub-panel of (d).
+
     Returns:
         list of result dicts, the supervised ones first; the maze's are left out when
         MAZE_POP_STATS does not exist, and panel (e) then reads "no data" for the maze.
@@ -269,7 +273,11 @@ def load_population_stats_all():
     res = load_population_stats()
     if os.path.exists(MAZE_POP_STATS):
         with open(MAZE_POP_STATS) as fh:
-            res = res + json.load(fh)["results"]
+            maze = json.load(fh)["results"]
+        for s in maze:
+            if not s["learned"]:
+                print(f"  panel e, maze: {s['label']} did not learn the task; left out")
+        res = res + [s for s in maze if s["learned"]]
     return res
 
 
@@ -281,7 +289,8 @@ def maze_retrain(folder=MAZE_RETRAIN_DIR, N=N_UNITS):
     training noise); the arms are intact, silent_removed and random_removed. They are joined here
     into the shape the supervised retrain dicts have (ablate_silent_units.retrain_test): label, N,
     n_silent and one curve per arm, so panel_d draws them unchanged. A network is listed once its
-    silent_removed file exists; a missing arm is left out of its dict.
+    silent_removed file exists; a missing arm is left out of its dict. A network whose run did not
+    learn the task (maze_learned_index on its saved probes) is left out, as in maze_ablation.
 
     Args:
         folder: str; N: int, the network size.
@@ -299,6 +308,10 @@ def maze_retrain(folder=MAZE_RETRAIN_DIR, N=N_UNITS):
                 d[arm] = [tuple(pt) for pt in a["curve"]]
                 d.update(label=a["label"], N=a["N"], n_silent=a["n_silent"], n_active=a["n_active"],
                          retrain_updates=a["retrain_updates"], run_dir=a["run_dir"])
+        probes = np.load(sorted(glob.glob(os.path.join(REPO_ROOT, d["run_dir"], "*Participation.npz")))[0])
+        if maze_learned_index(np.asarray(probes["probe_success"])) is None:
+            print(f"  panel d, maze retrain: {d['label']} did not learn the task; left out")
+            continue
         out.append(d)
     return out
 
@@ -1529,8 +1542,11 @@ def ablation_for(sources):
 def maze_ablation(folder=MAZE_ABLATION_DIR, N=N_UNITS):
     """Panel (d)'s maze entry: the JSONs of rl_maze_ablate.py, in the shape panel_d reads (#182).
 
-    Every JSON of a ReLU network of size N under `folder` is read, so the sub-panel grows as seeds
-    land. The maze ablation removes units from the network at the end of training (update 2,000,
+    Every JSON of a ReLU network of size N under `folder` whose run is learned
+    (common.maze_learned_index on its saved probes: the clean probe's success at or above 0.9 for 5
+    probes and at the last probe; a run that did not learn enters no participation statistic, the
+    pre-registered exclusion of issue #3, and is printed here as left out) is read, so the sub-panel
+    grows as seeds land. The maze ablation removes units from the network at the end of training (update 2,000,
     the weights in the run's *Params_Maze.npz; no earlier snapshot of a maze run is saved), not at the learned
     probe of panel (c). Its score is the success rate over fixed drops under the training noise,
     the counterpart of the supervised held-out R^2; it is stored under the r2_* keys because
@@ -1553,6 +1569,10 @@ def maze_ablation(folder=MAZE_ABLATION_DIR, N=N_UNITS):
             a = json.load(fh)
         ks, n_silent = np.asarray(a["ks"], float), a["N"] - a["n_active"]
         probes = np.load(sorted(glob.glob(os.path.join(REPO_ROOT, a["run_dir"], "*Participation.npz")))[0])
+        if maze_learned_index(np.asarray(probes["probe_success"])) is None:
+            print(f"  panel d, maze: {a['label']} did not learn the task (last probe "
+                  f"{probes['probe_success'][-1]:.2f}); left out")
+            continue
         res.append(dict(N=a["N"], n_active=a["n_active"], n_silent=n_silent, ks=a["ks"],
                         quiet_first=a["score_quiet"], busy_first=a["score_busy"],
                         random=a["score_random"], r2_full=a["score_full"],
@@ -2118,7 +2138,6 @@ def panel_selective(ax, res, seeds_d, tasks=MAIN_TASKS):
     seeds_e = {int(str(s["seed"]).lstrip("s")) for s in res if s["task"] != TASK_SHORT[MAZE_LABEL]}
     assert seeds_e == seeds_d, ("panel e must draw the panel d networks", sorted(seeds_e), sorted(seeds_d))
     out = []
-    offs = (-0.05, 0.0, 0.05)                 # the three networks of a task, side by side
     for k, label in enumerate(tasks):
         col = task_color(label)
         rows = [s for s in res if s["task"] == TASK_SHORT[label]]
@@ -2126,6 +2145,8 @@ def panel_selective(ax, res, seeds_d, tasks=MAIN_TASKS):
             ax.text(k, 0.5, "no data", ha="center", va="center", fontsize=ps.TICK_PT, color=ps.MUTED)
             out.append((TASK_SHORT[label], np.array([]), np.array([])))
             continue
+        # the networks of a task side by side: three at +-0.05, two at +-0.025, one at 0
+        offs = np.linspace(-0.05, 0.05, len(rows)) if len(rows) > 1 else np.zeros(1)
         y_all = np.array([s["S3a"]["n_all"] / s["N"] for s in rows])
         y_act = np.array([s["S3a"]["act"] for s in rows])
         for dx, ya, yb in zip(offs, y_all, y_act):
