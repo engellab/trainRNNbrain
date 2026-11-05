@@ -110,7 +110,9 @@ if [ -n "${PARENT_ROOT:-}" ]; then
     echo "FATAL: ${PARENT} has no s${SEED}_AdamState_Maze.pt; continue it with INIT_ADAM=false." >&2; exit 1
   fi
   TAG="${TAG}_cont"
-  CONT=(paths.init_from="$PARENT" paths.init_adam="$INIT_ADAM" trainer.n_updates="$EXTRA_UPDATES" trainer.iter_offset=auto)
+  # the path is quoted for Hydra's override grammar, which refuses an unquoted value holding '=' (the
+  # cell name N=<N>_act=<act>), as experiment_tag is below
+  CONT=(paths.init_from="\"${PARENT}\"" paths.init_adam="$INIT_ADAM" trainer.n_updates="$EXTRA_UPDATES" trainer.iter_offset=auto)
   echo "continuation: from ${PARENT} (init_adam=${INIT_ADAM}), ${EXTRA_UPDATES} further updates -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 fi
 
