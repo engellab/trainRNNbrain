@@ -91,6 +91,14 @@ ppo:
   critic: false
   action_std: 0.5
   lr: 0.001                   # scaled by (100 / N) ** lr_scale_exp, the supervised trainer's rule
+  # LEARNING-RATE WARM-UP (since 4 Nov 2026): the rate ramps linearly from 0 to its value over the
+  # first warmup_updates updates. Adam's first steps move every parameter by about lr before its
+  # moment estimates exist, so the read-out's first change scales with lr x N: in the suite the
+  # first update's KL grew from 0.04 at N = 250 to 0.15 at N = 1,000 and 0.24 at N = 2,000 (every
+  # later update 0.003 at every size), and at N = 2,000 the recurrent dynamics blew up over the
+  # 2,500-step episode (arrays 16856487, 16859389). The ramp removes that jump at every size
+  # without changing the rate rule, so one protocol serves N = 250 to 4,000. 0 switches it off.
+  warmup_updates: 50
   lr_scale_exp: 0.3333333333333333
   weight_decay: 1.0e-6        # Adam's coupled L2, as in the supervised trainer
   max_grad_norm: 0.5

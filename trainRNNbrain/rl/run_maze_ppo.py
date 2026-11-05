@@ -18,8 +18,9 @@ runs' folder, so no inventory of supervised cells ever sees these files):
   Progress.json       one dict per update: update, discounted_return (mean over the batch of
                       sum_t gamma^t r_t, the quantity PPO maximises), success (share of the batch
                       that reached the cheese), steps (mean steps to the cheese, T if never),
-                      restored (rollouts discarded and weights rolled back, see ppo.safe_rollout)
-                      and the PPO statistics from ppo_update (including skipped minibatches)
+                      restored (rollouts discarded and weights rolled back, see ppo.safe_rollout),
+                      lr (the learning rate used, after the warm-up ramp) and the PPO statistics
+                      from ppo_update (including skipped minibatches)
   Participation.npz   per probe: update (the update index), active (active units under the
                       project's rule, p = std + q0.9), active_mod (active units under the
                       modulation criterion, std alone at or above 5 percent of its 95th
@@ -185,6 +186,9 @@ def main(cfg: DictConfig) -> None:
     good = {k: v.detach().clone() for k, v in policy.state_dict().items()}   # last finite weights
     tic = time.perf_counter()
     for it in range(1, hp.n_updates + 1):
+        lr_now = lr * min(1.0, it / hp.warmup_updates) if hp.warmup_updates else lr
+        for group in optimizer.param_groups:
+            group["lr"] = lr_now
         batch, restored = safe_rollout(env, policy, good, hp.n_episodes, hp.T)
         if restored:
             print(f"update {it}: rollout not finite, weights restored ({restored} tries)", flush=True)
@@ -199,6 +203,7 @@ def main(cfg: DictConfig) -> None:
                          "success": batch["success"].float().mean().item(),
                          "steps": batch["steps"].mean().item(),
                          "restored": restored,
+                         "lr": lr_now,
                          **stats})
         good = {k: v.detach().clone() for k, v in policy.state_dict().items()}
         if it == 1 or it % hp.probe_every == 0:
