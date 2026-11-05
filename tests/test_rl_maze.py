@@ -9,7 +9,11 @@ mask in the recompute (ratio 1, dropped columns zero in both passes), the penalt
 update statistics, and the refusal of dropout kind "dead"; and the rescale rule (stage 2 of
 issue #5): the three states of two units forced silent against numpy re-implementations of the
 tilt, the participation and the soft-max rate, the blanked gradient of a growing unit, the rule's
-counts in the progress records and the refusal of the modes that are not mirrored; and the
+counts in the progress records and the refusal of the modes that are not mirrored; the copy rule
+(prune-and-duplicate, issue #6): every silent unit overwritten with a jittered copy of a live unit
+against a numpy re-implementation fed the replayed generator draws, Adam's moments zeroed on the
+copies' rows and columns, the ceiling on replacements per check and the maturity protection, and
+the rule's counts in the progress records; and the
 continuation of a run from its folder (paths.init_from, paths.init_adam, trainer.iter_offset): the
 weights, the absolute update indices, the joined record of common.maze_load_runs, and the warm-up
 ramp skipped with the Adam moments and repeated without them. The 13 checks before the options were
@@ -72,6 +76,41 @@ RESCALE_ARGS = {"reinit_mode": "rescale", "check_every": 1, "patience": 1, "acti
                 "utility": "participation", "utility_decay": 0.99, "maturity": 0, "max_replace_frac": 1.0,
                 "rescale_alpha": 1.002, "rescale_target_frac": 10.0, "rescale_cap": 64.0, "rescale_protect_frac": 0.20,
                 "rescale_active_only": True, "rescale_normalize": True, "rescale_norm_mode": "self"}
+# the paper's prune-and-duplicate arm (slurm/SilentReLU_paper_grid_della.slurm, with the cadence it
+# inherits from trainer_ptrack_freshbatch.yaml), as the maze launcher passes it
+COPY_ARGS = {"reinit_mode": "copy", "check_every": 100, "patience": 3, "active_rel": 0.05,
+             "utility": "contribution", "utility_decay": 0.99, "maturity": 1000, "max_replace_frac": 0.025,
+             "copy_noise": 1.0, "copy_norm_preserve": True}
+
+
+def duplicate_by_hand(W_rec, W_inp, W_out, pairs, draws, jitter, norm_preserve):
+    """The copy rule applied by hand in numpy float64 on a network with self-connections, one
+    (copy, donor) pair after another: the donor's W_rec and W_out columns halved and written to the
+    copy's columns; the copy's W_rec and W_inp rows the donor's rows as they are when the pair is
+    reached, each entry times (1 + jitter x z), scaled back to the donor's row norms when
+    norm_preserve; the 2 x 2 block of W_rec spanning the pair at half the donor's self-weight as it
+    was when the pair is reached.
+
+    Args:
+        W_rec: (N, N), W_inp: (N, n_in), W_out: (n_out, N) float arrays, left unchanged;
+        pairs: list of (copy_i, donor_j) int pairs, in order; draws: list of (z_rec (N,),
+        z_inp (n_in,)) float arrays, one per pair; jitter: float; norm_preserve: bool.
+    Returns:
+        (W_rec, W_inp, W_out) float64 arrays after the rule.
+    """
+    W_rec, W_inp, W_out = (np.array(W, dtype=np.float64) for W in (W_rec, W_inp, W_out))
+    for (i, j), (z_rec, z_inp) in zip(pairs, draws):
+        row_rec, row_inp, self_w = W_rec[j].copy(), W_inp[j].copy(), float(W_rec[j, j])
+        W_rec[:, j] *= 0.5
+        W_out[:, j] *= 0.5
+        W_rec[:, i], W_out[:, i] = W_rec[:, j], W_out[:, j]
+        new_rec, new_inp = row_rec * (1.0 + jitter * z_rec), row_inp * (1.0 + jitter * z_inp)
+        if norm_preserve:
+            new_rec *= np.linalg.norm(row_rec) / np.linalg.norm(new_rec)
+            new_inp *= np.linalg.norm(row_inp) / np.linalg.norm(new_inp)
+        W_rec[i], W_inp[i] = new_rec, new_inp
+        W_rec[i, i] = W_rec[i, j] = W_rec[j, i] = 0.5 * self_w
+    return W_rec, W_inp, W_out
 
 
 def tilt_by_hand(row, alpha, live=None):
@@ -736,18 +775,179 @@ def test_rescale_counts_in_progress():
     assert not any(keys & set(r) for r in progress)
 
 
-def test_rescale_other_modes_refused():
-    """prune_reinit without prune_args, a reinit_mode other than "rescale", the legacy
-    rescale_target_frac 0 and rescale_norm_mode "median_active" are refused at construction."""
+def test_copy_rule_duplicates_live_units():
+    """The copy rule at N = 32 with three units forced silent (every incoming entry negative; at
+    this init 12 units are silent in all), a check every step, patience 1, no ceiling, copy_noise
+    1.0 with the norm preserved, called once on the states `sequence` recomputes for a fresh
+    rollout, with Adam's moments set to 1 by hand beforehand. The silent set (common.participation
+    in numpy) is the trainer's; every silent unit is overwritten and the donors are live units;
+    replaying the RNN's generator from its saved state gives the donors (a multinomial over the
+    live units' participation, with replacement, so a donor can serve twice) and the jitter draws,
+    and the weights after the check equal duplicate_by_hand on the weights before it (1e-6). For
+    every pair: the copy's W_inp row is the donor's times (1 + z) at the donor's row norm, at a
+    cosine to the donor below 0.999 (changed) and below 0.9 on average over the pairs (not twins:
+    the expected cosine at jitter 1 is 0.71), and the donor's W_inp row is unchanged. For a
+    donor drawn once, over the units that are neither copies nor donors (whose rows and columns
+    no pair touches): the copy's and the donor's W_rec columns are half the donor's old column,
+    the W_out columns likewise, and the donor's W_rec row is unchanged; the block spanning the
+    pair is half the donor's old self-weight. Every unit that is neither a copy nor a donor keeps
+    its rows and columns. Adam's moments are 0
+    on the copies' rows (W_rec, W_inp) and columns (W_rec, W_out) and 1 everywhere else, the
+    donors' halved columns included. The counts: copy_replaced = copy_units_ever = the number of
+    silent units; the strikes of the copies are reset; the step clock reads 1."""
+    torch.manual_seed(11)
     task = make_task()
-    for bad in (None, {**RESCALE_ARGS, "reinit_mode": "copy"}, {**RESCALE_ARGS, "rescale_target_frac": 0.0},
-                {**RESCALE_ARGS, "rescale_norm_mode": "median_active"}, {**RESCALE_ARGS, "rescale_refractory": 5}):
+    N, B, T = 32, 6, 10
+    args = {**COPY_ARGS, "check_every": 1, "patience": 1, "maturity": 0, "max_replace_frac": 1.0}
+    trainer = make_trainer(task, N=N, critic=False, prune_reinit=True, prune_args=args)
+    rnn = trainer.RNN
+    with torch.no_grad():
+        rnn.W_inp[:3, :] = -0.5
+        rnn.W_rec[:3, :] = -0.3
+    for prm in rnn.parameters():
+        trainer.optimizer.state[prm] = {"step": torch.tensor(1.0), "exp_avg": torch.ones_like(prm),
+                                        "exp_avg_sq": torch.ones_like(prm)}
+    out = trainer.rollout(B, T)
+    with torch.no_grad():
+        st = trainer.sequence(out["u"], out["noise"])[0]
+    p = participation(rnn.get_firing_rates(st).numpy())
+    silent = p < 0.05 * np.quantile(p, 0.95)
+    assert silent[:3].all() and 3 <= silent.sum() < N
+    doomed = np.flatnonzero(silent)
+    p_t = trainer.participation_from_states(st)
+    assert np.array_equal((p_t < 0.05 * torch.quantile(p_t, 0.95)).numpy(), silent)
+    W_rec0, W_inp0, W_out0 = (W.detach().clone().numpy() for W in (rnn.W_rec, rnn.W_inp, rnn.W_out))
+    gstate = rnn.random_generator.get_state()
+    counts = trainer.prune_and_reinit(st)
+    n = len(doomed)
+    assert counts == {"copy_replaced": n, "copy_units_ever": n} and trainer.step_n == 1
+    assert torch.equal(trainer._reinit_strikes[doomed], torch.zeros(n)) and trainer._reinit_ever[doomed].all()
+    # replay the generator: the donors, then z_rec and z_inp per pair in the order of the doomed units
+    g = torch.Generator()
+    g.set_state(gstate)
+    live = torch.nonzero(~torch.as_tensor(silent), as_tuple=True)[0]
+    donors = live[torch.multinomial(p_t[live].clamp_min(1e-12), n, replacement=True, generator=g)].tolist()
+    assert not silent[donors].any()
+    draws = [(torch.randn(N, generator=g).numpy(), torch.randn(task.n_inputs, generator=g).numpy()) for _ in doomed]
+    pairs = list(zip(doomed.tolist(), donors))
+    exp_rec, exp_inp, exp_out = duplicate_by_hand(W_rec0, W_inp0, W_out0, pairs, draws, 1.0, True)
+    assert np.allclose(rnn.W_rec.detach().numpy(), exp_rec, atol=1e-6)
+    assert np.allclose(rnn.W_inp.detach().numpy(), exp_inp, atol=1e-6)
+    assert np.allclose(rnn.W_out.detach().numpy(), exp_out, atol=1e-6)
+    W_rec, W_inp, W_out = (W.detach().numpy() for W in (rnn.W_rec, rnn.W_inp, rnn.W_out))
+    once = [(i, j) for i, j in pairs if donors.count(j) == 1]
+    assert len(once) >= 1
+    cosines = []
+    for i, j in pairs:
+        assert abs(np.linalg.norm(W_inp[i]) - np.linalg.norm(W_inp0[j])) < 1e-5
+        cosines.append(W_inp[i] @ W_inp0[j] / (np.linalg.norm(W_inp[i]) * np.linalg.norm(W_inp0[j])))
+        assert cosines[-1] < 0.999 and np.array_equal(W_inp[j], W_inp0[j])
+    assert np.mean(cosines) < 0.9, cosines
+    rest = np.ones(N, dtype=bool)
+    rest[doomed] = False
+    rest[donors] = False
+    for i, j in once:
+        assert np.array_equal(W_rec[j][rest], W_rec0[j][rest])
+        assert np.allclose(W_rec[rest, i], 0.5 * W_rec0[rest, j]) and np.array_equal(W_rec[rest, i], W_rec[rest, j])
+        assert np.allclose(W_out[:, i], 0.5 * W_out0[:, j]) and np.array_equal(W_out[:, i], W_out[:, j])
+        assert W_rec[i, i] == W_rec[i, j] == W_rec[j, i] == W_rec[j, j] and abs(W_rec[j, j] - 0.5 * W_rec0[j, j]) < 1e-7
+    assert np.array_equal(W_rec[rest][:, rest], W_rec0[rest][:, rest]) and np.array_equal(W_inp[rest], W_inp0[rest])
+    assert np.array_equal(W_out[:, rest], W_out0[:, rest])
+    for key in ("exp_avg", "exp_avg_sq"):
+        m_rec, m_inp, m_out = (trainer.optimizer.state[prm][key].numpy() for prm in (rnn.W_rec, rnn.W_inp, rnn.W_out))
+        want_rec = np.ones((N, N))
+        want_rec[doomed, :] = 0.0
+        want_rec[:, doomed] = 0.0
+        want_inp, want_out = np.ones((N, task.n_inputs)), np.ones((2, N))
+        want_inp[doomed, :] = 0.0
+        want_out[:, doomed] = 0.0
+        assert np.array_equal(m_rec, want_rec) and np.array_equal(m_inp, want_inp) and np.array_equal(m_out, want_out)
+
+
+def test_copy_ceiling_and_maturity():
+    """The ceiling on replacements per check and the maturity protection, with the contribution
+    utility: three units A, B, C forced silent, their utilities set by hand to 0.3, 0.2, 0.1 and
+    every other unit's to 10 + its index (so no other silent unit ranks below them), at most
+    round(0.0625 x 32) = 2 replacements per check, maturity 4 steps, patience 1, a check every step,
+    four checks on the states of fresh rollouts with no optimizer step between (a unit's W_inp row
+    changes exactly when it is replaced). Check 1 replaces C and B, the two lowest, and not A;
+    check 2 replaces A (its strike from check 1 was kept) and neither B nor C, whose maturity has
+    not passed; checks 3 and 4 replace none of the three (A's maturity); copy_replaced is at most 2
+    at every check and copy_units_ever never decreases."""
+    torch.manual_seed(12)
+    task = make_task()
+    N, B, T = 32, 6, 10
+    A, Bu, C = 0, 1, 2
+    args = {**COPY_ARGS, "check_every": 1, "patience": 1, "maturity": 4, "max_replace_frac": 0.0625}
+    trainer = make_trainer(task, N=N, critic=False, prune_reinit=True, prune_args=args)
+    rnn = trainer.RNN
+    with torch.no_grad():
+        rnn.W_inp[:3, :] = -0.5
+        rnn.W_rec[:3, :] = -0.3
+    trainer._unit_utility = 10.0 + torch.arange(N, dtype=torch.float32)
+    trainer._unit_utility[[A, Bu, C]] = torch.tensor([0.3, 0.2, 0.1])
+    replaced_at, ever = {}, 0
+    for k in range(1, 5):
+        out = trainer.rollout(B, T)
+        with torch.no_grad():
+            st = trainer.sequence(out["u"], out["noise"])[0]
+        W_inp0 = rnn.W_inp.detach().clone()
+        counts = trainer.prune_and_reinit(st)
+        changed = [i for i in range(N) if not torch.equal(rnn.W_inp[i], W_inp0[i])]
+        assert counts["copy_replaced"] == len(changed) <= 2 and counts["copy_units_ever"] >= ever
+        ever = counts["copy_units_ever"]
+        for i in changed:
+            replaced_at.setdefault(i, k)
+        three = {A, Bu, C} & set(changed)
+        assert three == ({Bu, C} if k == 1 else {A} if k == 2 else set()), (k, changed)
+    assert replaced_at[A] == 2 and replaced_at[Bu] == 1 and replaced_at[C] == 1
+
+
+def test_copy_counts_in_progress():
+    """run_training with the copy rule on (the paper's values but a check every 2 steps and
+    patience 2, three units forced silent) records in every update the two counts copy_replaced
+    (summed over the update's checks, one per optimizer step) and copy_units_ever (after the last
+    check) as integers, with the three forced units replaced in the first update (their W_inp rows
+    no longer all negative at the end) and copy_units_ever non-decreasing and at least 3; no
+    rescale key is recorded; the step clock reads 4 x 4 x 2 = 32 at the end; without the option
+    the records have no copy key."""
+    torch.manual_seed(13)
+    task = make_task()
+    hp = dict(n_updates=4, n_episodes=6, T=10, probe_episodes=4, probe_every=2, warmup_updates=1, checkpoint_every=0)
+    args = {**COPY_ARGS, "check_every": 2, "patience": 2, "maturity": 0, "max_replace_frac": 1.0}
+    trainer = make_trainer(task, critic=False, prune_reinit=True, prune_args=args, **hp)
+    with torch.no_grad():
+        trainer.RNN.W_inp[:3, :] = -0.5
+        trainer.RNN.W_rec[:3, :] = -0.3
+    _, progress, _, _ = trainer.run_training()
+    keys = {"copy_replaced", "copy_units_ever"}
+    assert all(keys <= set(r) for r in progress) and not any("rescale" in k for r in progress for k in r)
+    assert all(isinstance(r[k], int) and r[k] >= 0 for r in progress for k in keys)
+    ever = [r["copy_units_ever"] for r in progress]
+    assert progress[0]["copy_replaced"] >= 3 and ever == sorted(ever) and ever[-1] >= 3
+    assert ever[-1] <= sum(r["copy_replaced"] for r in progress)
+    assert (trainer.RNN.W_inp[:3] > 0).any(dim=1).all() and trainer._reinit_ever[:3].all()
+    assert trainer.step_n == 32 and all(r["skipped"] == 0 for r in progress)
+    plain = make_trainer(task, critic=False, **hp)
+    _, progress, _, _ = plain.run_training()
+    assert not any(keys & set(r) for r in progress)
+
+
+def test_other_modes_refused():
+    """prune_reinit without prune_args, a reinit_mode other than "rescale" or "copy", the legacy
+    rescale_target_frac 0, rescale_norm_mode "median_active" and rescale_refractory above 0 in mode
+    "rescale", and copy_iid or copy_permute in mode "copy" are refused at construction."""
+    task = make_task()
+    for bad in (None, {**RESCALE_ARGS, "reinit_mode": "random"}, {**RESCALE_ARGS, "rescale_target_frac": 0.0},
+                {**RESCALE_ARGS, "rescale_norm_mode": "median_active"}, {**RESCALE_ARGS, "rescale_refractory": 5},
+                {**COPY_ARGS, "copy_iid": True}, {**COPY_ARGS, "copy_permute": True}):
         try:
             make_trainer(task, prune_reinit=True, prune_args=bad)
         except ValueError as err:
-            assert "rescale" in str(err) or "prune_args" in str(err)
+            assert "rescale" in str(err) or "prune_args" in str(err) or "copy" in str(err)
         else:
             raise AssertionError(f"prune_args {bad} were accepted")
+    make_trainer(task, prune_reinit=True, prune_args=COPY_ARGS)       # the paper's copy arm is accepted
 
 
 def main():
@@ -761,7 +961,8 @@ def main():
                test_synaptic_noise_replay, test_dropout_replay, test_penalties_in_update_statistics,
                test_dead_dropout_refused, test_rescale_rule_three_states,
                test_rescale_protection_blanks_the_incoming_gradient, test_rescale_counts_in_progress,
-               test_rescale_other_modes_refused):
+               test_copy_rule_duplicates_live_units, test_copy_ceiling_and_maturity, test_copy_counts_in_progress,
+               test_other_modes_refused):
         fn()
         print(f"ok: {fn.__name__}")
 

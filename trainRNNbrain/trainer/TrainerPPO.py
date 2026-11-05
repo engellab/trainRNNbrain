@@ -51,6 +51,22 @@ this one counts optimizer steps, n_epochs x n_minibatches per update (the docstr
 `prune_and_reinit` lists each quantity). With the option off the run is bit-identical to one made
 before it existed (checked at N = 40, 3 updates, seed 7, against main at 9a49c9e).
 
+PRUNE-AND-DUPLICATE (issue #6, since 5 Nov 2026) is the sixth option, the same `prune_reinit` and
+`prune_args` with reinit_mode "copy": the supervised `Trainer.prune_and_reinit_` in reinit_mode
+"copy", the paper's duplication arm (slurm/SilentReLU_paper_grid_della.slurm: a check every 100
+steps, a unit doomed after 3 consecutive silent checks, at most 0.025 N replaced per check, the
+lowest contribution utility first, maturity 1,000 steps, copy_noise 1.0 with the row norm
+preserved). A doomed unit is overwritten with a copy of a live unit drawn in proportion to
+participation (`duplicate_units`): the donor's outgoing columns of W_rec and W_out are halved and
+written to the copy's, so the network computes the same function at the instant of the copy; the
+copy's incoming rows of W_rec and W_inp are the donor's rows, each entry times
+(1 + copy_noise x N(0, 1)), scaled back to the donor's row norms (copy_norm_preserve, true in the
+paper's arm); the 2 x 2 block of W_rec spanning
+the pair is set from the donor's self-weight; Adam's moments on the copy's incoming rows and
+outgoing columns are set to 0. The check cadence, patience and maturity count optimizer steps, as
+for the rescale rule. Progress.json records per update the replacements made (copy_replaced, summed
+over the update's checks) and the distinct units replaced so far (copy_units_ever).
+
 A CONTINUATION (paths.init_from, since 5 Nov 2026) is a run built by run_rl.py from a finished maze
 run's weights and, with paths.init_adam, its Adam moments; this trainer takes two facts about it,
 `iter_offset` (the parent's last recorded update, added to every update index it records, so the
@@ -126,6 +142,9 @@ UNITS_PER_VOLUME = 100.0
 # (Trainer.participation_from_states_); torch.quantile's limit is on the length of the reduced
 # dimension (2^24 entries), which 2,505 steps x 256 episodes stays under
 PARTICIPATION_CHUNK = 512
+# the counts of prune_and_reinit that an update's record takes from its last check (a level), where
+# every other count is summed over the update's checks (events)
+RULE_LEVEL_KEYS = ("rescale_growing", "copy_units_ever")
 
 
 class TrainerPPO:
@@ -174,13 +193,14 @@ class TrainerPPO:
                 dropout_args: dict with the keys of the supervised dropout_args block (dropout_kind,
                 which must be "mute"; sampling_method; drop_rate; dropout_beta; eta; active_rel;
                 rescale; p_max; activity_q), required when dropout is True.
-            prune_reinit: bool, the rescale rule (`prune_and_reinit`) once per update; prune_args:
-                dict with the keys of the supervised prune_args block that the rule reads
-                (reinit_mode, which must be "rescale"; check_every and maturity, in updates;
-                patience; active_rel; utility; utility_decay; max_replace_frac; rescale_alpha;
-                rescale_target_frac, which must be > 0; rescale_cap; rescale_protect_frac;
-                rescale_active_only; rescale_normalize; rescale_norm_mode, which must be "self"),
-                required when prune_reinit is True.
+            prune_reinit: bool, the per-unit rule (`prune_and_reinit`) once per optimizer step;
+                prune_args: dict with the keys of the supervised prune_args block that the rule
+                reads: reinit_mode, "rescale" or "copy"; the keys both modes read (check_every and
+                maturity, in optimizer steps; patience; active_rel; utility; utility_decay;
+                max_replace_frac); in mode "rescale" rescale_alpha, rescale_target_frac (> 0),
+                rescale_cap, rescale_protect_frac, rescale_active_only, rescale_normalize and
+                rescale_norm_mode ("self"); in mode "copy" copy_noise and copy_norm_preserve.
+                Required when prune_reinit is True.
             iter_offset: int >= 0, the absolute update count at which this run's clock starts: 0
                 for a fresh run, the parent's last recorded update for a continuation
                 (paths.init_from; run_rl.py resolves trainer.iter_offset "auto" to it). Added to
@@ -197,11 +217,13 @@ class TrainerPPO:
             ValueError if RNN.n_outputs is not 2 + critic; if dropout is on without dropout_args
             or with a dropout_kind other than "mute" ("dead" also removes the unit from the recurrent
             dynamics through the RNN's rhs; its replay in the recompute is not mirrored yet); if
-            prune_reinit is on without prune_args, with a reinit_mode other than "rescale" (random,
-            zero_out, orth, mix, bias_kick and copy are not mirrored), with rescale_target_frac <= 0
-            (the legacy stop-at-the-floor path, not mirrored), or with a revive_op other than
-            "rescale", a rescale_norm_mode other than "self" or a rescale_refractory above 0 (the
-            arms of the supervised rule the paper does not run; not mirrored).
+            prune_reinit is on without prune_args, with a reinit_mode other than "rescale" or
+            "copy" (random, zero_out, orth, mix and bias_kick are not mirrored); in mode "rescale"
+            with rescale_target_frac <= 0 (the legacy stop-at-the-floor path, not mirrored), or
+            with a revive_op other than "rescale", a rescale_norm_mode other than "self" or a
+            rescale_refractory above 0 (the arms of the supervised rule the paper does not run;
+            not mirrored); in mode "copy" with copy_iid or copy_permute true (the screen's variants
+            of the copy, slurm/SilentReLU_replace_variants_della.slurm; not mirrored).
         """
         if RNN.n_outputs != 2 + int(bool(critic)):
             raise ValueError(f"the RNN needs {2 + int(bool(critic))} outputs with critic={critic} "
@@ -230,25 +252,33 @@ class TrainerPPO:
             if self.prune_args is None:
                 raise ValueError("prune_reinit=True needs prune_args (the keys of the supervised prune_args block)")
             args = self.prune_args
-            if args.get("reinit_mode") != "rescale":
-                raise ValueError(f"TrainerPPO mirrors reinit_mode 'rescale' only; reinit_mode is "
-                                 f"{args.get('reinit_mode')!r}")
-            if float(args.get("rescale_target_frac", 0.0)) <= 0.0:
-                raise ValueError("TrainerPPO mirrors the three-state rescale rule only, which needs "
-                                 "rescale_target_frac > 0 (the legacy path at 0 is not mirrored)")
-            for key, only in (("revive_op", "rescale"), ("rescale_norm_mode", "self"), ("rescale_refractory", 0)):
-                if args.get(key, only) != only:
-                    raise ValueError(f"TrainerPPO mirrors the rescale rule with {key}={only!r} only; "
-                                     f"it is {args.get(key)!r}")
+            mode = args.get("reinit_mode")
+            if mode not in ("rescale", "copy"):
+                raise ValueError(f"TrainerPPO mirrors reinit_mode 'rescale' and 'copy' only; reinit_mode is {mode!r}")
+            if mode == "rescale":
+                if float(args.get("rescale_target_frac", 0.0)) <= 0.0:
+                    raise ValueError("TrainerPPO mirrors the three-state rescale rule only, which needs "
+                                     "rescale_target_frac > 0 (the legacy path at 0 is not mirrored)")
+                for key, only in (("revive_op", "rescale"), ("rescale_norm_mode", "self"), ("rescale_refractory", 0)):
+                    if args.get(key, only) != only:
+                        raise ValueError(f"TrainerPPO mirrors the rescale rule with {key}={only!r} only; "
+                                         f"it is {args.get(key)!r}")
+            else:
+                for key in ("copy_iid", "copy_permute"):
+                    if bool(args.get(key, False)):
+                        raise ValueError(f"TrainerPPO mirrors the paper's copy only, with {key} false; it is "
+                                         f"{args.get(key)!r} (the screen's variant is not mirrored)")
         # THE RULE'S STATE, the supervised Trainer's tensors of the same names, one entry per unit:
-        # consecutive silent checks; the running contribution utility; the update at which the unit
-        # was last doomed (maturity), -1e9 for never; the cumulative tilt factor of the current
-        # episode; whether the unit is growing (tilted and gradient-protected). step_n counts the
-        # optimizer steps completed before the current check, as the supervised iter_n counts the
-        # iterations completed before its check: 0 at the first check.
+        # consecutive silent checks; the running contribution utility; the optimizer step at which
+        # the unit was last doomed (maturity), -1e9 for never; whether the unit was ever replaced
+        # (mode "copy"); the cumulative tilt factor of the current episode and whether the unit is
+        # growing (tilted and gradient-protected; mode "rescale"). step_n counts the optimizer steps
+        # completed before the current check, as the supervised iter_n counts the iterations
+        # completed before its check: 0 at the first check.
         self._reinit_strikes = torch.zeros(RNN.N, device=RNN.device)
         self._unit_utility = torch.zeros(RNN.N, device=RNN.device)
         self._last_replaced = torch.full((RNN.N,), -1e9, device=RNN.device)
+        self._reinit_ever = torch.zeros(RNN.N, dtype=torch.bool, device=RNN.device)
         self._rescale_cum = torch.ones(RNN.N, device=RNN.device)
         self._rescale_growing = torch.zeros(RNN.N, dtype=torch.bool, device=RNN.device)
         self.step_n = 0
@@ -571,7 +601,82 @@ class TrainerPPO:
         over = torch.relu(S - tg_deg)
         return (over ** 2).mean() / (tg_deg ** 2)
 
-    # ------------------------------------------------------------------ rescaling (prune_reinit)
+    # ------------------------------------------------------------------ the per-unit rule (prune_reinit)
+
+    def duplicate_units(self, idx, p, silent):
+        """Overwrite each doomed unit with a jittered copy of a live unit: the copy branch of the
+        supervised Trainer.prune_and_reinit_ (reinit_mode "copy"), line for line, without the
+        screen's copy_iid and copy_permute variants (refused at construction).
+
+        THE DONOR of each doomed unit is drawn from the live units (not silent at this check) with
+        replacement, in proportion to participation, with the RNN's generator:
+            live_idx = torch.nonzero(~silent, as_tuple=True)[0]
+            weights = p[live_idx].clamp_min(1e-12)
+            donors = live_idx[torch.multinomial(weights, n, replacement=True, generator=...)]
+        THE COPY, one pair (copy_i, donor_j) at a time, in the order of idx:
+          the donor's rows W_rec[j, :] and W_inp[j, :] and its self-weight W_rec[j, j] are read
+          first; then the donor's outgoing columns are halved and shared,
+            W_rec[:, j] *= 0.5;  W_out[:, j] *= 0.5;  W_rec[:, i] = W_rec[:, j];  W_out[:, i] = W_out[:, j]
+          so every downstream unit receives (W[k, j] / 2 + W[k, i] / 2) r = W[k, j]_old r, the
+          same drive as before; the copy's incoming rows are the donor's with a relative jitter
+          on every entry (copy_noise > 0),
+            row = row * (1.0 + jitter * torch.randn(row.shape, generator=...))
+          and, with copy_norm_preserve, scaled back to the donor's row norm,
+            row = row * (len / row.norm().clamp_min(1e-12))
+          so the jitter sets the copy's direction only (expected cosine 1 / sqrt(1 + jitter^2) to
+          the donor); W_rec[i, :] = row_rec; W_inp[i, :] = row_inp. THE 2 x 2 BLOCK spanning the
+          pair: with self-connections the donor drew self_w x r from itself, and the pair keeps
+          drawing that once both fire alike, so W_rec[i, i] = W_rec[i, j] = W_rec[j, i] = self_w / 2
+          (W_rec[j, j] is self_w / 2 from the halving); without self-connections the three entries
+          are 0 (the masked diagonal must not reappear as a live connection between the pair).
+        A doomed unit whose draws fall on a donor already copied in this call takes the donor's
+        rows and self-weight as the earlier copy left them, as the supervised loop does.
+
+        Args:
+            idx: (n,) long tensor of the doomed units (ascending); p: (N,) participation of this
+                check; silent: (N,) bool, the silent units of this check.
+        Returns:
+            int, the units overwritten: n, or 0 when no unit is live (then nothing is changed, and
+            the supervised rule returns without resetting the strikes). Call under torch.no_grad().
+        """
+        args = self.prune_args
+        live_idx = torch.nonzero(~silent, as_tuple=True)[0]
+        if live_idx.numel() == 0:
+            return 0
+        n = int(idx.numel())
+        weights = p[live_idx].clamp_min(1e-12)
+        donors = live_idx[torch.multinomial(weights, n, replacement=True, generator=self.RNN.random_generator)]
+        jitter = float(args.get("copy_noise", 0.05))
+        norm_preserve = bool(args.get("copy_norm_preserve", False))
+        for copy_i, donor_j in zip(idx.tolist(), donors.tolist()):
+            row_rec = self.RNN.W_rec[donor_j, :].clone()
+            row_inp = self.RNN.W_inp[donor_j, :].clone()
+            self_w = self.RNN.W_rec[donor_j, donor_j].clone()
+            len_rec, len_inp = row_rec.norm(), row_inp.norm()
+            self.RNN.W_rec[:, donor_j] *= 0.5
+            self.RNN.W_out[:, donor_j] *= 0.5
+            self.RNN.W_rec[:, copy_i] = self.RNN.W_rec[:, donor_j]
+            self.RNN.W_out[:, copy_i] = self.RNN.W_out[:, donor_j]
+            if jitter > 0:
+                row_rec = row_rec * (1.0 + jitter * torch.randn(row_rec.shape, device=row_rec.device,
+                                                                generator=self.RNN.random_generator))
+                row_inp = row_inp * (1.0 + jitter * torch.randn(row_inp.shape, device=row_inp.device,
+                                                                generator=self.RNN.random_generator))
+                if norm_preserve:
+                    row_rec = row_rec * (len_rec / row_rec.norm().clamp_min(1e-12))
+                    row_inp = row_inp * (len_inp / row_inp.norm().clamp_min(1e-12))
+            self.RNN.W_rec[copy_i, :] = row_rec
+            self.RNN.W_inp[copy_i, :] = row_inp
+            if self.RNN.self_connections:
+                half = 0.5 * self_w
+                self.RNN.W_rec[copy_i, copy_i] = half
+                self.RNN.W_rec[copy_i, donor_j] = half
+                self.RNN.W_rec[donor_j, copy_i] = half
+            else:
+                self.RNN.W_rec[copy_i, donor_j] = 0.0
+                self.RNN.W_rec[donor_j, copy_i] = 0.0
+                self.RNN.W_rec[copy_i, copy_i] = 0.0
+        return n
 
     def frm_activity_cap(self):
         """The rate cap of the rate penalty for this network's size, cap_fr x log1p(100) / log1p(N)
@@ -660,13 +765,13 @@ class TrainerPPO:
         return None
 
     def prune_and_reinit(self, states):
-        """One check of the rescale rule: the supervised Trainer.prune_and_reinit_ in reinit_mode
-        "rescale" with rescale_target_frac > 0, the three-state rule dormant -> growing -> mature,
-        step for step and in the same order. The supervised rule runs once per iteration, after
-        the optimizer step, on the noisy training batch of that iteration; this one runs once per
-        gradient step, in ppo_update after every optimizer step, on the states `sequence`
-        recomputed for that minibatch (noisy, every RNN step of every decision of the minibatch's
-        episodes, under the weights before the step).
+        """One check of the per-unit rule: the supervised Trainer.prune_and_reinit_ in reinit_mode
+        "rescale" with rescale_target_frac > 0 (the three-state rule dormant -> growing -> mature)
+        or in reinit_mode "copy" (prune-and-duplicate), step for step and in the same order. The
+        supervised rule runs once per iteration, after the optimizer step, on the noisy training
+        batch of that iteration; this one runs once per gradient step, in ppo_update after every
+        optimizer step, on the states `sequence` recomputed for that minibatch (noisy, every RNN
+        step of every decision of the minibatch's episodes, under the weights before the step).
 
         WHAT COUNTS OPTIMIZER STEPS HERE AND ITERATIONS THERE. check_every (a check every
         check_every-th step, the first at step_n = 0); patience (consecutive silent checks, one
@@ -678,9 +783,12 @@ class TrainerPPO:
         step, zero_protected_grads, as there). A minibatch whose loss is not finite is skipped
         without an optimizer step and without a check (the supervised rule also runs after a
         skipped step, but the PPO skip means the states themselves are not finite). The random
-        draws of the outgoing redraw come from the RNN's generator, as there.
+        draws of the outgoing redraw, of the donors and of the jitter come from the RNN's
+        generator, as there. At the paper's copy values (check_every 100, patience 3, maturity
+        1,000) a 2,000-update run of 8 steps per update makes 160 checks, a unit is doomed after
+        300 silent steps (37.5 updates) and is protected for 125 updates after a replacement.
 
-        The steps, with the supervised lines:
+        The steps common to both modes, with the supervised lines:
           participation p = participation_from_states(states) (std + q0.9 of the rate);
             silent = p < active_rel * torch.quantile(p, 0.95)
           the contribution utility, every check:
@@ -688,8 +796,19 @@ class TrainerPPO:
             u <- utility_decay * u + (1 - utility_decay) * p * out_w;  score = u if utility ==
             "contribution" else p
           strikes = where(silent, strikes + 1, 0); mature = (step_n - last_replaced) >= maturity;
-            doomed = (strikes >= patience) & mature; return if none is doomed and none is growing;
-          at most round(max_replace_frac * N) doomed per check, the lowest score first;
+            doomed = (strikes >= patience) & mature; return if none is doomed (and, in mode
+            "rescale", none is growing);
+          at most round(max_replace_frac * N) doomed per check, the lowest score first.
+        Mode "copy":
+          every doomed unit is overwritten with a jittered copy of a live unit (`duplicate_units`,
+            which quotes the lines); when no unit is live nothing is changed and the strikes are
+            not reset, as there;
+          Adam's exp_avg and exp_avg_sq on the incoming rows W_rec[i, :] and W_inp[i, :] and on
+            the outgoing columns W_rec[:, i] and W_out[:, i] of every doomed unit set to 0 (the
+            supervised blocks `mode != "rescale"` and `mode in ("copy", "rescale")`); the donor's
+            halved columns keep their moments, as there;
+          strikes[doomed] = 0; last_replaced[doomed] = step_n; ever[doomed] = True.
+        Mode "rescale":
           1) GRADUATE: a growing unit whose frm_activity reaches target = rescale_target_frac *
              frm_activity_cap() stops growing;
           2) OPEN an episode for every doomed unit not growing, up to round(rescale_protect_frac *
@@ -710,17 +829,23 @@ class TrainerPPO:
                 its B episodes including the (T + 1)-th decision's bootstrap steps and the steps
                 after an episode ended, as the rate penalty pools them; S = (T + 1) * substeps.
         Returns:
-            dict of ints: rescale_growing (units growing after this check), rescale_opened
-            (episodes opened at this check), rescale_graduated (units that reached the target at
-            this check) and rescale_spent (units whose cumulative factor reached the cap at this
-            check); zeros apart from rescale_growing when the check is skipped. The call advances
+            dict of ints. Mode "rescale": rescale_growing (units growing after this check),
+            rescale_opened (episodes opened at this check), rescale_graduated (units that reached
+            the target at this check) and rescale_spent (units whose cumulative factor reached the
+            cap at this check); zeros apart from rescale_growing when the check is skipped. Mode
+            "copy": copy_replaced (units overwritten at this check; 0 when the check is skipped)
+            and copy_units_ever (distinct units overwritten so far in the run). The call advances
             step_n by one.
         """
         args = self.prune_args
+        mode = args["reinit_mode"]
         n_done = self.step_n
         self.step_n += 1
-        counts = {"rescale_growing": int(self._rescale_growing.sum()), "rescale_opened": 0,
-                  "rescale_graduated": 0, "rescale_spent": 0}
+        if mode == "copy":
+            counts = {"copy_replaced": 0, "copy_units_ever": int(self._reinit_ever.sum())}
+        else:
+            counts = {"rescale_growing": int(self._rescale_growing.sum()), "rescale_opened": 0,
+                      "rescale_graduated": 0, "rescale_spent": 0}
         if n_done % int(args["check_every"]) != 0:
             return counts
         p = self.participation_from_states(states).detach()
@@ -734,7 +859,7 @@ class TrainerPPO:
         mature = (n_done - self._last_replaced) >= int(args.get("maturity", 0))
         doomed = (self._reinit_strikes >= int(args["patience"])) & mature
         n = int(doomed.sum())
-        if n == 0 and not bool(self._rescale_growing.any()):
+        if n == 0 and not (mode == "rescale" and bool(self._rescale_growing.any())):
             return counts
         cap = max(1, int(round(float(args.get("max_replace_frac", 1.0)) * self.RNN.N)))
         if n > cap:
@@ -743,12 +868,32 @@ class TrainerPPO:
             doomed = torch.zeros_like(doomed)
             doomed[keep] = True
             n = cap
+        idx = torch.nonzero(doomed, as_tuple=True)[0]
+        if mode == "copy":
+            with torch.no_grad():
+                if self.duplicate_units(idx, p, silent) == 0:
+                    return counts
+                # Adam's moments on the copies' incoming rows and outgoing columns
+                for prm, where in ((self.RNN.W_rec, "rows"), (self.RNN.W_inp, "rows"),
+                                   (self.RNN.W_rec, "cols"), (self.RNN.W_out, "cols")):
+                    st = self.optimizer.state.get(prm, None)
+                    if st:
+                        for key in ("exp_avg", "exp_avg_sq"):
+                            if key in st:
+                                if where == "rows":
+                                    st[key][idx, :] = 0.0
+                                else:
+                                    st[key][:, idx] = 0.0
+            self._reinit_strikes[doomed] = 0
+            self._last_replaced[doomed] = float(n_done)
+            self._reinit_ever[doomed] = True
+            counts.update(copy_replaced=n, copy_units_ever=int(self._reinit_ever.sum()))
+            return counts
         std = 1.0 / np.sqrt(self.RNN.N)
         a = float(args.get("rescale_alpha", 1.0005))
         cum_cap = float(args.get("rescale_cap", 8.0))
         protect_cap = int(round(float(args.get("rescale_protect_frac", 0.20)) * self.RNN.N))
         with torch.no_grad():
-            idx = torch.nonzero(doomed, as_tuple=True)[0]
             target = float(args["rescale_target_frac"]) * self.frm_activity_cap()
             activity = self.frm_activity(states)
             # 1) GRADUATE
@@ -973,7 +1118,9 @@ class TrainerPPO:
             raw penalty values fr_magnitude (lambda_frm > 0) and rec_weights_sparsity
             (lambda_rws > 0), before their lambda; with the rescale rule on, four ints:
             rescale_opened, rescale_graduated and rescale_spent summed over this update's checks
-            (one per optimizer step) and rescale_growing, the number growing after the last check.
+            (one per optimizer step) and rescale_growing, the number growing after the last check;
+            with the copy rule on, two ints: copy_replaced summed over the update's checks and
+            copy_units_ever, the distinct units replaced so far, after the last check.
 
         THE PENALTIES are added to the loss of every minibatch as the supervised train_step adds
         them, loss += lambda_frm x P_frm + lambda_rws x P_rws, with P_frm on the states of this
@@ -1035,7 +1182,7 @@ class TrainerPPO:
                 self.optimizer.step()
                 if self.prune_reinit:
                     counts = self.prune_and_reinit(states.detach())
-                    rule = {k: (v if k == "rescale_growing" else rule.get(k, 0) + v) for k, v in counts.items()}
+                    rule = {k: (v if k in RULE_LEVEL_KEYS else rule.get(k, 0) + v) for k, v in counts.items()}
                 with torch.no_grad():
                     sums["policy_loss"] += policy_loss.item()
                     sums["value_loss"] += value_loss.item()
@@ -1081,8 +1228,8 @@ class TrainerPPO:
         participation EMA p_bar updated from that rollout's states as the supervised train_step
         updates it (`self.participation = (1 - eta) * self.participation + eta * new_part`, after the
         mask of the same batch was drawn from the old value), advantages (GAE with a critic,
-        Monte-Carlo without), the clipped update (with the rescale rule on, one check of
-        prune_and_reinit after each of its optimizer steps), and one progress record. The first
+        Monte-Carlo without), the clipped update (with the rescale or the copy rule on, one check
+        of prune_and_reinit after each of its optimizer steps), and one progress record. The first
         update and every probe_every-th one are followed by a probe. Every checkpoint_every-th
         update, except the last (the caller saves the finished run), calls
         checkpoint_fn(updates_done, params) if one was set.
@@ -1096,7 +1243,9 @@ class TrainerPPO:
             (the rate used, after the warm-up ramp), the statistics of ppo_update (including
             skipped minibatches, when a penalty is on its raw value, and with the rescale rule on
             its counts of that update: rescale_opened, rescale_graduated and rescale_spent summed
-            over the update's checks, rescale_growing after the last one); probes, a dict of lists
+            over the update's checks, rescale_growing after the last one; with the copy rule on
+            copy_replaced summed over the checks and copy_units_ever after the last one); probes,
+            a dict of lists
             over probes: update (the update index, offset the same way),
             active, active_mod, probe_success, and p_update and p, the stored participation vectors
             (N,) with their update index; last_probe, the last probe's rollout dict.
@@ -1150,6 +1299,7 @@ class TrainerPPO:
                       f"  probe success {probes['probe_success'][-1]:.2f}"
                       f"  active {n_active} (mod {n_active_mod})/{self.RNN.N}  kl {r['approx_kl']:.4f}  clip {r['clip_frac']:.2f}"
                       + (f"  growing {r['rescale_growing']}" if "rescale_growing" in r else "")
+                      + (f"  replaced {r['copy_units_ever']}" if "copy_units_ever" in r else "")
                       + f"  {(time.perf_counter() - tic) / it:.2f} s/update", flush=True)
             if self.checkpoint_every and it % self.checkpoint_every == 0:
                 snapshot = {k: v.clone() for k, v in good.items()}      # the fallback of safe_rollout

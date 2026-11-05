@@ -120,10 +120,17 @@ dropout_args:               # the supervised block, with drop_rate and dropout_b
 # keys as well; where the supervised default (trainer_ptrack_freshbatch.yaml) differs, it is noted.
 # What is counted in iterations there is counted in optimizer steps here (check_every, maturity, the
 # strikes): 16,000 steps in a 2,000-update run at 4 epochs x 2 minibatches.
+# PRUNE-AND-DUPLICATE (issue #6) is the same rule in reinit_mode "copy" (TrainerPPO.duplicate_units):
+# a doomed unit is overwritten with a copy of a live unit drawn in proportion to participation, the
+# donor's outgoing columns halved and shared with the copy, the copy's incoming rows the donor's
+# with a relative jitter of copy_noise on every entry. The maze launcher passes the paper's
+# duplication arm (slurm/SilentReLU_paper_grid_della.slurm: check_every 100, patience 3, utility
+# contribution, maturity 1000, max_replace_frac 0.025, copy_noise 1.0, copy_norm_preserve true) as
+# swept keys; the two copy_* values below are the supervised defaults (trainer_ptrack_freshbatch.yaml).
 prune_reinit: false         # true switches the rule on at the values below
 prune_args:
-  reinit_mode: rescale      # the only mode mirrored; random, zero_out, orth, mix, bias_kick and
-                            # copy are refused at construction
+  reinit_mode: rescale      # the two modes mirrored are "rescale" and "copy"; random, zero_out, orth,
+                            # mix and bias_kick are refused at construction
   check_every: 1            # optimizer steps between checks (paper 1 iteration; supervised default 100)
   patience: 1               # consecutive silent checks before a unit is doomed (paper 1; supervised default 3)
   active_rel: 0.05          # silent if participation < this x q95(participation), the project's rule
@@ -149,3 +156,9 @@ prune_args:
                             # from inhibition to excitation at fixed total synaptic weight (paper true)
   rescale_norm_mode: self   # the norm a row is held at: its own ("self", the paper's); "median_active"
                             # is refused
+  copy_noise: 0.05          # mode "copy": relative jitter on the copy's incoming rows, each entry x
+                            # (1 + copy_noise x N(0, 1)); without it the twins take identical drive and
+                            # identical gradients and never separate (paper 1.0)
+  copy_norm_preserve: false # mode "copy": scale the jittered rows back to the donor's row norms, so
+                            # the jitter sets the copy's direction only, at an expected cosine of
+                            # 1 / sqrt(1 + copy_noise^2) to the donor (paper true)
