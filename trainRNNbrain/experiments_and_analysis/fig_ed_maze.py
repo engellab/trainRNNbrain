@@ -378,7 +378,7 @@ def panel_size(ax, rows):
     ax.set(xscale="log", yscale="log", xlim=(x_lo, x_hi), ylim=(y_lo, SIZES[-1] * 1.5))
     nn = np.array([x_lo, x_hi])
     ax.plot(nn, nn, "-", lw=ps.THIN_LW, color=ps.FAINT, zorder=2)
-    ax.text(SIZES[0], SIZES[0] * 1.08, "every unit active", rotation=45, transform_rotates_text=True,
+    ax.text(SIZES[-1] / 1.7, SIZES[-1] / 1.7 * 1.08, "every unit active", rotation=45, transform_rotates_text=True,
             fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="bottom", rotation_mode="anchor")
     ax.set_xticks(SIZES)
     ax.xaxis.set_minor_locator(NullLocator())
