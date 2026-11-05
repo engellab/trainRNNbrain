@@ -8,7 +8,9 @@ noise off and the policy mean as the action, the same clean rollout as the train
 frame is one decision: every agent is a dot with a short heading tick and a trail of its last
 `trail` positions; an agent that reached the cheese turns into a hollow marker and stops. The
 first agent's range sensors are drawn as thin grey rays (their length is the measured distance
-to the first wall). Frames are subsampled by `--every`.
+to the first wall). Frames are subsampled by `--every`. The animation ends when the last agent
+has reached the cheese (held for `--hold` frames, then the GIF loops and starts anew), and runs
+to the episode's end only if an agent never arrives (Pavel, 4 Nov 2026).
 
 Output. img/internal_figures/rl_maze_<name>.gif, and the last frame as rl_maze_<name>_last.png.
 Run: python trainRNNbrain/experiments_and_analysis/rl_maze_animate.py --run <folder> --name <name>
@@ -27,13 +29,14 @@ from trainRNNbrain.rl.ppo import rollout
 from trainRNNbrain.rl.saved import load_run
 
 
-def animate(cfg, env, out, path, every, trail, fps):
+def animate(cfg, env, out, path, every, trail, fps, hold=15):
     """Write the GIF of one rollout.
 
     Args:
         cfg: the run's DictConfig; env: MazeEnv; out: the rollout dict (xy, heading, u, steps,
         success); path: str, the .gif to write; every: int, decisions per frame; trail: int,
-        trail length in decisions; fps: int, frames per second.
+        trail length in decisions; fps: int, frames per second; hold: int, frames the last
+        picture is held before the GIF loops.
     Returns:
         the matplotlib Figure of the last frame.
     """
@@ -78,10 +81,12 @@ def animate(cfg, env, out, path, every, trail, fps):
         title.set_text(f"{label}\ndecision {t} of {T1 - 1}")
         return trails + dots + ticks + rays + [title]
 
-    n_frames = (T1 - 1) // every + 1
-    anim = FuncAnimation(fig, draw, frames=n_frames, blit=False)
+    end = int(steps.max()) + 1 if success.all() else T1 - 1     # the last arrival, or the episode's end
+    last = end // every
+    frames = list(range(last + 1)) + [last] * hold
+    anim = FuncAnimation(fig, draw, frames=frames, blit=False)
     anim.save(path, writer=PillowWriter(fps=fps))
-    draw(n_frames - 1)
+    draw(last)
     return fig
 
 
@@ -94,6 +99,7 @@ def main():
     ap.add_argument("--every", type=int, default=2, help="decisions per frame")
     ap.add_argument("--trail", type=int, default=60, help="trail length in decisions")
     ap.add_argument("--fps", type=int, default=15)
+    ap.add_argument("--hold", type=int, default=15, help="frames to hold the last picture before the loop restarts")
     args = ap.parse_args()
     cfg, env, policy = load_run(args.run)
     g = torch.Generator()
@@ -101,7 +107,7 @@ def main():
     out = rollout(env, policy, args.agents, int(cfg.ppo.T), clean=True, generator=g)
     os.makedirs(IMG_DIR, exist_ok=True)
     gif = os.path.join(IMG_DIR, f"rl_maze_{args.name}.gif")
-    fig = animate(cfg, env, out, gif, args.every, args.trail, args.fps)
+    fig = animate(cfg, env, out, gif, args.every, args.trail, args.fps, args.hold)
     fig.savefig(os.path.join(IMG_DIR, f"rl_maze_{args.name}_last.png"), dpi=100)
     print(f"{gif}: {out['success'].float().mean():.2f} of {args.agents} reached the cheese, "
           f"mean steps {out['steps'].float().mean():.0f}")
