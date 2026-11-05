@@ -8,21 +8,43 @@ units scores as the intact network retrained the same way.
   (b) participation of every unit before and after training, with the criterion. The criterion is
       not claimed to sit in an empty valley: halving or doubling its factor moves the active count
       by 3-28% (dead-relu-paper#13, notebook 2026-10-31_1657).
-  (c) active units at N = 1,000 on all three tasks, every run at its own floor crossing, with
-      held-out R^2 there (panel_tasks). All four 3BFF networks are drawn (decision dead-relu-paper#20).
-  (d) held-out R^2 as units are removed, three networks per task; one sub-panel per task, side by
-      side, the legend above them and off the data. Round 3 (dead-relu-paper#85, #83): the left
+  (c) active units at N = 1,000 on the three main-text tasks (MAIN_TASKS: 3BFF, CDDM and the maze;
+      round 14), every supervised run at its own floor crossing with held-out R^2 there and every
+      maze run at its "learned" probe with the probe success rate there (panel_tasks). All four 3BFF
+      networks are drawn (decision dead-relu-paper#20).
+  (d) the score as units are removed (held-out R^2 for 3BFF and CDDM, the success rate for the maze,
+      on a y axis of its own), three networks per supervised task and every ablated maze network;
+      one sub-panel per task, side by side, the legend above them and off the data. Round 3
+      (dead-relu-paper#85, #83): the left
       spine sits 1.4 mm outward so the busiest-first curve is clear of it; the inactive units are a
       grey bar along the top, not a band behind the curves; the retrained networks are a strip right
       of each sub-panel, stars (inactive removed) and triangles (as many removed at random), every
       mark filled because fill means the floor crossing in every figure. Inactive units in (a) are
       light grey dots, no longer hollow.
   (e) round 7 (dead-relu-paper#127, plan risk R1): the fraction of units selective for a task
-      variable in the nine networks of (d), computed over all units and over the active units only
-      (panel_selective). Read from data/population_stats.json (population_stats.py; notebook
-      2026-10-31_2220), the file Extended Data Fig. 2 draws; nothing is recomputed here. Filled
-      markers: the weights are the floor-crossing snapshots of (d). Panel (e) sits under (c), and
-      (d) spans the height of both.
+      variable in the 3BFF and CDDM networks of (d), computed over all units and over the active
+      units only (panel_selective). Read from data/population_stats.json (population_stats.py;
+      notebook 2026-10-31_2220), the file Extended Data Fig. 2 draws; nothing is recomputed here.
+      Filled markers: the weights are the floor-crossing snapshots of (d). The maze column reads
+      "no data" until that file holds maze networks. Panel (e) sits under (c), and (d) spans the
+      height of both.
+
+ROUND 14 (dead-relu-paper#182, Pavel's decision of 4 Nov). The maze-running task (an agent trained
+by PPO to reach the cheese in a fixed maze; engellab/trainRNNbrain#3) replaces DMTS as the third
+task of panels (c), (d) and (e); DMTS moves to Extended Data. MAIN_TASKS lists the three tasks
+those panels draw; PANEL_TASKS and ABLATION keep DMTS because collect() and fig_cosyne2027 read
+them. The maze is read when the figure is drawn, from this repo and not from COLLECT: its N = 1,000
+ReLU runs (MAZE_ROOT, common.maze_load_runs; maze_rows) and the ablation JSONs of rl_maze_ablate.py
+(MAZE_ABLATION_DIR; maze_ablation). Panel (c) draws each maze run at its "learned" probe, the first
+probe from which the clean probe's success rate stays at or above 0.9 for 5 probes
+(common.maze_learned_index), the maze counterpart of the floor crossing: 511, 434 and 410 active
+units of 1,000 for seeds 1, 2 and 3 (at the end of training, update 2,000, the counts are 455, 423
+and 404; those are not drawn). Its tick label gives the probe success rate at that probe (SCORE),
+not an R^2. Panel (d)'s maze sub-panel draws the success rate under the training noise against
+units removed, in the three orders of the other sub-panels, on a y axis of its own labelled
+"success rate" (D_YLABEL_MM of room before it); the ablated weights are the final ones, because no
+earlier snapshot of a maze run is saved. No prune-and-retrain and no selectivity analysis has been
+run on the maze, so its retrain strip in (d) and its column in (e) read "no data".
 
 ROUND 13 (dead-relu-paper#165). The 24 trials of (a) and (b) are drawn from a seeded task: the
 flip-flop task draws its trials from its own generator, seeded from cfg.task.seed (null in every
@@ -129,7 +151,8 @@ import heldout_r2 as heldout
 from pr_matrix import fit_floor_at, excess_time_at
 from common import (DATA_DIR, SILENT_REL, participation, logbin, noisy_loss_series,
                     FLOOR_DELTA, warm_start_chain, active_mask, runs_with_loss, floor_crossing,
-                    at_own_floor, read_run)
+                    at_own_floor, read_run, maze_load_runs, maze_learned_index,
+                    MAZE_LEARNED_SUCCESS, MAZE_LEARNED_HOLD)
 from flipflop_diversity import rates_and_targets
 from flipflop_fixedpoints import load_net
 import hydra
@@ -216,14 +239,32 @@ SCALING = {
 # chance-level runs; diverged runs are dropped by name in traces_of.
 TASK_MIN_R2 = {DMTS_LABEL: 0.8}
 
+# The maze-running task (PPO; engellab/trainRNNbrain#3; in the main text since dead-relu-paper#182).
+# Its runs and ablations live in this repo, not on Della, and are read when the figure is drawn.
+MAZE_LABEL = "Maze"
+REPO_ROOT = os.path.normpath(os.path.join(DATA_DIR, "..", ".."))
+MAZE_ROOT = os.path.join(REPO_ROOT, "data", "trained_RNNs_rl_maze", "Maze_suite")
+MAZE_ABLATION_DIR = os.path.join(REPO_ROOT, "data", "rl_maze_ablation")
+
 # Figure 1 names each task in full once (panel a, and the caption) and then by the abbreviation the
 # paper defines; the series labels above stay as they are, because the Figure 2 legends use them.
-TASK_SHORT = {EXAMPLE_TASK: "3BFF", "CDDM": "CDDM", DMTS_LABEL: "DMTS"}
+TASK_SHORT = {EXAMPLE_TASK: "3BFF", "CDDM": "CDDM", DMTS_LABEL: "DMTS", MAZE_LABEL: "Maze"}
+# The three tasks of the main text, in the order panels (c), (d) and (e) draw them (#182: the maze
+# in place of DMTS, which stays in PANEL_TASKS and ABLATION for collect() and fig_cosyne2027).
+MAIN_TASKS = [EXAMPLE_TASK, "CDDM", MAZE_LABEL]
+# How each task is scored: the name in panel (c)'s tick label and the number's format (tick, fmt),
+# panel (d)'s y-axis label (axis) and the name in the printed numbers (text). The supervised tasks
+# are scored by held-out R^2 at the floor crossing, to three decimals because the seeds agree to
+# 0.001. The maze is scored by the clean probe's success rate over 128 episodes, to two decimals
+# because one probe's rate has a standard error near 0.02.
+SCORE_R2 = dict(tick="$R^2$", fmt=".3f", axis=ps.LABELS["r2"], text="held-out R2")
+SCORE = {MAZE_LABEL: dict(tick="success", fmt=".2f", axis="success rate", text="success rate")}
 
 # Panel (c): the N = 1000 cell of each task's size series (the same runs as Figure 2's N = 1000
 # point), each run read at 1.05x its own noisy-loss floor (common.read_run) with held-out R^2 at
 # that crossing (heldout_r2.floor_r2: measured on a kept snapshot, else estimated from the end).
-# (label, cell, colour); the colours are the ones panel (d) gives the same tasks.
+# (label, cell, colour); the colours are the ones panel (d) gives the same tasks. These are the
+# supervised cells, read by collect() on Della; the maze runs are read on the Mac (maze_rows).
 PANEL_TASKS = [
     (EXAMPLE_TASK, FF200.format(N=1000), ps.TASK_3BFF),
     ("CDDM", SCALING["CDDM"][1][1000], ps.TASK_CDDM),
@@ -1349,6 +1390,9 @@ ABLATION = [
     (DMTS_LABEL, [("DMTS_c1_snapshots__EqType=h_N=1000_arm=control", "floor")], ps.TASK_DMTS),
 ]
 READOUT_TITLE = {"floor": "each at its loss floor", "end": "end of training"}
+# Panel (d) of the main figure: the ABLATION entries of MAIN_TASKS and the maze, whose results are
+# read from this repo (maze_ablation) and so have no Della source.
+ABLATION_MAIN = [t for t in ABLATION if t[0] in MAIN_TASKS] + [(MAZE_LABEL, [], ps.TASK_MAZE)]
 ABL_GRID = np.linspace(0.0, 1.0, 201)        # fraction of units removed, the common x of every curve
 # panel (d) marks (round 3, dead-relu-paper#85 and #83)
 D_YLIM = (0.0, 1.10)           # room above R^2 = 1 for the retrained stars and the inactive bar
@@ -1402,11 +1446,51 @@ def ablation_for(sources):
     return [], [], None
 
 
-def panel_d(axes, loaded=None, ax_key=None, strips=None):
-    """Panel (d): held-out R^2 as units are removed, one sub-panel per task, side by side.
+def maze_ablation(folder=MAZE_ABLATION_DIR, N=N_UNITS):
+    """Panel (d)'s maze entry: the JSONs of rl_maze_ablate.py, in the shape panel_d reads (#182).
+
+    Every JSON of a ReLU network of size N under `folder` is read, so the sub-panel grows as seeds
+    land. The maze ablation removes units from the network at the end of training (update 2,000,
+    the weights in Params_Maze.npz; no earlier snapshot of a maze run is saved), not at the learned
+    probe of panel (c). Its score is the success rate over fixed drops under the training noise,
+    the counterpart of the supervised held-out R^2; it is stored under the r2_* keys because
+    panel_d reads those, and SCORE labels the axis "success rate". The scores with exactly the
+    inactive units removed sit on the k grid (rl_maze_ablate.py puts the inactive count on it); the
+    score with the active units removed is interpolated between grid points. No prune-and-retrain
+    has been run on the maze, so the retrain list is empty and the strip reads "no data".
+
+    Args:
+        folder: str, the folder of the JSONs; N: int, the network size.
+    Returns:
+        (ablation dicts, [], "end") as ablation_for returns them; each dict holds N, n_active,
+        n_silent, ks, quiet_first, busy_first, random (one list per random order), r2_full,
+        r2_no_silent, r2_random_same_count, r2_no_active, iteration (the last probe's PPO update),
+        label and run_dir.
+    """
+    res = []
+    for path in sorted(glob.glob(os.path.join(folder, f"N={N}_act=relu__s*.json"))):
+        with open(path) as fh:
+            a = json.load(fh)
+        ks, n_silent = np.asarray(a["ks"], float), a["N"] - a["n_active"]
+        probes = np.load(os.path.join(REPO_ROOT, a["run_dir"], "Participation.npz"))
+        res.append(dict(N=a["N"], n_active=a["n_active"], n_silent=n_silent, ks=a["ks"],
+                        quiet_first=a["score_quiet"], busy_first=a["score_busy"],
+                        random=a["score_random"], r2_full=a["score_full"],
+                        r2_no_silent=float(np.interp(n_silent, ks, a["score_quiet"])),
+                        r2_random_same_count=[float(np.interp(n_silent, ks, r))
+                                              for r in a["score_random"]],
+                        r2_no_active=float(np.interp(a["n_active"], ks, a["score_busy"])),
+                        iteration=int(probes["update"][-1]), label=a["label"],
+                        run_dir=a["run_dir"]))
+    return res, [], "end"
+
+
+def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
+    """Panel (d): the score as units are removed, one sub-panel per task, side by side.
 
     Every network is drawn. Units are removed by zeroing their outgoing weights and the network is
-    scored on held-out trials under its training noise (ablate_silent_units.py). Three orders, all in
+    scored on held-out trials under its training noise (ablate_silent_units.py; for the maze,
+    rl_maze_ablate.py scores the success rate the same way, see maze_ablation). Three orders, all in
     the task's colour and told apart by line style: quietest first (solid; thick, mean; thin, each
     network), random order (dashed, mean over five orders and the networks; band, range) and
     busiest first (dotted, mean). The left spine is set D_SPINE_OUT_PT outward, so the busiest-first
@@ -1418,17 +1502,22 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None):
     retrained for 3,000 iterations, a triangle for as many units removed at random and retrained the
     same way (#85 item 2). Every marker is filled: the weights are the floor-crossing snapshots, and
     fill means the floor crossing in every figure (#83); stars and triangles differ by shape only.
-    Scores below 0 are drawn at 0.
+    Scores below 0 are drawn at 0. The y axis is shared; the first sub-panel carries its score's
+    label (SCORE), and a sub-panel scored by a different quantity than the one before it keeps its
+    tick labels and carries its own (the maze's "success rate", #182). A task with no retrained
+    networks gets "no data" in its strip.
 
     Args:
-        axes: one Axes per entry of ABLATION, left to right, sharing the y axis;
+        axes: one Axes per entry of `tasks`, left to right, sharing the y axis;
         loaded: dict task label -> (ablation dicts, retrain dicts, read-out) as ablation_for returns
             them (the collect stage's record), or None to read the result files on disk;
         ax_key: a blank Axes above the sub-panels that holds the legend (off the data), or None to
             draw no legend;
-        strips: one narrow Axes per entry of ABLATION for the retrained networks, or None to draw
+        strips: one narrow Axes per entry of `tasks` for the retrained networks, or None to draw
             them inside `axes` at each network's inactive share (the pre-round-3 placement, kept for
-            fig_cosyne2027).
+            fig_cosyne2027);
+        tasks: list of (label, sources, colour) as ABLATION holds them (the default; the main
+            figure passes ABLATION_MAIN).
     Returns:
         list of (task, n nets, inactive, r2 intact, r2 all inactive removed, r2 same number random,
         r2 all active removed, read-out, iteration, r2 after pruning and retraining) rows, means
@@ -1436,7 +1525,7 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None):
     """
     rows = []
     strips = strips if strips is not None else [None] * len(axes)
-    for ax, ax_s, (label, sources, col) in zip(axes, strips, ABLATION):
+    for ax, ax_s, (label, sources, col) in zip(axes, strips, tasks):
         res, ret, readout = (ablation_for(sources) if loaded is None
                              else loaded.get(label, ([], [], None)))
         floor_r2 = TASK_MIN_R2.get(label)
@@ -1485,6 +1574,9 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None):
             ax_s.spines["left"].set_visible(False)
             ax_s.tick_params(axis="y", length=0)
             ps.ygrid(ax_s)
+            if not ret:
+                ax_s.text(0.5, 0.5, "no\ndata", transform=ax_s.transAxes, ha="center",
+                          va="center", fontsize=ps.TICK_PT, color=ps.MUTED)
         ax.set(xlim=(0, 100), ylim=D_YLIM)
         ax.set_xticks([0, 50, 100])
         ax.set_yticks([0, 0.5, 1.0])
@@ -1498,13 +1590,15 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None):
                      float(np.mean([r["r2_no_active"] for r in res])),
                      readout, int(np.mean([r["iteration"] for r in res])),
                      float(np.mean([t["silent_removed"][-1][1] for t in ret])) if ret else np.nan))
-    drawn = [ax for ax in axes if ax.has_data()]
+    drawn = [(ax, label) for ax, (label, _s, _c) in zip(axes, tasks) if ax.has_data()]
     if not drawn:
         return rows
-    for ax in drawn[1:]:
-        ax.tick_params(labelleft=False)
-    drawn[len(drawn) // 2].set_xlabel("units removed (% of the network)")
-    drawn[0].set_ylabel(ps.LABELS["r2"])
+    for i, (ax, label) in enumerate(drawn):
+        if i == 0 or score_of(label)["axis"] != score_of(drawn[i - 1][1])["axis"]:
+            ax.set_ylabel(score_of(label)["axis"])
+        else:
+            ax.tick_params(labelleft=False)
+    drawn[len(drawn) // 2][0].set_xlabel("units removed (% of the network)")
     if ax_key is not None:
         ps.blank(ax_key)
         ax_key.legend(handles=[
@@ -1735,9 +1829,11 @@ LAYOUT_MM = {                  # name: (left, top, width, height)
     "c":     (14.0, 73.0, 40.0, 25.0),    # c, active units per task
     "e":     (14.0, 114.0, 40.0, 17.5),   # e, fraction of units selective, under c
     "d_key": (69.0, 68.0, 93.0, 7.0),     # d, legend strip, above the sub-panels and off the data
-    "d":     (70.5, 83.0, 20.5, 49.0),    # d, first of three side-by-side sub-panels (removal curves)
+    "d":     (70.5, 83.0, 18.0, 49.0),    # d, first of three side-by-side sub-panels (removal curves);
+                                          # 20.5 until round 14, when the maze's own y label took 7.5 mm
 }
 D_GAP_MM = 3.5                 # gap between one task's retrain strip and the next task's sub-panel
+D_YLABEL_MM = 7.5              # extra gap before a sub-panel with its own tick labels and y label (maze)
 D_STRIP_MM = (1.5, 6.5)        # retrain strip right of each sub-panel: (gap, width)
 LETTER_X_MM = {"a": 1.0, "c": 1.0, "e": 1.0, "b": 100.0, "d": 59.0}  # letters: left edges
 LETTER_TOP_MM = {"a": 4.5, "b": 4.5, "c": 68.0, "d": 68.0, "e": 110.0}  # letter baseline, from the top
@@ -1794,25 +1890,92 @@ def apply_decisions(rec):
     return rec
 
 
-def panel_tasks(ax, rows):
-    """Panel (c): active units at N = 1000 on each task, every run at its own floor crossing.
-
-    One column per task: one point per run in the task's colour, a bar at the mean, and under the
-    task's name the mean held-out R^2 at the floor and the number of runs drawn. A run is drawn when
-    it has a floor read-out (read_run's reason is None), its participation probes cover the
-    crossing, and it is not in EXCLUDED_RUNS. The dashed line marks half of the network. A strip and
-    not a scatter against R^2: the three tasks sit at R^2 0.83, 0.95 and 0.999, so a shared R^2 axis
-    spends most of its width between the tasks and none within one.
+def score_of(label):
+    """How a task is scored: the SCORE entry of its label, SCORE_R2 for the supervised tasks.
 
     Args:
-        ax: axes; rows: the collect stage's panel (c) records (dicts with task, name, active,
-            t_star, reason, covered, excluded, r2, measured).
+        label: str, a task label as PANEL_TASKS, ABLATION and MAIN_TASKS name it.
     Returns:
-        list of (task, active counts, R^2 values, measured flags, crossings, runs on disk, list of
-        "name: reason" strings for the runs not drawn), one per PANEL_TASKS entry.
+        dict with tick (name in a tick label), fmt (format of the number), axis (y-axis label) and
+        text (name in the printed numbers).
+    """
+    return SCORE.get(label, SCORE_R2)
+
+
+def task_color(label):
+    """The paper's colour of a task (paperstyle.TASK_COLORS), looked up by its short name.
+
+    Args:
+        label: str, a task label with an entry in TASK_SHORT.
+    Returns:
+        str, a hex colour.
+    """
+    return ps.TASK_COLORS[TASK_SHORT[label]]
+
+
+def maze_rows(root=MAZE_ROOT, N=N_UNITS):
+    """Panel (c)'s rows for the maze networks, in the shape of the collect record's rows (#182).
+
+    Every ReLU run of size N without a goal cue under `root` (common.maze_load_runs) is read at its
+    "learned" probe: the first probe from which the clean probe's success rate stays at or above
+    MAZE_LEARNED_SUCCESS for MAZE_LEARNED_HOLD probes in a row (common.maze_learned_index), the
+    maze counterpart of the supervised runs' floor crossing. The count drawn is therefore the one
+    at the point where the task is first solved, not the one at the end of training (511, 434 and
+    410 of 1,000 at the learned probe for seeds 1-3; 455, 423 and 404 at update 2,000). The run's
+    score is the probe success rate at that probe, stored under "r2" because panel_tasks reads that
+    key; SCORE names it "success" in the tick label. A run that never meets the learned rule gets
+    a reason and is listed among the runs not drawn.
+
+    Args:
+        root: str, the suite folder (cell/s<seed>/ run folders); N: int, the network size.
+    Returns:
+        list of dicts with the collect record's keys: task (MAZE_LABEL), name, active, t_star (the
+        PPO update of the learned probe), reason, covered, excluded, r2 (the success rate),
+        measured, active_end, it_end (the last probe's update).
+    """
+    rows = []
+    for r in maze_load_runs(root):
+        if r["N"] != N or r["act"] != "relu" or r["cue"]:
+            continue
+        pr = r["probes"]
+        li = maze_learned_index(pr["probe_success"])
+        ok = li is not None
+        rows.append(dict(task=MAZE_LABEL, name=os.path.relpath(r["folder"], root),
+                         active=int(pr["active"][li]) if ok else None,
+                         t_star=float(pr["update"][li]) if ok else float("nan"),
+                         reason=None if ok else (f"probe success never stayed at or above "
+                                                 f"{MAZE_LEARNED_SUCCESS} for {MAZE_LEARNED_HOLD} "
+                                                 f"probes"),
+                         covered=True, excluded=None,
+                         r2=float(pr["probe_success"][li]) if ok else float("nan"), measured=ok,
+                         active_end=int(pr["active"][-1]), it_end=float(pr["update"][-1])))
+    return rows
+
+
+def panel_tasks(ax, rows, tasks=MAIN_TASKS):
+    """Panel (c): active units at N = 1000 on each main-text task, every run at its own read-out point.
+
+    One column per task: one point per run in the task's colour, a bar at the mean, and under the
+    task's name the mean score at the read-out point and the number of runs drawn. The score is the
+    task's SCORE: held-out R^2 at the floor crossing for the supervised tasks, the probe success rate
+    at the "learned" probe for the maze (maze_rows; the maze's end-of-training count is not drawn).
+    A supervised run is drawn when it has a floor read-out (read_run's reason is None), its
+    participation probes cover the crossing, and it is not in EXCLUDED_RUNS; a maze run when it
+    has a learned probe. The dashed line marks half of the network. A strip and not a scatter
+    against the score: the tasks sit at R^2 0.83 and 0.95 and at success 0.93, so a shared score
+    axis spends most of its width between the tasks and none within one.
+
+    Args:
+        ax: axes; rows: the collect stage's panel (c) records and the maze's (maze_rows): dicts
+            with task, name, active, t_star, reason, covered, excluded, r2, measured;
+        tasks: the task labels to draw, left to right (default MAIN_TASKS).
+    Returns:
+        list of (task, active counts, scores, measured flags, read-out points, runs on disk, list
+        of "name: reason" strings for the runs not drawn), one per task.
     """
     out, ticks = [], []
-    for k, (label, _pat, col) in enumerate(PANEL_TASKS):
+    for k, label in enumerate(tasks):
+        col = task_color(label)
         mine = [r for r in rows if r["task"] == label]
         drawn = [r for r in mine if r["reason"] is None and r["covered"] and not r["excluded"]]
         why = [f"{r['name'][:40]}: {r['excluded'] or r['reason'] or 'trace misses the crossing'}"
@@ -1827,15 +1990,19 @@ def panel_tasks(ax, rows):
         ax.plot(xs, y, "o", ms=ps.MARKER_PT + 0.6, color=col, zorder=4)
         ax.text(k + 0.31, y.mean(), f"{y.mean():.0f}", ha="left", va="center", fontsize=ps.TICK_PT,
                 color=ps.INK)
-        ticks.append(f"{TASK_SHORT.get(label, label)}\n$R^2$ = {r2.mean():.3f}\n$n$ = {len(y)}")
+        sc = score_of(label)
+        ticks.append(f"{TASK_SHORT.get(label, label)}\n{sc['tick']} = {r2.mean():{sc['fmt']}}"
+                     f"\n$n$ = {len(y)}")
         out.append((label, y, r2, [r["measured"] for r in drawn], [r["t_star"] for r in drawn],
                     len(mine), why))
     ax.axhline(500, color=ps.FAINT, lw=0.6, ls=(0, (4, 3)), zorder=1)
-    ax.text(len(PANEL_TASKS) - 0.45, 515, "half of the units", fontsize=ps.TICK_PT, color=ps.MUTED,
-            ha="right", va="bottom")
-    ax.set(xlim=(-0.5, len(PANEL_TASKS) - 0.45), ylim=(0, 1000),
+    # the label sits at the left end of the line, over the 3BFF column (about 280 active); at the
+    # right end the maze's seed-1 network (511 active) sits on the line (#182)
+    ax.text(-0.45, 515, "half of the units", fontsize=ps.TICK_PT, color=ps.MUTED, ha="left",
+            va="bottom")
+    ax.set(xlim=(-0.5, len(tasks) - 0.45), ylim=(0, 1000),
            ylabel=ps.of_n(ps.LABELS["active"], N_UNITS))
-    ax.set_xticks(range(len(PANEL_TASKS)))
+    ax.set_xticks(range(len(tasks)))
     ax.set_xticklabels(ticks, fontsize=ps.TICK_PT, linespacing=1.25)
     ax.tick_params(axis="x", length=0, pad=3)
     ax.set_yticks([0, 250, 500, 750, 1000])
@@ -1843,28 +2010,37 @@ def panel_tasks(ax, rows):
     return out
 
 
-def panel_selective(ax, res, seeds_d):
+def panel_selective(ax, res, seeds_d, tasks=MAIN_TASKS):
     """Panel (e): fraction of units selective for a task variable, over all units and over active units.
 
     One column per task, in the order of panel (c). Each network is a pair of filled markers in the
     task's colour, joined by a thin line: left, the number of selective units divided by all N
     units; right, the number of selective active units divided by the number of active units. Tick
     labels "all" and "active" name the two sets under every pair, and the task names sit on a second
-    line below them, so no legend is needed (PR #147 review, row 10).
+    line below them, so no legend is needed (PR #147 review, row 10). A task with no network in
+    `res` (the maze, until population_stats.py scores it; #182) gets "no data" in its column.
 
     Args:
         ax: axes; res: the per-network results of population_stats.py (fig_ed_population.load()),
             each with "task", "seed", "N" and "S3a" = {"all", "act", "n_all", "n_act"};
-        seeds_d: set of int, the seeds of the panel (d) networks; the results must be those networks.
+        seeds_d: set of int, the seeds of the supervised panel (d) networks; the results must be
+            those networks;
+        tasks: the task labels to draw, left to right (default MAIN_TASKS).
     Returns:
-        list of (task, shares over all units, shares over active units), one per task.
+        list of (task, shares over all units, shares over active units), one per task; both arrays
+        empty for a task with no data.
     """
     seeds_e = {int(str(s["seed"]).lstrip("s")) for s in res}
     assert seeds_e == seeds_d, ("panel e must draw the panel d networks", sorted(seeds_e), sorted(seeds_d))
     out = []
     offs = (-0.05, 0.0, 0.05)                 # the three networks of a task, side by side
-    for k, (label, _pat, col) in enumerate(PANEL_TASKS):
+    for k, label in enumerate(tasks):
+        col = task_color(label)
         rows = [s for s in res if s["task"] == TASK_SHORT[label]]
+        if not rows:
+            ax.text(k, 0.5, "no data", ha="center", va="center", fontsize=ps.TICK_PT, color=ps.MUTED)
+            out.append((TASK_SHORT[label], np.array([]), np.array([])))
+            continue
         y_all = np.array([s["S3a"]["n_all"] / s["N"] for s in rows])
         y_act = np.array([s["S3a"]["act"] for s in rows])
         for dx, ya, yb in zip(offs, y_all, y_act):
@@ -1874,13 +2050,13 @@ def panel_selective(ax, res, seeds_d):
                     clip_on=False)
         out.append((TASK_SHORT[label], y_all, y_act))
     below = offset_copy(ax.get_xaxis_transform(), fig=ax.figure, y=-11.5, units="points")
-    for k, (label, _p, _c) in enumerate(PANEL_TASKS):
+    for k, label in enumerate(tasks):
         ax.text(k, 0, TASK_SHORT[label], transform=below, ha="center", va="top", fontsize=ps.TICK_PT,
                 color=ps.INK)
-    ax.set(xlim=(-0.5, len(PANEL_TASKS) - 0.45), ylim=(0, 1))
+    ax.set(xlim=(-0.5, len(tasks) - 0.45), ylim=(0, 1))
     ax.set_ylabel("fraction of units\nselective")
-    ax.set_xticks([k + side for k in range(len(PANEL_TASKS)) for side in (-E_DX, E_DX)])
-    ax.set_xticklabels(["all", "active"] * len(PANEL_TASKS), fontsize=ps.TICK_PT)
+    ax.set_xticks([k + side for k in range(len(tasks)) for side in (-E_DX, E_DX)])
+    ax.set_xticklabels(["all", "active"] * len(tasks), fontsize=ps.TICK_PT)
     ax.tick_params(axis="x", length=0, pad=2)
     ax.set_yticks([0, 0.5, 1])
     ax.set_yticklabels(["0", "0.5", "1"])
@@ -2054,18 +2230,23 @@ def main():
     letter_mm(axes_b[0], "b")
 
     ax_c = ax_mm(fig, *L["c"])
-    rows_c = panel_tasks(ax_c, rec["tasks"])
+    rows_c = panel_tasks(ax_c, rec["tasks"] + maze_rows())
     letter_mm(ax_c, "c")
 
     left, top, w, h = L["d"]
-    step = w + sum(D_STRIP_MM) + D_GAP_MM
-    axes_d = [ax_mm(fig, left + i * step, top, w, h) for i in range(len(ABLATION))]
-    strips_d = [ax_mm(fig, left + i * step + w + D_STRIP_MM[0], top, D_STRIP_MM[1], h)
-                for i in range(len(ABLATION))]
+    axes_d, strips_d, x = [], [], left
+    for i, (label, _src, _col) in enumerate(ABLATION_MAIN):
+        if i > 0:
+            x += w + sum(D_STRIP_MM) + D_GAP_MM
+            if score_of(label)["axis"] != score_of(ABLATION_MAIN[i - 1][0])["axis"]:
+                x += D_YLABEL_MM        # this sub-panel keeps its tick labels and has its own y label
+        axes_d.append(ax_mm(fig, x, top, w, h))
+        strips_d.append(ax_mm(fig, x + w + D_STRIP_MM[0], top, D_STRIP_MM[1], h))
     for ax in axes_d[1:] + strips_d:
         ax.sharey(axes_d[0])
     ax_key = ax_mm(fig, *L["d_key"])
-    rows_d = panel_d(axes_d, loaded=rec["ablation"], ax_key=ax_key, strips=strips_d)
+    ablation = dict(rec["ablation"], **{MAZE_LABEL: maze_ablation()})
+    rows_d = panel_d(axes_d, loaded=ablation, ax_key=ax_key, strips=strips_d, tasks=ABLATION_MAIN)
     letter_mm(ax_key, "d")
 
     ax_e = ax_mm(fig, *L["e"])
@@ -2084,20 +2265,21 @@ def main():
     for task, counts, r2, measured, t_star, n_all, why in rows_c:
         print(f"  panel c: {task:18} {len(counts)} of {n_all} runs drawn; active "
               f"{', '.join(str(int(c)) for c in counts)} (mean {np.mean(counts):.1f} +- "
-              f"{np.std(counts, ddof=1) if len(counts) > 1 else 0:.1f} SD); held-out R2 "
-              f"{', '.join(f'{v:.3f}' for v in r2)} ({sum(measured)} measured on a snapshot); "
-              f"crossings {', '.join(f'{t:,.0f}' for t in t_star)}")
+              f"{np.std(counts, ddof=1) if len(counts) > 1 else 0:.1f} SD); "
+              f"{score_of(task)['text']} {', '.join(f'{v:.3f}' for v in r2)} ({sum(measured)} "
+              f"measured on a snapshot); read-out points {', '.join(f'{t:,.0f}' for t in t_star)}")
         for w in why:
             print(f"           not drawn: {w}")
     for task, n, sil, r2f, r2s, r2r, r2a, readout, it, r2t in rows_d:
         print(f"  panel d: {task:20} {n} nets, read-out {readout} (iteration {it:,}): "
-              f"{sil:.0f} inactive; held-out r2 {r2f:.3f} intact, {r2s:.3f} with every inactive unit "
+              f"{sil:.0f} inactive; {score_of(task)['text']} {r2f:.3f} intact, {r2s:.3f} with every inactive unit "
               f"removed, {r2r:.3f} with as many removed at random, {r2a:.3f} with the active ones "
               f"removed; {r2t:.3f} after pruning the inactive units and retraining")
-    for label, (res, ret, _ro) in rec["ablation"].items():
+    for label, _src, _col in ABLATION_MAIN:
+        res, ret, _ro = ablation[label]
         n_in = [r["n_silent"] for r in res]
         print(f"  panel d: {label:20} inactive per network {n_in} of {res[0]['N'] if res else '?'}; "
-              f"R2 with every inactive unit removed "
+              f"{score_of(label)['text']} with every inactive unit removed "
               + ", ".join(f"{r['r2_no_silent']:.3f}" for r in res) + "; same number at random "
               + ", ".join(f"{np.mean(r['r2_random_same_count']):.3f}" for r in res))
         for key in ("intact", "silent_removed", "random_removed"):
@@ -2112,6 +2294,9 @@ def main():
         print(f"  panel d read-out check: {lab[-40:]} ablated at {d['iteration']:,}, current t* "
               f"{d['t_star']:,.0f} ({d['reason']}){flag}")
     for task, y_all, y_act in rows_e:
+        if len(y_all) == 0:
+            print(f"  panel e: {task:5} no data")
+            continue
         print(f"  panel e: {task:5} fraction selective over all units "
               f"{', '.join(f'{v:.3f}' for v in y_all)} ({y_all.min():.2f}-{y_all.max():.2f}); over active "
               f"units {', '.join(f'{v:.3f}' for v in y_act)} ({y_act.min():.2f}-{y_act.max():.2f})")
