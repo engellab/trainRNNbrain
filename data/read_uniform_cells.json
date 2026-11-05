@@ -1,0 +1,895 @@
+{
+ "fixed_it": 75000,
+ "draws": 36,
+ "r2_tol": 0.01,
+ "criterion": "works = every arm run has more active units at 75,000 iterations than the largest control count, and the arm's mean held-out R^2 is at least the controls' mean minus 0.01",
+ "f2_cache": {
+  "path": "data/fig_paper_F2_fails_cache.pkl",
+  "mtime": "2026-10-31 20:03"
+ },
+ "groups": [
+  {
+   "name": "3BFF input-weight cap",
+   "task": "3-bit flip-flop",
+   "budget": 150000,
+   "control": {
+    "cell": "NBitFlipFlop_std_ksweep_bias0/EqType=h_k=3_N=1000_iters=150000",
+    "r2_from": "f2_cache",
+    "runs": [
+     {
+      "cell": "NBitFlipFlop_std_ksweep_bias0/EqType=h_k=3_N=1000_iters=150000",
+      "name": "0.9516495_NBitFlipFlop_relu;N=1000;seed=1093113168;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "1093113168",
+      "t_read": 75000.0,
+      "probe": 75000.0,
+      "active": 296,
+      "active_cache": 296,
+      "r2": 0.9502067526632656,
+      "r2_how": "estimate",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "NBitFlipFlop_std_ksweep_bias0/EqType=h_k=3_N=1000_iters=150000",
+      "name": "0.9524349_NBitFlipFlop_relu;N=1000;seed=1068656537;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "1068656537",
+      "t_read": 75000.0,
+      "probe": 75000.0,
+      "active": 245,
+      "active_cache": 245,
+      "r2": 0.9514865962793512,
+      "r2_how": "estimate",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "NBitFlipFlop_std_ksweep_bias0/EqType=h_k=3_N=1000_iters=150000",
+      "name": "0.9532059_NBitFlipFlop_relu;N=1000;seed=2425551384;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "2425551384",
+      "t_read": 75000.0,
+      "probe": 75000.0,
+      "active": 283,
+      "active_cache": 283,
+      "r2": 0.9518171591612616,
+      "r2_how": "estimate",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     }
+    ]
+   },
+   "second_control": null,
+   "arms": [
+    {
+     "label": "cap 0.1",
+     "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=0.1_pen=none",
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=0.1_pen=none",
+       "name": "0.8695117_NBitFlipFlop_relu;N=1000;seed=1243342348;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1243342348",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 303,
+       "r2": 0.816755395851244,
+       "r2_how": "estimate",
+       "r2_end": 0.8675699234008789,
+       "it_end": 150000.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=0.1_pen=none",
+       "name": "0.8756774_NBitFlipFlop_relu;N=1000;seed=3575035851;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "3575035851",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 429,
+       "r2": 0.8729191566546458,
+       "r2_how": "estimate",
+       "r2_end": 0.8771346509456635,
+       "it_end": 150000.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=0.1_pen=none",
+       "name": "0.8805781_NBitFlipFlop_relu;N=1000;seed=1773761193;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1773761193",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 402,
+       "r2": 0.8497088284251166,
+       "r2_how": "estimate",
+       "r2_end": 0.8790129837062624,
+       "it_end": 150000.0
+      }
+     ],
+     "verdict": {
+      "min_active_arm": 303,
+      "max_active_ctrl": 296,
+      "mean_active_arm": 378.0,
+      "mean_active_ctrl": 274.6666666666667,
+      "fold": 1.3762135922330097,
+      "mean_r2_arm": 0.8464611269770023,
+      "mean_r2_ctrl": 0.9511701693679595,
+      "r2_gap": -0.10470904239095724,
+      "count_ok": true,
+      "r2_ok": false,
+      "works": false,
+      "text": "fails: R2 gap -0.105 beyond 0.01"
+     },
+     "config_differs_from_control": {
+      "model.inp_weight_cap": [
+       0.1,
+       null
+      ],
+      "model.sigma_w": [
+       null,
+       0.0
+      ],
+      "trainer.prune_reinit": [
+       null,
+       false
+      ],
+      "trainer.prune_args": [
+       null,
+       {
+        "check_every": 100,
+        "patience": 3,
+        "active_rel": 0.05,
+        "reinit_mode": "random",
+        "mix_k": 4,
+        "copy_noise": 0.05,
+        "copy_norm_preserve": false,
+        "copy_permute": false,
+        "copy_iid": false,
+        "rescale_alpha": 1.0005,
+        "rescale_target_frac": 0.0,
+        "revive_op": "rescale",
+        "disinhibit_k": 10,
+        "syn_m": 8,
+        "syn_step": 0.02,
+        "syn_novel": false,
+        "rescale_active_only": false,
+        "rescale_refractory": 0,
+        "rescale_protect_frac": 0.2,
+        "rescale_cap": 8.0,
+        "rescale_norm_mode": "self",
+        "rescale_normalize": true,
+        "utility": "participation",
+        "utility_decay": 0.99,
+        "maturity": 0,
+        "max_replace_frac": 1.0
+       }
+      ]
+     }
+    },
+    {
+     "label": "cap 0.5",
+     "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=0.5_pen=none",
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=0.5_pen=none",
+       "name": "0.9216959_NBitFlipFlop_relu;N=1000;seed=3873875029;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "3873875029",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 362,
+       "r2": 0.9179577239738878,
+       "r2_how": "estimate",
+       "r2_end": 0.9201056990358565,
+       "it_end": 150000.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=0.5_pen=none",
+       "name": "0.9241266_NBitFlipFlop_relu;N=1000;seed=929894869;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "929894869",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 425,
+       "r2": 0.9233496258053007,
+       "r2_how": "estimate",
+       "r2_end": 0.9233639587958654,
+       "it_end": 150000.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=0.5_pen=none",
+       "name": "0.9247996_NBitFlipFlop_relu;N=1000;seed=2679000981;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2679000981",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 321,
+       "r2": 0.9136671500520379,
+       "r2_how": "estimate",
+       "r2_end": 0.9248223039839003,
+       "it_end": 150000.0
+      }
+     ],
+     "verdict": {
+      "min_active_arm": 321,
+      "max_active_ctrl": 296,
+      "mean_active_arm": 369.3333333333333,
+      "mean_active_ctrl": 274.6666666666667,
+      "fold": 1.3446601941747571,
+      "mean_r2_arm": 0.9183248332770754,
+      "mean_r2_ctrl": 0.9511701693679595,
+      "r2_gap": -0.032845336090884136,
+      "count_ok": true,
+      "r2_ok": false,
+      "works": false,
+      "text": "fails: R2 gap -0.033 beyond 0.01"
+     },
+     "config_differs_from_control": {
+      "model.inp_weight_cap": [
+       0.5,
+       null
+      ],
+      "model.sigma_w": [
+       null,
+       0.0
+      ],
+      "trainer.prune_reinit": [
+       null,
+       false
+      ],
+      "trainer.prune_args": [
+       null,
+       {
+        "check_every": 100,
+        "patience": 3,
+        "active_rel": 0.05,
+        "reinit_mode": "random",
+        "mix_k": 4,
+        "copy_noise": 0.05,
+        "copy_norm_preserve": false,
+        "copy_permute": false,
+        "copy_iid": false,
+        "rescale_alpha": 1.0005,
+        "rescale_target_frac": 0.0,
+        "revive_op": "rescale",
+        "disinhibit_k": 10,
+        "syn_m": 8,
+        "syn_step": 0.02,
+        "syn_novel": false,
+        "rescale_active_only": false,
+        "rescale_refractory": 0,
+        "rescale_protect_frac": 0.2,
+        "rescale_cap": 8.0,
+        "rescale_norm_mode": "self",
+        "rescale_normalize": true,
+        "utility": "participation",
+        "utility_decay": 0.99,
+        "maturity": 0,
+        "max_replace_frac": 1.0
+       }
+      ]
+     }
+    },
+    {
+     "label": "cap 2.0",
+     "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=2.0_pen=none",
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=2.0_pen=none",
+       "name": "0.934374_NBitFlipFlop_relu;N=1000;seed=2667022991;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2667022991",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 280,
+       "r2": 0.9258410523996585,
+       "r2_how": "estimate",
+       "r2_end": 0.935006750954522,
+       "it_end": 150000.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=2.0_pen=none",
+       "name": "0.9365056_NBitFlipFlop_relu;N=1000;seed=3828651639;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "3828651639",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 343,
+       "r2": 0.9353827239456532,
+       "r2_how": "estimate",
+       "r2_end": 0.9368446071942648,
+       "it_end": 150000.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_inpcap/EqType=h_k=3_N=1000_cap=2.0_pen=none",
+       "name": "0.9365898_NBitFlipFlop_relu;N=1000;seed=533431211;L=0.001;MI=150000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "533431211",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 352,
+       "r2": 0.9360358171727688,
+       "r2_how": "estimate",
+       "r2_end": 0.935867965221405,
+       "it_end": 150000.0
+      }
+     ],
+     "verdict": {
+      "min_active_arm": 280,
+      "max_active_ctrl": 296,
+      "mean_active_arm": 325.0,
+      "mean_active_ctrl": 274.6666666666667,
+      "fold": 1.183252427184466,
+      "mean_r2_arm": 0.932419864506027,
+      "mean_r2_ctrl": 0.9511701693679595,
+      "r2_gap": -0.01875030486193252,
+      "count_ok": false,
+      "r2_ok": false,
+      "works": false,
+      "text": "fails: count not above the controls' largest (296) in seed(s) 2667022991; R2 gap -0.019 beyond 0.01"
+     },
+     "config_differs_from_control": {
+      "model.inp_weight_cap": [
+       2.0,
+       null
+      ],
+      "model.sigma_w": [
+       null,
+       0.0
+      ],
+      "trainer.prune_reinit": [
+       null,
+       false
+      ],
+      "trainer.prune_args": [
+       null,
+       {
+        "check_every": 100,
+        "patience": 3,
+        "active_rel": 0.05,
+        "reinit_mode": "random",
+        "mix_k": 4,
+        "copy_noise": 0.05,
+        "copy_norm_preserve": false,
+        "copy_permute": false,
+        "copy_iid": false,
+        "rescale_alpha": 1.0005,
+        "rescale_target_frac": 0.0,
+        "revive_op": "rescale",
+        "disinhibit_k": 10,
+        "syn_m": 8,
+        "syn_step": 0.02,
+        "syn_novel": false,
+        "rescale_active_only": false,
+        "rescale_refractory": 0,
+        "rescale_protect_frac": 0.2,
+        "rescale_cap": 8.0,
+        "rescale_norm_mode": "self",
+        "rescale_normalize": true,
+        "utility": "participation",
+        "utility_decay": 0.99,
+        "maturity": 0,
+        "max_replace_frac": 1.0
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "CDDM noisy synapses",
+   "task": "CDDM",
+   "budget": 100000,
+   "control": {
+    "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=control",
+    "r2_from": "local",
+    "runs": [
+     {
+      "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=control",
+      "name": "0.8653333_CDDM_relu;N=1000;seed=3833537590;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "3833537590",
+      "t_read": 75000.0,
+      "probe": 75000.0,
+      "active": 342,
+      "r2": 0.8312403079935294,
+      "r2_how": "estimate",
+      "r2_end": 0.8334868964221742,
+      "it_end": 100000.0,
+      "r2_clean_end": 0.9207993149757385
+     },
+     {
+      "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=control",
+      "name": "0.8717453_CDDM_relu;N=1000;seed=1272763220;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "1272763220",
+      "t_read": 75000.0,
+      "probe": 75000.0,
+      "active": 334,
+      "r2": 0.8350328886950491,
+      "r2_how": "estimate",
+      "r2_end": 0.8357372118367089,
+      "it_end": 100000.0,
+      "r2_clean_end": 0.9228956699371338
+     },
+     {
+      "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=control",
+      "name": "0.8886887_CDDM_relu;N=1000;seed=457853;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "457853",
+      "t_read": 75000.0,
+      "probe": 75000.0,
+      "active": 333,
+      "r2": 0.834875816724288,
+      "r2_how": "estimate",
+      "r2_end": 0.8355366455184089,
+      "it_end": 100000.0,
+      "r2_clean_end": 0.9231660962104797
+     }
+    ]
+   },
+   "second_control": {
+    "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+    "runs": [
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8452211_CDDM_relu;N=1000;seed=3182599426;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "3182599426",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 329,
+      "active_cache": 329,
+      "r2": 0.8329348646932178,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8509437_CDDM_relu;N=1000;seed=3090320285;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "3090320285",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 320,
+      "active_cache": 320,
+      "r2": 0.8307929452922609,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8571286_CDDM_relu;N=1000;seed=2583923803;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "2583923803",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 321,
+      "active_cache": 321,
+      "r2": 0.8343605879280303,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8630444_CDDM_relu;N=1000;seed=2161475543;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "2161475543",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 320,
+      "active_cache": 320,
+      "r2": 0.8335429098871019,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8756049_CDDM_relu;N=1000;seed=783414550;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "783414550",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 334,
+      "active_cache": 334,
+      "r2": 0.8344324992762672,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     }
+    ]
+   },
+   "arms": [
+    {
+     "label": "sigma_w 1.0",
+     "cell": "CDDM_synnoise_ext/EqType=h_N=1000_sw=1.0_iters=100000",
+     "runs": [
+      {
+       "cell": "CDDM_synnoise_ext/EqType=h_N=1000_sw=1.0_iters=100000",
+       "name": "0.8708853_CDDM_relu;N=1000;seed=3139128930;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "3139128930",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 486,
+       "r2": 0.8200610328314896,
+       "r2_how": "estimate",
+       "r2_end": 0.8223478049039841,
+       "it_end": 100000.0,
+       "r2_clean_end": 0.9628721475601196
+      },
+      {
+       "cell": "CDDM_synnoise_ext/EqType=h_N=1000_sw=1.0_iters=100000",
+       "name": "0.8739709_CDDM_relu;N=1000;seed=145705583;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "145705583",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 487,
+       "r2": 0.8281960299368412,
+       "r2_how": "estimate",
+       "r2_end": 0.8299038956562678,
+       "it_end": 100000.0,
+       "r2_clean_end": 0.9597199559211731
+      },
+      {
+       "cell": "CDDM_synnoise_ext/EqType=h_N=1000_sw=1.0_iters=100000",
+       "name": "0.8770019_CDDM_relu;N=1000;seed=2925113920;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2925113920",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 511,
+       "r2": 0.8077608943731128,
+       "r2_how": "estimate",
+       "r2_end": 0.8092855711778005,
+       "it_end": 100000.0,
+       "r2_clean_end": 0.8882203102111816
+      }
+     ],
+     "verdict": {
+      "min_active_arm": 486,
+      "max_active_ctrl": 342,
+      "mean_active_arm": 494.6666666666667,
+      "mean_active_ctrl": 336.3333333333333,
+      "fold": 1.4707631318136771,
+      "mean_r2_arm": 0.8186726523804811,
+      "mean_r2_ctrl": 0.8337163378042889,
+      "r2_gap": -0.01504368542380774,
+      "count_ok": true,
+      "r2_ok": false,
+      "works": false,
+      "text": "fails: R2 gap -0.015 beyond 0.01"
+     },
+     "config_differs_from_control": {
+      "model.sigma_w": [
+       1.0,
+       null
+      ],
+      "trainer.prune_args": [
+       {
+        "check_every": 100,
+        "patience": 3,
+        "active_rel": 0.05,
+        "reinit_mode": "random",
+        "mix_k": 4,
+        "copy_noise": 0.05,
+        "copy_norm_preserve": false,
+        "copy_permute": false,
+        "copy_iid": false,
+        "rescale_alpha": 1.0005,
+        "rescale_target_frac": 0.0,
+        "revive_op": "rescale",
+        "disinhibit_k": 10,
+        "syn_m": 8,
+        "syn_step": 0.02,
+        "syn_novel": false,
+        "rescale_active_only": false,
+        "rescale_refractory": 0,
+        "rescale_protect_frac": 0.2,
+        "rescale_cap": 8.0,
+        "rescale_norm_mode": "self",
+        "rescale_normalize": true,
+        "utility": "participation",
+        "utility_decay": 0.99,
+        "maturity": 0,
+        "max_replace_frac": 1.0
+       },
+       {
+        "check_every": 100,
+        "patience": 3,
+        "active_rel": 0.05,
+        "reinit_mode": "random",
+        "mix_k": 4,
+        "copy_noise": 0.05,
+        "copy_norm_preserve": false,
+        "copy_permute": false,
+        "copy_iid": false,
+        "rescale_alpha": 1.0005,
+        "rescale_cap": 8.0,
+        "rescale_normalize": true,
+        "utility": "participation",
+        "utility_decay": 0.99,
+        "maturity": 0,
+        "max_replace_frac": 1.0
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "CDDM per-unit rules",
+   "task": "CDDM",
+   "budget": 100000,
+   "control": {
+    "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=control",
+    "r2_from": "local",
+    "runs": [
+     {
+      "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=control",
+      "name": "0.8653333_CDDM_relu;N=1000;seed=3833537590;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "3833537590",
+      "t_read": 75000.0,
+      "probe": 75000.0,
+      "active": 342,
+      "r2": 0.8312403079935294,
+      "r2_how": "estimate",
+      "r2_end": 0.8334868964221742,
+      "it_end": 100000.0
+     },
+     {
+      "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=control",
+      "name": "0.8717453_CDDM_relu;N=1000;seed=1272763220;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "1272763220",
+      "t_read": 75000.0,
+      "probe": 75000.0,
+      "active": 334,
+      "r2": 0.8350328886950491,
+      "r2_how": "estimate",
+      "r2_end": 0.8357372118367089,
+      "it_end": 100000.0
+     },
+     {
+      "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=control",
+      "name": "0.8886887_CDDM_relu;N=1000;seed=457853;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "457853",
+      "t_read": 75000.0,
+      "probe": 75000.0,
+      "active": 333,
+      "r2": 0.834875816724288,
+      "r2_how": "estimate",
+      "r2_end": 0.8355366455184089,
+      "it_end": 100000.0
+     }
+    ]
+   },
+   "second_control": {
+    "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+    "runs": [
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8452211_CDDM_relu;N=1000;seed=3182599426;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "3182599426",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 329,
+      "active_cache": 329,
+      "r2": 0.8329348646932178,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8509437_CDDM_relu;N=1000;seed=3090320285;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "3090320285",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 320,
+      "active_cache": 320,
+      "r2": 0.8307929452922609,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8571286_CDDM_relu;N=1000;seed=2583923803;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "2583923803",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 321,
+      "active_cache": 321,
+      "r2": 0.8343605879280303,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8630444_CDDM_relu;N=1000;seed=2161475543;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "2161475543",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 320,
+      "active_cache": 320,
+      "r2": 0.8335429098871019,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     },
+     {
+      "cell": "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0",
+      "name": "0.8756049_CDDM_relu;N=1000;seed=783414550;L=0.001;MI=25000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+      "seed": "783414550",
+      "t_read": 75000.0,
+      "probe": 74900.0,
+      "active": 334,
+      "active_cache": 334,
+      "r2": 0.8344324992762672,
+      "r2_how": "final",
+      "r2_source": "fig_paper_F2_fails_cache.pkl"
+     }
+    ]
+   },
+   "arms": [
+    {
+     "label": "read-out dropout (mute 0.2, beta 4)",
+     "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=mute",
+     "runs": [
+      {
+       "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=mute",
+       "name": "0.8535733_CDDM_relu;N=1000;seed=3526318829;L=0.001;MI=100000;D=1;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "3526318829",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 524,
+       "r2": 0.8236488754750765,
+       "r2_how": "estimate",
+       "r2_end": 0.8273455931080712,
+       "it_end": 100000.0
+      },
+      {
+       "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=mute",
+       "name": "0.8654255_CDDM_relu;N=1000;seed=1823470335;L=0.001;MI=100000;D=1;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1823470335",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 505,
+       "r2": 0.8251913969036888,
+       "r2_how": "estimate",
+       "r2_end": 0.8268858773840798,
+       "it_end": 100000.0
+      },
+      {
+       "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=mute",
+       "name": "0.868428_CDDM_relu;N=1000;seed=140111091;L=0.001;MI=100000;D=1;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "140111091",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 523,
+       "r2": 0.8295956425168015,
+       "r2_how": "estimate",
+       "r2_end": 0.8322324901819229,
+       "it_end": 100000.0
+      }
+     ],
+     "verdict": {
+      "min_active_arm": 505,
+      "max_active_ctrl": 342,
+      "mean_active_arm": 517.3333333333334,
+      "mean_active_ctrl": 336.3333333333333,
+      "fold": 1.5381565906838457,
+      "mean_r2_arm": 0.8261453049651889,
+      "mean_r2_ctrl": 0.8337163378042889,
+      "r2_gap": -0.007571032839099989,
+      "count_ok": true,
+      "r2_ok": true,
+      "works": true,
+      "text": "works"
+     },
+     "config_differs_from_control": {
+      "trainer.dropout": [
+       true,
+       false
+      ],
+      "trainer.dropout_args": [
+       {
+        "dropout_kind": "mute",
+        "sampling_method": "participation",
+        "eta": 0.5,
+        "active_rel": 0.05,
+        "drop_rate": 0.2,
+        "rescale": true,
+        "p_max": 0.9,
+        "dropout_beta": 4,
+        "activity_q": 0.9
+       },
+       {
+        "dropout_kind": "mute",
+        "sampling_method": "participation",
+        "eta": 0.5,
+        "active_rel": 0.05,
+        "drop_rate": 0.05,
+        "rescale": true,
+        "p_max": 0.9,
+        "dropout_beta": 1.0,
+        "activity_q": 0.9
+       }
+      ]
+     }
+    },
+    {
+     "label": "prune-and-duplicate (copy noise 1, rate 0.025)",
+     "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=duplication",
+     "runs": [
+      {
+       "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=duplication",
+       "name": "0.8666307_CDDM_relu;N=1000;seed=11084869;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "11084869",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 701,
+       "r2": 0.8323106513592033,
+       "r2_how": "estimate",
+       "r2_end": 0.833890813920233,
+       "it_end": 100000.0
+      },
+      {
+       "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=duplication",
+       "name": "0.8731151_CDDM_relu;N=1000;seed=4009237578;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "4009237578",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 699,
+       "r2": 0.8270546113359357,
+       "r2_how": "estimate",
+       "r2_end": 0.8285479413138496,
+       "it_end": 100000.0
+      },
+      {
+       "cell": "CDDM_paper_grid/EqType=h_N=1000_arm=duplication",
+       "name": "0.8764589_CDDM_relu;N=1000;seed=2429277935;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2429277935",
+       "t_read": 75000.0,
+       "probe": 75000.0,
+       "active": 726,
+       "r2": 0.832076276512976,
+       "r2_how": "estimate",
+       "r2_end": 0.8337728646066453,
+       "it_end": 100000.0
+      }
+     ],
+     "verdict": {
+      "min_active_arm": 699,
+      "max_active_ctrl": 342,
+      "mean_active_arm": 708.6666666666666,
+      "mean_active_ctrl": 336.3333333333333,
+      "fold": 2.1070366699702676,
+      "mean_r2_arm": 0.8304805130693717,
+      "mean_r2_ctrl": 0.8337163378042889,
+      "r2_gap": -0.0032358247349172364,
+      "count_ok": true,
+      "r2_ok": true,
+      "works": true,
+      "text": "works"
+     },
+     "config_differs_from_control": {
+      "trainer.prune_reinit": [
+       true,
+       false
+      ],
+      "trainer.prune_args": [
+       {
+        "check_every": 100,
+        "patience": 3,
+        "active_rel": 0.05,
+        "reinit_mode": "copy",
+        "mix_k": 4,
+        "copy_noise": 1.0,
+        "copy_norm_preserve": true,
+        "copy_permute": false,
+        "copy_iid": false,
+        "rescale_alpha": 1.0005,
+        "rescale_cap": 8.0,
+        "rescale_normalize": true,
+        "utility": "contribution",
+        "utility_decay": 0.99,
+        "maturity": 1000,
+        "max_replace_frac": 0.025
+       },
+       {
+        "check_every": 100,
+        "patience": 3,
+        "active_rel": 0.05,
+        "reinit_mode": "random",
+        "mix_k": 4,
+        "copy_noise": 0.05,
+        "copy_norm_preserve": false,
+        "copy_permute": false,
+        "copy_iid": false,
+        "rescale_alpha": 1.0005,
+        "rescale_cap": 8.0,
+        "rescale_normalize": true,
+        "utility": "participation",
+        "utility_decay": 0.99,
+        "maturity": 0,
+        "max_replace_frac": 1.0
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}
