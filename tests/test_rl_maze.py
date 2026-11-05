@@ -300,9 +300,9 @@ def test_fr_magnitude_penalty_matches_formula():
     cap = 0.3 * math.log1p(100) / math.log1p(N)
     rng = np.random.default_rng(0)
     states = rng.normal(0.0, 0.5, size=(N, T, B)).astype(np.float32)   # signed: the ReLU matters
-    states[0] = 10.0                                                    # far above the cap
-    states[1] = -1.0                                                    # silent: rate 0
-    states[2] = cap                                                     # at the cap
+    states[0] = 2.0 * cap                                               # above the cap, penalty 1
+    states[1] = -1.0                                                    # silent: rate 0, penalty 1
+    states[2] = cap                                                     # at the cap: nothing
     r = np.maximum(states.reshape(N, -1).astype(np.float64), 0.0)
     a = r / tau
     soft = tau * (np.log(np.exp(a - a.max(1, keepdims=True)).sum(1)) + a.max(1) - math.log(T * B))
@@ -310,8 +310,12 @@ def test_fr_magnitude_penalty_matches_formula():
     expect = per_unit.mean()
     got = trainer.fr_magnitude_penalty(torch.tensor(states))
     assert got.dtype == torch.float64
-    assert abs(got.item() - expect) < 1e-9 * expect, (got.item(), expect)    # tight: g_bot = 5 would fail
-    assert per_unit[1] == 1.0 and per_unit[2] < 1e-12 and per_unit[0] > 1e4
+    # no unit far above the cap, so the units below it carry the mean (the torch soft max runs in
+    # float32, hence the 1e-5 tolerance); a wrong exponent on either side is then visible
+    assert abs(got.item() - expect) < 1e-5 * expect, (got.item(), expect)
+    assert per_unit[1] == 1.0 and per_unit[2] < 1e-12 and abs(per_unit[0] - 1.0) < 1e-6
+    other = make_trainer(task, N=32, lambda_frm=0.1, frm_args={"cap_fr": 0.3, "tau": 0.1, "g_top": 3.0, "g_bot": 5.0})
+    assert abs(other.fr_magnitude_penalty(torch.tensor(states)).item() - expect) > 1e-3 * expect
 
 
 def test_rec_weights_sparsity_penalty_matches_formula():
