@@ -3,17 +3,22 @@
 
 Figure 2: a larger network keeps a smaller share of its units active, and training past the loss
 floor makes more units inactive.
-  (a) active units against network size N (100-4000), three tasks, one point per run, each run read
-      where its noisy training loss reaches 1.05x its own fitted floor (common.read_run); power laws
-      fitted to the size means from N = 500 (N = 100 drawn, not fitted).
+  (a) active units against network size N (100-4000), the three main-text tasks (MAIN_TASKS: 3BFF,
+      CDDM and the maze; round 14), one point per run. A supervised run is read where its noisy
+      training loss reaches 1.05x its own fitted floor (common.read_run); a maze run at its "learned"
+      probe (maze_series). Power laws fitted to the size means from N = 500 for the supervised tasks
+      (N = 100 drawn, not fitted) and over every size with a learned run for the maze.
   (b) the same runs as a percentage of N, guides at 50% and 10%.
   (c) the fitted exponent at the 1.05x, 1.10x and 1.20x margins, with a bootstrap 95% interval
-      (runs resampled within each size).
+      (runs resampled within each size); 3BFF and CDDM only, because the margins are margins over
+      the supervised loss floor. The maze's exponent and interval are printed, not drawn.
   (d) a schematic of the floor crossing (Pavel's feedback item 47; schematic since 3 Nov): an
       idealised loss on the curve of Eq. (floor), its floor, the band to 1.05x the floor, t* and the
       hold to 1.2 t*. No network's data; Extended Data Fig. 3a shows real losses and fits.
-  (e) the noisy training loss over its own start and the inactive-unit count against iteration,
-      every run at N = 1000, one column per task; dashed lines at each run's own 1.05x crossing.
+  (e) one column per main-text task, every run at N = 1000. Supervised columns: the noisy training
+      loss over its own start and the inactive-unit count against iteration; dashed lines at each
+      run's own 1.05x crossing. Maze column: the clean probe's success rate and the inactive-unit
+      count against PPO update, on a linear axis; dashed lines at each run's learned probe.
   (f) the flat-loss test drawn from its raw quantities (round 12, Pavel's item 55), every 3BFF run
       trained to 200,000 or 300,000 iterations, one column per training length: top, the noisy
       loss as 5,000-iteration block medians, % change from the first block after 150,000, inside
@@ -25,6 +30,22 @@ Extended Data Fig. 3 is drawn by fig_ed_readout.py from this script's collect re
 series and the snapshot oracle of /scratch/gpfs/TENGEL/pt1290/oracle_readout, Della job 15635966,
 entry 2026-10-15_2054). The drawing stage also writes the rows of Supplementary Table 1 (every run of
 Figures 1 and 2; formerly Extended Data Table 2).
+
+ROUND 14 (dead-relu-paper#182, Pavel's decision of 4 Nov; Figure 1 commit ef5ab33). The maze-running
+task (an agent trained by PPO to reach the cheese in a fixed maze; engellab/trainRNNbrain#3)
+replaces DMTS as the third task of panels (a), (b) and (e); DMTS moves to Extended Data. MAIN_TASKS
+lists the three tasks those panels draw; TASKS keeps DMTS because collect() reads it and
+fig_ed_readout.py reads the collect record. The maze is read when the figure is drawn, from this
+repo and not from COLLECT: every ReLU run without a goal cue of the uniform series under MAZE_ROOT
+(common.maze_load_runs joins a run and its continuations into one record with absolute update
+indices). The maze counterpart of the floor crossing is the "learned" probe, the first probe from
+which the clean probe's success rate stays at or above MAZE_LEARNED_SUCCESS for MAZE_LEARNED_HOLD
+probes (common.maze_learned_index); the end of training is the chain's last probe. A finished run
+with no learned probe did not learn: it is a cross at its end-of-training count in (a) and (b) and
+enters no mean and no fit, as fig_ed_maze.py draws it. A run whose records end before its budget
+(stopped by the trainer's guard, or still running) is listed and not drawn. The maze's sizes are
+whatever the suite holds (no size is hard-coded), so N = 4,000 and the N = 2,000 continuations
+are drawn when they land. Every maze number drawn is printed.
 
 TWO STAGES, because the networks live on Della:
   --collect   on a Della CPU node, from the checkout root (data/ links the trained networks): reads
@@ -55,6 +76,7 @@ import re
 import sys
 
 import numpy as np
+import yaml
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
@@ -65,8 +87,9 @@ from matplotlib.transforms import ScaledTranslation
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paperstyle as ps
 import heldout_r2 as heldout
-from common import (DATA_DIR, FLOOR_DELTAS, HOLD_FRAC, IMG_DIR, floor_curve, logbin, read_run,
-                    runs_with_loss, warm_start_chain)
+from common import (DATA_DIR, FLOOR_DELTAS, HOLD_FRAC, IMG_DIR, MAZE_LEARNED_HOLD,
+                    MAZE_LEARNED_SUCCESS, floor_curve, logbin, maze_learned_index, maze_load_runs,
+                    read_run, runs_with_loss, warm_start_chain)
 from c3_flat_loss_units import (BLOCK as FLAT_BLOCK, CELLS as C3_CELLS, DIE_BAR, T_FLAT, FLAT_PCT,
                                 loss_change, loss_rate)
 
@@ -89,8 +112,18 @@ ORACLE_DIR = "/scratch/gpfs/TENGEL/pt1290/oracle_readout"
 #   DMTS  5 tau delay. N = 100: DMTS_n100; N = 500-4000: the paper grid's control; 150k. N = 4000 was
 #         trained on Spock and relayed to Della through the Mac on 31 Oct (this package).
 FF200 = "NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N={N}_pen=none_arm=none"
-TASKS = ["3BFF", "CDDM", "DMTS"]
+TASKS = ["3BFF", "CDDM", "DMTS"]      # the supervised series collect() reads (DMTS: Extended Data)
 TASK_COL = ps.TASK_COLORS     # reserved task hues of the style sheet (docs/figure_style.md)
+# The maze-running task (PPO; engellab/trainRNNbrain#3; in the main text since dead-relu-paper#182).
+# Its runs live in this repo, not on Della, and are read when the figure is drawn (maze_series).
+MAZE = "Maze"
+MAZE_ROOT = os.path.join(REPO, "data", "trained_RNNs_rl_maze", "Maze_suite")
+MAZE_ABLATION_DIR = os.path.join(REPO, "data", "rl_maze_ablation")   # Fig. 1d's maze JSONs (table)
+# The three tasks of the main text, in the order panels (a), (b) and (e) draw them (#182: the maze
+# in place of DMTS, which stays in TASKS for collect() and fig_ed_readout.py).
+MAIN_TASKS = ["3BFF", "CDDM", MAZE]
+SUPERVISED_MAIN = [t for t in MAIN_TASKS if t != MAZE]     # panel (c): margins over the loss floor
+MAZE_TRAJ_N = 1000            # panel (e)'s maze column: the suite's N = 1,000 ReLU runs
 SERIES = {
     "3BFF": {100: "NBitFlipFlop_n100/EqType=h_N=100_arm=control",
              500: FF200.format(N=500), 1000: FF200.format(N=1000), 2000: FF200.format(N=2000),
@@ -453,6 +486,10 @@ def collect():
 # ---------------------------------------------------------------------------------------------
 FIG2_H_MM = 117.0       # printed height of Figure 2 (width is \textwidth, 165.1 mm)
 FIG2_BOTTOM_WIDTHS = [2.15, 1.35]       # bottom row: panel e (three tasks), panel f (two columns)
+# gap between panels e and f, as a fraction of the mean panel width: about 13 mm, room for the maze
+# column's success-rate ticks and label on its right (round 14) beside panel f's left tick labels
+# and y label (0.27, about 10.6 mm, left 1 mm between the two rotated labels)
+BOTTOM_WSPACE = 0.34
 TOP_WIDTHS = [1.2, 1.2, 0.64, 0.86]     # top row: panels a, b, c, d
 TOP_WSPACE = 0.37       # gaps of the top row, as a fraction of the mean panel width (about 11 mm)
 # x range of panels a-b: 80 to 4,800 gives 20 mm per factor of 10 in N at print size, so the tick
@@ -510,32 +547,139 @@ def cells_of(series, task, margin=0.05):
     return out
 
 
-def power_fit(cells):
-    """Least-squares line through log(mean active count) against log N, sizes N >= FIT_MIN_N.
+def maze_budget(folder):
+    """The last PPO update a maze run's budget reaches, from the saved config of its last run.
+
+    A continuation's config records trainer.iter_offset (the parent's last update) and its own
+    trainer.n_updates, so the budget is their sum; the earlier layout (run_maze_ppo.py) has the
+    budget under ppo.n_updates and no offset.
 
     Args:
-        cells: dict N -> array of active counts.
+        folder: str, the run folder of the chain's last run (common.maze_load_runs's "folder").
+    Returns:
+        int, the absolute update index at which the run's budget ends.
+    """
+    with open(sorted(glob.glob(os.path.join(folder, "*config.yaml")))[0]) as fh:
+        cfg = yaml.safe_load(fh)
+    block = cfg["trainer"] if "trainer" in cfg else cfg["ppo"]
+    offset = block.get("iter_offset", 0)
+    return int(block["n_updates"]) + (int(offset) if isinstance(offset, (int, float)) else 0)
+
+
+def maze_series(root=MAZE_ROOT):
+    """The maze's size-series rows, read from this repo when the figure is drawn (#182).
+
+    Every ReLU run without a goal cue under `root` (common.maze_load_runs; a run and its
+    continuations are one record with absolute update indices) is read at its "learned" probe,
+    the first probe from which the clean probe's success rate stays at or above
+    MAZE_LEARNED_SUCCESS for MAZE_LEARNED_HOLD probes in a row (common.maze_learned_index), the
+    maze counterpart of the supervised floor crossing, and at the chain's last probe (the end of
+    training). A run whose last recorded update is below its budget (maze_budget) is unfinished:
+    stopped by the trainer's guard or still running. It is listed with a reason and drawn nowhere.
+
+    Args:
+        root: str, the suite folder (<cell>/s<seed>/ run folders).
+    Returns:
+        list of dicts, one per run, sorted by N and seed: task (MAZE), N, seed (str), name (the
+        run folder relative to root), n_chain (runs in the chain), it_end (last probe's update),
+        budget, finished (bool), learned (bool), t_star (the learned probe's update, nan when
+        none), active_learned, success_learned (nan when none), active_end, success_end, reason
+        (None, or why the run is not read at a learned point), and the probe arrays it_act
+        (update per probe), active (count per probe) and success (probe success rate).
+    """
+    rows = []
+    for r in maze_load_runs(root):
+        if r["act"] != "relu" or r["cue"]:
+            continue
+        pr = r["probes"]
+        budget = maze_budget(r["folder"])
+        it_end = int(pr["update"][-1])
+        finished = int(r["progress"][-1]["update"]) >= budget
+        li = maze_learned_index(pr["probe_success"])
+        learned = finished and li is not None
+        if not finished:
+            reason = (f"unfinished: records end at update {r['progress'][-1]['update']:,} of "
+                      f"{budget:,}")
+        elif li is None:
+            reason = (f"not learned: probe success never stayed at or above {MAZE_LEARNED_SUCCESS} "
+                      f"for {MAZE_LEARNED_HOLD} probes")
+        else:
+            reason = None
+        rows.append(dict(task=MAZE, N=int(r["N"]), seed=str(r["seed"]),
+                         name=os.path.relpath(r["folder"], root), n_chain=len(r["chain"]),
+                         it_end=it_end, budget=budget, finished=finished, learned=learned,
+                         t_star=float(pr["update"][li]) if learned else float("nan"),
+                         active_learned=float(pr["active"][li]) if learned else float("nan"),
+                         success_learned=float(pr["probe_success"][li]) if learned else float("nan"),
+                         active_end=float(pr["active"][-1]), success_end=float(pr["probe_success"][-1]),
+                         reason=reason, it_act=np.asarray(pr["update"], float),
+                         active=np.asarray(pr["active"], float),
+                         success=np.asarray(pr["probe_success"], float)))
+    return sorted(rows, key=lambda r: (r["N"], int(r["seed"])))
+
+
+def maze_cells(rows, at="learned"):
+    """Active counts per size of the maze's learned runs, at the learned probe or at the end.
+
+    Args:
+        rows: maze_series rows; at: "learned" (the count at the learned probe) or "end" (the
+            count at the chain's last probe, learned runs only).
+    Returns:
+        dict N -> float array of active counts (sizes with no learned run left out).
+    """
+    key = "active_learned" if at == "learned" else "active_end"
+    out = {}
+    for r in rows:
+        if r["learned"]:
+            out.setdefault(r["N"], []).append(r[key])
+    return {N: np.array(v, float) for N, v in sorted(out.items())}
+
+
+def power_fit(cells, min_n=FIT_MIN_N):
+    """Least-squares line through log(mean active count) against log N, sizes N >= min_n.
+
+    Args:
+        cells: dict N -> array of active counts; min_n: the smallest size fitted (FIT_MIN_N for
+            the supervised series; 0 for the maze, whose suite has no N = 100 cell).
     Returns:
         (exponent b, prefactor A) with mean count ~ A N^b.
     """
-    Ns = np.array([N for N in sorted(cells) if N >= FIT_MIN_N], float)
-    ys = np.array([cells[N].mean() for N in sorted(cells) if N >= FIT_MIN_N])
+    Ns = np.array([N for N in sorted(cells) if N >= min_n], float)
+    ys = np.array([cells[N].mean() for N in sorted(cells) if N >= min_n])
     b, loga = np.polyfit(np.log(Ns), np.log(ys), 1)
     return float(b), float(np.exp(loga))
 
 
-def boot_exponent(cells, rng):
+def boot_exponent(cells, rng, min_n=FIT_MIN_N):
     """Bootstrap 95% interval of the fitted exponent, resampling runs within each size.
 
     Args:
-        cells: dict N -> array of active counts; rng: numpy Generator.
+        cells: dict N -> array of active counts; rng: numpy Generator; min_n: as power_fit.
     Returns:
         (2.5th, 97.5th percentile) of the exponent over N_BOOT resamples.
     """
     bs = []
     for _ in range(N_BOOT):
-        bs.append(power_fit({N: rng.choice(v, len(v)) for N, v in cells.items()})[0])
+        bs.append(power_fit({N: rng.choice(v, len(v)) for N, v in cells.items()}, min_n)[0])
     return tuple(np.percentile(bs, [2.5, 97.5]))
+
+
+def maze_fit(rows, at="learned"):
+    """The maze's power law over every size with a learned run, with its bootstrap interval.
+
+    Args:
+        rows: maze_series rows; at: "learned" or "end" (maze_cells).
+    Returns:
+        (b, A, lo, hi, cells) with b and A as power_fit, lo and hi the bootstrap 95% interval
+        (BOOT_SEED) and cells the maze_cells fitted; (nan, nan, nan, nan, cells) with fewer than
+        two sizes.
+    """
+    cells = maze_cells(rows, at)
+    if len(cells) < 2:
+        return float("nan"), float("nan"), float("nan"), float("nan"), cells
+    b, A = power_fit(cells, min_n=0)
+    lo, hi = boot_exponent(cells, np.random.default_rng(BOOT_SEED), min_n=0)
+    return b, A, float(lo), float(hi), cells
 
 
 def network_xs(ax, N, values, means):
@@ -595,35 +739,56 @@ def leave_one_out(series, task, margin):
     return sorted(out, reverse=True)
 
 
-def panel_size(ax_a, ax_b, series):
+def panel_size(ax_a, ax_b, series, maze):
     """Panels (a) and (b): active units, and active units as a percentage of N, against N.
 
+    One narrow column of small points per size (network_xs): every supervised run of MAIN_TASKS at
+    its floor crossing and every learned maze run at its learned probe, filled dots in the task's
+    hue; a finished maze run that did not learn is a cross at its end-of-training count and enters
+    no mean and no fit. Per task and size the mean +- SD, and per task a power law: over the sizes
+    N >= FIT_MIN_N for the supervised tasks, over every size with a learned run for the maze (its
+    suite has no N = 100 cell). The x ticks are the sizes any drawn series has, so a maze size the
+    supervised series lack (250) gets a tick and a new size (4,000 continuations) needs no edit.
+
     Args:
-        ax_a, ax_b: axes; series: the collect record's size-series rows.
+        ax_a, ax_b: axes; series: the collect record's size-series rows; maze: maze_series rows.
     Returns:
-        dict task -> (exponent, prefactor, {N: (mean, SD, n)}).
+        dict task -> (exponent, prefactor, {N: (mean, SD, n)}); the exponent is nan for a task
+        with fewer than two fitted sizes (no line, no b in the legend).
     """
     fits, handles = {}, []
-    all_cells = {task: cells_of(series, task) for task in TASKS}
+    all_cells = {task: cells_of(series, task) for task in SUPERVISED_MAIN}
+    all_cells[MAZE] = maze_cells(maze, "learned")
+    crosses = [(r["N"], r["active_end"]) for r in maze if r["finished"] and not r["learned"]]
+    sizes = sorted(set(SIZES) | set(all_cells[MAZE]) | {N for N, _ in crosses})
     # scales and limits first: network_xs places the dots in millimetres on the page
     ax_a.set(xscale="log", yscale="log", xlim=SIZE_XLIM, ylim=(50, 2500))
     ax_b.set(xscale="log", xlim=SIZE_XLIM, ylim=(0, 100))
     # one point per network, in a narrow column centred on its size (network_xs)
     for ax, pct in ((ax_a, False), (ax_b, True)):
-        for N in SIZES:
+        for N in sizes:
             scale = 100.0 / N if pct else 1.0
-            pts = [(task, v) for task in TASKS for v in all_cells[task].get(N, [])]
-            vals = np.array([v for _, v in pts], float) * scale
-            means = np.array([all_cells[task][N].mean() for task in TASKS if N in all_cells[task]]) * scale
-            for (task, _), x, y in zip(pts, network_xs(ax, N, vals, means), vals):
-                ax.plot([x], [y], "o", ms=ps.SMALL_MARKER_PT, zorder=4,
-                        **ps.mark_floor(TASK_COL[task]))
-    for task in TASKS:
+            pts = [(task, v, "o") for task in MAIN_TASKS for v in all_cells[task].get(N, [])]
+            pts += [(MAZE, v, "x") for n, v in crosses if n == N]
+            vals = np.array([v for _, v, _ in pts], float) * scale
+            means = np.array([all_cells[task][N].mean() for task in MAIN_TASKS
+                              if N in all_cells[task]]) * scale
+            for (task, _, marker), x, y in zip(pts, network_xs(ax, N, vals, means), vals):
+                if marker == "x":
+                    ax.plot([x], [y], "x", ms=ps.SMALL_MARKER_PT + 0.8, mec=TASK_COL[task], mew=0.7,
+                            zorder=4)
+                else:
+                    ax.plot([x], [y], "o", ms=ps.SMALL_MARKER_PT, zorder=4,
+                            **ps.mark_floor(TASK_COL[task]))
+    for task in MAIN_TASKS:
         col = TASK_COL[task]
         cells = all_cells[task]
-        missing = [N for N in SIZES if N not in cells]
-        assert not missing, f"{task}: no read-out at N = {missing}; the series would have to be drawn at end of training"
-        b, A = power_fit(cells)
+        if task == MAZE:
+            min_n = 0
+        else:
+            missing = [N for N in SIZES if N not in cells]
+            assert not missing, f"{task}: no read-out at N = {missing}; the series would have to be drawn at end of training"
+            min_n = FIT_MIN_N
         Ns = np.array(sorted(cells), float)
         m = np.array([cells[N].mean() for N in Ns])
         sd = np.array([cells[N].std(ddof=1) if len(cells[N]) > 1 else 0.0 for N in Ns])
@@ -637,11 +802,20 @@ def panel_size(ax_a, ax_b, series):
                         capthick=ps.DATA_LW, zorder=5)
             ax.plot(Ns, m * sc, "o", ms=ps.MARKER_PT, zorder=6, **ps.mark_floor(col))
         ax_b.plot(Ns, m * 100.0 / Ns, "-", color=col, lw=0.9, zorder=3)
-        xf = np.array([FIT_MIN_N * 0.85, 4000 * 1.15])
-        ax_a.plot(xf, A * xf ** b, ls="-", lw=0.9, color=col, zorder=3)
-        handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=0.9,
-                              label=f"{task}, $b$ = {b:.2f}"))
+        fitted = Ns[Ns >= min_n]
+        if len(fitted) >= 2:
+            b, A = power_fit(cells, min_n)
+            xf = np.array([fitted.min() * 0.85, fitted.max() * 1.15])
+            ax_a.plot(xf, A * xf ** b, ls="-", lw=0.9, color=col, zorder=3)
+            label = f"{task}, $b$ = {b:.2f}"
+        else:
+            b, A, label = float("nan"), float("nan"), task
+            print(f"  !! panel a: {task} has {len(fitted)} fitted size(s); no power law drawn")
+        handles.append(Line2D([], [], color=col, marker="o", ms=3.0, lw=0.9, label=label))
         fits[task] = (b, A, {int(N): (float(mm), float(s), len(cells[N])) for N, mm, s in zip(Ns, m, sd)})
+    if crosses:
+        handles.append(Line2D([], [], ls="none", marker="x", ms=ps.SMALL_MARKER_PT + 0.8,
+                              mec=TASK_COL[MAZE], mew=0.7, label=f"{MAZE}, not learned"))
     nn = np.array([80, 5000.0])
     ax_a.plot(nn, nn, "-", lw=ps.THIN_LW, color=ps.MUTED, zorder=2)
     # the label's angle follows the diagonal on screen, whatever the panel's aspect
@@ -657,24 +831,28 @@ def panel_size(ax_a, ax_b, series):
         ax_b.text(SIZE_XLIM[0] * 1.03, frac + 1.5, lab, fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="bottom")
     ax_b.set(xlabel=ps.LABELS["size"], ylabel="active units (% of $N$)")
     for ax in (ax_a, ax_b):
-        ax.set_xticks(SIZES)
+        ax.set_xticks(sizes)
         ax.xaxis.set_minor_locator(NullLocator())
         ps.count_ticks(ax.xaxis)
         ps.ygrid(ax)
     return fits
 
 
-def panel_margins(ax, series):
+def panel_margins(ax, series, tasks=SUPERVISED_MAIN):
     """Panel (c): the fitted exponent at the 1.05x, 1.10x and 1.20x margins, bootstrap 95% intervals.
 
+    The margins are margins over the supervised loss floor, so the maze (read at its learned
+    probe, not at a loss floor) is not drawn here; draw_fig2 prints its exponent and interval.
+
     Args:
-        ax: axes; series: the collect record's size-series rows.
+        ax: axes; series: the collect record's size-series rows; tasks: the supervised tasks drawn,
+            left to right at each margin (default SUPERVISED_MAIN).
     Returns:
         dict (task, margin) -> (exponent, lo, hi, runs read).
     """
     rng = np.random.default_rng(BOOT_SEED)
     out = {}
-    for k, task in enumerate(TASKS):
+    for k, task in enumerate(tasks):
         for j, d in enumerate(FLOOR_DELTAS):
             cells = cells_of(series, task, d)
             if any(N not in cells for N in SIZES if N >= FIT_MIN_N):
@@ -682,7 +860,7 @@ def panel_margins(ax, series):
                 continue
             b, _ = power_fit(cells)
             lo, hi = boot_exponent({N: v for N, v in cells.items() if N >= FIT_MIN_N}, rng)
-            x = j + (k - 1) * 0.22
+            x = j + (k - (len(tasks) - 1) / 2) * 0.22     # the tasks centred on the margin's tick
             ax.errorbar([x], [b], yerr=[[b - lo], [hi - b]], fmt="none", ecolor=TASK_COL[task],
                         lw=ps.DATA_LW, capsize=1.0, capthick=ps.DATA_LW, zorder=5)   # caps under the marker
             ax.plot([x], [b], "o", ms=ps.MARKER_PT, zorder=6, **ps.mark_floor(TASK_COL[task]))
@@ -697,18 +875,77 @@ def panel_margins(ax, series):
     return out
 
 
-def panel_trajectories(axes_top, axes_bot, traj):
-    """Panel (e): noisy loss over its start (top) and inactive units (bottom) against iteration.
+def panel_maze_trajectories(at, ab, maze, N=MAZE_TRAJ_N):
+    """Panel (e)'s maze column: probe success (top) and inactive units (bottom) against PPO update.
+
+    Every finished maze run of size N: the clean probe's success rate (ink, with the learned
+    criterion MAZE_LEARNED_SUCCESS as a dashed guide) and N minus the active count (the task's
+    hue), on a linear update axis from 0 to the longest run's end rounded up to 500; a dashed
+    vertical line at each learned run's learned probe. The success axis has its ticks and label
+    on the right, because the column's left neighbour carries the supervised loss axis. An
+    unfinished run is not drawn; with no run the column reads "no runs".
 
     Args:
-        axes_top, axes_bot: one axes per task each; traj: the collect record's trajectory rows.
+        at, ab: the top and bottom axes of the column (sharing x); maze: maze_series rows;
+        N: int, the size drawn.
+    Returns:
+        list of (MAZE, seed, learned update, inactive at the learned probe, inactive at the end,
+        end update), nan where the run did not learn; one per run drawn.
+    """
+    rows = []
+    runs = [r for r in maze if r["N"] == N and r["finished"]]
+    x_max = int(np.ceil(max((r["it_end"] for r in runs), default=2000) / 500.0) * 500)
+    for r in runs:
+        at.plot(r["it_act"], r["success"], "-", lw=ps.THIN_LW, color=ps.INK, alpha=0.7)
+        ab.plot(r["it_act"], N - r["active"], "-", lw=ps.THIN_LW + 0.2, color=TASK_COL[MAZE],
+                alpha=0.85)
+        if r["learned"]:
+            for ax in (at, ab):
+                ax.axvline(r["t_star"], color=ps.MUTED, lw=ps.THIN_LW, ls=(0, (3, 2)), zorder=1)
+            rows.append((MAZE, r["seed"], r["t_star"], N - r["active_learned"], N - r["active_end"],
+                         float(r["it_end"])))
+        else:
+            rows.append((MAZE, r["seed"], float("nan"), float("nan"), N - r["active_end"],
+                         float(r["it_end"])))
+    if not runs:
+        at.text(0.5, 0.5, "no runs", transform=at.transAxes, ha="center", va="center",
+                fontsize=ps.TICK_PT, color=ps.MUTED)
+    at.axhline(MAZE_LEARNED_SUCCESS, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
+    at.set(xlim=(0, x_max), ylim=(0, 1.02))
+    at.set_yticks([0, 0.5, 1.0])
+    at.yaxis.tick_right()
+    at.yaxis.set_label_position("right")
+    at.set_ylabel("success rate")
+    at.tick_params(labelbottom=False)
+    at.set_title(f"{MAZE}, $N$ = {ps.fmt_count(N)}", pad=2)
+    ab.set(xlim=(0, x_max), ylim=(0, N), xlabel="PPO update")
+    for ax in (at, ab):
+        ax.set_xticks([0, x_max / 2, x_max])
+        ps.count_ticks(ax.xaxis)
+    ab.set_yticks([0, 250, 500, 750, 1000])
+    ps.count_ticks(ab.yaxis)
+    ab.tick_params(labelleft=False)
+    ps.ygrid(ab)
+    return rows
+
+
+def panel_trajectories(axes_top, axes_bot, traj, maze):
+    """Panel (e): noisy loss over its start (top) and inactive units (bottom) against iteration,
+    one column per task of MAIN_TASKS; the maze column is panel_maze_trajectories.
+
+    Args:
+        axes_top, axes_bot: one axes per task each; traj: the collect record's trajectory rows;
+        maze: maze_series rows.
     Returns:
         list of (task, run seed, t*, inactive at t*, inactive at the end, end iteration).
     """
     rows = []
     x_hi = max(r["it_end"] for r in traj) * 1.15
-    for k, task in enumerate(TASKS):
+    for k, task in enumerate(MAIN_TASKS):
         at, ab = axes_top[k], axes_bot[k]
+        if task == MAZE:
+            rows += panel_maze_trajectories(at, ab, maze)
+            continue
         runs = [r for r in traj if r["task"] == task and r["excluded"] is None]
         N = runs[0]["N"]
         for r in runs:
@@ -964,11 +1201,12 @@ def check_overlaps(fig):
     return hits
 
 
-def draw_fig2(rec, flat):
-    """Draw Figure 2 from the collect record and print every number it shows.
+def draw_fig2(rec, flat, maze):
+    """Draw Figure 2 from the collect record and the maze rows, and print every number it shows.
 
     Args:
-        rec: the unpickled COLLECT record; flat: the unpickled FLAT record (panel f's raw traces).
+        rec: the unpickled COLLECT record; flat: the unpickled FLAT record (panel f's raw traces);
+        maze: maze_series rows (read from this repo when the figure is drawn).
     Returns:
         path of the PDF written.
     """
@@ -979,7 +1217,8 @@ def draw_fig2(rec, flat):
                   left=0.075, right=0.975, top=0.955, bottom=0.095)
     # top row: a, b, c and the floor-crossing schematic d beside the margins panel c (item 47)
     top = GridSpecFromSubplotSpec(1, 4, subplot_spec=gs[0], width_ratios=TOP_WIDTHS, wspace=TOP_WSPACE)
-    bot = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], width_ratios=FIG2_BOTTOM_WIDTHS, wspace=0.27)
+    bot = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs[1], width_ratios=FIG2_BOTTOM_WIDTHS,
+                                  wspace=BOTTOM_WSPACE)
     egs = GridSpecFromSubplotSpec(2, 3, subplot_spec=bot[0], height_ratios=[1.0, 1.3], hspace=0.12,
                                   wspace=0.16)
     ax_a, ax_b, ax_c, ax_d = (fig.add_subplot(top[i]) for i in range(4))
@@ -994,10 +1233,10 @@ def draw_fig2(rec, flat):
     f_ax[0][1] = fig.add_subplot(fgs[0, 1], sharey=f_ax[0][0])
     f_ax[1][1] = fig.add_subplot(fgs[1, 1], sharex=f_ax[0][1], sharey=f_ax[1][0])
 
-    fits = panel_size(ax_a, ax_b, rec["series"])
+    fits = panel_size(ax_a, ax_b, rec["series"], maze)
     margins = panel_margins(ax_c, rec["series"])
     schem = panel_floor_schematic(ax_d)
-    trows = panel_trajectories(e_top, e_bot, rec["traj"])
+    trows = panel_trajectories(e_top, e_bot, rec["traj"], maze)
     frows = panel_flat(f_ax, rec["c3"], flat)
     f_ax[1][0].set_xlabel("training iteration")
     f_ax[1][0].xaxis.set_label_coords(1.05, 0, transform=f_ax[1][0].transAxes + ScaledTranslation(
@@ -1007,16 +1246,28 @@ def draw_fig2(rec, flat):
     check_overlaps(fig)
     out = ps.save(fig, "fig_paper_F2_size")
 
-    print("\nPanels a-b (1.05x floor; mean, SD, runs read):")
+    print("\nPanels a-b (supervised: 1.05x floor; maze: learned probe; mean, SD, runs read):")
     for task, (b, A, cells) in fits.items():
         print(f"  {task}: N^{b:.3f}; 1000 active at N = {(1000 / A) ** (1 / b):,.0f}; " +
               "; ".join(f"N={N}: {m:.1f} +- {s:.1f} (n={n}, {100 * m / N:.1f}%)"
                         for N, (m, s, n) in cells.items()))
+    print("Maze runs (N, seed, chain, end update, budget, learned update, active and success there, "
+          "active and success at the end, status):")
+    for r in maze:
+        print(f"  N={r['N']} s{r['seed']} chain {r['n_chain']} end {r['it_end']:,} of {r['budget']:,}: "
+              f"learned {r['t_star']:,.0f} active {r['active_learned']:.0f} success "
+              f"{r['success_learned']:.2f}; end active {r['active_end']:.0f} success "
+              f"{r['success_end']:.2f}; {r['reason'] or 'learned'}")
+    for at, what in (("learned", "learned-probe counts (panel a's fit)"), ("end", "end-of-training counts")):
+        b, _, lo, hi, cells = maze_fit(maze, at)
+        print(f"  Maze, {what}, learned runs, every size with one: b = {b:.3f} [{lo:.3f}, {hi:.3f}]; "
+              + "; ".join(f"N={N}: {v.mean():.1f} (n={len(v)}, {100 * v.mean() / N:.1f}%)"
+                          for N, v in cells.items()))
     print("Panel c (exponent, bootstrap 95%, runs in fit):")
     for (task, d), (b, lo, hi, n) in margins.items():
         print(f"  {task} {1 + d:.2f}x: {b:.3f} [{lo:.3f}, {hi:.3f}] n={n}")
     print("Panel c, one network left out at a time (largest two upper ends: hi, b, N, seed):")
-    for task in TASKS:
+    for task in SUPERVISED_MAIN:
         for d in FLOOR_DELTAS:
             top = leave_one_out(rec["series"], task, d)[:2]
             print(f"  {task} {1 + d:.2f}x: " + "; ".join(f"{hi:.3f} (b {b:.3f}) without N={N} s{sd}"
@@ -1024,7 +1275,7 @@ def draw_fig2(rec, flat):
     print(f"Panel d (schematic, Eq. floor with A/L_inf {SCHEMATIC_A}, s {SCHEMATIC_S:,.0f}, beta "
           f"{SCHEMATIC_BETA}, t0 {SCHEMATIC_T0:.0f}): t* {schem[0]:,.0f}, hold to "
           f"{(1 + HOLD_FRAC) * schem[0]:,.0f}, axis end {schem[1]:,.0f}, loss / floor there {schem[2]:.5f}")
-    print("Panel e (task, seed, t*, inactive at t*, inactive at end, end):")
+    print("Panel e (task, seed, t* or learned update, inactive there, inactive at end, end):")
     for row in trows:
         print("  ", row, f"-> {row[4] - row[3]:+.0f} after the floor" if np.isfinite(row[3]) else "")
     print("Panel f (N, seed, end, loss %/100k, decrease/100k, flat, decreasing), recomputed from the "
@@ -1067,6 +1318,9 @@ def tex_row(r, in_e, ed3a):
         in_d = r["role"] == "trajectory" or (r["role"] == "size series" and r["N"] == 1000
                                               and r["task"] != "CDDM" and r.get("excluded") is None)
         fig = "2e" if in_d else "--"
+    if r["task"] not in MAIN_TASKS:
+        fig = "--"        # DMTS is in no main-text panel since round 14 (#182); its Extended Data
+        # figure adds its own mark here once it exists
     trained = ps.fmt_count(1000 * round(r["it_end"] / 1e3))       # nearest 1,000
     if r["task"] == "3BFF" and r["seed"] in in_e:
         fig = "2f" if fig == "--" else fig + ", 2f"
@@ -1092,11 +1346,54 @@ def tex_row(r, in_e, ed3a):
             f"{r2} & {note} \\\\")
 
 
-def write_table(rec):
-    """Write the body rows of Supplementary Table 1 to img/internal_figures/edt2_runs_rows.tex.
+def tex_row_maze(r):
+    """One LaTeX row of Supplementary Table 1 for one maze run (a maze_series row).
+
+    In the table's columns: Trained is the chain's last PPO update, t* the learned probe's update,
+    Active the count there, and the R^2 column holds the probe success rate at the learned probe
+    (in brackets at the end of training for a finished run that did not learn). The note names
+    the units, because the table's column notes describe the supervised runs. Fig.: a learned
+    run is in 2a,b and, at N = MAZE_TRAJ_N, in 1c (Figure 1's maze_rows reads the same runs at
+    the same probe) and 2e; a finished run that did not learn is a cross in 2a,b and a line in 2e;
+    1d when rl_maze_ablate.py's JSON of the run's final weights exists under MAZE_ABLATION_DIR
+    (Figure 1's maze_ablation draws every such file); an unfinished run is in no panel.
 
     Args:
-        rec: the unpickled COLLECT record.
+        r: a maze_series row.
+    Returns:
+        str ending in a LaTeX line break.
+    """
+    fig = []
+    if r["finished"]:
+        if r["learned"] and r["N"] == MAZE_TRAJ_N:
+            fig.append("1c")
+        if glob.glob(os.path.join(MAZE_ABLATION_DIR, f"N={r['N']}_act=relu__s{r['seed']}.json")):
+            fig.append("1d")
+        fig.append("2a,b")
+        if r["N"] == MAZE_TRAJ_N:
+            fig.append("2e")
+    trained = ps.fmt_count(r["it_end"])
+    t = ps.fmt_count(r["t_star"]) if r["learned"] else "--"
+    a = f"{r['active_learned']:.0f}" if r["learned"] else "--"
+    if r["learned"]:
+        score, note = f"{r['success_learned']:.2f}", "PPO updates; success rate at $t^\\ast$"
+    elif r["finished"]:
+        score, note = f"({r['success_end']:.2f})", "PPO updates; success rate at the end; not learned"
+    else:
+        score, note = "--", "PPO updates; " + r["reason"]
+    return (f"{MAZE} & {r['N']:,} & {r['seed']} & {', '.join(fig) or '--'} & {trained} & {t} & {a} & "
+            f"{score} & {note} \\\\")
+
+
+def write_table(rec, maze):
+    """Write the body rows of Supplementary Table 1 to img/internal_figures/edt2_runs_rows.tex.
+
+    The supervised rows come from the collect record (tex_row), grouped by task in TASKS order
+    with the CDDM panel-(e) networks after CDDM's size series; the maze rows (tex_row_maze) follow
+    the CDDM rows, before DMTS; the Fig. 1d ablation networks close the table.
+
+    Args:
+        rec: the unpickled COLLECT record; maze: maze_series rows.
     Returns:
         path written.
     """
@@ -1121,12 +1418,15 @@ def write_table(rec):
     n_4ef = [r["N"] for r, line in zip(rows, lines) if "4e,f" in line.split(" & ")[3]]
     assert all(r["task"] == "3BFF" for r, line in zip(rows, lines) if "4e,f" in line.split(" & ")[3])
     assert sorted(n_4ef) == [1000] * 3 + [4000] * 3, n_4ef
+    # the maze rows after the last CDDM size-series or panel-(e) row (before DMTS)
+    k = 1 + max(i for i, r in enumerate(rows) if r["task"] == "CDDM" and r["role"] != "Fig. 1d ablation")
+    lines = lines[:k] + [tex_row_maze(r) for r in maze] + lines[k:]
     path = os.path.join(IMG_DIR, "edt2_runs_rows.tex")
     with open(path, "w") as fh:
         fh.write("% written by fig_paper_F2_size.py from data/fig_paper_F2_size_collect.pkl\n")
         for line in lines:
             fh.write(line + "\n")
-    print(f"wrote {path} ({len(rows)} rows)")
+    print(f"wrote {path} ({len(lines)} rows, {len(maze)} of them maze runs)")
     return path
 
 
@@ -1145,5 +1445,6 @@ if __name__ == "__main__":
             record = apply_decisions(pickle.load(fh))
         with open(FLAT, "rb") as fh:
             flat_record = pickle.load(fh)
-        draw_fig2(record, flat_record)
-        write_table(record)
+        maze_rows = maze_series()
+        draw_fig2(record, flat_record, maze_rows)
+        write_table(record, maze_rows)
