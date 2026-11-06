@@ -235,6 +235,16 @@ stopped at update 800); noisy synapses sigma_w 1.0 keep the count (451-478, 1.05
 0.06 below the controls' (fails the 0.05 tolerance); prune-and-duplicate works (712-747 active,
 1.68x, success 0.008 below; entry 2026-11-06 maze-arms-readout), so it passes on all three tasks.
 3BFF input-weight cap 0.1, 0.5, 2.0 fails (R^2 0.019-0.105 below).
+Della batch 1 (6 Nov, entry 2026-11-06_0900, read_uniform_cells_2.py): CDDM rescaling at the
+paper's values FAILS (196, 183, 169 active against 333-342, R^2 0.819 against 0.834), so rescaling
+works on 3BFF only; the CDDM rate penalty 0.1 works (1,000 of 1,000 active, R^2 0.827); CDDM's
+optimiser comparison does not reproduce 3BFF's pattern (Adam wd 0 and AdamW keep more units at the
+same R^2 on both tasks, but SGD at 0.1 and 0.3 keeps 845-895 units on CDDM within the 0.01
+tolerance, where on 3BFF every SGD arm is 0.05-0.08 below); 3BFF weight decay 1e-5 and 1e-4 lower
+the count (203-229 and 144-163 against 233-270), the direction of CDDM's ladder. Across the three
+tasks on 6 Nov: prune-and-duplicate works on all three (2.77x, 2.11x, 1.68x); the rate penalty on
+CDDM and the maze; read-out dropout on 3BFF and CDDM; rescaling on 3BFF; noisy synapses raise the
+count on all three and miss the tolerance on all three.
 Removing the recruited units of the maze rate-penalty networks lowers success from 0.84-0.96 to
 0.55-0.77, as many at random to 0.07-0.35 (entry 2026-11-05 maze-rate-penalty-ablations): the maze
 form of A3. Maze settings (entry 2026-11-06 maze-arms-readout; read_maze_arms.py,
