@@ -16,7 +16,7 @@
 # Everything else is the CDDM paper-grid control: ReLU, equation h, bias fixed at 0,
 # self-connections on, no Dale, gamma 0, trainer_ptrack_freshbatch (a fresh batch every iteration;
 # on CDDM every batch is the full condition grid, so the flag changes nothing). checkpoint_every is
-# 5000 as in the 3BFF file (the control kept every 1000); snapshots do not change training.
+# 5000 as in the 3BFF file (the trainer config default is 1000); snapshots do not change training.
 # Select with
 #   +experiment=b5_optimizer_cddm
 defaults:
