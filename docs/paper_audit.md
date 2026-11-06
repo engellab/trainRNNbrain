@@ -244,7 +244,14 @@ tolerance, where on 3BFF every SGD arm is 0.05-0.08 below); 3BFF weight decay 1e
 the count (203-229 and 144-163 against 233-270), the direction of CDDM's ladder. Across the three
 tasks on 6 Nov: prune-and-duplicate works on all three (2.77x, 2.11x, 1.68x); the rate penalty on
 CDDM and the maze; read-out dropout on 3BFF and CDDM; rescaling on 3BFF; noisy synapses raise the
-count on all three and miss the tolerance on all three.
+count on all three and miss the tolerance on all three. **Cross-task figures (entry 2026-11-06_0934;
+`fig_paper_F5_tasks.py`, `fig_paper_F3_tasks.py`): at the same-size read-out point, 75,000 iterations,
+and by the one rule, read-out dropout (R² 0.017 below the control's mean) and rescaling (0.013 below)
+FAIL on 3BFF; the "works" of the previous sentence is the floor read of 1 of 3 and 1 of 4 runs. By the
+drawn read-out prune-and-duplicate works on all three tasks (3.07x, 2.11x, 1.68x at 75k / update
+2,000), the rate penalty on two (CDDM at λ 0.1 and 0.2; the maze at 0.03 and 0.3 and not at 0.1; 3BFF at
+0.1 fails, R² 0.021 below), rate + sparsity on CDDM only (0.2 + 0.05; 3BFF 0.1 + 0.05 is 0.028 below),
+read-out dropout on CDDM only; noisy synapses and rescaling on none.**
 Removing the recruited units of the maze rate-penalty networks lowers success from 0.84-0.96 to
 0.55-0.77, as many at random to 0.07-0.35 (entry 2026-11-05 maze-rate-penalty-ablations): the maze
 form of A3. Maze settings (entry 2026-11-06 maze-arms-readout; read_maze_arms.py,
