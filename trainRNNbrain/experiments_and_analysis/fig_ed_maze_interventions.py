@@ -35,14 +35,17 @@ marker, as Figure 5's does; the controls are BASELINE grey, Figure 5's conventio
 
 ARMS ARE DERIVED FROM EACH RUN'S SAVED CONFIG, not from its folder name (arm_of): trainer.lambda_frm,
 trainer.lambda_rws, model.sigma_w, trainer.dropout (with its drop_rate and dropout_beta) and
-trainer.prune_reinit. The folder name is printed beside the derived arm; a folder whose name does not
-match its config's arm is reported. A run whose config switches on a combination outside the
+trainer.prune_reinit with its prune_args (the paper's rescaling arm, alpha 1.002, cap 64, protect
+0.20; "rescale_mild", alpha 1.0005 and cap 8; "rescale_few", protect 0.05; any other values are
+"rescale_other" and drawn nowhere). The folder name is printed beside the derived arm; a folder
+whose name does not match its config's arm is reported. A run whose config switches on a combination outside the
 ladder, or that is not an N = 1,000 ReLU run, is listed and drawn nowhere.
 
 READ-OUT. A run is finished when its last logged update reaches the config's n_updates; an unfinished
 run is listed with its last update and drawn nowhere. A run folder with no run files is listed as
 stopped and drawn nowhere (its arm can then only come from the folder name, and the printout says
-so). The controls' reference is the mean over the LEARNED controls among the uniform series'
+so); a run the rollback guard stopped after its first checkpoint keeps that checkpoint on disk and
+looks unfinished, so STOPPED_RUNS names such runs (arm key, seed) with the update they stopped at. The controls' reference is the mean over the LEARNED controls among the uniform series'
 N = 1,000 ReLU runs: the pre-registered exclusion of a run that does not learn (issue #3) applies to
 the controls as to the arms; the printout gives the means over all controls beside it.
 
@@ -91,6 +94,13 @@ TRI_SCALE = 1.25                  # an open triangle is drawn this much larger (
 # The three rate-penalty strengths, light to dark: Figure 5d's three shades of the rate violet
 # (fig_paper_F5_drive.RATE_SHADES, which that panel assigns to networks), here ordered by lambda.
 RATE_RAMP = {0.03: "#c3b0e8", 0.1: "#9d7fd3", 0.3: ps.RATE_PENALTY}
+# the three rescaling arms: the paper's values in the remedy colour, the two gentler variants of
+# 5 Nov (issue #5) as lighter shades of it, mixed with white
+RESCALE_RAMP = {k: matplotlib.colors.to_hex(tuple(1 - (1 - c) * w for c in matplotlib.colors.to_rgb(ps.RESCALE)))
+                for k, w in (("rescale", 1.0), ("rescale_few", 0.62), ("rescale_mild", 0.36))}
+# runs the rollback guard stopped (RuntimeError: the rollout was not finite six times in a row)
+# after a checkpoint was written: (arm key, seed) -> the update of the last logged probe
+STOPPED_RUNS = {("rescale_mild", 1): 800}       # Spock 7384816_25, 5 Nov
 
 # The ladder of issue #5 in drawing order. key (as arm_of derives it from a saved config) ->
 # (key-row label, colour, marker, the launcher's folder name). The folder name is used only to
@@ -103,24 +113,27 @@ ARMS = {
     "frm0.1+rws0.05": ("rate 0.1 + sparsity 0.05",  ps.RATE_SPARSITY,  "P", "frm0.1_rws0.05"),
     "dropout":        ("read-out dropout",          ps.DROPOUT,        "v", "dropout0.2_beta4"),
     "synnoise":       ("noisy synapses",            ps.SYNAPTIC_NOISE, "s", "sigmaw1.0"),
-    "rescale":        ("rescaling",                 ps.RESCALE,        "D", "rescale"),
+    "rescale":        ("rescaling",                 RESCALE_RAMP["rescale"],      "D", "rescale"),
+    "rescale_few":    ("rescaling, 5% growing",     RESCALE_RAMP["rescale_few"],  "D", "rescale_few"),
+    "rescale_mild":   ("rescaling, slow tilt",      RESCALE_RAMP["rescale_mild"], "D", "rescale_mild"),
 }
 LADDER = [k for k in ARMS if k != "control"]
 # panel c's column labels: at most two lines, under 10 mm wide at TICK_PT
 SHORT = {"frm0.03": "rate\n0.03", "frm0.1": "rate\n0.1", "frm0.3": "rate\n0.3",
-         "frm0.1+rws0.05": "rate 0.1 +\nsparsity", "dropout": "read-out\ndropout",
-         "synnoise": "noisy\nsynapses", "rescale": "rescaling"}
+         "frm0.1+rws0.05": "rate 0.1\n+ sparsity", "dropout": "read-out\ndropout",
+         "synnoise": "noisy\nsynapses", "rescale": "rescaling", "rescale_few": "rescaling\n5% grow",
+         "rescale_mild": "rescaling\nslow tilt"}
 
 # layout in millimetres from the canvas's top-left corner: (left, top, width, height)
-FIG_H_MM = 106.0
+FIG_H_MM = 110.0                          # 106 + 4 mm for the key's second row of arms
 LAYOUT_MM = {
-    "key":   (0.0, 0.8, 165.1, 7.0),
-    "a":     (12.5, 13.0, 66.0, 33.0),
-    "b":     (97.0, 13.0, 63.0, 33.0),
-    "c_top": (15.5, 60.0, 72.0, 19.0),    # 15.5: the lower axes' two-line y label fits left of it
-    "c_bot": (15.5, 81.5, 72.0, 15.0),
-    "d_key": (101.0, 52.5, 60.0, 7.0),    # the line-style key of (d), above it and off the data
-    "d":     (103.0, 60.0, 57.0, 36.5),
+    "key":   (0.0, 0.8, 165.1, 11.0),     # two rows of arms (five per row) and the marker row
+    "a":     (12.5, 17.0, 66.0, 33.0),
+    "b":     (97.0, 17.0, 63.0, 33.0),
+    "c_top": (15.5, 64.0, 84.0, 19.0),    # 15.5: the lower axes' two-line y label fits left of it
+    "c_bot": (15.5, 85.5, 84.0, 15.0),    # 84 mm: nine columns of 9.3 mm (the three rescaling arms)
+    "d_key": (107.0, 56.5, 54.0, 7.0),    # the line-style key of (d), above it and off the data
+    "d":     (109.0, 64.0, 51.0, 36.5),
 }
 
 
@@ -149,9 +162,11 @@ def arm_of(cfg):
             the earlier one (under `ppo`); the model block under `model` in both.
     Returns:
         (key, note): key is "control" when no option is on, "frm<lambda>" for the rate penalty
-        alone, "frm<lambda>+rws<lambda>" for the rate and sparsity penalties together, "synnoise",
-        "dropout" or "rescale" for noisy synapses, read-out dropout or rescaling alone, and "other"
-        for any other combination; note is the option values as text, for the printout.
+        alone, "frm<lambda>+rws<lambda>" for the rate and sparsity penalties together, "synnoise"
+        or "dropout" for noisy synapses or read-out dropout alone, "rescale", "rescale_mild",
+        "rescale_few" or "rescale_other" for rescaling alone (by its prune_args: alpha, cap and
+        protect_frac, see the module docstring), and "other" for any other combination; note is
+        the option values as text, for the printout.
     """
     tr = cfg.get("trainer") or cfg.get("ppo") or {}
     frm = float(tr.get("lambda_frm") or 0.0)
@@ -170,8 +185,14 @@ def arm_of(cfg):
         da = tr.get("dropout_args") or {}
         parts.append(f"dropout {da.get('dropout_kind', '?')} rate {da.get('drop_rate', '?')} "
                      f"beta {da.get('dropout_beta', '?')}")
+    rescale_key = None
     if rescale:
-        parts.append("prune_reinit (rescaling)")
+        pa = tr.get("prune_args") or {}
+        alpha, cap = float(pa.get("rescale_alpha", 0)), float(pa.get("rescale_cap", 0))
+        protect = float(pa.get("rescale_protect_frac", 0))
+        parts.append(f"rescaling alpha {alpha:g} cap {cap:g} protect {protect:g}")
+        rescale_key = {(1.002, 64.0, 0.2): "rescale", (1.0005, 8.0, 0.2): "rescale_mild",
+                       (1.002, 64.0, 0.05): "rescale_few"}.get((alpha, cap, protect), "rescale_other")
     flags = (frm > 0, rws > 0, sigma_w > 0, dropout, rescale)
     if not any(flags):
         key = "control"
@@ -184,7 +205,7 @@ def arm_of(cfg):
     elif flags == (False, False, False, True, False):
         key = "dropout"
     elif flags == (False, False, False, False, True):
-        key = "rescale"
+        key = rescale_key
     else:
         key = "other"
     return key, ", ".join(parts) or "no option on"
@@ -223,6 +244,9 @@ def load_records(root, control_root):
                        last_update=int(run["progress"][-1]["update"]),
                        n_updates=int(tr.get("n_updates") or 0), source=source)
             rec["finished"] = 0 < rec["n_updates"] <= rec["last_update"]
+            rec["stopped_at"] = STOPPED_RUNS.get((key, rec["seed"]))
+            if rec["stopped_at"] is not None:
+                rec["finished"] = False
             standard = run["N"] == N and run["act"] == "relu" and not run["cue"]
             if source == "control":
                 if key != "control" or not standard:
@@ -294,8 +318,10 @@ def arm_summaries(records, stopped, ref):
     for key in LADDER:
         mine = [r for r in records if r["key"] == key and r["why"] == ""]
         fin = [r for r in mine if r["finished"]]
-        n_stopped = sum(s["folder_arm"] == ARMS[key][3] for s in stopped)
-        status = ("finished" if fin else "unfinished" if mine else "stopped" if n_stopped
+        n_stopped = (sum(s["folder_arm"] == ARMS[key][3] for s in stopped)
+                     + sum(r["stopped_at"] is not None for r in mine))
+        running = [r for r in mine if not r["finished"] and r["stopped_at"] is None]
+        status = ("finished" if fin else "unfinished" if running else "stopped" if n_stopped
                   else "no runs")
         s = dict(runs=fin, status=status, fold=np.array([]), cost=np.array([]), mean_fold=None,
                  mean_cost=None)
@@ -359,7 +385,8 @@ def print_runs(records, stopped, ref):
     for r in sorted(records, key=lambda r: (r["source"] != "control", list(ARMS).index(r["key"])
                                             if r["key"] in ARMS else 99, r["seed"])):
         p = r.get("pt")
-        status = "finished" if r["finished"] else "unfinished"
+        status = ("finished" if r["finished"] else f"stopped@{r['stopped_at']}"
+                  if r["stopped_at"] is not None else "unfinished")
         fold = "-" if (p is None or ref is None) else f"{p['active_end'] / ref['active']:.2f}"
         why = "" if not r["why"] else f"NOT DRAWN: {r['why']}"
         print(f"{r['key']:>17} {r['rel'][-36:]:>36} {r['seed']:>4} {status:>10} {r['last_update']:>6} "
@@ -448,7 +475,8 @@ def panel_key(ax, keys):
     h = [Line2D([], [], marker=ARMS[k][2], color=ARMS[k][1], ls="-", lw=ps.DATA_LW, ms=3.4,
                 mec=ps.INK, mew=ps.MARKER_EW, label=ARMS[k][0]) for k in keys]
     if h:
-        leg = ax.legend(handles=h, loc="upper center", ncol=len(h), frameon=False,
+        # at most five entries per row: nine arms would overrun the page width in one row
+        leg = ax.legend(handles=h, loc="upper center", ncol=min(len(h), 5), frameon=False,
                         fontsize=ps.TICK_PT, handlelength=1.5, columnspacing=1.2,
                         handletextpad=0.35, borderaxespad=0)
         ax.add_artist(leg)
