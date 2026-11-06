@@ -242,9 +242,15 @@ optimiser comparison does not reproduce 3BFF's pattern (Adam wd 0 and AdamW keep
 same R^2 on both tasks, but SGD at 0.1 and 0.3 keeps 845-895 units on CDDM within the 0.01
 tolerance, where on 3BFF every SGD arm is 0.05-0.08 below); 3BFF weight decay 1e-5 and 1e-4 lower
 the count (203-229 and 144-163 against 233-270), the direction of CDDM's ladder. Across the three
-tasks on 6 Nov: prune-and-duplicate works on all three (2.77x, 2.11x, 1.68x); the rate penalty on
-CDDM and the maze; read-out dropout on 3BFF and CDDM; rescaling on 3BFF; noisy synapses raise the
-count on all three and miss the tolerance on all three. **Cross-task figures (entry 2026-11-06_0934;
+tasks on 6 Nov, judged at the SAME-SIZE read-out (75,000 iterations; maze update 2,000) with the
+fixed tolerances (decision dead-relu-paper#185; fig_paper_F5_tasks.py, entry 2026-11-06_0934):
+prune-and-duplicate works on all three (3.07x, 2.11x, 1.68x at 0.005, 0.003 and 0.008 below the
+controls); the rate penalty on CDDM (0.1, 0.2) and the maze (0.03, 0.3), not on 3BFF (0.021
+below); rate + sparsity on CDDM only; read-out dropout on CDDM only (on 3BFF 2.05x at 0.017 below:
+its earlier "works" was a floor read of 1 of 3 runs); rescaling on none (3BFF 1.65x at 0.013
+below, its earlier "works" a floor read of 1 of 4; CDDM 0.54x; the maze stopped or lowered);
+noisy synapses raise the count on all three (2.19x, 1.47x, 1.05x) and miss the tolerance on all
+three. The floor reads stay in the Extended Data table. **Cross-task figures (entry 2026-11-06_0934;
 `fig_paper_F5_tasks.py`, `fig_paper_F3_tasks.py`): at the same-size read-out point, 75,000 iterations,
 and by the one rule, read-out dropout (R² 0.017 below the control's mean) and rescaling (0.013 below)
 FAIL on 3BFF; the "works" of the previous sentence is the floor read of 1 of 3 and 1 of 4 runs. By the
