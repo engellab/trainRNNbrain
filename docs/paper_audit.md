@@ -232,13 +232,22 @@ rescaling fails at every setting: the paper's values blew up at the end of the w
 the two gentler arms (alpha 1.0005 with cap 8; protect 0.05) end with FEWER active units than the
 controls (231-321 against 426-449) at success 0.63-0.81 (one run collapsed to 0 active units and
 stopped at update 800); noisy synapses sigma_w 1.0 keep the count (451-478, 1.05x) at a success
-0.06 below the controls' (fails the 0.05 tolerance); prune-and-duplicate ported to TrainerPPO
-(entry 2026-11-05_0907) and running (Spock 7389335_52-54). 3BFF input-weight cap 0.1, 0.5, 2.0 fails (R^2 0.019-0.105 below).
+0.06 below the controls' (fails the 0.05 tolerance); prune-and-duplicate works (712-747 active,
+1.68x, success 0.008 below; entry 2026-11-06 maze-arms-readout), so it passes on all three tasks.
+3BFF input-weight cap 0.1, 0.5, 2.0 fails (R^2 0.019-0.105 below).
 Removing the recruited units of the maze rate-penalty networks lowers success from 0.84-0.96 to
 0.55-0.77, as many at random to 0.07-0.35 (entry 2026-11-05 maze-rate-penalty-ablations): the maze
-form of A3. Queued or pending: CDDM rescaling and 3BFF weight decay 1e-5/1e-4 (Della, launchers
-99530cf), maze weight decay and input norm (Spock, 3e0595e); package 2 (the remaining settings on
-3BFF and the maze, about 550 GPU-h) awaits Pavel.
+form of A3. Maze settings (entry 2026-11-06 maze-arms-readout; read_maze_arms.py,
+fig_ed_maze_settings.py; a setting changes the count when all three seeds lie outside the learned
+controls' 426-449 on one side): input row norm 0.5 increases it (549-593, 1.31x, every seed learned,
+success 0.016 above); weight decay 1e-5 (370-417) and 1e-4 (335-378, one seed learned), activity
+noise 0.1 (311-346, no seed learned), spectral radius 0.5 (338-414) and the sparsity penalty alone
+(378-399, one seed learned) decrease it; weight decay 0, input norm 2, activity noise 0 and 0.01,
+spectral radius 1.5 and the input-weight cap 0.3 leave it inside the range; input norms 5 and 20
+diverge (five of six runs stopped by the rollback guard at 0 active units, the sixth at success
+0.00). Still training on Spock (7389398): the recurrent-weight and metabolic penalties, AdamW, SGD,
+redraw and zero-out. Queued or pending elsewhere: CDDM rescaling and the 3BFF settings ladders
+(Della, 16957556-16957562).
 
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against

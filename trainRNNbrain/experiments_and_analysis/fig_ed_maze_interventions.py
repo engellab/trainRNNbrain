@@ -33,24 +33,36 @@ marker, as Figure 5's does; the controls are BASELINE grey, Figure 5's conventio
       first (dotted) and in random order (dashed; band: range over the random orders), a thin
       vertical line at each network's inactive count. Without a technique JSON the panel says so.
 
-ARMS ARE DERIVED FROM EACH RUN'S SAVED CONFIG, not from its folder name (arm_of): trainer.lambda_frm,
-trainer.lambda_rws, model.sigma_w, trainer.dropout (with its drop_rate and dropout_beta) and
-trainer.prune_reinit with its prune_args (the paper's rescaling arm, alpha 1.002, cap 64, protect
-0.20; "rescale_mild", alpha 1.0005 and cap 8; "rescale_few", protect 0.05; any other values are
-"rescale_other" and drawn nowhere). The folder name is printed beside the derived arm; a folder
-whose name does not match its config's arm is reported. A run whose config switches on a combination outside the
-ladder, or that is not an N = 1,000 ReLU run, is listed and drawn nowhere.
+ARMS ARE DERIVED FROM EACH RUN'S SAVED CONFIG, not from its folder name (arm_of). The per-unit
+rules: trainer.lambda_frm, trainer.lambda_rws, model.sigma_w, trainer.dropout (with its drop_rate
+and dropout_beta) and trainer.prune_reinit with its prune_args.reinit_mode: "rescale" keyed by the
+rescaling values (the paper's arm, alpha 1.002, cap 64, protect 0.20; "rescale_mild", alpha 1.0005
+and cap 8; "rescale_few", protect 0.05; any other values are "rescale_other"), "copy" is
+"duplicate" (the paper's prune-and-duplicate arm), "random" is "redraw" and "zero_out" is
+"zeroout" (the paper's re-initialisation arms). The settings of the uniform-interventions programme
+(issue #6; read_maze_arms.py and fig_ed_maze_settings.py): trainer.weight_decay (default 1e-6,
+"wd<v>"), model.input_row_norm ("inorm<v>"), model.sigma_rec (default 0.05, "srec<v>"),
+model.spectral_rad (default 1.2, "srad<v>"), lambda_rws alone ("rws<v>"), model.inp_weight_cap
+("cap<v>"), trainer.lambda_rwm ("rwm<v>"), trainer.lambda_met ("met<v>") and trainer.optimizer
+("adamw"; "sgd<lr>" with trainer.lr). A config with more than one option on gets the options'
+keys joined by "+" ("frm0.1+rws0.05", the paper's pair, is the one combination in the ladder). The
+folder name is printed beside the derived arm; a folder whose name does not match its config's arm
+(FOLDER_OF, the launcher's ARM_TAG) is reported. A run whose arm is not in ARMS (every setting), or
+that is not an N = 1,000 ReLU run, is listed and drawn nowhere in THIS figure.
 
 READ-OUT. A run is finished when its last logged update reaches the config's n_updates; an unfinished
 run is listed with its last update and drawn nowhere. A run folder with no run files is listed as
 stopped and drawn nowhere (its arm can then only come from the folder name, and the printout says
-so); a run the rollback guard stopped after its first checkpoint keeps that checkpoint on disk and
-looks unfinished, so STOPPED_RUNS names such runs (arm key, seed) with the update they stopped at. The controls' reference is the mean over the LEARNED controls among the uniform series'
+so). A run the rollback guard stopped (RuntimeError after six non-finite rollouts in a row) keeps
+its last checkpoint on disk and looks unfinished; stopped_by_guard tells it apart by its records
+(the last probe counts 0 active units and the last update reports a restore), and it is listed as
+"stopped@<update>". The controls' reference is the mean over the LEARNED controls among the uniform series'
 N = 1,000 ReLU runs: the pre-registered exclusion of a run that does not learn (issue #3) applies to
 the controls as to the arms; the printout gives the means over all controls beside it.
 
-DATA. --root (default data/trained_RNNs_rl_maze/Maze_interventions): the ladder of issue #5,
-<arm>/s<seed>/ run folders written by run_rl.py (Spock arrays 7383696, 7383697 and 7383755).
+DATA. --root (default data/trained_RNNs_rl_maze/Maze_interventions): the ladder of issue #5 and
+the settings arms of issue #6, <arm>/s<seed>/ run folders written by run_rl.py (Spock arrays
+7383696, 7383697, 7383755, 7384816, 7389335 and 7389398).
 --control-root (default data/trained_RNNs_rl_maze/Maze_suite): the uniform series (Spock 7383494),
 of which only the N = 1,000 ReLU runs without the goal cue are used. --ablation (default
 data/rl_maze_ablation_interventions) and --control-ablation (default data/rl_maze_ablation): JSONs
@@ -98,42 +110,61 @@ RATE_RAMP = {0.03: "#c3b0e8", 0.1: "#9d7fd3", 0.3: ps.RATE_PENALTY}
 # 5 Nov (issue #5) as lighter shades of it, mixed with white
 RESCALE_RAMP = {k: matplotlib.colors.to_hex(tuple(1 - (1 - c) * w for c in matplotlib.colors.to_rgb(ps.RESCALE)))
                 for k, w in (("rescale", 1.0), ("rescale_few", 0.62), ("rescale_mild", 0.36))}
-# runs the rollback guard stopped (RuntimeError: the rollout was not finite six times in a row)
-# after a checkpoint was written: (arm key, seed) -> the update of the last logged probe
-STOPPED_RUNS = {("rescale_mild", 1): 800}       # Spock 7384816_25, 5 Nov
+# The defaults of the settings arm_of reads (configs/trainer/trainer_ppo.yaml,
+# configs/model/rnn_relu_standard.yaml, the uniform series' controls): a config at these values has
+# that setting "off".
+DEFAULTS = dict(weight_decay=1e-6, sigma_rec=0.05, spectral_rad=1.2, optimizer="adam")
 
-# The ladder of issue #5 in drawing order. key (as arm_of derives it from a saved config) ->
-# (key-row label, colour, marker, the launcher's folder name). The folder name is used only to
-# report a mismatch with the derived arm and to name the arm of a folder that holds no config.
+# The ladder of issue #5 (the per-unit rules of Figure 5 on the maze) in drawing order. key (as
+# arm_of derives it from a saved config) -> (key-row label, colour, marker). The settings arms of
+# issue #6 are not here: they are read by read_maze_arms.py and drawn by fig_ed_maze_settings.py.
 ARMS = {
-    "control":        ("control",                   ps.BASELINE,       "o", "control"),
-    "frm0.03":        ("rate 0.03",                 RATE_RAMP[0.03],   "o", "frm0.03"),
-    "frm0.1":         ("rate 0.1",                  RATE_RAMP[0.1],    "o", "frm0.1"),
-    "frm0.3":         ("rate 0.3",                  RATE_RAMP[0.3],    "o", "frm0.3"),
-    "frm0.1+rws0.05": ("rate 0.1 + sparsity 0.05",  ps.RATE_SPARSITY,  "P", "frm0.1_rws0.05"),
-    "dropout":        ("read-out dropout",          ps.DROPOUT,        "v", "dropout0.2_beta4"),
-    "synnoise":       ("noisy synapses",            ps.SYNAPTIC_NOISE, "s", "sigmaw1.0"),
-    "rescale":        ("rescaling",                 RESCALE_RAMP["rescale"],      "D", "rescale"),
-    "rescale_few":    ("rescaling, 5% growing",     RESCALE_RAMP["rescale_few"],  "D", "rescale_few"),
-    "rescale_mild":   ("rescaling, slow tilt",      RESCALE_RAMP["rescale_mild"], "D", "rescale_mild"),
+    "control":        ("control",                   ps.BASELINE,       "o"),
+    "frm0.03":        ("rate 0.03",                 RATE_RAMP[0.03],   "o"),
+    "frm0.1":         ("rate 0.1",                  RATE_RAMP[0.1],    "o"),
+    "frm0.3":         ("rate 0.3",                  RATE_RAMP[0.3],    "o"),
+    "frm0.1+rws0.05": ("rate 0.1 + sparsity 0.05",  ps.RATE_SPARSITY,  "P"),
+    "dropout":        ("read-out dropout",          ps.DROPOUT,        "v"),
+    "synnoise":       ("noisy synapses",            ps.SYNAPTIC_NOISE, "s"),
+    "rescale":        ("rescaling",                 RESCALE_RAMP["rescale"],      "D"),
+    "rescale_few":    ("rescaling, 5% growing",     RESCALE_RAMP["rescale_few"],  "D"),
+    "rescale_mild":   ("rescaling, slow tilt",      RESCALE_RAMP["rescale_mild"], "D"),
+    "duplicate":      ("prune-and-duplicate",       ps.DUPLICATE,      "^"),    # Figure 5's colour and marker
 }
 LADDER = [k for k in ARMS if k != "control"]
-# panel c's column labels: at most two lines, under 10 mm wide at TICK_PT
+# panel c's column labels: at most two lines, under 9 mm wide at TICK_PT (the column pitch)
 SHORT = {"frm0.03": "rate\n0.03", "frm0.1": "rate\n0.1", "frm0.3": "rate\n0.3",
          "frm0.1+rws0.05": "rate 0.1\n+ sparsity", "dropout": "read-out\ndropout",
          "synnoise": "noisy\nsynapses", "rescale": "rescaling", "rescale_few": "rescaling\n5% grow",
-         "rescale_mild": "rescaling\nslow tilt"}
+         "rescale_mild": "rescaling\nslow tilt", "duplicate": "duplicate"}
+# Every arm of the launcher (slurm/rl_maze_interventions_spock.slurm, ARM_TAG, in its order): the
+# derived key -> the folder name. Used to report a folder whose name does not match its config's
+# arm, to name the arm of a folder that holds no config, and as the arms' order in the printouts.
+FOLDER_OF = {
+    "control": "control", "frm0.03": "frm0.03", "frm0.1": "frm0.1", "frm0.3": "frm0.3",
+    "frm0.1+rws0.05": "frm0.1_rws0.05", "synnoise": "sigmaw1.0", "dropout": "dropout0.2_beta4",
+    "rescale": "rescale", "rescale_mild": "rescale_mild", "rescale_few": "rescale_few",
+    "wd0": "wd0", "wd1e-5": "wd1e-5", "wd1e-4": "wd1e-4",
+    "inorm0.5": "inorm0.5", "inorm2": "inorm2", "inorm5": "inorm5", "inorm20": "inorm20",
+    "duplicate": "duplicate",
+    "srec0": "srec0", "srec0.01": "srec0.01", "srec0.1": "srec0.1",
+    "srad0.5": "srad0.5", "srad1.5": "srad1.5", "rws0.05": "rws0.05",
+    "cap0.3": "cap0.3", "rwm0.05": "rwm0.05", "rwm0.2": "rwm0.2",
+    "met0.01": "met0.01", "met0.1": "met0.1", "met1": "met1", "met10": "met10",
+    "adamw": "adamw", "sgd0.03": "sgd0.03", "sgd0.1": "sgd0.1", "sgd0.3": "sgd0.3", "sgd1": "sgd1",
+    "redraw": "redraw", "zeroout": "zeroout",
+}
 
 # layout in millimetres from the canvas's top-left corner: (left, top, width, height)
-FIG_H_MM = 110.0                          # 106 + 4 mm for the key's second row of arms
+FIG_H_MM = 113.5                          # 110 + 3.5 mm for the key's third row of arms
 LAYOUT_MM = {
-    "key":   (0.0, 0.8, 165.1, 11.0),     # two rows of arms (five per row) and the marker row
-    "a":     (12.5, 17.0, 66.0, 33.0),
-    "b":     (97.0, 17.0, 63.0, 33.0),
-    "c_top": (15.5, 64.0, 84.0, 19.0),    # 15.5: the lower axes' two-line y label fits left of it
-    "c_bot": (15.5, 85.5, 84.0, 15.0),    # 84 mm: nine columns of 9.3 mm (the three rescaling arms)
-    "d_key": (107.0, 56.5, 54.0, 7.0),    # the line-style key of (d), above it and off the data
-    "d":     (109.0, 64.0, 51.0, 36.5),
+    "key":   (0.0, 0.8, 165.1, 14.5),     # three rows of arms (four per row) and the marker row
+    "a":     (12.5, 20.5, 66.0, 33.0),
+    "b":     (97.0, 20.5, 63.0, 33.0),
+    "c_top": (15.5, 67.5, 90.0, 19.0),    # 15.5: the lower axes' two-line y label fits left of it
+    "c_bot": (15.5, 89.0, 90.0, 15.0),    # 90 mm: ten columns of 9 mm (the duplicate arm added)
+    "d_key": (109.5, 60.0, 52.0, 7.0),    # the line-style key of (d), above it and off the data
+    "d":     (111.5, 67.5, 48.5, 36.5),   # 111.5: its "0.0" tick label clears the last column label of (c)
 }
 
 
@@ -154,61 +185,123 @@ def load_config(folder):
         return yaml.safe_load(fh)
 
 
+def fmt_value(v):
+    """A setting's value as the launcher's folder names write it: 1e-05 -> '1e-5', 0.0001 -> '1e-4', 2.0 -> '2'.
+
+    Args:
+        v: float.
+    Returns:
+        str.
+    """
+    if 0 < abs(v) < 1e-3:
+        mant, exp = f"{v:.0e}".split("e")
+        return f"{mant}e{int(exp)}"
+    return f"{v:g}"
+
+
 def arm_of(cfg):
-    """The technique a saved config switches on, read from the config and not from the folder name.
+    """The option(s) a saved config switches on, read from the config and not from the folder name.
 
     Args:
         cfg: dict, a saved run config: run_rl.py's layout (the trainer block under `trainer`) or
             the earlier one (under `ppo`); the model block under `model` in both.
     Returns:
-        (key, note): key is "control" when no option is on, "frm<lambda>" for the rate penalty
-        alone, "frm<lambda>+rws<lambda>" for the rate and sparsity penalties together, "synnoise"
-        or "dropout" for noisy synapses or read-out dropout alone, "rescale", "rescale_mild",
-        "rescale_few" or "rescale_other" for rescaling alone (by its prune_args: alpha, cap and
-        protect_frac, see the module docstring), and "other" for any other combination; note is
-        the option values as text, for the printout.
+        (key, note): key is "control" when no option is on; with one option on, the option's key
+        (the module docstring lists them: "frm<lambda>", "rws<lambda>", "synnoise", "dropout",
+        "rescale" / "rescale_mild" / "rescale_few" / "rescale_other" by the rescaling values,
+        "duplicate", "redraw", "zeroout" or "reinit_other" by prune_args.reinit_mode, "wd<v>",
+        "inorm<v>", "srec<v>", "srad<v>", "cap<v>", "rwm<v>", "met<v>", "adamw", "sgd<lr>"); with
+        several on, their keys joined by "+" in that order ("frm0.1+rws0.05"); note is the option
+        values as text, for the printout.
     """
     tr = cfg.get("trainer") or cfg.get("ppo") or {}
+    md = cfg.get("model") or {}
+    keys, parts = [], []
     frm = float(tr.get("lambda_frm") or 0.0)
-    rws = float(tr.get("lambda_rws") or 0.0)
-    sigma_w = float((cfg.get("model") or {}).get("sigma_w") or 0.0)
-    dropout = bool(tr.get("dropout", False))
-    rescale = bool(tr.get("prune_reinit", False))
-    parts = []
     if frm > 0:
+        keys.append(f"frm{fmt_value(frm)}")
         parts.append(f"lambda_frm {frm:g}")
+    rws = float(tr.get("lambda_rws") or 0.0)
     if rws > 0:
+        keys.append(f"rws{fmt_value(rws)}")
         parts.append(f"lambda_rws {rws:g}")
+    sigma_w = float(md.get("sigma_w") or 0.0)
     if sigma_w > 0:
+        keys.append("synnoise")
         parts.append(f"sigma_w {sigma_w:g}")
-    if dropout:
+    if bool(tr.get("dropout", False)):
         da = tr.get("dropout_args") or {}
+        keys.append("dropout")
         parts.append(f"dropout {da.get('dropout_kind', '?')} rate {da.get('drop_rate', '?')} "
                      f"beta {da.get('dropout_beta', '?')}")
-    rescale_key = None
-    if rescale:
+    if bool(tr.get("prune_reinit", False)):
         pa = tr.get("prune_args") or {}
-        alpha, cap = float(pa.get("rescale_alpha", 0)), float(pa.get("rescale_cap", 0))
-        protect = float(pa.get("rescale_protect_frac", 0))
-        parts.append(f"rescaling alpha {alpha:g} cap {cap:g} protect {protect:g}")
-        rescale_key = {(1.002, 64.0, 0.2): "rescale", (1.0005, 8.0, 0.2): "rescale_mild",
-                       (1.002, 64.0, 0.05): "rescale_few"}.get((alpha, cap, protect), "rescale_other")
-    flags = (frm > 0, rws > 0, sigma_w > 0, dropout, rescale)
-    if not any(flags):
-        key = "control"
-    elif flags == (True, False, False, False, False):
-        key = f"frm{frm:g}"
-    elif flags == (True, True, False, False, False):
-        key = f"frm{frm:g}+rws{rws:g}"
-    elif flags == (False, False, True, False, False):
-        key = "synnoise"
-    elif flags == (False, False, False, True, False):
-        key = "dropout"
-    elif flags == (False, False, False, False, True):
-        key = rescale_key
-    else:
-        key = "other"
-    return key, ", ".join(parts) or "no option on"
+        mode = str(pa.get("reinit_mode", "rescale"))
+        if mode == "rescale":
+            alpha, cap = float(pa.get("rescale_alpha", 0)), float(pa.get("rescale_cap", 0))
+            protect = float(pa.get("rescale_protect_frac", 0))
+            keys.append({(1.002, 64.0, 0.2): "rescale", (1.0005, 8.0, 0.2): "rescale_mild",
+                         (1.002, 64.0, 0.05): "rescale_few"}.get((alpha, cap, protect), "rescale_other"))
+            parts.append(f"rescaling alpha {alpha:g} cap {cap:g} protect {protect:g}")
+        else:
+            keys.append({"copy": "duplicate", "random": "redraw", "zero_out": "zeroout"}.get(mode, "reinit_other"))
+            parts.append(f"prune_reinit {mode} rate {pa.get('max_replace_frac', '?')} maturity "
+                         f"{pa.get('maturity', '?')} utility {pa.get('utility', '?')} every "
+                         f"{pa.get('check_every', '?')} patience {pa.get('patience', '?')}")
+    wd = float(tr.get("weight_decay", DEFAULTS["weight_decay"]) or 0.0)
+    if wd != DEFAULTS["weight_decay"]:
+        keys.append(f"wd{fmt_value(wd)}")
+        parts.append(f"weight_decay {wd:g}")
+    inorm = md.get("input_row_norm")
+    if inorm is not None:
+        keys.append(f"inorm{fmt_value(float(inorm))}")
+        parts.append(f"input_row_norm {float(inorm):g}")
+    srec = float(md.get("sigma_rec", DEFAULTS["sigma_rec"]) or 0.0)
+    if srec != DEFAULTS["sigma_rec"]:
+        keys.append(f"srec{fmt_value(srec)}")
+        parts.append(f"sigma_rec {srec:g}")
+    srad = float(md.get("spectral_rad", DEFAULTS["spectral_rad"]))
+    if srad != DEFAULTS["spectral_rad"]:
+        keys.append(f"srad{fmt_value(srad)}")
+        parts.append(f"spectral_rad {srad:g}")
+    cap = md.get("inp_weight_cap")
+    if cap is not None:
+        keys.append(f"cap{fmt_value(float(cap))}")
+        parts.append(f"inp_weight_cap {float(cap):g}")
+    rwm = float(tr.get("lambda_rwm") or 0.0)
+    if rwm > 0:
+        keys.append(f"rwm{fmt_value(rwm)}")
+        parts.append(f"lambda_rwm {rwm:g}")
+    met = float(tr.get("lambda_met") or 0.0)
+    if met > 0:
+        keys.append(f"met{fmt_value(met)}")
+        parts.append(f"lambda_met {met:g}")
+    opt = str(tr.get("optimizer") or DEFAULTS["optimizer"]).lower()
+    if opt != DEFAULTS["optimizer"]:
+        lr = float(tr.get("lr", 0.0))
+        keys.append(opt if opt != "sgd" else f"sgd{fmt_value(lr)}")
+        parts.append(f"optimizer {opt} lr {lr:g}" + (f" momentum {tr.get('momentum', 0)}" if opt == "sgd" else ""))
+    return "+".join(keys) or "control", ", ".join(parts) or "no option on"
+
+
+def stopped_by_guard(run):
+    """Whether the rollback guard stopped a run before its budget, read from the run's own records.
+
+    The guard restores the last checkpoint when a rollout is not finite and raises after six
+    restores in a row (TrainerPPO); the folder then keeps the records up to the last update. Such a
+    run's last probe counts 0 active units, because the network's rates are not finite; a run
+    still training has a finite network at its last probe. Checked against the Spock logs of the
+    six runs stopped so far (MazeInterv.7384816_25, 7389335_46-48, 7389335_50-51): all six end
+    on a probe of 0 active units (five of them with the restore count in their last update
+    record, one, rescale_mild seed 1, with the restore between its last record and the raise).
+    The caller applies it to unfinished runs only.
+
+    Args:
+        run: dict from common.maze_load_runs.
+    Returns:
+        bool.
+    """
+    return int(run["probes"]["active"][-1]) == 0
 
 
 def load_records(root, control_root):
@@ -244,9 +337,7 @@ def load_records(root, control_root):
                        last_update=int(run["progress"][-1]["update"]),
                        n_updates=int(tr.get("n_updates") or 0), source=source)
             rec["finished"] = 0 < rec["n_updates"] <= rec["last_update"]
-            rec["stopped_at"] = STOPPED_RUNS.get((key, rec["seed"]))
-            if rec["stopped_at"] is not None:
-                rec["finished"] = False
+            rec["stopped_at"] = rec["last_update"] if (not rec["finished"] and stopped_by_guard(run)) else None
             standard = run["N"] == N and run["act"] == "relu" and not run["cue"]
             if source == "control":
                 if key != "control" or not standard:
@@ -263,8 +354,7 @@ def load_records(root, control_root):
             rec["drawn"] = rec["why"] == "" and rec["finished"]
             if rec["finished"]:
                 rec["pt"] = read_points(run)
-            folder_of_key = ARMS.get(key, (None,) * 4)[3]
-            if source == "ladder" and folder_of_key is not None and rec["folder_arm"] != folder_of_key:
+            if source == "ladder" and rec["folder_arm"] != FOLDER_OF.get(key, key):
                 print(f"NOTE: {rec['rel']} is in folder '{rec['folder_arm']}' but its config says "
                       f"'{key}' ({note}); the config decides")
             records.append(rec)
@@ -285,10 +375,10 @@ def control_reference(records):
     Args:
         records: list from load_records.
     Returns:
-        dict with active (mean count at the end over the learned controls), active_max (the largest
-        learned control's count), success (their mean end success), n (how many), all_active,
-        all_success, n_all (the same over every finished control); or None without a learned
-        control.
+        dict with active (mean count at the end over the learned controls), active_min and
+        active_max (the smallest and largest learned control's count), success (their mean end
+        success), n (how many), all_active, all_success, n_all (the same over every finished
+        control); or None without a learned control.
     """
     ctrl = [r for r in records if r["key"] == "control" and r["drawn"]]
     learned = [r for r in ctrl if r["pt"]["learned_i"] is not None]
@@ -296,10 +386,59 @@ def control_reference(records):
         return None
     act = np.array([r["pt"]["active_end"] for r in learned], float)
     suc = np.array([r["pt"]["success_end"] for r in learned], float)
-    return dict(active=float(act.mean()), active_max=int(act.max()), success=float(suc.mean()),
-                n=len(learned),
+    return dict(active=float(act.mean()), active_min=int(act.min()), active_max=int(act.max()),
+                success=float(suc.mean()), n=len(learned),
                 all_active=float(np.mean([r["pt"]["active_end"] for r in ctrl])),
                 all_success=float(np.mean([r["pt"]["success_end"] for r in ctrl])), n_all=len(ctrl))
+
+
+def arm_status(records, stopped, key):
+    """One arm's runs and the state of its column.
+
+    Args:
+        records: list from load_records; stopped: list from load_records; key: an arm key.
+    Returns:
+        (fin, status): fin is the arm's finished records whose `why` is empty; status is
+        "finished" (at least one finished run), "unfinished" (none finished, one still training),
+        "stopped" (none finished or training, one stopped by the guard or a folder with no run
+        files) or "no runs".
+    """
+    mine = [r for r in records if r["key"] == key and r["why"] == ""]
+    fin = [r for r in mine if r["finished"]]
+    n_stopped = (sum(s["folder_arm"] == FOLDER_OF.get(key, key) for s in stopped)
+                 + sum(r["stopped_at"] is not None for r in mine))
+    running = [r for r in mine if not r["finished"] and r["stopped_at"] is None]
+    return fin, ("finished" if fin else "unfinished" if running else "stopped" if n_stopped
+                 else "no runs")
+
+
+def rule_verdict(fin, status, ref):
+    """The pre-registered verdict on a per-unit rule (issue #5): "works", "fails: ...", or none yet.
+
+    A rule works at a value when every one of its SEEDS runs finished, each run's count of active
+    units at the end exceeds the largest learned control's, and the arm's mean end success is
+    within SUCCESS_TOL of the learned controls' mean.
+
+    Args:
+        fin: the arm's finished records; status: str from arm_status; ref: control_reference.
+    Returns:
+        str.
+    """
+    if ref is None:
+        return "no verdict (no learned control)"
+    if not fin:
+        return f"no verdict ({status})"
+    if len(fin) < len(SEEDS):
+        return f"incomplete ({len(fin)} of {len(SEEDS)} runs finished)"
+    low = [r["seed"] for r in fin if r["pt"]["active_end"] <= ref["active_max"]]
+    cost = float(np.mean([r["pt"]["success_end"] for r in fin])) - ref["success"]
+    reasons = []
+    if low:
+        reasons.append(f"count not above every learned control's ({ref['active_max']}) in "
+                       f"seed{'s' if len(low) > 1 else ''} {', '.join(map(str, low))}")
+    if cost < -SUCCESS_TOL:
+        reasons.append(f"success cost {cost:+.3f} beyond {SUCCESS_TOL}")
+    return "works" if not reasons else "fails: " + "; ".join(reasons)
 
 
 def arm_summaries(records, stopped, ref):
@@ -316,34 +455,13 @@ def arm_summaries(records, stopped, ref):
     """
     out = {}
     for key in LADDER:
-        mine = [r for r in records if r["key"] == key and r["why"] == ""]
-        fin = [r for r in mine if r["finished"]]
-        n_stopped = (sum(s["folder_arm"] == ARMS[key][3] for s in stopped)
-                     + sum(r["stopped_at"] is not None for r in mine))
-        running = [r for r in mine if not r["finished"] and r["stopped_at"] is None]
-        status = ("finished" if fin else "unfinished" if running else "stopped" if n_stopped
-                  else "no runs")
+        fin, status = arm_status(records, stopped, key)
         s = dict(runs=fin, status=status, fold=np.array([]), cost=np.array([]), mean_fold=None,
-                 mean_cost=None)
+                 mean_cost=None, verdict=rule_verdict(fin, status, ref))
         if fin and ref is not None:
             s["fold"] = np.array([r["pt"]["active_end"] / ref["active"] for r in fin])
             s["cost"] = np.array([r["pt"]["success_end"] - ref["success"] for r in fin])
             s["mean_fold"], s["mean_cost"] = float(s["fold"].mean()), float(s["cost"].mean())
-        if ref is None:
-            s["verdict"] = "no verdict (no learned control)"
-        elif not fin:
-            s["verdict"] = f"no verdict ({status})"
-        elif len(fin) < len(SEEDS):
-            s["verdict"] = f"incomplete ({len(fin)} of {len(SEEDS)} runs finished)"
-        else:
-            low = [r["seed"] for r in fin if r["pt"]["active_end"] <= ref["active_max"]]
-            reasons = []
-            if low:
-                reasons.append(f"count not above every learned control's ({ref['active_max']}) in "
-                               f"seed{'s' if len(low) > 1 else ''} {', '.join(map(str, low))}")
-            if s["mean_cost"] < -SUCCESS_TOL:
-                reasons.append(f"success cost {s['mean_cost']:+.3f} beyond {SUCCESS_TOL}")
-            s["verdict"] = "works" if not reasons else "fails: " + "; ".join(reasons)
         out[key] = s
     return out
 
@@ -382,8 +500,9 @@ def print_runs(records, stopped, ref):
     fmt = lambda v: "-" if v is None else str(v)
     print(f"{'arm (from config)':>17} {'folder':>36} {'seed':>4} {'status':>10} {'update':>6} "
           f"{'succ@end':>8} {'learned':>7} {'act@learn':>9} {'act@end':>7} {'fold':>5}  note")
-    for r in sorted(records, key=lambda r: (r["source"] != "control", list(ARMS).index(r["key"])
-                                            if r["key"] in ARMS else 99, r["seed"])):
+    order = list(FOLDER_OF)
+    for r in sorted(records, key=lambda r: (r["source"] != "control", order.index(r["key"])
+                                            if r["key"] in order else 99, r["key"], r["seed"])):
         p = r.get("pt")
         status = ("finished" if r["finished"] else f"stopped@{r['stopped_at']}"
                   if r["stopped_at"] is not None else "unfinished")
@@ -398,7 +517,7 @@ def print_runs(records, stopped, ref):
               f"{'-':>8} {'-':>7} {'-':>9} {'-':>7} {'-':>5}  no run files on disk; the arm "
               f"'{s['folder_arm']}' is the folder's name, not a config's")
     have = {(r["key"], r["seed"]) for r in records} | {
-        (k, s["seed"]) for s in stopped for k in ARMS if ARMS[k][3] == s["folder_arm"]}
+        (k, s["seed"]) for s in stopped for k in ARMS if FOLDER_OF[k] == s["folder_arm"]}
     miss = [(k, s) for k in LADDER for s in SEEDS if (k, s) not in have]
     print("missing ladder cells (no folder): " + (", ".join(f"{k} s{s}" for k, s in miss) or "none"))
     if ref is None:
@@ -455,7 +574,7 @@ def run_marker(ax, x, y, rec):
     Returns:
         None.
     """
-    _, col, marker, _ = ARMS[rec["key"]]
+    _, col, marker = ARMS[rec["key"]]
     if rec["pt"]["learned_i"] is None:
         ax.plot([x], [y], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
     else:
@@ -475,8 +594,9 @@ def panel_key(ax, keys):
     h = [Line2D([], [], marker=ARMS[k][2], color=ARMS[k][1], ls="-", lw=ps.DATA_LW, ms=3.4,
                 mec=ps.INK, mew=ps.MARKER_EW, label=ARMS[k][0]) for k in keys]
     if h:
-        # at most five entries per row: nine arms would overrun the page width in one row
-        leg = ax.legend(handles=h, loc="upper center", ncol=min(len(h), 5), frameon=False,
+        # at most four entries per row (three rows for the eleven arms): the long labels would
+        # overrun the page width at five per row
+        leg = ax.legend(handles=h, loc="upper center", ncol=min(len(h), 4), frameon=False,
                         fontsize=ps.TICK_PT, handlelength=1.5, columnspacing=1.2,
                         handletextpad=0.35, borderaxespad=0)
         ax.add_artist(leg)
@@ -500,7 +620,7 @@ def panel_traces(ax, records, x_max):
     """
     drawn = [r for r in records if r["drawn"]]
     for r in sorted(drawn, key=lambda r: r["key"] != "control"):     # the controls go under
-        _, col, marker, _ = ARMS[r["key"]]
+        _, col, marker = ARMS[r["key"]]
         pr, li = r["probes"], r["pt"]["learned_i"]
         ax.plot(pr["update"], pr["active"], "-", lw=ps.THIN_LW, color=col,
                 zorder=2 if r["key"] == "control" else 3)
@@ -589,8 +709,8 @@ def panel_fold(ax_t, ax_b, summ, ref):
     ax_b.set_ylim(lo, 0.08)
     ax_b.axhline(0, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
     ax_b.axhline(-SUCCESS_TOL, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
-    ax_b.text(len(LADDER) - 0.5, -SUCCESS_TOL - 0.02, f"$-${SUCCESS_TOL:g}", fontsize=ps.TICK_PT,
-              color=ps.MUTED, ha="right", va="top")
+    ax_b.text(-0.55, -SUCCESS_TOL - 0.02, f"$-${SUCCESS_TOL:g}", fontsize=ps.TICK_PT,
+              color=ps.MUTED, ha="left", va="top")
     ax_b.set_yticks(np.arange(0.0, lo, -0.2))
     ax_b.set_ylabel("success at the end\nminus control mean")
     ax_b.set_xticks(range(len(LADDER)))
