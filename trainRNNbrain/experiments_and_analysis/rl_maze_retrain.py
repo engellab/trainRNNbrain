@@ -91,6 +91,7 @@ def build_trainer(cfg, rnn, task, updates, every):
     opt = torch.optim.Adam(rnn.parameters(), lr=lr, weight_decay=float(hp.weight_decay))
     args = OmegaConf.to_container(filter_kwargs(TrainerPPO, hp), resolve=True)
     args.pop("_target_", None)
+    args.pop("optimizer", None)    # trainer.optimizer names the run's optimiser; the retrain's is the fresh Adam above
     args["critic"] = bool(hp.get("critic", rnn.n_outputs == 3))
     args.update(n_updates=int(updates), checkpoint_every=int(every), iter_offset=0, adam_restored=False)
     return TrainerPPO(rnn, task, opt, **args)

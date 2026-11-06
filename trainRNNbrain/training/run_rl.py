@@ -30,9 +30,14 @@ run_experiment builds it) and the file stem s<seed>:
                               TrainerPPO.safe_rollout), lr (the learning rate used, after the
                               warm-up ramp) and the PPO statistics from TrainerPPO.ppo_update
                               (including skipped minibatches)
-  s<seed>_AdamState_Maze.pt   the optimizer's state_dict (Adam's two moments per parameter), so the
-                              run can be continued (below) rather than restarted; written as
-                              run_experiment writes it for the supervised runs
+  s<seed>_AdamState_Maze.pt   the optimizer's state_dict (Adam's or AdamW's two moments per
+                              parameter; SGD's momentum buffers, none at momentum 0), so the run
+                              can be continued (below) rather than restarted; written as
+                              run_experiment writes it for the supervised runs. The file keeps this
+                              name whichever optimiser trainer.optimizer names (since 5 Nov 2026:
+                              adam, adamw or sgd, build_optimizer), so the readers' *AdamState*.pt
+                              glob finds it; the saved config's trainer.optimizer records which
+                              optimiser wrote it
   s<seed>_Participation.npz   per probe: update (the update index), active (active units under the
                               project's rule, p = std + q0.9), active_mod (active units under the
                               modulation criterion, std alone at or above 5 percent of its 95th
@@ -65,6 +70,10 @@ iter_offset + the run's own count, so the continuation's records start where the
 common.maze_load_runs joins the chain into one run. The parent's config names the chain: a run's
 `paths.init_from` is its parent. Not carried over, as in the supervised trainer: the rescale rule's
 state and the dropout participation EMA, which are not saved, start afresh in the continuation.
+A continuation that restores the optimizer state must name the parent's optimiser
+(trainer.optimizer; a parent saved without the key ran Adam): torch loads an Adam state into an SGD
+optimizer without complaint and the first step then fails on the missing momentum key, so the
+mismatch is refused here before training.
 """
 import glob
 import json
@@ -115,6 +124,35 @@ def save_run(folder, stem, taskname, cfg, params, progress, probes, opt):
         torch.save(opt.state_dict(), os.path.join(folder, f"{stem}_AdamState_{taskname}.pt"))
     except Exception as e:
         print(f"WARNING: could not save Adam state: {e}", flush=True)
+
+
+def build_optimizer(rnn, trainer_cfg, lr):
+    """The optimizer over the RNN's parameters, from trainer.optimizer: the switch of
+    run_experiment.py (B5, the optimiser control), mirrored. `adam` is the line's default and
+    applies weight decay as COUPLED L2: wd*w is added to the gradient and then divided by sqrt(v),
+    so a unit with no task gradient has its weights pulled to zero at ~lr per step whatever wd is.
+    `adamw` decouples it (w -= lr*wd*w); `sgd` adds the same wd*w to the gradient with no
+    normalisation, with trainer.momentum. Configs written before the key existed ran Adam, hence
+    the default.
+
+    Args:
+        rnn: RNN_torch, whose parameters the optimizer holds.
+        trainer_cfg: the trainer block of the config (optimizer, weight_decay, momentum).
+        lr: float, the learning rate after the size rule, the base rate the trainer ramps to.
+    Returns:
+        torch.optim.Adam, AdamW or SGD.
+    Raises:
+        ValueError: trainer.optimizer is none of adam, adamw, sgd.
+    """
+    opt_name = trainer_cfg.get("optimizer", "adam")
+    wd = float(trainer_cfg.weight_decay)
+    if opt_name == "adam":
+        return torch.optim.Adam(rnn.parameters(), lr=lr, weight_decay=wd)
+    if opt_name == "adamw":
+        return torch.optim.AdamW(rnn.parameters(), lr=lr, weight_decay=wd)
+    if opt_name == "sgd":
+        return torch.optim.SGD(rnn.parameters(), lr=lr, weight_decay=wd, momentum=float(trainer_cfg.momentum))
+    raise ValueError(f"trainer.optimizer must be adam, adamw or sgd; got {opt_name!r}")
 
 
 def load_warm_start(rnn, folder):
@@ -280,15 +318,17 @@ def run_rl(cfg):
     rnn_args.seed = seed
     rnn = hydra.utils.instantiate(rnn_args)
     lr = cfg.trainer.lr * (100.0 / float(cfg.model.N)) ** cfg.trainer.lr_scale_exp   # the trainer's size rule
-    opt = torch.optim.Adam(rnn.parameters(), lr=lr, weight_decay=cfg.trainer.weight_decay)
+    opt = build_optimizer(rnn, cfg.trainer, lr)
     # WARM START (paths.init_from): a finished maze run's weights replace this run's fresh draw, and
     # with paths.init_adam its Adam moments replace the fresh optimizer state, so training continues
     # from that network; the counterpart of run_experiment's warm-start block. Everything else comes
     # from THIS run's config: the trainer's options, the task, and the rate (the size rule above; a
-    # restored state carries the parent's last rate and weight decay in its param_groups, and those
-    # are set back to this run's values). Two parts of the parent's trainer are not saved and start
-    # afresh, as in the supervised trainer: the rescale rule's state (strikes, utilities, factors,
-    # the growing set, the step clock) and the dropout participation EMA.
+    # restored state carries the parent's last rate, weight decay and momentum in its param_groups,
+    # and those are set back to this run's values). Two parts of the parent's trainer are not saved
+    # and start afresh, as in the supervised trainer: the rescale rule's state (strikes, utilities,
+    # factors, the growing set, the step clock) and the dropout participation EMA. The parent's
+    # optimiser (its saved config's trainer.optimizer; adam when the key is missing) must be this
+    # run's: torch loads a foreign state without complaint and fails at the first step.
     init_from = cfg.paths.get("init_from", None) if "paths" in cfg else None
     init_adam = bool(init_from) and bool(cfg.paths.get("init_adam", False))
     if init_from:
@@ -297,10 +337,19 @@ def run_rl(cfg):
             ast = sorted(glob.glob(os.path.join(init_from, "*AdamState*.pt")))
             if not ast:
                 raise FileNotFoundError(f"warm start: init_adam set but no *AdamState*.pt in {init_from}")
+            parent_cfg = OmegaConf.load(sorted(glob.glob(os.path.join(init_from, "*config.yaml")))[0])
+            parent_opt = parent_cfg.trainer.get("optimizer", "adam")
+            opt_name = cfg.trainer.get("optimizer", "adam")
+            if parent_opt != opt_name:
+                raise ValueError(f"warm start: the parent ran trainer.optimizer={parent_opt!r} and this run "
+                                 f"{opt_name!r}; a restored optimizer state needs the same optimiser "
+                                 f"(set paths.init_adam=false to start the optimizer afresh)")
             opt.load_state_dict(torch.load(ast[0], map_location=device))
             for group in opt.param_groups:
                 group["lr"], group["weight_decay"] = lr, float(cfg.trainer.weight_decay)
-            print(f"warm start: restored Adam moments from {ast[0]}", flush=True)
+                if opt_name == "sgd":
+                    group["momentum"] = float(cfg.trainer.momentum)
+            print(f"warm start: restored the {opt_name} optimizer state from {ast[0]}", flush=True)
     # THE UPDATE CLOCK: trainer.iter_offset "auto" means "carry on counting from the parent", 0 when
     # there is no parent. Resolved here and written back, so the saved config records the absolute
     # window this run covers, as run_experiment records it for the supervised path.

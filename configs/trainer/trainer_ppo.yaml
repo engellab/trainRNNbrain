@@ -63,6 +63,16 @@ lr: 0.001                   # scaled by (100 / N) ** lr_scale_exp, the supervise
 warmup_updates: 50
 lr_scale_exp: 0.3333333333333333
 weight_decay: 1.0e-6        # Adam's coupled L2, as in the supervised trainer
+# THE OPTIMISER (issue #6, since 5 Nov 2026), the switch of run_experiment.py mirrored in
+# run_rl.build_optimizer, the B5 optimiser comparison's keys (configs/experiment/b5_optimizer_ff.yaml,
+# slurm/SilentReLU_b5_optimizer_spock.slurm): adam applies weight_decay as coupled L2 (wd x w added to
+# the gradient, then divided by sqrt(v), so a unit with no task gradient is pulled to zero at about
+# lr per step whatever wd is); adamw decouples it (w -= lr x wd x w); sgd adds the same wd x w to the
+# gradient with no normalisation. The size rule, the warm-up ramp and the AdamState file (which keeps
+# its name whichever optimiser wrote it) apply to all three; a continuation that restores the state
+# (paths.init_adam) must name its parent's optimiser. Runs saved without this key ran adam.
+optimizer: adam             # adam (coupled L2) | adamw (decoupled) | sgd
+momentum: 0.0               # sgd only
 max_grad_norm: 0.5
 probe_every: 10             # updates between clean probes (noise-free, mean action, fixed drops)
 probe_episodes: 128
@@ -88,6 +98,28 @@ lambda_rws: 0               # SPARSITY PENALTY on W_rec (TrainerPPO.rec_weights_
 rws_args:
   tg_deg: 20                # target effective synapses per row, (sum|W|)^2 / sum W^2; rows above it pay
   eps: 1e-12
+# --- THE SETTINGS LADDERS OF THE OTHER TASKS (issue #6, since 5 Nov 2026), each OFF here; the maze
+# launcher's arms set the lambda. The definitions are the supervised Penalties', mirrored in
+# TrainerPPO (its docstrings quote the lines); the supervised config (trainer_ptrack_freshbatch.yaml)
+# carries lambda_met and met_args at these values and no rwm block at all (the CDDM arm added
+# +trainer.rwm_args={}, the penalty's own defaults, which the block below spells out).
+lambda_rwm: 0               # RECURRENT-WEIGHT MAGNITUDE PENALTY on W_rec
+                            # (TrainerPPO.rec_weights_magnitude_penalty): every entry above the cap
+                            # cap100 x log1p(100) / log1p(N) pays (|W| / cap)^gamma - 1; loss +=
+                            # lambda_rwm x P. CDDM's ladder 0.05 and 0.2
+rwm_args:                   # the supervised Penalties.rec_weights_magnitude_penalty defaults
+  cap100: 0.07              # the cap on |W_ij| at N = 100; it falls as log1p(100) / log1p(N)
+  N_ref: 100                # the mean over the N^2 entries is multiplied by N / (N_ref x k_ref)
+  k_ref: 20
+  gamma: 5.0                # the hinge's power above the cap
+  eps: 1e-12
+lambda_met: 0               # METABOLIC PENALTY (TrainerPPO.metabolic_penalty): the mean squared
+                            # firing rate over every unit, step and episode of the recompute's
+                            # states; loss += lambda_met x P. CDDM's ladder 0.01, 0.1, 1, 10
+met_args: {}                # the supervised key; the penalty takes no argument
+# THE INPUT-WEIGHT CAP is the model's key, model.inp_weight_cap (null in every model config; CDDM's
+# arm 0.3): after every optimizer step |W_inp| is clamped to it (TrainerPPO.enforce_inp_cap, the
+# supervised Trainer.enforce_inp_cap_).
 # NOISY SYNAPSES are the model's key, model.sigma_w (paper value 1.0, 0 in every model config): the
 # rollout multiplies W_rec and W_inp by (1 + sigma_w x xi) with a fresh xi at every RNN step, the
 # recompute regenerates the same xi from a stored seed (TrainerPPO.synaptic_weights), and the probe
@@ -129,8 +161,16 @@ dropout_args:               # the supervised block, with drop_rate and dropout_b
 # swept keys; the two copy_* values below are the supervised defaults (trainer_ptrack_freshbatch.yaml).
 prune_reinit: false         # true switches the rule on at the values below
 prune_args:
-  reinit_mode: rescale      # the two modes mirrored are "rescale" and "copy"; random, zero_out, orth,
-                            # mix and bias_kick are refused at construction
+  reinit_mode: rescale      # the modes mirrored are "rescale", "copy", "random" and "zero_out"; orth,
+                            # mix and bias_kick are refused at construction. "random" redraws a
+                            # doomed unit's incoming rows of W_rec and W_inp from N(0, 1/sqrt(N)) and
+                            # leaves its outgoing weights as training left them; "zero_out" (Dohare
+                            # et al. 2024) redraws the rows and zeroes the outgoing columns of W_rec
+                            # and W_out (TrainerPPO.redraw_units). The maze launcher passes the
+                            # paper's re-initialisation arms (slurm/SilentReLU_replace_variants_della.slurm
+                            # modes random and zero_out: max_replace_frac 0.025, maturity 1000,
+                            # utility contribution, and the cadence of trainer_ptrack_freshbatch.yaml,
+                            # check_every 100, patience 3) as swept keys
   check_every: 1            # optimizer steps between checks (paper 1 iteration; supervised default 100)
   patience: 1               # consecutive silent checks before a unit is doomed (paper 1; supervised default 3)
   active_rel: 0.05          # silent if participation < this x q95(participation), the project's rule

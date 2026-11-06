@@ -70,6 +70,30 @@
 #                             guard reports what happens at N = 1,000
 #   70-72   rws0.05           trainer.lambda_rws=0.05: the sparsity penalty alone (the pair with
 #                             the rate penalty is arm 5)
+#   73-75   cap0.3            model.inp_weight_cap=0.3 (CDDM's value): |W_inp| clamped to 0.3 after
+#                             every optimizer step (TrainerPPO.enforce_inp_cap, the supervised
+#                             Trainer.enforce_inp_cap_); the initial scale is 1/sqrt(1000) = 0.032.
+#                             Issue #6, package 3 (Pavel's go-ahead of 5 Nov), as are 76-114
+#   76-81   rwm0.05, rwm0.2   trainer.lambda_rwm=0.05 / 0.2: the recurrent-weight magnitude penalty
+#                             (TrainerPPO.rec_weights_magnitude_penalty) at CDDM's two values, with
+#                             rwm_args at the supervised defaults (trainer_ppo.yaml)
+#   82-93   met0.01, met0.1, met1, met10   trainer.lambda_met=0.01 / 0.1 / 1 / 10: the metabolic
+#                             penalty, the mean squared rate (TrainerPPO.metabolic_penalty), CDDM's
+#                             ladder
+#   94-96   adamw             trainer.optimizer=adamw: decoupled weight decay at the config's 1e-6
+#                             (run_rl.build_optimizer, the B5 switch of run_experiment.py)
+#   97-108  sgd0.03, sgd0.1, sgd0.3, sgd1   trainer.optimizer=sgd trainer.lr=<v>: SGD (momentum 0,
+#                             weight decay 1e-6) at the four rates of the B5 ladder that learned
+#                             the flip-flop (3 and 10 did not); the size rule and the warm-up ramp
+#                             apply as to Adam, so the rate at N = 1,000 is 0.464 x <v>
+#   109-114 redraw, zeroout   trainer.prune_reinit=true and the paper's re-initialisation arms as
+#                             swept keys (slurm/SilentReLU_replace_variants_della.slurm, modes random
+#                             and zero_out: max_replace_frac 0.025, maturity 1000, utility
+#                             contribution, with the cadence of trainer_ptrack_freshbatch.yaml,
+#                             check_every 100, patience 3, as the duplicate arm): a doomed unit's
+#                             incoming rows of W_rec and W_inp redrawn from N(0, 1/sqrt(N)); zeroout
+#                             also zeroes its outgoing columns (Dohare et al. 2024). The counts are
+#                             in optimizer steps, as for the duplicate arm
 #
 # SUBMIT:  sbatch slurm/rl_maze_interventions_spock.slurm
 #
@@ -81,7 +105,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=48G
 #SBATCH --time=12:00:00
-#SBATCH --array=1-72%72
+#SBATCH --array=1-114%114
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
@@ -122,7 +146,8 @@ echo "code: $PKG @ $GITSHA"
 # same code with every option off): do not submit them; the series' runs are the controls.
 ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4 rescale rescale_mild rescale_few
          wd0 wd1e-5 wd1e-4 inorm0.5 inorm2 inorm5 inorm20 duplicate
-         srec0 srec0.01 srec0.1 srad0.5 srad1.5 rws0.05)
+         srec0 srec0.01 srec0.1 srad0.5 srad1.5 rws0.05
+         cap0.3 rwm0.05 rwm0.2 met0.01 met0.1 met1 met10 adamw sgd0.03 sgd0.1 sgd0.3 sgd1 redraw zeroout)
 ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.lambda_frm=0.3"
                "trainer.lambda_frm=0.1 trainer.lambda_rws=0.05" "model.sigma_w=1.0" "trainer.dropout=true"
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
@@ -132,7 +157,14 @@ ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.la
                "model.input_row_norm=0.5" "model.input_row_norm=2" "model.input_row_norm=5" "model.input_row_norm=20"
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=copy trainer.prune_args.copy_noise=1.0 trainer.prune_args.copy_norm_preserve=true trainer.prune_args.max_replace_frac=0.025 trainer.prune_args.maturity=1000 trainer.prune_args.utility=contribution trainer.prune_args.check_every=100 trainer.prune_args.patience=3"
                "model.sigma_rec=0" "model.sigma_rec=0.01" "model.sigma_rec=0.1"
-               "model.spectral_rad=0.5" "model.spectral_rad=1.5" "trainer.lambda_rws=0.05")
+               "model.spectral_rad=0.5" "model.spectral_rad=1.5" "trainer.lambda_rws=0.05"
+               "model.inp_weight_cap=0.3" "trainer.lambda_rwm=0.05" "trainer.lambda_rwm=0.2"
+               "trainer.lambda_met=0.01" "trainer.lambda_met=0.1" "trainer.lambda_met=1" "trainer.lambda_met=10"
+               "trainer.optimizer=adamw"
+               "trainer.optimizer=sgd trainer.lr=0.03" "trainer.optimizer=sgd trainer.lr=0.1"
+               "trainer.optimizer=sgd trainer.lr=0.3" "trainer.optimizer=sgd trainer.lr=1"
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=random trainer.prune_args.max_replace_frac=0.025 trainer.prune_args.maturity=1000 trainer.prune_args.utility=contribution trainer.prune_args.check_every=100 trainer.prune_args.patience=3"
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=zero_out trainer.prune_args.max_replace_frac=0.025 trainer.prune_args.maturity=1000 trainer.prune_args.utility=contribution trainer.prune_args.check_every=100 trainer.prune_args.patience=3")
 
 i=$SLURM_ARRAY_TASK_ID
 a=$(( (i - 1) / 3 )); SEED=$(( (i - 1) % 3 + 1 ))

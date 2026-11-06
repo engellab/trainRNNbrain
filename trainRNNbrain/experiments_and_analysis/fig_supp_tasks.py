@@ -246,6 +246,7 @@ def build_maze():
         args.n_outputs = task.n_actions + (1 if cfg.trainer.critic else 0)
         hp = OmegaConf.to_container(filter_kwargs(TrainerPPO, cfg.trainer), resolve=True)
         hp.pop("_target_", None)
+        hp.pop("optimizer", None)      # trainer.optimizer names the optimiser run_rl.py builds; none here
         trainer = TrainerPPO(hydra.utils.instantiate(args), task, None, **hp)
         pending = True
     assert not task.goal_cue, \

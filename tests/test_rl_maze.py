@@ -13,12 +13,18 @@ counts in the progress records and the refusal of the modes that are not mirrore
 (prune-and-duplicate, issue #6): every silent unit overwritten with a jittered copy of a live unit
 against a numpy re-implementation fed the replayed generator draws, Adam's moments zeroed on the
 copies' rows and columns, the ceiling on replacements per check and the maturity protection, and
-the rule's counts in the progress records; and the
+the rule's counts in the progress records; the
 continuation of a run from its folder (paths.init_from, paths.init_adam, trainer.iter_offset): the
 weights, the absolute update indices, the joined record of common.maze_load_runs, and the warm-up
-ramp skipped with the Adam moments and repeated without them. The 13 checks before the options were
-added run with every option off, as the default is.
-Run: python tests/test_rl_maze.py   (CPU, about a minute and a half)
+ramp skipped with the Adam moments and repeated without them; and the uniform settings of issue #6
+(package 3): the input-weight cap held after an optimizer step (the capped W_inp equals the
+uncapped one clamped), the recurrent-weight magnitude and the metabolic penalties against the
+supervised formulas re-typed here and in the update statistics, the optimiser switch of run_rl.py
+(the class, the rate, the saved state and its restore in a continuation, a mismatched continuation
+refused), and the redraw modes random and zero_out against a numpy oracle fed the replayed
+generator draws, with the ceiling, the maturity and the progress counts of the copy rule. The 13
+checks before the options were added run with every option off, as the default is.
+Run: python tests/test_rl_maze.py   (CPU, about two minutes)
 """
 import glob
 import json
@@ -35,6 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.tasks.TaskMaze import TaskMaze, parse_maze, bfs_distance
 from trainRNNbrain.trainer.TrainerPPO import TrainerPPO, load_run
+from trainRNNbrain.training.run_rl import build_optimizer
 from trainRNNbrain.experiments_and_analysis.common import maze_load_runs, participation
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -56,14 +63,16 @@ def make_task(goal_cue=False, action_feedback=False, seed=0):
                     goal_cue=goal_cue, action_feedback=action_feedback, reward=REWARD, device=CPU, seed=seed)
 
 
-def make_trainer(task, N=32, seed=0, substeps=1, critic=True, sigma_w=0.0, **hp):
+def make_trainer(task, N=32, seed=0, substeps=1, critic=True, sigma_w=0.0, inp_weight_cap=None, **hp):
     """A small standard-style RNN (ReLU, equation h, no Dale, fixed zero bias) as the agent, with
-    the value as its third read-out row (critic=True) or without one, and synaptic noise sigma_w
-    (0: none), inside a TrainerPPO with an Adam optimizer at 1e-3; `hp` sets the trainer's other
-    hyperparameters (every intervention off unless given)."""
+    the value as its third read-out row (critic=True) or without one, synaptic noise sigma_w
+    (0: none) and the input-weight cap inp_weight_cap (None: none), inside a TrainerPPO with an
+    Adam optimizer at 1e-3; `hp` sets the trainer's other hyperparameters (every intervention off
+    unless given)."""
     rnn = RNN_torch(N=N, activation_args={"name": "relu", "slope": 1.0}, equation_type="h", dt=1, tau=10,
                     dale=False, io_nonnegativity=False, self_connections=True, gamma=0,
                     bias_range=[0.0, 0.0], sigma_rec=0.05, sigma_inp=0.05, sigma_out=0.03, sigma_w=sigma_w,
+                    inp_weight_cap=inp_weight_cap,
                     n_inputs=task.n_inputs, n_outputs=3 if critic else 2, seed=seed, init_draws="independent")
     opt = torch.optim.Adam(rnn.parameters(), lr=1e-3)
     return TrainerPPO(rnn, task, opt, action_std=0.5, substeps=substeps, critic=critic, **hp)
@@ -81,6 +90,11 @@ RESCALE_ARGS = {"reinit_mode": "rescale", "check_every": 1, "patience": 1, "acti
 COPY_ARGS = {"reinit_mode": "copy", "check_every": 100, "patience": 3, "active_rel": 0.05,
              "utility": "contribution", "utility_decay": 0.99, "maturity": 1000, "max_replace_frac": 0.025,
              "copy_noise": 1.0, "copy_norm_preserve": True}
+# the paper's re-initialisation arms (slurm/SilentReLU_replace_variants_della.slurm, modes random and
+# zero_out, with the cadence they inherit from trainer_ptrack_freshbatch.yaml), as the maze launcher
+# passes them; reinit_mode is set per test
+REDRAW_ARGS = {"reinit_mode": "random", "check_every": 100, "patience": 3, "active_rel": 0.05,
+               "utility": "contribution", "utility_decay": 0.99, "maturity": 1000, "max_replace_frac": 0.025}
 
 
 def duplicate_by_hand(W_rec, W_inp, W_out, pairs, draws, jitter, norm_preserve):
@@ -513,6 +527,148 @@ def test_rec_weights_sparsity_penalty_matches_formula():
     assert abs(got - expect) < 1e-4 * expect, (got, expect)
 
 
+def test_rec_weights_magnitude_penalty_matches_formula():
+    """The recurrent-weight magnitude penalty of a hand-made W_rec equals the supervised formula
+    re-typed here in numpy float64: the cap 0.07 x log1p(100) / log1p(N) (0.092 at N = 32); per
+    entry r = (|W| + eps) / (cap + eps) and (max(r - 1, 0) + 1)^5 - 1; the mean over the N^2
+    entries times N / (100 x 20). An entry at the cap pays 0 and one at twice the cap pays 31
+    (2^5 - 1); a W_rec with every |entry| under the cap pays exactly 0; rwm_args changes the value
+    (gamma 3)."""
+    task = make_task()
+    N = 32
+    trainer = make_trainer(task, N=N, lambda_rwm=0.05)
+    cap = 0.07 * math.log1p(100) / math.log1p(N)
+    rng = np.random.default_rng(3)
+    W = rng.normal(0.0, 0.5 * cap, size=(N, N))                          # most entries under the cap
+    W[0, 0] = cap
+    W[0, 1] = 2 * cap
+    W[1, 2] = -3 * cap
+    with torch.no_grad():
+        trainer.RNN.W_rec.copy_(torch.tensor(W, dtype=torch.float32))
+    r = (np.abs(W) + 1e-12) / (cap + 1e-12)
+    per_entry = (np.maximum(r - 1.0, 0.0) + 1.0) ** 5 - 1.0
+    expect = per_entry.mean() * N / (100 * 20)
+    assert abs(per_entry[0, 0]) < 1e-9 and abs(per_entry[0, 1] - 31.0) < 1e-9 and (np.abs(W) > cap).sum() > 10
+    got = trainer.rec_weights_magnitude_penalty().item()
+    assert abs(got - expect) < 1e-5 * expect, (got, expect)
+    with torch.no_grad():
+        trainer.RNN.W_rec.copy_(torch.tensor(np.clip(W, -0.9 * cap, 0.9 * cap), dtype=torch.float32))
+    assert trainer.rec_weights_magnitude_penalty().item() == 0.0
+    other = make_trainer(task, N=N, lambda_rwm=0.05, rwm_args={"gamma": 3.0})
+    with torch.no_grad():
+        other.RNN.W_rec.copy_(torch.tensor(W, dtype=torch.float32))
+    assert abs(other.rec_weights_magnitude_penalty().item() - expect) > 1e-3 * expect
+
+
+def test_metabolic_penalty_matches_formula():
+    """The metabolic penalty of a hand-made signed state tensor equals the supervised formula
+    re-typed here: the mean of the squared ReLU rate over every unit, step and episode (a negative
+    pre-activation contributes 0); a tensor at rate 1 everywhere pays 1 and one at rate 0 pays 0."""
+    task = make_task()
+    trainer = make_trainer(task, N=32, lambda_met=0.1)
+    rng = np.random.default_rng(4)
+    states = rng.normal(0.0, 0.7, size=(32, 7, 3)).astype(np.float32)
+    expect = (np.maximum(states.astype(np.float64), 0.0) ** 2).mean()
+    got = trainer.metabolic_penalty(torch.tensor(states)).item()
+    assert abs(got - expect) < 1e-6 * expect and expect > 0, (got, expect)
+    assert trainer.metabolic_penalty(torch.ones(32, 7, 3)).item() == 1.0
+    assert trainer.metabolic_penalty(-torch.ones(32, 7, 3)).item() == 0.0
+
+
+def test_inp_weight_cap_holds_after_step():
+    """The input-weight cap: two trainers from the same seed, one built with model.inp_weight_cap
+    0.3 (the CDDM arm's value) and one without, W_inp of both set by hand to the same draw with
+    about half its entries beyond 0.3, take the same rollout and one optimizer step (one epoch,
+    one minibatch, the same permutation seed). The capped trainer's W_inp then equals the uncapped
+    trainer's clamped to [-0.3, 0.3] entry by entry (the clamp after the step is the only
+    difference): |W_inp| <= 0.3 everywhere with entries at the cap on both sides, while the uncapped
+    trainer's W_inp exceeds it; W_rec is the same in both (the clamp touches W_inp only); the trainer
+    reads the cap from the RNN (0.3 and None)."""
+    task = make_task()
+    cap = 0.3
+    trainers = [make_trainer(task, N=32, seed=3, critic=False, n_epochs=1, n_minibatches=1, inp_weight_cap=c)
+                for c in (cap, None)]
+    assert trainers[0].inp_weight_cap == cap and trainers[1].inp_weight_cap is None
+    rng = np.random.default_rng(2)
+    W = rng.normal(0.0, 0.4, size=(32, task.n_inputs)).astype(np.float32)
+    assert (np.abs(W) > cap).sum() >= 10
+    for tr in trainers:
+        with torch.no_grad():
+            tr.RNN.W_inp.copy_(torch.tensor(W))
+    torch.manual_seed(7)
+    out = trainers[0].rollout(6, 12)
+    adv, ret = trainers[0].mc_advantages(out["rewards"], out["alive"], 0.99)
+    for tr in trainers:
+        torch.manual_seed(8)
+        assert tr.ppo_update(out, adv, ret)["skipped"] == 0
+    capped, free = (tr.RNN.W_inp.detach().numpy() for tr in trainers)
+    assert np.abs(free).max() > cap
+    assert np.allclose(capped, np.clip(free, -cap, cap), atol=1e-7)
+    assert np.abs(capped).max() <= cap and (capped == cap).any() and (capped == -cap).any()
+    assert torch.allclose(trainers[0].RNN.W_rec, trainers[1].RNN.W_rec, atol=1e-7)
+
+
+def test_optimizer_switch():
+    """trainer.optimizer: build_optimizer (run_rl.py) returns torch.optim.Adam for "adam", AdamW
+    for "adamw" and SGD with the config's momentum for "sgd", each at the rate it is given and the
+    config's weight decay, with the trainer's base rate read from it, and refuses any other name.
+    Through the script at N = 40 (the rate 0.1 x (100 / 40)^(1/3) after the size rule): an SGD
+    parent at trainer.lr 0.1 records half that rate at update 1 and the full rate at update 2
+    (the ramp), optimizer "sgd" in its saved config, and SGD param groups in its AdamState file (a
+    momentum key, no betas); a continuation of it with init_adam and the same optimiser runs at
+    the full rate from its first update (the ramp skipped) and records updates 3 and 4; a
+    continuation with trainer.optimizer=adam is refused before training with a message naming
+    both optimisers and writes no folder; an AdamW run's state file carries
+    decoupled_weight_decay true where an Adam run's carries false."""
+    task = make_task()
+    rnn = make_trainer(task, N=16).RNN
+    for name, cls, kw in (("adam", torch.optim.Adam, {}), ("adamw", torch.optim.AdamW, {}),
+                          ("sgd", torch.optim.SGD, {"momentum": 0.9})):
+        cfg = OmegaConf.create({"optimizer": name, "weight_decay": 1e-6, "momentum": 0.9})
+        opt = build_optimizer(rnn, cfg, 0.05)
+        assert type(opt) is cls and opt.param_groups[0]["lr"] == 0.05 and opt.param_groups[0]["weight_decay"] == 1e-6
+        assert all(opt.param_groups[0][k] == v for k, v in kw.items())
+        assert TrainerPPO(rnn, task, opt, critic=True).lr == 0.05
+    try:
+        build_optimizer(rnn, OmegaConf.create({"optimizer": "rmsprop", "weight_decay": 0, "momentum": 0}), 0.05)
+    except ValueError as err:
+        assert "rmsprop" in str(err)
+    else:
+        raise AssertionError("optimizer 'rmsprop' was accepted")
+    scratch = os.path.join(os.environ.get("CLAUDE_SCRATCHPAD",
+                                          os.path.join(tempfile.gettempdir(), "trainRNNbrain_scratch")),
+                           "maze-optimizer", "switch_check")
+    shutil.rmtree(scratch, ignore_errors=True)
+    save_to = os.path.join(scratch, "trained_RNNs")
+    rate = 0.1 * (100.0 / 40.0) ** (1.0 / 3.0)
+    parent = run_maze_script(save_to, "sgd_parent", ["trainer.optimizer=sgd", "trainer.lr=0.1"])
+    with open(os.path.join(parent, "s3_Progress.json")) as fh:
+        progress = json.load(fh)
+    assert abs(progress[0]["lr"] - rate / 2) < 1e-9 and abs(progress[1]["lr"] - rate) < 1e-9, [p["lr"] for p in progress]
+    assert OmegaConf.load(os.path.join(parent, "s3_config.yaml")).trainer.optimizer == "sgd"
+    groups = torch.load(os.path.join(parent, "s3_AdamState_Maze.pt"))["param_groups"][0]
+    assert "momentum" in groups and "betas" not in groups
+    child = run_maze_script(save_to, "sgd_child", [f"paths.init_from={parent}", "paths.init_adam=true",
+                                                   "trainer.optimizer=sgd", "trainer.lr=0.1"])
+    with open(os.path.join(child, "s3_Progress.json")) as fh:
+        child_progress = json.load(fh)
+    assert [p["update"] for p in child_progress] == [3, 4]
+    assert all(abs(p["lr"] - rate) < 1e-9 for p in child_progress), [p["lr"] for p in child_progress]
+    cmd = [sys.executable, os.path.join(REPO, "trainRNNbrain", "training", "run_experiment.py"),
+           "task=Maze", "trainer=trainer_ppo", "model=rnn_relu_standard", "model.N=40", "seed=3",
+           "trainer.n_updates=2", "trainer.n_episodes=4", "trainer.T=6", "trainer.probe_episodes=4",
+           f"paths.save_to={save_to}", "experiment_tag=adam_child", f"paths.init_from={parent}", "paths.init_adam=true",
+           f"hydra.run.dir={os.path.join(scratch, 'hydra')}"]
+    env = dict(os.environ, PYTHONPATH=REPO, CUDA_VISIBLE_DEVICES="")
+    r = subprocess.run(cmd, cwd=REPO, env=env, capture_output=True, text=True, timeout=600)
+    assert r.returncode != 0 and "'sgd'" in r.stderr and "'adam'" in r.stderr, r.stderr[-1000:]
+    assert not os.path.isdir(os.path.join(save_to, "Maze_adam_child"))
+    adamw = run_maze_script(save_to, "adamw", ["trainer.optimizer=adamw"])
+    assert torch.load(os.path.join(adamw, "s3_AdamState_Maze.pt"))["param_groups"][0]["decoupled_weight_decay"] is True
+    adam = run_maze_script(save_to, "adam", [])
+    assert torch.load(os.path.join(adam, "s3_AdamState_Maze.pt"))["param_groups"][0].get("decoupled_weight_decay", False) is False
+
+
 def test_synaptic_noise_replay():
     """With sigma_w = 1 the recompute regenerates every step's weight draws from the rollout's
     stored seed: its log-probabilities equal the rollout's within float rounding (ratio 1), with
@@ -580,28 +736,33 @@ def test_dropout_replay():
 
 
 def test_penalties_in_update_statistics():
-    """With lambda_frm and lambda_rws on, ppo_update reports the raw penalty values under
-    fr_magnitude and rec_weights_sparsity: finite, equal to the penalties computed directly on the
-    pre-update recompute (one epoch, one minibatch), with the weights changed and nothing skipped.
-    With both at 0 the statistics have no such keys, so Progress.json of a run without the options
-    is as before."""
+    """With lambda_frm, lambda_rws, lambda_rwm and lambda_met on, ppo_update reports the raw penalty
+    values under fr_magnitude, rec_weights_sparsity, rec_weights_magnitude and metabolic: finite,
+    equal to the penalties computed directly on the pre-update recompute (one epoch, one
+    minibatch), with the weights changed and nothing skipped. With all four at 0 the statistics
+    have no such keys, so Progress.json of a run without the options is as before."""
     torch.manual_seed(6)
     task = make_task()
-    trainer = make_trainer(task, critic=False, lambda_frm=0.1, lambda_rws=0.05, n_epochs=1, n_minibatches=1)
+    trainer = make_trainer(task, critic=False, lambda_frm=0.1, lambda_rws=0.05, lambda_rwm=0.05, lambda_met=0.1,
+                           n_epochs=1, n_minibatches=1)
     out = trainer.rollout(6, 12)
     adv, ret = trainer.mc_advantages(out["rewards"], out["alive"], 0.99)
     with torch.no_grad():
-        expect_frm = trainer.fr_magnitude_penalty(trainer.sequence(out["u"], out["noise"])[0]).item()
-        expect_rws = trainer.rec_weights_sparsity_penalty().item()
+        states = trainer.sequence(out["u"], out["noise"])[0]
+        expect = {"fr_magnitude": trainer.fr_magnitude_penalty(states).item(),
+                  "rec_weights_sparsity": trainer.rec_weights_sparsity_penalty().item(),
+                  "rec_weights_magnitude": trainer.rec_weights_magnitude_penalty().item(),
+                  "metabolic": trainer.metabolic_penalty(states).item()}
     before = trainer.RNN.W_rec.detach().clone()
     stats = trainer.ppo_update(out, adv, ret)
     assert all(np.isfinite(v) for v in stats.values()) and stats["skipped"] == 0
-    assert abs(stats["fr_magnitude"] - expect_frm) < 1e-5 * expect_frm and expect_frm > 0
-    assert abs(stats["rec_weights_sparsity"] - expect_rws) < 1e-5 * max(expect_rws, 1e-12)
+    for key in ("fr_magnitude", "rec_weights_magnitude", "metabolic"):
+        assert expect[key] > 0 and abs(stats[key] - expect[key]) < 1e-5 * expect[key], (key, stats[key], expect[key])
+    assert abs(stats["rec_weights_sparsity"] - expect["rec_weights_sparsity"]) < 1e-5 * max(expect["rec_weights_sparsity"], 1e-12)
     assert not torch.allclose(before, trainer.RNN.W_rec)
     plain = make_trainer(task, critic=False, n_epochs=1, n_minibatches=1)
     stats = plain.ppo_update(out, adv, ret)
-    assert not ({"fr_magnitude", "rec_weights_sparsity"} & set(stats))
+    assert not (set(expect) & set(stats))
 
 
 def test_dead_dropout_refused():
@@ -864,43 +1025,148 @@ def test_copy_rule_duplicates_live_units():
         assert np.array_equal(m_rec, want_rec) and np.array_equal(m_inp, want_inp) and np.array_equal(m_out, want_out)
 
 
-def test_copy_ceiling_and_maturity():
+def test_rule_ceiling_and_maturity():
     """The ceiling on replacements per check and the maturity protection, with the contribution
-    utility: three units A, B, C forced silent, their utilities set by hand to 0.3, 0.2, 0.1 and
+    utility, in the copy mode and the two redraw modes (random, zero_out), which share the head of
+    the check: three units A, B, C forced silent, their utilities set by hand to 0.3, 0.2, 0.1 and
     every other unit's to 10 + its index (so no other silent unit ranks below them), at most
     round(0.0625 x 32) = 2 replacements per check, maturity 4 steps, patience 1, a check every step,
     four checks on the states of fresh rollouts with no optimizer step between (a unit's W_inp row
     changes exactly when it is replaced). Check 1 replaces C and B, the two lowest, and not A;
     check 2 replaces A (its strike from check 1 was kept) and neither B nor C, whose maturity has
-    not passed; checks 3 and 4 replace none of the three (A's maturity); copy_replaced is at most 2
-    at every check and copy_units_ever never decreases."""
-    torch.manual_seed(12)
+    not passed; checks 3 and 4 replace none of the three (A's maturity); the mode's replaced count
+    is at most 2 at every check and its units-ever count never decreases."""
     task = make_task()
     N, B, T = 32, 6, 10
     A, Bu, C = 0, 1, 2
-    args = {**COPY_ARGS, "check_every": 1, "patience": 1, "maturity": 4, "max_replace_frac": 0.0625}
-    trainer = make_trainer(task, N=N, critic=False, prune_reinit=True, prune_args=args)
-    rnn = trainer.RNN
-    with torch.no_grad():
-        rnn.W_inp[:3, :] = -0.5
-        rnn.W_rec[:3, :] = -0.3
-    trainer._unit_utility = 10.0 + torch.arange(N, dtype=torch.float32)
-    trainer._unit_utility[[A, Bu, C]] = torch.tensor([0.3, 0.2, 0.1])
-    replaced_at, ever = {}, 0
-    for k in range(1, 5):
+    for base, replaced_key, ever_key in ((COPY_ARGS, "copy_replaced", "copy_units_ever"),
+                                         ({**REDRAW_ARGS, "reinit_mode": "random"}, "reinit_replaced", "reinit_units_ever"),
+                                         ({**REDRAW_ARGS, "reinit_mode": "zero_out"}, "reinit_replaced", "reinit_units_ever")):
+        torch.manual_seed(12)
+        args = {**base, "check_every": 1, "patience": 1, "maturity": 4, "max_replace_frac": 0.0625}
+        trainer = make_trainer(task, N=N, critic=False, prune_reinit=True, prune_args=args)
+        rnn = trainer.RNN
+        with torch.no_grad():
+            rnn.W_inp[:3, :] = -0.5
+            rnn.W_rec[:3, :] = -0.3
+        trainer._unit_utility = 10.0 + torch.arange(N, dtype=torch.float32)
+        trainer._unit_utility[[A, Bu, C]] = torch.tensor([0.3, 0.2, 0.1])
+        replaced_at, ever = {}, 0
+        for k in range(1, 5):
+            out = trainer.rollout(B, T)
+            with torch.no_grad():
+                st = trainer.sequence(out["u"], out["noise"])[0]
+            W_inp0 = rnn.W_inp.detach().clone()
+            counts = trainer.prune_and_reinit(st)
+            changed = [i for i in range(N) if not torch.equal(rnn.W_inp[i], W_inp0[i])]
+            assert counts[replaced_key] == len(changed) <= 2 and counts[ever_key] >= ever, (base["reinit_mode"], k, counts)
+            ever = counts[ever_key]
+            for i in changed:
+                replaced_at.setdefault(i, k)
+            three = {A, Bu, C} & set(changed)
+            assert three == ({Bu, C} if k == 1 else {A} if k == 2 else set()), (base["reinit_mode"], k, changed)
+        assert replaced_at[A] == 2 and replaced_at[Bu] == 1 and replaced_at[C] == 1
+
+
+def test_redraw_modes_rewrite_doomed_units():
+    """The redraw modes random and zero_out at N = 32 with three units forced silent (every
+    incoming entry negative; whichever other units are silent at this init are doomed too), a
+    check every step, patience 1, no ceiling, called once on the states `sequence` recomputes for
+    a fresh rollout, with Adam's moments set to 1 by hand beforehand; the silent set (common
+    .participation in numpy) is the trainer's. In both modes, replaying the RNN's generator from
+    its saved state gives the two draws, the W_rec rows first and then the W_inp rows, and the
+    doomed units' rows equal the draws times 1 / sqrt(32) (1e-7), the sample standard deviation of
+    the W_rec draw within 20% of 1 / sqrt(32); the block of W_rec over the other units and their
+    W_inp rows are unchanged. Mode random: the doomed units' W_rec columns over the other units and
+    all of W_out are unchanged (the outgoing weights stay). Mode zero_out: the doomed units' W_rec
+    and W_out columns are 0 everywhere (the redrawn rows included, at the doomed columns) and the
+    other columns of W_out are unchanged. Adam's moments are 0 on the doomed units' rows of W_rec
+    and W_inp and 1 everywhere else, the outgoing columns included in both modes. The counts read
+    reinit_replaced = reinit_units_ever = the number of silent units, the strikes of the doomed
+    units are reset, and the step clock reads 1."""
+    task = make_task()
+    N, B, T = 32, 6, 10
+    for mode in ("random", "zero_out"):
+        torch.manual_seed(14)
+        args = {**REDRAW_ARGS, "reinit_mode": mode, "check_every": 1, "patience": 1, "maturity": 0, "max_replace_frac": 1.0}
+        trainer = make_trainer(task, N=N, critic=False, prune_reinit=True, prune_args=args)
+        rnn = trainer.RNN
+        with torch.no_grad():
+            rnn.W_inp[:3, :] = -0.5
+            rnn.W_rec[:3, :] = -0.3
+        for prm in rnn.parameters():
+            trainer.optimizer.state[prm] = {"step": torch.tensor(1.0), "exp_avg": torch.ones_like(prm),
+                                            "exp_avg_sq": torch.ones_like(prm)}
         out = trainer.rollout(B, T)
         with torch.no_grad():
             st = trainer.sequence(out["u"], out["noise"])[0]
-        W_inp0 = rnn.W_inp.detach().clone()
+        p = participation(rnn.get_firing_rates(st).numpy())
+        silent = p < 0.05 * np.quantile(p, 0.95)
+        assert silent[:3].all() and 3 <= silent.sum() < N
+        doomed = np.flatnonzero(silent)
+        n = len(doomed)
+        W_rec0, W_inp0, W_out0 = (W.detach().clone().numpy() for W in (rnn.W_rec, rnn.W_inp, rnn.W_out))
+        gstate = rnn.random_generator.get_state()
         counts = trainer.prune_and_reinit(st)
-        changed = [i for i in range(N) if not torch.equal(rnn.W_inp[i], W_inp0[i])]
-        assert counts["copy_replaced"] == len(changed) <= 2 and counts["copy_units_ever"] >= ever
-        ever = counts["copy_units_ever"]
-        for i in changed:
-            replaced_at.setdefault(i, k)
-        three = {A, Bu, C} & set(changed)
-        assert three == ({Bu, C} if k == 1 else {A} if k == 2 else set()), (k, changed)
-    assert replaced_at[A] == 2 and replaced_at[Bu] == 1 and replaced_at[C] == 1
+        assert counts == {"reinit_replaced": n, "reinit_units_ever": n} and trainer.step_n == 1, (mode, counts)
+        assert torch.equal(trainer._reinit_strikes[doomed], torch.zeros(n)) and trainer._reinit_ever[doomed].all()
+        g = torch.Generator()
+        g.set_state(gstate)
+        std = 1.0 / math.sqrt(N)
+        draw_rec = torch.randn(n, N, generator=g).numpy() * std
+        draw_inp = torch.randn(n, task.n_inputs, generator=g).numpy() * std
+        assert abs(draw_rec.std() - std) < 0.2 * std
+        exp_rec, exp_inp, exp_out = W_rec0.copy(), W_inp0.copy(), W_out0.copy()
+        exp_rec[doomed, :] = draw_rec
+        exp_inp[doomed, :] = draw_inp
+        if mode == "zero_out":
+            exp_rec[:, doomed] = 0.0
+            exp_out[:, doomed] = 0.0
+        W_rec, W_inp, W_out = (W.detach().numpy() for W in (rnn.W_rec, rnn.W_inp, rnn.W_out))
+        assert np.allclose(W_rec, exp_rec, atol=1e-7) and np.allclose(W_inp, exp_inp, atol=1e-7), mode
+        assert np.array_equal(W_out, exp_out), mode
+        rest = np.ones(N, dtype=bool)
+        rest[doomed] = False
+        assert np.array_equal(W_rec[rest][:, rest], W_rec0[rest][:, rest]) and np.array_equal(W_inp[rest], W_inp0[rest])
+        assert not np.allclose(W_rec[doomed][:, rest], W_rec0[doomed][:, rest], atol=1e-3)
+        if mode == "random":
+            assert np.array_equal(W_rec[rest][:, doomed], W_rec0[rest][:, doomed]) and np.array_equal(W_out, W_out0)
+        else:
+            assert (W_rec[:, doomed] == 0).all() and (W_out[:, doomed] == 0).all()
+            assert np.array_equal(W_out[:, rest], W_out0[:, rest])
+        for key in ("exp_avg", "exp_avg_sq"):
+            m_rec, m_inp, m_out = (trainer.optimizer.state[prm][key].numpy() for prm in (rnn.W_rec, rnn.W_inp, rnn.W_out))
+            want_rec, want_inp = np.ones((N, N)), np.ones((N, task.n_inputs))
+            want_rec[doomed, :] = 0.0
+            want_inp[doomed, :] = 0.0
+            assert np.array_equal(m_rec, want_rec) and np.array_equal(m_inp, want_inp), (mode, key)
+            assert np.array_equal(m_out, np.ones((2, N))), (mode, key)
+
+
+def test_redraw_counts_in_progress():
+    """run_training with mode zero_out on (the paper's values but a check every 2 steps and
+    patience 2, three units forced silent) records in every update the two counts reinit_replaced
+    (summed over the update's checks, one per optimizer step) and reinit_units_ever (after the
+    last check) as integers, with the three forced units redrawn in the first update and
+    reinit_units_ever non-decreasing and at least 3; no copy or rescale key is recorded; the step
+    clock reads 4 x 4 x 2 = 32 at the end."""
+    torch.manual_seed(15)
+    task = make_task()
+    hp = dict(n_updates=4, n_episodes=6, T=10, probe_episodes=4, probe_every=2, warmup_updates=1, checkpoint_every=0)
+    args = {**REDRAW_ARGS, "reinit_mode": "zero_out", "check_every": 2, "patience": 2, "maturity": 0, "max_replace_frac": 1.0}
+    trainer = make_trainer(task, critic=False, prune_reinit=True, prune_args=args, **hp)
+    with torch.no_grad():
+        trainer.RNN.W_inp[:3, :] = -0.5
+        trainer.RNN.W_rec[:3, :] = -0.3
+    _, progress, _, _ = trainer.run_training()
+    keys = {"reinit_replaced", "reinit_units_ever"}
+    assert all(keys <= set(r) for r in progress)
+    assert not any(("rescale" in k or "copy" in k) for r in progress for k in r)
+    assert all(isinstance(r[k], int) and r[k] >= 0 for r in progress for k in keys)
+    ever = [r["reinit_units_ever"] for r in progress]
+    assert progress[0]["reinit_replaced"] >= 3 and ever == sorted(ever) and ever[-1] >= 3
+    assert ever[-1] <= sum(r["reinit_replaced"] for r in progress)
+    assert trainer._reinit_ever[:3].all() and trainer.step_n == 32 and all(r["skipped"] == 0 for r in progress)
 
 
 def test_copy_counts_in_progress():
@@ -934,11 +1200,14 @@ def test_copy_counts_in_progress():
 
 
 def test_other_modes_refused():
-    """prune_reinit without prune_args, a reinit_mode other than "rescale" or "copy", the legacy
-    rescale_target_frac 0, rescale_norm_mode "median_active" and rescale_refractory above 0 in mode
-    "rescale", and copy_iid or copy_permute in mode "copy" are refused at construction."""
+    """prune_reinit without prune_args, a reinit_mode other than "rescale", "copy", "random" or
+    "zero_out" (orth, bias_kick), the legacy rescale_target_frac 0, rescale_norm_mode
+    "median_active" and rescale_refractory above 0 in mode "rescale", and copy_iid or copy_permute
+    in mode "copy" are refused at construction; the paper's copy arm and the two redraw arms are
+    accepted."""
     task = make_task()
-    for bad in (None, {**RESCALE_ARGS, "reinit_mode": "random"}, {**RESCALE_ARGS, "rescale_target_frac": 0.0},
+    for bad in (None, {**RESCALE_ARGS, "reinit_mode": "orth"}, {**REDRAW_ARGS, "reinit_mode": "bias_kick"},
+                {**RESCALE_ARGS, "rescale_target_frac": 0.0},
                 {**RESCALE_ARGS, "rescale_norm_mode": "median_active"}, {**RESCALE_ARGS, "rescale_refractory": 5},
                 {**COPY_ARGS, "copy_iid": True}, {**COPY_ARGS, "copy_permute": True}):
         try:
@@ -948,6 +1217,8 @@ def test_other_modes_refused():
         else:
             raise AssertionError(f"prune_args {bad} were accepted")
     make_trainer(task, prune_reinit=True, prune_args=COPY_ARGS)       # the paper's copy arm is accepted
+    for mode in ("random", "zero_out"):
+        make_trainer(task, prune_reinit=True, prune_args={**REDRAW_ARGS, "reinit_mode": mode})
 
 
 def main():
@@ -958,10 +1229,13 @@ def main():
                test_ppo_update_guards, test_safe_rollout_restores, test_run_script_writes_standard_layout,
                test_continuation_from_folder,
                test_fr_magnitude_penalty_matches_formula, test_rec_weights_sparsity_penalty_matches_formula,
+               test_rec_weights_magnitude_penalty_matches_formula, test_metabolic_penalty_matches_formula,
+               test_inp_weight_cap_holds_after_step, test_optimizer_switch,
                test_synaptic_noise_replay, test_dropout_replay, test_penalties_in_update_statistics,
                test_dead_dropout_refused, test_rescale_rule_three_states,
                test_rescale_protection_blanks_the_incoming_gradient, test_rescale_counts_in_progress,
-               test_copy_rule_duplicates_live_units, test_copy_ceiling_and_maturity, test_copy_counts_in_progress,
+               test_copy_rule_duplicates_live_units, test_rule_ceiling_and_maturity, test_copy_counts_in_progress,
+               test_redraw_modes_rewrite_doomed_units, test_redraw_counts_in_progress,
                test_other_modes_refused):
         fn()
         print(f"ok: {fn.__name__}")
