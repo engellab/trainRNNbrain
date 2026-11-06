@@ -16,6 +16,10 @@
 #   17-18   N= 1000  softplus (beta 25) seeds 1-2
 #   19-20   N= 1000  leaky relu        seeds 1-2
 #   21-23   N= 4000  relu              seeds 1-3        (80 GB cards: --constraint=gpu80)
+#   24-27   N= 1000  tanh, sigmoid, softplus, leaky relu   seed 3   (the third seed of every
+#                                                          activation; issue #6, package 2, 5 Nov)
+#   28      N=  250  relu              seed 4           (a third learned network at N = 250: seed 2
+#                                                          ended at success 0.79, not learned)
 # Model configs: configs/model/rnn_<act>_standard.yaml, the same files the supervised series use.
 # ONE PROTOCOL FOR EVERY SIZE: the paper's learning-rate rule with the warm-up of
 # configs/trainer/trainer_ppo.yaml (trainer.warmup_updates). Before the warm-up existed, every N = 2000 run
@@ -72,9 +76,9 @@ fi
 echo "code: $PKG @ $GITSHA"
 
 # index 0 unused so the decode reads SLURM_ARRAY_TASK_ID directly
-TASK_N=(0 250 250 250 500 500 500 1000 1000 1000 2000 2000 2000 1000 1000 1000 1000 1000 1000 1000 1000 4000 4000 4000)
-TASK_ACT=(x relu relu relu relu relu relu relu relu relu relu relu relu tanh tanh sigmoid_shifted sigmoid_shifted softplus_beta25 softplus_beta25 leaky_relu leaky_relu relu relu relu)
-TASK_SEED=(0 1 2 3 1 2 3 1 2 3 1 2 3 1 2 1 2 1 2 1 2 1 2 3)
+TASK_N=(0 250 250 250 500 500 500 1000 1000 1000 2000 2000 2000 1000 1000 1000 1000 1000 1000 1000 1000 4000 4000 4000 1000 1000 1000 1000 250)
+TASK_ACT=(x relu relu relu relu relu relu relu relu relu relu relu relu tanh tanh sigmoid_shifted sigmoid_shifted softplus_beta25 softplus_beta25 leaky_relu leaky_relu relu relu relu tanh sigmoid_shifted softplus_beta25 leaky_relu relu)
+TASK_SEED=(0 1 2 3 1 2 3 1 2 3 1 2 3 1 2 1 2 1 2 1 2 1 2 3 3 3 3 3 4)
 
 i=$SLURM_ARRAY_TASK_ID
 N=${TASK_N[$i]}; ACT=${TASK_ACT[$i]}; SEED=${TASK_SEED[$i]}

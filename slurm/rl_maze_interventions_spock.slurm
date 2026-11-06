@@ -59,6 +59,17 @@
 #                             per-unit rule TrainerPPO did not implement before 5 Nov (issue #6)
 # The launcher passes only what an arm sweeps, plus N; every other value is the config's.
 # Expected: about 5.5 h per run at N = 1,000 on a 40 GB card (the suite's rate), 24 runs.
+#   55-63   srec0, srec0.01, srec0.1   model.sigma_rec=0 / 0.01 / 0.1 (the config's 0.05 is the
+#                             control): the activity-noise rung of the standard-settings ladder,
+#                             the CDDM values (issue #6, package 2, Pavel's go-ahead of 5 Nov)
+#   64-69   srad0.5, srad1.5  model.spectral_rad=0.5 / 1.5 (the config's 1.2 is the control): the
+#                             initial recurrent spectral radius. CDDM's ladder has 2.0; on the maze
+#                             (2,500 RNN steps per episode) an untrained network at 2.0 is not finite
+#                             in its first rollout (local smoke test, N = 100), so the upper rung is
+#                             1.5, which runs but starts with a huge first-update KL; the rollback
+#                             guard reports what happens at N = 1,000
+#   70-72   rws0.05           trainer.lambda_rws=0.05: the sparsity penalty alone (the pair with
+#                             the rate penalty is arm 5)
 #
 # SUBMIT:  sbatch slurm/rl_maze_interventions_spock.slurm
 #
@@ -70,7 +81,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=48G
 #SBATCH --time=12:00:00
-#SBATCH --array=1-54%54
+#SBATCH --array=1-72%72
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
@@ -110,7 +121,8 @@ echo "code: $PKG @ $GITSHA"
 # indices 1-3 (control) duplicate the uniform series' N = 1000 ReLU runs (same seeds, the
 # same code with every option off): do not submit them; the series' runs are the controls.
 ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4 rescale rescale_mild rescale_few
-         wd0 wd1e-5 wd1e-4 inorm0.5 inorm2 inorm5 inorm20 duplicate)
+         wd0 wd1e-5 wd1e-4 inorm0.5 inorm2 inorm5 inorm20 duplicate
+         srec0 srec0.01 srec0.1 srad0.5 srad1.5 rws0.05)
 ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.lambda_frm=0.3"
                "trainer.lambda_frm=0.1 trainer.lambda_rws=0.05" "model.sigma_w=1.0" "trainer.dropout=true"
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
@@ -118,7 +130,9 @@ ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.la
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.05 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
                "trainer.weight_decay=0" "trainer.weight_decay=1e-5" "trainer.weight_decay=1e-4"
                "model.input_row_norm=0.5" "model.input_row_norm=2" "model.input_row_norm=5" "model.input_row_norm=20"
-               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=copy trainer.prune_args.copy_noise=1.0 trainer.prune_args.copy_norm_preserve=true trainer.prune_args.max_replace_frac=0.025 trainer.prune_args.maturity=1000 trainer.prune_args.utility=contribution trainer.prune_args.check_every=100 trainer.prune_args.patience=3")
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=copy trainer.prune_args.copy_noise=1.0 trainer.prune_args.copy_norm_preserve=true trainer.prune_args.max_replace_frac=0.025 trainer.prune_args.maturity=1000 trainer.prune_args.utility=contribution trainer.prune_args.check_every=100 trainer.prune_args.patience=3"
+               "model.sigma_rec=0" "model.sigma_rec=0.01" "model.sigma_rec=0.1"
+               "model.spectral_rad=0.5" "model.spectral_rad=1.5" "trainer.lambda_rws=0.05")
 
 i=$SLURM_ARRAY_TASK_ID
 a=$(( (i - 1) / 3 )); SEED=$(( (i - 1) % 3 + 1 ))
