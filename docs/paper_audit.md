@@ -271,7 +271,7 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
 | Rate penalty | Bio-inspired | Two-sided penalty around a target rate | CDDM: all 1000; flip-flop 4.8× at N = 2000, 5.6× at 4000 | Flip-flop alone (B2): unstable at N ≤ 1000, −0.024 R² at N = 2000; its multiplier is above synaptic noise's |
 | Noisy synapses | Bio-inspired | Each weight × (1 + σ_w·noise), every step | 2.03×; 1.60× at N = 4000 (read in 14 of 14 runs, N = 500-4000) | −0.021 to −0.025 R² at N ≥ 1000 |
 | Rescaling incoming weights | Bio-inspired | Tilts a silent unit's input row toward its positive weights, at fixed length, until a release target | 1.51× (1 of 4 runs read); 1.95× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000: loss still falling at 200k (dead-relu-paper#16); 1.23-1.81× at 1.20× the floor (Extended Data, per-unit rules across sizes) |
-| Threshold lift | Bio-inspired | Raises a silent unit's bias once | 1.36× | Screen only |
+| Threshold lift | Bio-inspired | Raises a silent unit's bias once | 1.36× | Screen only; DROPPED on Pavel's instruction (5 Nov): not run on CDDM or the maze, not in the cross-task comparison |
 | Prune-and-duplicate | Engineering | Overwrites a silent unit with a jittered copy of a working one | 2.77×; 3.59× at N = 4000 | −0.005 R² at N = 1000, −0.018 at 4000; fails on DMTS above N = 500 |
 | Read-out dropout | Engineering | Randomly hides busy units from the read-out | 1.81× (1 of 3 runs read); 2.01× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000 (dead-relu-paper#16); 1.60-1.90× at 1.20× the floor (Extended Data, per-unit rules across sizes); fails on DMTS |
 | Full dropout | Engineering | Randomly removes busy units from the dynamics | 904/1000 | Parked: costs 12-17 R² points |
