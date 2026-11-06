@@ -92,8 +92,10 @@ and 517 (panel c, success 0.945 and 0.914); at the end, 421 and 451. Ablation at
 unit changes the success under the training noise by -0.01 to +0.03 in all six networks ablated
 (N = 250 to 2,000), as many units at random lower it to 0.07-0.31, the active units removed to
 0.01-0.03. Prune-and-retrain (rl_maze_retrain.py; pre-registered rule in entry 2026-11-05_0832:
-within 0.05 of the intact agent retrained the same way, 200 further updates) is running on Spock
-(7384815); the strip of panel d reads "no data" until it lands. Selectivity (entry
+within 0.05 of the intact agent retrained the same way, 200 further updates) passes (entry
+2026-11-05 maze-retrain-sigmaw-rescale-n2000-results): the agents retrained without their inactive
+units end at 0.925 against 0.913 and 0.903 for the intact agents retrained the same way; as many
+random units removed recover from 0.23-0.37 to 0.81-0.83. Panel d draws the strip (open markers). Selectivity (entry
 2026-11-05_0845; data/population_stats_maze.json): 154 and 200 of 1,000 units selective over all
 units, 154 of 421 and 199 of 451 over the active units, 0 and 1 inactive units counted selective
 (as on 3BFF); the raw-rate dimensionality is the same over all and over active units (10.7 against
@@ -208,6 +210,14 @@ their 75k weights inside one (rescaling 14, rate penalty 3, rate + sparsity 3, p
 1), and Fig. 5 rings every affected value it draws. The 3BFF rate-penalty networks at N = 2000 and 4000 have
 500-3,686 non-finite loss values each (entries _0813 and _0833).
 
+**C2 on the maze (5 Nov).** Learned runs of the uniform series (2,000 updates; N = 2,000 on a
+2,000 + 2,000 chain with a fresh Adam at the join): active units at the end 147, 158 (N = 250),
+265, 241, 276 (500), 426, 449 (1,000), 400, 506 (2,000; learned at updates 3,000 and 2,480); fit
+of the size means N^0.55 (bootstrap 95% 0.48-0.61). N = 4,000 is in training (Della: seed 1 on a
+1,000 + 3,000 chain after a stop at update 1,050; seeds 2 and 3 continued to 4,000, seed 3 from its
+update-1,700 checkpoint). N = 250 seed 2, N = 1,000 seed 3 and the N = 2,000 seed-3 rerun (0.84
+at 2,000, continuing) are not learned and enter no statistic.
+
 **C6 across the three tasks (5 Nov; Pavel's instruction, trainRNNbrain issue #6, dead-relu-paper#183:
 report the rules that work on every task first).** Criterion per cell at N = 1,000: more active
 units than every control in all seeds at a performance within the tolerance (held-out R^2 within
@@ -218,9 +228,12 @@ sigma_w 1.0 fail the tolerance (495, 1.47x, R^2 0.819, 0.015 below), as on 3BFF 
 below). Maze (entry 2026-11-05_0812 and the interventions read-out on issue #5): the rate penalty
 at 0.03 and 0.3 works (1.9x and 2.1x the learned controls' 437, success unchanged), at 0.1 and with
 the sparsity penalty one seed fails on success; read-out dropout fails (1.0x, success 0.19 below);
-rescaling at the paper's values blew up at the end of the warm-up ramp (two gentler arms running,
-Spock 7384816); noisy synapses running (7383697); prune-and-duplicate ported to TrainerPPO (entry
-2026-11-05_0907) and queued. 3BFF input-weight cap 0.1, 0.5, 2.0 fails (R^2 0.019-0.105 below).
+rescaling fails at every setting: the paper's values blew up at the end of the warm-up ramp, and
+the two gentler arms (alpha 1.0005 with cap 8; protect 0.05) end with FEWER active units than the
+controls (231-321 against 426-449) at success 0.63-0.81 (one run collapsed to 0 active units and
+stopped at update 800); noisy synapses sigma_w 1.0 keep the count (451-478, 1.05x) at a success
+0.06 below the controls' (fails the 0.05 tolerance); prune-and-duplicate ported to TrainerPPO
+(entry 2026-11-05_0907) and running (Spock 7389335_52-54). 3BFF input-weight cap 0.1, 0.5, 2.0 fails (R^2 0.019-0.105 below).
 Removing the recruited units of the maze rate-penalty networks lowers success from 0.84-0.96 to
 0.55-0.77, as many at random to 0.07-0.35 (entry 2026-11-05 maze-rate-penalty-ablations): the maze
 form of A3. Queued or pending: CDDM rescaling and 3BFF weight decay 1e-5/1e-4 (Della, launchers
