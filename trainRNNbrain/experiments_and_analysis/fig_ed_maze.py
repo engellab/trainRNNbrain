@@ -606,7 +606,23 @@ def main():
     missing_cells(runs)
     abl = load_ablation(args.ablation)
     print(f"{len(abl)} ablation results under {args.ablation}")
-    draw(runs, rows, abl)
+    # panel (d) draws the ablations of LEARNED runs at their END weights, the rule of Figure 1d
+    # (common.maze_learned_index: success at or above 0.9 for 5 probes and at the last probe; a run
+    # that did not learn enters no participation statistic): the JSON's run folder must be the
+    # last folder of a learned run's chain, so an ablation of a chain's first half (the parent of
+    # a continued run) and of a run that did not learn are listed and not drawn
+    end_of = {os.path.normpath(r["folder"]): r for r in runs}
+    kept = []
+    for a in abl:
+        d = a["run_dir"] if os.path.isabs(a["run_dir"]) else os.path.join(REPO, a["run_dir"])
+        r = end_of.get(os.path.normpath(d))
+        if r is None:
+            print(f"  panel d: {a['label']} is not the end of a run's chain (or not under --root); not drawn")
+        elif r["pt"]["learned_i"] is None:
+            print(f"  panel d: {a['label']} did not learn the task (end success {r['pt']['success_end']:.2f}); not drawn")
+        else:
+            kept.append(a)
+    draw(runs, rows, kept)
 
 
 if __name__ == "__main__":
