@@ -1,0 +1,43 @@
+# @package _global_
+# B5, THE OPTIMISER COMPARISON, on the standard CDDM network at N = 1000 (the uniform-interventions
+# programme, engellab/trainRNNbrain issue #6, docs/interventions_matrix.md, 5 Nov 2026).
+#
+# A copy of b5_optimizer_ff.yaml with the task set to CDDM and the budget set to the 75,000
+# iterations of the same-size read-out (configs/experiment/silent_units_largeN.yaml). The question
+# is whether CDDM reproduces the 3-bit flip-flop's pattern: there, networks trained with Adam
+# without weight decay or with AdamW have more active units at a higher held-out R^2 than the
+# Adam control, and networks trained with SGD have more active units only at a lower R^2. The arms
+# are set by the launcher (SilentReLU_b5_optimizer_della.slurm, TASK=cddm): AdamW at wd 1e-6 and
+# SGD at wd 1e-6 over the base learning rates 0.03, 0.1, 0.3 and 1. The control is
+# CDDM_paper_grid/EqType=h_N=1000_arm=control (Adam, wd 1e-6, base lr 1e-3, the same model and
+# trainer configs, 100,000 iterations, read at 75,000); Adam at wd 0 exists in the CDDM
+# weight-decay ladder (CDDM_std_g0_weightdecay_bias0).
+#
+# Everything else is the CDDM paper-grid control: ReLU, equation h, bias fixed at 0,
+# self-connections on, no Dale, gamma 0, trainer_ptrack_freshbatch (a fresh batch every iteration;
+# on CDDM every batch is the full condition grid, so the flag changes nothing). checkpoint_every is
+# 5000 as in the 3BFF file (the control kept every 1000); snapshots do not change training.
+# Select with
+#   +experiment=b5_optimizer_cddm
+defaults:
+  - override /task: CDDM
+  - override /model: rnn_relu_standard
+  - override /trainer: trainer_ptrack_freshbatch
+
+light_outputs: true
+model:
+  equation_type: h
+  N: 1000
+trainer:
+  trainer_tag: ""
+  max_iter: 75000
+  track_drift: true
+  track_every: 10
+  store_participation_every: 100
+  track_valid: false
+  lambda_rws: 0
+  lambda_frm: 0
+  prune_reinit: false
+  synaptic_scaling: false
+  dropout: false
+  checkpoint_every: 5000
