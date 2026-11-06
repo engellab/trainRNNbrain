@@ -26,6 +26,19 @@
 # Wall time: with monitor=false and task_safe_gradients=false the penalties are summed into ONE
 # backward pass, so an extra penalty costs almost nothing — these run at 'none' speed (0.144 s/iter
 # at N=1000, i.e. ~1.2 h for 30000 iterations). 5 h is generous.
+#
+# TASK SWITCH (5 Nov 2026; the uniform-interventions programme, engellab/trainRNNbrain issue #6,
+# docs/interventions_matrix.md). TASK unset or cddm runs the sweep exactly as above. TASK=ff runs
+# the same four lambda_met values on the 3-bit flip-flop (task=NBitFlipFlop, 3 bits) with
+# trainer_ptrack_freshbatch, the trainer of every 3BFF control (the CDDM sweep's
+# trainer_ptrack_plain reuses one batch of trials for every iteration, which changes nothing on
+# CDDM, whose batch is the full condition grid, and would train a different network on the
+# flip-flop, whose trials are random draws), and under +experiment=silent_units_largeN: the same
+# 75,000 iterations as silent_units_std, light outputs (no CPU analysis after training), as every
+# other 3BFF cell at N = 1000 was run; the folder then names the budget. The index decode is
+# unchanged, so the N = 1000 cells are indices 7-9, 16-18, 25-27 and 34-36 (three seeds each):
+#   TASK=ff sbatch --time=08:00:00 --constraint=nomig --array=7-9,16-18,25-27,34-36 slurm/b0_met.slurm
+# Output: $SAVE_TO/NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=<N>_LmbdMet=<LAM>_iters=75000/<per-net subfolder>
 
 #SBATCH --job-name=MetB0
 #SBATCH --nodes=1
@@ -67,20 +80,28 @@ TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); N_IDX=$(((TID / 3) % 3)); LAM_IDX=$(((TID / 9) % 4))
 LAM=${LAMS[$LAM_IDX]}; N=${NS[$N_IDX]}
 
-TAG="std_g0_metabolic_bias0/EqType=h_N=${N}_LmbdMet=${LAM}"
-mkdir -p "${SAVE_TO}/CDDM_std_g0_metabolic_bias0"
+# TASK selects the task words, the experiment config, the trainer and the folder (see the header).
+case "${TASK:-cddm}" in
+  cddm) TASK_ARGS=();                                                    EXP=silent_units_std;    TRAINER=trainer_ptrack_plain;      PREFIX=CDDM;         TAGIT="" ;;
+  ff)   TASK_ARGS=(task=NBitFlipFlop task.n_inputs=3 task.n_outputs=3); EXP=silent_units_largeN; TRAINER=trainer_ptrack_freshbatch; PREFIX=NBitFlipFlop; TAGIT="_iters=75000" ;;
+  *) echo "FATAL: TASK must be cddm or ff; got '${TASK}'" >&2; exit 1 ;;
+esac
+
+TAG="std_g0_metabolic_bias0/EqType=h_N=${N}_LmbdMet=${LAM}${TAGIT}"
+mkdir -p "${SAVE_TO}/${PREFIX}_std_g0_metabolic_bias0"
 if [ "$SLURM_ARRAY_TASK_ID" -eq 1 ]; then
-  cp "$REPO/docs/experiments/standard_rnn_metabolic.md" "${SAVE_TO}/CDDM_std_g0_metabolic_bias0/EXPERIMENT.md"
+  cp "$REPO/docs/experiments/standard_rnn_metabolic.md" "${SAVE_TO}/${PREFIX}_std_g0_metabolic_bias0/EXPERIMENT.md"
   echo -e "\n---\nRun: SLURM array ${SLURM_ARRAY_JOB_ID} on Della, code commit $(git -C "$REPO" rev-parse HEAD)" \
-    >> "${SAVE_TO}/CDDM_std_g0_metabolic_bias0/EXPERIMENT.md"
+    >> "${SAVE_TO}/${PREFIX}_std_g0_metabolic_bias0/EXPERIMENT.md"
 fi
-echo "Task ${SLURM_ARRAY_TASK_ID}: N=${N} lambda_met=${LAM} rep=${REP}"
-echo "  -> ${SAVE_TO}/CDDM_${TAG}"
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${TASK:-cddm} N=${N} lambda_met=${LAM} rep=${REP}"
+echo "  -> ${SAVE_TO}/${PREFIX}_${TAG}"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
-  +experiment=silent_units_std \
-  model=rnn_relu_standard trainer=trainer_ptrack_plain \
+  +experiment="$EXP" \
+  "${TASK_ARGS[@]}" \
+  model=rnn_relu_standard trainer="$TRAINER" \
   model.equation_type=h model.N="$N" \
   trainer.lambda_met="$LAM" \
   paths.save_to="$SAVE_TO" \

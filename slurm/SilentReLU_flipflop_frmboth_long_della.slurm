@@ -26,6 +26,13 @@
 #   REP=TID%3;  N_IDX=(TID/3)%3;  K_IDX=(TID/9)%8;  P_IDX=TID/72   (0=frm, 1=both)
 #   both @ N=1000  ->  --array=76-78,85-87,94-96,103-105,112-114,121-123,130-132,139-141
 #
+# THIRD ARM, rws (5 Nov 2026; the uniform-interventions programme, engellab/trainRNNbrain issue #6,
+# docs/interventions_matrix.md): the sparsity penalty alone, lambda_rws 0.05 and lambda_frm 0, the
+# value of CDDM's cell (CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0.05_LmbdFR=0). It is
+# P_IDX=2, tasks 145-216 with the same inner decode, so tasks 1-144 are what they were. The
+# missing 3BFF cell is k=3, N=1000, three seeds, at the 75,000-iteration same-size budget:
+#   ITERS_OVERRIDE=75000 sbatch --time=08:00:00 --constraint=nomig --array=166-168 slurm/SilentReLU_flipflop_frmboth_long_della.slurm
+#
 # Output: $SAVE_TO/NBitFlipFlop_std_penlong/EqType=h_k=<k>_N=<N>_pen=<name>_iters=<IT>/
 
 #SBATCH --job-name=FFpenD
@@ -79,9 +86,9 @@ PYCHK
 
 KS=(1 2 3 4 5 6 7 8)
 NS=(500 1000 2000)
-PEN_NAME=(frm both)
-PEN_RWS=(0 0.05)
-PEN_FRM=(0.1 0.1)
+PEN_NAME=(frm both rws)
+PEN_RWS=(0 0.05 0.05)
+PEN_FRM=(0.1 0.1 0)
 IT=400000
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))

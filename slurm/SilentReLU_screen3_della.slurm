@@ -87,6 +87,16 @@
 # Cost: no extra forward pass for any arm - both new mechanisms reuse the training pass's states and
 # fire once per 100 iterations. ~30k at N=1000 is ~2-3 h; 6 h requested.
 # Output: $SAVE_TO/CDDM_screen3/EqType=h_N=1000_pen=none_arm=<name>/
+#
+# TASK SWITCH (5 Nov 2026; the uniform-interventions programme, engellab/trainRNNbrain issue #6,
+# docs/interventions_matrix.md). TASK unset or cddm runs the screen exactly as above. TASK=ff runs
+# an arm on the 3-bit flip-flop (task=NBitFlipFlop, 3 bits; the trainer is already
+# trainer_ptrack_freshbatch, the trainer of every 3BFF control) at the 75,000-iteration same-size
+# budget, and the folder then names the cap value and the budget. The missing 3BFF cell is the
+# input-weight cap at CDDM's 0.3 (the 3BFF caps 0.1, 0.5 and 2.0 are NBitFlipFlop_std_inpcap),
+# arm 1, three seeds:
+#   TASK=ff sbatch --time=08:00:00 --constraint=nomig --array=4-6 slurm/SilentReLU_screen3_della.slurm
+# Output: $SAVE_TO/NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000/
 
 #SBATCH --job-name=Screen3
 #SBATCH --nodes=1
@@ -133,7 +143,12 @@ else
 fi
 
 N=1000
-IT=${ITERS_OVERRIDE:-30000}
+# TASK selects the task words, the default budget and the folder prefix (see the header).
+case "${TASK:-cddm}" in
+  cddm) TASK_ARGS=(task=CDDM);                                          IT=${ITERS_OVERRIDE:-30000}; PREFIX=CDDM;         TAGSUF="" ;;
+  ff)   TASK_ARGS=(task=NBitFlipFlop task.n_inputs=3 task.n_outputs=3); IT=${ITERS_OVERRIDE:-75000}; PREFIX=NBitFlipFlop; TAGSUF="_iters=${IT}" ;;
+  *) echo "FATAL: TASK must be cddm or ff; got '${TASK}'" >&2; exit 1 ;;
+esac
 CAP=${CAP:-0.3}            # measured frm+rws q90 at N=1000; ~10x the init scale 1/sqrt(N)=0.032
 PATIENCE=${PATIENCE:-3}    # 3 * check_every(100) = 300 iterations of silence before a redraw
 ETA=${ETA:-0.05}           # scaling step size; alpha clipped to [1/(1+eta), 1+eta]
@@ -175,16 +190,18 @@ case "$NAME" in scale_ln) ARGS=(trainer.prune_reinit=false model.inp_weight_cap=
                                 trainer.scaling_args.scale_target=lognormal
                                 "trainer.scaling_args.sigma_log=${SIGMA_LOG:-1.2}") ;; esac
 
-TAG="${SWEEP:-screen3}/EqType=h_N=${N}_pen=none_arm=${NAME}"
-mkdir -p "${SAVE_TO}/CDDM_${SWEEP:-screen3}"
-echo "Task ${SLURM_ARRAY_TASK_ID}: arm=${NAME} rep=${REP} N=${N} iters=${IT}"
+# A flip-flop cap folder names the cap value, so a second cap value would not pool with this one.
+case "${TASK:-cddm}:${NAME}" in ff:*cap*) TAGSUF="_cap=${CAP}${TAGSUF}" ;; esac
+TAG="${SWEEP:-screen3}/EqType=h_N=${N}_pen=none_arm=${NAME}${TAGSUF}"
+mkdir -p "${SAVE_TO}/${PREFIX}_${SWEEP:-screen3}"
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${TASK:-cddm} arm=${NAME} rep=${REP} N=${N} iters=${IT}"
 echo "  args: ${ARGS[*]}"
-echo "  -> ${SAVE_TO}/CDDM_${TAG}"
+echo "  -> ${SAVE_TO}/${PREFIX}_${TAG}"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
   +experiment=silent_units_largeN \
-  task=CDDM \
+  "${TASK_ARGS[@]}" \
   model=rnn_relu_standard trainer=trainer_ptrack_freshbatch \
   model.equation_type=h model.N="$N" \
   trainer.max_iter="$IT" \

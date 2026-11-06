@@ -8,6 +8,20 @@
 # Output: $SAVE_TO/CDDM_<hash>_g0_noise_std/EqType=<EQ>_N=1000_sigrec=<SIG>/<net>
 # Overridable: ITERS_OVERRIDE (default: the experiment config's 75,000), SAVE_TO, REPO.
 # The cell name carries the budget, so runs of different lengths never pool.
+#
+# TASK SWITCH (5 Nov 2026; the uniform-interventions programme, engellab/trainRNNbrain issue #6,
+# docs/interventions_matrix.md). TASK unset or cddm runs the ladder exactly as above. TASK=ff runs
+# the same sigma_rec values on the 3-bit flip-flop (task=NBitFlipFlop, 3 bits) with
+# trainer_ptrack_freshbatch, the trainer of every 3BFF control (the CDDM ladder's
+# trainer_ptrack_plain reuses one batch of trials for every iteration, which changes nothing on
+# CDDM, whose batch is the full condition grid, and would train a different network on the
+# flip-flop, whose trials are random draws), and under +experiment=silent_units_largeN with
+# model.N=1000 on the command line: the same 75,000 iterations as silent_units_N1000, light
+# outputs (no CPU analysis after training), as every other 3BFF cell at N = 1000 was run.
+# sigma_rec 0.05 on 3BFF exists (every control), so the missing cells are 0, 0.01 and 0.1 at EQ=h,
+# three seeds each: indices 1-3, 6-8 and 16-18.
+#   TASK=ff sbatch --time=08:00:00 --constraint=nomig --array=1-3,6-8,16-18 slurm/b0_noise.slurm
+# Output: $SAVE_TO/NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=<SIG>_iters=75000/<net>
 
 #SBATCH --job-name=NoiseB0
 #SBATCH --nodes=1
@@ -47,12 +61,23 @@ TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 5)); SIG_IDX=$(((TID / 5) % 4)); EQ_IDX=$(((TID / 20) % 2))
 EQ=${EQS[$EQ_IDX]}; SIG=${SIGS[$SIG_IDX]}
 
-TAG="${HASH}_g0_noise_ptrack/EqType=${EQ}_N=1000_sigrec=${SIG}_iters=${IT}"
-echo "Task ${SLURM_ARRAY_TASK_ID}: noise EQ=${EQ} N=1000 sigma_rec=${SIG} rep=${REP} iters=${IT} -> CDDM_${TAG}"
+# TASK selects the task words, the experiment config, the trainer and the folder (see the header).
+case "${TASK:-cddm}" in
+  cddm) TASK_ARGS=(); EXP_ARGS=(+experiment=silent_units_N1000); TRAINER=trainer_ptrack_plain
+        PREFIX=CDDM; SWEEP="${HASH}_g0_noise_ptrack" ;;
+  ff)   TASK_ARGS=(task=NBitFlipFlop task.n_inputs=3 task.n_outputs=3)
+        EXP_ARGS=(+experiment=silent_units_largeN model.N=1000); TRAINER=trainer_ptrack_freshbatch
+        PREFIX=NBitFlipFlop; SWEEP="std_g0_noise_bias0" ;;
+  *) echo "FATAL: TASK must be cddm or ff; got '${TASK}'" >&2; exit 1 ;;
+esac
+
+TAG="${SWEEP}/EqType=${EQ}_N=1000_sigrec=${SIG}_iters=${IT}"
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${TASK:-cddm} noise EQ=${EQ} N=1000 sigma_rec=${SIG} rep=${REP} iters=${IT} -> ${PREFIX}_${TAG}"
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
-  +experiment=silent_units_N1000 \
-  model=rnn_relu_standard trainer=trainer_ptrack_plain \
+  "${EXP_ARGS[@]}" \
+  "${TASK_ARGS[@]}" \
+  model=rnn_relu_standard trainer="$TRAINER" \
   model.equation_type="$EQ" model.sigma_rec="$SIG" \
   trainer.max_iter="$IT" \
   trainer.track_every=10 trainer.store_participation_every=100 \

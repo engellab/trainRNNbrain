@@ -21,6 +21,21 @@
 #
 # Runtime ~8 h per job at N=1000 (measured on the drift sweep); softplus trained ~10% slower.
 # Output: $SAVE_TO/CDDM_std_g0_activations_bias0/EqType=h_N=1000_act=<name>_iters=200000/<per-net subfolder>
+#
+# TASK SWITCH AND A FOURTH ACTIVATION (5 Nov 2026; the uniform-interventions programme,
+# engellab/trainRNNbrain issue #6, docs/interventions_matrix.md). TASK unset or cddm runs the
+# ladder exactly as above (trainer_ptrack_plain, 200,000 iterations). TASK=ff runs the same
+# activations on the 3-bit flip-flop (task=NBitFlipFlop, 3 bits) with trainer_ptrack_freshbatch,
+# the trainer of every 3BFF control (the CDDM ladder's trainer_ptrack_plain reuses one batch of
+# trials for every iteration, which changes nothing on CDDM, whose batch is the full condition
+# grid, and would train a different network on the flip-flop, whose trials are random draws), at
+# the 75,000-iteration same-size budget of silent_units_largeN. ACT 3 = tanh
+# (model=rnn_tanh_standard: rnn_relu_standard with the activation changed; CDDM's tanh cell is
+# CDDM_std_g0_tanh from SilentReLU_std_tanh_della.slurm) is indices 10-12 and leaves 1-9 as they
+# were. The earlier 3BFF activation cells (NBitFlipFlop_std_activations, commit a831629) carry a
+# trainable bias; these are the bias-0 cells, four activations, three seeds each:
+#   TASK=ff sbatch --time=08:00:00 --constraint=nomig --array=1-12 slurm/b0_act.slurm
+# Output: $SAVE_TO/NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=<name>_iters=75000/<per-net subfolder>
 
 #SBATCH --job-name=ActB0
 #SBATCH --nodes=1
@@ -60,23 +75,30 @@ if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
 fi
 
 N=${N_OVERRIDE:-1000}
-IT=${ITERS_OVERRIDE:-200000}
-ACT_NAME=(softplus25 leakyrelu sigmoid)
-ACT_MODEL=(rnn_softplus_beta25_standard rnn_leaky_relu_standard rnn_sigmoid_shifted_standard)
+# TASK selects the task words, the trainer, the budget and the folder prefix (see the header).
+case "${TASK:-cddm}" in
+  cddm) TASK_ARGS=();                                                    TRAINER=trainer_ptrack_plain;      IT=200000; PREFIX=CDDM ;;
+  ff)   TASK_ARGS=(task=NBitFlipFlop task.n_inputs=3 task.n_outputs=3); TRAINER=trainer_ptrack_freshbatch; IT=75000;  PREFIX=NBitFlipFlop ;;
+  *) echo "FATAL: TASK must be cddm or ff; got '${TASK}'" >&2; exit 1 ;;
+esac
+IT=${ITERS_OVERRIDE:-$IT}
+ACT_NAME=(softplus25 leakyrelu sigmoid tanh)
+ACT_MODEL=(rnn_softplus_beta25_standard rnn_leaky_relu_standard rnn_sigmoid_shifted_standard rnn_tanh_standard)
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); ACT=$((TID / 3))
 ANAME=${ACT_NAME[$ACT]}; AMODEL=${ACT_MODEL[$ACT]}
 
 TAG="std_g0_activations_bias0/EqType=h_N=${N}_act=${ANAME}_iters=${IT}"
-mkdir -p "${SAVE_TO}/CDDM_std_g0_activations_bias0"
-echo "Task ${SLURM_ARRAY_TASK_ID}: N=${N} act=${ANAME} (model=${AMODEL}) rep=${REP} iters=${IT}"
-echo "  -> ${SAVE_TO}/CDDM_${TAG}"
+mkdir -p "${SAVE_TO}/${PREFIX}_std_g0_activations_bias0"
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${TASK:-cddm} N=${N} act=${ANAME} (model=${AMODEL}) rep=${REP} iters=${IT}"
+echo "  -> ${SAVE_TO}/${PREFIX}_${TAG}"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
   +experiment=silent_units_largeN \
-  model="$AMODEL" trainer=trainer_ptrack_plain \
+  "${TASK_ARGS[@]}" \
+  model="$AMODEL" trainer="$TRAINER" \
   model.equation_type=h model.N="$N" \
   trainer.max_iter="$IT" \
   trainer.track_drift=true trainer.track_every=10 trainer.store_participation_every=100 \

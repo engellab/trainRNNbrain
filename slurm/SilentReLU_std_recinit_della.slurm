@@ -30,6 +30,20 @@
 #
 # Runtime 0.144 s/iter at N=1000 (measured, drift sweep) -> ~3.0 h per job; 8 h requested.
 # Output: $SAVE_TO/CDDM_std_g0_recinit/EqType=h_N=1000_<cell>_iters=75000/<per-net subfolder>
+#
+# TASK SWITCH AND NSEED (5 Nov 2026; the uniform-interventions programme, engellab/trainRNNbrain
+# issue #6, docs/interventions_matrix.md). TASK unset or cddm runs the grid exactly as above.
+# NSEED (default 2) is the number of seeds per cell in the index decode, so NSEED=1 with
+# --array=1-5 adds one seed to each CDDM cell (seed=random, the same folders). TASK=ff runs the
+# same cells on the 3-bit flip-flop (task=NBitFlipFlop, 3 bits) with trainer_ptrack_freshbatch,
+# the trainer of every 3BFF control (the CDDM grid's trainer_ptrack_plain reuses one batch of
+# trials for every iteration, which changes nothing on CDDM, whose batch is the full condition
+# grid, and would train a different network on the flip-flop, whose trials are random draws).
+# sr=1.2 on 3BFF is the control, so the missing cells are sr 0.5 and 2.0 and rwm 0.05 and 0.2;
+# with NSEED=3 those are indices 1-3, 7-9 and 10-15:
+#   NSEED=3 TASK=ff   sbatch --time=08:00:00 --constraint=nomig --array=1-3,7-15 slurm/SilentReLU_std_recinit_della.slurm
+#   NSEED=1 TASK=cddm sbatch --time=08:00:00 --constraint=nomig --array=1-5    slurm/SilentReLU_std_recinit_della.slurm
+# Output: $SAVE_TO/NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_<cell>_iters=75000/<per-net subfolder>
 
 #SBATCH --job-name=StdRecInit
 #SBATCH --nodes=1
@@ -79,20 +93,28 @@ CELLS=(
   "rwm=0.05|+trainer.lambda_rwm=0.05 +trainer.rwm_args={}"
   "rwm=0.2|+trainer.lambda_rwm=0.2 +trainer.rwm_args={}"
 )
-NSEED=2
+NSEED=${NSEED:-2}
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % NSEED)); CELL=${CELLS[$((TID / NSEED))]}
 CELL_TAG=${CELL%%|*}; CELL_ARGS=${CELL#*|}
 
+# TASK selects the task words, the trainer and the folder prefix (see the header).
+case "${TASK:-cddm}" in
+  cddm) TASK_ARGS=();                                                    TRAINER=trainer_ptrack_plain;      PREFIX=CDDM ;;
+  ff)   TASK_ARGS=(task=NBitFlipFlop task.n_inputs=3 task.n_outputs=3); TRAINER=trainer_ptrack_freshbatch; PREFIX=NBitFlipFlop ;;
+  *) echo "FATAL: TASK must be cddm or ff; got '${TASK}'" >&2; exit 1 ;;
+esac
+
 TAG="std_g0_recinit/EqType=h_N=1000_${CELL_TAG}_iters=75000"
-mkdir -p "${SAVE_TO}/CDDM_std_g0_recinit"
-echo "Task ${SLURM_ARRAY_TASK_ID}: cell=${CELL_TAG} overrides='${CELL_ARGS}' rep=${REP} iters=75000"
-echo "  -> ${SAVE_TO}/CDDM_${TAG}"
+mkdir -p "${SAVE_TO}/${PREFIX}_std_g0_recinit"
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${TASK:-cddm} cell=${CELL_TAG} overrides='${CELL_ARGS}' rep=${REP} iters=75000"
+echo "  -> ${SAVE_TO}/${PREFIX}_${TAG}"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
   +experiment=silent_units_largeN \
-  model=rnn_relu_standard trainer=trainer_ptrack_plain \
+  "${TASK_ARGS[@]}" \
+  model=rnn_relu_standard trainer="$TRAINER" \
   model.equation_type=h model.N=1000 \
   trainer.max_iter=75000 \
   ${CELL_ARGS} \
