@@ -102,6 +102,21 @@
 #
 # SUBMIT:  sbatch slurm/rl_maze_interventions_spock.slurm
 #
+# CONTINUATION (round 19, 7 Nov 2026; docs/project_trajectory/*_round19-settings-stage2-rules.md). With
+# PARENT_ROOT set to the folder holding the arms' cells (<SAVE_TO>/Maze_interventions) and EXTRA_UPDATES to
+# the number of further updates, each index continues its arm's run (same arm, seed) from the parent's
+# weights (paths.init_from), with INIT_ADAM (default true) restoring its optimizer state or, false, starting
+# the optimizer afresh with the warm-up ramp, counting updates on from the parent's last
+# (trainer.iter_offset=auto), as the suite launcher's continuation does. STAGE (default 2) names the stage:
+# stage 2 continues <arm> into <arm>_cont, stage k >= 3 continues <arm>_cont (k = 3) or <arm>_cont<k-1> into
+# <arm>_cont<k>. The launcher refuses to write into a folder that already holds a run. The readers
+# (common.maze_load_runs) join a run with its parents; the arm is read from the saved config.
+#   PARENT_ROOT=$HOME/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_interventions EXTRA_UPDATES=2000 \
+#     INIT_ADAM=false sbatch --array=7-9 slurm/rl_maze_interventions_spock.slurm
+# DELLA (round 19): submit slurm/rl_maze_interventions_della.slurm, which carries Della's #SBATCH lines and
+# runs this file with CLUSTER=della (only the module lines differ; paths_local and paths_DELLA differ only
+# in save_to, which SAVE_TO sets). The parents must exist under PARENT_ROOT on Della.
+#
 #SBATCH --job-name=MazeInterv
 #SBATCH --partition=all
 #SBATCH --nodes=1
@@ -117,7 +132,11 @@
 #SBATCH --error=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.err
 
 module purge
-module load anacondapy/2024.02
+case "${CLUSTER:-spock}" in
+  spock) module load anacondapy/2024.02 ;;
+  della) module load cudatoolkit/12.8; module load anaconda3/2024.10 ;;
+  *) echo "FATAL: CLUSTER must be spock or della; got '${CLUSTER}'." >&2; exit 1 ;;
+esac
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate torch-env
 
@@ -181,7 +200,35 @@ N=1000
 TAG="interventions/${ARM_TAG[$a]}"
 echo "Task ${i}: arm=${ARM_TAG[$a]} N=${N} seed=${SEED} overrides='${ARM_OVERRIDES[$a]}' -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 
+CONT=()
+if [ -n "${PARENT_ROOT:-}" ]; then
+  if [ -z "${EXTRA_UPDATES:-}" ]; then
+    echo "FATAL: PARENT_ROOT is set but EXTRA_UPDATES (the number of further updates) is not." >&2; exit 1
+  fi
+  INIT_ADAM="${INIT_ADAM:-true}"
+  STAGE="${STAGE:-2}"
+  if ! [[ "$STAGE" =~ ^[0-9]+$ ]] || [ "$STAGE" -lt 2 ]; then
+    echo "FATAL: STAGE must be an integer >= 2 (stage 1 is the fresh run); got '${STAGE}'." >&2; exit 1
+  fi
+  stage_suffix() { case "$1" in 1) echo "" ;; 2) echo "_cont" ;; *) echo "_cont$1" ;; esac; }
+  PARENT="${PARENT_ROOT}/${ARM_TAG[$a]}$(stage_suffix $((STAGE - 1)))/s${SEED}"
+  if ! ls "${PARENT}"/*Params_Maze.npz >/dev/null 2>&1; then
+    echo "FATAL: ${PARENT} has no *Params_Maze.npz to continue from." >&2; exit 1
+  fi
+  if [ "$INIT_ADAM" = true ] && ! ls "${PARENT}"/*AdamState_Maze.pt >/dev/null 2>&1; then
+    echo "FATAL: ${PARENT} has no *AdamState_Maze.pt; continue it with INIT_ADAM=false." >&2; exit 1
+  fi
+  TAG="${TAG}$(stage_suffix "$STAGE")"
+  # never overwrite a run folder: a stage resubmitted after a failure needs its partial folder moved first
+  if ls "${SAVE_TO}/Maze_${TAG}/s${SEED}"/*config.yaml >/dev/null 2>&1; then
+    echo "FATAL: ${SAVE_TO}/Maze_${TAG}/s${SEED} already holds a run; refusing to overwrite it." >&2; exit 1
+  fi
+  # quoted for Hydra's override grammar, as experiment_tag is below
+  CONT=(paths.init_from="\"${PARENT}\"" paths.init_adam="$INIT_ADAM" trainer.n_updates="$EXTRA_UPDATES" trainer.iter_offset=auto)
+  echo "continuation, stage ${STAGE}: from ${PARENT} (init_adam=${INIT_ADAM}), ${EXTRA_UPDATES} further updates -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
+fi
+
 # shellcheck disable=SC2086
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   task=Maze trainer=trainer_ppo seed="$SEED" model=rnn_relu_standard model.N="$N" \
-  paths=paths_local paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\"" ${ARM_OVERRIDES[$a]}
+  paths=paths_local paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\"" ${ARM_OVERRIDES[$a]} "${CONT[@]}"
