@@ -94,10 +94,10 @@ TECH_MM = {
     "key":   (0.0, 100.0, 165.1, 14.5),   # three rows of arms (four per row) and the marker row
     "e":     (12.5, 119.0, 66.0, 27.0),
     "f":     (97.0, 119.0, 63.0, 27.0),
-    "g_top": (15.5, 157.0, 90.0, 16.0),   # the two rows' two-line y labels must not touch
-    "g_bot": (15.5, 175.5, 90.0, 14.0),
-    "h_key": (109.5, 153.5, 52.0, 7.0),   # clears panel f's x label
-    "h":     (111.5, 161.0, 48.5, 29.5),
+    "g_top": (15.5, 156.5, 90.0, 14.5),   # the two rows' two-line y labels must not touch
+    "g_bot": (15.5, 175.5, 90.0, 13.5),   # 4.5 mm gap: the y labels read as two labels
+    "h_key": (114.0, 153.5, 50.0, 7.0),   # clears panel f's x label and the letter h
+    "h":     (123.0, 161.0, 37.0, 28.0),  # its y label clears panel g's last column label
 }
 
 
@@ -289,8 +289,9 @@ def panel_techniques(fig, records, stopped_folders, ref, ablation_dir, control_a
     pts = panel_end(ax_f, records, ref)
     panel_fold(ax_gt, ax_gb, summ, ref)
     rows = panel_ablation(ax_h, ax_hk, tech, ctrl, ref)
-    for ax, letter in ((ax_e, "e"), (ax_f, "f"), (ax_gt, "g"), (ax_h, "h")):
+    for ax, letter in ((ax_e, "e"), (ax_f, "f"), (ax_gt, "g")):
         ps.panel_letter(ax, letter)
+    ps.panel_letter(ax_h, "h", x_mm=12.0)              # left of the key above the panel
     print(f"\nPanel e: {n_e} runs drawn; panel f: {len(pts)} markers")
     print("Panel h:", "no technique network ablated" if not tech else "")
     for w in rows:

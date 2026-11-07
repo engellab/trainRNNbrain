@@ -135,8 +135,9 @@ LADDER = [k for k in ARMS if k != "control"]
 # panel c's column labels: at most two lines, under 9 mm wide at TICK_PT (the column pitch)
 SHORT = {"frm0.03": "rate\n0.03", "frm0.1": "rate\n0.1", "frm0.3": "rate\n0.3",
          "frm0.1+rws0.05": "rate 0.1\n+ sparsity", "dropout": "read-out\ndropout",
-         "synnoise": "noisy\nsynapses", "rescale": "rescaling", "rescale_few": "rescaling\n5% grow",
-         "rescale_mild": "rescaling\nslow tilt", "duplicate": "duplicate"}
+         "synnoise": "noisy\nsynapses", "rescale": "3BFF\nvalues", "rescale_few": "5%\ngrow",
+         "rescale_mild": "slow\ntilt", "duplicate": "prune-and-\nduplicate"}
+RESCALE_COLUMNS = ("rescale", "rescale_mild", "rescale_few")    # share the heading "rescaling" under their labels
 # Every arm of the launcher (slurm/rl_maze_interventions_spock.slurm, ARM_TAG, in its order): the
 # derived key -> the folder name. Used to report a folder whose name does not match its config's
 # arm, to name the arm of a folder that holds no config, and as the arms' order in the printouts.
@@ -712,10 +713,19 @@ def panel_fold(ax_t, ax_b, summ, ref):
     ax_b.text(-0.55, -SUCCESS_TOL - 0.02, f"$-${SUCCESS_TOL:g}", fontsize=ps.TICK_PT,
               color=ps.MUTED, ha="left", va="top")
     ax_b.set_yticks(np.arange(0.0, lo, -0.2))
-    ax_b.set_ylabel("success at the end\nminus control mean")
+    ax_b.set_ylabel("success minus\ncontrol mean")
     ax_b.set_xticks(range(len(LADDER)))
     ax_b.set_xticklabels([SHORT[k] for k in LADDER], fontsize=ps.TICK_PT, linespacing=1.25)
     ax_b.tick_params(axis="x", length=0, pad=3)
+    # one heading under the three rescaling columns (review of PR #193, item 12)
+    cols = [LADDER.index(k) for k in RESCALE_COLUMNS]
+    head_y_mm = -7.0                                    # below the two-line tick labels
+    height_mm = ax_b.get_position().height * ax_b.figure.get_figheight() / ps.MM
+    y_rule = head_y_mm / height_mm
+    ax_b.plot([min(cols) - 0.4, max(cols) + 0.4], [y_rule, y_rule], transform=ax_b.get_xaxis_transform(),
+              color=ps.MUTED, lw=ps.THIN_LW, clip_on=False, solid_capstyle="butt")
+    ax_b.text(float(np.mean(cols)), y_rule - 0.4 / height_mm, "rescaling", transform=ax_b.get_xaxis_transform(),
+              fontsize=ps.TICK_PT, color=ps.INK, ha="center", va="top")
     for ax in (ax_t, ax_b):
         ax.set_xlim(-0.6, len(LADDER) - 0.4)
         ps.ygrid(ax)
@@ -763,7 +773,7 @@ def panel_ablation(ax, ax_key, tech, ctrl, ref):
         ax.text(0.5, 0.5, "no ablation of a\ntechnique network yet", transform=ax.transAxes,
                 ha="center", va="center", fontsize=ps.TICK_PT, color=ps.MUTED)
     ax.set(xlim=(0, N), ylim=(0, 1.02), xlabel=ps.of_n("units removed", N),
-           ylabel="success rate (training noise)")
+           ylabel="success rate\n(training noise)")
     ax.set_xticks([0, N / 2, N])
     ps.count_ticks(ax.xaxis)
     ax.set_yticks([0, 0.5, 1.0])

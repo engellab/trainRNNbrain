@@ -315,6 +315,41 @@ def load_maze():
     return out, d["success_tol"], ref
 
 
+def third_control_sensitivity(cells, tol):
+    """Print the Maze verdicts with the control network that did not learn inside the reference.
+
+    The reference is the two control networks that learned the task (entry 2026-11-05_0812); the
+    technique's own mean counts every finished network. This printout reports what that asymmetry
+    decides (review of PR #193, item 5). It changes no verdict the figure draws.
+
+    Args:
+        cells: the `cell` dicts; tol: dict task -> tolerance.
+    Returns:
+        dict with mean_learned, mean_all (control mean success over the learned and over all
+        control networks) and changed (list of (technique, value) whose verdict differs).
+    """
+    with open(MAZE_JSON) as fh:
+        d = json.load(fh)
+    ctrl = [r for r in d["runs"] if r["key"] == "control"]
+    active_all, succ_all = [r["active_end"] for r in ctrl], [r["success_end"] for r in ctrl]
+    learned = [r["success_end"] for r in ctrl if r["learned"] is not None]
+    out = dict(mean_learned=float(np.mean(learned)), mean_all=float(np.mean(succ_all)), changed=[])
+    print("\n--- Maze verdicts with all three control networks in the reference (not drawn) ---")
+    print(f"  control success {[round(s, 3) for s in succ_all]}, active {active_all}; mean over the learned "
+          f"{out['mean_learned']:.3f}, over all {out['mean_all']:.3f}")
+    for c in cells:
+        if c["task"] != "maze" or not c["active"]:
+            continue
+        now = rule(c["active"], c["perf"], c["ctrl_active"], c["ctrl_perf"], tol["maze"])
+        alt = rule(c["active"], c["perf"], active_all, succ_all, tol["maze"])
+        if now["works"] != alt["works"]:
+            out["changed"].append((c["tech"], c["label"]))
+        print(f"  {TECH_NAME[c['tech']]:>20} {c['label']:>9}: learned reference {now['dperf']:+.3f} "
+              f"{'works' if now['works'] else 'fails'}; all three {alt['dperf']:+.3f} {'works' if alt['works'] else 'fails'}")
+    print(f"  verdicts that change: {out['changed']}")
+    return out
+
+
 def verdicts(cells, tol):
     """The one rule applied to every cell, checked against the stored verdict where there is one.
 
@@ -399,7 +434,7 @@ def slot_layout(order, cells):
     return slots, columns, x - GAP_MM
 
 
-def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT):
+def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=False):
     """One group of open markers the paper's way: a marker at the mean, a bar over the range.
 
     Open markers of one group would overlap at any spacing that fits the slots of these figures,
@@ -410,7 +445,9 @@ def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT):
     Args:
         ax: axes whose x is in mm; x: the group's x; ys: the values (array-like); col: the
             colour; marker: the shape; label: str or None, written 1 mm right of the marker;
-            ms: marker size in pt (triangles are drawn TRI_SCALE larger).
+            ms: marker size in pt (triangles are drawn TRI_SCALE larger); label_above: bool, write
+            the label above the bar instead, for a slot whose crosses sit beside the marker
+            (review of PR #193, item 11: check_overlaps tests text against text only).
     Returns:
         None (nothing drawn for an empty group).
     """
@@ -422,7 +459,10 @@ def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT):
                 clip_on=False)
     size = ms * (F5.TRI_SCALE if marker in TRIANGLES else 1.0)
     ax.plot([x], [ys.mean()], marker, ms=size, ls="none", zorder=5, clip_on=False, **ps.mark_fixed(col))
-    if label:
+    if label and label_above:
+        ax.annotate(label, xy=(x, ys.max()), xytext=(0, 2.5), textcoords="offset points", fontsize=ps.TICK_PT,
+                    color=ps.INK, ha="center", va="bottom", zorder=6, annotation_clip=False)
+    elif label:
         ax.text(x + 1.0, ys.mean(), label, fontsize=ps.TICK_PT, color=ps.INK, ha="left", va="center", zorder=6)
 
 
@@ -447,8 +487,8 @@ def draw_marks(ax, x, c, key, zero=None):
     n_group = len(vals)
     # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
     label = str(n_group) if n_group >= 1 and n_group != N_SEEDS else None
-    draw_group(ax, x, vals, col, marker, label)
     crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None else [])
+    draw_group(ax, x, vals, col, marker, label, label_above=bool(crosses))
     for xi, v in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
         ax.plot([xi], [v], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
 
@@ -514,8 +554,9 @@ def panel_ab(fig, slots, columns, width, tol):
     ax_b1.set_ylabel("held-out $R^2$\nminus control")
     ax_b2.axhline(0.0, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
     ax_b2.axhline(-tol["maze"], lw=ps.THIN_LW, ls=(0, (4, 3)), color=ps.INK, zorder=2)
-    ax_b2.text(width - 0.3, -tol["maze"] - 0.012, f"tolerance {tol['maze']}", fontsize=ps.TICK_PT,
-               color=ps.INK, ha="right", va="top")
+    # at the left, under the first column: at the right it met the number above the slow-tilt bar
+    ax_b2.text(0.3, -tol["maze"] - 0.012, f"tolerance {tol['maze']}", fontsize=ps.TICK_PT,
+               color=ps.INK, ha="left", va="top")
     ax_b2.set_ylim(*SUCC_LIM)
     ax_b2.set_yticks([-0.4, -0.2, 0])
     ax_b2.set_yticklabels(["−0.4", "−0.2", "0"])
@@ -791,6 +832,7 @@ def main():
     _, rows_c = panel_sizes(fig)
     _, rows_d = panel_removal(fig, maze_ref)
     report(cells, vs, order, table, floor, rows_c, rows_d, tol)
+    third_control_sensitivity(cells, tol)
     check_overlaps(fig)
     ps.save(fig, "fig_paper_F5_tasks")
 

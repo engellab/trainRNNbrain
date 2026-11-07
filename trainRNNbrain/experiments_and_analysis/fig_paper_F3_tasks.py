@@ -102,7 +102,7 @@ COLUMNS = [
     ("rws", "sparsity\npenalty", [("0.05", "0.05")]),
     ("met", "metabolic\npenalty", [("0.01", "0.01"), ("0.1", "0.1"), ("1", "1"), ("10", "10")]),
     ("rwm", "recurrent-\nweight penalty", [("0.05", "0.05"), ("0.2", "0.2")]),
-    ("opt", "optimiser\n(default Adam)", [("adamw", "AdamW"), ("sgd0.03", "SGD 0.03"), ("sgd0.1", "SGD 0.1"),
+    ("opt", "optimizer\n(default Adam)", [("adamw", "AdamW"), ("sgd0.03", "SGD 0.03"), ("sgd0.1", "SGD 0.1"),
                                           ("sgd0.3", "SGD 0.3"), ("sgd1", "SGD 1")]),
     ("act", "activation\n(default ReLU)", [("leaky", "leaky ReLU"), ("softplus", "softplus"),
                                            ("sigmoid", "sigmoid"), ("tanh", "tanh")]),
@@ -431,11 +431,13 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim, note=False):
     n_group = int(ok.sum())
     # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
     label = str(n_group) if c["status"] == "finished" and n_group >= 1 and n_group != N_SEEDS else None
-    draw_group(ax_n, x, active[ok], col, "o", label)
-    draw_group(ax_p, x, perf[ok], col, "o", label)
-    what = [f"{a:.0f} {p:.3f}" for a, p in zip(active[ok], perf[ok])]
     # the runs that did not learn, and the stopped ones, are crosses set apart along x
     crosses = [(a, p) for a, p, o in zip(active, perf, ok) if not o] + [(0.0, None)] * c["n_stopped"]
+    # with crosses beside the marker the number goes above its bar, in the count row only: above the
+    # performance row's marker it would meet the count axis (review of PR #193, item 11)
+    draw_group(ax_n, x, active[ok], col, "o", label, label_above=bool(crosses))
+    draw_group(ax_p, x, perf[ok], col, "o", None if crosses else label)
+    what = [f"{a:.0f} {p:.3f}" for a, p in zip(active[ok], perf[ok])]
     for xi, (a, p) in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
         ax_n.plot([xi], [a], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
         if p is not None:
@@ -445,10 +447,11 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim, note=False):
     if c["n_stopped"]:
         what.append(f"{c['n_stopped']} stopped")
     if c["status"] == "not run":
-        # a short dash in the count row marks a value the programme did not run on this task; the
-        # words "not run" are written once per block, in the performance row of the block's first
-        # such slot (dead-relu-paper#190, Reviewer W, figures item 2)
-        ax_n.plot([x - DASH_MM / 2, x + DASH_MM / 2], [0.5, 0.5], transform=ax_n.get_xaxis_transform(),
+        # a short dash just above the count row's axis line marks a value the programme did not run
+        # on this task (at mid-height it read as a value, review of PR #193); the words "not run"
+        # are written once per block, in the performance row of the block's first such slot
+        # (dead-relu-paper#190, Reviewer W, figures item 2)
+        ax_n.plot([x - DASH_MM / 2, x + DASH_MM / 2], [0.03, 0.03], transform=ax_n.get_xaxis_transform(),
                   color=ps.MUTED, lw=ps.DATA_LW, solid_capstyle="butt", clip_on=False, zorder=2)
         if note:
             ax_p.text(x, 0.5, "not run", rotation=90, transform=ax_p.get_xaxis_transform(), fontsize=ps.TICK_PT,
