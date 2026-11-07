@@ -159,14 +159,14 @@ F2_CONTROL_RUNG = {"slide_k_weightdecay": 1, "slide_k_inputscale_cddm": 0, "revi
 N_SEEDS = 3
 
 # layout, mm from the canvas' top-left
-FIG_H_MM = 133.5
+FIG_H_MM = 122.0                  # 133.5 -> 122 (round 17): the float with its longer caption fits the page
 LEFT_MM = 15.5
 PITCH_MM = 3.6                    # one value's slot
 GAP_MM = 2.0                      # between two settings
 SEED_DX_MM = 0.8                  # a cell's crosses sit this far apart
 DASH_MM = 1.6                     # the dash of a value not run on a task
-BLOCK_TOP_MM = (15.0, 51.5, 88.0)
-COUNT_H_MM, PERF_H_MM, ROW_GAP_MM = 18.0, 9.5, 3.0
+BLOCK_TOP_MM = (15.0, 48.0, 81.0)
+COUNT_H_MM, PERF_H_MM, ROW_GAP_MM = 15.0, 9.5, 2.5   # the performance row keeps 9.5 mm: its y label clears the tick labels
 TITLE_ROWS_MM = (2.0, 7.5)        # the column titles' baselines above the first block, staggered
 TITLE_RULE_MM = 0.9               # a thin rule this far under each title, spanning the title's slots
 

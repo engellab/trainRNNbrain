@@ -84,20 +84,20 @@ BLOCKS = [
 LEFT_MM = 14.0                    # the rows' y labels (two lines) fit left of it
 PITCH_MM = 8.5                    # one value's column
 GAP_MM = 3.5                      # between two settings
-TOP_MM = (13.0, 62.0)             # the top of each block's count axes
-COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 19.0, 13.0, 2.0
-FIG_H_MM = 209.0                  # the settings blocks (to 103 mm) over the technique panels
+TOP_MM = (12.0, 58.0)             # the top of each block's count axes
+COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 17.0, 12.0, 2.0
+FIG_H_MM = 199.0                  # the settings blocks (to 96 mm) over the technique panels; the float fits a page
 SEED_DX_MM = 0.9                  # the three seeds' markers sit this far apart
 # the technique panels e-h: fig_ed_maze_interventions.LAYOUT_MM moved under the settings blocks
 # (left, top, width, height), the same widths, the heights a little smaller
 TECH_MM = {
-    "key":   (0.0, 107.0, 165.1, 14.5),   # three rows of arms (four per row) and the marker row
-    "e":     (12.5, 126.0, 66.0, 28.0),
-    "f":     (97.0, 126.0, 63.0, 28.0),
-    "g_top": (15.5, 165.0, 90.0, 17.0),   # the two rows' two-line y labels must not touch
-    "g_bot": (15.5, 184.5, 90.0, 15.0),
-    "h_key": (109.5, 160.5, 52.0, 7.0),   # clears panel f's x label
-    "h":     (111.5, 168.0, 48.5, 31.5),
+    "key":   (0.0, 100.0, 165.1, 14.5),   # three rows of arms (four per row) and the marker row
+    "e":     (12.5, 119.0, 66.0, 27.0),
+    "f":     (97.0, 119.0, 63.0, 27.0),
+    "g_top": (15.5, 157.0, 90.0, 16.0),   # the two rows' two-line y labels must not touch
+    "g_bot": (15.5, 175.5, 90.0, 14.0),
+    "h_key": (109.5, 153.5, 52.0, 7.0),   # clears panel f's x label
+    "h":     (111.5, 161.0, 48.5, 29.5),
 }
 
 
