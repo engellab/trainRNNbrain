@@ -256,7 +256,16 @@ three. The floor reads stay in the Extended Data table. Maze package 3 (entry 20
 maze-package3-readout-and-n4000): the cap 0.3, the recurrent-weight penalty, the metabolic penalty
 at 0.01 and 0.1 and AdamW change nothing; the metabolic penalty at 1 and 10 lowers the count; SGD
 at 0.03 to 1 never learns the maze (success 0.00-0.02), so the maze cannot test 3BFF's SGD pattern;
-redraw and zero-out fail the rule (1.06x and 0.99x). **Cross-task figures (entry 2026-11-06_0934;
+redraw and zero-out fail the rule (1.06x and 0.99x). Della batch 2 (entry 2026-11-06_1830;
+every supervised cell of the programme complete, 86 of 86): CDDM rate 0.1 + sparsity 0.05 works
+(1,000 of 1,000 active, R^2 0.826); 3BFF at 75k: lambda_rwm 0.05 and 0.2 raise the count (516-567
+against 233-270, R^2 0.006 below) as on CDDM; the metabolic penalty 0.01-1 raises it on 3BFF, 10
+lowers it (188-206, R^2 0.048 below); the cap 0.3 raises it at R^2 0.046 below (CDDM 0.004 below);
+activity noise, spectral radius, sparsity alone and the activations change nothing on 3BFF by the
+per-seed rule; tanh has every unit above the participation bar with 41-536 saturated. Of 19
+setting values with cells on both supervised tasks, 8 move the count the same way (weight decay
+1e-5 and 1e-4, spectral radius 2.0, lambda_rwm 0.05 and 0.2, metabolic 0.1 and 1, cap 0.3) and
+11 do not; weight decay 1e-5 and 1e-4 lower the count on all three tasks. **Cross-task figures (entry 2026-11-06_0934;
 `fig_paper_F5_tasks.py`, `fig_paper_F3_tasks.py`): at the same-size read-out point, 75,000 iterations,
 and by the one rule, read-out dropout (R² 0.017 below the control's mean) and rescaling (0.013 below)
 FAIL on 3BFF; the "works" of the previous sentence is the floor read of 1 of 3 and 1 of 4 runs. By the
