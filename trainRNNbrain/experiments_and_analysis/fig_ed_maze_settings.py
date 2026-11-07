@@ -8,7 +8,12 @@ of Figure 3's ladders was run on the maze (slurm/rl_maze_interventions_spock.slu
 docs/interventions_matrix.md). This is the maze counterpart of Figure 3a: one column per setting,
 its values along the column, the controls beside them.
 
-PANELS (165.1 x FIG_H_MM mm, bold letters). Two blocks, each of two rows that share their columns:
+PANELS (165.1 x FIG_H_MM mm, bold letters). The settings (a-d): two blocks, each of two rows that
+share their columns. Under them, since round 17, the training techniques (e-h): the panels of
+fig_ed_maze_interventions (its panel_key, panel_traces, panel_end, panel_fold and panel_ablation,
+drawn here into TECH_MM; that module's own figure is no longer in the paper), so the paper holds
+at most ten Extended Data figures (dead-relu-paper#190, Reviewer S, structure item 7). The
+settings rows:
   (a, c) active units at the end of training (update 2,000), one OPEN marker per run (paperstyle,
       dead-relu-paper#83: an open marker is a fixed iteration) and a bar at the value's mean over
       its finished runs; a run that did not learn (common.maze_learned_index) is a cross in the
@@ -34,14 +39,16 @@ side) are read_maze_arms.py's; this figure draws the numbers behind them.
 DATA. --root (default data/trained_RNNs_rl_maze/Maze_interventions), --control-root (default
 data/trained_RNNs_rl_maze/Maze_suite), as fig_ed_maze_interventions.py.
 
-OUTPUT. img/internal_figures/fig_ed_maze_settings.{pdf,svg} (paperstyle.save, vector only) and,
-on stdout, one line per column (the value, its runs' counts and success rates, what is drawn) and
-the text-overlap check (fig_ed_maze.check_overlaps).
+OUTPUT. img/internal_figures/fig_ed_maze_settings_techniques.{pdf,svg} (paperstyle.save, vector
+only) and, on stdout, one line per settings column (the value, its runs' counts and success rates,
+what is drawn), fig_ed_maze_interventions' printout of every technique run and arm, the ablation
+numbers of panel h, and the text-overlap check (fig_ed_maze.check_overlaps).
 
 Run:  python trainRNNbrain/experiments_and_analysis/fig_ed_maze_settings.py [--root DIR]
-      [--control-root DIR]
+      [--control-root DIR] [--ablation DIR] [--control-ablation DIR]
 """
 import argparse
+import os
 
 import numpy as np
 import matplotlib
@@ -49,8 +56,11 @@ matplotlib.use("Agg")
 
 import paperstyle as ps
 from common import MAZE_LEARNED_SUCCESS
-from fig_ed_maze import ax_mm, check_overlaps
-from fig_ed_maze_interventions import CONTROL_ROOT, N, ROOT, SEEDS, control_reference, load_records
+from fig_ed_maze import ax_mm, check_overlaps, load_ablation
+from fig_ed_maze_interventions import (ABLATION_DIR, ARMS, CONTROL_ABLATION_DIR, CONTROL_ROOT, N, ROOT, SEEDS,
+                                       arm_summaries, close_markers, control_reference, load_records,
+                                       match_ablations, panel_ablation, panel_end, panel_fold, panel_key,
+                                       panel_traces, print_arms, print_runs)
 
 # The two blocks: (column title, [(arm key, value label), ...]) per setting, in drawing order. The
 # keys are fig_ed_maze_interventions.arm_of's; the labels are the values as Figure 3 prints them.
@@ -74,10 +84,21 @@ BLOCKS = [
 LEFT_MM = 14.0                    # the rows' y labels (two lines) fit left of it
 PITCH_MM = 8.5                    # one value's column
 GAP_MM = 3.5                      # between two settings
-TOP_MM = (14.0, 79.0)             # the top of each block's count axes
-COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 25.0, 18.0, 2.0
-FIG_H_MM = 133.0
+TOP_MM = (13.0, 62.0)             # the top of each block's count axes
+COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 19.0, 13.0, 2.0
+FIG_H_MM = 209.0                  # the settings blocks (to 103 mm) over the technique panels
 SEED_DX_MM = 0.9                  # the three seeds' markers sit this far apart
+# the technique panels e-h: fig_ed_maze_interventions.LAYOUT_MM moved under the settings blocks
+# (left, top, width, height), the same widths, the heights a little smaller
+TECH_MM = {
+    "key":   (0.0, 107.0, 165.1, 14.5),   # three rows of arms (four per row) and the marker row
+    "e":     (12.5, 126.0, 66.0, 28.0),
+    "f":     (97.0, 126.0, 63.0, 28.0),
+    "g_top": (15.5, 165.0, 90.0, 17.0),   # the two rows' two-line y labels must not touch
+    "g_bot": (15.5, 184.5, 90.0, 15.0),
+    "h_key": (109.5, 160.5, 52.0, 7.0),   # clears panel f's x label
+    "h":     (111.5, 168.0, 48.5, 31.5),
+}
 
 
 def slot_positions(groups):
@@ -237,11 +258,61 @@ def draw_block(fig, top, groups, records, no_files, ref, letters):
     return out
 
 
+def panel_techniques(fig, records, stopped_folders, ref, ablation_dir, control_ablation_dir):
+    """Panels e-h: the training techniques on the maze, fig_ed_maze_interventions' panels in TECH_MM.
+
+    Args:
+        fig: the figure; records, stopped_folders: load_records output; ref: control_reference;
+        ablation_dir, control_ablation_dir: folders of rl_maze_ablate.py JSONs for the technique
+            networks and for the uniform series (panel h).
+    Returns:
+        list of (record, x, y) markers of panel f, for the proximity check.
+    """
+    summ = arm_summaries(records, stopped_folders, ref)
+    print_runs(records, stopped_folders, ref)
+    print_arms(summ)
+    tech = match_ablations(load_ablation(ablation_dir) if os.path.isdir(ablation_dir) else [], records)
+    tech = [(a, r) for a, r in tech if r["key"] != "control"]
+    ctrls = [(a, r) for a, r in match_ablations(load_ablation(control_ablation_dir)
+                                                if os.path.isdir(control_ablation_dir) else [], records)
+             if r["key"] == "control" and r["pt"]["learned_i"] is not None]
+    ctrl = min(ctrls, key=lambda ar: ar[1]["seed"]) if ctrls else None
+    print(f"{len(tech)} technique ablation(s) under {ablation_dir}; control drawn: "
+          + (f"s{ctrl[1]['seed']}" if ctrl else "none"))
+    ax_key, ax_e, ax_f, ax_gt, ax_gb, ax_hk, ax_h = (ax_mm(fig, *TECH_MM[k]) for k in
+                                                    ("key", "e", "f", "g_top", "g_bot", "h_key", "h"))
+    keys = [k for k in ARMS if any(r["key"] == k and r["drawn"] for r in records)]
+    panel_key(ax_key, keys)
+    x_max = int(max((r["probes"]["update"][-1] for r in records if r["drawn"]), default=2000))
+    x_max = int(np.ceil(x_max / 500.0) * 500)
+    n_e = panel_traces(ax_e, records, x_max)
+    pts = panel_end(ax_f, records, ref)
+    panel_fold(ax_gt, ax_gb, summ, ref)
+    rows = panel_ablation(ax_h, ax_hk, tech, ctrl, ref)
+    for ax, letter in ((ax_e, "e"), (ax_f, "f"), (ax_gt, "g"), (ax_h, "h")):
+        ps.panel_letter(ax, letter)
+    print(f"\nPanel e: {n_e} runs drawn; panel f: {len(pts)} markers")
+    print("Panel h:", "no technique network ablated" if not tech else "")
+    for w in rows:
+        line = (f"  {w['key']} s{w['seed']}: {w['n_inactive']} of {N} inactive; success intact {w['full']:.2f}; "
+                f"with the inactive units removed: quietest first {w['quiet_at_inactive']:.2f}, random "
+                f"{w['random_at_inactive']:.2f}, busiest first {w['busy_at_inactive']:.2f}")
+        if "k_added" in w:
+            line += (f"; added units {w['k_added']:.0f} (count minus the controls' mean): quietest-first "
+                     f"success {w['quiet_at_added']:.2f} with {w['k_grid']} units removed (the nearest grid point)")
+        print(line)
+    close_markers(ax_f, pts)
+    return pts
+
+
 def main():
-    """Parse arguments, load the runs, draw both blocks, print every column, save the figure."""
+    """Parse arguments, load the runs, draw the settings blocks and the technique panels, print every number, save."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=ROOT, help="the arms: <arm>/s<seed>/ maze run folders")
     ap.add_argument("--control-root", default=CONTROL_ROOT, help="the uniform series' run folders")
+    ap.add_argument("--ablation", default=ABLATION_DIR, help="rl_maze_ablate.py JSONs of the technique networks")
+    ap.add_argument("--control-ablation", default=CONTROL_ABLATION_DIR,
+                    help="rl_maze_ablate.py JSONs of the uniform series")
     args = ap.parse_args()
     records, stopped_folders = load_records(args.root, args.control_root)
     ref = control_reference(records)
@@ -260,8 +331,9 @@ def main():
               f"({ref['active_min']}-{ref['active_max']}), success {ref['success']:.3f}")
     for key, what in rows:
         print(f"  {key:>10}: {what}")
+    panel_techniques(fig, records, stopped_folders, ref, args.ablation, args.control_ablation)
     check_overlaps(fig)
-    ps.save(fig, "fig_ed_maze_settings")
+    ps.save(fig, "fig_ed_maze_settings_techniques")
 
 
 if __name__ == "__main__":

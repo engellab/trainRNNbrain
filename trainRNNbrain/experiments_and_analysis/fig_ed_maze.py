@@ -93,7 +93,8 @@ EXPECTED = [(N, "relu", s) for N in SIZES for s in SEEDS] + \
 N_SHADE = {250: "#d29ebd", 500: "#bf74a1", 1000: "#a94681", 2000: ps.TASK_MAZE, 4000: "#681145"}
 
 N_BOOT = 2000                     # bootstrap resamples for the exponent's interval (panel c)
-BOOT_SEED = 20261104
+BOOT_SEED = 20261031              # fig_paper_F2_size.BOOT_SEED: one seed for every Maze fit, so both scripts
+                                  # print one interval (0.49-0.55 at the end of training; dead-relu-paper#190)
 X_OFF = 1.07                      # panel c: "learned" at N / X_OFF, "end" at N * X_OFF (log axis);
                                   # a not-learned cross at N * X_OFF**3, one marker right of the
                                   # open markers (at N * X_OFF two of four crosses hid under one)

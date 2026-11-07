@@ -49,9 +49,10 @@ updates; MAZE_RETRAIN_DIR, maze_retrain) fills its retrain strip in (d), and its
 (rl_maze_population_stats.py, the partial-R^2 rule of population_stats.py against the turn and
 speed commands, the distance to the cheese and the heading; data/population_stats_maze.json,
 load_population_stats_all) fills its column in (e). Both are read at the end of training, a fixed
-budget, so the maze's markers in the (d) strip and in (e) are OPEN (mark_fixed), where the
-supervised networks' are filled (their floor-crossing snapshots; #83). Either reads "no data" until
-its file exists.
+budget, so the maze's markers in (e) are OPEN (mark_fixed), where the supervised networks' are
+filled (their floor-crossing snapshots; #83). In the (d) strip every task's markers are open: the
+retrained networks are read at the end of a fixed further-training budget (dead-relu-paper#190,
+Reviewer S, figures item 1). Either reads "no data" until its file exists.
 
 ROUND 13 (dead-relu-paper#165). The 24 trials of (a) and (b) are drawn from a seeded task: the
 flip-flop task draws its trials from its own generator, seeded from cfg.task.seed (null in every
@@ -1493,7 +1494,7 @@ D_BAR_Y = (1.055, 1.09)        # inactive-units bar, in R^2 units, above every c
 D_TITLE_PAD_PT = 6.0           # task title above the axes
 D_SPINE_OUT_PT = 4.0           # left spine offset: 1.4 mm between the spine and the busiest-first drop
 D_STAR_MS, D_TRI_MS = 5.5, 3.8 # retrained marks: star (inactive removed), triangle (random removed)
-D_STRIP_JITTER = 0.06          # half-spread of the networks within one column of the retrain strip
+D_STRIP_BAR_LW = 0.5           # the thin bar over a retraining's range of networks in the strip
 D_STRIP_XLIM = (-0.42, 1.42)   # strip x range: columns at 0 and 1, 3.5 mm apart on a 6.5 mm strip,
                                # which leaves 1 mm of white between the star and triangle columns (#85)
 
@@ -1598,10 +1599,13 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
     (dead-relu-paper#85 item 1). The inactive units (mean share of the networks) are a solid INACTIVE
     bar along the top of the axes, not a band behind the curves, so the grey never mixes with the
     random-order band (#85 item 3). The retrained networks are drawn in a strip to the right of each
-    sub-panel, sharing its y axis: a star per network for every inactive unit removed and the rest
-    retrained for 3,000 iterations, a triangle for as many units removed at random and retrained the
-    same way (#85 item 2). Every marker is filled: the weights are the floor-crossing snapshots, and
-    fill means the floor crossing in every figure (#83); stars and triangles differ by shape only.
+    sub-panel, sharing its y axis: a star at the networks' mean, with a thin bar over their range,
+    for every inactive unit removed and the rest retrained for 3,000 iterations, a triangle for as
+    many units removed at random and retrained the same way (#85 item 2; one marker per retraining
+    since round 17, the networks' values lying within 0.03 of each other). Every strip marker is open: the retrained networks are read at the end
+    of a fixed further-training budget (3,000 iterations on 3BFF and CDDM, 200 updates on the
+    maze), and an open marker means a fixed budget in every figure (#83; dead-relu-paper#190,
+    Reviewer S, figures item 1); stars and triangles differ by shape only.
     Scores below 0 are drawn at 0. The y axis is shared; the first sub-panel carries its score's
     label (SCORE), and a sub-panel scored by a different quantity than the one before it keeps its
     tick labels and carries its own (the maze's "success rate", #182). A task with no retrained
@@ -1650,8 +1654,11 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
         ax.plot(x, busy.mean(0), ":", lw=1.1, color=col, zorder=4)
         ax.spines["left"].set_position(("outward", D_SPINE_OUT_PT))
         # fill means the floor crossing (#83): a task read at the end of a fixed budget (the maze,
-        # read-out "end") gets open markers
+        # read-out "end") gets open markers inside the panel. In the strip, every task's retrained
+        # networks are read at the end of a fixed further-training budget, so their markers are
+        # always open (dead-relu-paper#190, Reviewer S, figures item 1).
         mark = ps.mark_fixed(col) if readout == "end" else ps.mark_floor(col)
+        strip_mark = ps.mark_fixed(col)
         if ax_s is None:
             for t in ret:
                 xs = 100 * t["n_silent"] / t["N"]
@@ -1661,14 +1668,19 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
                     ax.plot(xs, t["random_removed"][-1][1], "^", ms=D_TRI_MS, **mark,
                             zorder=6, clip_on=False)
         else:
-            # one column per retraining, the networks spread a little within it
-            dx = np.linspace(-D_STRIP_JITTER, D_STRIP_JITTER, len(ret)) if len(ret) > 1 else [0.0]
-            for j, t in zip(dx, ret):
-                ax_s.plot(j, max(t["silent_removed"][-1][1], 0), "*", ms=D_STAR_MS,
-                          **mark, zorder=7, clip_on=False)
-                if t.get("random_removed"):
-                    ax_s.plot(1 + j, max(t["random_removed"][-1][1], 0), "^", ms=D_TRI_MS,
-                              **mark, zorder=6, clip_on=False)
+            # one column per retraining: one open marker at the mean over the networks with a thin
+            # bar over their range, the paper's convention for open markers that would overlap
+            # (dead-relu-paper#104, tests/scan_open_markers.py; the networks' values lie within
+            # 0.03 of each other, so jittered markers printed on top of one another)
+            for xk, key, marker, ms, z in ((0, "silent_removed", "*", D_STAR_MS, 7),
+                                           (1, "random_removed", "^", D_TRI_MS, 6)):
+                ys = np.array([max(t[key][-1][1], 0) for t in ret if t.get(key)])
+                if not len(ys):
+                    continue
+                if np.ptp(ys) > 0:
+                    ax_s.plot([xk, xk], [ys.min(), ys.max()], color=col, lw=D_STRIP_BAR_LW, zorder=5,
+                              solid_capstyle="butt", clip_on=False)
+                ax_s.plot([xk], [ys.mean()], marker, ms=ms, **strip_mark, zorder=z, clip_on=False)
             ax_s.set(xlim=D_STRIP_XLIM, ylim=D_YLIM)
             ax_s.set_title("trained\nfurther", fontsize=ps.TICK_PT, color=ps.MUTED, pad=D_TITLE_PAD_PT)
             ax_s.set_xticks([])
@@ -1709,9 +1721,9 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
             Line2D([], [], color=ps.MUTED, lw=0.9, ls="--", label="random order"),
             Line2D([], [], color=ps.MUTED, lw=1.1, ls=":", label="decreasing participation"),
             Patch(color=SILENT_GREY, lw=0, label="inactive units"),
-            Line2D([], [], marker="*", ls="", ms=D_STAR_MS, **ps.mark_floor(ps.MUTED),
+            Line2D([], [], marker="*", ls="", ms=D_STAR_MS, **ps.mark_fixed(ps.MUTED),
                    label="inactive units removed,\nthen trained further"),
-            Line2D([], [], marker="^", ls="", ms=D_TRI_MS, **ps.mark_floor(ps.MUTED),
+            Line2D([], [], marker="^", ls="", ms=D_TRI_MS, **ps.mark_fixed(ps.MUTED),
                    label="as many removed at random,\nthen trained further")],
             loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=3, fontsize=ps.TICK_PT,
             handlelength=2.0, columnspacing=1.2, borderaxespad=0.0, borderpad=0.0, frameon=False)

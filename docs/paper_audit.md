@@ -217,7 +217,7 @@ of the size means N^0.55 (bootstrap 95% 0.48-0.61). N = 2,000 seed 3 learned at 
 seed 1 (a 1,000 + 3,000 chain after a stop at update 1,050) learned at 2,860, 619 -> 676 active,
 success 0.96; seed 2 ended its 4,000 updates at 0.84 (516 active), not learned; seed 3 (continued
 from its update-1,700 checkpoint) runs to 4,000; seeds 4 and 5 submitted (Della 17012367). Fit over
-N = 250 to 4,000, learned runs: N^0.52 (bootstrap 0.48-0.55); size means 146 (n = 3), 261 (3), 438
+N = 250 to 4,000, learned runs: N^0.52 (bootstrap 0.49-0.55 with the one seed both scripts use since round 17, entry 2026-11-06_2135; 0.48-0.55 with fig_ed_maze's old seed); size means 146 (n = 3), 261 (3), 438
 (2), 431 (3), 676 (1). N = 250 seed 2 and N = 1,000 seed 3 are not learned and enter no statistic.
 
 **C6 across the three tasks (5 Nov; Pavel's instruction, trainRNNbrain issue #6, dead-relu-paper#183:

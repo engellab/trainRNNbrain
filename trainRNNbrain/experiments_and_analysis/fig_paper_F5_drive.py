@@ -26,11 +26,13 @@ and the combination test is inconclusive (dead-relu-paper#17). Drawn at its prin
        networks' mean; its k least participating active units) against removing k random active
        units; N = 1,000 filled, 4,000 open. Right: median R^2 after removing a random 10, 30 or 50%
        of all units, N = 1,000.
-  Round 7 (dead-relu-paper#127): the combination test, panel (f) until then, is its own Extended
-  Data figure, `fig_ed_combination` (ed_combination below): N = 1,000, rate penalty (lambda 0.03),
-  noisy synapses (sigma_w 1) and rescaling, each present or absent, three networks per
-  combination; active units, R^2 and participation ratio at the floor crossing (filled) and at
-  75,000 iterations (open). In Figure 5, (e) moved under (c) and (d) spans the height of both.
+  Round 7 (dead-relu-paper#127): the combination test, panel (f) until then, left Figure 5: N =
+  1,000, rate penalty (lambda 0.03), noisy synapses (sigma_w 1) and rescaling, each present or
+  absent, three networks per combination; active units, R^2 and participation ratio at the floor
+  crossing (filled) and at 75,000 iterations (open). It was its own Extended Data figure
+  (fig_ed_combination) until round 17 and is now panels c-e of the Extended Data figure
+  `fig_ed_techniques_3bff` (ed_techniques_3bff below; dead-relu-paper#190, Reviewer S, structure
+  item 7). In Figure 5, (e) moved under (c) and (d) spans the height of both.
 
 DATA. Read outputs copied from Della into data/remedy_reads_31oct/ (gitignored):
   remedies_catalogue.json  ~/rm_read/     (read_remedies.py 2d32b3b, Della array 16553347 + 16555725)
@@ -54,7 +56,7 @@ iterations either side of it (A_OFFSET), and in panel e two pairs of different r
 at their values get half-white faces (see_through). Open triangles are drawn 1.25 times larger (a circle's area). Check: tests/scan_open_markers.py.
 
 Usage:  python fig_paper_F5_drive.py
-Output: img/internal_figures/fig_paper_F5_drive.pdf and fig_ed_combination.pdf (+ .svg), and a
+Output: img/internal_figures/fig_paper_F5_drive.pdf and fig_ed_techniques_3bff.pdf (+ .svg), and a
         printout of every number the captions and Results 5 quote.
 """
 
@@ -79,8 +81,7 @@ READS = os.path.join(DATA_DIR, "..", "remedy_reads_31oct")
 B2_DIR = os.path.join(DATA_DIR, "NBitFlipFlop_remedy_grid")
 SIZES = (500, 1000, 2000, 4000)
 FIG_H_MM = 133.0                 # round 7: 141 -> 133 mm, so a 320-word caption fits on the page
-EDC_H_MM = 62.0                  # the combination-test Extended Data figure
-EDT_H_MM = 96.0                  # the Extended Data figure of the 3BFF techniques over training (a, d, e of this figure)
+EDT_H_MM = 105.0                 # the Extended Data figure of the 3BFF techniques at N = 1,000: a and e of this figure over the combination test
 
 # The per-unit rules in the main figure, in key order. Rate + sparsity appears only in the Extended
 # Data and Supplementary Table 2.
@@ -909,7 +910,7 @@ def panel_removal(axs, a3, marks):
 
 
 def panel_combination(ax_m, axs, b3, marks):
-    """The combination test (Figure 5f until round 7; now the Extended Data figure ed_combination), N = 1,000, per network, at the floor crossing and at 75,000.
+    """The combination test (Figure 5f until round 7; panels c-e of ed_techniques_3bff since round 17), N = 1,000, per network, at the floor crossing and at 75,000.
 
     Args:
         ax_m: axes for the row labels (which rules each combination has, in words); axs: three
@@ -1050,61 +1051,33 @@ def build():
     for ax, letter in ((ax_a, "a"), (ax_b, "b"), (ax_cm, "c"), (ax_dl, "d"), (ax_e1, "e")):
         ps.panel_letter(ax, letter, x_mm=10.5)
 
-    rows_f = ed_combination(b3, marks)
+    rows_f = ed_techniques_3bff(series, traces, a3, b3, marks)     # (rows, path), as report expects
     report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3)
-    out = ps.save(fig, "fig_paper_F5_drive")
-    ed_techniques_3bff(series, traces, b2, a3, marks)
-    return out
+    return ps.save(fig, "fig_paper_F5_drive")
 
 
-def ed_combination(b3, marks):
-    """Draw the Extended Data figure of the combination test (Figure 5f until round 7) and save it.
-
-    A row of marker meanings on top; below it the row labels (which rules each combination has) and
-    three columns sharing the rows, lettered a-c: active units, held-out R^2 and dimensionality, each network at
-    its floor crossing (filled) and at 75,000 iterations (open).
-
-    Args:
-        b3: load_b3(); marks: load_marks().
-    Returns:
-        (rows panel_combination drew, for the printout; the PDF path written).
-    """
-    fig = ps.figure(h_mm=EDC_H_MM)
-
-    def y(mm):
-        """Figure fraction of a height given in mm from the figure's top edge."""
-        return 1.0 - mm / EDC_H_MM
-
-    ax_key = fig.add_axes([0.0, y(6.5), 1.0, y(0.8) - y(6.5)])
-    ps.blank(ax_key)
-    marker_key(ax_key, "center")
-    g = fig.add_gridspec(1, 4, left=0.02, right=0.985, top=y(12), bottom=y(52), wspace=0.12,
-                         width_ratios=[0.42, 1, 1, 1])
-    ax_m = fig.add_subplot(g[0])
-    axs = [fig.add_subplot(g[i]) for i in (1, 2, 3)]
-    rows = panel_combination(ax_m, axs, b3, marks)
-    for ax, letter in zip(axs, "abc"):              # a active units, b held-out R^2, c dimensionality
-        ps.panel_letter(ax, letter, x_mm=3.0)
-    return rows, ps.save(fig, "fig_ed_combination")
-
-
-def ed_techniques_3bff(series, traces, b2, a3, marks):
-    """Draw the Extended Data figure of the 3BFF techniques over training and save it.
+def ed_techniques_3bff(series, traces, a3, b3, marks):
+    """Draw the Extended Data figure of the 3BFF techniques at N = 1,000 and save it.
 
     Since the cross-task rebuild (fig_paper_F5_tasks.py, dead-relu-paper#183) the manuscript's
-    Figure 5 holds the three tasks at N = 1,000, and this figure keeps the three panels of the 3BFF
+    Figure 5 holds the three tasks at N = 1,000, and this figure keeps two panels of the 3BFF
     Figure 5 that it dropped: (a) the number of active units over training at N = 1,000 under each
-    technique (this file's panel_traces), (b) the rate penalty alone at N = 1,000, noisy loss and
-    active units over training (panel_rate_alone), (c) R^2 after removing each network's k added
-    units against k random active units at N = 1,000 and 4,000 (panel_removal). The key row on top
-    is Figure 5's (panel_key). Nothing is recomputed: the panels draw from the same loaders as
-    build(), so their numbers are those of the printout of build().
+    technique (this file's panel_traces) and (b) R^2 after removing each network's k added units
+    against k random active units at N = 1,000 and 4,000 (panel_removal). Below them, since round
+    17 (dead-relu-paper#190, Reviewer S, structure item 7: at most ten Extended Data figures), the
+    combination test that was its own figure (fig_ed_combination) until then: (c) active units,
+    (d) held-out R^2 and (e) dimensionality of every network at its floor crossing (filled) and at
+    75,000 iterations (open), one row per set of techniques (panel_combination). The rate penalty
+    alone at N = 1,000, panel (b) of this figure until round 17, is panel e of
+    fig_ed_remedies.ed_sizes. The key row on top is Figure 5's (panel_key). Nothing is recomputed:
+    the panels draw from the same loaders as build(), so their numbers are those of the printout
+    of build().
 
     Args:
-        series: size_series(); traces: load_traces(); b2: load_b2(1000); a3: load_a3();
+        series: size_series(); traces: load_traces(); a3: load_a3(); b3: load_b3();
         marks: load_marks().
     Returns:
-        the PDF path written by paperstyle.save.
+        (rows panel_combination drew, for the printout; the PDF path written by paperstyle.save).
     """
     fig = ps.figure(h_mm=EDT_H_MM)
 
@@ -1118,17 +1091,20 @@ def ed_techniques_3bff(series, traces, b2, a3, marks):
     panel_key(ax_key)
     ax_a = fig.add_axes([L, y(42), W - L, y(14) - y(42)])
     panel_traces(ax_a, series, traces)
-    gd = fig.add_gridspec(2, 1, left=M, right=R, top=y(14), bottom=y(84), hspace=0.08,
-                          height_ratios=[1, 1.45])
-    ax_dl, ax_da = fig.add_subplot(gd[0]), fig.add_subplot(gd[1])
-    panel_rate_alone(ax_dl, ax_da, b2, series["control"][1000]["active"])
-    ge = fig.add_gridspec(1, 2, left=L, right=W, top=y(58), bottom=y(84), wspace=0.16)
-    ax_e1 = fig.add_subplot(ge[0])
-    ax_e2 = fig.add_subplot(ge[1], sharey=ax_e1)
-    panel_removal([ax_e1, ax_e2], a3, marks)
-    for ax, letter in ((ax_a, "a"), (ax_dl, "b"), (ax_e1, "c")):
+    gb = fig.add_gridspec(1, 2, left=M, right=R, top=y(14), bottom=y(42), wspace=0.16)
+    ax_b1 = fig.add_subplot(gb[0])
+    ax_b2 = fig.add_subplot(gb[1], sharey=ax_b1)
+    panel_removal([ax_b1, ax_b2], a3, marks)
+    gc = fig.add_gridspec(1, 4, left=0.02, right=0.985, top=y(56), bottom=y(94), wspace=0.12,
+                          width_ratios=[0.42, 1, 1, 1])
+    ax_m = fig.add_subplot(gc[0])
+    axs = [fig.add_subplot(gc[i]) for i in (1, 2, 3)]
+    rows = panel_combination(ax_m, axs, b3, marks)
+    for ax, letter in ((ax_a, "a"), (ax_b1, "b")):
         ps.panel_letter(ax, letter, x_mm=10.5)
-    return ps.save(fig, "fig_ed_techniques_3bff")
+    for ax, letter in zip(axs, "cde"):              # c active units, d held-out R^2, e dimensionality
+        ps.panel_letter(ax, letter, x_mm=3.0)
+    return rows, ps.save(fig, "fig_ed_techniques_3bff")
 
 
 def report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3):

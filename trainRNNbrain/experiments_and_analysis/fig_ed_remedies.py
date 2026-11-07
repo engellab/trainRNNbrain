@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """
-Extended Data for Figure 5: the rate penalty alone on 3BFF (Extended Data Fig. 7, paper float
-ED8_rate_alone), the per-unit rules across sizes at three margins (Extended Data Fig. 8, float
-ED9_remedies_size), and the rows of Supplementary Table 2 (float EDT3_remedies, printed as LaTeX).
-Round 2 (dead-relu-paper#55): drawn at the printed width, 165.1 mm, in the house style.
+Extended Data for Figure 5: one figure of the training techniques across network sizes on 3BFF
+(paper float ED9_remedies_size; fig_ed_techniques_sizes: the fold change at three margins, a-c,
+over the rate penalty alone, d-g), and the rows of Supplementary Table 2 (float EDT3_remedies,
+printed as LaTeX). Until round 17 the two halves were two figures, fig_ed_remedies_size and
+fig_ed_rate_alone; they were merged for dead-relu-paper#190 (Reviewer S, structure item 7: at most
+ten Extended Data figures). Round 2 (dead-relu-paper#55): drawn at the printed width, 165.1 mm, in
+the house style.
 
-  ED Fig. 7   the rate penalty alone (lambda_frm 0.1) on 3BFF.
-              a-c, N = 500, 1,000, 2,000: the noisy training loss (per-250-iteration maximum and
+  d-g         the rate penalty alone (lambda_frm 0.1) on 3BFF.
+              d-f, N = 500, 1,000, 2,000: the noisy training loss (per-250-iteration maximum and
               median) and the active count at every participation probe, every network, with each
               network's own floor crossing (1.05x) where one exists (common.read_run).
-              d, held-out R^2 at the floor crossing against N, rate penalty and control networks,
+              g, held-out R^2 at the floor crossing against N, rate penalty and control networks,
               circles where measured on kept weights and crosses where estimated (every control
               value is estimated), with the test's fail threshold (the control networks' mean minus
               0.02). Every value is at the floor crossing, so the circles are filled
               (dead-relu-paper#83: fill marks the measurement point only).
-  ED Fig. 8   fold change against N for every size-series rule, at the crossings of 1.05x, 1.10x
+  a-c         fold change against N for every size-series rule, at the crossings of 1.05x, 1.10x
               and 1.20x each network's own fitted floor. A network with no crossing at 1.05x because
               its loss is still falling at 200,000 iterations ("never stays under the bar") is
               counted at a looser margin when it has a crossing there (rm_exclusion_diag.py output);
@@ -34,7 +37,7 @@ catalogue read (Della ~/rm_read/runs_*.json, copied to data/remedy_reads_31oct/r
 which hold each network's burst count.
 
 Usage:  python fig_ed_remedies.py
-Output: img/internal_figures/fig_ed_rate_alone.pdf, fig_ed_remedies_size.pdf (+ .svg), and the
+Output: img/internal_figures/fig_ed_techniques_sizes.pdf (+ .svg), and the
         LaTeX rows of Supplementary Table 2 on stdout.
 """
 
@@ -142,25 +145,48 @@ def margin_counts(cell, key, diag):
 
 
 # --------------------------------------------------------------------------------------------
-# Extended Data Fig. 7
+# The Extended Data figure of the techniques across sizes (until round 17: ED Fig. 7 and ED Fig. 8)
 # --------------------------------------------------------------------------------------------
 
-def ed_rate_alone(series):
-    """Draw Extended Data Fig. 7 (the rate penalty alone on 3BFF).
+SIZES_H_MM = 128.0       # the merged figure: the margins row (a-c) over the rate penalty alone (d-g)
+
+
+def y_frac(mm):
+    """Figure fraction of a height given in mm from the top edge of a SIZES_H_MM-tall figure.
 
     Args:
-        series: fig_paper_F5_drive.size_series(load_catalogue()).
+        mm: float, millimetres from the top edge.
     Returns:
-        the path of the PDF.
+        float, the matplotlib figure fraction.
     """
-    fig = ps.figure(h_mm=82)
+    return 1.0 - mm / SIZES_H_MM
+
+
+def panel_rate_alone(fig, series, top_mm, bottom_mm):
+    """Panels d-g of the sizes figure: the rate penalty alone on 3BFF (the previous fig_ed_rate_alone).
+
+    d-f, N = 500, 1,000, 2,000: the noisy loss (top) and the number of active units (bottom) over
+    training, every network, its floor crossing marked where it has one; g, held-out R^2 at the
+    floor crossing against N for the rate-penalty and control networks, circles measured and
+    crosses estimated, with the rate-penalty size test's fail threshold.
+
+    Args:
+        fig: the figure; series: fig_paper_F5_drive.size_series(load_catalogue()); top_mm,
+            bottom_mm: the band of the figure (mm from its top edge) the panels occupy; the loss
+            axes take the upper 36% of it and the active-units axes the part below 40%.
+    Returns:
+        None.
+    """
+    h = bottom_mm - top_mm
+    y_l1, y_l0 = y_frac(top_mm), y_frac(top_mm + 0.36 * h)
+    y_a1, y_a0 = y_frac(top_mm + 0.40 * h), y_frac(bottom_mm)
     shades = RATE_SHADES                 # the rate violet and two lighter steps (dead-relu-paper#84)
     lefts = (0.075, 0.315, 0.555)
     width, x_d = 0.155, 0.80             # d is wide enough for horizontal size labels (#88)
     first = []
     for j, N in enumerate((500, 1000, 2000)):
-        ax_l = fig.add_axes([lefts[j], 0.62, width, 0.27])
-        ax_a = fig.add_axes([lefts[j], 0.15, width, 0.44])
+        ax_l = fig.add_axes([lefts[j], y_l0, width, y_l1 - y_l0])
+        ax_a = fig.add_axes([lefts[j], y_a0, width, y_a1 - y_a0])
         first.append(ax_l)
         ctrl = series["control"][N]["active"]
         ax_a.axhspan(min(ctrl), max(ctrl), color=ps.BASELINE, alpha=0.35, lw=0, zorder=0)
@@ -176,7 +202,7 @@ def ed_rate_alone(series):
             ax_a.plot(ia, act, color=col, lw=0.4)
             if r["reason"] is None:
                 ax_a.plot([r["t_star"]], [N * 1.05], marker="v", ms=3.2, color=col, clip_on=False)
-            print(f"ED7 N={N} {r['name'][:28]}: {r['reason']}; bursts {len(r['bursts'])};"
+            print(f"rate alone (d-f) N={N} {r['name'][:28]}: {r['reason']}; bursts {len(r['bursts'])};"
                   f" t* {r['t_star']:.0f}; active at t* {r['active']}; end {r['active_end']}")
         ax_l.set_yscale("log")
         ax_l.set_ylim(0.03, 1e4)                 # headroom: the maxima are clipped at 1,000
@@ -200,7 +226,7 @@ def ed_rate_alone(series):
             ax_a.text(197000, min(ctrl) - 12, "control networks", fontsize=ps.TICK_PT,
                       color=ps.INK, ha="right", va="top")
 
-    ax = fig.add_axes([x_d, 0.15, 0.985 - x_d, 0.74])
+    ax = fig.add_axes([x_d, y_a0, 0.985 - x_d, y_l1 - y_a0])
     for N in SIZES:
         c = series["control"][N]
         cm = np.asarray(c["r2_measured"], bool)          # every control R^2 here is estimated
@@ -209,7 +235,7 @@ def ed_rate_alone(series):
                    **ps.mark_floor(ps.BASELINE, scatter=True))
         ax.scatter(np.full((~cm).sum(), N * 0.94), cr[~cm], s=10, marker="x", color=ps.BASELINE,
                    lw=0.7, zorder=3)
-        print(f"ED7d N={N}: control R2 measured {cm.tolist()}")
+        print(f"panel g N={N}: control R2 measured {cm.tolist()}")
         f = series["frm"].get(N)
         if f is not None and len(f["r2"]):
             meas = np.asarray(f["r2_measured"], bool)
@@ -218,7 +244,7 @@ def ed_rate_alone(series):
                        **ps.mark_floor(COL["frm"], scatter=True))
             ax.scatter(np.full((~meas).sum(), N * 1.06), r2[~meas], s=12, marker="x",
                        color=COL["frm"], lw=0.7, zorder=3)
-            print(f"ED7d N={N}: rate R2 {np.round(r2, 3).tolist()} measured {meas.tolist()};"
+            print(f"panel g N={N}: rate R2 {np.round(r2, 3).tolist()} measured {meas.tolist()};"
                   f" control mean {np.mean(c['r2']):.3f}")
         ax.plot([N * 0.82, N * 1.2], [np.mean(c["r2"]) - FAIL_R2] * 2, color=ps.INK, lw=0.6,
                 ls=":")
@@ -240,25 +266,20 @@ def ed_rate_alone(series):
     ax.legend(handles=h, loc="upper center", fontsize=ps.TICK_PT, handletextpad=0.3,
               borderaxespad=0.1, labelspacing=0.25, handlelength=1.3, frameon=False, ncol=1)
     for a in first:
-        ps.panel_letter(a, "abc"[first.index(a)], x_mm=9.0)
-    ps.panel_letter(ax, "d", x_mm=11.0)
-    return ps.save(fig, "fig_ed_rate_alone")
+        ps.panel_letter(a, "def"[first.index(a)], x_mm=9.0)
+    ps.panel_letter(ax, "g", x_mm=11.0)
 
 
-# --------------------------------------------------------------------------------------------
-# Extended Data Fig. 8
-# --------------------------------------------------------------------------------------------
-
-def ed_margins(series, diag):
-    """Draw Extended Data Fig. 8 (fold change against N at three margins).
+def panel_margins(fig, series, diag, top_mm, bottom_mm):
+    """Panels a-c of the sizes figure: fold change against N at three margins (the previous fig_ed_remedies_size).
 
     Args:
-        series: size_series(); diag: load_diag().
+        fig: the figure; series: size_series(); diag: load_diag(); top_mm, bottom_mm: the band of
+            the figure (mm from its top edge) the three axes occupy.
     Returns:
-        the path of the PDF.
+        None.
     """
-    fig = ps.figure(h_mm=58)
-    gs = fig.add_gridspec(1, 3, left=0.07, right=0.80, top=0.88, bottom=0.2, wspace=0.12)
+    gs = fig.add_gridspec(1, 3, left=0.07, right=0.80, top=y_frac(top_mm), bottom=y_frac(bottom_mm), wspace=0.12)
     offs = dict(zip(ED9_FAMS, np.linspace(-0.07, 0.07, len(ED9_FAMS))))
     axes = []
     for j, (key, lab) in enumerate(MARGINS):
@@ -274,7 +295,7 @@ def ed_margins(series, diag):
                 base, _ = margin_counts(series["control"][N], key, diag)
                 x = N * 10 ** offs[fam]
                 if not len(vals):
-                    print(f"ED8 {lab}x {fam:9s} N={N}: no crossing (0/{n_runs})")
+                    print(f"margins (a-c) {lab}x {fam:9s} N={N}: no crossing (0/{n_runs})")
                     xs.append(x)
                     ms.append(np.nan)        # a size with no crossing breaks the line there
                     continue
@@ -283,7 +304,7 @@ def ed_margins(series, diag):
                            **ps.mark_floor(COL[fam], scatter=True))
                 xs.append(x)
                 ms.append(m.mean())
-                print(f"ED8 {lab}x {fam:9s} N={N}: {len(vals)}/{n_runs} networks, fold "
+                print(f"margins (a-c) {lab}x {fam:9s} N={N}: {len(vals)}/{n_runs} networks, fold "
                       f"{m.mean():.2f}")
             ax.plot(xs, ms, color=COL[fam], lw=ps.DATA_LW, zorder=2)
         ax.axhline(1, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
@@ -303,9 +324,28 @@ def ed_margins(series, diag):
     axes[0].set_yticks([1, 3, 5, 7])
     h = [Line2D([], [], marker=MARK[f], color=COL[f], ls="-", lw=ps.DATA_LW, ms=3.2, label=NAME[f])
          for f in ED9_FAMS]
-    fig.legend(handles=h, loc="center left", bbox_to_anchor=(0.815, 0.55), fontsize=ps.TICK_PT,
+    fig.legend(handles=h, loc="center left", bbox_to_anchor=(0.815, (y_frac(top_mm) + y_frac(bottom_mm)) / 2),
+               fontsize=ps.TICK_PT,
                frameon=False)
-    return ps.save(fig, "fig_ed_remedies_size")
+
+
+def ed_sizes(series, diag):
+    """Draw the Extended Data figure of the techniques across network sizes on 3BFF and save it.
+
+    One figure for what were two until round 17 (dead-relu-paper#190, Reviewer S, structure item
+    7): the fold change at three margins (a-c, panel_margins) over the rate penalty alone (d-g,
+    panel_rate_alone). Nothing is recomputed; every number drawn is printed by the two panel
+    functions.
+
+    Args:
+        series: size_series(); diag: load_diag().
+    Returns:
+        the path of the PDF written by paperstyle.save.
+    """
+    fig = ps.figure(h_mm=SIZES_H_MM)
+    panel_margins(fig, series, diag, 6.0, 42.0)
+    panel_rate_alone(fig, series, 62.0, 118.0)
+    return ps.save(fig, "fig_ed_techniques_sizes")
 
 
 # --------------------------------------------------------------------------------------------
@@ -450,6 +490,5 @@ if __name__ == "__main__":
     ps.setup()
     cat = load_catalogue()
     series = size_series(cat)
-    ed_rate_alone(series)
-    ed_margins(series, load_diag())
+    ed_sizes(series, load_diag())
     table_supp2(cat, series, load_bursts(), load_a3(), load_marks(), load_where_75k())

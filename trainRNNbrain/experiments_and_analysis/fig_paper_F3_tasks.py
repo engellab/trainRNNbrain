@@ -30,10 +30,13 @@ differ between columns where the controls do). A maze run that did not learn the
 (common.maze_learned_index) and a supervised run with R^2 below the read-out file's "learned" bar
 (0.8) are crosses, in the performance row at their value or at the axis' bottom edge when below
 it; a run the maze's rollback guard stopped is a cross at 0. A slot reads "unfinished" when no run
-of the cell has finished, "k/n" when some have, "not run" when the programme has no such cell on
-the task (the maze's upper spectral-radius rung is 1.5 where the supervised tasks' is 2.0; the
-input-weight cap was run at 0.1, 0.5 and 2.0 on 3BFF only), and "no read at 75k" for CDDM's tanh
-cell, which was read at the end of its 150,000 iterations only. Adam without weight decay is the
+of the cell has finished; a partly finished cell carries the number of its learned runs beside the
+marker, as every cell does when that number is not 3. A short dash marks a value the programme has
+no cell for on the task (the maze's upper spectral-radius rung is 1.5 where the supervised tasks'
+is 2.0; the input-weight cap was run at 0.1, 0.5 and 2.0 on 3BFF only), with the words "not run"
+written once per block in the performance row of its first such slot (dead-relu-paper#190); "no
+read at 75k" marks CDDM's tanh cell, which was read at the end of its 150,000 iterations only. The
+task label of each block is the paper's name ("Maze"). Adam without weight decay is the
 weight-decay column's 0 and is not repeated in the optimiser column.
 
 WHY THE PERFORMANCE IS A SECOND ROW. Figure 3a of the current paper writes R^2 minus the default
@@ -84,6 +87,7 @@ MAZE_JSON = os.path.join(REPO, "data", "read_maze_arms.json")
 N = 1000
 TASKS = ("3BFF", "CDDM", "maze")
 TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM, "maze": ps.TASK_MAZE}
+TASK_NAME = {"3BFF": "3BFF", "CDDM": "CDDM", "maze": "Maze"}       # the tasks as the paper names them
 PERF_NAME = {"3BFF": "held-out $R^2$", "CDDM": "held-out $R^2$", "maze": "success"}
 PERF_LIM = {"3BFF": (0.80, 0.975), "CDDM": (0.775, 0.85), "maze": (0.0, 1.04)}
 PERF_TICKS = {"3BFF": [0.8, 0.9], "CDDM": [0.78, 0.82], "maze": [0, 0.5, 1.0]}
@@ -160,6 +164,7 @@ LEFT_MM = 15.5
 PITCH_MM = 3.6                    # one value's slot
 GAP_MM = 2.0                      # between two settings
 SEED_DX_MM = 0.8                  # a cell's crosses sit this far apart
+DASH_MM = 1.6                     # the dash of a value not run on a task
 BLOCK_TOP_MM = (15.0, 51.5, 88.0)
 COUNT_H_MM, PERF_H_MM, ROW_GAP_MM = 18.0, 9.5, 3.0
 TITLE_ROWS_MM = (2.0, 7.5)        # the column titles' baselines above the first block, staggered
@@ -407,12 +412,13 @@ def fill_absent(cells):
     return cells
 
 
-def draw_cell(ax_n, ax_p, x, c, col, perf_lim):
+def draw_cell(ax_n, ax_p, x, c, col, perf_lim, note=False):
     """One cell's marks in both rows: a marker per finished seed, crosses, the mean bars, the band.
 
     Args:
         ax_n, ax_p: the count and performance axes (x in mm); x: the slot's centre; c: a `cell`
-            dict; col: the task's colour; perf_lim: the performance axis' limits.
+            dict; col: the task's colour; perf_lim: the performance axis' limits; note: bool, write
+            the words "not run" in this slot (the block's first slot the programme did not run).
     Returns:
         str, what was drawn, for the printout.
     """
@@ -438,8 +444,18 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim):
             what.append(f"{a:.0f} {p:.3f} (not learned)")
     if c["n_stopped"]:
         what.append(f"{c['n_stopped']} stopped")
-    if c["status"] in ("unfinished", "not run", "no read"):
-        text = {"unfinished": "unfinished", "not run": "not run", "no read": "no read at 75k"}[c["status"]]
+    if c["status"] == "not run":
+        # a short dash in the count row marks a value the programme did not run on this task; the
+        # words "not run" are written once per block, in the performance row of the block's first
+        # such slot (dead-relu-paper#190, Reviewer W, figures item 2)
+        ax_n.plot([x - DASH_MM / 2, x + DASH_MM / 2], [0.5, 0.5], transform=ax_n.get_xaxis_transform(),
+                  color=ps.MUTED, lw=ps.DATA_LW, solid_capstyle="butt", clip_on=False, zorder=2)
+        if note:
+            ax_p.text(x, 0.5, "not run", rotation=90, transform=ax_p.get_xaxis_transform(), fontsize=ps.TICK_PT,
+                      color=ps.MUTED, ha="center", va="center")
+        what.append("not run")
+    elif c["status"] in ("unfinished", "no read"):
+        text = {"unfinished": "unfinished", "no read": "no read at 75k"}[c["status"]]
         ax_n.text(x, 0.5, text, rotation=90, transform=ax_n.get_xaxis_transform(), fontsize=ps.TICK_PT,
                   color=ps.MUTED, ha="center", va="center")
         what.append(text + (f" ({c['n_running']} training)" if c["n_running"] else ""))
@@ -447,8 +463,8 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim):
         ax_n.text(x, 0.55, "stopped", rotation=90, transform=ax_n.get_xaxis_transform(), fontsize=ps.TICK_PT,
                   color=ps.MUTED, ha="center", va="center")
     elif c["status"] == "incomplete":
-        ax_n.text(x, 0.98, f"{len(c['active'])}/{c['n_expected']}", transform=ax_n.get_xaxis_transform(),
-                  fontsize=ps.MIN_PT, color=ps.MUTED, ha="center", va="top")
+        # no "k/n" text: the crosses at 0 show the stopped runs, and the number beside a marker
+        # gives the networks behind it (dead-relu-paper#190, Reviewer S, figures item 3)
         what.append(f"{len(c['active'])} of {c['n_expected']}" + (f", {c['n_running']} training" if c["n_running"] else ""))
     return "; ".join(what)
 
@@ -467,8 +483,10 @@ def draw_block(fig, task, top, cells, slots, columns, width, letter, titles):
     ax_n = ax_mm(fig, LEFT_MM, top, width, COUNT_H_MM)
     ax_p = ax_mm(fig, LEFT_MM, top + COUNT_H_MM + ROW_GAP_MM, width, PERF_H_MM)
     out = []
+    first_absent = next(((s, k) for s, k, _, _ in slots if cells[(task, s, k)]["status"] == "not run"), None)
     for setting, key, label, x in slots:
-        out.append((setting, key, draw_cell(ax_n, ax_p, x, cells[(task, setting, key)], col, PERF_LIM[task])))
+        out.append((setting, key, draw_cell(ax_n, ax_p, x, cells[(task, setting, key)], col, PERF_LIM[task],
+                                            note=(setting, key) == first_absent)))
     if titles:
         # the titles are staggered on two rows (34 slots in 146 mm leave no room for one row), so a
         # thin rule under each title spans that title's slots and ties it to its column
@@ -487,7 +505,7 @@ def draw_block(fig, task, top, cells, slots, columns, width, letter, titles):
     ps.count_ticks(ax_n.yaxis)
     ax_n.set_ylabel(f"active units\n(of {ps.fmt_count(N)})")
     ax_n.tick_params(axis="x", length=0, labelbottom=False)
-    ax_n.text(0.004, 0.97, task, transform=ax_n.transAxes,
+    ax_n.text(0.004, 0.97, TASK_NAME[task], transform=ax_n.transAxes,
               fontsize=ps.LABEL_PT, color=ps.INK, ha="left", va="top", fontweight="bold")
     ax_p.set_ylim(*PERF_LIM[task])
     ax_p.set_yticks(PERF_TICKS[task])

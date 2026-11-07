@@ -14,14 +14,16 @@ its budget), so every marker is OPEN (paperstyle, dead-relu-paper#83).
 PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
   (a) fold change in the number of active units over the task's own control (the control's mean
       at the same read-out point), one column per technique, inside it one group per task
-      (3BFF, CDDM, maze: the task colours), one open marker per group at the seeds' mean with a
+      (3BFF, CDDM, maze: the task colours), one open marker per group at the mean over every
+      finished seed, the mean the criterion judges (dead-relu-paper#190, Reviewer R item 4), with a
       thin bar over their range (the paper's convention for open markers that would overlap,
       dead-relu-paper#104; the number of seeds beside it when it is not 3) and, where a
       technique was run at several values on a task, one group per value (the value written
       under the column); the band behind a group is the control's own range of seeds. A run the maze's rollback guard stopped
-      is a cross at 0; a maze run that did not learn the task (common.maze_learned_index) is a
-      cross at its value; a group with no finished run says "unfinished", a partly finished one
-      "k/n". The columns are ORDERED by the number of tasks on which the technique works (ties: by
+      is a cross at 0; a maze run that did not learn the task (common.maze_learned_index) is
+      inside its group's mean and also a cross at its value; a group with no finished run says
+      "unfinished", a partly finished one carries the number of its finished seeds beside the
+      marker. The task labels are the paper's ("Maze"). The columns are ORDERED by the number of tasks on which the technique works (ties: by
       the number of tasks on which the count condition passes, then the name).
   (b) the performance difference from the controls' mean: top, held-out R^2 (3BFF and CDDM), the
       tolerance 0.01 dashed; bottom, the maze's success at the end, the tolerance 0.05 dashed.
@@ -86,6 +88,7 @@ N = 1000
 N_SEEDS = 3                      # the groups' usual size; another size is written beside the marker
 TASKS = ("3BFF", "CDDM", "maze")
 TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM, "maze": ps.TASK_MAZE}
+TASK_NAME = {"3BFF": "3BFF", "CDDM": "CDDM", "maze": "Maze"}       # the tasks as the paper names them
 # technique key -> (column title, marker; the shapes are Figure 5's, fig_paper_F5_drive.MARK)
 TECH = {
     "duplicate": ("prune-and-\nduplicate", F5.MARK["duplicate"]),
@@ -424,7 +427,13 @@ def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT):
 
 
 def draw_marks(ax, x, c, key, zero=None):
-    """One cell's marks in one axes: the learned seeds as one group, the others as crosses.
+    """One cell's marks in one axes: every finished seed as one group, the not-learned ones also as crosses.
+
+    The group marker is the mean over every finished seed, the mean the pre-registered criterion
+    judges (`rule`; dead-relu-paper#190, Reviewer R item 4), so a marker inside the tolerance band
+    passes the performance condition and one outside it fails. A seed that did not learn the task
+    is inside that mean and is also drawn as a cross at its value, beside the marker; a seed the
+    guard stopped is a cross at `zero`.
 
     Args:
         ax: axes (x in mm); x: the slot's centre; c: a `cell` dict; key: "fold" or "dperf", the
@@ -435,10 +444,10 @@ def draw_marks(ax, x, c, key, zero=None):
     col, marker = TASK_COL[c["task"]], TECH[c["tech"]][1]
     vals = np.asarray(c[key], float)
     ok = np.asarray(c["learned"][:len(vals)], bool)
-    n_group = int(ok.sum())
+    n_group = len(vals)
     # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
-    label = str(n_group) if c["status"] == "finished" and n_group >= 1 and n_group != N_SEEDS else None
-    draw_group(ax, x, vals[ok], col, marker, label)
+    label = str(n_group) if n_group >= 1 and n_group != N_SEEDS else None
+    draw_group(ax, x, vals, col, marker, label)
     crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None else [])
     for xi, v in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
         ax.plot([xi], [v], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
@@ -483,9 +492,8 @@ def panel_ab(fig, slots, columns, width, tol):
         elif c["status"] == "stopped":
             ax_a.text(x, 0.55, "stopped", rotation=90, transform=ax_a.get_xaxis_transform(),
                       fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="center")
-        elif c["status"] == "incomplete":
-            ax_a.text(x, 0.97, f"{len(c['active'])}/{c['n_expected']}", transform=ax_a.get_xaxis_transform(),
-                      fontsize=ps.MIN_PT, color=ps.MUTED, ha="center", va="top")
+        # a partly finished cell carries no "k/n": the number beside its marker gives the finished
+        # networks, as in every other cell (dead-relu-paper#190, Reviewer S, figures item 3)
         if c["label"]:
             ax_b2.text(x, -0.06, c["label"], rotation=90, transform=ax_b2.get_xaxis_transform(),
                        fontsize=ps.TICK_PT, color=ps.INK, ha="center", va="top")
@@ -537,8 +545,8 @@ def panel_key(fig):
     leg1 = ax.legend(handles=h1, loc="upper center", ncol=len(h1), frameon=False, fontsize=ps.TICK_PT,
                      handlelength=1.0, columnspacing=1.2, handletextpad=0.35, borderaxespad=0)
     ax.add_artist(leg1)
-    h2 = [Line2D([], [], marker="o", ls="none", ms=3.2, label=t, **ps.mark_fixed(TASK_COL[t])) for t in TASKS]
-    h2.append(Line2D([], [], ls="none", label="open: 75,000 iterations (3BFF, CDDM); update 2,000 (maze)"))
+    h2 = [Line2D([], [], marker="o", ls="none", ms=3.2, label=TASK_NAME[t], **ps.mark_fixed(TASK_COL[t])) for t in TASKS]
+    h2.append(Line2D([], [], ls="none", label="open: 75,000 iterations (3BFF, CDDM); update 2,000 (Maze)"))
     ax.legend(handles=h2, loc="lower center", ncol=len(h2), frameon=False, fontsize=ps.TICK_PT,
               handlelength=1.0, columnspacing=1.2, handletextpad=0.35, borderaxespad=0)
     return ax
@@ -659,7 +667,7 @@ def panel_removal(fig, maze_ref):
         rows.append(dict(task="maze", tech=tech, name=abl["run_dir"].split("Maze_interventions/")[-1],
                          x=m["random_median"], y=m["quiet"], where="end", k=m["k_added"], full=m["full"],
                          random_mean=m["random_mean"]))
-    for ax, task, title in ((ax_ff, "3BFF", "3BFF, held-out $R^2$"), (ax_mz, "maze", "maze, success")):
+    for ax, task, title in ((ax_ff, "3BFF", "3BFF, held-out $R^2$"), (ax_mz, "maze", "Maze, success")):
         ax.set_xlim(D_LO - 0.012, 0.5)
         ax.set_ylim(D_LO - 0.015, 0.85)
         ax.plot([D_LO, 0.5], [D_LO, 0.5], color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
