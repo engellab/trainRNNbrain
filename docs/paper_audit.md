@@ -280,8 +280,8 @@ settings table (28 values finished on both supervised tasks, 11 in the same dire
 three, 4 in the same direction: weight decay 1e-5 and 1e-4, SGD 0.03 and 0.1); the previous Fig. 5's
 a, d, e are Extended Data `fig_ed_techniques_3bff`; the maze settings and interventions figures are
 Extended Data figures.
-Removing the recruited units of the maze rate-penalty networks lowers success from 0.84-0.96 to
-0.55-0.77, as many at random to 0.07-0.35 (k from the learned controls' 437.5; from all three controls' 430 since round 17, interpolated on the same grids: 0.53-0.76 and, as the median, 0.08-0.33; entry 2026-11-06_2238) (entry 2026-11-05 maze-rate-penalty-ablations): the maze
+Removing the inactive units and then the recruited units (570 units in all; 3BFF's A3 removes only the recruited units, entry 2026-11-07 fig5d-two-removals) of the maze rate-penalty networks lowers success from 0.84-0.96 to
+0.55-0.77, as many at random from all units to 0.07-0.35 (k from the learned controls' 437.5; from all three controls' 430 since round 17, interpolated on the same grids: 0.53-0.76 and, as the median, 0.08-0.33; entry 2026-11-06_2238) (entry 2026-11-05 maze-rate-penalty-ablations): the maze
 form of A3. Maze settings (entry 2026-11-06 maze-arms-readout; read_maze_arms.py,
 fig_ed_maze_settings.py; a setting changes the count when all three seeds lie outside the learned
 controls' 426-449 on one side): input row norm 0.5 increases it (549-593, 1.31x, every seed learned,

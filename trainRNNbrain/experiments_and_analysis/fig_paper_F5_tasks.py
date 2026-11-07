@@ -31,16 +31,16 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       prune-and-duplicate's fold change (top) and R^2 change (bottom) per network against N, read
       at the floor crossing (filled), the other techniques as context lines through their means
       (rescaling and read-out dropout at 75,000 iterations, dashed, as Figure 5c draws them).
-  (d) removing the added units: performance after removing a network's k added units (the paper's
-      name for them; "recruited" in the read-out files)
-      (its number of active units minus the controls' mean; the k least participating active
-      units, after the inactive ones) against performance after removing as many active units
-      at random (median over 5 draws), one marker per network. 3BFF: the removal analysis A3
-      (data/remedy_reads_31oct/a3_N1000.json, held-out R^2 at 75,000 iterations); the maze: the
-      rate-penalty networks ablated at the end of training (data/rl_maze_ablation_interventions,
-      success under the training noise; the random order there draws from all units, and its
-      value at k is the median over the five orders, interpolated on the k grid). CDDM: no
-      technique network has been ablated, and the panel says so.
+  (d) removing the added units, one marker per network, with a different removal in each sub-panel.
+      k is a network's number of active units minus the controls' mean; its k added units ("recruited"
+      in the read-out files) are its k least participating active units. 3BFF, the removal analysis
+      A3 (data/remedy_reads_31oct/a3_N1000.json, held-out R^2 at 75,000 iterations): the k added units
+      removed, the inactive units left in place, against k active units removed at random (median
+      over 5 draws). The maze, the rate-penalty networks at the end of training
+      (data/rl_maze_ablation_interventions, success under the training noise): the inactive units and
+      then the k added units removed, which is N minus the controls' mean in every network, against
+      as many units removed at random from all units (median over the five orders, interpolated on
+      the removal grid). CDDM: no technique network has been ablated, and the panel says so.
 
 READ-OUT FILES ONLY. Nothing is recomputed here. 3BFF: the remedies catalogue
 (data/remedy_reads_31oct/remedies_catalogue.json, read_remedies.py; the Figure 5 size series,
@@ -131,7 +131,7 @@ B1_TOP_MM, B1_H_MM = 33.0, 13.5
 B2_TOP_MM, B2_H_MM = 48.5, 13.5
 ROW2_TOP_MM, ROW2_H_MM = 72.5, 29.0      # panel d keeps 29 mm: its open markers overlap in 27 (tests/scan_open_markers.py)
 C_LEFT_MM, C_W_MM = 16.0, 50.0
-D_LEFT_MM, D_W_MM, D_GAP_MM = 90.0, 48.0, 4.0
+D_LEFT_MM, D_W_MM, D_GAP_MM = 86.0, 52.0, 8.0     # each sub-panel keeps 22 mm (tests/scan_open_markers.py); the gap holds the Maze sub-panel's own y label (#199)
 FOLD_LIM = (0.0, 4.3)
 R2_LIM = (-0.038, 0.013)
 SUCC_LIM = (-0.52, 0.13)
@@ -753,10 +753,12 @@ def maze_removal(abl, ref_active):
 
 
 def panel_removal(fig, maze_ref):
-    """Panel d: performance after removing the recruited units against as many random active units.
+    """Panel d: performance after removing the added units against performance after a random removal.
 
     Two sub-axes sharing y, 3BFF (held-out R^2) on the left and the maze (success) on the right, so
     a 3BFF network and a maze network with the same two values do not print on top of each other.
+    The sub-axes show different removals (the module docstring, panel d), and each axis label says
+    which units it removes (#199).
 
     Args:
         fig: the figure; maze_ref: the maze controls' reference dict (active: the mean count).
@@ -781,7 +783,8 @@ def panel_removal(fig, maze_ref):
             continue
         m = maze_removal(abl, maze_ref["active"])
         rows.append(dict(task="maze", tech=tech, name=abl["run_dir"].split("Maze_interventions/")[-1],
-                         x=m["random_median"], y=m["quiet"], where="end", k=m["k_added"], full=m["full"],
+                         x=m["random_median"], y=m["quiet"], where="end", k=m["k_added"], k_total=m["k_total"],
+                         full=m["full"],
                          random_mean=m["random_mean"]))
     for ax, task, title in ((ax_ff, "3BFF", "3BFF, held-out $R^2$"), (ax_mz, "maze", "Maze, success")):
         ax.set_xlim(D_LO - 0.012, 0.5)
@@ -797,13 +800,15 @@ def panel_removal(fig, maze_ref):
         ax.set_title(title, fontsize=ps.LABEL_PT, pad=3, loc="left")
         ps.ygrid(ax)
     ax_mz.tick_params(labelleft=False)
-    ax_ff.set_ylabel("after removing the\n$k$ added units")
+    k_totals = sorted({r["k_total"] for r in rows if r["task"] == "maze"})
+    assert len(k_totals) == 1, f"the maze removal should be one size in every network: {k_totals}"
+    ax_ff.set_ylabel("$k$ added units\nremoved")
+    ax_ff.set_xlabel("$k$ random active\nunits removed")
+    ax_mz.set_ylabel("inactive + $k$ added\nunits removed")
+    ax_mz.set_xlabel(f"{k_totals[0]} random units\nremoved")
     ax_ff.text(0.49, 0.50, "equal", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
     ax_mz.text(0.49, D_LO + 0.02, "CDDM:\nnot measured", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right",
                va="bottom", linespacing=1.15)
-    x0, x1 = ax_ff.get_position().x0, ax_mz.get_position().x1
-    fig.text((x0 + x1) / 2, ax_ff.get_position().y0 - 6.5 / FIG_H_MM, "after removing $k$ random active units (median of 5)",
-             fontsize=ps.LABEL_PT, color=ps.INK, ha="center", va="top")
     ps.panel_letter(ax_ff, "d")
     return (ax_ff, ax_mz), rows
 
@@ -879,8 +884,9 @@ def report(cells, vs, order, table, floor, rows_c, rows_d, tol):
           "read-out dropout at 75,000) ---")
     for fam, n, k, m, r in rows_c:
         print(f"  {F5.NAME[fam]:>20} N={n:<5} n={k} fold {m:.2f} dR2 median {r:+.3f}")
-    print("\n--- panel d (added units removed; x = after k random active units, median; y = after "
-          "the k added units) ---")
+    print("\n--- panel d (3BFF: x = after k random active units, median; y = after the k added units, the "
+          "inactive units left in place. Maze: x = after k_total random units from all units, median; "
+          "y = after the inactive units and then the k added units, k_total in all) ---")
     for r in rows_d:
         extra = f"; intact {r['full']:.3f}; random mean {r['random_mean']:.3f}" if r["task"] == "maze" else ""
         print(f"  {r['task']:>5} {TECH_NAME[r['tech']]:>20} {r['name']:<32} k={r['k']:<4} x {r['x']:+.3f} "
