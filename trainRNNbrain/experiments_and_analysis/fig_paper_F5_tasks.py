@@ -454,7 +454,7 @@ def slot_layout(order, cells):
     return slots, columns, x - GAP_MM
 
 
-def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=False):
+def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=False, label_below=False):
     """One group of open markers the paper's way: a marker at the mean, a bar over the range.
 
     Open markers of one group would overlap at any spacing that fits the slots of these figures,
@@ -467,7 +467,9 @@ def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=
             colour; marker: the shape; label: str or None, written 1 mm right of the marker;
             ms: marker size in pt (triangles are drawn TRI_SCALE larger); label_above: bool, write
             the label above the bar instead, for a slot whose crosses sit beside the marker
-            (review of PR #193, item 11: check_overlaps tests text against text only).
+            (review of PR #193, item 11: check_overlaps tests text against text only); label_below:
+            bool, write it below the bar instead (third review, item 6: above the slow-tilt bar in
+            panel b it lay on the tolerance line).
     Returns:
         None (nothing drawn for an empty group).
     """
@@ -482,6 +484,9 @@ def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=
     if label and label_above:
         ax.annotate(label, xy=(x, ys.max()), xytext=(0, 2.5), textcoords="offset points", fontsize=ps.TICK_PT,
                     color=ps.INK, ha="center", va="bottom", zorder=6, annotation_clip=False)
+    elif label and label_below:
+        ax.annotate(label, xy=(x, ys.min()), xytext=(0, -2.5), textcoords="offset points", fontsize=ps.TICK_PT,
+                    color=ps.INK, ha="center", va="top", zorder=6, annotation_clip=False)
     elif label:
         ax.text(x + 1.0, ys.mean(), label, fontsize=ps.TICK_PT, color=ps.INK, ha="left", va="center", zorder=6)
 
@@ -508,7 +513,8 @@ def draw_marks(ax, x, c, key, zero=None):
     # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
     label = str(n_group) if n_group >= 1 and n_group != N_SEEDS else None
     crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None else [])
-    draw_group(ax, x, vals, col, marker, label, label_above=bool(crosses))
+    draw_group(ax, x, vals, col, marker, label, label_above=bool(crosses) and key != "dperf",
+               label_below=bool(crosses) and key == "dperf")
     for xi, v in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
         ax.plot([xi], [v], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
 
