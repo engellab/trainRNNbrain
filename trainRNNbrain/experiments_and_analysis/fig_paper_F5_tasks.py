@@ -154,7 +154,7 @@ R2_LIM = (-0.038, 0.013)
 SUCC_LIM = (-0.52, 0.13)
 D_LO = -0.05                      # panel d: values below this are drawn at the edge with an arrow
 EDGE_JOIN = 0.03                  # panel d: edge markers of one series closer than this (data units) are one marker
-EDGE_ARROW_PT = 5.5               # panel d: arrow length (points) of a merged edge marker; fig_paper_F5_drive's is 9
+EDGE_ARROW_PT = 4.0               # panel d: arrow length (points) of a merged edge marker, its tail short of the circle at (0.02, 0.54) (PR #202 third review); fig_paper_F5_drive's is 9
 
 
 def rule(active, perf, ctrl_active, ctrl_perf, tol, floor=None):
@@ -947,7 +947,7 @@ def edge_or_group(ax, pts, col, marker):
                    **F5.open_kw(col))
         off = (EDGE_ARROW_PT, 0) if d == "<" else (0, EDGE_ARROW_PT)
         ax.annotate("", xy=(xd, yd), xytext=off, textcoords="offset points", zorder=4,
-                    arrowprops=dict(arrowstyle="-|>,head_length=0.25,head_width=0.12", lw=0.5, color=col,
+                    arrowprops=dict(arrowstyle="-|>,head_length=0.15,head_width=0.12", lw=0.5, color=col,
                                     shrinkA=0, shrinkB=2.2))
         if d == "<":
             ax.annotate(str(len(xys)), xy=(D_LO - 0.012, yd), xytext=(-1.5, 0), textcoords="offset points",
