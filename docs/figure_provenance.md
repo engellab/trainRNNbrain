@@ -411,3 +411,4 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_maze.pdf` | fig_ed_maze.py (c: fit at N >= 500, b = 0.41 [0.38, 0.45]; d: the N = 2,000 and 4,000 chain ablations drawn; r18-text, #201) | `6e4d03a` | 2026-11-07 |
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (a,b: the 3BFF rate penalty at 0.01 and 0.03 beside 0.1, #204; d: edge labels moved, PR #202 review item 12) | `3255125` | 2026-11-07 |
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (d: merged CDDM edge marker, shorter arrow, count beside it outside the axes; PR #202 second review item 1) | `094c424` | 2026-11-07 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (d: merged CDDM edge arrow 4 pt, tail clear of the neighbouring circle; PR #202 third review) | `c781c69` | 2026-11-07 |
