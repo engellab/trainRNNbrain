@@ -154,6 +154,7 @@ R2_LIM = (-0.038, 0.013)
 SUCC_LIM = (-0.52, 0.13)
 D_LO = -0.05                      # panel d: values below this are drawn at the edge with an arrow
 EDGE_JOIN = 0.03                  # panel d: edge markers of one series closer than this (data units) are one marker
+EDGE_ARROW_PT = 5.5               # panel d: arrow length (points) of a merged edge marker; fig_paper_F5_drive's is 9
 
 
 def rule(active, perf, ctrl_active, ctrl_perf, tol, floor=None):
@@ -933,12 +934,27 @@ def edge_or_group(ax, pts, col, marker):
             merged[-1][2].append(along)
         else:
             merged.append(([xy], d, [along]))
+    s_mark = 11 * (F5.TRI_SCALE ** 2 if marker == "<" else 1.0)
     for xys, d, _ in merged:
         xd, yd = np.mean([q[0] for q in xys]), np.mean([q[1] for q in xys])
-        F5.edge_arrow(ax, xd, yd, d, col, False, marker, s=11 * (F5.TRI_SCALE ** 2 if marker == "<" else 1.0))
-        if len(xys) > 1:
-            # above the marker: to its right lies the arrow (PR #202 review, item 12)
-            ax.text(xd, yd + 0.035, str(len(xys)), fontsize=ps.TICK_PT, color=ps.INK, ha="center", va="bottom")
+        if len(xys) == 1:
+            F5.edge_arrow(ax, xd, yd, d, col, False, marker, s=s_mark)
+            continue
+        # a merged marker (PR #202 second review, item 1): its arrow is shortened to EDGE_ARROW_PT so the
+        # tail stops short of the neighbouring markers, and its count sits outside the axes, beside the
+        # marker it counts (as fig_paper_F5_drive.draw_groups labels a group at the edge)
+        ax.scatter([xd], [yd], s=F5.open_size(marker, s_mark), marker=marker, zorder=F5.Z_OPEN, clip_on=False,
+                   **F5.open_kw(col))
+        off = (EDGE_ARROW_PT, 0) if d == "<" else (0, EDGE_ARROW_PT)
+        ax.annotate("", xy=(xd, yd), xytext=off, textcoords="offset points", zorder=4,
+                    arrowprops=dict(arrowstyle="-|>,head_length=0.25,head_width=0.12", lw=0.5, color=col,
+                                    shrinkA=0, shrinkB=2.2))
+        if d == "<":
+            ax.annotate(str(len(xys)), xy=(D_LO - 0.012, yd), xytext=(-1.5, 0), textcoords="offset points",
+                        fontsize=ps.TICK_PT, color=ps.INK, ha="right", va="center", annotation_clip=False)
+        else:
+            ax.annotate(str(len(xys)), xy=(xd, D_LO - 0.015), xytext=(0, -1.5), textcoords="offset points",
+                        fontsize=ps.TICK_PT, color=ps.INK, ha="center", va="top", annotation_clip=False)
     if not inside:
         return []
     x, y = (np.array(v) for v in zip(*inside))
