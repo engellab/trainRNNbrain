@@ -149,14 +149,15 @@ F2_CONTROL_RUNG = {"slide_k_weightdecay": 1, "slide_k_inputscale_cddm": 0, "revi
 N_SEEDS = 3
 
 # layout, mm from the canvas' top-left
-FIG_H_MM = 132.0
+FIG_H_MM = 133.5
 LEFT_MM = 15.5
 PITCH_MM = 3.6                    # one value's slot
 GAP_MM = 2.0                      # between two settings
 SEED_DX_MM = 0.8                  # a cell's crosses sit this far apart
-BLOCK_TOP_MM = (13.5, 50.0, 86.5)
+BLOCK_TOP_MM = (15.0, 51.5, 88.0)
 COUNT_H_MM, PERF_H_MM, ROW_GAP_MM = 18.0, 9.5, 3.0
-TITLE_ROWS_MM = (1.0, 6.5)        # the column titles' baselines above the first block, staggered
+TITLE_ROWS_MM = (2.0, 7.5)        # the column titles' baselines above the first block, staggered
+TITLE_RULE_MM = 0.9               # a thin rule this far under each title, spanning the title's slots
 
 
 def slot_positions():
@@ -164,7 +165,8 @@ def slot_positions():
 
     Returns:
         (slots, columns, width): slots a list of (setting, value key, label, x); columns a list of
-        (setting, title, x_centre); width the axes width in mm.
+        (setting, title, x_centre, x_left, x_right), the last two the edges of the column's slots;
+        width the axes width in mm.
     """
     slots, columns, x = [], [], PITCH_MM / 2
     for g, (setting, title, values) in enumerate(COLUMNS):
@@ -175,7 +177,7 @@ def slot_positions():
             slots.append((setting, key, label, x))
             xs.append(x)
             x += PITCH_MM
-        columns.append((setting, title, float(np.mean(xs))))
+        columns.append((setting, title, float(np.mean(xs)), xs[0] - PITCH_MM / 2, xs[-1] + PITCH_MM / 2))
     return slots, columns, x - PITCH_MM / 2
 
 
@@ -452,10 +454,14 @@ def draw_block(fig, task, top, cells, slots, columns, width, letter, titles):
     for setting, key, label, x in slots:
         out.append((setting, key, draw_cell(ax_n, ax_p, x, cells[(task, setting, key)], col, PERF_LIM[task])))
     if titles:
-        for i, (setting, title, x) in enumerate(columns):
+        # the titles are staggered on two rows (34 slots in 146 mm leave no room for one row), so a
+        # thin rule under each title spans that title's slots and ties it to its column
+        for i, (setting, title, x, x0, x1) in enumerate(columns):
             y_mm = TITLE_ROWS_MM[i % 2]
             ax_n.text(x, 1.0 + y_mm / COUNT_H_MM, title, transform=ax_n.get_xaxis_transform(), fontsize=ps.LABEL_PT,
                       color=ps.INK, ha="center", va="bottom", linespacing=1.1)
+            ax_n.plot([x0, x1], [1.0 + (y_mm - TITLE_RULE_MM) / COUNT_H_MM] * 2, transform=ax_n.get_xaxis_transform(),
+                      color=ps.MUTED, lw=ps.THIN_LW, clip_on=False, zorder=1)
     for ax in (ax_n, ax_p):
         ax.set_xlim(0, width)
         ax.set_xticks([x for _, _, _, x in slots])

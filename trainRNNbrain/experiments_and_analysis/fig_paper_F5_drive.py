@@ -80,6 +80,7 @@ B2_DIR = os.path.join(DATA_DIR, "NBitFlipFlop_remedy_grid")
 SIZES = (500, 1000, 2000, 4000)
 FIG_H_MM = 133.0                 # round 7: 141 -> 133 mm, so a 320-word caption fits on the page
 EDC_H_MM = 62.0                  # the combination-test Extended Data figure
+EDT_H_MM = 96.0                  # the Extended Data figure of the 3BFF techniques over training (a, d, e of this figure)
 
 # The per-unit rules in the main figure, in key order. Rate + sparsity appears only in the Extended
 # Data and Supplementary Table 2.
@@ -1051,7 +1052,9 @@ def build():
 
     rows_f = ed_combination(b3, marks)
     report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3)
-    return ps.save(fig, "fig_paper_F5_drive")
+    out = ps.save(fig, "fig_paper_F5_drive")
+    ed_techniques_3bff(series, traces, b2, a3, marks)
+    return out
 
 
 def ed_combination(b3, marks):
@@ -1083,6 +1086,49 @@ def ed_combination(b3, marks):
     for ax, letter in zip(axs, "abc"):              # a active units, b held-out R^2, c dimensionality
         ps.panel_letter(ax, letter, x_mm=3.0)
     return rows, ps.save(fig, "fig_ed_combination")
+
+
+def ed_techniques_3bff(series, traces, b2, a3, marks):
+    """Draw the Extended Data figure of the 3BFF techniques over training and save it.
+
+    Since the cross-task rebuild (fig_paper_F5_tasks.py, dead-relu-paper#183) the manuscript's
+    Figure 5 holds the three tasks at N = 1,000, and this figure keeps the three panels of the 3BFF
+    Figure 5 that it dropped: (a) the number of active units over training at N = 1,000 under each
+    technique (this file's panel_traces), (b) the rate penalty alone at N = 1,000, noisy loss and
+    active units over training (panel_rate_alone), (c) R^2 after removing each network's k added
+    units against k random active units at N = 1,000 and 4,000 (panel_removal). The key row on top
+    is Figure 5's (panel_key). Nothing is recomputed: the panels draw from the same loaders as
+    build(), so their numbers are those of the printout of build().
+
+    Args:
+        series: size_series(); traces: load_traces(); b2: load_b2(1000); a3: load_a3();
+        marks: load_marks().
+    Returns:
+        the PDF path written by paperstyle.save.
+    """
+    fig = ps.figure(h_mm=EDT_H_MM)
+
+    def y(mm):
+        """Figure fraction of a height given in mm from the figure's top edge."""
+        return 1.0 - mm / EDT_H_MM
+
+    L, W = 0.075, 0.475                    # left column: left and right edges (figure fractions)
+    M, R = 0.585, 0.965                    # right column
+    ax_key = fig.add_axes([0.0, y(8.5), 1.0, y(0.8) - y(8.5)])
+    panel_key(ax_key)
+    ax_a = fig.add_axes([L, y(42), W - L, y(14) - y(42)])
+    panel_traces(ax_a, series, traces)
+    gd = fig.add_gridspec(2, 1, left=M, right=R, top=y(14), bottom=y(84), hspace=0.08,
+                          height_ratios=[1, 1.45])
+    ax_dl, ax_da = fig.add_subplot(gd[0]), fig.add_subplot(gd[1])
+    panel_rate_alone(ax_dl, ax_da, b2, series["control"][1000]["active"])
+    ge = fig.add_gridspec(1, 2, left=L, right=W, top=y(58), bottom=y(84), wspace=0.16)
+    ax_e1 = fig.add_subplot(ge[0])
+    ax_e2 = fig.add_subplot(ge[1], sharey=ax_e1)
+    panel_removal([ax_e1, ax_e2], a3, marks)
+    for ax, letter in ((ax_a, "a"), (ax_dl, "b"), (ax_e1, "c")):
+        ps.panel_letter(ax, letter, x_mm=10.5)
+    return ps.save(fig, "fig_ed_techniques_3bff")
 
 
 def report(series, info_a, drawn_b, drawn_c, info_d, drawn_e, rows_f, b3):

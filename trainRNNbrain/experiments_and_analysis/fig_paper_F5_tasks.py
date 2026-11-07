@@ -29,7 +29,8 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       prune-and-duplicate's fold change (top) and R^2 change (bottom) per network against N, read
       at the floor crossing (filled), the other techniques as context lines through their means
       (rescaling and read-out dropout at 75,000 iterations, dashed, as Figure 5c draws them).
-  (d) removing the recruited units: performance after removing a network's k recruited units
+  (d) removing the added units: performance after removing a network's k added units (the paper's
+      name for them; "recruited" in the read-out files)
       (its number of active units minus the controls' mean; the k least participating active
       units, after the inactive ones) against performance after removing as many active units
       at random (median over 5 draws), one marker per network. 3BFF: the removal analysis A3
@@ -105,16 +106,17 @@ MAZE_ARMS = {
     "frm": [("0.03", "frm0.03"), ("0.1", "frm0.1"), ("0.3", "frm0.3")],
     "dropout": [("", "dropout")],
     "frm+rws": [("0.1", "frm0.1+rws0.05")],
-    "rescale": [("10\u00d7", "rescale"), ("mild", "rescale_mild"), ("few", "rescale_few")],
+    "rescale": [("10\u00d7", "rescale"), ("slow tilt", "rescale_mild"), ("5% grow", "rescale_few")],
     "synnoise": [("", "synnoise")],
 }
-# the maze's rescaling variants (entry 2026-11-05_0832): "mild" alpha 1.0005 and cap 8 (the paper's
-# arm has 1.002 and 64), "few" protects 0.05 N units (the paper's 0.2 N); "10x" is the paper's arm
+# the maze's rescaling variants (entry 2026-11-05_0832), named as fig_ed_maze_interventions names them:
+# "slow tilt" is alpha 1.0005 and cap 8 (the paper's arm has 1.002 and 64), "5% grow" protects 0.05 N
+# units (the paper's 0.2 N); "10x" is the paper's arm
 MAZE_RESCALE_NOTE = {"rescale": "the paper's values (target 10x, alpha 1.002, cap 64, protect 0.2 N)",
-                     "rescale_mild": "mild: alpha 1.0005, cap 8", "rescale_few": "few: protect 0.05 N"}
+                     "rescale_mild": "slow tilt: alpha 1.0005, cap 8", "rescale_few": "5% grow: protect 0.05 N"}
 
 # layout, mm from the canvas' top-left: one slot per (technique, task, value) group
-FIG_H_MM = 136.0
+FIG_H_MM = 132.0                  # 136 -> 132 mm (round 15): the float with its caption fits the page
 LEFT_MM = 16.0
 PITCH_MM = 5.4                    # one group's slot
 GAP_MM = 3.2                      # between two techniques
@@ -124,7 +126,7 @@ KEY_TOP_MM = 1.5
 A_TOP_MM, A_H_MM = 16.0, 27.0
 B1_TOP_MM, B1_H_MM = 45.5, 15.0
 B2_TOP_MM, B2_H_MM = 62.5, 14.0
-ROW2_TOP_MM, ROW2_H_MM = 93.0, 30.0
+ROW2_TOP_MM, ROW2_H_MM = 92.0, 30.0
 C_LEFT_MM, C_W_MM = 16.0, 50.0
 D_LEFT_MM, D_W_MM, D_GAP_MM = 90.0, 48.0, 4.0
 FOLD_LIM = (0.0, 4.3)
@@ -588,7 +590,7 @@ def panel_sizes(fig):
         ps.ygrid(ax)
     ax_m.axhline(1, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
     ax_r.axhline(0, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
-    ax_m.set_ylim(0.6, 6.4)
+    ax_m.set_ylim(0.6, 8.6)               # the legend sits above the lines (the rate penalty ends at 5.6)
     ax_m.set_yticks([1, 3, 5])
     ax_m.set_ylabel("fold change")
     ax_m.tick_params(labelbottom=False)
@@ -670,12 +672,12 @@ def panel_removal(fig, maze_ref):
         ax.set_title(title, fontsize=ps.LABEL_PT, pad=3, loc="left")
         ps.ygrid(ax)
     ax_mz.tick_params(labelleft=False)
-    ax_ff.set_ylabel("after removing the\n$k$ recruited units")
+    ax_ff.set_ylabel("after removing the\n$k$ added units")
     ax_ff.text(0.49, 0.50, "equal", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
-    ax_mz.text(0.49, 0.83, "CDDM:\nnot measured", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="top",
-               linespacing=1.15)
+    ax_mz.text(0.49, D_LO + 0.02, "CDDM:\nnot measured", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right",
+               va="bottom", linespacing=1.15)
     x0, x1 = ax_ff.get_position().x0, ax_mz.get_position().x1
-    fig.text((x0 + x1) / 2, ax_ff.get_position().y0 - 7.5 / FIG_H_MM, "after removing $k$ random active units (median of 5)",
+    fig.text((x0 + x1) / 2, ax_ff.get_position().y0 - 6.5 / FIG_H_MM, "after removing $k$ random active units (median of 5)",
              fontsize=ps.LABEL_PT, color=ps.INK, ha="center", va="top")
     ps.panel_letter(ax_ff, "d")
     return (ax_ff, ax_mz), rows
@@ -752,8 +754,8 @@ def report(cells, vs, order, table, floor, rows_c, rows_d, tol):
           "read-out dropout at 75,000) ---")
     for fam, n, k, m, r in rows_c:
         print(f"  {F5.NAME[fam]:>20} N={n:<5} n={k} fold {m:.2f} dR2 median {r:+.3f}")
-    print("\n--- panel d (recruited units removed; x = after k random active units, median; y = after "
-          "the k recruited units) ---")
+    print("\n--- panel d (added units removed; x = after k random active units, median; y = after "
+          "the k added units) ---")
     for r in rows_d:
         extra = f"; intact {r['full']:.3f}; random mean {r['random_mean']:.3f}" if r["task"] == "maze" else ""
         print(f"  {r['task']:>5} {TECH_NAME[r['tech']]:>20} {r['name']:<32} k={r['k']:<4} x {r['x']:+.3f} "
