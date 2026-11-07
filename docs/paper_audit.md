@@ -350,6 +350,22 @@ inactive units at the learned point are active 700 updates later in 8 Maze netwo
 N = 1,000 networks: mixed, so C7 does not gain Maze. C8: the recurrent-weight s.d. is 24-28% lower over all
 units than over the active units in the three N = 1,000 Maze networks.
 
+**Round 18 training package, interim (entry 2026-11-07_0707_round18-training-interim-results; rules
+2026-11-07_0110 and _0136).** Settings (Fig. 3): G12's three new N = 1,000 Maze controls all learned, with 394,
+398 and 417 active units at update 2,000, so weight decay 1e-5 on Maze (370-417) no longer lies below every
+learned control. Its Maze verdict becomes "no change", and "only weight decay changes the number on all three
+tasks" loses its Maze direction. The other Maze setting verdicts are to be recomputed against the five learned
+controls (394-449). C7: G18, the CDDM transfer test (CDDMHyper, B4's rules), passes the gate. At the floor
+crossing the verdict is "between the bars": the old networks revive 12%, 12% and 25% of their inactive units,
+read at 2,000-4,890 iterations against 24,906-28,578 for the fresh networks. The 1.10x and 1.20x margins give
+the same verdict. At 75k the old networks keep 4.8-6.0% of those units active and end 101 units below the fresh
+networks ("do not come back", not binding). G17 (Maze transfer) not run: no second maze passed the difficulty
+check (entry 2026-11-07_0421; decision on #201). C2: G11 brings N = 250-1,000 to 4,000 updates; all ten runs
+learned, and every run has fewer or equal active units at 4,000 than at 2,000. C6 parity on CDDM, partial:
+rescaling target 4.0 fails (224-231 active against 333-342); σ_w 0.1 fails (316 and 333 in two of three
+networks); σ_w 0.3 passes in two of three networks so far; read-out dropout 0.05 and every Maze parity arm
+are still running.
+
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
 421-457 for an untrained network trained on the new task; R² is the same (0.91). Verdict, by the

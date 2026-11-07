@@ -1,0 +1,253 @@
+{
+ "g11": [
+  {
+   "seed": 1,
+   "N": 250,
+   "last_update": 4000,
+   "success_end": 1.0,
+   "learned": 1190,
+   "active_learned": 154,
+   "active_2000": 147,
+   "active_4000": 140,
+   "active_end": 140
+  },
+  {
+   "seed": 2,
+   "N": 250,
+   "last_update": 4000,
+   "success_end": 0.9921875,
+   "learned": 2340,
+   "active_learned": 136,
+   "active_2000": 128,
+   "active_4000": 125,
+   "active_end": 125
+  },
+  {
+   "seed": 3,
+   "N": 250,
+   "last_update": 4000,
+   "success_end": 1.0,
+   "learned": 830,
+   "active_learned": 173,
+   "active_2000": 158,
+   "active_4000": 146,
+   "active_end": 146
+  },
+  {
+   "seed": 4,
+   "N": 250,
+   "last_update": 4000,
+   "success_end": 1.0,
+   "learned": 940,
+   "active_learned": 138,
+   "active_2000": 132,
+   "active_4000": 132,
+   "active_end": 132
+  },
+  {
+   "seed": 1,
+   "N": 500,
+   "last_update": 4000,
+   "success_end": 1.0,
+   "learned": 1350,
+   "active_learned": 281,
+   "active_2000": 265,
+   "active_4000": 226,
+   "active_end": 226
+  },
+  {
+   "seed": 2,
+   "N": 500,
+   "last_update": 4000,
+   "success_end": 0.9921875,
+   "learned": 1280,
+   "active_learned": 259,
+   "active_2000": 241,
+   "active_4000": 226,
+   "active_end": 226
+  },
+  {
+   "seed": 3,
+   "N": 500,
+   "last_update": 4000,
+   "success_end": 1.0,
+   "learned": 1750,
+   "active_learned": 279,
+   "active_2000": 276,
+   "active_4000": 240,
+   "active_end": 240
+  },
+  {
+   "seed": 1,
+   "N": 1000,
+   "last_update": 4000,
+   "success_end": 1.0,
+   "learned": 1050,
+   "active_learned": 451,
+   "active_2000": 426,
+   "active_4000": 360,
+   "active_end": 360
+  },
+  {
+   "seed": 2,
+   "N": 1000,
+   "last_update": 4000,
+   "success_end": 1.0,
+   "learned": 760,
+   "active_learned": 517,
+   "active_2000": 449,
+   "active_4000": 404,
+   "active_end": 404
+  },
+  {
+   "seed": 3,
+   "N": 1000,
+   "last_update": 4000,
+   "success_end": 1.0,
+   "learned": 1750,
+   "active_learned": 428,
+   "active_2000": 415,
+   "active_4000": 317,
+   "active_end": 317
+  }
+ ],
+ "g12": [
+  {
+   "seed": 4,
+   "N": 1000,
+   "last_update": 2000,
+   "success_end": 0.953125,
+   "learned": 1530,
+   "active_learned": 427,
+   "active_2000": 394,
+   "active_4000": null,
+   "active_end": 394
+  },
+  {
+   "seed": 5,
+   "N": 1000,
+   "last_update": 2000,
+   "success_end": 0.9375,
+   "learned": 1180,
+   "active_learned": 412,
+   "active_2000": 398,
+   "active_4000": null,
+   "active_end": 398
+  },
+  {
+   "seed": 6,
+   "N": 1000,
+   "last_update": 2000,
+   "success_end": 1.0,
+   "learned": 1330,
+   "active_learned": 406,
+   "active_2000": 417,
+   "active_4000": null,
+   "active_end": 417
+  }
+ ],
+ "g12_snapshots": {
+  "4": {
+   "n": 20,
+   "first": 100,
+   "last": 2000,
+   "gap_after_learned": 70
+  },
+  "5": {
+   "n": 20,
+   "first": 100,
+   "last": 2000,
+   "gap_after_learned": 20
+  },
+  "6": {
+   "n": 20,
+   "first": 100,
+   "last": 2000,
+   "gap_after_learned": 70
+  }
+ },
+ "g12_test": {
+  "new_learned": [
+   4,
+   5,
+   6
+  ],
+  "at_or_below_417": [
+   4,
+   5,
+   6
+  ],
+  "result": "weight decay 1e-5 loses its Maze direction (seed(s) [4, 5, 6] at or below 417)"
+ },
+ "g17": [],
+ "g17_verdict": {
+  "n_old_eligible": 0,
+  "n_old_read": 0,
+  "need_old": 2,
+  "n_fresh": 0,
+  "revived_share": [],
+  "verdict": "no verdict"
+ },
+ "parity": {
+  "controls": {
+   "active": {
+    "1": 426,
+    "2": 449,
+    "3": 415
+   },
+   "success": {
+    "1": 0.9921875,
+    "2": 0.9765625,
+    "3": 0.7265625
+   },
+   "learned": [
+    1,
+    2
+   ]
+  },
+  "sigmaw0.1": {
+   "runs": [],
+   "passes": false,
+   "why": [
+    "no finished network"
+   ],
+   "passes_learned_controls": false,
+   "why_learned_controls": [
+    "no finished network"
+   ]
+  },
+  "sigmaw0.3": {
+   "runs": [],
+   "passes": false,
+   "why": [
+    "no finished network"
+   ],
+   "passes_learned_controls": false,
+   "why_learned_controls": [
+    "no finished network"
+   ]
+  },
+  "dropout0.05_beta4": {
+   "runs": [],
+   "passes": false,
+   "why": [
+    "no finished network"
+   ],
+   "passes_learned_controls": false,
+   "why_learned_controls": [
+    "no finished network"
+   ]
+  },
+  "rescale_tgt4": {
+   "runs": [],
+   "passes": false,
+   "why": [
+    "no finished network"
+   ],
+   "passes_learned_controls": false,
+   "why_learned_controls": [
+    "no finished network"
+   ]
+  }
+ }
+}
