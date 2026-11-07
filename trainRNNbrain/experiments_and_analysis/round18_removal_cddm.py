@@ -72,7 +72,8 @@ def params_file(run_dir, g):
     """
     if not g.get("last_params"):
         return None
-    return sorted(glob.glob(os.path.join(run_dir, "*LastParams*.np[zy]")))[0]
+    return (sorted(glob.glob(os.path.join(run_dir, "*LastParams*.np[zy]")))
+            or sorted(glob.glob(os.path.join(run_dir, "*LastParams*.json"))))[0]
 
 
 def verdict(drops):
