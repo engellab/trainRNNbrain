@@ -12,8 +12,8 @@
   "optimiser": "runs with R^2 below 0.8 excluded; A = count and R^2 conditions pass, B = count passes and R^2 fails, C = count fails; CDDM reproduces 3BFF if Adam wd 0 and AdamW are A and every SGD arm whose count passes is B"
  },
  "status_table": {
-  "path": "data/della_batch1_status.tsv",
-  "mtime": "2026-11-06 08:06"
+  "path": "data/della_batch2_status.tsv",
+  "mtime": "2026-11-06 18:28"
  },
  "f2_cache": {
   "path": "data/fig_paper_F2_fails_cache.pkl",
@@ -2482,6 +2482,34 @@
        "it_end": 75000.0,
        "job_task": "16957419_7",
        "skipped_share": 0.0
+      },
+      {
+       "cell": "CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_rws0.05_iters=75000",
+       "name": "0.8750995_CDDM_relu;N=1000;seed=3331603136;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0.05",
+       "seed": "3331603136",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 1000,
+       "r2": 0.8287995258967081,
+       "r2_how": "final",
+       "r2_end": 0.8287995258967081,
+       "it_end": 75000.0,
+       "job_task": "16957419_8",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_rws0.05_iters=75000",
+       "name": "0.8752859_CDDM_relu;N=1000;seed=1077378740;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0.05",
+       "seed": "1077378740",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 1000,
+       "r2": 0.8265259514252344,
+       "r2_how": "final",
+       "r2_end": 0.8265259514252344,
+       "it_end": 75000.0,
+       "job_task": "16957419_9",
+       "skipped_share": 0.0
       }
      ],
      "verdict": {
@@ -2490,16 +2518,16 @@
       "mean_active_arm": 1000.0,
       "mean_active_ctrl": 336.3333333333333,
       "fold": 2.9732408325074333,
-      "mean_r2_arm": 0.8226460119088491,
+      "mean_r2_arm": 0.8259904964102639,
       "mean_r2_ctrl": 0.8337163378042889,
-      "r2_gap": -0.01107032589543977,
+      "r2_gap": -0.00772584139402499,
       "count_ok": true,
-      "r2_ok": false,
-      "works": false,
-      "text": "provisional (1 of 3 runs): fails: R2 gap -0.011 beyond 0.01",
-      "n_read": 1,
+      "r2_ok": true,
+      "works": true,
+      "text": "works",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false
+      "complete": true
      },
      "config_differs_from_control": {
       "trainer.optimizer": [
@@ -2575,24 +2603,7 @@
        100000
       ]
      },
-     "pending": [
-      {
-       "job_task": "16957419_8",
-       "state": "RUNNING",
-       "seed": "3331603136",
-       "tag": "CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_rws0.05_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957419_9",
-       "state": "RUNNING",
-       "seed": "1077378740",
-       "tag": "CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_rws0.05_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "pending": []
     }
    ],
    "references": [
@@ -2909,103 +2920,173 @@
      "label": "sigma_rec 0.01",
      "cell": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
+       "name": "0.9509336_NBitFlipFlop_relu;N=1000;seed=114095993;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "114095993",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 263,
+       "r2": 0.9500017960866293,
+       "r2_how": "final",
+       "r2_end": 0.9500017960866293,
+       "it_end": 75000.0,
+       "job_task": "16957556_8",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
+       "name": "0.9511059_NBitFlipFlop_relu;N=1000;seed=2037472196;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2037472196",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 276,
+       "r2": 0.9509237243069543,
+       "r2_how": "final",
+       "r2_end": 0.9509237243069543,
+       "it_end": 75000.0,
+       "job_task": "16957556_7",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
+       "name": "0.9514638_NBitFlipFlop_relu;N=1000;seed=2113571904;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2113571904",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 289,
+       "r2": 0.9519859502712885,
+       "r2_how": "final",
+       "r2_end": 0.9519859502712885,
+       "it_end": 75000.0,
+       "job_task": "16957556_6",
+       "skipped_share": 0.0
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "no change",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       263,
+       276,
+       289
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 276.0,
+      "mean_r2_arm": 0.950970490221624,
+      "r2_gap": 7.797384932972662e-05,
+      "interpreted": true,
+      "text": "no change"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957556_6",
-       "state": "RUNNING",
-       "seed": "2113571904",
-       "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957556_7",
-       "state": "RUNNING",
-       "seed": "2037472196",
-       "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957556_8",
-       "state": "RUNNING",
-       "seed": "114095993",
-       "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "model.sigma_rec": [
+       0.01,
+       0.05
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     },
     {
      "label": "sigma_rec 0.1",
      "cell": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
+       "name": "0.9499205_NBitFlipFlop_relu;N=1000;seed=2750111374;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2750111374",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 239,
+       "r2": 0.9497133195400238,
+       "r2_how": "final",
+       "r2_end": 0.9497133195400238,
+       "it_end": 75000.0,
+       "job_task": "16957556_16",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
+       "name": "0.9502961_NBitFlipFlop_relu;N=1000;seed=3087851235;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "3087851235",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 263,
+       "r2": 0.9499865472316742,
+       "r2_how": "final",
+       "r2_end": 0.9499865472316742,
+       "it_end": 75000.0,
+       "job_task": "16957556_18",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
+       "name": "0.9503354_NBitFlipFlop_relu;N=1000;seed=2644588571;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2644588571",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 244,
+       "r2": 0.9503191130028831,
+       "r2_how": "final",
+       "r2_end": 0.9503191130028831,
+       "it_end": 75000.0,
+       "job_task": "16957556_17",
+       "skipped_share": 0.0
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "no change",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       239,
+       263,
+       244
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 248.66666666666666,
+      "mean_r2_arm": 0.950006326591527,
+      "r2_gap": -0.0008861897807673769,
+      "interpreted": true,
+      "text": "no change"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957556_16",
-       "state": "RUNNING",
-       "seed": "2750111374",
-       "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957556_17",
-       "state": "RUNNING",
-       "seed": "2644588571",
-       "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957556_18",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "model.sigma_rec": [
+       0.1,
+       0.05
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     }
    ],
    "references": [],
@@ -3446,6 +3527,20 @@
      "runs": [
       {
        "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=0.5_iters=75000",
+       "name": "0.9519861_NBitFlipFlop_relu;N=1000;seed=3901667487;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "3901667487",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 346,
+       "r2": 0.9519607673088709,
+       "r2_how": "final",
+       "r2_end": 0.9519607673088709,
+       "it_end": 75000.0,
+       "job_task": "16957557_3",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=0.5_iters=75000",
        "name": "0.9525571_NBitFlipFlop_relu;N=1000;seed=2286017443;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
        "seed": "2286017443",
        "t_read": 75000.0,
@@ -3475,10 +3570,11 @@
      ],
      "verdict": {
       "direction": "no change",
-      "n_read": 2,
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
+      "complete": true,
       "active": [
+       346,
        295,
        270
       ],
@@ -3488,11 +3584,11 @@
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "mean_active_arm": 282.5,
-      "mean_r2_arm": 0.9517148716582193,
-      "r2_gap": 0.0008223552859250027,
+      "mean_active_arm": 303.6666666666667,
+      "mean_r2_arm": 0.9517968368751032,
+      "r2_gap": 0.0009043205028088641,
       "interpreted": true,
-      "text": "provisional (2 of 3 runs): no change"
+      "text": "no change"
      },
      "config_differs_from_control": {
       "model.spectral_rad": [
@@ -3508,169 +3604,265 @@
        200000
       ]
      },
-     "pending": [
-      {
-       "job_task": "16957557_3",
-       "state": "RUNNING",
-       "seed": "3901667487",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=0.5_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "pending": []
     },
     {
      "label": "spectral radius 2.0",
      "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
+       "name": "0.9492452_NBitFlipFlop_relu;N=1000;seed=2142213740;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2142213740",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 208,
+       "r2": 0.949293788936403,
+       "r2_how": "final",
+       "r2_end": 0.949293788936403,
+       "it_end": 75000.0,
+       "job_task": "16957557_7",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
+       "name": "0.9509661_NBitFlipFlop_relu;N=1000;seed=1240111490;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1240111490",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 248,
+       "r2": 0.9510550813542472,
+       "r2_how": "final",
+       "r2_end": 0.9510550813542472,
+       "it_end": 75000.0,
+       "job_task": "16957557_8",
+       "skipped_share": 0.006653333333333333
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
+       "name": "0.9513695_NBitFlipFlop_relu;N=1000;seed=651190503;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "651190503",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 280,
+       "r2": 0.9512093696329329,
+       "r2_how": "final",
+       "r2_end": 0.9512093696329329,
+       "it_end": 75000.0,
+       "job_task": "16957557_9",
+       "skipped_share": 0.0
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "no change",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       208,
+       248,
+       280
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 245.33333333333334,
+      "mean_r2_arm": 0.950519413307861,
+      "r2_gap": -0.0003731030644332778,
+      "interpreted": true,
+      "text": "no change"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957557_7",
-       "state": "RUNNING",
-       "seed": "2142213740",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957557_8",
-       "state": "RUNNING",
-       "seed": "1240111490",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957557_9",
-       "state": "RUNNING",
-       "seed": "651190503",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "model.spectral_rad": [
+       2.0,
+       1.2
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     },
     {
      "label": "lambda_rwm 0.05",
      "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
+       "name": "0.9439013_NBitFlipFlop_relu;N=1000;seed=3099110300;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.05;Lrws=0",
+       "seed": "3099110300",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 540,
+       "r2": 0.9444272236691581,
+       "r2_how": "final",
+       "r2_end": 0.9444272236691581,
+       "it_end": 75000.0,
+       "job_task": "16957557_10",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
+       "name": "0.9459385_NBitFlipFlop_relu;N=1000;seed=534558521;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.05;Lrws=0",
+       "seed": "534558521",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 516,
+       "r2": 0.9449883782201343,
+       "r2_how": "final",
+       "r2_end": 0.9449883782201343,
+       "it_end": 75000.0,
+       "job_task": "16957557_11",
+       "skipped_share": 0.006653333333333333
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
+       "name": "0.9459699_NBitFlipFlop_relu;N=1000;seed=1187087490;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.05;Lrws=0",
+       "seed": "1187087490",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 520,
+       "r2": 0.9448077927033106,
+       "r2_how": "final",
+       "r2_end": 0.9448077927033106,
+       "it_end": 75000.0,
+       "job_task": "16957557_12",
+       "skipped_share": 0.00076
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "increase",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       540,
+       516,
+       520
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 525.3333333333334,
+      "mean_r2_arm": 0.9447411315308676,
+      "r2_gap": -0.006151384841426744,
+      "interpreted": true,
+      "text": "increase"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957557_10",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957557_11",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957557_12",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "trainer.lambda_rwm": [
+       0.05,
+       null
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     },
     {
      "label": "lambda_rwm 0.2",
      "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
+       "name": "0.944782_NBitFlipFlop_relu;N=1000;seed=3304714684;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.2;Lrws=0",
+       "seed": "3304714684",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 567,
+       "r2": 0.943836220436626,
+       "r2_how": "final",
+       "r2_end": 0.943836220436626,
+       "it_end": 75000.0,
+       "job_task": "16957557_13",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
+       "name": "0.9454829_NBitFlipFlop_relu;N=1000;seed=1051263503;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.2;Lrws=0",
+       "seed": "1051263503",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 532,
+       "r2": 0.9444215330812666,
+       "r2_how": "final",
+       "r2_end": 0.9444215330812666,
+       "it_end": 75000.0,
+       "job_task": "16957557_14",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
+       "name": "0.9456054_NBitFlipFlop_relu;N=1000;seed=2390508989;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.2;Lrws=0",
+       "seed": "2390508989",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 543,
+       "r2": 0.9453413552708096,
+       "r2_how": "final",
+       "r2_end": 0.9453413552708096,
+       "it_end": 75000.0,
+       "job_task": "16957557_15",
+       "skipped_share": 0.013306666666666666
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "increase",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       567,
+       532,
+       543
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 547.3333333333334,
+      "mean_r2_arm": 0.9445330362629006,
+      "r2_gap": -0.006359480109393689,
+      "interpreted": true,
+      "text": "increase"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957557_13",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957557_14",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957557_15",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "trainer.lambda_rwm": [
+       0.2,
+       null
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     }
    ],
    "references": [],
@@ -3814,6 +4006,20 @@
        },
        {
         "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
+        "name": "0.8662355_CDDM_relu;N=1000;seed=2657990103;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+        "seed": "2657990103",
+        "t_read": 75000.0,
+        "probe": 74900.0,
+        "active": 304,
+        "r2": 0.8322511083549924,
+        "r2_how": "final",
+        "r2_end": 0.8322511083549924,
+        "it_end": 75000.0,
+        "job_task": "16957558_3",
+        "skipped_share": 0.0
+       },
+       {
+        "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
         "name": "0.8908727_CDDM_relu;N=1000;seed=4033149549;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
         "seed": "4033149549",
         "t_read": 75000.0,
@@ -3829,11 +4035,12 @@
       ],
       "verdict": {
        "direction": "no change",
-       "n_read": 2,
+       "n_read": 3,
        "n_expected": 3,
-       "complete": false,
+       "complete": true,
        "active": [
         308,
+        304,
         317
        ],
        "mean_active_ctrl": 331.6666666666667,
@@ -3842,11 +4049,11 @@
         347
        ],
        "mean_r2_ctrl": 0.8333646489514245,
-       "mean_active_arm": 312.5,
-       "mean_r2_arm": 0.8341580778360367,
-       "r2_gap": 0.0007934288846122017,
+       "mean_active_arm": 309.6666666666667,
+       "mean_r2_arm": 0.8335224213423552,
+       "r2_gap": 0.0001577723909307327,
        "interpreted": true,
-       "text": "provisional (2 of 3 runs): no change"
+       "text": "no change"
       }
      },
      {
@@ -3869,6 +4076,20 @@
        },
        {
         "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
+        "name": "0.8755701_CDDM_relu;N=1000;seed=1068748794;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.05;Lrws=0",
+        "seed": "1068748794",
+        "t_read": 75000.0,
+        "probe": 74900.0,
+        "active": 459,
+        "r2": 0.8288819972011778,
+        "r2_how": "final",
+        "r2_end": 0.8288819972011778,
+        "it_end": 75000.0,
+        "job_task": "16957558_4",
+        "skipped_share": 0.0
+       },
+       {
+        "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
         "name": "0.8785281_CDDM_relu;N=1000;seed=628548698;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.05;Lrws=0",
         "seed": "628548698",
         "t_read": 75000.0,
@@ -3884,11 +4105,12 @@
       ],
       "verdict": {
        "direction": "increase",
-       "n_read": 2,
+       "n_read": 3,
        "n_expected": 3,
-       "complete": false,
+       "complete": true,
        "active": [
         441,
+        459,
         434
        ],
        "mean_active_ctrl": 331.6666666666667,
@@ -3897,11 +4119,11 @@
         347
        ],
        "mean_r2_ctrl": 0.8333646489514245,
-       "mean_active_arm": 437.5,
-       "mean_r2_arm": 0.8323448358310594,
-       "r2_gap": -0.0010198131203650318,
+       "mean_active_arm": 444.6666666666667,
+       "mean_r2_arm": 0.8311905562877655,
+       "r2_gap": -0.0021740926636589775,
        "interpreted": true,
-       "text": "provisional (2 of 3 runs): increase"
+       "text": "increase"
       }
      },
      {
@@ -3924,6 +4146,20 @@
        },
        {
         "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
+        "name": "0.8787418_CDDM_relu;N=1000;seed=2472667323;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.2;Lrws=0",
+        "seed": "2472667323",
+        "t_read": 75000.0,
+        "probe": 74900.0,
+        "active": 436,
+        "r2": 0.8325273245573044,
+        "r2_how": "final",
+        "r2_end": 0.8325273245573044,
+        "it_end": 75000.0,
+        "job_task": "16957558_5",
+        "skipped_share": 0.0
+       },
+       {
+        "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
         "name": "0.8811862_CDDM_relu;N=1000;seed=325260688;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.2;Lrws=0",
         "seed": "325260688",
         "t_read": 75000.0,
@@ -3939,11 +4175,12 @@
       ],
       "verdict": {
        "direction": "increase",
-       "n_read": 2,
+       "n_read": 3,
        "n_expected": 3,
-       "complete": false,
+       "complete": true,
        "active": [
         445,
+        436,
         450
        ],
        "mean_active_ctrl": 331.6666666666667,
@@ -3952,11 +4189,11 @@
         347
        ],
        "mean_r2_ctrl": 0.8333646489514245,
-       "mean_active_arm": 447.5,
-       "mean_r2_arm": 0.8293936906589403,
-       "r2_gap": -0.003970958292484172,
+       "mean_active_arm": 443.6666666666667,
+       "mean_r2_arm": 0.8304382352917283,
+       "r2_gap": -0.0029264136596961476,
        "interpreted": true,
-       "text": "provisional (2 of 3 runs): increase"
+       "text": "increase"
       }
      }
     ]
@@ -4119,6 +4356,20 @@
       },
       {
        "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
+       "name": "0.8662355_CDDM_relu;N=1000;seed=2657990103;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2657990103",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 304,
+       "r2": 0.8322511083549924,
+       "r2_how": "final",
+       "r2_end": 0.8322511083549924,
+       "it_end": 75000.0,
+       "job_task": "16957558_3",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
        "name": "0.8908727_CDDM_relu;N=1000;seed=4033149549;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
        "seed": "4033149549",
        "t_read": 75000.0,
@@ -4134,11 +4385,12 @@
      ],
      "verdict": {
       "direction": "no change",
-      "n_read": 2,
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
+      "complete": true,
       "active": [
        308,
+       304,
        317
       ],
       "mean_active_ctrl": 331.6666666666667,
@@ -4147,11 +4399,11 @@
        347
       ],
       "mean_r2_ctrl": 0.8333646489514245,
-      "mean_active_arm": 312.5,
-      "mean_r2_arm": 0.8341580778360367,
-      "r2_gap": 0.0007934288846122017,
+      "mean_active_arm": 309.6666666666667,
+      "mean_r2_arm": 0.8335224213423552,
+      "r2_gap": 0.0001577723909307327,
       "interpreted": true,
-      "text": "provisional (2 of 3 runs): no change"
+      "text": "no change"
      },
      "config_differs_from_control": {
       "model.spectral_rad": [
@@ -4163,16 +4415,7 @@
        1000
       ]
      },
-     "pending": [
-      {
-       "job_task": "16957558_3",
-       "state": "RUNNING",
-       "seed": "2657990103",
-       "tag": "CDDM_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "pending": []
     },
     {
      "label": "lambda_rwm 0.05",
@@ -4195,6 +4438,20 @@
       },
       {
        "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
+       "name": "0.8755701_CDDM_relu;N=1000;seed=1068748794;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.05;Lrws=0",
+       "seed": "1068748794",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 459,
+       "r2": 0.8288819972011778,
+       "r2_how": "final",
+       "r2_end": 0.8288819972011778,
+       "it_end": 75000.0,
+       "job_task": "16957558_4",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
        "name": "0.8785281_CDDM_relu;N=1000;seed=628548698;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.05;Lrws=0",
        "seed": "628548698",
        "t_read": 75000.0,
@@ -4210,11 +4467,12 @@
      ],
      "verdict": {
       "direction": "increase",
-      "n_read": 2,
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
+      "complete": true,
       "active": [
        441,
+       459,
        434
       ],
       "mean_active_ctrl": 331.6666666666667,
@@ -4223,11 +4481,11 @@
        347
       ],
       "mean_r2_ctrl": 0.8333646489514245,
-      "mean_active_arm": 437.5,
-      "mean_r2_arm": 0.8323448358310594,
-      "r2_gap": -0.0010198131203650318,
+      "mean_active_arm": 444.6666666666667,
+      "mean_r2_arm": 0.8311905562877655,
+      "r2_gap": -0.0021740926636589775,
       "interpreted": true,
-      "text": "provisional (2 of 3 runs): increase"
+      "text": "increase"
      },
      "config_differs_from_control": {
       "trainer.lambda_rwm": [
@@ -4239,16 +4497,7 @@
        1000
       ]
      },
-     "pending": [
-      {
-       "job_task": "16957558_4",
-       "state": "RUNNING",
-       "seed": "1068748794",
-       "tag": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "pending": []
     },
     {
      "label": "lambda_rwm 0.2",
@@ -4271,6 +4520,20 @@
       },
       {
        "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
+       "name": "0.8787418_CDDM_relu;N=1000;seed=2472667323;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.2;Lrws=0",
+       "seed": "2472667323",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 436,
+       "r2": 0.8325273245573044,
+       "r2_how": "final",
+       "r2_end": 0.8325273245573044,
+       "it_end": 75000.0,
+       "job_task": "16957558_5",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
        "name": "0.8811862_CDDM_relu;N=1000;seed=325260688;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrwm=0.2;Lrws=0",
        "seed": "325260688",
        "t_read": 75000.0,
@@ -4286,11 +4549,12 @@
      ],
      "verdict": {
       "direction": "increase",
-      "n_read": 2,
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
+      "complete": true,
       "active": [
        445,
+       436,
        450
       ],
       "mean_active_ctrl": 331.6666666666667,
@@ -4299,11 +4563,11 @@
        347
       ],
       "mean_r2_ctrl": 0.8333646489514245,
-      "mean_active_arm": 447.5,
-      "mean_r2_arm": 0.8293936906589403,
-      "r2_gap": -0.003970958292484172,
+      "mean_active_arm": 443.6666666666667,
+      "mean_r2_arm": 0.8304382352917283,
+      "r2_gap": -0.0029264136596961476,
       "interpreted": true,
-      "text": "provisional (2 of 3 runs): increase"
+      "text": "increase"
      },
      "config_differs_from_control": {
       "trainer.lambda_rwm": [
@@ -4315,16 +4579,7 @@
        1000
       ]
      },
-     "pending": [
-      {
-       "job_task": "16957558_5",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "pending": []
     }
    ],
    "references": []
@@ -4425,6 +4680,34 @@
      "runs": [
       {
        "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000",
+       "name": "0.9480209_NBitFlipFlop_relu;N=1000;seed=2413978074;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0.01;Lorth=0;Lrws=0",
+       "seed": "2413978074",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 331,
+       "r2": 0.9487010124656889,
+       "r2_how": "final",
+       "r2_end": 0.9487010124656889,
+       "it_end": 75000.0,
+       "job_task": "16957559_8",
+       "skipped_share": 0.006226666666666667
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000",
+       "name": "0.9490331_NBitFlipFlop_relu;N=1000;seed=2274079521;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0.01;Lorth=0;Lrws=0",
+       "seed": "2274079521",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 346,
+       "r2": 0.9489942391713461,
+       "r2_how": "final",
+       "r2_end": 0.9489942391713461,
+       "it_end": 75000.0,
+       "job_task": "16957559_9",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000",
        "name": "0.9492849_NBitFlipFlop_relu;N=1000;seed=2618310007;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0.01;Lorth=0;Lrws=0",
        "seed": "2618310007",
        "t_read": 75000.0,
@@ -4440,10 +4723,12 @@
      ],
      "verdict": {
       "direction": "increase",
-      "n_read": 1,
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
+      "complete": true,
       "active": [
+       331,
+       346,
        351
       ],
       "mean_active_ctrl": 245.66666666666666,
@@ -4452,11 +4737,11 @@
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "mean_active_arm": 351.0,
-      "mean_r2_arm": 0.9492994331651263,
-      "r2_gap": -0.0015930832071680001,
+      "mean_active_arm": 342.6666666666667,
+      "mean_r2_arm": 0.9489982282673871,
+      "r2_gap": -0.0018942881049072158,
       "interpreted": true,
-      "text": "provisional (1 of 3 runs): increase"
+      "text": "increase"
      },
      "config_differs_from_control": {
       "trainer.lambda_met": [
@@ -4472,177 +4757,265 @@
        200000
       ]
      },
-     "pending": [
-      {
-       "job_task": "16957559_8",
-       "state": "RUNNING",
-       "seed": "2413978074",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957559_9",
-       "state": "RUNNING",
-       "seed": "2274079521",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "pending": []
     },
     {
      "label": "lambda_met 0.1",
      "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
+       "name": "0.9441252_NBitFlipFlop_relu;N=1000;seed=1962395024;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0.1;Lorth=0;Lrws=0",
+       "seed": "1962395024",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 281,
+       "r2": 0.9435620539718204,
+       "r2_how": "final",
+       "r2_end": 0.9435620539718204,
+       "it_end": 75000.0,
+       "job_task": "16957559_16",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
+       "name": "0.9455081_NBitFlipFlop_relu;N=1000;seed=3808897215;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0.1;Lorth=0;Lrws=0",
+       "seed": "3808897215",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 352,
+       "r2": 0.9467715753449334,
+       "r2_how": "final",
+       "r2_end": 0.9467715753449334,
+       "it_end": 75000.0,
+       "job_task": "16957559_17",
+       "skipped_share": 0.005933333333333333
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
+       "name": "0.9459033_NBitFlipFlop_relu;N=1000;seed=734802261;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0.1;Lorth=0;Lrws=0",
+       "seed": "734802261",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 347,
+       "r2": 0.9453235053353839,
+       "r2_how": "final",
+       "r2_end": 0.9453235053353839,
+       "it_end": 75000.0,
+       "job_task": "16957559_18",
+       "skipped_share": 0.0
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "increase",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       281,
+       352,
+       347
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 326.6666666666667,
+      "mean_r2_arm": 0.945219044884046,
+      "r2_gap": -0.005673471488248372,
+      "interpreted": true,
+      "text": "increase"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957559_16",
-       "state": "RUNNING",
-       "seed": "1962395024",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957559_17",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957559_18",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "trainer.lambda_met": [
+       0.1,
+       0
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     },
     {
      "label": "lambda_met 1",
-     "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1_iters=75000",
+     "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1.0_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1.0_iters=75000",
+       "name": "0.9354561_NBitFlipFlop_relu;N=1000;seed=1085794566;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=1;Lorth=0;Lrws=0",
+       "seed": "1085794566",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 312,
+       "r2": 0.9360813995202383,
+       "r2_how": "final",
+       "r2_end": 0.9360813995202383,
+       "it_end": 75000.0,
+       "job_task": "16957559_27",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1.0_iters=75000",
+       "name": "0.9365811_NBitFlipFlop_relu;N=1000;seed=3969087498;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=1;Lorth=0;Lrws=0",
+       "seed": "3969087498",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 292,
+       "r2": 0.9361094865534041,
+       "r2_how": "final",
+       "r2_end": 0.9361094865534041,
+       "it_end": 75000.0,
+       "job_task": "16957559_26",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1.0_iters=75000",
+       "name": "0.9369068_NBitFlipFlop_relu;N=1000;seed=765993234;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=1;Lorth=0;Lrws=0",
+       "seed": "765993234",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 285,
+       "r2": 0.9358715845478905,
+       "r2_how": "final",
+       "r2_end": 0.9358715845478905,
+       "it_end": 75000.0,
+       "job_task": "16957559_25",
+       "skipped_share": 0.0
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "increase",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       312,
+       292,
+       285
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 296.3333333333333,
+      "mean_r2_arm": 0.936020823540511,
+      "r2_gap": -0.014871692831783356,
+      "interpreted": true,
+      "text": "increase"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957559_25",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957559_26",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957559_27",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "trainer.lambda_met": [
+       1.0,
+       0
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     },
     {
      "label": "lambda_met 10",
-     "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10_iters=75000",
+     "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10.0_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10.0_iters=75000",
+       "name": "0.9038175_NBitFlipFlop_relu;N=1000;seed=1895021074;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=10;Lorth=0;Lrws=0",
+       "seed": "1895021074",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 197,
+       "r2": 0.9026992039548026,
+       "r2_how": "final",
+       "r2_end": 0.9026992039548026,
+       "it_end": 75000.0,
+       "job_task": "16957559_35",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10.0_iters=75000",
+       "name": "0.9053643_NBitFlipFlop_relu;N=1000;seed=485230843;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=10;Lorth=0;Lrws=0",
+       "seed": "485230843",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 188,
+       "r2": 0.9037401626507441,
+       "r2_how": "final",
+       "r2_end": 0.9037401626507441,
+       "it_end": 75000.0,
+       "job_task": "16957559_36",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10.0_iters=75000",
+       "name": "0.9055762_NBitFlipFlop_relu;N=1000;seed=4052550188;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=10;Lorth=0;Lrws=0",
+       "seed": "4052550188",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 206,
+       "r2": 0.9031807449128892,
+       "r2_how": "final",
+       "r2_end": 0.9031807449128892,
+       "it_end": 75000.0,
+       "job_task": "16957559_34",
+       "skipped_share": 0.0
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "decrease",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       197,
+       188,
+       206
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 197.0,
+      "mean_r2_arm": 0.9032067038394787,
+      "r2_gap": -0.047685812532815675,
+      "interpreted": true,
+      "text": "decrease"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957559_34",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957559_35",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957559_36",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "trainer.lambda_met": [
+       10.0,
+       0
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     }
    ],
    "references": [],
@@ -5056,15 +5429,45 @@
        "it_end": 75000.0,
        "job_task": "16957560_166",
        "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=rws_iters=75000",
+       "name": "0.9502084_NBitFlipFlop_relu;N=1000;seed=732025745;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0.05",
+       "seed": "732025745",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 221,
+       "r2": 0.9501685169008043,
+       "r2_how": "final",
+       "r2_end": 0.9501685169008043,
+       "it_end": 75000.0,
+       "job_task": "16957560_167",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=rws_iters=75000",
+       "name": "0.9517319_NBitFlipFlop_relu;N=1000;seed=3382294632;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0.05",
+       "seed": "3382294632",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 221,
+       "r2": 0.9507360127237108,
+       "r2_how": "final",
+       "r2_end": 0.9507360127237108,
+       "it_end": 75000.0,
+       "job_task": "16957560_168",
+       "skipped_share": 0.0
       }
      ],
      "verdict": {
       "direction": "no change",
-      "n_read": 1,
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
+      "complete": true,
       "active": [
-       233
+       233,
+       221,
+       221
       ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
@@ -5072,11 +5475,11 @@
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "mean_active_arm": 233.0,
-      "mean_r2_arm": 0.9500967396630181,
-      "r2_gap": -0.0007957767092762191,
+      "mean_active_arm": 225.0,
+      "mean_r2_arm": 0.9503337564291776,
+      "r2_gap": -0.0005587599431167156,
       "interpreted": true,
-      "text": "provisional (1 of 3 runs): no change"
+      "text": "no change"
      },
      "config_differs_from_control": {
       "trainer.lambda_rws": [
@@ -5092,24 +5495,7 @@
        200000
       ]
      },
-     "pending": [
-      {
-       "job_task": "16957560_167",
-       "state": "RUNNING",
-       "seed": "732025745",
-       "tag": "NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=rws_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957560_168",
-       "state": "RUNNING",
-       "seed": "3382294632",
-       "tag": "NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=rws_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "pending": []
     }
    ],
    "references": [],
@@ -5370,6 +5756,20 @@
      "runs": [
       {
        "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000",
+       "name": "0.9470868_NBitFlipFlop_softplus;N=1000;seed=289852694;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "289852694",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 227,
+       "r2": 0.9460139324267706,
+       "r2_how": "final",
+       "r2_end": 0.9460139324267706,
+       "it_end": 75000.0,
+       "job_task": "16957561_2",
+       "skipped_share": 0.013306666666666666
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000",
        "name": "0.9490622_NBitFlipFlop_softplus;N=1000;seed=1945563352;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
        "seed": "1945563352",
        "t_read": 75000.0,
@@ -5381,15 +5781,31 @@
        "it_end": 75000.0,
        "job_task": "16957561_1",
        "skipped_share": 0.00025333333333333333
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000",
+       "name": "0.9500096_NBitFlipFlop_softplus;N=1000;seed=357642158;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "357642158",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 261,
+       "r2": 0.9494465092817942,
+       "r2_how": "final",
+       "r2_end": 0.9494465092817942,
+       "it_end": 75000.0,
+       "job_task": "16957561_3",
+       "skipped_share": 0.019853333333333334
       }
      ],
      "verdict": {
       "direction": "no change",
-      "n_read": 1,
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
+      "complete": true,
       "active": [
-       244
+       227,
+       244,
+       261
       ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
@@ -5398,10 +5814,10 @@
       ],
       "mean_r2_ctrl": 0.9508925163722943,
       "mean_active_arm": 244.0,
-      "mean_r2_arm": 0.9491152664025625,
-      "r2_gap": -0.0017772499697318311,
+      "mean_r2_arm": 0.9481919027037091,
+      "r2_gap": -0.0027006136685852056,
       "interpreted": true,
-      "text": "provisional (1 of 3 runs): no change"
+      "text": "no change"
      },
      "config_differs_from_control": {
       "model.activation_args.name": [
@@ -5417,177 +5833,289 @@
        200000
       ]
      },
-     "pending": [
-      {
-       "job_task": "16957561_2",
-       "state": "RUNNING",
-       "seed": "289852694",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957561_3",
-       "state": "RUNNING",
-       "seed": "357642158",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "pending": []
     },
     {
      "label": "leaky ReLU 0.01",
      "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
+       "name": "0.9513468_NBitFlipFlop_leaky_relu;N=1000;seed=4276078699;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "4276078699",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 268,
+       "r2": 0.9510566840569178,
+       "r2_how": "final",
+       "r2_end": 0.9510566840569178,
+       "it_end": 75000.0,
+       "job_task": "16957561_6",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
+       "name": "0.951767_NBitFlipFlop_leaky_relu;N=1000;seed=1786743050;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1786743050",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 315,
+       "r2": 0.9514034108983146,
+       "r2_how": "final",
+       "r2_end": 0.9514034108983146,
+       "it_end": 75000.0,
+       "job_task": "16957561_4",
+       "skipped_share": 0.006653333333333333
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
+       "name": "0.9521015_NBitFlipFlop_leaky_relu;N=1000;seed=1435502468;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1435502468",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 349,
+       "r2": 0.9520375082890192,
+       "r2_how": "final",
+       "r2_end": 0.9520375082890192,
+       "it_end": 75000.0,
+       "job_task": "16957561_5",
+       "skipped_share": 0.0
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "no change",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       268,
+       315,
+       349
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 310.6666666666667,
+      "mean_r2_arm": 0.9514992010814173,
+      "r2_gap": 0.000606684709122951,
+      "interpreted": true,
+      "text": "no change"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957561_4",
-       "state": "RUNNING",
-       "seed": "1786743050",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957561_5",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957561_6",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "model.activation_args.name": [
+       "leaky_relu",
+       "relu"
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     },
     {
      "label": "shifted sigmoid",
      "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
+       "name": "0.9594485_NBitFlipFlop_sigmoid;N=1000;seed=766522529;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "766522529",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 262,
+       "r2": 0.959956674112214,
+       "r2_how": "final",
+       "r2_end": 0.959956674112214,
+       "it_end": 75000.0,
+       "job_task": "16957561_9",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
+       "name": "0.9599621_NBitFlipFlop_sigmoid;N=1000;seed=1158212453;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1158212453",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 257,
+       "r2": 0.9594404117928611,
+       "r2_how": "final",
+       "r2_end": 0.9594404117928611,
+       "it_end": 75000.0,
+       "job_task": "16957561_7",
+       "skipped_share": 0.0
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
+       "name": "0.9607863_NBitFlipFlop_sigmoid;N=1000;seed=1689362295;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1689362295",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 288,
+       "r2": 0.960505924291081,
+       "r2_how": "final",
+       "r2_end": 0.960505924291081,
+       "it_end": 75000.0,
+       "job_task": "16957561_8",
+       "skipped_share": 0.0
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "no change",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       262,
+       257,
+       288
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 269.0,
+      "mean_r2_arm": 0.9599676700653853,
+      "r2_gap": 0.009075153693090976,
+      "interpreted": true,
+      "text": "no change"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957561_7",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957561_8",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957561_9",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "model.activation_args.name": [
+       "sigmoid",
+       "relu"
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     },
     {
      "label": "tanh",
      "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
      "source": "local",
-     "runs": [],
+     "runs": [
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
+       "name": "0.9294307_NBitFlipFlop_tanh;N=1000;seed=2226065994;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "2226065994",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 1000,
+       "r2": 0.9290073166290919,
+       "r2_how": "final",
+       "r2_end": 0.9290073166290919,
+       "it_end": 75000.0,
+       "job_task": "16957561_10",
+       "skipped_share": 0.0,
+       "saturation": {
+        "responsive": 464,
+        "saturated": 536,
+        "N": 1000,
+        "slope_median": 0.4210357964038849,
+        "frac_pinned": 0.36292825520833333,
+        "responsive_trace": 449
+       }
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
+       "name": "0.9392809_NBitFlipFlop_tanh;N=1000;seed=3176447870;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "3176447870",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 1000,
+       "r2": 0.9373794479502572,
+       "r2_how": "final",
+       "r2_end": 0.9373794479502572,
+       "it_end": 75000.0,
+       "job_task": "16957561_11",
+       "skipped_share": 0.0,
+       "saturation": {
+        "responsive": 959,
+        "saturated": 41,
+        "N": 1000,
+        "slope_median": 0.9644360542297363,
+        "frac_pinned": 0.026173776041666666,
+        "responsive_trace": 955
+       }
+      },
+      {
+       "cell": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
+       "name": "0.9441229_NBitFlipFlop_tanh;N=1000;seed=1147288988;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1147288988",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 1000,
+       "r2": 0.9432375563515557,
+       "r2_how": "final",
+       "r2_end": 0.9432375563515557,
+       "it_end": 75000.0,
+       "job_task": "16957561_12",
+       "skipped_share": 0.0,
+       "saturation": {
+        "responsive": 925,
+        "saturated": 75,
+        "N": 1000,
+        "slope_median": 0.936766505241394,
+        "frac_pinned": 0.04119040364583333,
+        "responsive_trace": 918
+       }
+      }
+     ],
      "verdict": {
-      "direction": "not read",
-      "n_read": 0,
+      "direction": "increase",
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
-      "active": [],
+      "complete": true,
+      "active": [
+       1000,
+       1000,
+       1000
+      ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
        233,
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "interpreted": false,
-      "mean_active_arm": null,
-      "mean_r2_arm": null,
-      "r2_gap": null,
-      "text": "not read (0 of 3 runs finished)"
+      "mean_active_arm": 1000.0,
+      "mean_r2_arm": 0.9365414403103016,
+      "r2_gap": -0.014351076061992707,
+      "interpreted": true,
+      "text": "increase"
      },
-     "config_differs_from_control": {},
-     "pending": [
-      {
-       "job_task": "16957561_10",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957561_11",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957561_12",
-       "state": "PENDING",
-       "seed": "",
-       "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "config_differs_from_control": {
+      "model.activation_args.name": [
+       "tanh",
+       "relu"
+      ],
+      "trainer.checkpoint_every": [
+       1000,
+       5000
+      ],
+      "trainer.max_iter": [
+       75000,
+       200000
+      ]
+     },
+     "pending": []
     }
    ],
    "references": [],
@@ -5926,6 +6454,20 @@
      "runs": [
       {
        "cell": "NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000",
+       "name": "0.9035429_NBitFlipFlop_relu;N=1000;seed=1533507216;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "1533507216",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 326,
+       "r2": 0.9025965481996536,
+       "r2_how": "final",
+       "r2_end": 0.9025965481996536,
+       "it_end": 75000.0,
+       "job_task": "16957562_6",
+       "skipped_share": 0.006626666666666667
+      },
+      {
+       "cell": "NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000",
        "name": "0.9050441_NBitFlipFlop_relu;N=1000;seed=2121980320;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
        "seed": "2121980320",
        "t_read": 75000.0,
@@ -5937,15 +6479,31 @@
        "it_end": 75000.0,
        "job_task": "16957562_4",
        "skipped_share": 0.006653333333333333
+      },
+      {
+       "cell": "NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000",
+       "name": "0.9084927_NBitFlipFlop_relu;N=1000;seed=3354746598;L=0.001;MI=75000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+       "seed": "3354746598",
+       "t_read": 75000.0,
+       "probe": 74900.0,
+       "active": 421,
+       "r2": 0.9079449822505316,
+       "r2_how": "final",
+       "r2_end": 0.9079449822505316,
+       "it_end": 75000.0,
+       "job_task": "16957562_5",
+       "skipped_share": 0.0
       }
      ],
      "verdict": {
       "direction": "increase",
-      "n_read": 1,
+      "n_read": 3,
       "n_expected": 3,
-      "complete": false,
+      "complete": true,
       "active": [
-       365
+       326,
+       365,
+       421
       ],
       "mean_active_ctrl": 245.66666666666666,
       "ctrl_range": [
@@ -5953,11 +6511,11 @@
        270
       ],
       "mean_r2_ctrl": 0.9508925163722943,
-      "mean_active_arm": 365.0,
-      "mean_r2_arm": 0.9037718574206034,
-      "r2_gap": -0.04712065895169093,
+      "mean_active_arm": 370.6666666666667,
+      "mean_r2_arm": 0.9047711292902628,
+      "r2_gap": -0.046121387082031506,
       "interpreted": true,
-      "text": "provisional (1 of 3 runs): increase"
+      "text": "increase"
      },
      "config_differs_from_control": {
       "model.inp_weight_cap": [
@@ -5973,24 +6531,7 @@
        200000
       ]
      },
-     "pending": [
-      {
-       "job_task": "16957562_5",
-       "state": "RUNNING",
-       "seed": "3354746598",
-       "tag": "NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      },
-      {
-       "job_task": "16957562_6",
-       "state": "RUNNING",
-       "seed": "1533507216",
-       "tag": "NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000",
-       "skipped_updates": "",
-       "skipped": 0
-      }
-     ]
+     "pending": []
     }
    ],
    "references": [],
@@ -6107,382 +6648,5 @@
   }
  ],
  "broken": [],
- "pending": [
-  {
-   "job_task": "16957419_8",
-   "state": "RUNNING",
-   "seed": "3331603136",
-   "tag": "CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_rws0.05_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957419_9",
-   "state": "RUNNING",
-   "seed": "1077378740",
-   "tag": "CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_rws0.05_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957556_6",
-   "state": "RUNNING",
-   "seed": "2113571904",
-   "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957556_7",
-   "state": "RUNNING",
-   "seed": "2037472196",
-   "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957556_8",
-   "state": "RUNNING",
-   "seed": "114095993",
-   "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957556_16",
-   "state": "RUNNING",
-   "seed": "2750111374",
-   "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957556_17",
-   "state": "RUNNING",
-   "seed": "2644588571",
-   "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957556_18",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_3",
-   "state": "RUNNING",
-   "seed": "3901667487",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=0.5_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_7",
-   "state": "RUNNING",
-   "seed": "2142213740",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_8",
-   "state": "RUNNING",
-   "seed": "1240111490",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_9",
-   "state": "RUNNING",
-   "seed": "651190503",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_10",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_11",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_12",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_13",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_14",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957557_15",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957558_3",
-   "state": "RUNNING",
-   "seed": "2657990103",
-   "tag": "CDDM_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957558_4",
-   "state": "RUNNING",
-   "seed": "1068748794",
-   "tag": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957558_5",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_8",
-   "state": "RUNNING",
-   "seed": "2413978074",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_9",
-   "state": "RUNNING",
-   "seed": "2274079521",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_16",
-   "state": "RUNNING",
-   "seed": "1962395024",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_17",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_18",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_25",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_26",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_27",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_34",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_35",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957559_36",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957560_167",
-   "state": "RUNNING",
-   "seed": "732025745",
-   "tag": "NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=rws_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957560_168",
-   "state": "RUNNING",
-   "seed": "3382294632",
-   "tag": "NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=rws_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_2",
-   "state": "RUNNING",
-   "seed": "289852694",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_3",
-   "state": "RUNNING",
-   "seed": "357642158",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_4",
-   "state": "RUNNING",
-   "seed": "1786743050",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_5",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_6",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_7",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_8",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_9",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_10",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_11",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957561_12",
-   "state": "PENDING",
-   "seed": "",
-   "tag": "NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957562_5",
-   "state": "RUNNING",
-   "seed": "3354746598",
-   "tag": "NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  },
-  {
-   "job_task": "16957562_6",
-   "state": "RUNNING",
-   "seed": "1533507216",
-   "tag": "NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000",
-   "skipped_updates": "",
-   "skipped": 0
-  }
- ]
+ "pending": []
 }

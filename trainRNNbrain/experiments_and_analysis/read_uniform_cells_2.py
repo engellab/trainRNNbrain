@@ -49,6 +49,9 @@ CRITERIA (docs/interventions_matrix.md and the three entries):
     CDDM reproduces the 3BFF pattern if AdamW and Adam wd 0 are in class A and every SGD arm whose
     count passes is in class B. The 3BFF B5 arms are classed the same way beside them.
   An arm with fewer finished runs than N_SEEDS gets a provisional verdict and its pending tasks.
+  The tanh cell is also read for saturation (entry 2259): on a noise-free pass over the held-out
+    batch a unit is responsive when mean(1 - r^2) > RESPONSIVE_SLOPE, else saturated (pinned near
+    +1 or -1), the test of fig_tanh_saturation.py, with its trace proxy (p < P_RESPONSIVE) beside it.
 
 OUTPUT. One table per group on stdout, and data/read_uniform_cells_2.json: per run cell, name,
 seed, job task, t_read, probe, active, r2, r2_how, r2_end, it_end, skipped share; per arm the runs,
@@ -71,15 +74,21 @@ import sys
 import time
 
 import numpy as np
+import torch
+import hydra
+from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import heldout_r2 as H
 from common import DATA_DIR, runs_with_loss
 from fig_paper_F2_fails import FIXED_IT
+from fig_tanh_saturation import P_RESPONSIVE
 from read_remedies import SHARED_FIELDS, cfg_of, sel
 from read_uniform_cells import (F2_CACHE, R2_TOL, CDDM_CTRL, CDDM_CTRL_F3A, read_cell, read_cell_from_f2_cache,
                                 seed_of, verdict)
+from trainRNNbrain.training.training_utils import prepare_task_arguments
+from trainRNNbrain.utils import import_any, filter_kwargs
 
 B5_CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "b5_read_cache.pkl"))
 STATUS = os.path.normpath(os.path.join(DATA_DIR, "..", "della_batch1_status.tsv"))
@@ -88,6 +97,7 @@ N_SEEDS = 3             # runs per cell the pre-registrations expect
 R2_LEARNED = 0.8        # an optimiser run below this held-out R^2 did not learn the task (entry 2256)
 R2_INTERPRET = 0.7      # a setting cell with mean R^2 below this has its count reported, not interpreted (entry 2259)
 MAX_SKIP = 0.05         # a run that skipped more than this share of its gradient updates is broken
+RESPONSIVE_SLOPE = 0.5  # a tanh unit is responsive when mean(1 - r^2) over the trial set exceeds this (fig_tanh_saturation.py)
 # the keys an intervention may change, printed beside the shared settings when an arm differs on them
 INTERVENTION_KEYS = ("model.spectral_rad", "model.inp_weight_cap", "model._target_", "trainer.optimizer",
                      "trainer.momentum", "trainer.lambda_rwm", "trainer.lambda_met", "trainer.lambda_rws",
@@ -165,7 +175,8 @@ GROUPS = [
                ("lambda_rwm 0.2", "CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000", "local")]),
     dict(name="3BFF metabolic penalty", task="3-bit flip-flop", kind="setting",
          control=(FF_CTRL, "b5"), second=(FF_CTRL2, "f2"),
-         arms=[(f"lambda_met {v}", ff("std_g0_metabolic_bias0", f"LmbdMet={v}"), "local") for v in ("0.01", "0.1", "1", "10")],
+         arms=[(f"lambda_met {v}", ff("std_g0_metabolic_bias0", f"LmbdMet={w}"), "local")
+               for v, w in (("0.01", "0.01"), ("0.1", "0.1"), ("1", "1.0"), ("10", "10.0"))],
          other=dict(task="CDDM (Figure 3 metabolic ladder, 75k top-ups)", control=(CDDM_DRIFT, "f2"),
                     arms=[(f"lambda_met {v}", f"CDDM_std_g0_metabolic_bias0_c75000/EqType=h_N=1000_LmbdMet={w}", "f2")
                           for v, w in (("0.01", "0.01"), ("0.1", "0.1"), ("1", "1.0"), ("10", "10.0"))])),
@@ -245,6 +256,49 @@ def read_cell_from_b5_cache(cell, b5c):
     return out
 
 
+def tanh_saturation(net_dir):
+    """Saturation of a tanh network's units on one noise-free pass over the held-out batch.
+
+    The test of fig_tanh_saturation.py: a unit is responsive when the mean slope of its activation,
+    mean(1 - r^2) over every time step and trial (r = tanh(x), x the state), exceeds RESPONSIVE_SLOPE;
+    otherwise it is saturated (pinned near +1 or -1, so its activation passes no gradient), which
+    participation scores as active. The network is rebuilt from its config as heldout_r2.score_net
+    does, with the final weights, and run on heldout_r2.heldout_batch with w_noise=False. Beside it,
+    the trace proxy of the same script: units with participation below P_RESPONSIVE at the last probe.
+
+    Args:
+        net_dir: a run folder holding *LastParams*, *_config.yaml and *ParticipationTrace.pkl.
+    Returns:
+        dict(responsive, saturated: unit counts; N; slope_median: the median over units of
+        mean(1 - r^2); frac_pinned: the share of (unit, step, trial) samples with |r| > 0.9;
+        responsive_trace: units with p < P_RESPONSIVE at the last probe), or None without weights.
+    """
+    cfgs = sorted(glob.glob(os.path.join(net_dir, "*_config.yaml")))
+    params, _ = H._params(net_dir)
+    if not cfgs or params is None:
+        return None
+    cfg = OmegaConf.load(cfgs[0])
+    tcfg = prepare_task_arguments(cfg_task=cfg.task, dt=cfg.model.dt)
+    if "_target_" in tcfg:
+        del tcfg._target_
+    rnn = hydra.utils.instantiate(filter_kwargs(import_any(cfg.model._target_),
+                                                OmegaConf.merge(OmegaConf.create(cfg.model), tcfg)))
+    with torch.no_grad():
+        for nm, prm in rnn.named_parameters():
+            if nm in params:
+                prm.copy_(torch.from_numpy(np.asarray(params[nm], dtype=np.float32)))
+        if "y_init" in params and getattr(rnn, "y_init", None) is not None:
+            rnn.y_init.copy_(torch.from_numpy(np.asarray(params["y_init"], dtype=np.float32)))
+        bi, _, _ = H.heldout_batch(cfg)
+        r = rnn.activation(rnn(bi, w_noise=False)[0]).numpy()          # (N, T, B)
+    slope = (1.0 - r ** 2).reshape(r.shape[0], -1).mean(axis=1)
+    with open(glob.glob(os.path.join(net_dir, "*ParticipationTrace.pkl"))[0], "rb") as fh:
+        p_last = np.asarray(pickle.load(fh)["participation"])[-1]
+    return dict(responsive=int((slope > RESPONSIVE_SLOPE).sum()), saturated=int((slope <= RESPONSIVE_SLOPE).sum()),
+                N=int(r.shape[0]), slope_median=float(np.median(slope)), frac_pinned=float((np.abs(r) > 0.9).mean()),
+                responsive_trace=int((p_last < P_RESPONSIVE).sum()))
+
+
 def read_source(cell, source, cache, f2, b5c, draws, status):
     """Every run of a cell from the named source, with broken runs removed and provenance checked.
 
@@ -278,6 +332,10 @@ def read_source(cell, source, cache, f2, b5c, draws, status):
             broken.append(dict(cell=cell, name=r["name"], reason=f"skipped {100 * r['skipped_share']:.1f}% of gradient updates"))
         else:
             kept.append(r)
+            c = cfg_of(os.path.join(DATA_DIR, cell, r["name"]))
+            if c is not None and sel(c, "model.activation_args.name") == "tanh":
+                r["saturation"] = tanh_saturation(os.path.join(DATA_DIR, cell, r["name"]))
+                print(f"      tanh saturation: {r['saturation']}")
     for seed, row in by_seed.items():
         if seed not in found:
             print(f"    MISSING on the Mac: completed task {row['job_task']} (seed {seed}) of {cell}")
@@ -463,6 +521,13 @@ def print_group(g, arms, ctrl, second, verdicts, diffs, other, refs, pending):
                     else "-")
             line += f" {od} ({same}) |" if kind == "setting" else f" {other['verdicts'][label]['cls'] if label in other['verdicts'] else '-'} |"
         print(line)
+        if any("saturation" in r for r in runs):
+            print("    tanh saturation (responsive = mean(1 - r^2) > 0.5 on a noise-free pass; trace proxy p < 1.6): "
+                  + "; ".join(f"seed {r['seed']}: responsive {r['saturation']['responsive']}, saturated "
+                              f"{r['saturation']['saturated']} of {r['saturation']['N']}, median slope "
+                              f"{r['saturation']['slope_median']:.2f}, |r| > 0.9 on {100 * r['saturation']['frac_pinned']:.0f}% "
+                              f"of samples, trace proxy {r['saturation']['responsive_trace']}"
+                              for r in runs if "saturation" in r))
         if diffs.get(label):
             print(f"    config differs from the control on: {diffs[label]}")
         if pending.get(label):

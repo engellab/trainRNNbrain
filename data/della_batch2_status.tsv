@@ -1,0 +1,87 @@
+job_task	state	seed	tag	skipped_updates
+16955456_4	COMPLETED	425111804	NBitFlipFlop_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=1e-5_iters=75000	none
+16955456_5	COMPLETED	315144892	NBitFlipFlop_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=1e-5_iters=75000	none
+16955456_6	COMPLETED	314492794	NBitFlipFlop_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=1e-5_iters=75000	none
+16955456_7	COMPLETED	3370308883	NBitFlipFlop_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=1e-4_iters=75000	435 updates skipped (0.580% of iterations), 0 rollbacks to last-good weights
+16955456_8	COMPLETED	462658441	NBitFlipFlop_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=1e-4_iters=75000	none
+16955456_9	COMPLETED	3629976113	NBitFlipFlop_std_g0_weightdecay_bias0/EqType=h_N=1000_wd=1e-4_iters=75000	498 updates skipped (0.664% of iterations), 0 rollbacks to last-good weights
+16955457_9	COMPLETED	3366773033	CDDM_target_ladder/EqType=h_N=1000_tgt=10.0	none
+16955457_10	COMPLETED	511030482	CDDM_target_ladder/EqType=h_N=1000_tgt=10.0	1 updates skipped (0.001% of iterations), 0 rollbacks to last-good weights
+16955457_11	COMPLETED	803704226	CDDM_target_ladder/EqType=h_N=1000_tgt=10.0	none
+16957418_7	COMPLETED	3161811021	CDDM_b5_optimizer/EqType=h_N=1000_opt=adamw_wd=1e-6_lr=1e-3	none
+16957418_8	COMPLETED	1063251570	CDDM_b5_optimizer/EqType=h_N=1000_opt=adamw_wd=1e-6_lr=1e-3	none
+16957418_9	COMPLETED	4187879259	CDDM_b5_optimizer/EqType=h_N=1000_opt=adamw_wd=1e-6_lr=1e-3	none
+16957418_10	COMPLETED	1084166182	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=0.03	none
+16957418_11	COMPLETED	1083008248	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=0.03	none
+16957418_12	COMPLETED	1032671150	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=0.03	none
+16957418_13	COMPLETED	4208297148	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=0.1	none
+16957418_14	COMPLETED	2131628978	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=0.1	none
+16957418_15	COMPLETED	2131637255	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=0.1	none
+16957418_16	COMPLETED	2107103656	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=0.3	none
+16957418_17	COMPLETED	3871697327	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=0.3	none
+16957418_18	COMPLETED	1700903875	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=0.3	none
+16957418_19	COMPLETED	3243312434	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=1	none
+16957418_20	COMPLETED	434938894	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=1	none
+16957418_21	COMPLETED	2550068419	CDDM_b5_optimizer/EqType=h_N=1000_opt=sgd_wd=1e-6_lr=1	none
+16957419_4	COMPLETED	3986057758	CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_iters=75000	none
+16957419_5	COMPLETED	3681082541	CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_iters=75000	none
+16957419_6	COMPLETED	1954623883	CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_iters=75000	none
+16957419_7	COMPLETED	1037007987	CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_rws0.05_iters=75000	none
+16957419_8	COMPLETED	3331603136	CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_rws0.05_iters=75000	none
+16957419_9	COMPLETED	1077378740	CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_rws0.05_iters=75000	none
+16957556_1	COMPLETED	2095512490	NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0_iters=75000	499 updates skipped (0.665% of iterations), 0 rollbacks to last-good weights
+16957556_2	COMPLETED	2112247374	NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0_iters=75000	none
+16957556_3	COMPLETED	2164248961	NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0_iters=75000	499 updates skipped (0.665% of iterations), 0 rollbacks to last-good weights
+16957556_6	COMPLETED	2113571904	NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000	none
+16957556_7	COMPLETED	2037472196	NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000	none
+16957556_8	COMPLETED	114095993	NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.01_iters=75000	none
+16957556_16	COMPLETED	2750111374	NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000	none
+16957556_17	COMPLETED	2644588571	NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000	none
+16957556_18	COMPLETED	3087851235	NBitFlipFlop_std_g0_noise_bias0/EqType=h_N=1000_sigrec=0.1_iters=75000	none
+16957557_1	COMPLETED	3123952635	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=0.5_iters=75000	none
+16957557_2	COMPLETED	2286017443	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=0.5_iters=75000	none
+16957557_3	COMPLETED	3901667487	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=0.5_iters=75000	none
+16957557_7	COMPLETED	2142213740	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000	none
+16957557_8	COMPLETED	1240111490	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000	499 updates skipped (0.665% of iterations), 0 rollbacks to last-good weights
+16957557_9	COMPLETED	651190503	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000	none
+16957557_10	COMPLETED	3099110300	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000	none
+16957557_11	COMPLETED	534558521	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000	499 updates skipped (0.665% of iterations), 0 rollbacks to last-good weights
+16957557_12	COMPLETED	1187087490	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000	57 updates skipped (0.076% of iterations), 0 rollbacks to last-good weights
+16957557_13	COMPLETED	3304714684	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000	none
+16957557_14	COMPLETED	1051263503	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000	none
+16957557_15	COMPLETED	2390508989	NBitFlipFlop_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000	998 updates skipped (1.331% of iterations), 0 rollbacks to last-good weights
+16957558_1	COMPLETED	2167248987	CDDM_std_g0_recinit/EqType=h_N=1000_sr=0.5_iters=75000	none
+16957558_2	COMPLETED	1129222953	CDDM_std_g0_recinit/EqType=h_N=1000_sr=1.2_iters=75000	none
+16957558_3	COMPLETED	2657990103	CDDM_std_g0_recinit/EqType=h_N=1000_sr=2.0_iters=75000	none
+16957558_4	COMPLETED	1068748794	CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.05_iters=75000	none
+16957558_5	COMPLETED	2472667323	CDDM_std_g0_recinit/EqType=h_N=1000_rwm=0.2_iters=75000	none
+16957559_7	COMPLETED	2618310007	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000	499 updates skipped (0.665% of iterations), 0 rollbacks to last-good weights
+16957559_8	COMPLETED	2413978074	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000	467 updates skipped (0.623% of iterations), 0 rollbacks to last-good weights
+16957559_9	COMPLETED	2274079521	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.01_iters=75000	none
+16957559_16	COMPLETED	1962395024	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000	none
+16957559_17	COMPLETED	3808897215	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000	445 updates skipped (0.593% of iterations), 0 rollbacks to last-good weights
+16957559_18	COMPLETED	734802261	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=0.1_iters=75000	none
+16957559_25	COMPLETED	765993234	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1.0_iters=75000	none
+16957559_26	COMPLETED	3969087498	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1.0_iters=75000	none
+16957559_27	COMPLETED	1085794566	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=1.0_iters=75000	none
+16957559_34	COMPLETED	4052550188	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10.0_iters=75000	none
+16957559_35	COMPLETED	1895021074	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10.0_iters=75000	none
+16957559_36	COMPLETED	485230843	NBitFlipFlop_std_g0_metabolic_bias0/EqType=h_N=1000_LmbdMet=10.0_iters=75000	none
+16957560_166	COMPLETED	3596355676	NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=rws_iters=75000	none
+16957560_167	COMPLETED	732025745	NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=rws_iters=75000	none
+16957560_168	COMPLETED	3382294632	NBitFlipFlop_std_penlong/EqType=h_k=3_N=1000_pen=rws_iters=75000	none
+16957561_1	COMPLETED	1945563352	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000	19 updates skipped (0.025% of iterations), 0 rollbacks to last-good weights
+16957561_2	COMPLETED	289852694	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000	998 updates skipped (1.331% of iterations), 0 rollbacks to last-good weights
+16957561_3	COMPLETED	357642158	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=softplus25_iters=75000	1489 updates skipped (1.985% of iterations), 0 rollbacks to last-good weights
+16957561_4	COMPLETED	1786743050	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000	499 updates skipped (0.665% of iterations), 0 rollbacks to last-good weights
+16957561_5	COMPLETED	1435502468	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000	none
+16957561_6	COMPLETED	4276078699	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=leakyrelu_iters=75000	none
+16957561_7	COMPLETED	1158212453	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000	none
+16957561_8	COMPLETED	1689362295	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000	none
+16957561_9	COMPLETED	766522529	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=sigmoid_iters=75000	none
+16957561_10	COMPLETED	2226065994	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000	none
+16957561_11	COMPLETED	3176447870	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000	none
+16957561_12	COMPLETED	1147288988	NBitFlipFlop_std_g0_activations_bias0/EqType=h_N=1000_act=tanh_iters=75000	none
+16957562_4	COMPLETED	2121980320	NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000	499 updates skipped (0.665% of iterations), 0 rollbacks to last-good weights
+16957562_5	COMPLETED	3354746598	NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000	none
+16957562_6	COMPLETED	1533507216	NBitFlipFlop_screen3/EqType=h_N=1000_pen=none_arm=cap_cap=0.3_iters=75000	497 updates skipped (0.663% of iterations), 0 rollbacks to last-good weights
