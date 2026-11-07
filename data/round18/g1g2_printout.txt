@@ -1,0 +1,145 @@
+control (catalogue NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none): active [279, 288, 242, 236] (max 288), R2 [0.9514, 0.9517, 0.9509] mean 0.95134
+  re-scored here at 75k: active [279, 288, 242, 236], R2 [0.9514, 0.9517, 0.9509]  (check: the catalogue's values)
+
+=== G1: 3BFF rate penalty at 75,000 iterations, 36 draws ===
+lambda 0.01: active [673, 611, 869], R2 [0.936, 0.9335, 0.9361], fold 2.75, dR2 -0.0161, count ok True, passes {'0.005': False, '0.01': False, '0.02': True}
+   config differs from control: [{}, {}, {}]
+lambda 0.03: active [722, 606, 844], R2 [0.9307, 0.9227, 0.9315], fold 2.77, dR2 -0.0230, count ok True, passes {'0.005': False, '0.01': False, '0.02': False}
+   config differs from control: [{}, {}, {}]
+   check, read_b3.json 'rate' fixed: active [722, 606, 844], R2 [0.9307, 0.9227, 0.9315]
+lambda 0.1: active [985, 995, 935], R2 [0.9329, 0.9304, 0.9276], fold 3.72, dR2 -0.0211, count ok True, passes {'0.005': False, '0.01': False, '0.02': False}
+   config differs from control: [{}, {}, {}]
+   check, a3_N1000.json (9 draws): active [985, 995, 935], R2 [0.9324, 0.9304, 0.9273]
+
+=== G2: every N = 1,000 value of Supplementary Table 3a, per-network criterion ===
+ technique  pass@0.005/0.01/0.02 min act  fold      dR2  dR2(>0) flags  value
+       frm                 - - P     611  2.75  -0.0161  -0.0161              lambda_frm = 0.01
+       frm                 - - -     606  2.77  -0.0230  -0.0230              lambda_frm = 0.03
+       frm                 - - -     935  3.72  -0.0211  -0.0211              lambda_frm = 0.1
+   frm+rws                 - - -     894  3.57  -0.0283  -0.0283              EqType=h_N=1000_arm=both
+  synnoise                 - - -     482  1.94  -0.1686  -0.1686              EqType=h_N=1000_sw=2.0_iters=40000
+  synnoise                 - - -     480  1.90  -0.3108  -0.3108              EqType=h_N=1000_sw=3.0_iters=40000
+  synnoise                 P P P     320  1.31  -0.0008  -0.0008              EqType=h_k=3_N=1000_sw=0.1
+  synnoise                 P P P     351  1.47  -0.0039  -0.0039              EqType=h_k=3_N=1000_sw=0.3
+  synnoise                 - - -     552  2.19  -0.0222  -0.0222              EqType=h_k=3_N=1000_sw=1.0
+   rescale                 - - -     198  0.82  -0.0202  -0.0202              EqType=h_k=3_N=1000_nm=median_active_tgt=2.5_act=true
+   rescale                 - - -     299  1.38  -0.0231  -0.0231              EqType=h_k=3_N=1000_nm=median_active_tgt=6.0_act=false
+   rescale                 - - -     321  1.51  -0.0200  -0.0200              EqType=h_k=3_N=1000_nm=median_active_tgt=6.0_act=false
+   rescale                 - - -     280  1.33  -0.0235  -0.0235              EqType=h_k=3_N=1000_nm=median_active_tgt=6.0_act=true
+   rescale                 - - -     305  1.64  -0.0253  -0.0253              EqType=h_k=3_N=1000_nm=median_active_tgt=6.0_act=true
+   rescale                 - - P     381  1.69  -0.0138  -0.0138              EqType=h_k=3_N=1000_nm=self_tgt=6.0_act=true
+   rescale                 - - P     426  1.75  -0.0144  -0.0144              EqType=h_k=3_N=1000_nm=self_tgt=6.0_act=true
+   rescale                 - - -     183  0.73  -0.0075  -0.0075 incomplete   EqType=h_k=3_N=1000_norm=f_a=1.0005
+   rescale                 - - -     168  0.67  -0.0066  -0.0066              EqType=h_k=3_N=1000_norm=f_a=1.002
+   rescale                 - - -     996  3.82 -15.7206  -0.3875 R2<=0:1      EqType=h_k=3_N=1000_norm=f_a=1.002_tgt=2.5_act=true
+   rescale                 - - -     193  0.86  -0.0051  -0.0051              EqType=h_k=3_N=1000_norm=t_a=1.0005
+   rescale                 - - -     183  0.75  -0.0041  -0.0041              EqType=h_k=3_N=1000_norm=t_a=1.002
+   rescale                 - - -     220  0.91  -0.0110  -0.0110              EqType=h_k=3_N=1000_norm=t_a=1.002_tgt=0.2
+   rescale                 - - -     210  0.93  -0.0136  -0.0136              EqType=h_k=3_N=1000_norm=t_a=1.002_tgt=0.5
+   rescale                 - - -     280  1.40  -0.0178  -0.0178              EqType=h_k=3_N=1000_norm=t_a=1.002_tgt=2.5_act=true
+   rescale                 - - P     380  1.69  -0.0106  -0.0106              EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.20_refr=1000
+   rescale                 - - -     549  2.27  -0.0595  -0.0595              EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.20_refr=4000
+   rescale                 - - -     384  1.63  -0.0269  -0.0269              EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=2.5_step=0.0005_prot=0.35
+   rescale                 - P P     317  1.41  -0.0097  -0.0097              EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=4.0_step=0.0005_prot=0.20
+   rescale                 - - P     386  1.64  -0.0121  -0.0121              EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=6.0_step=0.0005_prot=0.20
+   rescale                 - - P     364  1.65  -0.0127  -0.0127              EqType=h_k=3_N=1000_tgt=10.0
+   rescale                 - - P     417  1.70  -0.0140  -0.0140              EqType=h_k=3_N=1000_tgt=14.0
+   rescale                 - - P     417  1.77  -0.0125  -0.0125              EqType=h_k=3_N=1000_tgt=20.0
+   rescale                 - - P     385  1.63  -0.0116  -0.0116              EqType=h_k=3_N=1000_tgt=30.0
+   rescale                 - - P     394  1.61  -0.0152  -0.0152              EqType=h_k=3_N=1000_tgt=6.0
+   rescale                 - - P     445  1.76  -0.0118  -0.0118              EqType=h_k=3_N=1000_tgt=8.0
+ duplicate                 P P P     781  3.07  -0.0046  -0.0046              EqType=h_N=1000_arm=duplication
+ duplicate                 - P P     694  2.82  -0.0063  -0.0063              EqType=h_k=3_N=1000_cn=0
+ duplicate                 - P P     711  2.80  -0.0075  -0.0075              EqType=h_k=3_N=1000_cn=0.05
+ duplicate                 - P P     759  2.97  -0.0063  -0.0063              EqType=h_k=3_N=1000_cn=0.3
+ duplicate                 P P P     752  2.97  -0.0050  -0.0050              EqType=h_k=3_N=1000_cn=1.0
+ duplicate                 - P P     775  2.98  -0.0052  -0.0052              EqType=h_k=3_N=1000_cn=3.0
+ duplicate                 P P P     354  1.48  -0.0006  -0.0006              EqType=h_k=3_N=1000_mode=copy_rate=0.001_mat=1000
+ duplicate                 P P P     577  2.32  +0.0002  +0.0002              EqType=h_k=3_N=1000_mode=copy_rate=0.005_mat=0
+ duplicate                 P P P     532  2.24  -0.0005  -0.0005              EqType=h_k=3_N=1000_mode=copy_rate=0.005_mat=1000
+   dropout                 - P P     357  1.52  -0.0068  -0.0068              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.05_beta=1
+   dropout                 - P P     393  1.54  -0.0070  -0.0070              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.05_beta=2
+   dropout                 - P P     392  1.61  -0.0062  -0.0062              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.05_beta=4
+   dropout                 - P P     406  1.59  -0.0095  -0.0095              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.10_beta=1
+   dropout                 - - P     423  1.62  -0.0104  -0.0104              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.10_beta=2
+   dropout                 - - P     440  1.72  -0.0106  -0.0106              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.10_beta=4
+   dropout                 - - P     438  1.75  -0.0111  -0.0111              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.175_beta=1
+   dropout                 - - P     474  1.87  -0.0151  -0.0151              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.175_beta=2
+   dropout                 - - P     511  2.03  -0.0122  -0.0122              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.175_beta=4
+   dropout                 - - P     496  2.05  -0.0167  -0.0167              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4
+   dropout                 - - P     509  2.07  -0.0143  -0.0143              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.25_beta=1
+   dropout                 - - P     532  2.16  -0.0158  -0.0158              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.25_beta=2
+   dropout                 - - -     673  2.62  -0.0213  -0.0213              EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.25_beta=4
+
+3BFF one-value rule (values passing):
+         frm: 0.005: 0 of 3; 0.01: 0 of 3; 0.02: 1 of 3
+     frm+rws: 0.005: 0 of 1; 0.01: 0 of 1; 0.02: 0 of 1
+    synnoise: 0.005: 2 of 5; 0.01: 2 of 5; 0.02: 2 of 5
+     rescale: 0.005: 0 of 26; 0.01: 1 of 26; 0.02: 11 of 26
+   duplicate: 0.005: 5 of 9; 0.01: 9 of 9; 0.02: 9 of 9
+     dropout: 0.005: 0 of 13; 0.01: 4 of 13; 0.02: 12 of 13
+
+Techniques passing on each task (3BFF from G2; CDDM and Maze from fig_paper_F5_tasks, Maze at tolerance 0.05):
+  tol 0.005:        frm  3BFF -  CDDM P  Maze P
+  tol 0.005:    frm+rws  3BFF -  CDDM -  Maze -
+  tol 0.005:   synnoise  3BFF P  CDDM -  Maze -
+  tol 0.005:    rescale  3BFF -  CDDM -  Maze -
+  tol 0.005:  duplicate  3BFF P  CDDM P  Maze P
+  tol 0.005:    dropout  3BFF -  CDDM -  Maze -
+  tol 0.005: on all three tasks: ['duplicate']
+  tol 0.01:        frm  3BFF -  CDDM P  Maze P
+  tol 0.01:    frm+rws  3BFF -  CDDM P  Maze -
+  tol 0.01:   synnoise  3BFF P  CDDM -  Maze -
+  tol 0.01:    rescale  3BFF P  CDDM -  Maze -
+  tol 0.01:  duplicate  3BFF P  CDDM P  Maze P
+  tol 0.01:    dropout  3BFF P  CDDM P  Maze -
+  tol 0.01: on all three tasks: ['duplicate']
+  tol 0.02:        frm  3BFF P  CDDM P  Maze P
+  tol 0.02:    frm+rws  3BFF -  CDDM P  Maze -
+  tol 0.02:   synnoise  3BFF P  CDDM P  Maze -
+  tol 0.02:    rescale  3BFF P  CDDM -  Maze -
+  tol 0.02:  duplicate  3BFF P  CDDM P  Maze P
+  tol 0.02:    dropout  3BFF P  CDDM P  Maze -
+  tol 0.02: on all three tasks: ['frm', 'duplicate']
+
+Values passing at 0.01, distance inside the tolerance in standard errors of the difference:
+   duplicate EqType=h_k=3_N=1000_cn=0                                               dR2 -0.0063 se 0.0006 -> 5.7 se inside
+   duplicate EqType=h_k=3_N=1000_cn=0.05                                            dR2 -0.0075 se 0.0015 -> 1.6 se inside
+   duplicate EqType=h_k=3_N=1000_cn=0.3                                             dR2 -0.0063 se 0.0003 -> 10.8 se inside
+   duplicate EqType=h_k=3_N=1000_cn=1.0                                             dR2 -0.0050 se 0.0003 -> 19.7 se inside
+   duplicate EqType=h_k=3_N=1000_cn=3.0                                             dR2 -0.0052 se 0.0003 -> 16.0 se inside
+   duplicate EqType=h_N=1000_arm=duplication                                        dR2 -0.0046 se 0.0003 -> 16.0 se inside
+   duplicate EqType=h_k=3_N=1000_mode=copy_rate=0.001_mat=1000                      dR2 -0.0006 se 0.0013 -> 7.2 se inside
+   duplicate EqType=h_k=3_N=1000_mode=copy_rate=0.005_mat=0                         dR2 +0.0002 se 0.0003 -> 37.4 se inside
+   duplicate EqType=h_k=3_N=1000_mode=copy_rate=0.005_mat=1000                      dR2 -0.0005 se 0.0007 -> 13.7 se inside
+     rescale EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=4.0_step=0.0005_prot=0. dR2 -0.0097 se 0.0004 -> 0.7 se inside
+     dropout EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.05_beta=1                  dR2 -0.0068 se 0.0009 -> 3.5 se inside
+     dropout EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.05_beta=2                  dR2 -0.0070 se 0.0012 -> 2.5 se inside
+     dropout EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.05_beta=4                  dR2 -0.0062 se 0.0008 -> 4.9 se inside
+     dropout EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.10_beta=1                  dR2 -0.0095 se 0.0011 -> 0.5 se inside
+    synnoise EqType=h_k=3_N=1000_sw=0.1                                             dR2 -0.0008 se 0.0006 -> 14.6 se inside
+    synnoise EqType=h_k=3_N=1000_sw=0.3                                             dR2 -0.0039 se 0.0009 -> 6.6 se inside
+
+(b) Matched values (the one value run on all three tasks):
+  tol 0.005:        frm (lambda_frm = 0.1 | CDDM '0.1' | Maze '0.1')  3BFF -  CDDM -  Maze -
+  tol 0.005:    frm+rws (EqType=h_N=1000_arm=both | CDDM '0.1' | Maze '0.1')  3BFF -  CDDM -  Maze -
+  tol 0.005:   synnoise (EqType=h_k=3_N=1000_sw=1.0 | CDDM '' | Maze '')  3BFF -  CDDM -  Maze -
+  tol 0.005:    rescale (EqType=h_k=3_N=1000_tgt=10.0 | CDDM '10×' | Maze '10×')  3BFF -  CDDM -  Maze -
+  tol 0.005:  duplicate (EqType=h_N=1000_arm=duplication | CDDM '' | Maze '')  3BFF P  CDDM P  Maze P
+  tol 0.005:    dropout (EqType=h_k=3_N=1000_pen=none_do=mute_rat | CDDM '' | Maze '')  3BFF -  CDDM -  Maze -
+  tol 0.005: on all three tasks, matched values: ['duplicate']
+  tol 0.01:        frm (lambda_frm = 0.1 | CDDM '0.1' | Maze '0.1')  3BFF -  CDDM P  Maze -
+  tol 0.01:    frm+rws (EqType=h_N=1000_arm=both | CDDM '0.1' | Maze '0.1')  3BFF -  CDDM P  Maze -
+  tol 0.01:   synnoise (EqType=h_k=3_N=1000_sw=1.0 | CDDM '' | Maze '')  3BFF -  CDDM -  Maze -
+  tol 0.01:    rescale (EqType=h_k=3_N=1000_tgt=10.0 | CDDM '10×' | Maze '10×')  3BFF -  CDDM -  Maze -
+  tol 0.01:  duplicate (EqType=h_N=1000_arm=duplication | CDDM '' | Maze '')  3BFF P  CDDM P  Maze P
+  tol 0.01:    dropout (EqType=h_k=3_N=1000_pen=none_do=mute_rat | CDDM '' | Maze '')  3BFF -  CDDM P  Maze -
+  tol 0.01: on all three tasks, matched values: ['duplicate']
+  tol 0.02:        frm (lambda_frm = 0.1 | CDDM '0.1' | Maze '0.1')  3BFF -  CDDM P  Maze -
+  tol 0.02:    frm+rws (EqType=h_N=1000_arm=both | CDDM '0.1' | Maze '0.1')  3BFF -  CDDM P  Maze -
+  tol 0.02:   synnoise (EqType=h_k=3_N=1000_sw=1.0 | CDDM '' | Maze '')  3BFF -  CDDM P  Maze -
+  tol 0.02:    rescale (EqType=h_k=3_N=1000_tgt=10.0 | CDDM '10×' | Maze '10×')  3BFF P  CDDM -  Maze -
+  tol 0.02:  duplicate (EqType=h_N=1000_arm=duplication | CDDM '' | Maze '')  3BFF P  CDDM P  Maze P
+  tol 0.02:    dropout (EqType=h_k=3_N=1000_pen=none_do=mute_rat | CDDM '' | Maze '')  3BFF P  CDDM P  Maze -
+  tol 0.02: on all three tasks, matched values: ['duplicate']
+-> /Users/pt1290/Documents/GitHub/trainRNNbrain/data/round18/g1g2.json

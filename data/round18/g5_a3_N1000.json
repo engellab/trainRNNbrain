@@ -1,0 +1,1029 @@
+[
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9510657_NBitFlipFlop_relu;N=1000;seed=3374117298;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N=1000_pen=none_arm=none/0.951869_NBitFlipFlop_relu;N=1000;seed=3502253762;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.951869_s3502253762_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 278,
+  "r2_full": 0.9515041576491462,
+  "random_10": [
+   0.9263136121961806,
+   0.33865196837319267,
+   -13.801909658643934,
+   0.35061420334710014,
+   0.8551737268765768
+  ],
+  "random_30": [
+   0.24429995483822292,
+   -0.4153826634089152,
+   0.1229178441895379,
+   -23.128069135877823,
+   0.08822721905178493
+  ],
+  "random_50": [
+   0.07152216302023993,
+   0.0719081891907586,
+   0.12348116768731011,
+   0.007750842306349013,
+   0.16396726502312553
+  ],
+  "r2_no_inactive": 0.3765648669666714,
+  "cell": "NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none",
+  "family": "control",
+  "role": "control"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9522938_NBitFlipFlop_relu;N=1000;seed=1914910909;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9521798_NBitFlipFlop_relu;N=1000;seed=3039548724;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9521798_s3039548724_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 288,
+  "r2_full": 0.9517160124248929,
+  "random_10": [
+   0.5798768467373319,
+   0.47457542022069293,
+   0.5024830831421746,
+   0.37403873602549237,
+   0.29903482066260445
+  ],
+  "random_30": [
+   -911.7453002929688,
+   0.28544947173860336,
+   0.27214259571499294,
+   0.1375768913163079,
+   -1645.7240261501736
+  ],
+  "random_50": [
+   0.05022843016518487,
+   0.02373858955171373,
+   0.07423580355114406,
+   0.06920554240544637,
+   0.08113355769051446
+  ],
+  "r2_no_inactive": 0.47582150167889065,
+  "cell": "NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none",
+  "family": "control",
+  "role": "control"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9527258_NBitFlipFlop_relu;N=1000;seed=3866906883;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9513623_NBitFlipFlop_relu;N=1000;seed=3095970260;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9513623_s3095970260_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 242,
+  "r2_full": 0.9508808851242065,
+  "random_10": [
+   0.47708245118459064,
+   0.26787754562166,
+   0.6968863606452942,
+   0.4019114375114441,
+   0.45605363448460895
+  ],
+  "random_30": [
+   0.14312167962392172,
+   0.18510109186172485,
+   0.10452188385857476,
+   0.1955374942885505,
+   0.1761665940284729
+  ],
+  "random_50": [
+   0.14828401803970337,
+   0.12182924482557508,
+   0.10675094525019328,
+   0.13622056775622898,
+   0.05437632401784261
+  ],
+  "r2_no_inactive": 0.3600727717081706,
+  "cell": "NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none",
+  "family": "control",
+  "role": "control"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_dropout_sizes_c200000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4/0.9380336_NBitFlipFlop_relu;N=1000;seed=3129174640;L=0.001;MI=125000;D=1;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_dropout_sizes_c75000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4/0.9338301_NBitFlipFlop_relu;N=1000;seed=3272626814;L=0.001;MI=35000;D=1;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9338301_s3272626814_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 497,
+  "r2_full": 0.9325509667396545,
+  "random_10": [
+   0.8589392370647855,
+   0.8980421357684665,
+   0.7763510677549574,
+   0.8451506164338853,
+   0.9260193374421861
+  ],
+  "random_30": [
+   0.12746324804094103,
+   0.3724523186683655,
+   0.45547111829121906,
+   0.40834477212693954,
+   0.38480185137854683
+  ],
+  "random_50": [
+   0.1328759127193027,
+   0.26561324463950264,
+   0.11917839447657268,
+   0.2627895341979133,
+   0.12290667825274998
+  ],
+  "r2_no_inactive": 0.9064695437749227,
+  "surplus": 228,
+  "r2_recruited": 0.19277560710906982,
+  "r2_random_active": [
+   0.12275547451443142,
+   0.23880981736712986,
+   0.25507598453097874,
+   0.2619864477051629,
+   0.14395517773098415
+  ],
+  "r2_keep_ctrl": 0.19207978910870022,
+  "r2_random_keep": [
+   0.08132061031129625,
+   0.10741860336727566,
+   0.08388853735393947,
+   0.09885332981745402,
+   0.08211641179190741
+  ],
+  "cell": "NBitFlipFlop_dropout_sizes_c200000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4",
+  "family": "dropout",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_dropout_sizes_c200000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4/0.9422186_NBitFlipFlop_relu;N=1000;seed=3159558666;L=0.001;MI=125000;D=1;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_dropout_sizes_c75000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4/0.9323801_NBitFlipFlop_relu;N=1000;seed=4022585829;L=0.001;MI=35000;D=1;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9323801_s4022585829_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 569,
+  "r2_full": 0.932670361465878,
+  "random_10": [
+   0.886049316989051,
+   0.22115980916553074,
+   0.75293943617079,
+   0.884608805179596,
+   0.910236570570204
+  ],
+  "random_30": [
+   0.5189169512854682,
+   0.18852769003974068,
+   0.5842811597718133,
+   0.20664234293831718,
+   0.14373252126905653
+  ],
+  "random_50": [
+   0.29832930035061306,
+   0.14682538641823661,
+   0.28804020086924237,
+   0.14377227756712171,
+   0.15377555953131783
+  ],
+  "r2_no_inactive": 0.9233495195706686,
+  "surplus": 300,
+  "r2_recruited": 0.17608854505750868,
+  "r2_random_active": [
+   0.27222023407618207,
+   0.14105791515774196,
+   0.2543865574730767,
+   0.11372670862409803,
+   0.16839055882559884
+  ],
+  "r2_keep_ctrl": 0.16393880711661446,
+  "r2_random_keep": [
+   0.10644468996259901,
+   0.09225603606965807,
+   0.09061178896162245,
+   0.13214155038197836,
+   0.105820013417138
+  ],
+  "cell": "NBitFlipFlop_dropout_sizes_c200000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4",
+  "family": "dropout",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_dropout_sizes_c200000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4/0.94345_NBitFlipFlop_relu;N=1000;seed=3157777181;L=0.001;MI=125000;D=1;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_dropout_sizes_c75000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4/0.9398018_NBitFlipFlop_relu;N=1000;seed=4108679794;L=0.001;MI=35000;D=1;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9398018_s4108679794_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 539,
+  "r2_full": 0.9390255279011197,
+  "random_10": [
+   0.9245584872033861,
+   0.43532072835498387,
+   0.9215150740411546,
+   0.8926412198278639,
+   0.8919752637545267
+  ],
+  "random_30": [
+   0.5351696875360277,
+   0.21776030460993448,
+   0.5592420432302687,
+   0.31599533557891846,
+   0.5516778628031412
+  ],
+  "random_50": [
+   0.2517430517408583,
+   0.14931764205296835,
+   0.11568554242451985,
+   0.21089578337139553,
+   0.2015562653541565
+  ],
+  "r2_no_inactive": 0.9281004005008273,
+  "surplus": 270,
+  "r2_recruited": 0.27155254284540814,
+  "r2_random_active": [
+   0.16201541158888075,
+   0.12080189254548815,
+   0.26168741120232475,
+   0.08689279026455349,
+   0.12864174445470175
+  ],
+  "r2_keep_ctrl": 0.2229893340004815,
+  "r2_random_keep": [
+   0.09529680675930446,
+   0.12790511714087593,
+   0.13443890545103285,
+   0.12569956647025216,
+   0.12330849965413411
+  ],
+  "cell": "NBitFlipFlop_dropout_sizes_c200000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4",
+  "family": "dropout",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_both40k_c200000/EqType=h_N=1000_arm=both/0.9322648_NBitFlipFlop_relu;N=1000;seed=2596105364;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0.05",
+  "params_file": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_ff_both40k_c75000/EqType=h_N=1000_arm=both/0.9182726_NBitFlipFlop_relu;N=1000;seed=2473627625;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0.05/0.9182726_s2473627625_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 893,
+  "r2_full": 0.9158519771364,
+  "random_10": [
+   0.6864105992847018,
+   0.5877886282073127,
+   0.6379021141264174,
+   0.5769601464271545,
+   0.6681203047434489
+  ],
+  "random_30": [
+   0.30599388149049545,
+   0.31794743405448067,
+   0.30979598230785793,
+   0.3083053297466702,
+   0.35520702600479126
+  ],
+  "random_50": [
+   0.20103788375854492,
+   0.2119615077972412,
+   0.1989933649698893,
+   0.20650325218836466,
+   0.23300372229682076
+  ],
+  "r2_no_inactive": 0.9155373970667521,
+  "surplus": 624,
+  "r2_recruited": 0.48881985743840534,
+  "r2_random_active": [
+   0.14540288183424208,
+   0.1799959209230211,
+   0.21642531951268515,
+   0.1700717873043484,
+   0.16232278611924914
+  ],
+  "r2_keep_ctrl": 0.4872524076037937,
+  "r2_random_keep": [
+   0.18126060565312704,
+   0.16880367861853707,
+   0.1483215954568651,
+   0.14335725042555067,
+   0.21632697184880575
+  ],
+  "cell": "NBitFlipFlop_ff_both40k_c200000/EqType=h_N=1000_arm=both",
+  "family": "frm+rws",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_both40k_c200000/EqType=h_N=1000_arm=both/0.9340293_NBitFlipFlop_relu;N=1000;seed=1749659196;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0.05",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_ff_both40k_c75000/EqType=h_N=1000_arm=both/0.9262623_NBitFlipFlop_relu;N=1000;seed=1876793528;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0.05/0.9262623_s1876793528_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 946,
+  "r2_full": 0.9264025688171387,
+  "random_10": [
+   0.6495053834385343,
+   0.5664995776282417,
+   0.6444624132580228,
+   0.5715492698881361,
+   0.7814962599012587
+  ],
+  "random_30": [
+   0.23025451766120064,
+   0.26493191719055176,
+   0.2851220832930671,
+   0.30403046475516426,
+   0.31771964497036403
+  ],
+  "random_50": [
+   0.18629578749338785,
+   0.17273220088746813,
+   0.19390816158718532,
+   0.18828977478875053,
+   0.18623603714836967
+  ],
+  "r2_no_inactive": 0.9247043132781982,
+  "surplus": 677,
+  "r2_recruited": 0.3726385235786438,
+  "r2_random_active": [
+   0.17095390293333265,
+   0.1675325565867954,
+   0.16371702485614353,
+   0.15779154168234932,
+   0.08891170554690891
+  ],
+  "r2_keep_ctrl": 0.3687975075509813,
+  "r2_random_keep": [
+   0.1012784375084771,
+   0.14622174368964302,
+   0.15375898281733194,
+   0.12882866462071738,
+   0.11828453673256768
+  ],
+  "cell": "NBitFlipFlop_ff_both40k_c200000/EqType=h_N=1000_arm=both",
+  "family": "frm+rws",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_both40k_c200000/EqType=h_N=1000_arm=both/0.9344968_NBitFlipFlop_relu;N=1000;seed=1173425461;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0.05",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_ff_both40k_c75000/EqType=h_N=1000_arm=both/0.9271199_NBitFlipFlop_relu;N=1000;seed=3537965422;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0.05/0.9271199_s3537965422_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 958,
+  "r2_full": 0.9266898300912645,
+  "random_10": [
+   0.7367853389845954,
+   0.7690072589450412,
+   0.7150972551769681,
+   0.7122893929481506,
+   0.7571940753195021
+  ],
+  "random_30": [
+   0.3468059433831109,
+   0.3548247218132019,
+   0.265571395556132,
+   0.34489050176408553,
+   0.3357075783941481
+  ],
+  "random_50": [
+   0.2076951265335083,
+   0.2355224291483561,
+   0.18603710995780098,
+   0.18215323819054496,
+   0.18685395850075615
+  ],
+  "r2_no_inactive": 0.9257896343866984,
+  "surplus": 689,
+  "r2_recruited": 0.3545607527097066,
+  "r2_random_active": [
+   0.14659221967061362,
+   0.12151257197062175,
+   0.16293046209547254,
+   0.18738372458351982,
+   0.1977098650402493
+  ],
+  "r2_keep_ctrl": 0.35845305522282916,
+  "r2_random_keep": [
+   0.1917557583914863,
+   0.11775839328765869,
+   0.17720091342926025,
+   0.16518727276060316,
+   0.1519756317138672
+  ],
+  "cell": "NBitFlipFlop_ff_both40k_c200000/EqType=h_N=1000_arm=both",
+  "family": "frm+rws",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_paper_grid_c200000/EqType=h_N=1000_arm=duplication/0.9472282_NBitFlipFlop_relu;N=1000;seed=4177404780;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_paper_grid_c75000/EqType=h_N=1000_arm=duplication/0.9474101_NBitFlipFlop_relu;N=1000;seed=376389526;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9474101_s376389526_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 799,
+  "r2_full": 0.9463256994883219,
+  "random_10": [
+   0.8119278815057542,
+   0.7642038067181905,
+   0.7315138181050619,
+   0.7941370275285509,
+   0.8086017039087083
+  ],
+  "random_30": [
+   0.20065266556209987,
+   0.24911187754737008,
+   0.23445387019051445,
+   0.28275444772508407,
+   0.2677089108361138
+  ],
+  "random_50": [
+   0.013434867064158121,
+   0.15272476275761923,
+   0.10542606645160252,
+   0.1525368094444275,
+   0.10480958885616726
+  ],
+  "r2_no_inactive": 0.9405749440193176,
+  "surplus": 530,
+  "r2_recruited": -4901.648980034723,
+  "r2_random_active": [
+   0.05625693665610419,
+   0.013368467489878336,
+   0.03274365266164144,
+   0.0732414722442627,
+   0.1366494960255093
+  ],
+  "r2_keep_ctrl": 0.27309778663847184,
+  "r2_random_keep": [
+   0.04855130116144816,
+   0.07962279187308417,
+   0.0628220174047682,
+   0.015730043252309162,
+   0.032426145341661244
+  ],
+  "cell": "NBitFlipFlop_paper_grid_c200000/EqType=h_N=1000_arm=duplication",
+  "family": "duplicate",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_paper_grid_c200000/EqType=h_N=1000_arm=duplication/0.9479261_NBitFlipFlop_relu;N=1000;seed=1903317358;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_paper_grid_c75000/EqType=h_N=1000_arm=duplication/0.9478649_NBitFlipFlop_relu;N=1000;seed=3567459341;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9478649_s3567459341_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 782,
+  "r2_full": 0.9467379450798035,
+  "random_10": [
+   0.6845671865675185,
+   0.7201357881228129,
+   0.7258458932240804,
+   0.7588655021455553,
+   0.7678736050923666
+  ],
+  "random_30": [
+   0.30470960007773507,
+   0.27451297971937394,
+   0.20052565468682182,
+   0.18165710899564955,
+   0.25884176625145805
+  ],
+  "random_50": [
+   0.1531743672158983,
+   0.1378472844759623,
+   0.12130535311169094,
+   0.07284066412183973,
+   0.1540868944591946
+  ],
+  "r2_no_inactive": 0.9416044354438782,
+  "surplus": 513,
+  "r2_recruited": 0.23320444424947104,
+  "r2_random_active": [
+   0.08267905314763387,
+   0.08879159556494819,
+   0.08350838555230035,
+   0.053698963589138456,
+   0.05535217788484362
+  ],
+  "r2_keep_ctrl": 0.23608500427669948,
+  "r2_random_keep": [
+   0.07854116625256008,
+   0.04533644517262777,
+   0.08689994282192653,
+   0.03616800573137072,
+   0.06277755896250407
+  ],
+  "cell": "NBitFlipFlop_paper_grid_c200000/EqType=h_N=1000_arm=duplication",
+  "family": "duplicate",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_paper_grid_c200000/EqType=h_N=1000_arm=duplication/0.9484472_NBitFlipFlop_relu;N=1000;seed=3969470056;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_paper_grid_c75000/EqType=h_N=1000_arm=duplication/0.9476874_NBitFlipFlop_relu;N=1000;seed=1610874005;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9476874_s1610874005_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 829,
+  "r2_full": 0.947012914551629,
+  "random_10": [
+   0.6709886259502835,
+   0.5427625311745538,
+   0.6830935080846151,
+   0.612479137049781,
+   0.7503261632389493
+  ],
+  "random_30": [
+   0.19708185063468087,
+   0.2530369626151191,
+   0.20013227065404257,
+   0.23867808447943795,
+   0.2156134910053677
+  ],
+  "random_50": [
+   0.1581564015812344,
+   0.15277361869812012,
+   0.09633187452952068,
+   0.11986556318071154,
+   0.07879892985026042
+  ],
+  "r2_no_inactive": 0.9444768296347724,
+  "surplus": 560,
+  "r2_recruited": 0.227227959367964,
+  "r2_random_active": [
+   0.10366562339994642,
+   0.07093757390975952,
+   0.008774273925357394,
+   0.0666534701983134,
+   0.05512208408779568
+  ],
+  "r2_keep_ctrl": 0.22790982988145617,
+  "r2_random_keep": [
+   -0.005458964241875542,
+   0.07504449950324164,
+   0.11445228921042548,
+   0.06018413437737359,
+   0.015235298209720187
+  ],
+  "cell": "NBitFlipFlop_paper_grid_c200000/EqType=h_N=1000_arm=duplication",
+  "family": "duplicate",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/0.93226_NBitFlipFlop_relu;N=1000;seed=1832668511;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/s1832668511/it0075000/ckpt_s1832668511_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 985,
+  "r2_full": 0.9324161542786492,
+  "random_10": [
+   0.6770573920673795,
+   0.7378081745571561,
+   0.7069015502929688,
+   0.6034279531902738,
+   0.8303858240445455
+  ],
+  "random_30": [
+   0.30991031063927543,
+   0.34216290050082737,
+   0.2950557933913337,
+   0.24213438563876682,
+   0.2228300306532118
+  ],
+  "random_50": [
+   0.18457950486077201,
+   0.1815632184346517,
+   0.17975948254267374,
+   0.1718151503139072,
+   0.13236325316958958
+  ],
+  "r2_no_inactive": 0.9324115249845717,
+  "surplus": 716,
+  "r2_recruited": 0.21758094098832872,
+  "r2_random_active": [
+   0.16107417477501762,
+   0.14054551389482287,
+   0.08659819761912028,
+   0.14188693629370797,
+   0.11509596639209324
+  ],
+  "r2_keep_ctrl": 0.21549302339553833,
+  "r2_random_keep": [
+   0.09842110342449611,
+   0.12724879715177748,
+   0.10424431165059407,
+   0.15380609035491943,
+   0.0865713291698032
+  ],
+  "cell": "NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1",
+  "family": "frm",
+  "role": "b2"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/0.9323066_NBitFlipFlop_relu;N=1000;seed=15698289;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/s15698289/it0075000/ckpt_s15698289_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 995,
+  "r2_full": 0.9303774105177985,
+  "random_10": [
+   0.7421452071931627,
+   0.6525946259498596,
+   0.7849821249643961,
+   0.6266731222470602,
+   0.70620506339603
+  ],
+  "random_30": [
+   0.2726946208212111,
+   -6.871204257278811e+24,
+   0.30477625793880886,
+   -1.1410238348343524e+16,
+   -6.864354366312774e+23
+  ],
+  "random_50": [
+   -0.3604621622297499,
+   -718637961955100.5,
+   -27728.096571180555,
+   -3.987122530673603e+24,
+   -8.195548420217284e+22
+  ],
+  "r2_no_inactive": 0.9303744633992513,
+  "surplus": 726,
+  "r2_recruited": 0.1837286353111267,
+  "r2_random_active": [
+   0.10034024715423584,
+   0.1152750915951199,
+   -227450.07465277778,
+   0.08157081736458673,
+   0.1321705182393392
+  ],
+  "r2_keep_ctrl": 0.18339384264416164,
+  "r2_random_keep": [
+   0.060782419310675725,
+   0.10565392838584052,
+   0.1562151246600681,
+   0.13076582219865587,
+   0.15653585063086617
+  ],
+  "cell": "NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1",
+  "family": "frm",
+  "role": "b2"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/0.9394087_NBitFlipFlop_relu;N=1000;seed=1571321706;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/s1571321706/it0075000/ckpt_s1571321706_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 935,
+  "r2_full": 0.9272860752211677,
+  "random_10": [
+   0.6718897819519043,
+   0.6775378849771287,
+   0.6442080802387662,
+   0.6004363232188754,
+   0.7877493500709534
+  ],
+  "random_30": [
+   0.3163101739353604,
+   0.34319480922487045,
+   0.26451677083969116,
+   0.3468804094526503,
+   0.32667646805445355
+  ],
+  "random_50": [
+   0.24068567487928602,
+   0.19582857025994194,
+   0.16439537869559395,
+   0.2703365087509155,
+   0.21441000037723118
+  ],
+  "r2_no_inactive": 0.9272683461507162,
+  "surplus": 666,
+  "r2_recruited": 0.2793254057566325,
+  "r2_random_active": [
+   0.1525115966796875,
+   0.06615872515572442,
+   0.11971333291795519,
+   0.14130641354454887,
+   0.0269367429945204
+  ],
+  "r2_keep_ctrl": 0.27644409735997516,
+  "r2_random_keep": [
+   0.15558552742004395,
+   0.14316797256469727,
+   0.08726283576753405,
+   0.11847715245352851,
+   0.14805946085188124
+  ],
+  "cell": "NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1",
+  "family": "frm",
+  "role": "b2"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_synnoise_c200000/EqType=h_k=3_N=1000_sw=1.0/0.9364085_NBitFlipFlop_relu;N=1000;seed=2572143878;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_synnoise_c75000/EqType=h_k=3_N=1000_sw=1.0/0.9345001_NBitFlipFlop_relu;N=1000;seed=1180156888;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9345001_s1180156888_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 572,
+  "r2_full": 0.9289339780807495,
+  "random_10": [
+   0.8035299513075087,
+   0.7710162864791023,
+   0.468362463845147,
+   0.6098026235898336,
+   0.7043606572681003
+  ],
+  "random_30": [
+   0.2881021499633789,
+   0.2786900069978502,
+   0.17202297184202406,
+   0.287282129128774,
+   0.24337787098354763
+  ],
+  "random_50": [
+   0.14522118038601345,
+   0.15822166866726345,
+   0.11155031124750774,
+   0.17663277520073783,
+   0.1683883998129103
+  ],
+  "r2_no_inactive": 0.8651111523310343,
+  "surplus": 303,
+  "r2_recruited": 0.5783045159445869,
+  "r2_random_active": [
+   0.16718756490283543,
+   0.14221354325612387,
+   0.15639334917068481,
+   0.16291022962994045,
+   0.1553480558925205
+  ],
+  "r2_keep_ctrl": 0.4122694730758667,
+  "r2_random_keep": [
+   0.09856381018956502,
+   0.060426791508992515,
+   0.07389367951287164,
+   0.11661271916495429,
+   0.0650131967332628
+  ],
+  "cell": "NBitFlipFlop_synnoise_c200000/EqType=h_k=3_N=1000_sw=1.0",
+  "family": "synnoise",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_synnoise_c200000/EqType=h_k=3_N=1000_sw=1.0/0.9371972_NBitFlipFlop_relu;N=1000;seed=4164731189;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_synnoise_c75000/EqType=h_k=3_N=1000_sw=1.0/0.9329757_NBitFlipFlop_relu;N=1000;seed=3035860201;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9329757_s3035860201_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 553,
+  "r2_full": 0.9257482091585795,
+  "random_10": [
+   0.6685885787010193,
+   0.6814064648416307,
+   0.7052149375279745,
+   0.5111263857947456,
+   0.7326227757665846
+  ],
+  "random_30": [
+   0.3724045753479004,
+   0.28116973241170246,
+   0.2944684425989787,
+   0.31608720620473224,
+   0.25337270233366227
+  ],
+  "random_50": [
+   0.1851922074953715,
+   0.16197570827272204,
+   0.1874875028928121,
+   0.1559824744860331,
+   0.1392113102806939
+  ],
+  "r2_no_inactive": 0.8591051035457187,
+  "surplus": 284,
+  "r2_recruited": 0.6037994292047288,
+  "r2_random_active": [
+   0.128187358379364,
+   0.18188921610514322,
+   0.18592658970091078,
+   0.17339336209827,
+   0.18081969022750854
+  ],
+  "r2_keep_ctrl": 0.43678733375337386,
+  "r2_random_keep": [
+   0.10334464576509264,
+   0.11465368668238322,
+   0.07591536972257826,
+   0.07765199740727742,
+   0.0788569384151035
+  ],
+  "cell": "NBitFlipFlop_synnoise_c200000/EqType=h_k=3_N=1000_sw=1.0",
+  "family": "synnoise",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_synnoise_c200000/EqType=h_k=3_N=1000_sw=1.0/0.9389377_NBitFlipFlop_relu;N=1000;seed=39286461;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_synnoise_c75000/EqType=h_k=3_N=1000_sw=1.0/0.9343964_NBitFlipFlop_relu;N=1000;seed=2822917855;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9343964_s2822917855_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 590,
+  "r2_full": 0.9324776331583658,
+  "random_10": [
+   0.5819731818305122,
+   0.7216096454196506,
+   0.538542992538876,
+   0.7805280685424805,
+   0.6401911046769884
+  ],
+  "random_30": [
+   0.26437446143892074,
+   0.2373286419444614,
+   0.2096438871489631,
+   0.27631053659651017,
+   0.2747361461321513
+  ],
+  "random_50": [
+   0.17716854148440891,
+   0.13837791151470608,
+   0.16356809933980307,
+   0.17105938328637016,
+   0.13464871380064222
+  ],
+  "r2_no_inactive": 0.8511095113224454,
+  "surplus": 321,
+  "r2_recruited": 0.5712915990087721,
+  "r2_random_active": [
+   0.21288163132137722,
+   0.15671680370966592,
+   0.2200700044631958,
+   0.16785359382629395,
+   0.187660727236006
+  ],
+  "r2_keep_ctrl": 0.3911870453092787,
+  "r2_random_keep": [
+   0.09593156311247084,
+   0.10292151901457045,
+   0.09974616765975952,
+   0.10865978399912517,
+   0.09622329473495483
+  ],
+  "cell": "NBitFlipFlop_synnoise_c200000/EqType=h_k=3_N=1000_sw=1.0",
+  "family": "synnoise",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_target_ladder_c200000/EqType=h_k=3_N=1000_tgt=10.0/0.9446984_NBitFlipFlop_relu;N=1000;seed=229853021;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_target_ladder_c75000/EqType=h_k=3_N=1000_tgt=10.0/0.9395977_NBitFlipFlop_relu;N=1000;seed=414953155;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9395977_s414953155_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 479,
+  "r2_full": 0.9380906025568644,
+  "random_10": [
+   0.5238057110044692,
+   0.7816951606008742,
+   0.8017882506052653,
+   0.5594358377986484,
+   0.37536126375198364
+  ],
+  "random_30": [
+   0.2209719287024604,
+   0.2961276041136848,
+   0.22864422533247206,
+   0.2691529128286574,
+   0.07090797026952107
+  ],
+  "random_50": [
+   0.18561935424804688,
+   0.1421194871266683,
+   0.10583340459399754,
+   -0.08718850877549914,
+   0.022787710030873615
+  ],
+  "r2_no_inactive": 0.8292684223916795,
+  "surplus": 210,
+  "r2_recruited": 0.3087133566538493,
+  "r2_random_active": [
+   -2.228789117601183,
+   0.18596506118774414,
+   -0.18954201539357504,
+   -0.03532380527920193,
+   0.22097742557525635
+  ],
+  "r2_keep_ctrl": 0.37553337547514176,
+  "r2_random_keep": [
+   -36361934820693.336,
+   0.14730960130691528,
+   0.09798657894134521,
+   0.08290847804811266,
+   0.06062731477949354
+  ],
+  "cell": "NBitFlipFlop_target_ladder_c200000/EqType=h_k=3_N=1000_tgt=10.0",
+  "family": "rescale",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_target_ladder_c200000/EqType=h_k=3_N=1000_tgt=10.0/0.9461284_NBitFlipFlop_relu;N=1000;seed=3225080284;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_target_ladder_c75000/EqType=h_k=3_N=1000_tgt=10.0/0.9394519_NBitFlipFlop_relu;N=1000;seed=3901550969;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9394519_s3901550969_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 363,
+  "r2_full": 0.9383781949679056,
+  "random_10": [
+   0.2598281171586778,
+   0.5844354099697537,
+   0.5914279686080085,
+   0.6407642563184103,
+   0.48563329378763836
+  ],
+  "random_30": [
+   0.28835944996939766,
+   0.11773157782024807,
+   0.09328818983501858,
+   0.09091505077150133,
+   0.1736370192633735
+  ],
+  "random_50": [
+   0.12646993663575914,
+   -0.029848403400845,
+   0.06195444530910916,
+   0.03397874699698554,
+   0.02515680260128445
+  ],
+  "r2_no_inactive": 0.8456718590524461,
+  "surplus": 94,
+  "r2_recruited": 0.7033179004987081,
+  "r2_random_active": [
+   0.1953038043446011,
+   0.3323116964764065,
+   0.26030706697040135,
+   0.03746216164694892,
+   0.37792576683892143
+  ],
+  "r2_keep_ctrl": 0.33957479397455853,
+  "r2_random_keep": [
+   0.07368883821699354,
+   -0.003881374994913737,
+   -0.0012772414419386121,
+   -0.04693607489267985,
+   0.035272426075405545
+  ],
+  "cell": "NBitFlipFlop_target_ladder_c200000/EqType=h_k=3_N=1000_tgt=10.0",
+  "family": "rescale",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_target_ladder_c200000/EqType=h_k=3_N=1000_tgt=10.0/0.947893_NBitFlipFlop_relu;N=1000;seed=2941178267;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_target_ladder_c75000/EqType=h_k=3_N=1000_tgt=10.0/0.9399952_NBitFlipFlop_relu;N=1000;seed=3538923507;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9399952_s3538923507_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 424,
+  "r2_full": 0.937752279970381,
+  "random_10": [
+   0.6421874033080207,
+   0.4457128379080031,
+   0.30285030603408813,
+   0.6363919642236497,
+   0.3514152036772834
+  ],
+  "random_30": [
+   0.15400859382417467,
+   0.28571010298199123,
+   -855.3821343315972,
+   0.19972777366638184,
+   -0.35555315017700195
+  ],
+  "random_50": [
+   -85049144.0,
+   0.0728815926445855,
+   0.0367192096180386,
+   0.08465572860505846,
+   -17789.132378472223
+  ],
+  "r2_no_inactive": 0.8818413548999362,
+  "surplus": 155,
+  "r2_recruited": 0.4298643072446187,
+  "r2_random_active": [
+   -214740.60763888888,
+   0.07285410828060573,
+   -0.0701337390475803,
+   -2.1833614991759845e+20,
+   0.12865069839689466
+  ],
+  "r2_keep_ctrl": 0.42985151873694527,
+  "r2_random_keep": [
+   -0.04982513851589627,
+   -990759798556.4445,
+   -1.4832817189731147e+33,
+   0.05749397145377265,
+   0.130020366774665
+  ],
+  "cell": "NBitFlipFlop_target_ladder_c200000/EqType=h_k=3_N=1000_tgt=10.0",
+  "family": "rescale",
+  "role": "topup"
+ },
+ {
+  "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_target_ladder_c200000/EqType=h_k=3_N=1000_tgt=10.0/0.9491874_NBitFlipFlop_relu;N=1000;seed=3771785246;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+  "params_file": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_target_ladder_c75000/EqType=h_k=3_N=1000_tgt=10.0/0.9409264_NBitFlipFlop_relu;N=1000;seed=2742321118;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0/0.9409264_s2742321118_LastParams_NBitFlipFlop.npz",
+  "N": 1000,
+  "n_active": 463,
+  "r2_full": 0.9407396780120002,
+  "random_10": [
+   0.7002535263697306,
+   0.5158008601930406,
+   0.7624664041731093,
+   0.4630836049715678,
+   0.7367080781194899
+  ],
+  "random_30": [
+   0.056760039594438344,
+   0.24011936452653673,
+   0.2395903401904636,
+   0.24796296490563285,
+   0.25775807433658177
+  ],
+  "random_50": [
+   0.11974651945961846,
+   0.14015034834543863,
+   0.16993052429623073,
+   0.04022955894470215,
+   0.09773692819807264
+  ],
+  "r2_no_inactive": 0.7890676061312357,
+  "surplus": 194,
+  "r2_recruited": 0.5581003559960259,
+  "r2_random_active": [
+   -0.3213396867116292,
+   0.10236920250786676,
+   -0.02103306187523736,
+   0.19888342089123195,
+   0.1507913801405165
+  ],
+  "r2_keep_ctrl": 0.28720925913916695,
+  "r2_random_keep": [
+   0.09674687518013848,
+   0.016527295112609863,
+   0.09145077069600423,
+   0.03979971673753527,
+   0.012807514932420518
+  ],
+  "cell": "NBitFlipFlop_target_ladder_c200000/EqType=h_k=3_N=1000_tgt=10.0",
+  "family": "rescale",
+  "role": "topup"
+ }
+]

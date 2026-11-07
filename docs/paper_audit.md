@@ -294,6 +294,32 @@ diverge (five of six runs stopped by the rollback guard at 0 active units, the s
 redraw and zero-out. Queued or pending elsewhere: CDDM rescaling and the 3BFF settings ladders
 (Della, 16957556-16957562).
 
+**C6, round 18 (7 Nov; rules 2026-11-07_0100_round18-rules, results entry 2026-11-07 round18-results;
+dead-relu-paper#201; data/round18/g1g2.json).** G1: the 3BFF rate penalty at 75k with 36-draw R²
+against the four default networks (236-288 active, R² 0.9513): λ 0.01 has 611-869 active (2.75x) at
+R² 0.0161 below, λ 0.03 606-844 (2.77x) at 0.0230 below, λ 0.1 935-995 (3.72x) at 0.0211 below; none
+passes at 0.01, λ 0.01 passes at 0.02. G2: the per-network criterion on all 57 N = 1,000 values of
+Supplementary Table 3a. Two ways of reporting, side by side (coordinator, 7 Nov):
+(a) the paper's one-value rule: at 0.01, 3BFF passes for prune-and-duplicate (9 of 9 values),
+noisy synapses (σ_w 0.1 and 0.3, R² 0.0008 and 0.0039 below), read-out dropout (rate 0.05 with β 1, 2,
+4 and rate 0.10 with β 1; 0.006-0.010 below) and rescaling (1 of 26 values, revive_ops2 target 4.0
+protect 0.20, 0.0097 below: 0.0003 inside the tolerance, 0.7 standard errors of the network-to-network
+difference, so it does not survive that error); techniques on all three tasks: prune-and-duplicate at
+0.005 and 0.01, prune-and-duplicate and the rate penalty (via λ 0.01) at 0.02. (b) matched values,
+the one value run on all three tasks (prune-and-duplicate copy noise 1 rate 0.025; rate penalty 0.1;
+rate 0.1 + sparsity 0.05; noisy synapses σ_w 1.0; read-out dropout rate 0.2 β 4; rescaling target
+10x): prune-and-duplicate alone at all three tolerances. The asymmetry: 3BFF has 13 to 26 values per
+technique (rate penalty 3), CDDM and Maze one each except the rate penalty (CDDM 0.1, 0.2; Maze 0.03,
+0.1, 0.3). **Provisional** until the training package runs noisy synapses σ_w 0.1 and 0.3, read-out
+dropout rate 0.05 and rescaling target 4.0 on CDDM and Maze: the (a) verdicts for those techniques and
+the "in CDDM networks only ... in none" sentence of Results 5. Not provisional: the headline
+"prune-and-duplicate is the one technique on all three tasks" at 0.01 holds under both (a) and (b); M09's
+"only technique at all three tolerances" is false under (a) (the rate penalty at 0.02). M09's range
+"from 0.0046 to about 0.0213" changes under both: under (a) prune-and-duplicate alone passes on all three
+tasks from 0.0032 (its CDDM difference; on 3BFF its best value is 0.0002 above the controls) to 0.0161
+(the rate penalty at λ 0.01); under (b) from 0.0046 with no upper limit among the networks that exist,
+because every other technique's matched Maze value fails the 0.9 condition or did not finish.
+
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
 421-457 for an untrained network trained on the new task; R² is the same (0.91). Verdict, by the

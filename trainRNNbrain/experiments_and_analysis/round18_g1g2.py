@@ -54,6 +54,16 @@ FRM_CELL = "NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm{lam}"
 CTRL_CELL = "NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none"
 TOLS = (0.005, 0.01, 0.02)
 TECHS = ("frm", "frm+rws", "synnoise", "rescale", "duplicate", "dropout")
+# (b) matched values (coordinator, 7 Nov): the one value of each technique run on all three tasks, as
+# (3BFF value name in G2, CDDM cell label, Maze cell label) in fig_paper_F5_tasks' cells
+MATCHED = {
+    "duplicate": ("EqType=h_N=1000_arm=duplication", "", ""),
+    "frm": ("lambda_frm = 0.1", "0.1", "0.1"),
+    "frm+rws": ("EqType=h_N=1000_arm=both", "0.1", "0.1"),
+    "synnoise": ("EqType=h_k=3_N=1000_sw=1.0", "", ""),
+    "rescale": ("EqType=h_k=3_N=1000_tgt=10.0", "10\u00d7", "10\u00d7"),
+    "dropout": ("EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.20_beta=4", "", ""),
+}
 
 
 def run_dirs(cell):
@@ -158,7 +168,10 @@ def value_row(name, fam, active, r2, ctrl_active, ctrl_r2, n_runs, source):
     r = criterion(active, r2, ctrl_active, ctrl_r2, 0.01)
     pos = [x for x in r2 if x > 0]
     dr2_pos = float(np.mean(pos) - np.mean(ctrl_r2)) if pos else None
+    se = (float(np.sqrt(np.var(r2, ddof=1) / len(r2) + np.var(ctrl_r2, ddof=1) / len(ctrl_r2)))
+          if len(r2) > 1 else None)
     return dict(name=name, family=fam, source=source, n_runs=n_runs, active=list(map(int, active)), r2=r2,
+                se_dr2=se, margin_se_at_001=None if se is None else float((r["dperf"] + 0.01) / se),
                 min_active=int(min(active)) if active else None, count_ok=r["count_ok"], fold=r["fold"],
                 dr2=r["dperf"], dr2_positive_only=dr2_pos, n_r2_le0=sum(x <= 0 for x in r2),
                 flag_incomplete=len(active) < n_runs or len(r2) < len(active), passes=res)
@@ -252,8 +265,38 @@ def do_verdict(g1_json):
                 allthree[f"{t}"].append(fam)
             print(f"  tol {t}: {fam:>10}  3BFF {'P' if b else '-'}  CDDM {'P' if c_ else '-'}  Maze {'P' if m_ else '-'}")
         print(f"  tol {t}: on all three tasks: {allthree[f'{t}']}")
+    # standard error of each R^2 difference passing at 0.01 (network-to-network spread, arm and control)
+    print("\nValues passing at 0.01, distance inside the tolerance in standard errors of the difference:")
+    for r in g2:
+        if r["passes"]["0.01"] and r["se_dr2"]:
+            print(f"  {r['family']:>10} {r['name'][:70]:<70} dR2 {r['dr2']:+.4f} se {r['se_dr2']:.4f} "
+                  f"-> {r['margin_se_at_001']:.1f} se inside")
+
+    # (b) matched values: only the value of each technique that was run on all three tasks
+    print("\n(b) Matched values (the one value run on all three tasks):")
+    matched = {}
+    for t in TOLS:
+        matched[f"{t}"] = []
+        for fam in TECHS:
+            v3, vc, vm = MATCHED[fam]
+            b = next(r for r in g2 if r["family"] == fam and r["name"] == v3)["passes"][f"{t}"]
+            res = [b]
+            for task, cells, lab, floor, tt in (("CDDM", cddm, vc, None, t), ("maze", maze, vm, F5T.MAZE_LEARNED_SUCCESS, maze_tol)):
+                c = [c for c in cells if c["tech"] == fam and c["label"] == lab]
+                assert len(c) == 1, (fam, task, lab, len(c))
+                # a value with a run that did not finish fails there (M09: "a technique with no finished
+                # network at a value fails at that value"; fig_paper_F5_tasks judges finished cells only)
+                res.append(c[0]["status"] == "finished" and
+                           F5T.rule(c[0]["active"], c[0]["perf"], c[0]["ctrl_active"], c[0]["ctrl_perf"], tt, floor)["works"])
+            if all(res):
+                matched[f"{t}"].append(fam)
+            print(f"  tol {t}: {fam:>10} ({v3[:40]} | CDDM '{vc}' | Maze '{vm}')  "
+                  + "  ".join(f"{k} {'P' if x else '-'}" for k, x in zip(("3BFF", "CDDM", "Maze"), res)))
+        print(f"  tol {t}: on all three tasks, matched values: {matched[f'{t}']}")
+
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
     json.dump(dict(control=dict(cell=ctrl["cell"], active=ca, r2=cr), g1=rows, g2=g2, tech_3bff=tech_3bff,
+                   matched_values={k: list(v) for k, v in MATCHED.items()}, all_three_matched=matched,
                    other={f"{k[0]}|{k[1]}|{k[2]}": v for k, v in other.items()}, all_three=allthree,
                    rules="docs/project_trajectory/2026-11-07_0100_round18-rules.md"),
               open(OUT_JSON, "w"), indent=1)

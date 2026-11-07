@@ -1,0 +1,116 @@
+{
+ "control": [
+  {
+   "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9510657_NBitFlipFlop_relu;N=1000;seed=3374117298;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+   "active_75k": 279,
+   "probe_75k": 75000.0,
+   "state": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N=1000_pen=none_arm=none/0.951869_NBitFlipFlop_relu;N=1000;seed=3502253762;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+   "r2_75k": 0.9514198038313124,
+   "config_differs": {}
+  },
+  {
+   "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9522938_NBitFlipFlop_relu;N=1000;seed=1914910909;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+   "active_75k": 288,
+   "probe_75k": 75000.0,
+   "state": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9521798_NBitFlipFlop_relu;N=1000;seed=3039548724;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+   "r2_75k": 0.9517376985814836,
+   "config_differs": {}
+  },
+  {
+   "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9527258_NBitFlipFlop_relu;N=1000;seed=3866906883;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+   "active_75k": 242,
+   "probe_75k": 75000.0,
+   "state": "/home/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_ff_revive_c75000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9513623_NBitFlipFlop_relu;N=1000;seed=3095970260;L=0.001;MI=35000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+   "r2_75k": 0.9508685933219062,
+   "config_differs": {}
+  },
+  {
+   "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none/0.9539047_NBitFlipFlop_relu;N=1000;seed=4186074845;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0",
+   "active_75k": 236,
+   "probe_75k": 75000.0,
+   "state": null,
+   "r2_75k": null,
+   "config_differs": {}
+  }
+ ],
+ "frm": {
+  "0.01": [
+   {
+    "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.01/0.9368056_NBitFlipFlop_relu;N=1000;seed=683724536;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.01;Lmet=0;Lorth=0;Lrws=0",
+    "active_75k": 673,
+    "probe_75k": 75000.0,
+    "state": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.01/s683724536/it0075000",
+    "r2_75k": 0.9360338946183523,
+    "config_differs": {}
+   },
+   {
+    "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.01/0.9403953_NBitFlipFlop_relu;N=1000;seed=581742342;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.01;Lmet=0;Lorth=0;Lrws=0",
+    "active_75k": 611,
+    "probe_75k": 75000.0,
+    "state": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.01/s581742342/it0075000",
+    "r2_75k": 0.9334769861565696,
+    "config_differs": {}
+   },
+   {
+    "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.01/0.9409235_NBitFlipFlop_relu;N=1000;seed=480156613;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.01;Lmet=0;Lorth=0;Lrws=0",
+    "active_75k": 869,
+    "probe_75k": 75000.0,
+    "state": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.01/s480156613/it0075000",
+    "r2_75k": 0.9361224687761731,
+    "config_differs": {}
+   }
+  ],
+  "0.03": [
+   {
+    "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.03/0.9329054_NBitFlipFlop_relu;N=1000;seed=3982457808;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.03;Lmet=0;Lorth=0;Lrws=0",
+    "active_75k": 722,
+    "probe_75k": 75000.0,
+    "state": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.03/s3982457808/it0075000",
+    "r2_75k": 0.9306838512420654,
+    "config_differs": {}
+   },
+   {
+    "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.03/0.9378312_NBitFlipFlop_relu;N=1000;seed=3141652430;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.03;Lmet=0;Lorth=0;Lrws=0",
+    "active_75k": 606,
+    "probe_75k": 75000.0,
+    "state": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.03/s3141652430/it0075000",
+    "r2_75k": 0.9226830651362737,
+    "config_differs": {}
+   },
+   {
+    "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.03/0.9380575_NBitFlipFlop_relu;N=1000;seed=4021656884;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.03;Lmet=0;Lorth=0;Lrws=0",
+    "active_75k": 844,
+    "probe_75k": 75000.0,
+    "state": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.03/s4021656884/it0075000",
+    "r2_75k": 0.9315360801087486,
+    "config_differs": {}
+   }
+  ],
+  "0.1": [
+   {
+    "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/0.93226_NBitFlipFlop_relu;N=1000;seed=1832668511;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0",
+    "active_75k": 985,
+    "probe_75k": 75000.0,
+    "state": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/s1832668511/it0075000",
+    "r2_75k": 0.9328518278068967,
+    "config_differs": {}
+   },
+   {
+    "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/0.9323066_NBitFlipFlop_relu;N=1000;seed=15698289;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0",
+    "active_75k": 995,
+    "probe_75k": 75000.0,
+    "state": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/s15698289/it0075000",
+    "r2_75k": 0.9303937521245744,
+    "config_differs": {}
+   },
+   {
+    "run_dir": "/home/pt1290/trainRNNbrain_r18/trainRNNbrain/experiments_and_analysis/../../data/trained_RNNs/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/0.9394087_NBitFlipFlop_relu;N=1000;seed=1571321706;L=0.001;MI=200000;D=0;WD=1e-06;Lfrm=0.1;Lmet=0;Lorth=0;Lrws=0",
+    "active_75k": 935,
+    "probe_75k": 75000.0,
+    "state": "/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/c1_snapshots/NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.1/s1571321706/it0075000",
+    "r2_75k": 0.9275962478584714,
+    "config_differs": {}
+   }
+  ]
+ }
+}
