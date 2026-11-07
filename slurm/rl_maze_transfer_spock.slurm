@@ -75,7 +75,7 @@ case "$MODE" in
     read -r -a ALL <<< "${SOURCES:?set SOURCES to a space-separated list of source run folders}"
     SRC="${ALL[$((i - 1))]%/}"
     [ -n "$SRC" ] || { echo "FATAL: no source number $i in SOURCES" >&2; exit 1; }
-    CFG=$(ls "$SRC"/*config.yaml 2>/dev/null | head -1)
+    CFG=$(ls "$SRC"/*config.yaml 2>/dev/null | head -1 || true)   # an absent source must reach the FATAL below, not set -e
     if [ -z "$CFG" ] || ! ls "$SRC"/*Params_Maze.npz >/dev/null 2>&1; then
       echo "FATAL: $SRC has no *config.yaml and *Params_Maze.npz to transfer from." >&2; exit 1
     fi
