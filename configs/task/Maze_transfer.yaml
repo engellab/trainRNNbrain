@@ -1,0 +1,38 @@
+# @package task
+# THE SECOND MAZE, for the transfer test on the maze (G17 of the 7 Nov 2026 audit,
+# docs/project_trajectory/2026-11-07_0047_experiments-across-tasks-audit.md; the counterpart of B4, the
+# 3-bit hyper flip-flop): a network trained on configs/task/Maze.yaml moves to this maze with its
+# recurrent and input weights kept and a new read-out (run_rl.py, paths.transfer_from), against
+# untrained networks trained here. Everything except the maze is configs/task/Maze.yaml's (inherited
+# below): the same 8 range sensors and 2 efference-copy inputs, the same 2 outputs, rewards and
+# geometry, so only the layout and the routes to the cheese are new.
+#
+# `python trainRNNbrain/tasks/make_maze.py --cells 7 --seed 222 --loops 4`: the same generator, size
+# and number of loops as the first maze (seed 20), cheese at the centre lattice cell as there. Seed 222
+# is the seed in 0-999 (6, 15 and 20 excluded, the seeds already used) whose geodesic statistics are
+# closest to the first maze's (smallest summed relative deviation of the three): 29 cells from the far
+# end (first maze 29), 15.9 cells on average over free cells (15.9), 6 dead ends (6), 101 free cells
+# (101). 36 of the 225 grid cells differ from the first maze; of the 82 free cells the two mazes share,
+# 11 have an optimal first move in common, so the routes differ almost everywhere.
+# taskname stays "Maze": the file names (s<seed>_Params_Maze.npz) are what the readers glob, and the
+# saved config's task.maze records which maze a run played.
+defaults:
+  - Maze
+  - _self_
+
+maze:
+  - "###############"
+  - "#.......#.....#"
+  - "#.##.##.###.#.#"
+  - "#.#...#...#.#.#"
+  - "#.###.###.#.#.#"
+  - "#...#.#...#.#.#"
+  - "###...#.#.#.#.#"
+  - "#.#.#.#C#...#.#"
+  - "#...#.###.#.###"
+  - "#.#.#...#.#...#"
+  - "#.#.###.#.###.#"
+  - "#.#...#.....#.#"
+  - "#.###.#######.#"
+  - "#.............#"
+  - "###############"

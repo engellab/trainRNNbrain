@@ -1,0 +1,15 @@
+# @package task
+# CDDM WITH EVERY PRODUCT OF THE TWO SENSORY SIGNS, the new task of the CDDM transfer test (G18 of the
+# 7 Nov 2026 audit; the counterpart of NBitFlipFlopHyper in B4). trainRNNbrain/tasks/TaskCDDMHyper.py:
+# CDDM's inputs, trial structure and condition grid, unchanged; 5 outputs in the decision window: the
+# cued choice (CDDM's own 2 channels), the motion sign, the colour sign and their product, whatever
+# the cue. Everything except the task class and the output count is configs/task/CDDM.yaml's.
+# The transfer launcher (slurm/SilentReLU_b4_transfer_della.slurm, TASK=cddm_hyper) builds each run
+# from its source's saved config with these three keys swapped, as B4 does for the flip-flop.
+defaults:
+  - CDDM
+  - _self_
+
+taskname: "CDDMHyper"
+_target_: trainRNNbrain.tasks.TaskCDDMHyper.TaskCDDMHyper
+n_outputs: 5

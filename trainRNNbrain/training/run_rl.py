@@ -59,6 +59,18 @@ Runs written before 5 Nov 2026 by trainRNNbrain/rl/run_maze_ppo.py have the same
 stem (config.yaml, Params_Maze.npz, ...) plus PolicyState.pt, a copy of the weights that the
 parameter file already holds; the readers (common.maze_load_runs, TrainerPPO.load_run) read both.
 
+KEPT SNAPSHOTS (trainer.checkpoint_keep, since 7 Nov 2026, off by default). Each checkpoint overwrites
+the run folder, so without them the weights exist only at the end of a run. With checkpoint_keep on,
+every checkpoint and the end of training also write s<seed>_config.yaml and s<seed>_Params_Maze.npz
+(W_rec in float32, as the run folder holds it) into
+  <checkpoint root>/<taskname>_<folder_tag>/s<seed>/u<update>/
+where <update> is the absolute update (iter_offset + updates done, five digits) and the checkpoint
+root is paths.checkpoint_to, or <paths.save_to>_checkpoints when that is null, as run_experiment
+places the supervised snapshots. The root sits outside save_to so that common.maze_load_runs, which
+globs <root>/<cell>/s<seed>/, never counts a snapshot as a run; TrainerPPO.load_run rebuilds the agent
+from a snapshot folder as from a run folder. A snapshot holds no optimizer state and no records, so it
+is a read-out point, not a resume point.
+
 A CONTINUATION (since 5 Nov 2026) mirrors the supervised warm start of run_experiment.py:
 `paths.init_from` names a finished maze run's folder, whose W_inp, W_rec, W_out and y_init replace
 this run's fresh draw before training (load_warm_start); with `paths.init_adam: true` its AdamState
@@ -74,6 +86,15 @@ A continuation that restores the optimizer state must name the parent's optimise
 (trainer.optimizer; a parent saved without the key ran Adam): torch loads an Adam state into an SGD
 optimizer without complaint and the first step then fails on the missing momentum key, so the
 mismatch is refused here before training.
+
+A TRANSFER TO A NEW MAZE (since 7 Nov 2026; the B4 plasticity test of run_experiment.py on the maze)
+mirrors the supervised `paths.transfer_from`: a finished maze run's (or kept snapshot's) W_inp, W_rec
+and y_init replace this run's fresh draw, and W_out keeps this run's own seeded draw, because B4 gives
+the new task a new read-out. The source is trained on another maze; the task block (the maze) is this
+run's. Adam starts afresh (paths.init_adam must be false) and ramps again, the update clock starts at
+0 (trainer.iter_offset auto, with no init_from), and the source is kept under transfer_from, not
+init_from, so common.maze_load_runs, which follows init_from, reads the transfer run alone. A run
+that sets both continues init_from, and transfer_from is then a record only, as in run_experiment.
 """
 import glob
 import json
@@ -92,6 +113,42 @@ from trainRNNbrain.trainer.TrainerPPO import TrainerPPO
 from trainRNNbrain.utils import filter_kwargs, import_any
 
 
+def params_arrays(params):
+    """The RNN's parameters as the arrays np.savez_compressed takes.
+
+    Mappings become 0-d object arrays, as run_experiment.storable_ does (not imported from there
+    because run_experiment imports this module, the dispatch, and the import would be circular);
+    None, strings and booleans are left out.
+
+    Args:
+        params: dict, RNN_torch.get_params().
+    Returns:
+        dict of str -> np.ndarray.
+    """
+    arrays = {}
+    for key, val in params.items():
+        if val is None or isinstance(val, (str, bool)):
+            continue
+        if isinstance(val, DictConfig):
+            val = OmegaConf.to_container(val, resolve=True)
+        arrays[key] = np.array(val, dtype=object) if isinstance(val, dict) else np.asarray(val)
+    return arrays
+
+
+def save_snapshot(folder, stem, taskname, cfg, params):
+    """Write one kept snapshot (trainer.checkpoint_keep): the resolved config and the parameter
+    file, under the names the run folder uses, so TrainerPPO.load_run reads the folder as a run.
+
+    Args:
+        folder: str, the snapshot folder (<checkpoint root>/<taskname>_<folder_tag>/s<seed>/u<update>),
+            created if absent; stem: str, s<seed>; taskname: str, "Maze"; cfg: the DictConfig, saved
+            resolved; params: dict, RNN_torch.get_params() at this update.
+    """
+    os.makedirs(folder, exist_ok=True)
+    OmegaConf.save(cfg, os.path.join(folder, f"{stem}_config.yaml"), resolve=True)
+    np.savez_compressed(os.path.join(folder, f"{stem}_Params_{taskname}.npz"), **params_arrays(params))
+
+
 def save_run(folder, stem, taskname, cfg, params, progress, probes, opt):
     """Write (overwrite) the five data files of the run folder listed in the module docstring.
 
@@ -102,17 +159,8 @@ def save_run(folder, stem, taskname, cfg, params, progress, probes, opt):
         opt: the torch optimizer, whose state_dict is the AdamState file.
     """
     OmegaConf.save(cfg, os.path.join(folder, f"{stem}_config.yaml"), resolve=True)
-    # mappings become 0-d object arrays, as run_experiment.storable_ does; not imported from there
-    # because run_experiment imports this module (the dispatch), and the import would be circular
-    arrays = {}
-    for key, val in params.items():
-        if val is None or isinstance(val, (str, bool)):
-            continue
-        if isinstance(val, DictConfig):
-            val = OmegaConf.to_container(val, resolve=True)
-        arrays[key] = np.array(val, dtype=object) if isinstance(val, dict) else np.asarray(val)
     # "Params", not "LastParams": the inventories glob *LastParams* for finished supervised runs
-    np.savez_compressed(os.path.join(folder, f"{stem}_Params_{taskname}.npz"), **arrays)
+    np.savez_compressed(os.path.join(folder, f"{stem}_Params_{taskname}.npz"), **params_arrays(params))
     with open(os.path.join(folder, f"{stem}_Progress.json"), "w") as fh:
         json.dump(progress, fh)
     np.savez_compressed(os.path.join(folder, f"{stem}_Participation.npz"),
@@ -155,32 +203,42 @@ def build_optimizer(rnn, trainer_cfg, lr):
     raise ValueError(f"trainer.optimizer must be adam, adamw or sgd; got {opt_name!r}")
 
 
-def load_warm_start(rnn, folder):
-    """Copy a finished maze run's weights into a freshly built RNN: the warm start (paths.init_from).
+def load_warm_start(rnn, folder, keep_fresh=()):
+    """Copy a finished maze run's weights into a freshly built RNN: the warm start (paths.init_from)
+    and, with keep_fresh=("W_out",), the transfer to a new maze (paths.transfer_from).
 
     The counterpart of run_experiment.load_warm_start for the maze layout, whose parameter file is
     *Params_<task>.npz (never *LastParams*, see the module docstring); not imported from there
     because run_experiment imports this module. Every trainable parameter of `rnn` (W_inp, W_rec,
-    W_out) is copied from the file with its shape checked, and y_init (the initial state, saved
-    too and part of the dynamics; a plain attribute, not a parameter) with it. The RNN must
-    already be built from this run's config: the file carries arrays, not an architecture.
+    W_out) except those named in `keep_fresh` is copied from the file with its shape checked, and
+    y_init (the initial state, saved too and part of the dynamics; a plain attribute, not a
+    parameter) with it. A name in `keep_fresh` keeps this network's own seeded initialisation. The
+    RNN must already be built from this run's config: the file carries arrays, not an architecture.
 
     Args:
         rnn: RNN_torch, built from this run's config.
-        folder: str, a maze run folder holding one *Params_*.npz.
+        folder: str, a maze run folder (or kept snapshot) holding one *Params_*.npz.
+        keep_fresh: tuple of str, parameter names left at this network's initialisation; every
+            name must be a parameter of `rnn`, so a misspelt name fails instead of copying all.
     Returns:
         str, the path of the file read.
     Raises:
         FileNotFoundError: no *Params_*.npz in `folder`.
-        KeyError: a parameter of `rnn` is missing from the file.
+        KeyError: a parameter of `rnn` is missing from the file, or keep_fresh names no parameter.
         ValueError: a parameter's shape differs between the file and `rnn`.
     """
+    names = [n for n, _ in rnn.named_parameters()]
+    unknown = sorted(set(keep_fresh) - set(names))
+    if unknown:
+        raise KeyError(f"warm start: keep_fresh names {unknown}, which are not parameters of this model ({names})")
     src = sorted(glob.glob(os.path.join(folder, "*Params_*.npz")))
     if not src:
         raise FileNotFoundError(f"warm start: no *Params_*.npz in {folder}")
     saved = np.load(src[0], allow_pickle=True)
     with torch.no_grad():
         for name, prm in rnn.named_parameters():
+            if name in keep_fresh:
+                continue
             if name not in saved.files:
                 raise KeyError(f"warm start: '{name}' missing from {src[0]}; the file has {sorted(saved.files)}")
             arr = np.asarray(saved[name], dtype=np.float32)
@@ -190,7 +248,8 @@ def load_warm_start(rnn, folder):
             prm.copy_(torch.from_numpy(arr).to(prm.device, prm.dtype))
     rnn.y_init = torch.as_tensor(np.asarray(saved["y_init"], dtype=np.float32),
                                  device=rnn.y_init.device, dtype=rnn.y_init.dtype)
-    print(f"warm start: loaded {[n for n, _ in rnn.named_parameters()] + ['y_init']} from {src[0]}", flush=True)
+    print(f"warm start: loaded {[n for n in names if n not in keep_fresh] + ['y_init']} from {src[0]}"
+          + (f"; kept this run's own {list(keep_fresh)}" if keep_fresh else ""), flush=True)
     return src[0]
 
 
@@ -331,6 +390,19 @@ def run_rl(cfg):
     # run's: torch loads a foreign state without complaint and fails at the first step.
     init_from = cfg.paths.get("init_from", None) if "paths" in cfg else None
     init_adam = bool(init_from) and bool(cfg.paths.get("init_adam", False))
+    # TRANSFER TO A NEW MAZE (paths.transfer_from; module docstring): the source's W_inp, W_rec and
+    # y_init, this run's own W_out, a fresh optimizer. init_from wins when both are set (a
+    # continuation of a transfer run inherits transfer_from in its config as a record).
+    transfer_from = cfg.paths.get("transfer_from", None) if "paths" in cfg else None
+    if transfer_from and not init_from:
+        if cfg.paths.get("init_adam", False):
+            raise ValueError("transfer: paths.init_adam must be false - the source's moments belong to "
+                             "its own read-out and its own maze")
+        load_warm_start(rnn, transfer_from, keep_fresh=("W_out",))
+        print(f"transfer: from {transfer_from}; fresh W_out and optimizer, update clock from 0", flush=True)
+    elif transfer_from:
+        print(f"paths.transfer_from={transfer_from} is a record inherited from a transfer run; "
+              f"this run continues {init_from}", flush=True)
     if init_from:
         load_warm_start(rnn, init_from)
         if init_adam:
@@ -370,26 +442,39 @@ def run_rl(cfg):
     print(f"maze PPO: N={cfg.model.N} inputs={task.n_inputs} goal_cue={task.goal_cue} lr={lr:.2e} "
           f"device={device}\n -> {folder}", flush=True)
 
-    def write_run(params):
-        """Write the run folder and its two figures from the trainer's records so far.
+    # KEPT SNAPSHOTS (trainer.checkpoint_keep; module docstring), outside save_to
+    keep = bool(cfg.trainer.get("checkpoint_keep", False))
+    ckpt_root = cfg.paths.get("checkpoint_to", None) or (cfg.paths.save_to.rstrip("/") + "_checkpoints")
+    snap_parent = os.path.join(ckpt_root, f"{taskname}_{folder_tag}", f"s{seed}")
+    if keep:
+        print(f"kept snapshots at every checkpoint and at the end -> {snap_parent}/u<update>", flush=True)
+
+    def write_run(params, updates_done):
+        """Write the run folder and its two figures from the trainer's records so far, and with
+        trainer.checkpoint_keep a kept snapshot of the weights at this update.
 
         Args:
             params: dict, RNN_torch.get_params() at this point of training.
+            updates_done: int, this run's PPO updates completed (the snapshot is named by the
+                absolute update, iter_offset + updates_done).
         """
         save_run(folder, stem, taskname, cfg, params, trainer.progress, trainer.probes, opt)
+        if keep:
+            save_snapshot(os.path.join(snap_parent, f"u{int(cfg.trainer.iter_offset) + updates_done:05d}"),
+                          stem, taskname, cfg, params)
         draw_progress(trainer.progress, trainer.probes, os.path.join(folder, "progress.png"))
         draw_trajectories(task, trainer.last_probe, os.path.join(folder, "trajectories.png"))
 
     def checkpoint_fn(updates_done, params):
-        """One checkpoint: the run folder overwritten in place.
+        """One checkpoint: the run folder overwritten in place (and a kept snapshot, if on).
 
         Args:
             updates_done: int, PPO updates completed; params: the RNN's parameters.
         """
-        write_run(params)
+        write_run(params, updates_done)
 
     trainer.checkpoint_fn = checkpoint_fn
     rnn, progress, probes, last_probe = trainer.run_training()
-    write_run(rnn.get_params())
+    write_run(rnn.get_params(), int(cfg.trainer.n_updates))
     print(f"-> {folder}", flush=True)
     return folder

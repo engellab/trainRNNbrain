@@ -23,7 +23,12 @@ supervised formulas re-typed here and in the update statistics, the optimiser sw
 (the class, the rate, the saved state and its restore in a continuation, a mismatched continuation
 refused), and the redraw modes random and zero_out against a numpy oracle fed the replayed
 generator draws, with the ceiling, the maturity and the progress counts of the copy rule. The 13
-checks before the options were added run with every option off, as the default is.
+checks before the options were added run with every option off, as the default is. Round 18
+(7 Nov 2026): the kept snapshots of trainer.checkpoint_keep (one folder per checkpoint, outside the
+tree the readers glob, the update-1 snapshot equal to a 1-update run's end, absolute names in a
+continuation, none by default) and the transfer to a new maze (paths.transfer_from: W_rec, W_inp and
+y_init from the source, W_out the run's own draw, the clock and the warm-up ramp from 0, the source
+not joined as a parent, init_adam refused).
 Run: python tests/test_rl_maze.py   (CPU, about two minutes)
 """
 import glob
@@ -470,6 +475,91 @@ def test_continuation_from_folder():
     assert np.array_equal(joined["probes"]["probe_success"][:2], parent_probes["probe_success"])
     assert np.array_equal(joined["probes"]["probe_success"][2:], child_probes["probe_success"])
     assert joined["progress"][:2] == parent_progress and joined["progress"][2:] == child_progress
+
+
+def test_kept_snapshots():
+    """trainer.checkpoint_keep: a 2-update run with a checkpoint every update writes
+    <save_to>_checkpoints/Maze_<tag>/s3/u00001 and u00002, each with the config and the parameter
+    file only; u00002 equals the run folder's parameters and u00001 equals the end of an independent
+    1-update run of the same seed (so u00001 is the weights after update 1, not a copy of the last);
+    TrainerPPO.load_run rebuilds the agent from a snapshot; common.maze_load_runs counts one run, not
+    the snapshots; a continuation names its snapshots by the absolute update (u00003, u00004); and
+    without the flag no checkpoint tree is written."""
+    scratch = os.path.join(os.environ.get("CLAUDE_SCRATCHPAD",
+                                          os.path.join(tempfile.gettempdir(), "trainRNNbrain_scratch")),
+                           "round18", "kept_snapshots")
+    shutil.rmtree(scratch, ignore_errors=True)
+    save_to = os.path.join(scratch, "trained_RNNs")
+    keep = ["trainer.checkpoint_every=1", "trainer.checkpoint_keep=true"]
+    run = run_maze_script(save_to, "keep", keep)
+    snaps = os.path.join(save_to + "_checkpoints", "Maze_keep", "s3")
+    assert sorted(os.listdir(snaps)) == ["u00001", "u00002"], os.listdir(snaps)
+    for u in ("u00001", "u00002"):
+        assert sorted(os.listdir(os.path.join(snaps, u))) == ["s3_Params_Maze.npz", "s3_config.yaml"]
+    end = np.load(os.path.join(run, "s3_Params_Maze.npz"))
+    last = np.load(os.path.join(snaps, "u00002", "s3_Params_Maze.npz"))
+    one_update = run_maze_script(os.path.join(scratch, "one_update"), "one", ["trainer.n_updates=1"])
+    first = np.load(os.path.join(one_update, "s3_Params_Maze.npz"))
+    snap1 = np.load(os.path.join(snaps, "u00001", "s3_Params_Maze.npz"))
+    for key in ("W_rec", "W_inp", "W_out", "y_init"):
+        assert np.array_equal(last[key], end[key]), key
+        assert np.array_equal(snap1[key], first[key]), key
+    assert not np.array_equal(snap1["W_rec"], last["W_rec"])        # update 2 moved the weights
+    cfg, task, trainer = load_run(os.path.join(snaps, "u00001"))
+    assert np.array_equal(trainer.RNN.W_rec.detach().numpy(), snap1["W_rec"]) and cfg.trainer.checkpoint_keep
+    assert len(maze_load_runs(save_to)) == 1
+    child = run_maze_script(save_to, "keep_child", keep + [f"paths.init_from={run}", "paths.init_adam=true"])
+    assert sorted(os.listdir(os.path.join(save_to + "_checkpoints", "Maze_keep_child", "s3"))) == ["u00003", "u00004"]
+    assert child
+    plain_root = os.path.join(scratch, "plain", "trained_RNNs")
+    run_maze_script(plain_root, "plain", ["trainer.checkpoint_every=1"])
+    assert not os.path.exists(plain_root + "_checkpoints")
+
+
+def test_transfer_to_new_maze():
+    """paths.transfer_from: a 2-update source on the first maze (seed 3) moved to the second maze
+    (task=Maze_transfer) as seed 5, at learning rate 0 so the saved weights are the starting ones:
+    W_rec, W_inp and y_init equal the source's, W_out equals the W_out of an untrained seed-5 run
+    (also at rate 0) and differs from the source's (W_rec and W_inp differ from the untrained run's;
+    y_init is zeros in both); at the normal rate the clock starts at update 1
+    and the first update's rate is lr / warmup_updates (the ramp runs again with a fresh optimizer);
+    the saved config records transfer_from, iter_offset 0 and the second maze; maze_load_runs reads
+    the transfer run as a chain of one (the source is not a parent); init_adam with transfer_from is
+    refused."""
+    scratch = os.path.join(os.environ.get("CLAUDE_SCRATCHPAD",
+                                          os.path.join(tempfile.gettempdir(), "trainRNNbrain_scratch")),
+                           "round18", "transfer")
+    shutil.rmtree(scratch, ignore_errors=True)
+    src = run_maze_script(os.path.join(scratch, "source"), "source", [])
+    root = os.path.join(scratch, "trained_RNNs")
+    moved = run_maze_script(root, "moved_still", ["task=Maze_transfer", f"paths.transfer_from={src}", "trainer.lr=0"], seed=5)
+    fresh = run_maze_script(root, "fresh_still", ["task=Maze_transfer", "trainer.lr=0"], seed=5)
+    a = np.load(os.path.join(src, "s3_Params_Maze.npz"))
+    b = np.load(os.path.join(moved, "s5_Params_Maze.npz"))
+    f = np.load(os.path.join(fresh, "s5_Params_Maze.npz"))
+    for key in ("W_rec", "W_inp", "y_init"):
+        assert np.array_equal(a[key], b[key]), key
+    for key in ("W_rec", "W_inp"):              # y_init is zeros in every standard network, so not here
+        assert not np.array_equal(f[key], b[key]), key
+    assert np.array_equal(b["W_out"], f["W_out"]) and not np.array_equal(b["W_out"], a["W_out"])
+    moving = run_maze_script(root, "moved", ["task=Maze_transfer", f"paths.transfer_from={src}"], seed=5)
+    with open(os.path.join(moving, "s5_Progress.json")) as fh:
+        progress = json.load(fh)
+    assert [p["update"] for p in progress] == [1, 2] and progress[0]["lr"] == progress[1]["lr"] / 2
+    cfg = OmegaConf.load(os.path.join(moving, "s5_config.yaml"))
+    assert cfg.paths.transfer_from == src and cfg.trainer.iter_offset == 0 and not cfg.paths.init_from
+    assert list(cfg.task.maze) == list(OmegaConf.load(os.path.join(REPO, "configs", "task", "Maze_transfer.yaml")).maze)
+    assert list(cfg.task.maze) != list(OmegaConf.load(os.path.join(REPO, "configs", "task", "Maze.yaml")).maze)
+    runs = [r for r in maze_load_runs(root) if r["folder"] == os.path.abspath(moving)]
+    assert len(runs) == 1 and runs[0]["chain"] == [os.path.abspath(moving)]
+    cmd = [sys.executable, os.path.join(REPO, "trainRNNbrain", "training", "run_experiment.py"),
+           "task=Maze_transfer", "trainer=trainer_ppo", "model=rnn_relu_standard", "model.N=40", "seed=5",
+           "trainer.n_updates=1", "trainer.n_episodes=4", "trainer.T=6", "trainer.probe_episodes=4",
+           f"paths.save_to={root}", "experiment_tag=refused", f"paths.transfer_from={src}", "paths.init_adam=true",
+           f"hydra.run.dir={os.path.join(scratch, 'hydra_refused')}"]
+    r = subprocess.run(cmd, cwd=REPO, env=dict(os.environ, PYTHONPATH=REPO, CUDA_VISIBLE_DEVICES=""),
+                       capture_output=True, text=True, timeout=600)
+    assert r.returncode != 0 and "init_adam must be false" in r.stderr, r.stderr[-1000:]
 
 
 def test_fr_magnitude_penalty_matches_formula():
@@ -1227,7 +1317,7 @@ def main():
                test_slide_along_wall, test_only_the_rnn_is_trained, test_gae_known_case,
                test_mc_advantages_known_case, test_recompute_matches_rollout, test_ppo_update_runs,
                test_ppo_update_guards, test_safe_rollout_restores, test_run_script_writes_standard_layout,
-               test_continuation_from_folder,
+               test_continuation_from_folder, test_kept_snapshots, test_transfer_to_new_maze,
                test_fr_magnitude_penalty_matches_formula, test_rec_weights_sparsity_penalty_matches_formula,
                test_rec_weights_magnitude_penalty_matches_formula, test_metabolic_penalty_matches_formula,
                test_inp_weight_cap_holds_after_step, test_optimizer_switch,

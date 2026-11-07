@@ -20,6 +20,10 @@
 #                                                          activation; issue #6, package 2, 5 Nov)
 #   28      N=  250  relu              seed 4           (a third learned network at N = 250: seed 2
 #                                                          ended at success 0.79, not learned)
+#   29-31   N= 1000  relu              seeds 4-6        (round 18, G12, 7 Nov: only two of the three
+#                                                          N = 1,000 controls learned; submit with
+#                                                          KEEP_ALL=true so the weights are kept at every
+#                                                          checkpoint, docs/project_trajectory/*_round18-training-rules.md)
 # Model configs: configs/model/rnn_<act>_standard.yaml, the same files the supervised series use.
 # ONE PROTOCOL FOR EVERY SIZE: the paper's learning-rate rule with the warm-up of
 # configs/trainer/trainer_ppo.yaml (trainer.warmup_updates). Before the warm-up existed, every N = 2000 run
@@ -76,9 +80,9 @@ fi
 echo "code: $PKG @ $GITSHA"
 
 # index 0 unused so the decode reads SLURM_ARRAY_TASK_ID directly
-TASK_N=(0 250 250 250 500 500 500 1000 1000 1000 2000 2000 2000 1000 1000 1000 1000 1000 1000 1000 1000 4000 4000 4000 1000 1000 1000 1000 250)
-TASK_ACT=(x relu relu relu relu relu relu relu relu relu relu relu relu tanh tanh sigmoid_shifted sigmoid_shifted softplus_beta25 softplus_beta25 leaky_relu leaky_relu relu relu relu tanh sigmoid_shifted softplus_beta25 leaky_relu relu)
-TASK_SEED=(0 1 2 3 1 2 3 1 2 3 1 2 3 1 2 1 2 1 2 1 2 1 2 3 3 3 3 3 4)
+TASK_N=(0 250 250 250 500 500 500 1000 1000 1000 2000 2000 2000 1000 1000 1000 1000 1000 1000 1000 1000 4000 4000 4000 1000 1000 1000 1000 250 1000 1000 1000)
+TASK_ACT=(x relu relu relu relu relu relu relu relu relu relu relu relu tanh tanh sigmoid_shifted sigmoid_shifted softplus_beta25 softplus_beta25 leaky_relu leaky_relu relu relu relu tanh sigmoid_shifted softplus_beta25 leaky_relu relu relu relu relu)
+TASK_SEED=(0 1 2 3 1 2 3 1 2 3 1 2 3 1 2 1 2 1 2 1 2 1 2 3 3 3 3 3 4 4 5 6)
 
 i=$SLURM_ARRAY_TASK_ID
 N=${TASK_N[$i]}; ACT=${TASK_ACT[$i]}; SEED=${TASK_SEED[$i]}
@@ -117,6 +121,16 @@ if [ -n "${PARENT_ROOT:-}" ]; then
   echo "continuation: from ${PARENT} (init_adam=${INIT_ADAM}), ${EXTRA_UPDATES} further updates -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 fi
 
+# KEPT SNAPSHOTS (optional, since 7 Nov 2026). KEEP_ALL=true turns on trainer.checkpoint_keep for every
+# index of the submission: the config and the weights at every checkpoint (trainer.checkpoint_every)
+# and at the end, in <SAVE_TO>_checkpoints/Maze_<tag>/s<seed>/u<update>/ (run_rl.py), outside the
+# tree the readers glob. Off by default, as in configs/trainer/trainer_ppo.yaml.
+KEEP=()
+if [ "${KEEP_ALL:-false}" = true ]; then
+  KEEP=(trainer.checkpoint_keep=true)
+  echo "kept snapshots: on -> ${SAVE_TO}_checkpoints/Maze_${TAG}/s${SEED}/u<update>"
+fi
+
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   task=Maze trainer=trainer_ppo seed="$SEED" model="rnn_${ACT}_standard" model.N="$N" \
-  paths=paths_local paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\"" "${CONT[@]}"
+  paths=paths_local paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\"" "${CONT[@]}" "${KEEP[@]}"

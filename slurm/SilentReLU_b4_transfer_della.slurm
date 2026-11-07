@@ -9,11 +9,18 @@
 # and recurrent weights carry over unchanged and no silent unit is handed a new drive by fresh input
 # weights.
 #
+# TASK picks the new task (default hyper3, the flip-flop line above, unchanged):
+#   TASK=hyper3       task NBitFlipFlopHyper, 7 outputs; sources trained on the 3-bit flip-flop
+#   TASK=cddm_hyper   task CDDMHyper (trainRNNbrain/tasks/TaskCDDMHyper.py, configs/task/CDDMHyper.yaml),
+#                     5 outputs: CDDM's cued choice plus the motion sign, the colour sign and their
+#                     product; sources trained on CDDM (G18 of the 7 Nov 2026 audit, round 18). Same
+#                     six inputs, so again only the read-out is new. Run it with ITERS=75000.
+#
 # EACH TASK IS BUILT FROM ITS SOURCE'S OWN SAVED CONFIG (--config-path/--config-name), as the top-up
 # launchers do, so model and trainer settings carry over by construction; the parameter file carries
 # no architecture. On top of that config this launcher sets only the task swap and the run's
 # bookkeeping:
-#   task.taskname / task._target_ / task.n_outputs=7     the new task
+#   task.taskname / task._target_ / task.n_outputs       the new task (TASK, below; 7 for hyper3)
 #   trainer.max_iter=$ITERS, seed=random                 the budget, a new seed
 #   ++trainer.iter_offset=0 ++paths.init_from=null       a 200k source is itself a continuation
 #                                                        (iter_offset 75000, init_from its parent);
@@ -40,8 +47,9 @@
 #   SOURCES="$YOUNG" MODE=fresh CELL=src=fresh sbatch ... (same)
 # The --time decides the QOS (Della job_submit.lua): <= 24:01 gpu-short, <= 72:01 gpu-medium,
 # longer gpu-long. The header's 36 h lands in gpu-medium.
-# Output: $SAVE_TO/NBitFlipFlopHyper_b4_transfer/EqType=h_N=<N>_<CELL>/<run>/
-#         $SNAP_TO/NBitFlipFlopHyper_b4_transfer/EqType=h_N=<N>_<CELL>/s<seed>/it<iters>/
+# Output: $SAVE_TO/<taskname>_b4_transfer/EqType=h_N=<N>_<CELL>/<run>/
+#         $SNAP_TO/<taskname>_b4_transfer/EqType=h_N=<N>_<CELL>/s<seed>/it<iters>/
+# with <taskname> NBitFlipFlopHyper (TASK=hyper3) or CDDMHyper (TASK=cddm_hyper).
 # Cost at N = 1000: ~0.24 s/it on a full Della A100 (claim-1 controls), so 200k is ~13 h; 36 h
 # allows a slow node. --constraint=nomig keeps the job off the 3g.40gb MIG slices, where N = 1000
 # runs took up to 0.74 s/it. At N = 4000 use --constraint=gpu80 and raise --mem-per-gpu.
@@ -92,6 +100,11 @@ SRC="${ALL[$((SLURM_ARRAY_TASK_ID - 1))]%/}"
 CFG=$(ls "$SRC"/*_config.yaml | head -1)
 N=$(python -c "import sys; from omegaconf import OmegaConf; print(OmegaConf.load(sys.argv[1]).model.N)" "$CFG")
 TAG="b4_transfer/EqType=h_N=${N}_${CELL:?set CELL, e.g. src=control_age=old}"
+case "${TASK:-hyper3}" in
+  hyper3)     TASKNAME=NBitFlipFlopHyper; TASKCLS=trainRNNbrain.tasks.TaskNBitFlipFlopHyper.TaskNBitFlipFlopHyper; NOUT=7 ;;
+  cddm_hyper) TASKNAME=CDDMHyper;         TASKCLS=trainRNNbrain.tasks.TaskCDDMHyper.TaskCDDMHyper;                 NOUT=5 ;;
+  *) echo "FATAL: TASK must be hyper3 or cddm_hyper, got $TASK" >&2; exit 1 ;;
+esac
 case "$MODE" in
   transfer) XFER="++paths.transfer_from='$SRC'" ;;
   fresh)    XFER="++paths.transfer_from=null" ;;
@@ -99,14 +112,14 @@ case "$MODE" in
 esac
 echo "Task ${SLURM_ARRAY_TASK_ID}: $MODE, N=$N, $ITERS iterations, snapshots every $CKPT_EVERY"
 echo "  source: $SRC"
-echo "  -> $SAVE_TO/NBitFlipFlopHyper_$TAG"
+echo "  -> $SAVE_TO/${TASKNAME}_$TAG"
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   --config-path "$(dirname "$CFG")" --config-name="$(basename "$CFG" .yaml)" \
   seed="random" \
-  task.taskname=NBitFlipFlopHyper \
-  task._target_=trainRNNbrain.tasks.TaskNBitFlipFlopHyper.TaskNBitFlipFlopHyper \
-  task.n_outputs=7 \
+  task.taskname="$TASKNAME" \
+  task._target_="$TASKCLS" \
+  task.n_outputs="$NOUT" \
   trainer.max_iter="$ITERS" \
   ++trainer.iter_offset=0 \
   ++paths.init_from=null ++paths.init_adam=false "$XFER" \
