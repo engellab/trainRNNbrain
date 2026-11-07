@@ -1359,8 +1359,10 @@ def tex_row_maze(r):
     the table's own notes say that Trained and t* count PPO updates. Fig.: a learned
     run is in 2a,b and, at N = MAZE_TRAJ_N, in 1c (Figure 1's maze_rows reads the same runs at
     the same probe) and 2e; a finished run that did not learn is a cross in 2a,b and a line in 2e;
-    1d when rl_maze_ablate.py's JSON of the run's final weights exists under MAZE_ABLATION_DIR
-    (Figure 1's maze_ablation draws every such file); an unfinished run is in no panel.
+    1d for a learned run of N = MAZE_TRAJ_N whose rl_maze_ablate.py JSON exists under
+    MAZE_ABLATION_DIR (Figure 1's maze_ablation draws the learned N = 1,000 files only); every
+    finished run is in the Extended Data maze figure (fig_ed_maze.py), marked EDM; an unfinished
+    run is in no panel.
 
     Args:
         r: a maze_series row.
@@ -1371,11 +1373,13 @@ def tex_row_maze(r):
     if r["finished"]:
         if r["learned"] and r["N"] == MAZE_TRAJ_N:
             fig.append("1c")
-        if glob.glob(os.path.join(MAZE_ABLATION_DIR, f"N={r['N']}_act=relu__s{r['seed']}.json")):
+        if r["learned"] and r["N"] == MAZE_TRAJ_N and glob.glob(
+                os.path.join(MAZE_ABLATION_DIR, f"N={r['N']}_act=relu__s{r['seed']}.json")):
             fig.append("1d")
         fig.append("2a,b")
         if r["N"] == MAZE_TRAJ_N:
             fig.append("2e")
+        fig.append("EDM")
     trained = ps.fmt_count(r["it_end"])
     t = ps.fmt_count(r["t_star"]) if r["learned"] else "--"
     a = f"{r['active_learned']:.0f}" if r["learned"] else "--"
