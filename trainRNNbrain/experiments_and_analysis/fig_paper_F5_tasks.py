@@ -116,7 +116,7 @@ MAZE_RESCALE_NOTE = {"rescale": "the paper's values (target 10x, alpha 1.002, ca
                      "rescale_mild": "slow tilt: alpha 1.0005, cap 8", "rescale_few": "5% grow: protect 0.05 N"}
 
 # layout, mm from the canvas' top-left: one slot per (technique, task, value) group
-FIG_H_MM = 132.0                  # 136 -> 132 mm (round 15): the float with its caption fits the page
+FIG_H_MM = 128.0                  # 136 -> 128 mm (round 15): the float with its caption fits the page
 LEFT_MM = 16.0
 PITCH_MM = 5.4                    # one group's slot
 GAP_MM = 3.2                      # between two techniques
@@ -126,7 +126,7 @@ KEY_TOP_MM = 1.5
 A_TOP_MM, A_H_MM = 16.0, 27.0
 B1_TOP_MM, B1_H_MM = 45.5, 15.0
 B2_TOP_MM, B2_H_MM = 62.5, 14.0
-ROW2_TOP_MM, ROW2_H_MM = 92.0, 30.0
+ROW2_TOP_MM, ROW2_H_MM = 88.0, 30.0
 C_LEFT_MM, C_W_MM = 16.0, 50.0
 D_LEFT_MM, D_W_MM, D_GAP_MM = 90.0, 48.0, 4.0
 FOLD_LIM = (0.0, 4.3)
