@@ -2,7 +2,8 @@
 """Read the three cell groups no paper script has read, at N = 1,000 and 75,000 iterations (issue #6).
 
 QUESTION. Does each of three existing interventions "work" on the task it was run on? The criterion is
-the per-unit-rule criterion of docs/interventions_matrix.md: at 75,000 iterations (the same-size
+the per-unit-rule criterion first written here (the matrix file holds no criterion, entry
+2026-11-06_2259): at 75,000 iterations (the same-size
 read-out point, docs/AGENT_GUIDE.md), the arm has more active units than every control run in all of
 its seeds, AND the arm's mean held-out R^2 is within R2_TOL = 0.01 of the controls' mean. The R^2 test
 is one-sided: an arm whose mean R^2 is higher than the controls' passes it.

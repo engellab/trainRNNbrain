@@ -3,7 +3,8 @@
 
 QUESTION (Pavel, 5 Nov 2026; dead-relu-paper#183, #184; ROUND15_BRIEF "WP cross-task"). Does a
 standard training setting change the number of active units in the same direction on every task?
-The pre-registered rule of docs/interventions_matrix.md (entries 2026-11-05_2259 and _2310), applied
+The rule first written in entries 2026-11-05_0903, _2259 and _2310 (the matrix file holds no rule),
+restricted to networks that learned after the data were seen (entry 2026-11-06_2009), applied
 per (setting value, task) cell at N = 1,000: a value INCREASES or DECREASES the count when every seed
 THAT LEARNED THE TASK (the maze: a learned point, common.maze_learned_index; 3BFF and CDDM:
 held-out R^2 at or above the read-out file's bar, 0.8) lies outside the control's range of seeds on
@@ -227,7 +228,7 @@ def absent(ctrl_active, ctrl_perf, status, note):
 
 
 def direction(active, ctrl_active, learned=None):
-    """The pre-registered direction of a setting value against its control's range of seeds.
+    """The direction of a setting value against its control's range of seeds.
 
     Only the seeds that learned the task give a direction (the review of dead-relu-paper PR #188,
     item 1).

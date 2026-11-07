@@ -7,7 +7,7 @@ and 1e-4, CDDM rescaling, the CDDM optimiser comparison, the CDDM rate penalty 0
 sparsity penalty 0.05, the 3BFF settings ladders (activity noise, spectral radius, recurrent-weight
 penalty, metabolic penalty, sparsity penalty alone, activations, input-weight cap 0.3) and the third
 seeds of the CDDM spectral-radius and recurrent-weight-penalty cells. This script reads every run
-that has finished, applies the pre-registered criteria of those three entries, and lists the array
+that has finished, applies the criteria of those three entries, and lists the array
 tasks still running or pending. It is read_uniform_cells.py (yesterday's read-out of the existing
 cells) with two more verdict kinds; its loaders and its rule criterion are imported from there.
 
@@ -20,7 +20,7 @@ are still pending (listed per arm). Completed runs were copied to data/trained_R
 (config, TrainLosses.json, ParticipationTrace.pkl, final weights; no PNGs, optimiser states or
 checkpoints).
 
-READ-OUT (the same for every cell; the pre-registered one). At FIXED_IT = 75,000 iterations, the end
+READ-OUT (the same for every cell). At FIXED_IT = 75,000 iterations, the end
 of these runs: the active count (common.active_mask on the stored participation trace, measured on
 a noise-free pass, at the probe nearest 75,000) and the held-out R^2 under the training noise
 (heldout_r2: sigma_rec and sigma_inp from the run's config, sigma_w = 0, R2_DRAWS seeded draws) on
@@ -33,7 +33,7 @@ whose traces are on the Mac are re-read from disk and checked against the cache.
 excluded, and counted, if its noisy loss has a non-finite value or if the trainer skipped more than
 MAX_SKIP of its gradient updates (the job log's "gradient spikes" line).
 
-CRITERIA (docs/interventions_matrix.md and the three entries):
+CRITERIA (the three entries; the matrix file holds none, entry 2026-11-06_2259):
   rule (CDDM rescaling, rate penalty 0.1, rate 0.1 + sparsity 0.05): "works" if every seed has more
     active units than the largest control count and the arm's mean R^2 is at least the controls'
     mean minus R2_TOL (read_uniform_cells.verdict); otherwise "fails", with the condition that failed.
@@ -93,7 +93,7 @@ from trainRNNbrain.utils import import_any, filter_kwargs
 B5_CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "b5_read_cache.pkl"))
 STATUS = os.path.normpath(os.path.join(DATA_DIR, "..", "della_batch1_status.tsv"))
 OUT = os.path.normpath(os.path.join(DATA_DIR, "..", "read_uniform_cells_2.json"))
-N_SEEDS = 3             # runs per cell the pre-registrations expect
+N_SEEDS = 3             # runs per cell the launchers run
 R2_LEARNED = 0.8        # an optimiser run below this held-out R^2 did not learn the task (entry 2256)
 R2_INTERPRET = 0.7      # a setting cell with mean R^2 below this has its count reported, not interpreted (entry 2259)
 MAX_SKIP = 0.05         # a run that skipped more than this share of its gradient updates is broken

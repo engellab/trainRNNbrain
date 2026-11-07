@@ -5,10 +5,10 @@ QUESTION. Pavel's instruction of 5 Nov: report the interventions that work on ev
 the maze (PPO, N = 1,000, 2,000 updates) every per-unit rule of Figure 5 and every training setting
 of Figure 3 was run at the values the two supervised tasks used (docs/interventions_matrix.md; the
 launcher slurm/rl_maze_interventions_spock.slurm). This script reads all of them against the
-uniform series' N = 1,000 ReLU controls and gives each arm its pre-registered verdict.
+uniform series' N = 1,000 ReLU controls and gives each arm its verdict.
 
-THE TWO VERDICT CLASSES (pre-registered: issue #5 for the rules; the notebook entries of 5 Nov,
-2026-11-05_2310 and docs/interventions_matrix.md, for the settings), both read at the END OF
+THE TWO VERDICT CLASSES (written beforehand: issue #5 for the rules; entry 2026-11-05_2310 for the
+settings, which entry 2026-11-06_2009 restricted to learned seeds after the read-out), both read at the END OF
 TRAINING, update 2,000:
   rule (section B of the matrix: the rate penalty, rate + sparsity, read-out dropout, noisy
       synapses, rescaling, prune-and-duplicate, re-initialisation by redraw or zero-out), against
@@ -94,7 +94,7 @@ def run_status(rec):
 
 
 def setting_verdict(fin, ref):
-    """The pre-registered verdict on a setting: where the counts of the seeds that learned lie against the learned controls' range.
+    """The verdict on a setting: where the counts of the seeds that learned lie against the learned controls' range.
 
     Only the seeds that learned the task (a learned point) give a direction; a seed that did not
     learn is listed but enters no direction, and an arm with no learned seed has none.

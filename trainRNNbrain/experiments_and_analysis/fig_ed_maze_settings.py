@@ -21,7 +21,7 @@ settings rows:
       "stopped" printed once in its column; a value with no finished run says "unfinished"; a value
       with some runs still training says how many finished. The learned controls' range of counts
       is a band across the row, their mean a line (the uniform series' N = 1,000 ReLU runs; the
-      pre-registered exclusion of a run that does not learn applies to the controls);
+      settings rule compares networks that learned with controls that learned);
   (b, d) the clean probe's success rate at the end, the same marks; the controls' mean success as a
       line and the "learned" level (0.9) dashed.
   Block 1 (a, b): weight decay, input-weight row norm, activity noise, initial spectral radius, the

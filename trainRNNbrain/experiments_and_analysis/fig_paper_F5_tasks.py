@@ -3,8 +3,8 @@
 
 QUESTION (Pavel, 5 Nov 2026; dead-relu-paper#183, #184; ROUND15_BRIEF "WP cross-task"). Which
 training techniques increase the number of active units on every task, and which on some tasks
-only? The pre-registered criterion of docs/interventions_matrix.md, applied per (technique, task)
-cell at N = 1,000: the technique WORKS when every seed has more active units than the largest
+only? The criterion chosen for this comparison (when each part was written: entry 2026-11-06_2259;
+the matrix file holds no criterion), applied per (technique, task) cell at N = 1,000: the technique WORKS when every seed has more active units than the largest
 control and the arm's mean performance is within the tolerance of the controls' mean (held-out
 R^2 within R2_TOL = 0.01 on the supervised tasks; the clean probe's success within SUCCESS_TOL =
 0.05 on the maze); otherwise it FAILS, with the condition that failed. Every cell is read at the
@@ -139,7 +139,7 @@ D_LO = -0.05                      # panel d: values below this are drawn at the 
 
 
 def rule(active, perf, ctrl_active, ctrl_perf, tol, floor=None):
-    """The pre-registered verdict on one cell: works, or fails with the condition that failed.
+    """The criterion's verdict on one cell: works, or fails with the condition that failed.
 
     Args:
         active: list of int, the arm's active counts (one per seed); perf: list of float, the
@@ -177,8 +177,8 @@ def cell(tech, task, label, active, perf, ctrl_active, ctrl_perf, n_expected, so
             a technique with one value on this task); active: list of int, active units at the
             read-out point, one per finished seed; perf: list of float, held-out R^2 or success per
             finished seed (may be shorter than `active` where a run has no performance read);
-            ctrl_active, ctrl_perf: the control's lists; n_expected: int, seeds the pre-registration
-            expects; source: str, the read-out file; learned: list of bool per finished seed (the
+            ctrl_active, ctrl_perf: the control's lists; n_expected: int, seeds the arm was run
+            with; source: str, the read-out file; learned: list of bool per finished seed (the
             maze), or None; n_stopped: int, runs the guard stopped (crosses at 0); n_running: int,
             runs still training; stored: str or None, the verdict the read-out file holds; note:
             str, printed.
@@ -321,6 +321,54 @@ def load_maze():
                             n_stopped=a["n_stopped"], n_running=a["n_running"], stored=a["verdict"],
                             note=MAZE_RESCALE_NOTE.get(key, "")))
     return out, d["success_tol"], ref
+
+
+def tolerance_sensitivity(cells, tol, r2_tols=(0.005, 0.01, 0.02), success_tols=(0.025, 0.05, 0.10)):
+    """Print each technique's verdict per task at other tolerances, and the tolerance at which it flips.
+
+    The 0.01 tolerance in R^2 was written after the 3BFF networks and most CDDM networks existed
+    (entry 2026-11-06_2259), so the paper reports how the verdicts depend on it. A technique works
+    on a task if it works at one finished value, as in `task_verdict`.
+
+    Args:
+        cells: the `cell` dicts; tol: dict task -> tolerance used in the figure; r2_tols: tolerances
+            tried on 3BFF and CDDM; success_tols: tolerances tried on the maze.
+    Returns:
+        dict (technique, task) -> minimum tolerance at which the technique works on that task, or
+        None if no tolerance would make it work (the count or the maze's 0.9 condition fails at
+        every value).
+    """
+    out = {}
+    print("\n--- tolerance sensitivity: technique x task, works (W) or fails (-), full-precision differences ---")
+    for task in TASKS:
+        tols = success_tols if task == "maze" else r2_tols
+        print(f"  {task}: tolerances {tols}")
+        for tech in TECH:
+            mine = [c for c in cells if c["tech"] == tech and c["task"] == task and c["status"] == "finished"]
+            floor = MAZE_LEARNED_SUCCESS if task == "maze" else None
+            marks = [any(rule(c["active"], c["perf"], c["ctrl_active"], c["ctrl_perf"], t, floor)["works"] for c in mine)
+                     for t in tols]
+            need = []
+            for c in mine:
+                r = rule(c["active"], c["perf"], c["ctrl_active"], c["ctrl_perf"], 1e9, floor)
+                if r["works"]:
+                    need.append(max(0.0, -r["dperf"]))
+            out[(tech, task)] = min(need) if need else None
+            diffs = ", ".join(f"{c['label'] or '-'}: {rule(c['active'], c['perf'], c['ctrl_active'], c['ctrl_perf'], 1e9)['dperf']:+.5f}"
+                              for c in mine)
+            print(f"    {TECH_NAME[tech]:>20} {' '.join('W' if m else '-' for m in marks)}   works from tolerance "
+                  f"{'never' if out[(tech, task)] is None else format(out[(tech, task)], '.5f')}   ({diffs})")
+    r2_values = sorted({v for (t, k), v in out.items() if k != "maze" and v is not None})
+    print("  techniques that work on all three tasks, as the R^2 tolerance varies (maze at the figure's):")
+    for t in sorted(set(r2_tols) | set(r2_values)):
+        both = []
+        for tech in TECH:
+            ok = all(out[(tech, k)] is not None and out[(tech, k)] <= t for k in ("3BFF", "CDDM"))
+            m = out[(tech, "maze")]
+            if ok and m is not None and m <= tol["maze"]:
+                both.append(TECH_NAME[tech])
+        print(f"    {t:.5f}: {both}")
+    return out
 
 
 def verdict_word(r):
@@ -494,7 +542,7 @@ def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=
 def draw_marks(ax, x, c, key, zero=None):
     """One cell's marks in one axes: every finished seed as one group, the not-learned ones also as crosses.
 
-    The group marker is the mean over every finished seed, the mean the pre-registered criterion
+    The group marker is the mean over every finished seed, the mean the criterion
     judges (`rule`; dead-relu-paper#190, Reviewer R item 4), so a marker inside the tolerance band
     passes the performance condition and one outside it fails. A seed that did not learn the task
     is inside that mean and is also drawn as a cross at its value, beside the marker; a seed the
@@ -860,6 +908,7 @@ def main():
     _, rows_d = panel_removal(fig, maze_ref)
     report(cells, vs, order, table, floor, rows_c, rows_d, tol)
     learned_control_sensitivity(cells, tol)
+    tolerance_sensitivity(cells, tol)
     check_overlaps(fig)
     ps.save(fig, "fig_paper_F5_tasks")
 

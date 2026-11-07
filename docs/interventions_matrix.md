@@ -1,5 +1,9 @@
 # Interventions and settings across 3BFF, CDDM and the maze: what exists, what is missing
 
+**Note (6 Nov 2026).** This file is an inventory of runs. It holds no criterion and no tolerance, at
+its first commit or now, although some later entries and docstrings cited it as the pre-registration.
+For when each rule was written, see `docs/project_trajectory/2026-11-06_2259_when-the-rules-were-written.md`.
+
 Inventory written 2026-11-05 08:33 (repo at edc46f5) for Pavel's instruction of 5 Nov: report the
 interventions that work on every task first, then the ones that work on some tasks only; so the
 same training settings and per-unit rules have to be tested on all three tasks. The three tasks are
