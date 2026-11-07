@@ -5,15 +5,18 @@
 # recurrent and input weights kept and a new read-out (run_rl.py, paths.transfer_from), against
 # untrained networks trained here. Everything except the maze is configs/task/Maze.yaml's (inherited
 # below): the same 8 range sensors and 2 efference-copy inputs, the same 2 outputs, rewards and
-# geometry, so only the layout and the routes to the cheese are new.
+# geometry, so only the layout is new.
 #
-# `python trainRNNbrain/tasks/make_maze.py --cells 7 --seed 222 --loops 4`: the same generator, size
-# and number of loops as the first maze (seed 20), cheese at the centre lattice cell as there. Seed 222
-# is the seed in 0-999 (6, 15 and 20 excluded, the seeds already used) whose geodesic statistics are
-# closest to the first maze's (smallest summed relative deviation of the three): 29 cells from the far
-# end (first maze 29), 15.9 cells on average over free cells (15.9), 6 dead ends (6), 101 free cells
-# (101). 36 of the 225 grid cells differ from the first maze; of the 82 free cells the two mazes share,
-# 11 have an optimal first move in common, so the routes differ almost everywhere.
+# THE FIRST MAZE MIRRORED LEFT TO RIGHT:
+#   python trainRNNbrain/tasks/make_maze.py --cells 7 --seed 20 --loops 4 --mirror
+# (make_maze.mirror; every row of configs/task/Maze.yaml reversed). The mirror keeps every geodesic
+# distance, dead end and loop (29 cells from the far end, 15.9 on average over free cells, 6 dead ends,
+# 101 free cells, cheese at the centre), so it is exactly as hard to search, while every left turn on
+# a route becomes a right turn and the egocentric policy has to change. Chosen by the coordinator on
+# 7 Nov 2026 (dead-relu-paper#201) after the difficulty check found no make_maze.py draw in range: 15
+# mazes with the first maze's statistics scored 0.000-0.132 in N = 100 probe success after 300 updates,
+# against 0.311 on the first maze (entries 2026-11-07_0259 and _0421; the amended rule is in
+# 2026-11-07_0715_round18-g17-mirror-rules.md).
 # taskname stays "Maze": the file names (s<seed>_Params_Maze.npz) are what the readers glob, and the
 # saved config's task.maze records which maze a run played.
 defaults:
@@ -22,17 +25,17 @@ defaults:
 
 maze:
   - "###############"
-  - "#.......#.....#"
-  - "#.##.##.###.#.#"
-  - "#.#...#...#.#.#"
-  - "#.###.###.#.#.#"
-  - "#...#.#...#.#.#"
-  - "###...#.#.#.#.#"
-  - "#.#.#.#C#...#.#"
-  - "#...#.###.#.###"
-  - "#.#.#...#.#...#"
-  - "#.#.###.#.###.#"
-  - "#.#...#.....#.#"
-  - "#.###.#######.#"
-  - "#.............#"
+  - "#...#.........#"
+  - "#.#.#########.#"
+  - "#.#...........#"
+  - "#.###########.#"
+  - "#.#.#.........#"
+  - "#.#.#.#####.###"
+  - "#.#.#.#C..#...#"
+  - "#.#.#.###.#.#.#"
+  - "#.#.....#.#.#.#"
+  - "#...##.##.#.#.#"
+  - "#.#.#.......#.#"
+  - "#.###.#####.#.#"
+  - "#.....#.......#"
   - "###############"

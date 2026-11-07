@@ -28,7 +28,7 @@ checks before the options were added run with every option off, as the default i
 tree the readers glob, the update-1 snapshot equal to a 1-update run's end, absolute names in a
 continuation, none by default) and the transfer to a new maze (paths.transfer_from: W_rec, W_inp and
 y_init from the source, W_out the run's own draw, the clock and the warm-up ramp from 0, the source
-not joined as a parent, init_adam refused).
+not joined as a parent, init_adam refused), and the second maze as the first mirrored left to right.
 Run: python tests/test_rl_maze.py   (CPU, about two minutes)
 """
 import glob
@@ -45,6 +45,7 @@ from omegaconf import OmegaConf
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from trainRNNbrain.rnns.RNN_torch import RNN_torch
 from trainRNNbrain.tasks.TaskMaze import TaskMaze, parse_maze, bfs_distance
+from trainRNNbrain.tasks import make_maze
 from trainRNNbrain.trainer.TrainerPPO import TrainerPPO, load_run
 from trainRNNbrain.training.run_rl import build_optimizer
 from trainRNNbrain.experiments_and_analysis.common import maze_load_runs, participation
@@ -560,6 +561,25 @@ def test_transfer_to_new_maze():
     r = subprocess.run(cmd, cwd=REPO, env=dict(os.environ, PYTHONPATH=REPO, CUDA_VISIBLE_DEVICES=""),
                        capture_output=True, text=True, timeout=600)
     assert r.returncode != 0 and "init_adam must be false" in r.stderr, r.stderr[-1000:]
+
+
+def test_second_maze_is_the_first_mirrored():
+    """configs/task/Maze_transfer.yaml (the second maze of the transfer test) holds the first maze of
+    configs/task/Maze.yaml with every row reversed, computed here by string reversal, independently of
+    make_maze.mirror; make_maze.mirror of the first maze's wall array gives the same rows; and the two
+    mazes have the same geodesic statistics (longest and mean route to the cheese, dead ends, free
+    cells) and distance histogram, with the cheese at the mirrored cell."""
+    first = list(OmegaConf.load(os.path.join(REPO, "configs", "task", "Maze.yaml")).maze)
+    second = list(OmegaConf.load(os.path.join(REPO, "configs", "task", "Maze_transfer.yaml")).maze)
+    assert second == [row[::-1] for row in first] and second != first
+    wall, goal = parse_maze(first)[:2]
+    mwall, mgoal = make_maze.mirror(wall, goal)
+    assert make_maze.rows_of(mwall, mgoal) == second
+    s1, s2 = make_maze.maze_stats(wall, goal), make_maze.maze_stats(mwall, mgoal)
+    assert s1 == s2, (s1, s2)
+    d1, d2 = bfs_distance(wall, goal), bfs_distance(mwall, mgoal)
+    assert np.array_equal(np.sort(d1[~wall]), np.sort(d2[~mwall]))
+    assert mgoal == (goal[0], wall.shape[1] - 1 - goal[1])
 
 
 def test_fr_magnitude_penalty_matches_formula():
@@ -1318,6 +1338,7 @@ def main():
                test_mc_advantages_known_case, test_recompute_matches_rollout, test_ppo_update_runs,
                test_ppo_update_guards, test_safe_rollout_restores, test_run_script_writes_standard_layout,
                test_continuation_from_folder, test_kept_snapshots, test_transfer_to_new_maze,
+               test_second_maze_is_the_first_mirrored,
                test_fr_magnitude_penalty_matches_formula, test_rec_weights_sparsity_penalty_matches_formula,
                test_rec_weights_magnitude_penalty_matches_formula, test_metabolic_penalty_matches_formula,
                test_inp_weight_cap_holds_after_step, test_optimizer_switch,

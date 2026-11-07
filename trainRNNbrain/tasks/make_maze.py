@@ -11,6 +11,9 @@ Kept beside TaskMaze.py because it writes the one thing the task config holds th
 by hand; it is a generator script, not a Task class, and nothing imports it.
 
 Run: python trainRNNbrain/tasks/make_maze.py --cells 7 --seed 20 --loops 4   (the config's maze)
+     python trainRNNbrain/tasks/make_maze.py --cells 7 --seed 20 --loops 4 --mirror
+                                    (the second maze of the Maze transfer test, configs/task/Maze_transfer.yaml:
+                                     the first maze mirrored left to right)
 """
 import argparse
 import numpy as np
@@ -76,6 +79,21 @@ def maze_stats(wall, goal):
             "dead_ends": int((free & (nb == 1)).sum()), "free": int(free.sum())}
 
 
+def mirror(wall, goal):
+    """The maze mirrored left to right: column c becomes column W - 1 - c.
+
+    Every geodesic distance, dead end and loop is kept, so the maze is exactly as hard to search, while
+    every left turn on a route becomes a right turn. The second maze of the Maze transfer test (round 18,
+    G17) is the first maze mirrored this way.
+
+    Args:
+        wall: (H, W) bool array; goal: (row, col).
+    Returns:
+        (wall, goal): the mirrored (H, W) bool array (a copy) and the mirrored (row, col).
+    """
+    return wall[:, ::-1].copy(), (goal[0], wall.shape[1] - 1 - goal[1])
+
+
 def rows_of(wall, goal):
     """The maze as the list of strings the config takes ('#', '.', 'C')."""
     grid = np.where(wall, "#", ".")
@@ -84,15 +102,18 @@ def rows_of(wall, goal):
 
 
 def main():
-    """Generate one maze, print its rows as YAML and its statistics."""
+    """Generate one maze (mirrored with --mirror), print its rows as YAML and its statistics."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cells", type=int, default=7)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--loops", type=int, default=4)
+    ap.add_argument("--mirror", action="store_true", help="mirror the maze left to right (mirror())")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
     wall, goal = dfs_maze(args.cells, rng)
     add_loops(wall, args.loops, rng)
+    if args.mirror:
+        wall, goal = mirror(wall, goal)
     for r in rows_of(wall, goal):
         print(f'    - "{r}"')
     print(maze_stats(wall, goal))
