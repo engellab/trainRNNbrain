@@ -233,9 +233,8 @@ the sparsity penalty one seed ends below 0.9 (0.63, 0.43; means 0.034 and 0.107 
 rescaling fails at every setting: the paper's values blew up at the end of the warm-up ramp, and
 the two gentler arms (alpha 1.0005 with cap 8; protect 0.05) end with FEWER active units than the
 controls (231-321 against 426-449) at success 0.63-0.81 (one run collapsed to 0 active units and
-stopped at update 800); noisy synapses sigma_w 1.0 keep the count (451-478, 1.05x) at a success
-0.06 below the controls' (fails the 0.05 tolerance); prune-and-duplicate works (712-747 active,
-1.68x, success 0.008 below; entry 2026-11-06 maze-arms-readout), so it passes on all three tasks.
+stopped at update 800); prune-and-duplicate's active counts 712-747 are from entry 2026-11-06
+maze-arms-readout, and it passes on all three tasks.
 3BFF input-weight cap 0.1, 0.5, 2.0 fails (R^2 0.019-0.105 below).
 Della batch 1 (6 Nov, entry 2026-11-06_0900, read_uniform_cells_2.py): CDDM rescaling at the
 paper's values FAILS (196, 183, 169 active against 333-342, R^2 0.819 against 0.834), so rescaling
@@ -280,7 +279,7 @@ three, 4 in the same direction: weight decay 1e-5 and 1e-4, SGD 0.03 and 0.1); t
 a, d, e are Extended Data `fig_ed_techniques_3bff`; the maze settings and interventions figures are
 Extended Data figures.
 Removing the recruited units of the maze rate-penalty networks lowers success from 0.84-0.96 to
-0.55-0.77, as many at random to 0.07-0.35 (entry 2026-11-05 maze-rate-penalty-ablations): the maze
+0.55-0.77, as many at random to 0.07-0.35 (k from the learned controls' 437.5; from all three controls' 430 since round 17, interpolated on the same grids: 0.53-0.76 and, as the median, 0.08-0.33; entry 2026-11-06_2238) (entry 2026-11-05 maze-rate-penalty-ablations): the maze
 form of A3. Maze settings (entry 2026-11-06 maze-arms-readout; read_maze_arms.py,
 fig_ed_maze_settings.py; a setting changes the count when all three seeds lie outside the learned
 controls' 426-449 on one side): input row norm 0.5 increases it (549-593, 1.31x, every seed learned,
