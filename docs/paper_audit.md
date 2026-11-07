@@ -220,6 +220,8 @@ from its update-1,700 checkpoint) runs to 4,000; seeds 4 and 5 submitted (Della 
 N = 250 to 4,000, learned runs: N^0.52 (bootstrap 0.49-0.55 with the one seed both scripts use since round 17, entry 2026-11-06_2135; 0.48-0.55 with fig_ed_maze's old seed); size means 146 (n = 3), 261 (3), 438
 (2), 431 (3), 676 (1). N = 250 seed 2 and N = 1,000 seed 3 are not learned and enter no statistic.
 
+**When the rules were written (entry 2026-11-06_2259).** "Only stronger weight decay on all three tasks" holds for networks that learned, a restriction chosen after the data: 18 values, 2 the same; counting every finished network, 25 values, 4 the same (SGD 0.03 and 0.1 too). The Maze technique conditions predate every Maze technique network; the R^2 tolerance postdates every 3BFF and most CDDM networks; the at-one-value rule and the 75,000-iteration 3BFF read postdate the data.
+
 **C6 across the three tasks (5 Nov; Pavel's instruction, trainRNNbrain issue #6, dead-relu-paper#183:
 report the rules that work on every task first).** Criterion per cell at N = 1,000: more active
 units than every control in all seeds at a performance within the tolerance (held-out R^2 within

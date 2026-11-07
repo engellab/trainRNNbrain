@@ -119,17 +119,17 @@ MAZE_RESCALE_NOTE = {"rescale": "the paper's values (target 10x, alpha 1.002, ca
                      "rescale_mild": "slow tilt: alpha 1.0005, cap 8", "rescale_few": "5% grow: protect 0.05 N"}
 
 # layout, mm from the canvas' top-left: one slot per (technique, task, value) group
-FIG_H_MM = 115.5                  # 136 -> 128 mm (round 15) -> 115.5 (round 17): the float with its caption fits the page
+FIG_H_MM = 112.5                  # 136 -> 128 mm (round 15) -> 112.5 (round 17): the float with its caption fits the page
 LEFT_MM = 16.0
 PITCH_MM = 5.4                    # one group's slot
 GAP_MM = 3.2                      # between two techniques
 SEED_DX_MM = 0.85                 # a cell's crosses sit this far apart
 CROSS_DX_MM = 1.3                 # a cross beside a group marker sits this far from it
 KEY_TOP_MM = 0.5
-A_TOP_MM, A_H_MM = 14.5, 19.0
-B1_TOP_MM, B1_H_MM = 36.0, 13.5
-B2_TOP_MM, B2_H_MM = 51.5, 13.5
-ROW2_TOP_MM, ROW2_H_MM = 75.5, 29.0      # panel d keeps 29 mm: its open markers overlap in 27 (tests/scan_open_markers.py)
+A_TOP_MM, A_H_MM = 14.5, 16.0
+B1_TOP_MM, B1_H_MM = 33.0, 13.5
+B2_TOP_MM, B2_H_MM = 48.5, 13.5
+ROW2_TOP_MM, ROW2_H_MM = 72.5, 29.0      # panel d keeps 29 mm: its open markers overlap in 27 (tests/scan_open_markers.py)
 C_LEFT_MM, C_W_MM = 16.0, 50.0
 D_LEFT_MM, D_W_MM, D_GAP_MM = 90.0, 48.0, 4.0
 FOLD_LIM = (0.0, 4.3)
@@ -569,7 +569,7 @@ def panel_ab(fig, slots, columns, width, tol):
     ax_a.axhline(1.0, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
     ax_a.set_ylim(*FOLD_LIM)
     ax_a.set_yticks([0, 1, 2, 3, 4])
-    ax_a.set_ylabel("fold change in\nactive units")      # the Maze Extended Data figure's label; short enough to clear the letter b
+    ax_a.set_ylabel("fold change")      # one line: two lines overrun this 16 mm axis and meet the letter b (the caption names the quantity)
     ax_b1.axhline(0.0, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
     ax_b1.axhline(-tol["3BFF"], lw=ps.THIN_LW, ls=(0, (4, 3)), color=ps.INK, zorder=2)
     ax_b1.text(width - 0.3, -tol["3BFF"] - 0.0015, f"tolerance {tol['3BFF']}", fontsize=ps.TICK_PT,
