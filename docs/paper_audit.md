@@ -272,7 +272,13 @@ FAIL on 3BFF; the "works" of the previous sentence is the floor read of 1 of 3 a
 drawn read-out prune-and-duplicate works on all three tasks (3.07x, 2.11x, 1.68x at 75k / update
 2,000), the rate penalty on two (CDDM at λ 0.1 and 0.2; the maze at 0.03 and 0.3 and not at 0.1; 3BFF at
 0.1 fails, R² 0.021 below), rate + sparsity on CDDM only (0.2 + 0.05; 3BFF 0.1 + 0.05 is 0.028 below),
-read-out dropout on CDDM only; noisy synapses and rescaling on none.**
+read-out dropout on CDDM only; noisy synapses and rescaling on none.** **In the paper (6 Nov evening, dead-relu-paper PR #188, wp/cross-task 45be63d; code main 3f0bb49):**
+Figure 3 is `fig_paper_F3_tasks` (tasks x settings) and Figure 5 is `fig_paper_F5_tasks` (tasks x
+techniques); Results 3 and 5, the captions, Methods and the front matter carry these verdicts and the
+settings table (28 values finished on both supervised tasks, 11 in the same direction; 25 on all
+three, 4 in the same direction: weight decay 1e-5 and 1e-4, SGD 0.03 and 0.1); the previous Fig. 5's
+a, d, e are Extended Data `fig_ed_techniques_3bff`; the maze settings and interventions figures are
+Extended Data figures.
 Removing the recruited units of the maze rate-penalty networks lowers success from 0.84-0.96 to
 0.55-0.77, as many at random to 0.07-0.35 (entry 2026-11-05 maze-rate-penalty-ablations): the maze
 form of A3. Maze settings (entry 2026-11-06 maze-arms-readout; read_maze_arms.py,
