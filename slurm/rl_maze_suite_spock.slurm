@@ -107,18 +107,35 @@ if [ -n "${PARENT_ROOT:-}" ]; then
     echo "FATAL: PARENT_ROOT is set but EXTRA_UPDATES (the number of further updates) is not." >&2; exit 1
   fi
   INIT_ADAM="${INIT_ADAM:-true}"
-  PARENT="${PARENT_ROOT}/N=${N}_act=${ACT}/s${SEED}"
+  # STAGES (round 19, 7 Nov 2026; docs/project_trajectory/*_round19-train-all-rules.md). A Maze network is
+  # trained in stages of 2,000 updates: stage 1 is the fresh run in the cell <tag>, stage 2 the first
+  # continuation in <tag>_cont (every continuation before round 19), stage k >= 3 continues stage k-1
+  # (<tag>_cont for k = 3, <tag>_cont<k-1> after) into <tag>_cont<k>. STAGE (default 2) names the stage
+  # this submission trains, and PARENT_ROOT is the suite folder holding every stage's cell. The readers
+  # (common.maze_load_runs) follow paths.init_from, so a chain of any length is read as one run.
+  #   STAGE=3 PARENT_ROOT=$HOME/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite EXTRA_UPDATES=2000 \
+  #     INIT_ADAM=false sbatch --array=26 --time=12:00:00 slurm/rl_maze_suite_spock.slurm
+  STAGE="${STAGE:-2}"
+  if ! [[ "$STAGE" =~ ^[0-9]+$ ]] || [ "$STAGE" -lt 2 ]; then
+    echo "FATAL: STAGE must be an integer >= 2 (stage 1 is the fresh run); got '${STAGE}'." >&2; exit 1
+  fi
+  stage_suffix() { case "$1" in 1) echo "" ;; 2) echo "_cont" ;; *) echo "_cont$1" ;; esac; }
+  PARENT="${PARENT_ROOT}/N=${N}_act=${ACT}$(stage_suffix $((STAGE - 1)))/s${SEED}"
   if ! ls "${PARENT}"/*Params_Maze.npz >/dev/null 2>&1; then     # s<seed>_Params_Maze.npz, or
     echo "FATAL: ${PARENT} has no *Params_Maze.npz to continue from." >&2; exit 1   # Params_Maze.npz (runs before 5 Nov)
   fi
   if [ "$INIT_ADAM" = true ] && ! ls "${PARENT}"/*AdamState_Maze.pt >/dev/null 2>&1; then
     echo "FATAL: ${PARENT} has no *AdamState_Maze.pt; continue it with INIT_ADAM=false." >&2; exit 1
   fi
-  TAG="${TAG}_cont"
+  TAG="${TAG}$(stage_suffix "$STAGE")"
+  # never overwrite a run folder: a stage resubmitted after a failure needs its partial folder moved first
+  if ls "${SAVE_TO}/Maze_${TAG}/s${SEED}"/*config.yaml >/dev/null 2>&1; then
+    echo "FATAL: ${SAVE_TO}/Maze_${TAG}/s${SEED} already holds a run; refusing to overwrite it." >&2; exit 1
+  fi
   # the path is quoted for Hydra's override grammar, which refuses an unquoted value holding '=' (the
   # cell name N=<N>_act=<act>), as experiment_tag is below
   CONT=(paths.init_from="\"${PARENT}\"" paths.init_adam="$INIT_ADAM" trainer.n_updates="$EXTRA_UPDATES" trainer.iter_offset=auto)
-  echo "continuation: from ${PARENT} (init_adam=${INIT_ADAM}), ${EXTRA_UPDATES} further updates -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
+  echo "continuation, stage ${STAGE}: from ${PARENT} (init_adam=${INIT_ADAM}), ${EXTRA_UPDATES} further updates -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 fi
 
 # KEPT SNAPSHOTS (optional, since 7 Nov 2026). KEEP_ALL=true turns on trainer.checkpoint_keep for every
