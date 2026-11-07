@@ -9,14 +9,16 @@ uniform series' N = 1,000 ReLU controls and gives each arm its pre-registered ve
 
 THE TWO VERDICT CLASSES (pre-registered: issue #5 for the rules; the notebook entries of 5 Nov,
 2026-11-05_2310 and docs/interventions_matrix.md, for the settings), both read at the END OF
-TRAINING, update 2,000, against the LEARNED controls (two of the three: seed 3 ended at a success
-of 0.73 and is excluded, as the pre-registration of issue #3 excludes a run that does not learn):
+TRAINING, update 2,000:
   rule (section B of the matrix: the rate penalty, rate + sparsity, read-out dropout, noisy
-      synapses, rescaling, prune-and-duplicate, re-initialisation by redraw or zero-out): "works"
-      when every seed's count of active units at the end exceeds the largest learned control's
-      (449) AND the arm's mean end success is within SUCCESS_TOL = 0.05 of the learned controls'
-      mean (0.984); otherwise "fails", with the reason (fig_ed_maze_interventions.rule_verdict);
-  setting (section A: weight decay, input row norm, activity noise, spectral radius, the sparsity
+      synapses, rescaling, prune-and-duplicate, re-initialisation by redraw or zero-out), against
+      ALL THREE controls as issue #5 wrote it (dead-relu-paper#194, reversing entry
+      2026-11-05_0812; fig_ed_maze_interventions.technique_reference): "works" when every seed's
+      count of active units at the end exceeds every control's (449), the arm's mean end success
+      is within SUCCESS_TOL = 0.05 of the controls' mean (0.898), and no seed ends below 0.9;
+      otherwise "fails", with the reason (fig_ed_maze_interventions.rule_verdict);
+  setting, against the LEARNED controls (two of the three: seed 3 ended at a success of 0.73),
+      (section A: weight decay, input row norm, activity noise, spectral radius, the sparsity
       penalty alone, the input-weight cap, the recurrent-weight magnitude and metabolic penalties,
       the optimiser): "increases the count" when the counts of every seed THAT LEARNED THE TASK
       (common.maze_learned_index) lie above the learned controls' range (426 to 449), "decreases
@@ -38,11 +40,11 @@ is "absent".
 
 OUTPUT. On stdout, table 1: one row per run (class, arm, folder, seed, status, last update,
 success at the end, the learned update, active units at the learned point and at the end, the
-fold change over the learned controls' mean count, the option values); the controls' rows first;
+fold change over the class's controls' mean count, the option values); the controls' rows first;
 then the folders that hold no run files. Table 2: one row per arm of the launcher (class, arm,
 status, runs finished / training / stopped, active units at the end per seed, mean fold change,
 success minus the controls' mean, seeds learned, verdict), the controls first. The same numbers
-go to --json (default data/read_maze_arms.json): reference, runs, arms, roots, written.
+go to --json (default data/read_maze_arms.json): reference (learned controls), reference_techniques (all three), runs, arms, roots, written.
 
 Run:  python trainRNNbrain/experiments_and_analysis/read_maze_arms.py [--root DIR]
       [--control-root DIR] [--json PATH]
@@ -55,7 +57,7 @@ from datetime import datetime
 import numpy as np
 
 from fig_ed_maze_interventions import (CONTROL_ROOT, FOLDER_OF, REPO, ROOT, SEEDS, SUCCESS_TOL,
-                                       control_reference, load_records, rule_verdict)
+                                       control_reference, load_records, rule_verdict, technique_reference)
 
 JSON_OUT = os.path.join(REPO, "data", "read_maze_arms.json")
 # the per-unit rules (section B of docs/interventions_matrix.md), by the prefix of their derived key;
@@ -164,10 +166,11 @@ def arm_rows(records, stopped, ref):
                    success_end=[r["pt"]["success_end"] for r in fin],
                    n_learned=sum(r["pt"]["learned_i"] is not None for r in fin),
                    folds=[], mean_fold=None, success_diff=None)
-        if fin and ref is not None:
-            row["folds"] = [r["pt"]["active_end"] / ref["active"] for r in fin]
+        own = technique_reference(ref) if row["cls"] == "rule" else ref    # the class's controls
+        if fin and own is not None:
+            row["folds"] = [r["pt"]["active_end"] / own["active"] for r in fin]
             row["mean_fold"] = float(np.mean(row["folds"]))
-            row["success_diff"] = float(np.mean(row["success_end"])) - ref["success"]
+            row["success_diff"] = float(np.mean(row["success_end"])) - own["success"]
         if key == "control":
             row["verdict"] = ("reference" if ref is None else
                               f"reference: {ref['n']} learned controls, mean {ref['active']:.1f} active "
@@ -184,7 +187,7 @@ def arm_rows(records, stopped, ref):
                 parts.append(f"{n_stopped} stopped")
             row["verdict"] = "incomplete (" + ", ".join(parts) + ")"
         elif row["cls"] == "rule":
-            row["verdict"] = rule_verdict(fin, status, ref)
+            row["verdict"] = rule_verdict(fin, status, own)
         else:
             row["verdict"] = setting_verdict(fin, ref)
         out.append(row)
@@ -236,8 +239,8 @@ def print_arms(rows):
         None.
     """
     print(f"\n{'class':>7} {'arm':>15} {'status':>10} {'fin/run/stop':>12} {'active at the end':>18} "
-          f"{'mean fold':>9} {'succ diff':>9} {'learned':>7}  verdict (rule: count above every learned "
-          f"control's in all seeds AND mean success within {SUCCESS_TOL} of the controls'; setting: all "
+          f"{'mean fold':>9} {'succ diff':>9} {'learned':>7}  verdict (rule, all three controls: count above every "
+          f"control's in all seeds, no seed below 0.9 AND mean success within {SUCCESS_TOL} of the controls'; setting: all "
           f"seeds outside the learned controls' range on one side)")
     for w in rows:
         counts = ", ".join(map(str, w["active_end"])) or "-"
@@ -268,11 +271,12 @@ def main():
                          status=run_status(r), last_update=r["last_update"], n_updates=r["n_updates"],
                          success_end=p.get("success_end"), learned=p.get("learned"),
                          active_learned=p.get("active_learned"), active_end=p.get("active_end"),
-                         fold=(None if not p or ref is None else p["active_end"] / ref["active"]),
+                         fold=(None if not p or ref is None else p["active_end"]
+                               / (technique_reference(ref) if arm_class(r["key"]) == "rule" else ref)["active"]),
                          note=r["note"]))
     out = dict(written=datetime.now().isoformat(timespec="minutes"), root=os.path.relpath(args.root, REPO),
                control_root=os.path.relpath(args.control_root, REPO), success_tol=SUCCESS_TOL,
-               reference=ref, runs=runs, arms=rows,
+               reference=ref, reference_techniques=technique_reference(ref), runs=runs, arms=rows,
                no_run_files=[dict(folder=s["rel"], seed=s["seed"]) for s in stopped])
     os.makedirs(os.path.dirname(args.json), exist_ok=True)
     with open(args.json, "w") as fh:

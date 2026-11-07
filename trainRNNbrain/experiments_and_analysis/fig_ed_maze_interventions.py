@@ -20,10 +20,10 @@ marker, as Figure 5's does; the controls are BASELINE grey, Figure 5's conventio
       Every value in this panel is read at the end of the fixed budget (update 2,000), so every
       marker is OPEN (paperstyle, dead-relu-paper#83: a filled marker means a run's own convergence
       point, an open marker a fixed iteration); a run that did not learn is a cross in its arm's
-      colour, as in fig_ed_maze. A thin line marks the learned controls' mean count.
-  (c) top: the fold change in active units at the end, each run's count over the learned controls'
+      colour, as in fig_ed_maze. A thin line marks the controls' mean count (all three).
+  (c) top: the fold change in active units at the end, each run's count over all three controls'
       mean, one open marker per seed (a cross for a run that did not learn) and a bar at the arm's
-      mean over its finished runs; bottom: each run's end success minus the learned controls' mean
+      mean over its finished runs; bottom: each run's end success minus all three controls' mean
       success, the same marks, with the pre-registered tolerance as a dashed line. One column per
       arm of the ladder; a column with no finished run says "unfinished", "stopped" or "no runs",
       so the layout does not change as runs finish.
@@ -56,9 +56,10 @@ stopped and drawn nowhere (its arm can then only come from the folder name, and 
 so). A run the rollback guard stopped (RuntimeError after six non-finite rollouts in a row) keeps
 its last checkpoint on disk and looks unfinished; stopped_by_guard tells it apart by its records
 (the last probe counts 0 active units and the last update reports a restore), and it is listed as
-"stopped@<update>". The controls' reference is the mean over the LEARNED controls among the uniform series'
-N = 1,000 ReLU runs: the pre-registered exclusion of a run that does not learn (issue #3) applies to
-the controls as to the arms; the printout gives the means over all controls beside it.
+"stopped@<update>". The technique criterion's reference is the mean over ALL THREE of the uniform series' N = 1,000 ReLU
+runs, as issue #5 wrote it before any run (technique_reference; dead-relu-paper#194 reverses entry
+2026-11-05_0812, which had moved it to the two learned controls after 15 of 18 runs were read). The
+settings rule keeps the learned controls (control_reference).
 
 DATA. --root (default data/trained_RNNs_rl_maze/Maze_interventions): the ladder of issue #5 and
 the settings arms of issue #6, <arm>/s<seed>/ run folders written by run_rl.py (Spock arrays
@@ -378,8 +379,8 @@ def control_reference(records):
     Returns:
         dict with active (mean count at the end over the learned controls), active_min and
         active_max (the smallest and largest learned control's count), success (their mean end
-        success), n (how many), all_active, all_success, n_all (the same over every finished
-        control); or None without a learned control.
+        success), n (how many), all_active, all_active_min, all_active_max, all_success, n_all (the
+        same over every finished control); or None without a learned control.
     """
     ctrl = [r for r in records if r["key"] == "control" and r["drawn"]]
     learned = [r for r in ctrl if r["pt"]["learned_i"] is not None]
@@ -390,7 +391,28 @@ def control_reference(records):
     return dict(active=float(act.mean()), active_min=int(act.min()), active_max=int(act.max()),
                 success=float(suc.mean()), n=len(learned),
                 all_active=float(np.mean([r["pt"]["active_end"] for r in ctrl])),
+                all_active_min=int(min(r["pt"]["active_end"] for r in ctrl)),
+                all_active_max=int(max(r["pt"]["active_end"] for r in ctrl)),
                 all_success=float(np.mean([r["pt"]["success_end"] for r in ctrl])), n_all=len(ctrl))
+
+
+def technique_reference(ref):
+    """The reference of the technique criterion: all three controls, as issue #5 wrote it before any run.
+
+    Entry 2026-11-05_0812 moved this reference to the two learned controls after 15 of 18 runs had
+    been read; dead-relu-paper#194 reversed that. The settings rule keeps the learned controls
+    (control_reference), and read_maze_arms and the technique panels take this dict instead.
+
+    Args:
+        ref: control_reference output, or None.
+    Returns:
+        dict with control_reference's keys active, active_min, active_max, success and n, computed
+        over every finished control; or None when ref is None.
+    """
+    if ref is None:
+        return None
+    return dict(active=ref["all_active"], active_min=ref["all_active_min"], active_max=ref["all_active_max"],
+                success=ref["all_success"], n=ref["n_all"])
 
 
 def arm_status(records, stopped, key):
@@ -417,11 +439,12 @@ def rule_verdict(fin, status, ref):
     """The pre-registered verdict on a per-unit rule (issue #5): "works", "fails: ...", or none yet.
 
     A rule works at a value when every one of its SEEDS runs finished, each run's count of active
-    units at the end exceeds the largest learned control's, and the arm's mean end success is
-    within SUCCESS_TOL of the learned controls' mean.
+    units at the end exceeds every control's, the arm's mean end success is within SUCCESS_TOL of
+    the mean of all three controls, and no run ends below MAZE_LEARNED_SUCCESS (issue #5: such an
+    arm "counts against the technique at that value"; dead-relu-paper#194).
 
     Args:
-        fin: the arm's finished records; status: str from arm_status; ref: control_reference.
+        fin: the arm's finished records; status: str from arm_status; ref: technique_reference.
     Returns:
         str.
     """
@@ -435,10 +458,14 @@ def rule_verdict(fin, status, ref):
     cost = float(np.mean([r["pt"]["success_end"] for r in fin])) - ref["success"]
     reasons = []
     if low:
-        reasons.append(f"count not above every learned control's ({ref['active_max']}) in "
+        reasons.append(f"count not above every control's ({ref['active_max']}) in "
                        f"seed{'s' if len(low) > 1 else ''} {', '.join(map(str, low))}")
     if cost < -SUCCESS_TOL:
         reasons.append(f"success cost {cost:+.3f} beyond {SUCCESS_TOL}")
+    below = [r["seed"] for r in fin if r["pt"]["success_end"] < MAZE_LEARNED_SUCCESS]
+    if below:
+        reasons.append(f"seed{'s' if len(below) > 1 else ''} {', '.join(map(str, below))} "
+                       f"ending below {MAZE_LEARNED_SUCCESS:g}")
     return "works" if not reasons else "fails: " + "; ".join(reasons)
 
 
@@ -446,7 +473,7 @@ def arm_summaries(records, stopped, ref):
     """Per ladder arm: its finished runs, fold changes, success cost, status and verdict.
 
     Args:
-        records: list from load_records; stopped: list from load_records; ref: control_reference.
+        records: list from load_records; stopped: list from load_records; ref: technique_reference.
     Returns:
         dict key -> dict with runs (the finished, drawn records), fold (array, one per run: count at
         the end over the controls' mean; empty without a reference), cost (array: end success
@@ -539,7 +566,7 @@ def print_arms(summ):
         None.
     """
     print(f"\n{'arm':>15} {'status':>10} {'n':>2} {'fold per seed':>22} {'mean fold':>9} "
-          f"{'succ cost':>9}  verdict (count above every learned control's in all seeds AND "
+          f"{'succ cost':>9}  verdict (count above every control's in all seeds, no seed below 0.9, AND "
           f"mean success within {SUCCESS_TOL} of the controls')")
     for key, s in summ.items():
         folds = ", ".join(f"{v:.2f}" for v in s["fold"]) or "-"
@@ -643,7 +670,7 @@ def panel_end(ax, records, ref):
     """Panel (b): probe success at the end against active units at the end, one marker per run.
 
     Args:
-        ax: axes; records: list from load_records; ref: control_reference (a thin line at its
+        ax: axes; records: list from load_records; ref: technique_reference (a thin line at its
             mean count, or nothing).
     Returns:
         list of (record, x, y) drawn, for the proximity check.
@@ -680,7 +707,7 @@ def panel_fold(ax_t, ax_b, summ, ref):
 
     Args:
         ax_t, ax_b: the two axes (the bottom one carries the column labels); summ: arm_summaries;
-            ref: control_reference.
+            ref: technique_reference.
     Returns:
         None.
     """
@@ -741,7 +768,7 @@ def panel_ablation(ax, ax_key, tech, ctrl, ref):
     Args:
         ax: axes; ax_key: a blank axes above it; tech: list of (json, record) from
             match_ablations for the technique networks; ctrl: one (json, record) or None, the
-            control drawn; ref: control_reference (sets the "added units" of each technique
+            control drawn; ref: technique_reference (sets the "added units" of each technique
             network).
     Returns:
         list of dicts per drawn network: key, seed, n_inactive, full, quiet_at_inactive,
@@ -819,7 +846,7 @@ def draw(records, summ, ref, tech, ctrl):
     """Lay out the panels, draw them, print the ablation numbers and the checks, save the figure.
 
     Args:
-        records: list from load_records; summ: arm_summaries; ref: control_reference;
+        records: list from load_records; summ: arm_summaries; ref: technique_reference;
         tech, ctrl: match_ablations output for the techniques and the one control drawn.
     Returns:
         str, the path of the PDF.
@@ -866,7 +893,8 @@ def main():
     records, stopped = load_records(args.root, args.control_root)
     ref = control_reference(records)
     print_runs(records, stopped, ref)
-    summ = arm_summaries(records, stopped, ref)
+    tref = technique_reference(ref)
+    summ = arm_summaries(records, stopped, tref)
     print_arms(summ)
     tech = match_ablations(load_ablation(args.ablation) if os.path.isdir(args.ablation) else [], records)
     tech = [(a, r) for a, r in tech if r["key"] != "control"]
@@ -876,7 +904,7 @@ def main():
     ctrl = min(ctrls, key=lambda ar: ar[1]["seed"]) if ctrls else None
     print(f"{len(tech)} technique ablation(s) under {args.ablation}; control drawn: "
           + (f"s{ctrl[1]['seed']}" if ctrl else "none"))
-    draw(records, summ, ref, tech, ctrl)
+    draw(records, summ, tref, tech, ctrl)
 
 
 if __name__ == "__main__":

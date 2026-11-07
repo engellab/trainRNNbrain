@@ -60,7 +60,7 @@ from fig_ed_maze import ax_mm, check_overlaps, load_ablation
 from fig_ed_maze_interventions import (ABLATION_DIR, ARMS, CONTROL_ABLATION_DIR, CONTROL_ROOT, N, ROOT, SEEDS,
                                        arm_summaries, close_markers, control_reference, load_records,
                                        match_ablations, panel_ablation, panel_end, panel_fold, panel_key,
-                                       panel_traces, print_arms, print_runs)
+                                       panel_traces, print_arms, print_runs, technique_reference)
 
 # The two blocks: (column title, [(arm key, value label), ...]) per setting, in drawing order. The
 # keys are fig_ed_maze_interventions.arm_of's; the labels are the values as Figure 3 prints them.
@@ -262,13 +262,15 @@ def panel_techniques(fig, records, stopped_folders, ref, ablation_dir, control_a
     """Panels e-h: the training techniques on the maze, fig_ed_maze_interventions' panels in TECH_MM.
 
     Args:
-        fig: the figure; records, stopped_folders: load_records output; ref: control_reference;
+        fig: the figure; records, stopped_folders: load_records output; ref: control_reference (the
+            settings' learned controls; these panels use technique_reference of it, all three);
         ablation_dir, control_ablation_dir: folders of rl_maze_ablate.py JSONs for the technique
             networks and for the uniform series (panel h).
     Returns:
         list of (record, x, y) markers of panel f, for the proximity check.
     """
-    summ = arm_summaries(records, stopped_folders, ref)
+    tref = technique_reference(ref)
+    summ = arm_summaries(records, stopped_folders, tref)
     print_runs(records, stopped_folders, ref)
     print_arms(summ)
     tech = match_ablations(load_ablation(ablation_dir) if os.path.isdir(ablation_dir) else [], records)
@@ -286,9 +288,9 @@ def panel_techniques(fig, records, stopped_folders, ref, ablation_dir, control_a
     x_max = int(max((r["probes"]["update"][-1] for r in records if r["drawn"]), default=2000))
     x_max = int(np.ceil(x_max / 500.0) * 500)
     n_e = panel_traces(ax_e, records, x_max)
-    pts = panel_end(ax_f, records, ref)
-    panel_fold(ax_gt, ax_gb, summ, ref)
-    rows = panel_ablation(ax_h, ax_hk, tech, ctrl, ref)
+    pts = panel_end(ax_f, records, tref)
+    panel_fold(ax_gt, ax_gb, summ, tref)
+    rows = panel_ablation(ax_h, ax_hk, tech, ctrl, tref)
     for ax, letter in ((ax_e, "e"), (ax_f, "f"), (ax_gt, "g")):
         ps.panel_letter(ax, letter)
     ps.panel_letter(ax_h, "h", x_mm=12.0)              # left of the key above the panel

@@ -52,7 +52,7 @@ data/read_uniform_cells.json (read-out dropout, prune-and-duplicate, noisy synap
 paper-grid control), data/read_uniform_cells_2.json (rescaling, the rate penalty 0.1 alone and with
 the sparsity penalty) and the Figure 3 cache data/fig_paper_F2_fails_cache.pkl (the rate penalty
 0.2 alone and with the sparsity penalty, against the Figure 3a control). Maze:
-data/read_maze_arms.json (read_maze_arms.py; the learned controls' reference). A cell that is
+data/read_maze_arms.json (read_maze_arms.py; all three controls, dead-relu-paper#194). A cell that is
 still training is drawn as the JSON holds it and picked up on a rerun once the JSON is rebuilt.
 
 OUTPUT. img/internal_figures/fig_paper_F5_tasks.{pdf,svg} (paperstyle.save, vector only), and on
@@ -75,7 +75,7 @@ from matplotlib.lines import Line2D
 
 import paperstyle as ps
 import fig_paper_F5_drive as F5
-from common import DATA_DIR
+from common import DATA_DIR, MAZE_LEARNED_SUCCESS
 from fig_ed_maze import ax_mm, check_overlaps, load_ablation
 from fig_paper_F2_fails import CACHE as F2_CACHE
 
@@ -134,32 +134,38 @@ C_LEFT_MM, C_W_MM = 16.0, 50.0
 D_LEFT_MM, D_W_MM, D_GAP_MM = 90.0, 48.0, 4.0
 FOLD_LIM = (0.0, 4.3)
 R2_LIM = (-0.038, 0.013)
-SUCC_LIM = (-0.60, 0.05)
+SUCC_LIM = (-0.52, 0.13)
 D_LO = -0.05                      # panel d: values below this are drawn at the edge with an arrow
 
 
-def rule(active, perf, ctrl_active, ctrl_perf, tol):
+def rule(active, perf, ctrl_active, ctrl_perf, tol, floor=None):
     """The pre-registered verdict on one cell: works, or fails with the condition that failed.
 
     Args:
         active: list of int, the arm's active counts (one per seed); perf: list of float, the
             arm's performance per seed (held-out R^2 or success); ctrl_active, ctrl_perf: the
-            same for the control; tol: the tolerance on the mean performance.
+            same for the control; tol: the tolerance on the mean performance; floor: float or
+            None, the level no network may end below (the maze's 0.9, issue #5:
+            dead-relu-paper#194), or None for no such condition.
     Returns:
-        dict: count_ok (bool), perf_ok (bool), works (bool), fold (float, mean count over the
+        dict: count_ok (bool), perf_ok (bool), floor_ok (bool), works (bool), fold (float, mean count over the
         control's mean), dperf (float, mean performance minus the control's mean), text (str).
     """
     fold = float(np.mean(active)) / float(np.mean(ctrl_active))
     dperf = float(np.mean(perf)) - float(np.mean(ctrl_perf)) if len(perf) else float("nan")
     count_ok = bool(len(active)) and all(a > max(ctrl_active) for a in active)
     perf_ok = bool(len(perf)) and dperf >= -tol
+    floor_ok = floor is None or all(p >= floor for p in perf)
     why = []
     if not count_ok:
         why.append(f"count not above every control's ({max(ctrl_active)})")
     if not perf_ok:
         why.append(f"performance {dperf:+.3f} beyond {tol}")
-    return dict(count_ok=count_ok, perf_ok=perf_ok, works=count_ok and perf_ok, fold=fold, dperf=dperf,
-                text="works" if count_ok and perf_ok else "fails: " + "; ".join(why))
+    if not floor_ok:
+        why.append(f"a network ends below {floor}")
+    works = count_ok and perf_ok and floor_ok
+    return dict(count_ok=count_ok, perf_ok=perf_ok, floor_ok=floor_ok, works=works, fold=fold, dperf=dperf,
+                text="works" if works else "fails: " + "; ".join(why))
 
 
 def cell(tech, task, label, active, perf, ctrl_active, ctrl_perf, n_expected, source, learned=None,
@@ -289,18 +295,20 @@ def load_cddm():
 def load_maze():
     """The maze cells at update 2,000 from read_maze_arms.json.
 
+    The controls are all three (issue #5, dead-relu-paper#194): the file's reference_techniques.
+
     Returns:
         (cells, success_tol, reference): the `cell` dicts in MAZE_ARMS order, the tolerance the
-        file holds and its controls' reference dict.
+        file holds and its reference_techniques dict.
     """
     with open(MAZE_JSON) as fh:
         d = json.load(fh)
-    ref = d["reference"]
+    ref = d["reference_techniques"]
     arms = {a["key"]: a for a in d["arms"]}
-    ctrl = [r for r in d["runs"] if r["key"] == "control" and r["learned"] is not None]
+    ctrl = [r for r in d["runs"] if r["key"] == "control"]
     ctrl_active = [r["active_end"] for r in ctrl]
     ctrl_succ = [r["success_end"] for r in ctrl]
-    assert float(np.mean(ctrl_active)) == ref["active"], "the learned controls do not give the file's reference"
+    assert float(np.mean(ctrl_active)) == ref["active"], "the controls do not give the file's reference"
     learned_of = {(r["key"], r["seed"]): r["learned"] is not None for r in d["runs"]}
     out = []
     for tech, values in MAZE_ARMS.items():
@@ -315,38 +323,49 @@ def load_maze():
     return out, d["success_tol"], ref
 
 
-def third_control_sensitivity(cells, tol):
-    """Print the Maze verdicts with the control network that did not learn inside the reference.
+def verdict_word(r):
+    """Return "works" or "fails" for a `rule` dict r."""
+    return "works" if r["works"] else "fails"
 
-    The reference is the two control networks that learned the task (entry 2026-11-05_0812); the
-    technique's own mean counts every finished network. This printout reports what that asymmetry
-    decides (review of PR #193, item 5). It changes no verdict the figure draws.
+
+def learned_control_sensitivity(cells, tol):
+    """Print the Maze verdicts under the two learned controls beside those under all three.
+
+    The first draft of the analysis used the two learned controls (entry 2026-11-05_0812); the
+    paper reports them once as a sensitivity check (dead-relu-paper#194). Printed for each cell:
+    the criterion under both references, and under each without the 0.9 condition, because that
+    condition alone decides two cells under all three controls.
 
     Args:
         cells: the `cell` dicts; tol: dict task -> tolerance.
     Returns:
-        dict with mean_learned, mean_all (control mean success over the learned and over all
-        control networks) and changed (list of (technique, value) whose verdict differs).
+        dict with mean_all, mean_learned, active_all, active_learned (the two references) and
+        changed (list of (technique, value) whose full verdict differs between them).
     """
     with open(MAZE_JSON) as fh:
         d = json.load(fh)
     ctrl = [r for r in d["runs"] if r["key"] == "control"]
-    active_all, succ_all = [r["active_end"] for r in ctrl], [r["success_end"] for r in ctrl]
-    learned = [r["success_end"] for r in ctrl if r["learned"] is not None]
-    out = dict(mean_learned=float(np.mean(learned)), mean_all=float(np.mean(succ_all)), changed=[])
-    print("\n--- Maze verdicts with all three control networks in the reference (not drawn) ---")
-    print(f"  control success {[round(s, 3) for s in succ_all]}, active {active_all}; mean over the learned "
-          f"{out['mean_learned']:.3f}, over all {out['mean_all']:.3f}")
+    a_all, s_all = [r["active_end"] for r in ctrl], [r["success_end"] for r in ctrl]
+    a_l = [r["active_end"] for r in ctrl if r["learned"] is not None]
+    s_l = [r["success_end"] for r in ctrl if r["learned"] is not None]
+    out = dict(mean_all=float(np.mean(s_all)), mean_learned=float(np.mean(s_l)), active_all=float(np.mean(a_all)),
+               active_learned=float(np.mean(a_l)), changed=[])
+    print("\n--- Maze verdicts: all three controls (drawn) against the two learned controls ---")
+    print(f"  control success {[round(x, 3) for x in s_all]}, active {a_all}; all three: {out['mean_all']:.3f}, "
+          f"{out['active_all']:.1f}; two learned: {out['mean_learned']:.3f}, {out['active_learned']:.1f}")
     for c in cells:
         if c["task"] != "maze" or not c["active"]:
             continue
-        now = rule(c["active"], c["perf"], c["ctrl_active"], c["ctrl_perf"], tol["maze"])
-        alt = rule(c["active"], c["perf"], active_all, succ_all, tol["maze"])
-        if now["works"] != alt["works"]:
+        b3 = rule(c["active"], c["perf"], a_all, s_all, tol["maze"], MAZE_LEARNED_SUCCESS)
+        b2 = rule(c["active"], c["perf"], a_l, s_l, tol["maze"], MAZE_LEARNED_SUCCESS)
+        m3 = rule(c["active"], c["perf"], a_all, s_all, tol["maze"])
+        m2 = rule(c["active"], c["perf"], a_l, s_l, tol["maze"])
+        if b3["works"] != b2["works"]:
             out["changed"].append((c["tech"], c["label"]))
-        print(f"  {TECH_NAME[c['tech']]:>20} {c['label']:>9}: learned reference {now['dperf']:+.3f} "
-              f"{'works' if now['works'] else 'fails'}; all three {alt['dperf']:+.3f} {'works' if alt['works'] else 'fails'}")
-    print(f"  verdicts that change: {out['changed']}")
+        print(f"  {TECH_NAME[c['tech']]:>20} {c['label']:>9}: all three {b3['dperf']:+.3f} fold {b3['fold']:.2f} {verdict_word(b3)} "
+              f"(without the 0.9 condition {verdict_word(m3)}); two learned {b2['dperf']:+.3f} fold {b2['fold']:.2f} "
+              f"{verdict_word(b2)} (without it {verdict_word(m2)})")
+    print(f"  verdicts that differ between the two references: {out['changed']}")
     return out
 
 
@@ -361,7 +380,8 @@ def verdicts(cells, tol):
     """
     out = []
     for c in cells:
-        r = rule(c["active"], c["perf"], c["ctrl_active"], c["ctrl_perf"], tol[c["task"]]) if c["active"] else None
+        floor = MAZE_LEARNED_SUCCESS if c["task"] == "maze" else None
+        r = rule(c["active"], c["perf"], c["ctrl_active"], c["ctrl_perf"], tol[c["task"]], floor) if c["active"] else None
         agrees = None
         if r is not None and c["stored"] is not None and c["status"] == "finished":
             agrees = c["stored"].startswith("works") == r["works"]
@@ -661,7 +681,8 @@ def maze_removal(abl, ref_active):
 
     Args:
         abl: one dict from fig_ed_maze.load_ablation (N, n_active, ks, score_quiet, score_random,
-            score_full); ref_active: float, the learned controls' mean count.
+            score_full); ref_active: float, the mean count of all three controls. The ablation
+            grids predate this reference, so the score is interpolated at the new k_total.
     Returns:
         dict: k_added (int), k_total (int, the inactive units plus the recruited ones), quiet
         (success with k_total units removed quietest first), random_median (the median over the
@@ -832,7 +853,7 @@ def main():
     _, rows_c = panel_sizes(fig)
     _, rows_d = panel_removal(fig, maze_ref)
     report(cells, vs, order, table, floor, rows_c, rows_d, tol)
-    third_control_sensitivity(cells, tol)
+    learned_control_sensitivity(cells, tol)
     check_overlaps(fig)
     ps.save(fig, "fig_paper_F5_tasks")
 

@@ -227,9 +227,9 @@ units than every control in all seeds at a performance within the tolerance (hel
 (entry 2026-11-05_0926; read_uniform_cells.py): read-out dropout works (517 against 336 active,
 1.54x, R^2 0.826 against 0.834), prune-and-duplicate works (709, 2.11x, R^2 0.830), noisy synapses
 sigma_w 1.0 fail the tolerance (495, 1.47x, R^2 0.819, 0.015 below), as on 3BFF (2.03x at 0.021-0.025
-below). Maze (entry 2026-11-05_0812 and the interventions read-out on issue #5): the rate penalty
-at 0.03 and 0.3 works (1.9x and 2.1x the learned controls' 437, success unchanged), at 0.1 and with
-the sparsity penalty one seed fails on success; read-out dropout fails (1.0x, success 0.19 below);
+below). Maze (issue #5's criterion as written, dead-relu-paper#194, entry 2026-11-06_2238, correcting entry 2026-11-05_0812: all three controls, 430 active, success 0.898; a seed below 0.9 fails the value; the two learned controls, 437.5 and 0.984, give the same verdict for every technique): the rate penalty
+at 0.03 and 0.3 works (2.0x and 2.1x, success 0.086 and 0.089 above), at 0.1 and with
+the sparsity penalty one seed ends below 0.9 (0.63, 0.43; means 0.034 and 0.107 below); read-out dropout fails (1.0x, success 0.104 below); noisy synapses fail marginally (1.07x, mean 0.023 above, seed 3 at 115 of 128 episodes, 0.898); prune-and-duplicate works (1.7x, 0.078 above);
 rescaling fails at every setting: the paper's values blew up at the end of the warm-up ramp, and
 the two gentler arms (alpha 1.0005 with cap 8; protect 0.05) end with FEWER active units than the
 controls (231-321 against 426-449) at success 0.63-0.81 (one run collapsed to 0 active units and
