@@ -22,6 +22,15 @@ Three parts, each a subcommand:
          Parity: per arm, active_end, success_end and status, and decision #194's criterion against
          uniform-series controls s1-s3, with the two learned controls as the sensitivity check.
 
+  exponent (Mac) the Maze size exponent on equal budgets: every learned uniform-series ReLU run whose
+         chain ends at update 4,000 (fig_paper_F2_size.maze_series; G12's 2,000-update controls are left
+         out), fitted at N >= 500 and over every size at the learned point and the end
+         (fig_paper_F2_size.power_fit, boot_exponent with BOOT_SEED), beside the mixed-budget fit of
+         data/round18/g10_maze_exponent.json.
+  settings (Mac) every Maze setting verdict re-read against the learned N = 1,000 controls at update
+         2,000 (read_maze_arms.py run on a control root holding only the 2,000-update control cell, so
+         the G11 continuations are not joined), beside the verdicts of data/read_maze_arms.json.
+
 Usage (repository root):
   python trainRNNbrain/experiments_and_analysis/round18_training_read.py cddm OUT_DIR
   python trainRNNbrain/experiments_and_analysis/round18_training_read.py maze --root data/trained_RNNs_rl_maze OUT_DIR
@@ -31,6 +40,8 @@ OUT_DIR/round18_r2_cache.json, this script's own file.
 
 import argparse
 import glob
+import subprocess
+import tempfile
 import json
 import math
 import os
@@ -43,6 +54,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import heldout_r2 as H
 from common import DATA_DIR, active_mask, maze_learned_index, maze_load_runs, read_run, runs_with_loss
+from fig_paper_F2_size import BOOT_SEED, FIT_MIN_N, boot_exponent, maze_series, power_fit
 from fig_ed_maze import read_points
 from fig_ed_maze_interventions import stopped_by_guard
 from read_b2_b4 import b4_run, b4_verdict
@@ -388,6 +400,71 @@ def read_maze(root, out_dir):
                    parity=parity), open(os.path.join(out_dir, "round18_maze.json"), "w"), indent=1, default=str)
 
 
+def read_exponent(root, out_dir):
+    """The Maze size exponent on equal budgets (4,000 updates), printed and written to
+    OUT_DIR/round18_exponent.json, with the mixed-budget fit of data/round18/g10_maze_exponent.json.
+
+    Args:
+        root: str, the maze tree (holds Maze_suite/); out_dir: str, the output folder.
+    """
+    rows = [r for r in maze_series(os.path.join(root, "Maze_suite")) if r["learned"] and r["it_end"] == 4000]
+    res = dict(runs=[(r["N"], r["seed"], r["t_star"], r["active_learned"], r["active_end"]) for r in rows])
+    for at, key in (("learned", "active_learned"), ("end", "active_end")):
+        cells = {}
+        for r in rows:
+            cells.setdefault(r["N"], []).append(float(r[key]))
+        cells = {N: np.array(v) for N, v in sorted(cells.items())}
+        fit = {}
+        for lab, mn in (("N>=500", FIT_MIN_N), ("every size", 0)):
+            b, _ = power_fit(cells, min_n=mn)
+            lo, hi = boot_exponent({N: v for N, v in cells.items() if N >= mn}, np.random.default_rng(BOOT_SEED), mn)
+            fit[lab] = dict(b=float(b), lo=float(lo), hi=float(hi))
+        res[at] = dict(cells={str(N): v.tolist() for N, v in cells.items()}, fit=fit)
+        print(f"{at:>8}: " + "; ".join(f"N={N}: n={len(v)} mean {v.mean():.0f}" for N, v in cells.items()))
+        for lab, f in fit.items():
+            print(f"{'':>10}{lab:>11}: b = {f['b']:.3f}, bootstrap 95% [{f['lo']:.3f}, {f['hi']:.3f}]")
+    old_path = os.path.join(os.path.dirname(DATA_DIR), "round18", "g10_maze_exponent.json")
+    if os.path.exists(old_path):
+        old = json.load(open(old_path))
+        res["mixed_budget_fit"] = {at: old[at]["fit"] for at in ("learned", "end")}
+        print("mixed-budget fit (g10_maze_exponent.json):", json.dumps(res["mixed_budget_fit"]))
+    json.dump(res, open(os.path.join(out_dir, "round18_exponent.json"), "w"), indent=1)
+
+
+def read_settings(root, out_dir):
+    """Every Maze setting verdict against the learned N = 1,000 controls at update 2,000, beside the
+    verdicts in data/read_maze_arms.json; writes OUT_DIR/maze_arms_learned_controls.json (read_maze_arms.py's
+    JSON) and OUT_DIR/round18_settings.json (the comparison).
+
+    Args:
+        root: str, the maze tree (holds Maze_suite/ and Maze_interventions/); out_dir: str.
+    """
+    ctrl_root = tempfile.mkdtemp(prefix="r18_ctrl_")
+    os.symlink(os.path.join(root, "Maze_suite", "N=1000_act=relu"), os.path.join(ctrl_root, "N=1000_act=relu"))
+    out_json = os.path.join(out_dir, "maze_arms_learned_controls.json")
+    here = os.path.dirname(os.path.abspath(__file__))
+    subprocess.run([sys.executable, os.path.join(here, "read_maze_arms.py"), "--root",
+                    os.path.join(root, "Maze_interventions"), "--control-root", ctrl_root, "--json", out_json],
+                   check=True, stdout=subprocess.DEVNULL)
+    new = json.load(open(out_json))
+    old = json.load(open(os.path.join(os.path.dirname(DATA_DIR), "read_maze_arms.json")))
+    old_v = {a["key"]: a["verdict"] for a in old["arms"]}
+    short = lambda v: v.split(" (")[0].split(":")[0]
+    rows = []
+    for a in new["arms"]:
+        if a.get("cls") != "setting":
+            continue
+        rows.append(dict(key=a["key"], active_end=a.get("active_end"), old=short(old_v.get(a["key"], "-")),
+                         new=short(a["verdict"]), new_text=a["verdict"]))
+    print(f"controls: {new['reference']['n']} learned, {new['reference']['active_min']}-{new['reference']['active_max']} "
+          f"active (before: {old['reference']['n']} learned, {old['reference']['active_min']}-{old['reference']['active_max']})")
+    for r in rows:
+        print(f"  {r['key']:12s} {str(r['active_end']):18s} before: {r['old']:24s} now: {r['new']:24s}"
+              + ("  CHANGED" if r["old"] != r["new"] else ""))
+    json.dump(dict(reference=new["reference"], reference_before=old["reference"], rows=rows),
+              open(os.path.join(out_dir, "round18_settings.json"), "w"), indent=1)
+
+
 def main():
     """Parse the subcommand and run its read."""
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
@@ -397,12 +474,20 @@ def main():
     m = sub.add_parser("maze", help="G11, G12, G17 and the Maze parity arms")
     m.add_argument("--root", default="data/trained_RNNs_rl_maze")
     m.add_argument("out_dir")
+    for name in ("exponent", "settings"):
+        x = sub.add_parser(name, help=f"the Maze {name} read (Mac)")
+        x.add_argument("--root", default="data/trained_RNNs_rl_maze")
+        x.add_argument("out_dir")
     a = ap.parse_args()
     os.makedirs(a.out_dir, exist_ok=True)
     if a.part == "cddm":
         read_cddm(a.out_dir)
-    else:
+    elif a.part == "maze":
         read_maze(os.path.abspath(a.root), a.out_dir)
+    elif a.part == "exponent":
+        read_exponent(os.path.abspath(a.root), a.out_dir)
+    else:
+        read_settings(os.path.abspath(a.root), a.out_dir)
 
 
 if __name__ == "__main__":

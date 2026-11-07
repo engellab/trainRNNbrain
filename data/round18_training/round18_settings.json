@@ -1,0 +1,297 @@
+{
+ "reference": {
+  "active": 416.8,
+  "active_min": 394,
+  "active_max": 449,
+  "success": 0.971875,
+  "n": 5,
+  "all_active": 416.5,
+  "all_active_min": 394,
+  "all_active_max": 449,
+  "all_success": 0.9309895833333334,
+  "n_all": 6
+ },
+ "reference_before": {
+  "active": 437.5,
+  "active_min": 426,
+  "active_max": 449,
+  "success": 0.984375,
+  "n": 2,
+  "all_active": 430.0,
+  "all_active_min": 415,
+  "all_active_max": 449,
+  "all_success": 0.8984375,
+  "n_all": 3
+ },
+ "rows": [
+  {
+   "key": "wd0",
+   "active_end": [
+    404,
+    452,
+    432
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (404, 452, 432 against the controls' 394-449); success +0.020 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "wd1e-5",
+   "active_end": [
+    402,
+    417,
+    370
+   ],
+   "old": "decreases the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (402, 417, 370 against the controls' 394-449); success -0.003 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "wd1e-4",
+   "active_end": [
+    335,
+    341,
+    378
+   ],
+   "old": "decreases the count",
+   "new": "decreases the count",
+   "new_text": "decreases the count (335 not learned, 341 not learned, 378 against the controls' 394-449); success -0.188 from the controls' mean; 1 of 3 seeds learned"
+  },
+  {
+   "key": "inorm0.5",
+   "active_end": [
+    577,
+    593,
+    549
+   ],
+   "old": "increases the count",
+   "new": "increases the count",
+   "new_text": "increases the count (577, 593, 549 against the controls' 394-449); success +0.028 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "inorm2",
+   "active_end": [
+    290,
+    443,
+    357
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (290 not learned, 443, 357 against the controls' 394-449); success -0.081 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "inorm5",
+   "active_end": [],
+   "old": "no verdict",
+   "new": "no verdict",
+   "new_text": "no verdict (stopped)"
+  },
+  {
+   "key": "inorm20",
+   "active_end": [
+    331
+   ],
+   "old": "incomplete",
+   "new": "incomplete",
+   "new_text": "incomplete (1 of 3 finished, 2 stopped)"
+  },
+  {
+   "key": "srec0",
+   "active_end": [
+    440,
+    425,
+    400
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (440, 425, 400 against the controls' 394-449); success +0.028 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "srec0.01",
+   "active_end": [
+    456,
+    380,
+    436
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (456, 380, 436 against the controls' 394-449); success +0.028 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "srec0.1",
+   "active_end": [
+    346,
+    317,
+    311
+   ],
+   "old": "no direction",
+   "new": "no direction",
+   "new_text": "no direction (346 not learned, 317 not learned, 311 not learned against the controls' 394-449); success -0.258 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "srad0.5",
+   "active_end": [
+    338,
+    393,
+    414
+   ],
+   "old": "decreases the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (338, 393, 414 against the controls' 394-449); success -0.008 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "srad1.5",
+   "active_end": [
+    350,
+    471,
+    319
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (350, 471, 319 not learned against the controls' 394-449); success -0.050 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "rws0.05",
+   "active_end": [
+    399,
+    378,
+    386
+   ],
+   "old": "decreases the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (399, 378 not learned, 386 not learned against the controls' 394-449); success -0.081 from the controls' mean; 1 of 3 seeds learned"
+  },
+  {
+   "key": "cap0.3",
+   "active_end": [
+    434,
+    463,
+    380
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (434, 463, 380 against the controls' 394-449); success +0.015 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "rwm0.05",
+   "active_end": [
+    481,
+    459,
+    394
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (481, 459, 394 against the controls' 394-449); success -0.042 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "rwm0.2",
+   "active_end": [
+    517,
+    452,
+    405
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (517, 452 not learned, 405 against the controls' 394-449); success -0.021 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "met0.01",
+   "active_end": [
+    537,
+    413,
+    379
+   ],
+   "old": "decreases the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (537 not learned, 413, 379 against the controls' 394-449); success -0.034 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "met0.1",
+   "active_end": [
+    431,
+    487,
+    387
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (431, 487 not learned, 387 against the controls' 394-449); success -0.024 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "met1",
+   "active_end": [
+    390,
+    336,
+    359
+   ],
+   "old": "decreases the count",
+   "new": "decreases the count",
+   "new_text": "decreases the count (390, 336 not learned, 359 against the controls' 394-449); success -0.099 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "met10",
+   "active_end": [
+    203,
+    162,
+    216
+   ],
+   "old": "no direction",
+   "new": "no direction",
+   "new_text": "no direction (203 not learned, 162 not learned, 216 not learned against the controls' 394-449); success -0.511 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "adamw",
+   "active_end": [
+    434,
+    452,
+    429
+   ],
+   "old": "no change in the count",
+   "new": "no change in the count",
+   "new_text": "no change in the count (434 not learned, 452, 429 against the controls' 394-449); success -0.027 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "sgd0.03",
+   "active_end": [
+    521,
+    556,
+    540
+   ],
+   "old": "no direction",
+   "new": "no direction",
+   "new_text": "no direction (521 not learned, 556 not learned, 540 not learned against the controls' 394-449); success -0.969 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "sgd0.1",
+   "active_end": [
+    686,
+    566,
+    540
+   ],
+   "old": "no direction",
+   "new": "no direction",
+   "new_text": "no direction (686 not learned, 566 not learned, 540 not learned against the controls' 394-449); success -0.915 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "sgd0.3",
+   "active_end": [
+    488,
+    483,
+    611
+   ],
+   "old": "no direction",
+   "new": "no direction",
+   "new_text": "no direction (488 not learned, 483 not learned, 611 not learned against the controls' 394-449); success -0.891 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "sgd1",
+   "active_end": [
+    268,
+    423,
+    371
+   ],
+   "old": "no direction",
+   "new": "no direction",
+   "new_text": "no direction (268 not learned, 423 not learned, 371 not learned against the controls' 394-449); success -0.912 from the controls' mean; no seed learned"
+  }
+ ]
+}

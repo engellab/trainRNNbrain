@@ -1,0 +1,3157 @@
+{
+ "written": "2026-11-07T07:17",
+ "root": "data/trained_RNNs_rl_maze/Maze_interventions",
+ "control_root": "../../../../../var/folders/c6/8552zkq945d3hbfzcpy3czhm0000gp/T/r18_ctrl_kwkf3w8j",
+ "success_tol": 0.05,
+ "reference": {
+  "active": 416.8,
+  "active_min": 394,
+  "active_max": 449,
+  "success": 0.971875,
+  "n": 5,
+  "all_active": 416.5,
+  "all_active_min": 394,
+  "all_active_max": 449,
+  "all_success": 0.9309895833333334,
+  "n_all": 6
+ },
+ "reference_techniques": {
+  "active": 416.5,
+  "active_min": 394,
+  "active_max": 449,
+  "success": 0.9309895833333334,
+  "n": 6
+ },
+ "runs": [
+  {
+   "key": "control",
+   "cls": "control",
+   "folder": "../../../../../var/folders/c6/8552zkq945d3hbfzcpy3czhm0000gp/T/r18_ctrl_kwkf3w8j/N=1000_act=relu/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 1050,
+   "active_learned": 451,
+   "active_end": 426,
+   "fold": 1.0220729366602688,
+   "note": "no option on"
+  },
+  {
+   "key": "control",
+   "cls": "control",
+   "folder": "../../../../../var/folders/c6/8552zkq945d3hbfzcpy3czhm0000gp/T/r18_ctrl_kwkf3w8j/N=1000_act=relu/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9765625,
+   "learned": 760,
+   "active_learned": 517,
+   "active_end": 449,
+   "fold": 1.0772552783109404,
+   "note": "no option on"
+  },
+  {
+   "key": "control",
+   "cls": "control",
+   "folder": "../../../../../var/folders/c6/8552zkq945d3hbfzcpy3czhm0000gp/T/r18_ctrl_kwkf3w8j/N=1000_act=relu/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.7265625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 415,
+   "fold": 0.9956813819577734,
+   "note": "no option on"
+  },
+  {
+   "key": "control",
+   "cls": "control",
+   "folder": "../../../../../var/folders/c6/8552zkq945d3hbfzcpy3czhm0000gp/T/r18_ctrl_kwkf3w8j/N=1000_act=relu/s4",
+   "seed": 4,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.953125,
+   "learned": 1530,
+   "active_learned": 427,
+   "active_end": 394,
+   "fold": 0.9452975047984644,
+   "note": "no option on"
+  },
+  {
+   "key": "control",
+   "cls": "control",
+   "folder": "../../../../../var/folders/c6/8552zkq945d3hbfzcpy3czhm0000gp/T/r18_ctrl_kwkf3w8j/N=1000_act=relu/s5",
+   "seed": 5,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9375,
+   "learned": 1180,
+   "active_learned": 412,
+   "active_end": 398,
+   "fold": 0.95489443378119,
+   "note": "no option on"
+  },
+  {
+   "key": "control",
+   "cls": "control",
+   "folder": "../../../../../var/folders/c6/8552zkq945d3hbfzcpy3czhm0000gp/T/r18_ctrl_kwkf3w8j/N=1000_act=relu/s6",
+   "seed": 6,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 1330,
+   "active_learned": 406,
+   "active_end": 417,
+   "fold": 1.0004798464491362,
+   "note": "no option on"
+  },
+  {
+   "key": "adamw",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/adamw/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.90625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 434,
+   "fold": 1.0412667946257197,
+   "note": "optimizer adamw lr 0.001"
+  },
+  {
+   "key": "cap0.3",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/cap0.3/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.984375,
+   "learned": 1110,
+   "active_learned": 495,
+   "active_end": 434,
+   "fold": 1.0412667946257197,
+   "note": "inp_weight_cap 0.3"
+  },
+  {
+   "key": "dropout",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/dropout0.2_beta4/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.8359375,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 413,
+   "fold": 0.9915966386554622,
+   "note": "dropout mute rate 0.2 beta 4.0"
+  },
+  {
+   "key": "duplicate",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/duplicate/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.984375,
+   "learned": 1060,
+   "active_learned": 695,
+   "active_end": 747,
+   "fold": 1.793517406962785,
+   "note": "prune_reinit copy rate 0.025 maturity 1000 utility contribution every 100 patience 3"
+  },
+  {
+   "key": "frm0.03",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.03/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 1040,
+   "active_learned": 936,
+   "active_end": 878,
+   "fold": 2.1080432172869146,
+   "note": "lambda_frm 0.03"
+  },
+  {
+   "key": "frm0.1",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.1/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.6328125,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 763,
+   "fold": 1.8319327731092436,
+   "note": "lambda_frm 0.1"
+  },
+  {
+   "key": "frm0.1+rws0.05",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.1_rws0.05/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 1610,
+   "active_learned": 950,
+   "active_end": 901,
+   "fold": 2.163265306122449,
+   "note": "lambda_frm 0.1, lambda_rws 0.05"
+  },
+  {
+   "key": "frm0.3",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.3/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9609375,
+   "learned": 1100,
+   "active_learned": 958,
+   "active_end": 962,
+   "fold": 2.3097238895558223,
+   "note": "lambda_frm 0.3"
+  },
+  {
+   "key": "inorm0.5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm0.5/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 310,
+   "active_learned": 650,
+   "active_end": 577,
+   "fold": 1.3843570057581573,
+   "note": "input_row_norm 0.5"
+  },
+  {
+   "key": "inorm2",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm2/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.6796875,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 290,
+   "fold": 0.6957773512476008,
+   "note": "input_row_norm 2"
+  },
+  {
+   "key": "inorm20",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm20/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 331,
+   "fold": 0.7941458733205374,
+   "note": "input_row_norm 20"
+  },
+  {
+   "key": "inorm5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm5/s1",
+   "seed": 1,
+   "status": "stopped@500",
+   "last_update": 500,
+   "n_updates": 2000,
+   "success_end": null,
+   "learned": null,
+   "active_learned": null,
+   "active_end": null,
+   "fold": null,
+   "note": "input_row_norm 5"
+  },
+  {
+   "key": "met0.01",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met0.01/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.8359375,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 537,
+   "fold": 1.288387715930902,
+   "note": "lambda_met 0.01"
+  },
+  {
+   "key": "met0.1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met0.1/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 1120,
+   "active_learned": 468,
+   "active_end": 431,
+   "fold": 1.0340690978886755,
+   "note": "lambda_met 0.1"
+  },
+  {
+   "key": "met1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met1/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 1930,
+   "active_learned": 411,
+   "active_end": 390,
+   "fold": 0.935700575815739,
+   "note": "lambda_met 1"
+  },
+  {
+   "key": "met10",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met10/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.5625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 203,
+   "fold": 0.4870441458733205,
+   "note": "lambda_met 10"
+  },
+  {
+   "key": "redraw",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/redraw/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 750,
+   "active_learned": 482,
+   "active_end": 447,
+   "fold": 1.0732292917166866,
+   "note": "prune_reinit random rate 0.025 maturity 1000 utility contribution every 100 patience 3"
+  },
+  {
+   "key": "rescale_few",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rescale_few/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.65625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 255,
+   "fold": 0.6122448979591837,
+   "note": "rescaling alpha 1.002 cap 64 protect 0.05"
+  },
+  {
+   "key": "rescale_mild",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rescale_mild/s1",
+   "seed": 1,
+   "status": "stopped@800",
+   "last_update": 800,
+   "n_updates": 2000,
+   "success_end": null,
+   "learned": null,
+   "active_learned": null,
+   "active_end": null,
+   "fold": null,
+   "note": "rescaling alpha 1.0005 cap 8 protect 0.2"
+  },
+  {
+   "key": "rwm0.05",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rwm0.05/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9296875,
+   "learned": 1170,
+   "active_learned": 431,
+   "active_end": 481,
+   "fold": 1.1540307101727447,
+   "note": "lambda_rwm 0.05"
+  },
+  {
+   "key": "rwm0.2",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rwm0.2/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.953125,
+   "learned": 790,
+   "active_learned": 505,
+   "active_end": 517,
+   "fold": 1.2404030710172744,
+   "note": "lambda_rwm 0.2"
+  },
+  {
+   "key": "rws0.05",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rws0.05/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 1190,
+   "active_learned": 447,
+   "active_end": 399,
+   "fold": 0.9572936660268714,
+   "note": "lambda_rws 0.05"
+  },
+  {
+   "key": "sgd0.03",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd0.03/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 521,
+   "fold": 1.25,
+   "note": "optimizer sgd lr 0.03 momentum 0.0"
+  },
+  {
+   "key": "sgd0.1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd0.1/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.171875,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 686,
+   "fold": 1.645873320537428,
+   "note": "optimizer sgd lr 0.1 momentum 0.0"
+  },
+  {
+   "key": "sgd0.3",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd0.3/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 488,
+   "fold": 1.1708253358925145,
+   "note": "optimizer sgd lr 0.3 momentum 0.0"
+  },
+  {
+   "key": "sgd1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd1/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0078125,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 268,
+   "fold": 0.6429942418426103,
+   "note": "optimizer sgd lr 1 momentum 0.0"
+  },
+  {
+   "key": "synnoise",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sigmaw1.0/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.90625,
+   "learned": 1950,
+   "active_learned": 456,
+   "active_end": 451,
+   "fold": 1.0828331332533012,
+   "note": "sigma_w 1"
+  },
+  {
+   "key": "srad0.5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srad0.5/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.921875,
+   "learned": 1960,
+   "active_learned": 339,
+   "active_end": 338,
+   "fold": 0.8109404990403071,
+   "note": "spectral_rad 0.5"
+  },
+  {
+   "key": "srad1.5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srad1.5/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.921875,
+   "learned": 1590,
+   "active_learned": 369,
+   "active_end": 350,
+   "fold": 0.8397312859884837,
+   "note": "spectral_rad 1.5"
+  },
+  {
+   "key": "srec0.01",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srec0.01/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 460,
+   "active_learned": 566,
+   "active_end": 456,
+   "fold": 1.0940499040307101,
+   "note": "sigma_rec 0.01"
+  },
+  {
+   "key": "srec0.1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srec0.1/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.6796875,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 346,
+   "fold": 0.8301343570057581,
+   "note": "sigma_rec 0.1"
+  },
+  {
+   "key": "srec0",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srec0/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 270,
+   "active_learned": 629,
+   "active_end": 440,
+   "fold": 1.055662188099808,
+   "note": "sigma_rec 0"
+  },
+  {
+   "key": "wd0",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/wd0/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.984375,
+   "learned": 1650,
+   "active_learned": 408,
+   "active_end": 404,
+   "fold": 0.9692898272552782,
+   "note": "weight_decay 0"
+  },
+  {
+   "key": "wd1e-4",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/wd1e-4/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.640625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 335,
+   "fold": 0.8037428023032629,
+   "note": "weight_decay 0.0001"
+  },
+  {
+   "key": "wd1e-5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/wd1e-5/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9296875,
+   "learned": 1800,
+   "active_learned": 403,
+   "active_end": 402,
+   "fold": 0.9644913627639156,
+   "note": "weight_decay 1e-05"
+  },
+  {
+   "key": "zeroout",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/zeroout/s1",
+   "seed": 1,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.921875,
+   "learned": 1850,
+   "active_learned": 470,
+   "active_end": 445,
+   "fold": 1.0684273709483794,
+   "note": "prune_reinit zero_out rate 0.025 maturity 1000 utility contribution every 100 patience 3"
+  },
+  {
+   "key": "adamw",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/adamw/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 900,
+   "active_learned": 514,
+   "active_end": 452,
+   "fold": 1.0844529750479845,
+   "note": "optimizer adamw lr 0.001"
+  },
+  {
+   "key": "cap0.3",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/cap0.3/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9765625,
+   "learned": 1400,
+   "active_learned": 487,
+   "active_end": 463,
+   "fold": 1.1108445297504799,
+   "note": "inp_weight_cap 0.3"
+  },
+  {
+   "key": "dropout",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/dropout0.2_beta4/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.7890625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 461,
+   "fold": 1.106842737094838,
+   "note": "dropout mute rate 0.2 beta 4.0"
+  },
+  {
+   "key": "duplicate",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/duplicate/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.953125,
+   "learned": 930,
+   "active_learned": 677,
+   "active_end": 741,
+   "fold": 1.7791116446578632,
+   "note": "prune_reinit copy rate 0.025 maturity 1000 utility contribution every 100 patience 3"
+  },
+  {
+   "key": "frm0.03",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.03/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.984375,
+   "learned": 1030,
+   "active_learned": 877,
+   "active_end": 862,
+   "fold": 2.069627851140456,
+   "note": "lambda_frm 0.03"
+  },
+  {
+   "key": "frm0.1",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.1/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.96875,
+   "learned": 570,
+   "active_learned": 953,
+   "active_end": 927,
+   "fold": 2.225690276110444,
+   "note": "lambda_frm 0.1"
+  },
+  {
+   "key": "frm0.1+rws0.05",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.1_rws0.05/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.4296875,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 907,
+   "fold": 2.177671068427371,
+   "note": "lambda_frm 0.1, lambda_rws 0.05"
+  },
+  {
+   "key": "frm0.3",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.3/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 850,
+   "active_learned": 973,
+   "active_end": 930,
+   "fold": 2.232893157262905,
+   "note": "lambda_frm 0.3"
+  },
+  {
+   "key": "inorm0.5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm0.5/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 140,
+   "active_learned": 648,
+   "active_end": 593,
+   "fold": 1.4227447216890594,
+   "note": "input_row_norm 0.5"
+  },
+  {
+   "key": "inorm2",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm2/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 140,
+   "active_learned": 449,
+   "active_end": 443,
+   "fold": 1.0628598848368522,
+   "note": "input_row_norm 2"
+  },
+  {
+   "key": "inorm20",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm20/s2",
+   "seed": 2,
+   "status": "stopped@200",
+   "last_update": 200,
+   "n_updates": 2000,
+   "success_end": null,
+   "learned": null,
+   "active_learned": null,
+   "active_end": null,
+   "fold": null,
+   "note": "input_row_norm 20"
+  },
+  {
+   "key": "inorm5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm5/s2",
+   "seed": 2,
+   "status": "stopped@600",
+   "last_update": 600,
+   "n_updates": 2000,
+   "success_end": null,
+   "learned": null,
+   "active_learned": null,
+   "active_end": null,
+   "fold": null,
+   "note": "input_row_norm 5"
+  },
+  {
+   "key": "met0.01",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met0.01/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.984375,
+   "learned": 1280,
+   "active_learned": 465,
+   "active_end": 413,
+   "fold": 0.9908829174664108,
+   "note": "lambda_met 0.01"
+  },
+  {
+   "key": "met0.1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met0.1/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.8515625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 487,
+   "fold": 1.168426103646833,
+   "note": "lambda_met 0.1"
+  },
+  {
+   "key": "met1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met1/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.6796875,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 336,
+   "fold": 0.8061420345489443,
+   "note": "lambda_met 1"
+  },
+  {
+   "key": "met10",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met10/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.078125,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 162,
+   "fold": 0.38867562380038384,
+   "note": "lambda_met 10"
+  },
+  {
+   "key": "redraw",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/redraw/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9765625,
+   "learned": 960,
+   "active_learned": 488,
+   "active_end": 457,
+   "fold": 1.0972388955582233,
+   "note": "prune_reinit random rate 0.025 maturity 1000 utility contribution every 100 patience 3"
+  },
+  {
+   "key": "rescale_few",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rescale_few/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.75,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 231,
+   "fold": 0.5546218487394958,
+   "note": "rescaling alpha 1.002 cap 64 protect 0.05"
+  },
+  {
+   "key": "rescale_mild",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rescale_mild/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.75,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 314,
+   "fold": 0.7539015606242497,
+   "note": "rescaling alpha 1.0005 cap 8 protect 0.2"
+  },
+  {
+   "key": "rwm0.05",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rwm0.05/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9140625,
+   "learned": 1810,
+   "active_learned": 471,
+   "active_end": 459,
+   "fold": 1.1012476007677543,
+   "note": "lambda_rwm 0.05"
+  },
+  {
+   "key": "rwm0.2",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rwm0.2/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9140625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 452,
+   "fold": 1.0844529750479845,
+   "note": "lambda_rwm 0.2"
+  },
+  {
+   "key": "rws0.05",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rws0.05/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.8203125,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 378,
+   "fold": 0.9069097888675623,
+   "note": "lambda_rws 0.05"
+  },
+  {
+   "key": "sgd0.03",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd0.03/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 556,
+   "fold": 1.3339731285988483,
+   "note": "optimizer sgd lr 0.03 momentum 0.0"
+  },
+  {
+   "key": "sgd0.1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd0.1/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 566,
+   "fold": 1.3579654510556622,
+   "note": "optimizer sgd lr 0.1 momentum 0.0"
+  },
+  {
+   "key": "sgd0.3",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd0.3/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 483,
+   "fold": 1.1588291746641075,
+   "note": "optimizer sgd lr 0.3 momentum 0.0"
+  },
+  {
+   "key": "sgd1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd1/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0859375,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 423,
+   "fold": 1.0148752399232246,
+   "note": "optimizer sgd lr 1 momentum 0.0"
+  },
+  {
+   "key": "synnoise",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sigmaw1.0/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9609375,
+   "learned": 1230,
+   "active_learned": 458,
+   "active_end": 478,
+   "fold": 1.1476590636254502,
+   "note": "sigma_w 1"
+  },
+  {
+   "key": "srad0.5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srad0.5/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 1230,
+   "active_learned": 443,
+   "active_end": 393,
+   "fold": 0.9428982725527831,
+   "note": "spectral_rad 0.5"
+  },
+  {
+   "key": "srad1.5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srad1.5/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.96875,
+   "learned": 1240,
+   "active_learned": 525,
+   "active_end": 471,
+   "fold": 1.1300383877159308,
+   "note": "spectral_rad 1.5"
+  },
+  {
+   "key": "srec0.01",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srec0.01/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 560,
+   "active_learned": 563,
+   "active_end": 380,
+   "fold": 0.9117082533589251,
+   "note": "sigma_rec 0.01"
+  },
+  {
+   "key": "srec0.1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srec0.1/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.609375,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 317,
+   "fold": 0.760556621880998,
+   "note": "sigma_rec 0.1"
+  },
+  {
+   "key": "srec0",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srec0/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 350,
+   "active_learned": 596,
+   "active_end": 425,
+   "fold": 1.0196737044145874,
+   "note": "sigma_rec 0"
+  },
+  {
+   "key": "wd0",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/wd0/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 900,
+   "active_learned": 514,
+   "active_end": 452,
+   "fold": 1.0844529750479845,
+   "note": "weight_decay 0"
+  },
+  {
+   "key": "wd1e-4",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/wd1e-4/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.7109375,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 341,
+   "fold": 0.8181381957773513,
+   "note": "weight_decay 0.0001"
+  },
+  {
+   "key": "wd1e-5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/wd1e-5/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 1790,
+   "active_learned": 413,
+   "active_end": 417,
+   "fold": 1.0004798464491362,
+   "note": "weight_decay 1e-05"
+  },
+  {
+   "key": "zeroout",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/zeroout/s2",
+   "seed": 2,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.953125,
+   "learned": 1200,
+   "active_learned": 466,
+   "active_end": 440,
+   "fold": 1.056422569027611,
+   "note": "prune_reinit zero_out rate 0.025 maturity 1000 utility contribution every 100 patience 3"
+  },
+  {
+   "key": "adamw",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/adamw/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9296875,
+   "learned": 1080,
+   "active_learned": 458,
+   "active_end": 429,
+   "fold": 1.0292706333973127,
+   "note": "optimizer adamw lr 0.001"
+  },
+  {
+   "key": "cap0.3",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/cap0.3/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 1090,
+   "active_learned": 394,
+   "active_end": 380,
+   "fold": 0.9117082533589251,
+   "note": "inp_weight_cap 0.3"
+  },
+  {
+   "key": "dropout",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/dropout0.2_beta4/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.7578125,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 436,
+   "fold": 1.0468187274909964,
+   "note": "dropout mute rate 0.2 beta 4.0"
+  },
+  {
+   "key": "duplicate",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/duplicate/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 840,
+   "active_learned": 683,
+   "active_end": 712,
+   "fold": 1.709483793517407,
+   "note": "prune_reinit copy rate 0.025 maturity 1000 utility contribution every 100 patience 3"
+  },
+  {
+   "key": "frm0.03",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.03/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.96875,
+   "learned": 1450,
+   "active_learned": 783,
+   "active_end": 792,
+   "fold": 1.9015606242496998,
+   "note": "lambda_frm 0.03"
+  },
+  {
+   "key": "frm0.1",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.1/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 1450,
+   "active_learned": 941,
+   "active_end": 982,
+   "fold": 2.3577430972388957,
+   "note": "lambda_frm 0.1"
+  },
+  {
+   "key": "frm0.1+rws0.05",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.1_rws0.05/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9453125,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 946,
+   "fold": 2.2713085234093637,
+   "note": "lambda_frm 0.1, lambda_rws 0.05"
+  },
+  {
+   "key": "frm0.3",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/frm0.3/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 720,
+   "active_learned": 985,
+   "active_end": 812,
+   "fold": 1.949579831932773,
+   "note": "lambda_frm 0.3"
+  },
+  {
+   "key": "inorm0.5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm0.5/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 470,
+   "active_learned": 575,
+   "active_end": 549,
+   "fold": 1.3171785028790786,
+   "note": "input_row_norm 0.5"
+  },
+  {
+   "key": "inorm2",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm2/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 1230,
+   "active_learned": 342,
+   "active_end": 357,
+   "fold": 0.8565259117082533,
+   "note": "input_row_norm 2"
+  },
+  {
+   "key": "inorm20",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm20/s3",
+   "seed": 3,
+   "status": "stopped@400",
+   "last_update": 400,
+   "n_updates": 2000,
+   "success_end": null,
+   "learned": null,
+   "active_learned": null,
+   "active_end": null,
+   "fold": null,
+   "note": "input_row_norm 20"
+  },
+  {
+   "key": "inorm5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/inorm5/s3",
+   "seed": 3,
+   "status": "stopped@300",
+   "last_update": 300,
+   "n_updates": 2000,
+   "success_end": null,
+   "learned": null,
+   "active_learned": null,
+   "active_end": null,
+   "fold": null,
+   "note": "input_row_norm 5"
+  },
+  {
+   "key": "met0.01",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met0.01/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 1220,
+   "active_learned": 377,
+   "active_end": 379,
+   "fold": 0.9093090211132437,
+   "note": "lambda_met 0.01"
+  },
+  {
+   "key": "met0.1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met0.1/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 730,
+   "active_learned": 442,
+   "active_end": 387,
+   "fold": 0.9285028790786948,
+   "note": "lambda_met 0.1"
+  },
+  {
+   "key": "met1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met1/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9453125,
+   "learned": 1900,
+   "active_learned": 358,
+   "active_end": 359,
+   "fold": 0.8613243761996161,
+   "note": "lambda_met 1"
+  },
+  {
+   "key": "met10",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/met10/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.7421875,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 216,
+   "fold": 0.5182341650671785,
+   "note": "lambda_met 10"
+  },
+  {
+   "key": "redraw",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/redraw/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9765625,
+   "learned": 900,
+   "active_learned": 479,
+   "active_end": 483,
+   "fold": 1.1596638655462186,
+   "note": "prune_reinit random rate 0.025 maturity 1000 utility contribution every 100 patience 3"
+  },
+  {
+   "key": "rescale_few",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rescale_few/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.8125,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 234,
+   "fold": 0.5618247298919568,
+   "note": "rescaling alpha 1.002 cap 64 protect 0.05"
+  },
+  {
+   "key": "rescale_mild",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rescale_mild/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.6328125,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 321,
+   "fold": 0.7707082833133253,
+   "note": "rescaling alpha 1.0005 cap 8 protect 0.2"
+  },
+  {
+   "key": "rwm0.05",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rwm0.05/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9453125,
+   "learned": 1420,
+   "active_learned": 409,
+   "active_end": 394,
+   "fold": 0.9452975047984644,
+   "note": "lambda_rwm 0.05"
+  },
+  {
+   "key": "rwm0.2",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rwm0.2/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.984375,
+   "learned": 1490,
+   "active_learned": 412,
+   "active_end": 405,
+   "fold": 0.9716890595009596,
+   "note": "lambda_rwm 0.2"
+  },
+  {
+   "key": "rws0.05",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rws0.05/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.8515625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 386,
+   "fold": 0.9261036468330134,
+   "note": "lambda_rws 0.05"
+  },
+  {
+   "key": "sgd0.03",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd0.03/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0078125,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 540,
+   "fold": 1.2955854126679462,
+   "note": "optimizer sgd lr 0.03 momentum 0.0"
+  },
+  {
+   "key": "sgd0.1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd0.1/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 540,
+   "fold": 1.2955854126679462,
+   "note": "optimizer sgd lr 0.1 momentum 0.0"
+  },
+  {
+   "key": "sgd0.3",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd0.3/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.2421875,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 611,
+   "fold": 1.4659309021113243,
+   "note": "optimizer sgd lr 0.3 momentum 0.0"
+  },
+  {
+   "key": "sgd1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sgd1/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.0859375,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 371,
+   "fold": 0.8901151631477927,
+   "note": "optimizer sgd lr 1 momentum 0.0"
+  },
+  {
+   "key": "synnoise",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/sigmaw1.0/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.8984375,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 454,
+   "fold": 1.0900360144057624,
+   "note": "sigma_w 1"
+  },
+  {
+   "key": "srad0.5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srad0.5/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9765625,
+   "learned": 910,
+   "active_learned": 437,
+   "active_end": 414,
+   "fold": 0.993282149712092,
+   "note": "spectral_rad 0.5"
+  },
+  {
+   "key": "srad1.5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srad1.5/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.875,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 319,
+   "fold": 0.7653550863723608,
+   "note": "spectral_rad 1.5"
+  },
+  {
+   "key": "srec0.01",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srec0.01/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 520,
+   "active_learned": 567,
+   "active_end": 436,
+   "fold": 1.0460652591170825,
+   "note": "sigma_rec 0.01"
+  },
+  {
+   "key": "srec0.1",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srec0.1/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.8515625,
+   "learned": null,
+   "active_learned": null,
+   "active_end": 311,
+   "fold": 0.7461612284069098,
+   "note": "sigma_rec 0.1"
+  },
+  {
+   "key": "srec0",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/srec0/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 290,
+   "active_learned": 606,
+   "active_end": 400,
+   "fold": 0.9596928982725528,
+   "note": "sigma_rec 0"
+  },
+  {
+   "key": "wd0",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/wd0/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.9921875,
+   "learned": 920,
+   "active_learned": 466,
+   "active_end": 432,
+   "fold": 1.036468330134357,
+   "note": "weight_decay 0"
+  },
+  {
+   "key": "wd1e-4",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/wd1e-4/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 1.0,
+   "learned": 1320,
+   "active_learned": 370,
+   "active_end": 378,
+   "fold": 0.9069097888675623,
+   "note": "weight_decay 0.0001"
+  },
+  {
+   "key": "wd1e-5",
+   "cls": "setting",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/wd1e-5/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.984375,
+   "learned": 1320,
+   "active_learned": 390,
+   "active_end": 370,
+   "fold": 0.8877159309021113,
+   "note": "weight_decay 1e-05"
+  },
+  {
+   "key": "zeroout",
+   "cls": "rule",
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/zeroout/s3",
+   "seed": 3,
+   "status": "finished",
+   "last_update": 2000,
+   "n_updates": 2000,
+   "success_end": 0.984375,
+   "learned": 880,
+   "active_learned": 458,
+   "active_end": 420,
+   "fold": 1.0084033613445378,
+   "note": "prune_reinit zero_out rate 0.025 maturity 1000 utility contribution every 100 patience 3"
+  }
+ ],
+ "arms": [
+  {
+   "key": "control",
+   "cls": "control",
+   "folder": "control",
+   "status": "incomplete",
+   "n_finished": 6,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "active_end": [
+    426,
+    449,
+    415,
+    394,
+    398,
+    417
+   ],
+   "learned": [
+    1050,
+    760,
+    null,
+    1530,
+    1180,
+    1330
+   ],
+   "success_end": [
+    0.9921875,
+    0.9765625,
+    0.7265625,
+    0.953125,
+    0.9375,
+    1.0
+   ],
+   "n_learned": 5,
+   "folds": [
+    1.0220729366602688,
+    1.0772552783109404,
+    0.9956813819577734,
+    0.9452975047984644,
+    0.95489443378119,
+    1.0004798464491362
+   ],
+   "mean_fold": 0.9992802303262955,
+   "success_diff": -0.040885416666666674,
+   "verdict": "reference: 5 learned controls, mean 416.8 active (394-449), success 0.972"
+  },
+  {
+   "key": "frm0.03",
+   "cls": "rule",
+   "folder": "frm0.03",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    878,
+    862,
+    792
+   ],
+   "learned": [
+    1040,
+    1030,
+    1450
+   ],
+   "success_end": [
+    1.0,
+    0.984375,
+    0.96875
+   ],
+   "n_learned": 3,
+   "folds": [
+    2.1080432172869146,
+    2.069627851140456,
+    1.9015606242496998
+   ],
+   "mean_fold": 2.02641056422569,
+   "success_diff": 0.05338541666666663,
+   "verdict": "works"
+  },
+  {
+   "key": "frm0.1",
+   "cls": "rule",
+   "folder": "frm0.1",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    763,
+    927,
+    982
+   ],
+   "learned": [
+    null,
+    570,
+    1450
+   ],
+   "success_end": [
+    0.6328125,
+    0.96875,
+    0.9921875
+   ],
+   "n_learned": 2,
+   "folds": [
+    1.8319327731092436,
+    2.225690276110444,
+    2.3577430972388957
+   ],
+   "mean_fold": 2.138455382152861,
+   "success_diff": -0.06640625,
+   "verdict": "fails: success cost -0.066 beyond 0.05; seed 1 ending below 0.9"
+  },
+  {
+   "key": "frm0.3",
+   "cls": "rule",
+   "folder": "frm0.3",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    962,
+    930,
+    812
+   ],
+   "learned": [
+    1100,
+    850,
+    720
+   ],
+   "success_end": [
+    0.9609375,
+    1.0,
+    1.0
+   ],
+   "n_learned": 3,
+   "folds": [
+    2.3097238895558223,
+    2.232893157262905,
+    1.949579831932773
+   ],
+   "mean_fold": 2.1640656262505003,
+   "success_diff": 0.05598958333333326,
+   "verdict": "works"
+  },
+  {
+   "key": "frm0.1+rws0.05",
+   "cls": "rule",
+   "folder": "frm0.1_rws0.05",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    901,
+    907,
+    946
+   ],
+   "learned": [
+    1610,
+    null,
+    null
+   ],
+   "success_end": [
+    1.0,
+    0.4296875,
+    0.9453125
+   ],
+   "n_learned": 1,
+   "folds": [
+    2.163265306122449,
+    2.177671068427371,
+    2.2713085234093637
+   ],
+   "mean_fold": 2.204081632653061,
+   "success_diff": -0.13932291666666674,
+   "verdict": "fails: success cost -0.139 beyond 0.05; seed 2 ending below 0.9"
+  },
+  {
+   "key": "synnoise",
+   "cls": "rule",
+   "folder": "sigmaw1.0",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    451,
+    478,
+    454
+   ],
+   "learned": [
+    1950,
+    1230,
+    null
+   ],
+   "success_end": [
+    0.90625,
+    0.9609375,
+    0.8984375
+   ],
+   "n_learned": 2,
+   "folds": [
+    1.0828331332533012,
+    1.1476590636254502,
+    1.0900360144057624
+   ],
+   "mean_fold": 1.106842737094838,
+   "success_diff": -0.00911458333333337,
+   "verdict": "fails: seed 3 ending below 0.9"
+  },
+  {
+   "key": "dropout",
+   "cls": "rule",
+   "folder": "dropout0.2_beta4",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    413,
+    461,
+    436
+   ],
+   "learned": [
+    null,
+    null,
+    null
+   ],
+   "success_end": [
+    0.8359375,
+    0.7890625,
+    0.7578125
+   ],
+   "n_learned": 0,
+   "folds": [
+    0.9915966386554622,
+    1.106842737094838,
+    1.0468187274909964
+   ],
+   "mean_fold": 1.0484193677470988,
+   "success_diff": -0.13671875,
+   "verdict": "fails: count not above every control's (449) in seeds 1, 3; success cost -0.137 beyond 0.05; seeds 1, 2, 3 ending below 0.9"
+  },
+  {
+   "key": "rescale",
+   "cls": "rule",
+   "folder": "rescale",
+   "status": "stopped",
+   "n_finished": 0,
+   "n_running": 0,
+   "n_stopped": 3,
+   "seeds_finished": [],
+   "active_end": [],
+   "learned": [],
+   "success_end": [],
+   "n_learned": 0,
+   "folds": [],
+   "mean_fold": null,
+   "success_diff": null,
+   "verdict": "no verdict (stopped)"
+  },
+  {
+   "key": "rescale_mild",
+   "cls": "rule",
+   "folder": "rescale_mild",
+   "status": "incomplete",
+   "n_finished": 2,
+   "n_running": 0,
+   "n_stopped": 1,
+   "seeds_finished": [
+    2,
+    3
+   ],
+   "active_end": [
+    314,
+    321
+   ],
+   "learned": [
+    null,
+    null
+   ],
+   "success_end": [
+    0.75,
+    0.6328125
+   ],
+   "n_learned": 0,
+   "folds": [
+    0.7539015606242497,
+    0.7707082833133253
+   ],
+   "mean_fold": 0.7623049219687875,
+   "success_diff": -0.23958333333333337,
+   "verdict": "incomplete (2 of 3 finished, 1 stopped)"
+  },
+  {
+   "key": "rescale_few",
+   "cls": "rule",
+   "folder": "rescale_few",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    255,
+    231,
+    234
+   ],
+   "learned": [
+    null,
+    null,
+    null
+   ],
+   "success_end": [
+    0.65625,
+    0.75,
+    0.8125
+   ],
+   "n_learned": 0,
+   "folds": [
+    0.6122448979591837,
+    0.5546218487394958,
+    0.5618247298919568
+   ],
+   "mean_fold": 0.5762304921968787,
+   "success_diff": -0.19140625,
+   "verdict": "fails: count not above every control's (449) in seeds 1, 2, 3; success cost -0.191 beyond 0.05; seeds 1, 2, 3 ending below 0.9"
+  },
+  {
+   "key": "wd0",
+   "cls": "setting",
+   "folder": "wd0",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    404,
+    452,
+    432
+   ],
+   "learned": [
+    1650,
+    900,
+    920
+   ],
+   "success_end": [
+    0.984375,
+    1.0,
+    0.9921875
+   ],
+   "n_learned": 3,
+   "folds": [
+    0.9692898272552782,
+    1.0844529750479845,
+    1.036468330134357
+   ],
+   "mean_fold": 1.0300703774792066,
+   "success_diff": 0.020312499999999956,
+   "verdict": "no change in the count (404, 452, 432 against the controls' 394-449); success +0.020 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "wd1e-5",
+   "cls": "setting",
+   "folder": "wd1e-5",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    402,
+    417,
+    370
+   ],
+   "learned": [
+    1800,
+    1790,
+    1320
+   ],
+   "success_end": [
+    0.9296875,
+    0.9921875,
+    0.984375
+   ],
+   "n_learned": 3,
+   "folds": [
+    0.9644913627639156,
+    1.0004798464491362,
+    0.8877159309021113
+   ],
+   "mean_fold": 0.950895713371721,
+   "success_diff": -0.0031250000000000444,
+   "verdict": "no change in the count (402, 417, 370 against the controls' 394-449); success -0.003 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "wd1e-4",
+   "cls": "setting",
+   "folder": "wd1e-4",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    335,
+    341,
+    378
+   ],
+   "learned": [
+    null,
+    null,
+    1320
+   ],
+   "success_end": [
+    0.640625,
+    0.7109375,
+    1.0
+   ],
+   "n_learned": 1,
+   "folds": [
+    0.8037428023032629,
+    0.8181381957773513,
+    0.9069097888675623
+   ],
+   "mean_fold": 0.8429302623160589,
+   "success_diff": -0.18802083333333341,
+   "verdict": "decreases the count (335 not learned, 341 not learned, 378 against the controls' 394-449); success -0.188 from the controls' mean; 1 of 3 seeds learned"
+  },
+  {
+   "key": "inorm0.5",
+   "cls": "setting",
+   "folder": "inorm0.5",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    577,
+    593,
+    549
+   ],
+   "learned": [
+    310,
+    140,
+    470
+   ],
+   "success_end": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "n_learned": 3,
+   "folds": [
+    1.3843570057581573,
+    1.4227447216890594,
+    1.3171785028790786
+   ],
+   "mean_fold": 1.3747600767754318,
+   "success_diff": 0.028124999999999956,
+   "verdict": "increases the count (577, 593, 549 against the controls' 394-449); success +0.028 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "inorm2",
+   "cls": "setting",
+   "folder": "inorm2",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    290,
+    443,
+    357
+   ],
+   "learned": [
+    null,
+    140,
+    1230
+   ],
+   "success_end": [
+    0.6796875,
+    1.0,
+    0.9921875
+   ],
+   "n_learned": 2,
+   "folds": [
+    0.6957773512476008,
+    1.0628598848368522,
+    0.8565259117082533
+   ],
+   "mean_fold": 0.8717210492642354,
+   "success_diff": -0.08125000000000004,
+   "verdict": "no change in the count (290 not learned, 443, 357 against the controls' 394-449); success -0.081 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "inorm5",
+   "cls": "setting",
+   "folder": "inorm5",
+   "status": "stopped",
+   "n_finished": 0,
+   "n_running": 0,
+   "n_stopped": 3,
+   "seeds_finished": [],
+   "active_end": [],
+   "learned": [],
+   "success_end": [],
+   "n_learned": 0,
+   "folds": [],
+   "mean_fold": null,
+   "success_diff": null,
+   "verdict": "no verdict (stopped)"
+  },
+  {
+   "key": "inorm20",
+   "cls": "setting",
+   "folder": "inorm20",
+   "status": "incomplete",
+   "n_finished": 1,
+   "n_running": 0,
+   "n_stopped": 2,
+   "seeds_finished": [
+    1
+   ],
+   "active_end": [
+    331
+   ],
+   "learned": [
+    null
+   ],
+   "success_end": [
+    0.0
+   ],
+   "n_learned": 0,
+   "folds": [
+    0.7941458733205374
+   ],
+   "mean_fold": 0.7941458733205374,
+   "success_diff": -0.971875,
+   "verdict": "incomplete (1 of 3 finished, 2 stopped)"
+  },
+  {
+   "key": "duplicate",
+   "cls": "rule",
+   "folder": "duplicate",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    747,
+    741,
+    712
+   ],
+   "learned": [
+    1060,
+    930,
+    840
+   ],
+   "success_end": [
+    0.984375,
+    0.953125,
+    0.9921875
+   ],
+   "n_learned": 3,
+   "folds": [
+    1.793517406962785,
+    1.7791116446578632,
+    1.709483793517407
+   ],
+   "mean_fold": 1.760704281712685,
+   "success_diff": 0.04557291666666663,
+   "verdict": "works"
+  },
+  {
+   "key": "srec0",
+   "cls": "setting",
+   "folder": "srec0",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    440,
+    425,
+    400
+   ],
+   "learned": [
+    270,
+    350,
+    290
+   ],
+   "success_end": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "n_learned": 3,
+   "folds": [
+    1.055662188099808,
+    1.0196737044145874,
+    0.9596928982725528
+   ],
+   "mean_fold": 1.0116762635956495,
+   "success_diff": 0.028124999999999956,
+   "verdict": "no change in the count (440, 425, 400 against the controls' 394-449); success +0.028 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "srec0.01",
+   "cls": "setting",
+   "folder": "srec0.01",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    456,
+    380,
+    436
+   ],
+   "learned": [
+    460,
+    560,
+    520
+   ],
+   "success_end": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "n_learned": 3,
+   "folds": [
+    1.0940499040307101,
+    0.9117082533589251,
+    1.0460652591170825
+   ],
+   "mean_fold": 1.017274472168906,
+   "success_diff": 0.028124999999999956,
+   "verdict": "no change in the count (456, 380, 436 against the controls' 394-449); success +0.028 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "srec0.1",
+   "cls": "setting",
+   "folder": "srec0.1",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    346,
+    317,
+    311
+   ],
+   "learned": [
+    null,
+    null,
+    null
+   ],
+   "success_end": [
+    0.6796875,
+    0.609375,
+    0.8515625
+   ],
+   "n_learned": 0,
+   "folds": [
+    0.8301343570057581,
+    0.760556621880998,
+    0.7461612284069098
+   ],
+   "mean_fold": 0.7789507357645552,
+   "success_diff": -0.2583333333333334,
+   "verdict": "no direction (346 not learned, 317 not learned, 311 not learned against the controls' 394-449); success -0.258 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "srad0.5",
+   "cls": "setting",
+   "folder": "srad0.5",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    338,
+    393,
+    414
+   ],
+   "learned": [
+    1960,
+    1230,
+    910
+   ],
+   "success_end": [
+    0.921875,
+    0.9921875,
+    0.9765625
+   ],
+   "n_learned": 3,
+   "folds": [
+    0.8109404990403071,
+    0.9428982725527831,
+    0.993282149712092
+   ],
+   "mean_fold": 0.915706973768394,
+   "success_diff": -0.008333333333333415,
+   "verdict": "no change in the count (338, 393, 414 against the controls' 394-449); success -0.008 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "srad1.5",
+   "cls": "setting",
+   "folder": "srad1.5",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    350,
+    471,
+    319
+   ],
+   "learned": [
+    1590,
+    1240,
+    null
+   ],
+   "success_end": [
+    0.921875,
+    0.96875,
+    0.875
+   ],
+   "n_learned": 2,
+   "folds": [
+    0.8397312859884837,
+    1.1300383877159308,
+    0.7653550863723608
+   ],
+   "mean_fold": 0.911708253358925,
+   "success_diff": -0.050000000000000044,
+   "verdict": "no change in the count (350, 471, 319 not learned against the controls' 394-449); success -0.050 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "rws0.05",
+   "cls": "setting",
+   "folder": "rws0.05",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    399,
+    378,
+    386
+   ],
+   "learned": [
+    1190,
+    null,
+    null
+   ],
+   "success_end": [
+    1.0,
+    0.8203125,
+    0.8515625
+   ],
+   "n_learned": 1,
+   "folds": [
+    0.9572936660268714,
+    0.9069097888675623,
+    0.9261036468330134
+   ],
+   "mean_fold": 0.9301023672424824,
+   "success_diff": -0.08125000000000004,
+   "verdict": "no change in the count (399, 378 not learned, 386 not learned against the controls' 394-449); success -0.081 from the controls' mean; 1 of 3 seeds learned"
+  },
+  {
+   "key": "cap0.3",
+   "cls": "setting",
+   "folder": "cap0.3",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    434,
+    463,
+    380
+   ],
+   "learned": [
+    1110,
+    1400,
+    1090
+   ],
+   "success_end": [
+    0.984375,
+    0.9765625,
+    1.0
+   ],
+   "n_learned": 3,
+   "folds": [
+    1.0412667946257197,
+    1.1108445297504799,
+    0.9117082533589251
+   ],
+   "mean_fold": 1.0212731925783747,
+   "success_diff": 0.015104166666666585,
+   "verdict": "no change in the count (434, 463, 380 against the controls' 394-449); success +0.015 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "rwm0.05",
+   "cls": "setting",
+   "folder": "rwm0.05",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    481,
+    459,
+    394
+   ],
+   "learned": [
+    1170,
+    1810,
+    1420
+   ],
+   "success_end": [
+    0.9296875,
+    0.9140625,
+    0.9453125
+   ],
+   "n_learned": 3,
+   "folds": [
+    1.1540307101727447,
+    1.1012476007677543,
+    0.9452975047984644
+   ],
+   "mean_fold": 1.0668586052463211,
+   "success_diff": -0.042187500000000044,
+   "verdict": "no change in the count (481, 459, 394 against the controls' 394-449); success -0.042 from the controls' mean; all seeds learned"
+  },
+  {
+   "key": "rwm0.2",
+   "cls": "setting",
+   "folder": "rwm0.2",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    517,
+    452,
+    405
+   ],
+   "learned": [
+    790,
+    null,
+    1490
+   ],
+   "success_end": [
+    0.953125,
+    0.9140625,
+    0.984375
+   ],
+   "n_learned": 2,
+   "folds": [
+    1.2404030710172744,
+    1.0844529750479845,
+    0.9716890595009596
+   ],
+   "mean_fold": 1.098848368522073,
+   "success_diff": -0.021354166666666674,
+   "verdict": "no change in the count (517, 452 not learned, 405 against the controls' 394-449); success -0.021 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "met0.01",
+   "cls": "setting",
+   "folder": "met0.01",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    537,
+    413,
+    379
+   ],
+   "learned": [
+    null,
+    1280,
+    1220
+   ],
+   "success_end": [
+    0.8359375,
+    0.984375,
+    0.9921875
+   ],
+   "n_learned": 2,
+   "folds": [
+    1.288387715930902,
+    0.9908829174664108,
+    0.9093090211132437
+   ],
+   "mean_fold": 1.0628598848368522,
+   "success_diff": -0.034375000000000044,
+   "verdict": "no change in the count (537 not learned, 413, 379 against the controls' 394-449); success -0.034 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "met0.1",
+   "cls": "setting",
+   "folder": "met0.1",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    431,
+    487,
+    387
+   ],
+   "learned": [
+    1120,
+    null,
+    730
+   ],
+   "success_end": [
+    0.9921875,
+    0.8515625,
+    1.0
+   ],
+   "n_learned": 2,
+   "folds": [
+    1.0340690978886755,
+    1.168426103646833,
+    0.9285028790786948
+   ],
+   "mean_fold": 1.043666026871401,
+   "success_diff": -0.023958333333333415,
+   "verdict": "no change in the count (431, 487 not learned, 387 against the controls' 394-449); success -0.024 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "met1",
+   "cls": "setting",
+   "folder": "met1",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    390,
+    336,
+    359
+   ],
+   "learned": [
+    1930,
+    null,
+    1900
+   ],
+   "success_end": [
+    0.9921875,
+    0.6796875,
+    0.9453125
+   ],
+   "n_learned": 2,
+   "folds": [
+    0.935700575815739,
+    0.8061420345489443,
+    0.8613243761996161
+   ],
+   "mean_fold": 0.8677223288547665,
+   "success_diff": -0.09947916666666667,
+   "verdict": "decreases the count (390, 336 not learned, 359 against the controls' 394-449); success -0.099 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "met10",
+   "cls": "setting",
+   "folder": "met10",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    203,
+    162,
+    216
+   ],
+   "learned": [
+    null,
+    null,
+    null
+   ],
+   "success_end": [
+    0.5625,
+    0.078125,
+    0.7421875
+   ],
+   "n_learned": 0,
+   "folds": [
+    0.4870441458733205,
+    0.38867562380038384,
+    0.5182341650671785
+   ],
+   "mean_fold": 0.4646513115802942,
+   "success_diff": -0.5109375,
+   "verdict": "no direction (203 not learned, 162 not learned, 216 not learned against the controls' 394-449); success -0.511 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "adamw",
+   "cls": "setting",
+   "folder": "adamw",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    434,
+    452,
+    429
+   ],
+   "learned": [
+    null,
+    900,
+    1080
+   ],
+   "success_end": [
+    0.90625,
+    1.0,
+    0.9296875
+   ],
+   "n_learned": 2,
+   "folds": [
+    1.0412667946257197,
+    1.0844529750479845,
+    1.0292706333973127
+   ],
+   "mean_fold": 1.0516634676903391,
+   "success_diff": -0.026562500000000044,
+   "verdict": "no change in the count (434 not learned, 452, 429 against the controls' 394-449); success -0.027 from the controls' mean; 2 of 3 seeds learned"
+  },
+  {
+   "key": "sgd0.03",
+   "cls": "setting",
+   "folder": "sgd0.03",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    521,
+    556,
+    540
+   ],
+   "learned": [
+    null,
+    null,
+    null
+   ],
+   "success_end": [
+    0.0,
+    0.0,
+    0.0078125
+   ],
+   "n_learned": 0,
+   "folds": [
+    1.25,
+    1.3339731285988483,
+    1.2955854126679462
+   ],
+   "mean_fold": 1.2931861804222649,
+   "success_diff": -0.9692708333333334,
+   "verdict": "no direction (521 not learned, 556 not learned, 540 not learned against the controls' 394-449); success -0.969 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "sgd0.1",
+   "cls": "setting",
+   "folder": "sgd0.1",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    686,
+    566,
+    540
+   ],
+   "learned": [
+    null,
+    null,
+    null
+   ],
+   "success_end": [
+    0.171875,
+    0.0,
+    0.0
+   ],
+   "n_learned": 0,
+   "folds": [
+    1.645873320537428,
+    1.3579654510556622,
+    1.2955854126679462
+   ],
+   "mean_fold": 1.4331413947536789,
+   "success_diff": -0.9145833333333334,
+   "verdict": "no direction (686 not learned, 566 not learned, 540 not learned against the controls' 394-449); success -0.915 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "sgd0.3",
+   "cls": "setting",
+   "folder": "sgd0.3",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    488,
+    483,
+    611
+   ],
+   "learned": [
+    null,
+    null,
+    null
+   ],
+   "success_end": [
+    0.0,
+    0.0,
+    0.2421875
+   ],
+   "n_learned": 0,
+   "folds": [
+    1.1708253358925145,
+    1.1588291746641075,
+    1.4659309021113243
+   ],
+   "mean_fold": 1.265195137555982,
+   "success_diff": -0.8911458333333334,
+   "verdict": "no direction (488 not learned, 483 not learned, 611 not learned against the controls' 394-449); success -0.891 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "sgd1",
+   "cls": "setting",
+   "folder": "sgd1",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    268,
+    423,
+    371
+   ],
+   "learned": [
+    null,
+    null,
+    null
+   ],
+   "success_end": [
+    0.0078125,
+    0.0859375,
+    0.0859375
+   ],
+   "n_learned": 0,
+   "folds": [
+    0.6429942418426103,
+    1.0148752399232246,
+    0.8901151631477927
+   ],
+   "mean_fold": 0.8493282149712092,
+   "success_diff": -0.9119791666666667,
+   "verdict": "no direction (268 not learned, 423 not learned, 371 not learned against the controls' 394-449); success -0.912 from the controls' mean; no seed learned"
+  },
+  {
+   "key": "redraw",
+   "cls": "rule",
+   "folder": "redraw",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    447,
+    457,
+    483
+   ],
+   "learned": [
+    750,
+    960,
+    900
+   ],
+   "success_end": [
+    1.0,
+    0.9765625,
+    0.9765625
+   ],
+   "n_learned": 3,
+   "folds": [
+    1.0732292917166866,
+    1.0972388955582233,
+    1.1596638655462186
+   ],
+   "mean_fold": 1.110044017607043,
+   "success_diff": 0.05338541666666663,
+   "verdict": "fails: count not above every control's (449) in seed 1"
+  },
+  {
+   "key": "zeroout",
+   "cls": "rule",
+   "folder": "zeroout",
+   "status": "finished",
+   "n_finished": 3,
+   "n_running": 0,
+   "n_stopped": 0,
+   "seeds_finished": [
+    1,
+    2,
+    3
+   ],
+   "active_end": [
+    445,
+    440,
+    420
+   ],
+   "learned": [
+    1850,
+    1200,
+    880
+   ],
+   "success_end": [
+    0.921875,
+    0.953125,
+    0.984375
+   ],
+   "n_learned": 3,
+   "folds": [
+    1.0684273709483794,
+    1.056422569027611,
+    1.0084033613445378
+   ],
+   "mean_fold": 1.0444177671068429,
+   "success_diff": 0.02213541666666663,
+   "verdict": "fails: count not above every control's (449) in seeds 1, 2, 3"
+  }
+ ],
+ "no_run_files": [
+  {
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rescale/s1",
+   "seed": 1
+  },
+  {
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rescale/s2",
+   "seed": 2
+  },
+  {
+   "folder": "data/trained_RNNs_rl_maze/Maze_interventions/rescale/s3",
+   "seed": 3
+  }
+ ]
+}
