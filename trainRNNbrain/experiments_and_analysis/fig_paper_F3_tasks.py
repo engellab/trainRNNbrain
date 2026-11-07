@@ -5,8 +5,14 @@ QUESTION (Pavel, 5 Nov 2026; dead-relu-paper#183, #184; ROUND15_BRIEF "WP cross-
 standard training setting change the number of active units in the same direction on every task?
 The pre-registered rule of docs/interventions_matrix.md (entries 2026-11-05_2259 and _2310), applied
 per (setting value, task) cell at N = 1,000: a value INCREASES or DECREASES the count when every seed
-lies outside the control's range of seeds on the same side; otherwise NO CHANGE. A cell with fewer
-finished seeds than expected gets a provisional direction. Every cell is read at the same-size
+THAT LEARNED THE TASK (the maze: a learned point, common.maze_learned_index; 3BFF and CDDM:
+held-out R^2 at or above the read-out file's bar, 0.8) lies outside the control's range of seeds on
+the same side; otherwise NO CHANGE; a cell with no seed that learned has NO DIRECTION (the review
+of dead-relu-paper PR #188, item 1: a direction comes only from networks that reached the task's
+criterion, as the maze reference comes from the learned controls). A cell with fewer finished
+seeds than expected gets a provisional direction. The printout ends with the tallies the text
+quotes: the values with a direction on both supervised tasks and on all three, and how many of
+them agree. Every cell is read at the same-size
 read-out point, 75,000 iterations on 3BFF and CDDM (the CDDM input-weight norm ladder at its
 50,000-iteration budget) and update 2,000 on the maze, so every marker is OPEN (paperstyle,
 dead-relu-paper#83).
@@ -215,16 +221,25 @@ def absent(ctrl_active, ctrl_perf, status, note):
     return cell([], [], [], ctrl_active, ctrl_perf, 0, "-", status=status, note=note)
 
 
-def direction(active, ctrl_active):
+def direction(active, ctrl_active, learned=None):
     """The pre-registered direction of a setting value against its control's range of seeds.
 
+    Only the seeds that learned the task give a direction (the review of dead-relu-paper PR #188,
+    item 1).
+
     Args:
-        active: list of int, the cell's counts; ctrl_active: the control's.
+        active: list of int, the cell's counts; ctrl_active: the control's; learned: list of bool
+            per seed (None: every seed learned).
     Returns:
-        str: "increase", "decrease" or "no change"; "-" for an empty cell.
+        str: "increase", "decrease" or "no change"; "none learned" for a finished cell whose seeds
+        all failed to learn; "-" for an empty cell.
     """
     if not active:
         return "-"
+    ok = [True] * len(active) if learned is None else list(learned)
+    active = [a for a, o in zip(active, ok) if o]
+    if not active:
+        return "none learned"
     if all(a > max(ctrl_active) for a in active):
         return "increase"
     if all(a < min(ctrl_active) for a in active):
@@ -408,7 +423,8 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim):
     active, perf = np.asarray(c["active"], float), np.asarray(c["perf"], float)
     ok = np.asarray(c["learned"], bool)
     n_group = int(ok.sum())
-    label = str(n_group) if c["status"] == "finished" and n_group > 1 and n_group != N_SEEDS else None
+    # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
+    label = str(n_group) if c["status"] == "finished" and n_group >= 1 and n_group != N_SEEDS else None
     draw_group(ax_n, x, active[ok], col, "o", label)
     draw_group(ax_p, x, perf[ok], col, "o", label)
     what = [f"{a:.0f} {p:.3f}" for a, p in zip(active[ok], perf[ok])]
@@ -503,7 +519,7 @@ def report(cells, rows, ref):
               "one side) and the read-out file's own ---")
         for setting, key, what in rows[task]:
             c = cells[(task, setting, key)]
-            d = direction(c["active"], c["ctrl_active"])
+            d = direction(c["active"], c["ctrl_active"], c["learned"])
             prov = "" if c["status"] == "finished" else f" ({c['status']})"
             dperf = (np.mean(c["perf"]) - np.mean(c["ctrl_perf"])) if c["perf"] else float("nan")
             table[(task, setting, key)] = (d, c["status"])
@@ -512,8 +528,8 @@ def report(cells, rows, ref):
                   + (f" | stored: {c['stored']}" if c["stored"] else "") + f" | {c['source']}"
                   + (f"; {c['note']}" if c["note"] else ""))
     print("\n--- settings x tasks: the direction per value (f = finished, i = incomplete, u = unfinished, "
-          "s = stopped, n = not run / no read) ---")
-    short = {"increase": "up", "decrease": "down", "no change": "same", "-": "-"}
+          "s = stopped, n = not run / no read; 'none' = finished, no network learned) ---")
+    short = {"increase": "up", "decrease": "down", "no change": "same", "none learned": "none", "-": "-"}
     print(f"  {'setting':>8} {'value':>9} | " + " | ".join(f"{t:^10}" for t in TASKS))
     for setting, _, values in COLUMNS:
         if setting == "control":
@@ -521,6 +537,21 @@ def report(cells, rows, ref):
         for key, _ in values:
             print(f"  {setting:>8} {key:>9} | " + " | ".join(
                 f"{short[table[(t, setting, key)][0]] + ' ' + table[(t, setting, key)][1][0]:^10}" for t in TASKS))
+    # the tallies the text quotes: a value counts on a task when its cell is finished and has a direction
+    def has(t, setting, key):
+        """Whether the (task, setting, value) cell is finished with a direction (not 'none learned')."""
+        d, status = table[(t, setting, key)]
+        return status == "finished" and d in ("increase", "decrease", "no change")
+    vals = [(s, k) for s, _, values in COLUMNS if s != "control" for k, _ in values]
+    both = [(s, k) for s, k in vals if has("3BFF", s, k) and has("CDDM", s, k)]
+    same2 = [(s, k) for s, k in both if table[("3BFF", s, k)][0] == table[("CDDM", s, k)][0]]
+    all3 = [(s, k) for s, k in vals if all(has(t, s, k) for t in TASKS)]
+    same3 = [(s, k) for s, k in all3 if len({table[(t, s, k)][0] for t in TASKS}) == 1]
+    print(f"\n--- tallies (finished cells with a direction) ---")
+    print(f"  with a direction on both supervised tasks: {len(both)}; the same direction on both: {len(same2)}: "
+          + ", ".join(f"{s} {k} ({short[table[('3BFF', s, k)][0]]})" for s, k in same2))
+    print(f"  with a direction on all three tasks: {len(all3)}; the same direction on all three: {len(same3)}: "
+          + ", ".join(f"{s} {k} ({short[table[('3BFF', s, k)][0]]})" for s, k in same3))
 
 
 def main():

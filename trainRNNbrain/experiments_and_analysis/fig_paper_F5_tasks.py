@@ -436,7 +436,8 @@ def draw_marks(ax, x, c, key, zero=None):
     vals = np.asarray(c[key], float)
     ok = np.asarray(c["learned"][:len(vals)], bool)
     n_group = int(ok.sum())
-    label = str(n_group) if c["status"] == "finished" and n_group > 1 and n_group != N_SEEDS else None
+    # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
+    label = str(n_group) if c["status"] == "finished" and n_group >= 1 and n_group != N_SEEDS else None
     draw_group(ax, x, vals[ok], col, marker, label)
     crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None else [])
     for xi, v in zip(cross_positions(x, len(crosses), n_group > 0), crosses):

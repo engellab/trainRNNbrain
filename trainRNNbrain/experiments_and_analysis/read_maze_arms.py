@@ -18,10 +18,13 @@ of 0.73 and is excluded, as the pre-registration of issue #3 excludes a run that
       mean (0.984); otherwise "fails", with the reason (fig_ed_maze_interventions.rule_verdict);
   setting (section A: weight decay, input row norm, activity noise, spectral radius, the sparsity
       penalty alone, the input-weight cap, the recurrent-weight magnitude and metabolic penalties,
-      the optimiser): "increases the count" when all three seeds' counts lie above the learned
-      controls' range (426 to 449), "decreases the count" when all three lie below it, "no change"
-      otherwise; reported with the arm's mean end success minus the controls' mean and how many
-      seeds learned (common.maze_learned_index).
+      the optimiser): "increases the count" when the counts of every seed THAT LEARNED THE TASK
+      (common.maze_learned_index) lie above the learned controls' range (426 to 449), "decreases
+      the count" when they all lie below it, "no change" otherwise, and "no direction" when no
+      seed learned (dead-relu-paper PR #188 review, item 1: a direction comes only from networks
+      that reached the task's criterion, as the controls' reference does); reported with the arm's
+      mean end success over all finished seeds minus the controls' mean and how many seeds
+      learned.
 A verdict needs all SEEDS runs finished; an arm with fewer is "incomplete", with the number
 finished, still training and stopped. The "learned" point of every run is reported beside the
 end point (the count there), as the maze entries do.
@@ -89,26 +92,34 @@ def run_status(rec):
 
 
 def setting_verdict(fin, ref):
-    """The pre-registered verdict on a setting: where its three counts lie against the learned controls' range.
+    """The pre-registered verdict on a setting: where the counts of the seeds that learned lie against the learned controls' range.
+
+    Only the seeds that learned the task (a learned point) give a direction; a seed that did not
+    learn is listed but enters no direction, and an arm with no learned seed has none.
 
     Args:
         fin: the arm's finished records (all SEEDS of them); ref: control_reference.
     Returns:
-        str: "increases the count", "decreases the count" or "no change in the count", followed by
-        the counts against the range, the success difference and how many seeds learned.
+        str: "increases the count", "decreases the count", "no change in the count" or "no
+        direction", followed by the learned seeds' counts against the range (the other seeds'
+        counts marked "not learned"), the success difference over all finished seeds and how many
+        seeds learned.
     """
-    counts = [r["pt"]["active_end"] for r in fin]
-    if all(c > ref["active_max"] for c in counts):
+    learned_counts = [r["pt"]["active_end"] for r in fin if r["pt"]["learned_i"] is not None]
+    shown = [f"{r['pt']['active_end']}" + ("" if r["pt"]["learned_i"] is not None else " not learned") for r in fin]
+    if not learned_counts:
+        word = "no direction"
+    elif all(c > ref["active_max"] for c in learned_counts):
         word = "increases the count"
-    elif all(c < ref["active_min"] for c in counts):
+    elif all(c < ref["active_min"] for c in learned_counts):
         word = "decreases the count"
     else:
         word = "no change in the count"
     diff = float(np.mean([r["pt"]["success_end"] for r in fin])) - ref["success"]
-    n_learned = sum(r["pt"]["learned_i"] is not None for r in fin)
+    n_learned = len(learned_counts)
     learned = ("all seeds learned" if n_learned == len(fin) else "no seed learned" if n_learned == 0
                else f"{n_learned} of {len(fin)} seeds learned")
-    return (f"{word} ({', '.join(map(str, counts))} against the controls' {ref['active_min']}-"
+    return (f"{word} ({', '.join(shown)} against the controls' {ref['active_min']}-"
             f"{ref['active_max']}); success {diff:+.3f} from the controls' mean; {learned}")
 
 

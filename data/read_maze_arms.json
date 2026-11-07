@@ -1,5 +1,5 @@
 {
- "written": "2026-11-06T17:21",
+ "written": "2026-11-06T20:06",
  "root": "data/trained_RNNs_rl_maze/Maze_interventions",
  "control_root": "data/trained_RNNs_rl_maze/Maze_suite",
  "success_tol": 0.05,
@@ -2148,7 +2148,7 @@
    ],
    "mean_fold": 0.8030476190476191,
    "success_diff": -0.20052083333333337,
-   "verdict": "decreases the count (335, 341, 378 against the controls' 426-449); success -0.201 from the controls' mean; 1 of 3 seeds learned"
+   "verdict": "decreases the count (335 not learned, 341 not learned, 378 against the controls' 426-449); success -0.201 from the controls' mean; 1 of 3 seeds learned"
   },
   {
    "key": "inorm0.5",
@@ -2224,7 +2224,7 @@
    ],
    "mean_fold": 0.8304761904761905,
    "success_diff": -0.09375,
-   "verdict": "no change in the count (290, 443, 357 against the controls' 426-449); success -0.094 from the controls' mean; 2 of 3 seeds learned"
+   "verdict": "no change in the count (290 not learned, 443, 357 against the controls' 426-449); success -0.094 from the controls' mean; 2 of 3 seeds learned"
   },
   {
    "key": "inorm5",
@@ -2422,7 +2422,7 @@
    ],
    "mean_fold": 0.742095238095238,
    "success_diff": -0.27083333333333337,
-   "verdict": "decreases the count (346, 317, 311 against the controls' 426-449); success -0.271 from the controls' mean; no seed learned"
+   "verdict": "no direction (346 not learned, 317 not learned, 311 not learned against the controls' 426-449); success -0.271 from the controls' mean; no seed learned"
   },
   {
    "key": "srad0.5",
@@ -2498,7 +2498,7 @@
    ],
    "mean_fold": 0.8685714285714287,
    "success_diff": -0.0625,
-   "verdict": "no change in the count (350, 471, 319 against the controls' 426-449); success -0.062 from the controls' mean; 2 of 3 seeds learned"
+   "verdict": "no change in the count (350, 471, 319 not learned against the controls' 426-449); success -0.062 from the controls' mean; 2 of 3 seeds learned"
   },
   {
    "key": "rws0.05",
@@ -2536,7 +2536,7 @@
    ],
    "mean_fold": 0.8860952380952382,
    "success_diff": -0.09375,
-   "verdict": "decreases the count (399, 378, 386 against the controls' 426-449); success -0.094 from the controls' mean; 1 of 3 seeds learned"
+   "verdict": "decreases the count (399, 378 not learned, 386 not learned against the controls' 426-449); success -0.094 from the controls' mean; 1 of 3 seeds learned"
   },
   {
    "key": "cap0.3",
@@ -2650,7 +2650,7 @@
    ],
    "mean_fold": 1.046857142857143,
    "success_diff": -0.03385416666666663,
-   "verdict": "no change in the count (517, 452, 405 against the controls' 426-449); success -0.034 from the controls' mean; 2 of 3 seeds learned"
+   "verdict": "no change in the count (517, 452 not learned, 405 against the controls' 426-449); success -0.034 from the controls' mean; 2 of 3 seeds learned"
   },
   {
    "key": "met0.01",
@@ -2688,7 +2688,7 @@
    ],
    "mean_fold": 1.0125714285714287,
    "success_diff": -0.046875,
-   "verdict": "no change in the count (537, 413, 379 against the controls' 426-449); success -0.047 from the controls' mean; 2 of 3 seeds learned"
+   "verdict": "decreases the count (537 not learned, 413, 379 against the controls' 426-449); success -0.047 from the controls' mean; 2 of 3 seeds learned"
   },
   {
    "key": "met0.1",
@@ -2726,7 +2726,7 @@
    ],
    "mean_fold": 0.9942857142857143,
    "success_diff": -0.03645833333333337,
-   "verdict": "no change in the count (431, 487, 387 against the controls' 426-449); success -0.036 from the controls' mean; 2 of 3 seeds learned"
+   "verdict": "no change in the count (431, 487 not learned, 387 against the controls' 426-449); success -0.036 from the controls' mean; 2 of 3 seeds learned"
   },
   {
    "key": "met1",
@@ -2764,7 +2764,7 @@
    ],
    "mean_fold": 0.8266666666666667,
    "success_diff": -0.11197916666666663,
-   "verdict": "decreases the count (390, 336, 359 against the controls' 426-449); success -0.112 from the controls' mean; 2 of 3 seeds learned"
+   "verdict": "decreases the count (390, 336 not learned, 359 against the controls' 426-449); success -0.112 from the controls' mean; 2 of 3 seeds learned"
   },
   {
    "key": "met10",
@@ -2802,7 +2802,7 @@
    ],
    "mean_fold": 0.4426666666666667,
    "success_diff": -0.5234375,
-   "verdict": "decreases the count (203, 162, 216 against the controls' 426-449); success -0.523 from the controls' mean; no seed learned"
+   "verdict": "no direction (203 not learned, 162 not learned, 216 not learned against the controls' 426-449); success -0.523 from the controls' mean; no seed learned"
   },
   {
    "key": "adamw",
@@ -2840,7 +2840,7 @@
    ],
    "mean_fold": 1.0019047619047619,
    "success_diff": -0.0390625,
-   "verdict": "no change in the count (434, 452, 429 against the controls' 426-449); success -0.039 from the controls' mean; 2 of 3 seeds learned"
+   "verdict": "no change in the count (434 not learned, 452, 429 against the controls' 426-449); success -0.039 from the controls' mean; 2 of 3 seeds learned"
   },
   {
    "key": "sgd0.03",
@@ -2878,7 +2878,7 @@
    ],
    "mean_fold": 1.232,
    "success_diff": -0.9817708333333334,
-   "verdict": "increases the count (521, 556, 540 against the controls' 426-449); success -0.982 from the controls' mean; no seed learned"
+   "verdict": "no direction (521 not learned, 556 not learned, 540 not learned against the controls' 426-449); success -0.982 from the controls' mean; no seed learned"
   },
   {
    "key": "sgd0.1",
@@ -2916,7 +2916,7 @@
    ],
    "mean_fold": 1.3653333333333333,
    "success_diff": -0.9270833333333334,
-   "verdict": "increases the count (686, 566, 540 against the controls' 426-449); success -0.927 from the controls' mean; no seed learned"
+   "verdict": "no direction (686 not learned, 566 not learned, 540 not learned against the controls' 426-449); success -0.927 from the controls' mean; no seed learned"
   },
   {
    "key": "sgd0.3",
@@ -2954,7 +2954,7 @@
    ],
    "mean_fold": 1.2053333333333336,
    "success_diff": -0.9036458333333334,
-   "verdict": "increases the count (488, 483, 611 against the controls' 426-449); success -0.904 from the controls' mean; no seed learned"
+   "verdict": "no direction (488 not learned, 483 not learned, 611 not learned against the controls' 426-449); success -0.904 from the controls' mean; no seed learned"
   },
   {
    "key": "sgd1",
@@ -2992,7 +2992,7 @@
    ],
    "mean_fold": 0.8091428571428572,
    "success_diff": -0.9244791666666666,
-   "verdict": "decreases the count (268, 423, 371 against the controls' 426-449); success -0.924 from the controls' mean; no seed learned"
+   "verdict": "no direction (268 not learned, 423 not learned, 371 not learned against the controls' 426-449); success -0.924 from the controls' mean; no seed learned"
   },
   {
    "key": "redraw",

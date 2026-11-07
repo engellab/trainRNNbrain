@@ -127,8 +127,8 @@ ARMS = {
     "dropout":        ("read-out dropout",          ps.DROPOUT,        "v"),
     "synnoise":       ("noisy synapses",            ps.SYNAPTIC_NOISE, "s"),
     "rescale":        ("rescaling",                 RESCALE_RAMP["rescale"],      "D"),
-    "rescale_few":    ("rescaling, 5% growing",     RESCALE_RAMP["rescale_few"],  "D"),
-    "rescale_mild":   ("rescaling, slow tilt",      RESCALE_RAMP["rescale_mild"], "D"),
+    "rescale_mild":   ("rescaling, slow tilt",      RESCALE_RAMP["rescale_mild"], "D"),   # Figure 5's names and order
+    "rescale_few":    ("rescaling, 5% grow",        RESCALE_RAMP["rescale_few"],  "D"),
     "duplicate":      ("prune-and-duplicate",       ps.DUPLICATE,      "^"),    # Figure 5's colour and marker
 }
 LADDER = [k for k in ARMS if k != "control"]
