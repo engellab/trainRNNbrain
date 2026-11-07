@@ -94,8 +94,11 @@ N_SHADE = {250: "#d29ebd", 500: "#bf74a1", 1000: "#a94681", 2000: ps.TASK_MAZE, 
 
 N_BOOT = 2000                     # bootstrap resamples for the exponent's interval (panel c)
 BOOT_SEED = 20261104
-X_OFF = 1.07                      # panel c: "learned" at N / X_OFF, "end" at N * X_OFF (log axis)
-BAR_HALF = 1.035                  # panel c: a mean bar spans x / BAR_HALF to x * BAR_HALF
+X_OFF = 1.07                      # panel c: "learned" at N / X_OFF, "end" at N * X_OFF (log axis);
+                                  # a not-learned cross at N * X_OFF**3, one marker right of the
+                                  # open markers (at N * X_OFF two of four crosses hid under one)
+BAR_HALF = 1.06                   # panel c: a mean bar spans x / BAR_HALF to x * BAR_HALF, a little
+                                  # wider than a marker; ink, above the markers, so it is visible
 D_YLIM = (0.0, 1.14)              # panel d: room above success = 1 for the inactive-count labels
 
 # layout in millimetres from the canvas's top-left corner: (left, top, width, height)
@@ -330,7 +333,8 @@ def panel_size(ax, rows):
 
     One marker per ReLU run: filled circle at N / X_OFF for the count at "learned", open circle at
     N * X_OFF for the count at the end; a run whose end success is below MAZE_LEARNED_SUCCESS is a
-    cross at the end position and enters no mean and no fit. A bar at each size's mean. The fit is a
+    cross at its end count, one marker right of the open circles (N * X_OFF**3), and enters no mean
+    and no fit. An ink bar at each size's mean, drawn above the markers. The fit is a
     line through the size means of the end counts over every size with at least one learned run
     (power_fit); its exponent is in the legend. The diagonal marks "every unit active".
 
@@ -350,7 +354,8 @@ def panel_size(ax, rows):
                     **ps.mark_fixed(col))
         else:
             failed.append((N, w["seed"]))
-            ax.plot([N * X_OFF], [w["active_end"]], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, zorder=5)
+            ax.plot([N * X_OFF ** 3], [w["active_end"]], "x", ms=ps.MARKER_PT, mec=col, mew=0.8,
+                    zorder=6)
         if w["active_learned"] is not None:
             cells_l.setdefault(N, []).append(w["active_learned"])
             ax.plot([N / X_OFF], [w["active_learned"]], "o", ms=ps.MARKER_PT, zorder=5,
@@ -360,8 +365,8 @@ def panel_size(ax, rows):
     for cc, x_fac in ((cells_l, 1 / X_OFF), (cells, X_OFF)):
         for N, v in cc.items():
             x = N * x_fac
-            ax.plot([x / BAR_HALF, x * BAR_HALF], [v.mean()] * 2, "-", lw=1.4, color=shade(N),
-                    zorder=4, solid_capstyle="butt")
+            ax.plot([x / BAR_HALF, x * BAR_HALF], [v.mean()] * 2, "-", lw=0.8, color=ps.INK,
+                    zorder=6, solid_capstyle="butt")
     fit = dict(b=None, lo=None, hi=None, cells=cells, failed=failed)
     handles = [Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, **ps.mark_floor(ps.MUTED),
                       label="learned"),
@@ -483,12 +488,14 @@ def panel_activations(ax, rows):
                 continue
             xs = k + dx + np.linspace(-0.06, 0.06, len(v)) if len(v) > 1 else [k + dx]
             ax.plot(xs, v, marker, ms=ps.MARKER_PT, ls="none", zorder=5, **ps.mark_fixed(col))
-            ax.plot([k + dx - 0.13, k + dx + 0.13], [v.mean()] * 2, "-", lw=1.4, color=col, zorder=4,
+            # the mean as an ink bar above the markers (in the hue and under them it was invisible)
+            ax.plot([k + dx - 0.13, k + dx + 0.13], [v.mean()] * 2, "-", lw=0.8, color=ps.INK, zorder=6,
                     solid_capstyle="butt")
         # every name ends on the second line, so the numbers line up on the third
         name = ACT_LABEL[act] if "\n" in ACT_LABEL[act] else "\n" + ACT_LABEL[act]
         ticks.append(f"{name}\n{s.mean():.2f}" if mine else f"{name}\nno runs")
-    ax.set(xlim=(-0.5, len(ACTS) - 0.5), ylim=(0, ACT_N), xlabel="activation, success at the end",
+    # the axis ends 5% above N so that the tanh markers at 999 to 1,000 are not cut by its top
+    ax.set(xlim=(-0.5, len(ACTS) - 0.5), ylim=(0, 1.05 * ACT_N), xlabel="activation, success at the end",
            ylabel=ps.of_n(ps.LABELS["active"], ACT_N))
     ax.set_xticks(range(len(ACTS)))
     ax.set_xticklabels(ticks, fontsize=ps.TICK_PT, linespacing=1.25)

@@ -601,6 +601,12 @@ def maze_series(root=MAZE_ROOT):
         if not finished:
             reason = (f"unfinished: records end at update {r['progress'][-1]['update']:,} of "
                       f"{budget:,}")
+        elif pr["probe_success"][-1] < MAZE_LEARNED_SUCCESS:
+            # the rule's second condition (common.maze_learned_index): a run whose last probe is
+            # below the level did not learn, even if it held the level for MAZE_LEARNED_HOLD probes
+            # earlier (N = 1,000 seed 3 and N = 4,000 seed 2 of the uniform series did)
+            reason = (f"not learned: the last probe ({pr['probe_success'][-1]:.2f}) is below "
+                      f"{MAZE_LEARNED_SUCCESS}")
         elif li is None:
             reason = (f"not learned: probe success never stayed at or above {MAZE_LEARNED_SUCCESS} "
                       f"for {MAZE_LEARNED_HOLD} probes")
