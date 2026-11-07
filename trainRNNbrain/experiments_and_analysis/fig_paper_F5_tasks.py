@@ -97,6 +97,7 @@ R18 = os.path.join(REPO, "data", "round18")
 G3_JSON = os.path.join(R18, "g3_cddm_removal.json")          # CDDM removal of the added units (G3)
 G4_JSON = os.path.join(R18, "g4_maze_added_summary.json")    # Maze removal of the added units (G4)
 G6_READS = os.path.join(R18, "g6_reads.json")                # CDDM techniques across sizes (G6)
+G1G2_JSON = os.path.join(R18, "g1g2.json")                   # 3BFF rate penalty at 0.01 and 0.03 at 75,000 (G1; #204)
 CDDM_SIZE_ARMS = (("duplicate", "duplication"), ("dropout", "mute"))   # panel c, CDDM: (technique, arm)
 G3_TECH = {"prune-and-duplicate": "duplicate", "read-out dropout": "dropout",
            "rate penalty 0.1": "frm", "rate penalty 0.2": "frm"}
@@ -137,8 +138,8 @@ MAZE_RESCALE_NOTE = {"rescale": "the paper's values (target 10x, alpha 1.002, ca
 # layout, mm from the canvas' top-left: one slot per (technique, task, value) group
 FIG_H_MM = 112.5                  # 136 -> 128 mm (round 15) -> 112.5 (round 17): the float with its caption fits the page
 LEFT_MM = 16.0
-PITCH_MM = 5.4                    # one group's slot
-GAP_MM = 3.2                      # between two techniques
+PITCH_MM = 5.1                    # one group's slot (5.4 until the 3BFF rate penalty gained 0.01 and 0.03, #204)
+GAP_MM = 2.8                      # between two techniques (3.2 until #204)
 SEED_DX_MM = 0.85                 # a cell's crosses sit this far apart
 CROSS_DX_MM = 1.3                 # a cross beside a group marker sits this far from it
 KEY_TOP_MM = 0.5
@@ -243,11 +244,38 @@ def load_3bff():
             perf = [r["r2_full"] for r in a3 if r["family"] == fam]
             ctrl_perf = a3_ctrl_r2
             note = "R^2: no 75,000-iteration weights in the catalogue's chain; the removal analysis's intact score (9 draws) against its controls"
+        if fam == "frm":
+            out += load_3bff_rate_low()
         out.append(cell(fam, "3BFF", labels.get(fam, ""), c["active_75k"], perf, ctrl["active_75k"],
                         ctrl_perf, c["n_runs"], f"remedies_catalogue.json {c['cell'].split('/')[0]}", note=note))
         floor.append(dict(tech=fam, active=c["active"], r2=c["r2"], n_read=c["n_read"], n_runs=c["n_runs"],
                           ctrl_active=ctrl["active"], ctrl_r2=ctrl["r2"], excluded=c["excluded"]))
     return out, floor
+
+
+def load_3bff_rate_low():
+    """The 3BFF rate penalty at lambda_frm = 0.01 and 0.03, read at 75,000 iterations by round 18's G1 (#204).
+
+    Reads data/round18/g1g2.json: per network the active count (trace probe at 75,000) and held-out
+    R^2 (36 noise draws on the 75,000-iteration snapshot), against G1's controls (the four default
+    networks of Fig. 1, R^2 in the three with 75,000-iteration weights). The 0.01 value sets the upper end
+    of the one-value tolerance range in the text.
+
+    Returns:
+        list of two `cell` dicts (labels "0.01" and "0.03"), in that order.
+    """
+    with open(G1G2_JSON) as fh:
+        g = json.load(fh)
+    ctrl = g["control"]
+    out = []
+    for r in g["g1"]:
+        lab = r["name"].split("= ")[-1]
+        if lab not in ("0.01", "0.03"):
+            continue
+        out.append(cell("frm", "3BFF", lab, r["active"], r["r2"], ctrl["active"], ctrl["r2"], r["n_runs"],
+                        f"round18 g1g2.json {r['source']}", note="R^2: G1, 36 draws on the 75,000-iteration snapshot"))
+    assert [c["label"] for c in out] == ["0.01", "0.03"], out
+    return out
 
 
 def group_by_name(path):
@@ -861,6 +889,9 @@ def panel_removal(fig):
         for tech in TECH:
             pts = [(r["x"], r["y"]) for r in rows if r["task"] == task and r["tech"] == tech]
             groups += edge_or_group(ax, pts, TASK_COL[task], TECH[tech][1])
+        for g in groups:
+            if g["x"] < 0.0:      # a label on the left would sit on the y axis (PR #202 review, item 12)
+                g["side"] = "below"
         F5.draw_groups(ax, F5.see_through(ax, groups))
         ax.set_xticks([0, 0.2, 0.4])
         ax.set_yticks([0, 0.4, 0.8])
@@ -906,7 +937,8 @@ def edge_or_group(ax, pts, col, marker):
         xd, yd = np.mean([q[0] for q in xys]), np.mean([q[1] for q in xys])
         F5.edge_arrow(ax, xd, yd, d, col, False, marker, s=11 * (F5.TRI_SCALE ** 2 if marker == "<" else 1.0))
         if len(xys) > 1:
-            ax.text(xd + 0.025, yd, str(len(xys)), fontsize=ps.TICK_PT, color=ps.INK, ha="left", va="center")
+            # above the marker: to its right lies the arrow (PR #202 review, item 12)
+            ax.text(xd, yd + 0.035, str(len(xys)), fontsize=ps.TICK_PT, color=ps.INK, ha="center", va="bottom")
     if not inside:
         return []
     x, y = (np.array(v) for v in zip(*inside))
