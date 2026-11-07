@@ -6,8 +6,10 @@ floor makes more units inactive.
   (a) active units against network size N (100-4000), the three main-text tasks (MAIN_TASKS: 3BFF,
       CDDM and the maze; round 14), one point per run. A supervised run is read where its noisy
       training loss reaches 1.05x its own fitted floor (common.read_run); a maze run at its "learned"
-      probe (maze_series). Power laws fitted to the size means from N = 500 for the supervised tasks
-      (N = 100 drawn, not fitted) and over every size with a learned run for the maze.
+      probe (maze_series). Power laws fitted to the size means from N = 500 for every task
+      (N = 100 drawn, not fitted; the maze's N = 250 drawn, not fitted, since round 18: the
+      supervised fit range, dead-relu-paper#201 decision 2). The maze's fit over every size with a
+      learned run is printed as a second reading.
   (b) the same runs as a percentage of N, guides at 50% and 10%.
   (c) the fitted exponent at the 1.05x, 1.10x and 1.20x margins, with a bootstrap 95% interval
       (runs resampled within each size); 3BFF and CDDM only, because the margins are margins over
@@ -671,21 +673,23 @@ def boot_exponent(cells, rng, min_n=FIT_MIN_N):
     return tuple(np.percentile(bs, [2.5, 97.5]))
 
 
-def maze_fit(rows, at="learned"):
-    """The maze's power law over every size with a learned run, with its bootstrap interval.
+def maze_fit(rows, at="learned", min_n=FIT_MIN_N):
+    """The maze's power law over the sizes N >= min_n with a learned run, with its bootstrap interval.
 
     Args:
-        rows: maze_series rows; at: "learned" or "end" (maze_cells).
+        rows: maze_series rows; at: "learned" or "end" (maze_cells); min_n: int, the smallest size
+            fitted (FIT_MIN_N, the supervised range, is the paper's fit since round 18; 0 gives the
+            fit over every size, printed as a second reading).
     Returns:
         (b, A, lo, hi, cells) with b and A as power_fit, lo and hi the bootstrap 95% interval
-        (BOOT_SEED) and cells the maze_cells fitted; (nan, nan, nan, nan, cells) with fewer than
-        two sizes.
+        (BOOT_SEED) and cells the maze_cells (every size; the fit uses N >= min_n);
+        (nan, nan, nan, nan, cells) with fewer than two fitted sizes.
     """
     cells = maze_cells(rows, at)
-    if len(cells) < 2:
+    if sum(N >= min_n for N in cells) < 2:
         return float("nan"), float("nan"), float("nan"), float("nan"), cells
-    b, A = power_fit(cells, min_n=0)
-    lo, hi = boot_exponent(cells, np.random.default_rng(BOOT_SEED), min_n=0)
+    b, A = power_fit(cells, min_n=min_n)
+    lo, hi = boot_exponent(cells, np.random.default_rng(BOOT_SEED), min_n=min_n)
     return b, A, float(lo), float(hi), cells
 
 
@@ -752,9 +756,8 @@ def panel_size(ax_a, ax_b, series, maze):
     One narrow column of small points per size (network_xs): every supervised run of MAIN_TASKS at
     its floor crossing and every learned maze run at its learned probe, filled dots in the task's
     hue; a finished maze run that did not learn is a cross at its end-of-training count and enters
-    no mean and no fit. Per task and size the mean +- SD, and per task a power law: over the sizes
-    N >= FIT_MIN_N for the supervised tasks, over every size with a learned run for the maze (its
-    suite has no N = 100 cell). The x ticks are the sizes any drawn series has, so a maze size the
+    no mean and no fit. Per task and size the mean +- SD, and per task a power law over the sizes
+    N >= FIT_MIN_N (the maze too since round 18, dead-relu-paper#201). The x ticks are the sizes any drawn series has, so a maze size the
     supervised series lack (250) gets a tick and a new size (4,000 continuations) needs no edit.
 
     Args:
@@ -790,12 +793,10 @@ def panel_size(ax_a, ax_b, series, maze):
     for task in MAIN_TASKS:
         col = TASK_COL[task]
         cells = all_cells[task]
-        if task == MAZE:
-            min_n = 0
-        else:
+        if task != MAZE:
             missing = [N for N in SIZES if N not in cells]
             assert not missing, f"{task}: no read-out at N = {missing}; the series would have to be drawn at end of training"
-            min_n = FIT_MIN_N
+        min_n = FIT_MIN_N     # every task since round 18 (dead-relu-paper#201 decision 2)
         Ns = np.array(sorted(cells), float)
         m = np.array([cells[N].mean() for N in Ns])
         sd = np.array([cells[N].std(ddof=1) if len(cells[N]) > 1 else 0.0 for N in Ns])
@@ -1266,10 +1267,12 @@ def draw_fig2(rec, flat, maze):
               f"{r['success_learned']:.2f}; end active {r['active_end']:.0f} success "
               f"{r['success_end']:.2f}; {r['reason'] or 'learned'}")
     for at, what in (("learned", "learned-probe counts (panel a's fit)"), ("end", "end-of-training counts")):
-        b, _, lo, hi, cells = maze_fit(maze, at)
-        print(f"  Maze, {what}, learned runs, every size with one: b = {b:.3f} [{lo:.3f}, {hi:.3f}]; "
-              + "; ".join(f"N={N}: {v.mean():.1f} (n={len(v)}, {100 * v.mean() / N:.1f}%)"
-                          for N, v in cells.items()))
+        for min_n, rng_txt in ((FIT_MIN_N, f"N >= {FIT_MIN_N} (the paper's fit)"),
+                               (0, "every size with one (second reading)")):
+            b, _, lo, hi, cells = maze_fit(maze, at, min_n)
+            print(f"  Maze, {what}, learned runs, {rng_txt}: b = {b:.3f} [{lo:.3f}, {hi:.3f}]; "
+                  + "; ".join(f"N={N}: {v.mean():.1f} (n={len(v)}, {100 * v.mean() / N:.1f}%)"
+                              for N, v in cells.items()))
     print("Panel c (exponent, bootstrap 95%, runs in fit):")
     for (task, d), (b, lo, hi, n) in margins.items():
         print(f"  {task} {1 + d:.2f}x: {b:.3f} [{lo:.3f}, {hi:.3f}] n={n}")

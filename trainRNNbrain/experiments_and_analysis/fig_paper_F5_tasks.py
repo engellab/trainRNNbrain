@@ -27,20 +27,28 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       the number of tasks on which the count condition passes, then the name).
   (b) the performance difference from the controls' mean: top, held-out R^2 (3BFF and CDDM), the
       tolerance 0.01 dashed; bottom, the maze's success at the end, the tolerance 0.05 dashed.
-  (c) the technique that works on every task across network sizes on 3BFF, the current Figure 5c:
+  (c) the techniques across network sizes, two sub-columns. 3BFF, the current Figure 5c:
       prune-and-duplicate's fold change (top) and R^2 change (bottom) per network against N, read
       at the floor crossing (filled), the other techniques as context lines through their means
-      (rescaling and read-out dropout at 75,000 iterations, dashed, as Figure 5c draws them).
-  (d) removing the added units, one marker per network, with a different removal in each sub-panel.
-      k is a network's number of active units minus the controls' mean; its k added units ("recruited"
-      in the read-out files) are its k least participating active units. 3BFF, the removal analysis
-      A3 (data/remedy_reads_31oct/a3_N1000.json, held-out R^2 at 75,000 iterations): the k added units
-      removed, the inactive units left in place, against k active units removed at random (median
-      over 5 draws). The maze, the rate-penalty networks at the end of training
-      (data/rl_maze_ablation_interventions, success under the training noise): the inactive units and
-      then the k added units removed, which is N minus the controls' mean in every network, against
-      as many units removed at random from all units (median over the five orders, interpolated on
-      the removal grid). CDDM: no technique network has been ablated, and the panel says so.
+      (rescaling and read-out dropout at 75,000 iterations, dashed, as Figure 5c draws them). CDDM
+      (round 18, G6; dead-relu-paper#201 decision 4): prune-and-duplicate per network and read-out
+      dropout as a context line, both at the floor crossing (data/round18/g6_reads.json, the
+      CDDM_paper_grid networks at N = 500 to 4,000 against the same-size control; R^2 estimated
+      from the final weights, as the G6 read-out does). One technique key for both sub-columns.
+  (d) removing the added units, one marker per network, by ONE procedure on all three tasks since
+      round 18 (dead-relu-paper#201 decision 3): the k added units removed, the inactive units left
+      in place, against k active units removed at random (median over 5 draws). k is a network's
+      number of active units minus the controls' mean; its k added units ("recruited" in the read-out
+      files) are its k least participating active units. 3BFF: the removal analysis A3
+      (data/remedy_reads_31oct/a3_N1000.json, held-out R^2 at 75,000 iterations, 19 networks). CDDM:
+      G3 (data/round18/g3_cddm_removal.json, held-out R^2, 9 draws; prune-and-duplicate and read-out
+      dropout at their 100,000-iteration weights against the paper-grid control, the rate penalty 0.1
+      and 0.2 at 75,000 against the Figure 3a control; 14 networks). Maze: G4
+      (data/round18/g4_maze_added_summary.json, success under the training noise, 256 drops x 4
+      draws, final weights, k from all three controls' mean of 430; the 9 finished rate-penalty
+      networks and the 3 prune-and-duplicate networks). The earlier Maze form (the inactive units
+      and then the k added units, 570 in all, interpolated on a removal grid) is no longer drawn; its
+      exact values are G4's "keep" column.
 
 READ-OUT FILES ONLY. Nothing is recomputed here. 3BFF: the remedies catalogue
 (data/remedy_reads_31oct/remedies_catalogue.json, read_remedies.py; the Figure 5 size series,
@@ -54,6 +62,8 @@ the sparsity penalty) and the Figure 3 cache data/fig_paper_F2_fails_cache.pkl (
 0.2 alone and with the sparsity penalty, against the Figure 3a control). Maze:
 data/read_maze_arms.json (read_maze_arms.py; all three controls, dead-relu-paper#194). A cell that is
 still training is drawn as the JSON holds it and picked up on a rerun once the JSON is rebuilt.
+Panels c (CDDM) and d (CDDM, Maze): the round-18 JSONs named above (entry
+2026-11-07_0235_round18-results, G3, G4, G6).
 
 OUTPUT. img/internal_figures/fig_paper_F5_tasks.{pdf,svg} (paperstyle.save, vector only), and on
 stdout every number drawn (per cell: the runs' counts, fold changes, performances and differences,
@@ -76,14 +86,20 @@ from matplotlib.lines import Line2D
 import paperstyle as ps
 import fig_paper_F5_drive as F5
 from common import DATA_DIR, MAZE_LEARNED_SUCCESS
-from fig_ed_maze import ax_mm, check_overlaps, load_ablation
+from fig_ed_maze import ax_mm, check_overlaps
 from fig_paper_F2_fails import CACHE as F2_CACHE
 
 REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 RUC1 = os.path.join(REPO, "data", "read_uniform_cells.json")
 RUC2 = os.path.join(REPO, "data", "read_uniform_cells_2.json")
 MAZE_JSON = os.path.join(REPO, "data", "read_maze_arms.json")
-MAZE_ABLATION_DIR = os.path.join(REPO, "data", "rl_maze_ablation_interventions")
+R18 = os.path.join(REPO, "data", "round18")
+G3_JSON = os.path.join(R18, "g3_cddm_removal.json")          # CDDM removal of the added units (G3)
+G4_JSON = os.path.join(R18, "g4_maze_added_summary.json")    # Maze removal of the added units (G4)
+G6_READS = os.path.join(R18, "g6_reads.json")                # CDDM techniques across sizes (G6)
+CDDM_SIZE_ARMS = (("duplicate", "duplication"), ("dropout", "mute"))   # panel c, CDDM: (technique, arm)
+G3_TECH = {"prune-and-duplicate": "duplicate", "read-out dropout": "dropout",
+           "rate penalty 0.1": "frm", "rate penalty 0.2": "frm"}
 N = 1000
 N_SEEDS = 3                      # the groups' usual size; another size is written beside the marker
 TASKS = ("3BFF", "CDDM", "maze")
@@ -130,12 +146,13 @@ A_TOP_MM, A_H_MM = 14.5, 16.0
 B1_TOP_MM, B1_H_MM = 33.0, 13.5
 B2_TOP_MM, B2_H_MM = 48.5, 13.5
 ROW2_TOP_MM, ROW2_H_MM = 72.5, 29.0      # panel d keeps 29 mm: its open markers overlap in 27 (tests/scan_open_markers.py)
-C_LEFT_MM, C_W_MM = 16.0, 50.0
-D_LEFT_MM, D_W_MM, D_GAP_MM = 86.0, 52.0, 8.0     # each sub-panel keeps 22 mm (tests/scan_open_markers.py); the gap holds the Maze sub-panel's own y label (#199)
+C_LEFT_MM, C_W_MM, C_GAP_MM = 16.0, 26.0, 2.5     # panel c: two sub-columns (3BFF, CDDM) of C_W_MM each, sharing y
+D_LEFT_MM, D_W_MM, D_GAP_MM = 84.0, 22.5, 2.5     # panel d: three sub-panels (3BFF, CDDM, Maze) of D_W_MM each (at least 22 mm, tests/scan_open_markers.py), sharing y; the Maze title ends left of panel b's rotated rescaling labels
 FOLD_LIM = (0.0, 4.3)
 R2_LIM = (-0.038, 0.013)
 SUCC_LIM = (-0.52, 0.13)
 D_LO = -0.05                      # panel d: values below this are drawn at the edge with an arrow
+EDGE_JOIN = 0.03                  # panel d: edge markers of one series closer than this (data units) are one marker
 
 
 def rule(active, perf, ctrl_active, ctrl_perf, tol, floor=None):
@@ -667,126 +684,176 @@ def panel_key(fig):
     return ax
 
 
-def panel_sizes(fig):
-    """Panel c: prune-and-duplicate across sizes on 3BFF, the other techniques as context lines.
+def cddm_size_rows():
+    """Panel c's CDDM sub-column: per size and technique, the networks' fold changes and R^2 changes.
 
-    Reuses fig_paper_F5_drive's loaders and read-outs (floor crossing, filled; rescaling and
-    read-out dropout at 75,000 iterations, dashed).
+    Reads data/round18/g6_reads.json (G6): every CDDM_paper_grid network at N = 500 to 4,000 at its
+    floor crossing (1.05x; the record's "active" and "r2", R^2 estimated from the final weights). A
+    network without a crossing (non-null "reason") is left out, as G6 leaves it out.
+
+    Returns:
+        list of dicts: tech (CDDM_SIZE_ARMS key), N, fold (array, count over the same-size control
+        mean), dr2 (array, R^2 minus the same-size control mean), n_runs (networks in the cell).
+    """
+    with open(G6_READS) as fh:
+        reads = json.load(fh)
+    rows = []
+    for N in F5.SIZES:
+        ctrl = [r for r in reads[f"{N}|control"] if r["reason"] is None]
+        c_act = np.mean([r["active"] for r in ctrl])
+        c_r2 = np.mean([r["r2"] for r in ctrl])
+        for tech, arm in CDDM_SIZE_ARMS:
+            runs = reads[f"{N}|{arm}"]
+            ok = [r for r in runs if r["reason"] is None]
+            rows.append(dict(tech=tech, N=N, fold=np.array([r["active"] / c_act for r in ok]),
+                             dr2=np.array([r["r2"] - c_r2 for r in ok]), n_runs=len(runs)))
+    return rows
+
+
+def panel_sizes(fig):
+    """Panel c: the techniques across sizes, 3BFF (left) and CDDM (right) sub-columns sharing y.
+
+    3BFF reuses fig_paper_F5_drive's loaders and read-outs (floor crossing, filled; rescaling and
+    read-out dropout at 75,000 iterations, dashed). CDDM draws prune-and-duplicate per network and
+    read-out dropout as a context line, both at the floor crossing (cddm_size_rows). The technique
+    colours are fig_paper_F5_drive.COL in both sub-columns, with one key in the CDDM sub-column.
 
     Args:
         fig: the figure.
     Returns:
-        (axes pair, rows): rows is a list of (technique, N, n networks, mean fold, median dR2).
+        (axes, rows): rows is a list of (task, technique, N, n networks, mean fold, median dR2).
     """
     series = F5.size_series(F5.load_catalogue())
     marks = F5.load_marks()
     h_top = ROW2_H_MM * 0.58
-    ax_m = ax_mm(fig, C_LEFT_MM, ROW2_TOP_MM, C_W_MM, h_top)
-    ax_r = ax_mm(fig, C_LEFT_MM, ROW2_TOP_MM + h_top + 1.5, C_W_MM, ROW2_H_MM - h_top - 1.5)
+    axes = {}
+    for j, task in enumerate(("3BFF", "CDDM")):
+        left = C_LEFT_MM + j * (C_W_MM + C_GAP_MM)
+        axes[task] = (ax_mm(fig, left, ROW2_TOP_MM, C_W_MM, h_top),
+                      ax_mm(fig, left, ROW2_TOP_MM + h_top + 1.5, C_W_MM, ROW2_H_MM - h_top - 1.5))
     rows, handles = [], []
+
+    def draw_family(ax_m, ax_r, fam, xs, folds, dr2s, dashed):
+        """Draw one technique's line through its means (top) and medians (bottom), per-network
+        filled markers for prune-and-duplicate; xs: sizes; folds, dr2s: per-size arrays."""
+        mm = [float(f.mean()) for f in folds]
+        rr = [float(np.median(d)) for d in dr2s]
+        if fam == "duplicate":
+            for n, f, d in zip(xs, folds, dr2s):
+                ax_m.scatter(np.full(len(f), n), f, s=9, marker=F5.MARK[fam], zorder=4,
+                             **ps.mark_floor(F5.COL[fam], scatter=True))
+                ax_r.scatter(np.full(len(d), n), d, s=9, marker=F5.MARK[fam], zorder=4,
+                             **ps.mark_floor(F5.COL[fam], scatter=True))
+        ls = "--" if dashed else "-"
+        alpha, lw, z = (1.0, ps.DATA_LW, 3) if fam == "duplicate" else (0.45, 0.8, 2)
+        ax_m.plot(xs, mm, ls=ls, color=F5.COL[fam], lw=lw, alpha=alpha, zorder=z)
+        ax_r.plot(xs, rr, ls=ls, color=F5.COL[fam], lw=lw, alpha=alpha, zorder=z)
+        return mm, rr, Line2D([], [], ls=ls, color=F5.COL[fam], lw=lw, alpha=alpha, label=F5.NAME[fam])
+
+    ax_m, ax_r = axes["3BFF"]
     for fam in F5.MAIN:
         ro = "75k" if fam in F5.AT_75K else "floor"
-        xs, mm, rr = [], [], []
+        xs, folds, dr2s = [], [], []
         for n in F5.SIZES:
             d = F5.per_run(series, fam, n, ro, marks)
             if not len(d["mult"]):
                 continue
             xs.append(n)
-            mm.append(float(d["mult"].mean()))
-            rr.append(float(np.median(d["dr2"])))
-            rows.append((fam, n, int(len(d["mult"])), mm[-1], rr[-1]))
-            if fam == "duplicate":
-                ax_m.scatter(np.full(len(d["mult"]), n), d["mult"], s=9, marker=F5.MARK[fam], zorder=4,
-                             **ps.mark_floor(F5.COL[fam], scatter=True))
-                ax_r.scatter(np.full(len(d["dr2"]), n), d["dr2"], s=9, marker=F5.MARK[fam], zorder=4,
-                             **ps.mark_floor(F5.COL[fam], scatter=True))
-        ls = "--" if fam in F5.AT_75K else "-"
-        alpha, lw, z = (1.0, ps.DATA_LW, 3) if fam == "duplicate" else (0.45, 0.8, 2)
-        ax_m.plot(xs, mm, ls=ls, color=F5.COL[fam], lw=lw, alpha=alpha, zorder=z)
-        ax_r.plot(xs, rr, ls=ls, color=F5.COL[fam], lw=lw, alpha=alpha, zorder=z)
-        handles.append(Line2D([], [], ls=ls, color=F5.COL[fam], lw=lw, alpha=alpha, label=F5.NAME[fam]))
-    for ax in (ax_m, ax_r):
-        ax.set_xscale("log")
-        ax.set_xlim(380, 5300)
-        ax.set_xticks(F5.SIZES)
-        ax.set_xticklabels([ps.fmt_count(n) for n in F5.SIZES])
-        ax.minorticks_off()
-        ps.ygrid(ax)
-    ax_m.axhline(1, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
-    ax_r.axhline(0, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
-    ax_m.set_ylim(0.6, 8.6)               # the legend sits above the lines (the rate penalty ends at 5.6)
-    ax_m.set_yticks([1, 3, 5])
-    ax_m.set_ylabel("fold change")
-    ax_m.tick_params(labelbottom=False)
-    ax_r.set_ylim(-0.045, 0.006)
-    ax_r.set_yticks([-0.04, -0.02, 0])
-    ax_r.set_yticklabels(["−0.04", "−0.02", "0"])
-    ax_r.set_ylabel("$R^2$ minus\ncontrol")
-    ax_r.set_xlabel(ps.LABELS["size"])
-    ax_m.set_title("3BFF, four sizes", fontsize=ps.LABEL_PT, pad=3, loc="left")
-    ax_m.legend(handles=handles, loc="upper left", fontsize=ps.MIN_PT, handlelength=1.6, ncol=2,
-                columnspacing=0.8, labelspacing=0.2, borderaxespad=0.2, frameon=False)
-    ps.panel_letter(ax_m, "c")
-    return (ax_m, ax_r), rows
+            folds.append(np.asarray(d["mult"], float))
+            dr2s.append(np.asarray(d["dr2"], float))
+        mm, rr, h = draw_family(ax_m, ax_r, fam, xs, folds, dr2s, fam in F5.AT_75K)
+        handles.append(h)
+        rows += [("3BFF", fam, n, len(f), m, r) for n, f, m, r in zip(xs, folds, mm, rr)]
+    ax_m, ax_r = axes["CDDM"]
+    crows = cddm_size_rows()
+    for fam, _ in CDDM_SIZE_ARMS:
+        cr = [r for r in crows if r["tech"] == fam and len(r["fold"])]
+        mm, rr, _ = draw_family(ax_m, ax_r, fam, [r["N"] for r in cr], [r["fold"] for r in cr],
+                                [r["dr2"] for r in cr], False)
+        rows += [("CDDM", fam, r["N"], f"{len(r['fold'])}/{r['n_runs']}", m, q) for r, m, q in zip(cr, mm, rr)]
+    for j, task in enumerate(("3BFF", "CDDM")):
+        ax_m, ax_r = axes[task]
+        for ax in (ax_m, ax_r):
+            ax.set_xscale("log")
+            ax.set_xlim(380, 5300)
+            ax.set_xticks(F5.SIZES)
+            ax.set_xticklabels([ps.fmt_count(n) for n in F5.SIZES])
+            ax.minorticks_off()
+            ps.ygrid(ax)
+        ax_m.axhline(1, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
+        ax_r.axhline(0, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
+        ax_m.set_ylim(0.6, 8.6)           # the 3BFF rate penalty ends at 5.6; the key sits in the CDDM sub-column
+        ax_m.set_yticks([1, 3, 5])
+        ax_m.tick_params(labelbottom=False)
+        ax_r.set_ylim(-0.045, 0.006)
+        ax_r.set_yticks([-0.04, -0.02, 0])
+        ax_r.set_yticklabels(["−0.04", "−0.02", "0"])
+        ax_m.set_title(task, fontsize=ps.LABEL_PT, pad=3, loc="left")
+        if j:
+            ax_m.tick_params(labelleft=False)
+            ax_r.tick_params(labelleft=False)
+    axes["3BFF"][0].set_ylabel("fold change")
+    axes["3BFF"][1].set_ylabel("$R^2$ minus\ncontrol")
+    fig.text((C_LEFT_MM + C_W_MM + C_GAP_MM / 2) / ps.W_FULL_MM, 1.0 - (ROW2_TOP_MM + ROW2_H_MM + 6.0) / FIG_H_MM,
+             ps.LABELS["size"], ha="center", va="top", fontsize=ps.LABEL_PT, color=ps.INK)
+    # one key for both sub-columns, in the CDDM sub-column's upper part (its lines end below 2.2)
+    axes["CDDM"][0].legend(handles=handles, loc="upper right", fontsize=ps.MIN_PT, handlelength=1.6, ncol=1,
+                           labelspacing=0.2, borderaxespad=0.2, frameon=False)
+    ps.panel_letter(axes["3BFF"][0], "c")
+    return axes, rows
 
 
-def maze_removal(abl, ref_active):
-    """The maze's "recruited units removed" read of one ablation JSON, interpolated on its k grid.
+def removal_rows():
+    """Panel d's networks: one removal on all three tasks (the k added units, against k random active units).
 
-    Args:
-        abl: one dict from fig_ed_maze.load_ablation (N, n_active, ks, score_quiet, score_random,
-            score_full); ref_active: float, the mean count of all three controls. The ablation
-            grids predate this reference, so the score is interpolated at the new k_total.
     Returns:
-        dict: k_added (int), k_total (int, the inactive units plus the recruited ones), quiet
-        (success with k_total units removed quietest first), random_median (the median over the
-        random orders at k_total), random_mean, full (intact success under the training noise).
+        list of dicts per network: task, tech (TECH key), name, x (median score after removing k
+        random active units), y (score after removing the k added units, the inactive units left
+        in place), intact, k, where (3BFF: the loss-burst mark of the R^2 weights; else "calm").
     """
-    ks = np.asarray(abl["ks"], float)
-    n_in = abl["N"] - abl["n_active"]
-    k_added = abl["n_active"] - ref_active
-    k_total = n_in + k_added
-    quiet = float(np.interp(k_total, ks, abl["score_quiet"]))
-    rand = np.array([np.interp(k_total, ks, row) for row in abl["score_random"]])
-    return dict(k_added=int(round(k_added)), k_total=int(round(k_total)), quiet=quiet,
-                random_median=float(np.median(rand)), random_mean=float(rand.mean()), full=abl["score_full"])
-
-
-def panel_removal(fig, maze_ref):
-    """Panel d: performance after removing the added units against performance after a random removal.
-
-    Two sub-axes sharing y, 3BFF (held-out R^2) on the left and the maze (success) on the right, so
-    a 3BFF network and a maze network with the same two values do not print on top of each other.
-    The sub-axes show different removals (the module docstring, panel d), and each axis label says
-    which units it removes (#199).
-
-    Args:
-        fig: the figure; maze_ref: the maze controls' reference dict (active: the mean count).
-    Returns:
-        (axes, rows): rows is a list of dicts per network (task, tech, name, x, y, where).
-    """
-    w = (D_W_MM - D_GAP_MM) / 2
-    ax_ff = ax_mm(fig, D_LEFT_MM, ROW2_TOP_MM, w, ROW2_H_MM)
-    ax_mz = ax_mm(fig, D_LEFT_MM + w + D_GAP_MM, ROW2_TOP_MM, w, ROW2_H_MM)
     rows = []
-    a3 = F5.load_a3()[N]
     marks = F5.load_marks()
-    for r in a3:
+    for r in F5.load_a3()[N]:
         if r["family"] not in TECH:
             continue
         rows.append(dict(task="3BFF", tech=r["family"], name=os.path.basename(r["run_dir"].rstrip("/"))[:28],
                          x=float(np.median(r["r2_random_active"])), y=float(r["r2_recruited"]),
-                         where=marks["a3"].get(r["run_dir"], "calm"), k=r["surplus"]))
-    for abl in load_ablation(MAZE_ABLATION_DIR) if os.path.isdir(MAZE_ABLATION_DIR) else []:
-        tech = "frm" if "/frm" in abl["run_dir"] else "other"
-        if tech not in TECH:
-            continue
-        m = maze_removal(abl, maze_ref["active"])
-        rows.append(dict(task="maze", tech=tech, name=abl["run_dir"].split("Maze_interventions/")[-1],
-                         x=m["random_median"], y=m["quiet"], where="end", k=m["k_added"], k_total=m["k_total"],
-                         full=m["full"],
-                         random_mean=m["random_mean"]))
-    for ax, task, title in ((ax_ff, "3BFF", "3BFF, held-out $R^2$"), (ax_mz, "maze", "Maze, success")):
+                         intact=float(r["r2_full"]), k=int(r["surplus"]),
+                         where=marks["a3"].get(r["run_dir"], "calm")))
+    with open(G3_JSON) as fh:
+        g3 = json.load(fh)
+    for block in g3.values():
+        for arm, a in block["arms"].items():
+            for i, r in enumerate(a["runs"], 1):
+                rows.append(dict(task="CDDM", tech=G3_TECH[arm], name=f"{arm} network {i}",
+                                 x=float(np.median(r["r2_random_active"])), y=float(r["r2_recruited"]),
+                                 intact=float(r["r2_full"]), k=int(r["surplus"]), where="calm"))
+    with open(G4_JSON) as fh:
+        g4 = json.load(fh)
+    for r in g4["rows"]:
+        tech = "duplicate" if r["cell"] == "duplicate" else "frm"
+        rows.append(dict(task="maze", tech=tech, name=r["file"].replace(".json", ""), x=float(r["random_active"]),
+                         y=float(r["added"]), intact=float(r["intact"]), k=int(r["k"]), where="calm"))
+    return rows
+
+
+def panel_removal(fig):
+    """Panel d: performance after removing the added units against performance after a random removal.
+
+    Three sub-axes sharing both axes, 3BFF and CDDM (held-out R^2) and the maze (success), one removal
+    in all three (removal_rows): the k added units removed, the inactive units left in place, against
+    k active units removed at random.
+
+    Args:
+        fig: the figure.
+    Returns:
+        (axes, rows): rows as removal_rows.
+    """
+    rows = removal_rows()
+    axes = []
+    for j, (task, title) in enumerate((("3BFF", "3BFF, $R^2$"), ("CDDM", "CDDM, $R^2$"), ("maze", "Maze, success"))):
+        ax = ax_mm(fig, D_LEFT_MM + j * (D_W_MM + D_GAP_MM), ROW2_TOP_MM, D_W_MM, ROW2_H_MM)
+        axes.append(ax)
         ax.set_xlim(D_LO - 0.012, 0.5)
         ax.set_ylim(D_LO - 0.015, 0.85)
         ax.plot([D_LO, 0.5], [D_LO, 0.5], color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
@@ -799,18 +866,15 @@ def panel_removal(fig, maze_ref):
         ax.set_yticks([0, 0.4, 0.8])
         ax.set_title(title, fontsize=ps.LABEL_PT, pad=3, loc="left")
         ps.ygrid(ax)
-    ax_mz.tick_params(labelleft=False)
-    k_totals = sorted({r["k_total"] for r in rows if r["task"] == "maze"})
-    assert len(k_totals) == 1, f"the maze removal should be one size in every network: {k_totals}"
-    ax_ff.set_ylabel("$k$ added units\nremoved")
-    ax_ff.set_xlabel("$k$ random active\nunits removed")
-    ax_mz.set_ylabel("inactive + $k$ added\nunits removed")
-    ax_mz.set_xlabel(f"{k_totals[0]} random units\nremoved")
-    ax_ff.text(0.49, 0.50, "equal", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
-    ax_mz.text(0.49, D_LO + 0.02, "CDDM:\nnot measured", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right",
-               va="bottom", linespacing=1.15)
-    ps.panel_letter(ax_ff, "d")
-    return (ax_ff, ax_mz), rows
+        if j:
+            ax.tick_params(labelleft=False)
+    axes[0].set_ylabel("$k$ added units\nremoved")
+    fig.text((D_LEFT_MM + 1.5 * D_W_MM + D_GAP_MM) / ps.W_FULL_MM, 1.0 - (ROW2_TOP_MM + ROW2_H_MM + 6.0) / FIG_H_MM,
+             "$k$ random active units removed (median of 5)", ha="center", va="top", fontsize=ps.LABEL_PT,
+             color=ps.INK)
+    axes[0].text(0.49, 0.50, "equal", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
+    ps.panel_letter(axes[0], "d")
+    return axes, rows
 
 
 def edge_or_group(ax, pts, col, marker):
@@ -821,14 +885,28 @@ def edge_or_group(ax, pts, col, marker):
     Returns:
         list of fig_paper_F5_drive.open_groups dicts for the points inside the axes.
     """
-    inside = []
+    inside, edge = [], []
     for x, y in pts:
         if x < D_LO or y < D_LO:
-            xd, yd = (D_LO + 0.01, y) if x < D_LO else (x, D_LO + 0.012)
-            F5.edge_arrow(ax, xd, yd, "<" if x < D_LO else "v", col, False, marker,
-                          s=11 * (F5.TRI_SCALE ** 2 if marker == "<" else 1.0))
+            edge.append(((D_LO + 0.01, y) if x < D_LO else (x, D_LO + 0.012), "<" if x < D_LO else "v"))
         else:
             inside.append((x, y))
+    # edge markers of one series closer than EDGE_JOIN (data units along the edge) are drawn as one
+    # marker at their mean with their number beside it (round 18: two CDDM rate-penalty networks)
+    edge.sort(key=lambda e: (e[1], e[0][1] if e[1] == "<" else e[0][0]))
+    merged = []
+    for (xy, d) in edge:
+        along = xy[1] if d == "<" else xy[0]
+        if merged and merged[-1][1] == d and abs(along - merged[-1][2][-1]) < EDGE_JOIN:
+            merged[-1][0].append(xy)
+            merged[-1][2].append(along)
+        else:
+            merged.append(([xy], d, [along]))
+    for xys, d, _ in merged:
+        xd, yd = np.mean([q[0] for q in xys]), np.mean([q[1] for q in xys])
+        F5.edge_arrow(ax, xd, yd, d, col, False, marker, s=11 * (F5.TRI_SCALE ** 2 if marker == "<" else 1.0))
+        if len(xys) > 1:
+            ax.text(xd + 0.025, yd, str(len(xys)), fontsize=ps.TICK_PT, color=ps.INK, ha="left", va="center")
     if not inside:
         return []
     x, y = (np.array(v) for v in zip(*inside))
@@ -880,17 +958,20 @@ def report(cells, vs, order, table, floor, rows_c, rows_d, tol):
         for k in TASKS:
             print(f"  {'':>20}   {k}: {table[(t, k)][2]}")
     print(f"\n  column order: {', '.join(TECH_NAME[t] for t in order)}")
-    print("\n--- panel c (3BFF across sizes; fold change read as Figure 5c: floor crossing, rescaling and "
-          "read-out dropout at 75,000) ---")
-    for fam, n, k, m, r in rows_c:
-        print(f"  {F5.NAME[fam]:>20} N={n:<5} n={k} fold {m:.2f} dR2 median {r:+.3f}")
-    print("\n--- panel d (3BFF: x = after k random active units, median; y = after the k added units, the "
-          "inactive units left in place. Maze: x = after k_total random units from all units, median; "
-          "y = after the inactive units and then the k added units, k_total in all) ---")
+    print("\n--- panel c (across sizes; 3BFF read as Figure 5c: floor crossing, rescaling and read-out "
+          "dropout at 75,000; CDDM at the floor crossing, G6) ---")
+    for task, fam, n, k, m, r in rows_c:
+        print(f"  {task:>5} {F5.NAME[fam]:>20} N={n:<5} n={k} fold {m:.2f} dR2 median {r:+.4f}")
+    print("\n--- panel d (every task: x = after k random active units, median of 5; y = after the k added "
+          "units, the inactive units left in place) ---")
     for r in rows_d:
-        extra = f"; intact {r['full']:.3f}; random mean {r['random_mean']:.3f}" if r["task"] == "maze" else ""
-        print(f"  {r['task']:>5} {TECH_NAME[r['tech']]:>20} {r['name']:<32} k={r['k']:<4} x {r['x']:+.3f} "
-              f"y {r['y']:+.3f} ({r['where']}){extra}")
+        print(f"  {r['task']:>5} {TECH_NAME[r['tech']]:>20} {r['name']:<32} k={r['k']:<4} intact {r['intact']:.3f} "
+              f"x {r['x']:+.3f} y {r['y']:+.3f} drop {r['intact'] - r['y']:.3f} ({r['where']})")
+    for task in TASKS:
+        sel = [r for r in rows_d if r["task"] == task]
+        print(f"  {task}: {len(sel)} networks; random lower than added in {sum(r['x'] < r['y'] for r in sel)}; "
+              f"y {min(r['y'] for r in sel):.3f} to {max(r['y'] for r in sel):.3f}; "
+              f"x {min(r['x'] for r in sel):+.3f} to {max(r['x'] for r in sel):+.3f}")
 
 
 def main():
@@ -899,7 +980,7 @@ def main():
     ap.parse_args()
     cells_ff, floor = load_3bff()
     cells_cddm, r2_tol = load_cddm()
-    cells_maze, success_tol, maze_ref = load_maze()
+    cells_maze, success_tol, _ = load_maze()
     tol = {"3BFF": r2_tol, "CDDM": r2_tol, "maze": success_tol}
     cells = cells_ff + cells_cddm + cells_maze
     vs = verdicts(cells, tol)
@@ -911,7 +992,7 @@ def main():
     assert LEFT_MM + width <= ps.W_FULL_MM - 2, f"the slots are {width:.1f} mm wide; the canvas is too narrow"
     panel_ab(fig, slots, columns, width, tol)
     _, rows_c = panel_sizes(fig)
-    _, rows_d = panel_removal(fig, maze_ref)
+    _, rows_d = panel_removal(fig)
     report(cells, vs, order, table, floor, rows_c, rows_d, tol)
     learned_control_sensitivity(cells, tol)
     tolerance_sensitivity(cells, tol)

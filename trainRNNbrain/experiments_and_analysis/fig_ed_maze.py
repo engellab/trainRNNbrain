@@ -18,8 +18,9 @@ has no room for a fourth ablation sub-panel, so the maze gets this figure.
       run, the seed mean as a bar, and a power law fitted to the size means of the end counts. The
       exponent b is reported as in Results 2 (fig_paper_F2_size.power_fit: a least-squares line
       through log mean count against log N, a bootstrap 95% interval over runs within each size).
-      The supervised fit starts at N = 500 because nearly every unit is active at N = 100; the maze
-      suite has no N = 100 cell, so every size with a learned run is fitted;
+      The fit starts at N = 500 (FIT_MIN_N), the supervised fit range, since round 18
+      (dead-relu-paper#201 decision 2); N = 250 is drawn and not fitted. The fit over every size
+      with a learned run is printed as a second reading;
   (d) the ablation (rl_maze_ablate.py): success rate under the training noise as units are removed,
       quietest first (solid), busiest first (dotted) and in random order (dashed, band: range over
       the random orders), x as a share of N so that networks of different sizes overlay, a vertical
@@ -93,6 +94,7 @@ EXPECTED = [(N, "relu", s) for N in SIZES for s in SEEDS] + \
 N_SHADE = {250: "#d29ebd", 500: "#bf74a1", 1000: "#a94681", 2000: ps.TASK_MAZE, 4000: "#681145"}
 
 N_BOOT = 2000                     # bootstrap resamples for the exponent's interval (panel c)
+FIT_MIN_N = 500                   # fig_paper_F2_size.FIT_MIN_N: the smallest size fitted (round 18, #201)
 BOOT_SEED = 20261031              # fig_paper_F2_size.BOOT_SEED: one seed for every Maze fit, so both scripts
                                   # print one interval (0.49-0.55 at the end of training; dead-relu-paper#190)
 X_OFF = 1.07                      # panel c: "learned" at N / X_OFF, "end" at N * X_OFF (log axis);
@@ -222,29 +224,30 @@ def load_ablation(folder):
     return sorted(out, key=lambda a: (a["N"], a["label"]))
 
 
-def power_fit(cells):
-    """Least-squares line through log(mean active count) against log N, over every size given.
+def power_fit(cells, min_n=FIT_MIN_N):
+    """Least-squares line through log(mean active count) against log N, over the sizes N >= min_n.
 
     Args:
-        cells: dict N -> array of active counts (at least two sizes).
+        cells: dict N -> array of active counts (at least two sizes N >= min_n); min_n: int, the
+            smallest size fitted (FIT_MIN_N; 0 fits every size, the second reading).
     Returns:
         (exponent b, prefactor A) with mean count ~ A N^b.
     """
-    Ns = np.array(sorted(cells), float)
-    ys = np.array([cells[N].mean() for N in sorted(cells)])
+    Ns = np.array([N for N in sorted(cells) if N >= min_n], float)
+    ys = np.array([cells[N].mean() for N in sorted(cells) if N >= min_n])
     b, loga = np.polyfit(np.log(Ns), np.log(ys), 1)
     return float(b), float(np.exp(loga))
 
 
-def boot_exponent(cells, rng):
+def boot_exponent(cells, rng, min_n=FIT_MIN_N):
     """Bootstrap 95% interval of the fitted exponent, resampling runs within each size.
 
     Args:
-        cells: dict N -> array of active counts; rng: numpy Generator.
+        cells: dict N -> array of active counts; rng: numpy Generator; min_n: as power_fit.
     Returns:
         (2.5th, 97.5th percentile) of the exponent over N_BOOT resamples.
     """
-    bs = [power_fit({N: rng.choice(v, len(v)) for N, v in cells.items()})[0] for _ in range(N_BOOT)]
+    bs = [power_fit({N: rng.choice(v, len(v)) for N, v in cells.items()}, min_n)[0] for _ in range(N_BOOT)]
     return tuple(float(q) for q in np.percentile(bs, [2.5, 97.5]))
 
 
@@ -336,14 +339,15 @@ def panel_size(ax, rows):
     N * X_OFF for the count at the end; a run whose end success is below MAZE_LEARNED_SUCCESS is a
     cross at its end count, one marker right of the open circles (N * X_OFF**3), and enters no mean
     and no fit. An ink bar at each size's mean, drawn above the markers. The fit is a
-    line through the size means of the end counts over every size with at least one learned run
-    (power_fit); its exponent is in the legend. The diagonal marks "every unit active".
+    line through the size means of the end counts over the sizes N >= FIT_MIN_N with at least one
+    learned run (power_fit); its exponent is in the legend. The diagonal marks "every unit active".
 
     Args:
         ax: axes; rows: the summarise rows.
     Returns:
-        dict with b, lo, hi (exponent and its bootstrap 95% interval; None without two sizes),
-        cells (N -> array of end counts of the learned runs), failed (list of (N, seed) not learned).
+        dict with b, lo, hi (exponent and its bootstrap 95% interval; None without two fitted
+        sizes), b_all, lo_all, hi_all (the same over every size, the second reading), cells
+        (N -> array of end counts of the learned runs), failed (list of (N, seed) not learned).
     """
     rel = [w for w in rows if w["act"] == "relu"]
     cells, cells_l, failed = {}, {}, []
@@ -376,11 +380,14 @@ def panel_size(ax, rows):
     if failed:
         handles.append(Line2D([], [], ls="none", marker="x", ms=ps.MARKER_PT, mec=ps.MUTED, mew=0.8,
                               label="not learned"))
-    if len(cells) >= 2:
+    fitted = [N for N in cells if N >= FIT_MIN_N]
+    if len(fitted) >= 2:
         b, A = power_fit(cells)
         lo, hi = boot_exponent(cells, np.random.default_rng(BOOT_SEED))
-        fit.update(b=b, lo=lo, hi=hi)
-        xf = np.array([min(cells) * 0.8, max(cells) * 1.25])
+        b_all = power_fit(cells, 0)[0]
+        lo_all, hi_all = boot_exponent(cells, np.random.default_rng(BOOT_SEED), 0)
+        fit.update(b=b, lo=lo, hi=hi, b_all=b_all, lo_all=lo_all, hi_all=hi_all)
+        xf = np.array([min(fitted) * 0.8, max(fitted) * 1.25])
         ax.plot(xf, A * xf ** b, "-", lw=0.8, color=ps.INK, zorder=3)
         handles.append(Line2D([], [], color=ps.INK, lw=0.8, label=f"fit, $b$ = {b:.2f}"))
     x_lo, x_hi = SIZES[0] / 1.4, SIZES[-1] * 1.4
@@ -582,7 +589,9 @@ def draw(runs, rows, abl):
     if fit["b"] is None:
         print("Panel c: no fit (fewer than two sizes with a learned run)")
     else:
-        print(f"Panel c: end count ~ N^b, b = {fit['b']:.3f}, bootstrap 95% [{fit['lo']:.3f}, {fit['hi']:.3f}], "
+        print(f"Panel c: end count ~ N^b over N >= {FIT_MIN_N} (drawn), b = {fit['b']:.3f}, bootstrap 95% "
+              f"[{fit['lo']:.3f}, {fit['hi']:.3f}]; over every size (second reading), b = {fit['b_all']:.3f} "
+              f"[{fit['lo_all']:.3f}, {fit['hi_all']:.3f}]; "
               + "; ".join(f"N = {N}: mean {v.mean():.0f} (n = {len(v)})" for N, v in sorted(fit["cells"].items())))
     if fit["failed"]:
         print("Panel c: not learned (cross, excluded from means and fit):",
