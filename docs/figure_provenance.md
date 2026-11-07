@@ -405,3 +405,4 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py, with fig_ed_maze_interventions.py (technique panels against all three controls; #194) | `52c77a4` | 2026-11-06 |
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (the number below the bar where crosses sit beside the marker; PR #193 third review) | `acce609` | 2026-11-06 |
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (112.5 mm, panel a's label one line; PR #193, #194) | `6b58997` | 2026-11-06 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (panel d: each axis label says what its sub-panel removes; #199) | `abb6ff8` | 2026-11-07 |
