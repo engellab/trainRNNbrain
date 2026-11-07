@@ -351,7 +351,7 @@ figures are written to `img/internal_figures/`.
 | `fig_paper_F5_drive.svg` | fig | `b3dc2bd` | 2026-11-02 |
 | `fig_supp_ablation.pdf` | fig_supp_ablation.py | `b3dc2bd` | 2026-11-02 |
 | `fig_supp_ablation.svg` | fig | `b3dc2bd` | 2026-11-02 |
-| `fig_supp_tasks.pdf` | fig_supp_tasks.py | `90db2f7` | 2026-11-02 |
+| `fig_supp_tasks.pdf` | fig_supp_tasks.py | `90db2f7` | 2026-11-06 |
 | `fig_supp_tasks.svg` | fig | `b3dc2bd` | 2026-11-02 |
 | `fig_ed_population.pdf` | fig | `b290956` | 2026-11-02 |
 | `fig_ed_population.svg` | fig | `b290956` | 2026-11-02 |
@@ -373,7 +373,7 @@ figures are written to `img/internal_figures/`.
 | `fig_paper_F2_fails.svg` | fig | `86376cb` | 2026-11-03 |
 | `fig_paper_F2_size.pdf` | fig | `2884f80` (wp/r14-floor) | 2026-11-03 |
 | `fig_paper_F2_size.svg` | fig | `2884f80` (wp/r14-floor) | 2026-11-03 |
-| `fig_paper_F2_size.pdf` | fig_paper_F2_size.py | `cde2606` | 2026-11-03 |
+| `fig_paper_F2_size.pdf` | fig_paper_F2_size.py | `cde2606` | 2026-11-06 |
 | `fig_paper_F2_size.svg` | fig | `fc2ce5e` | 2026-11-03 |
 | `fig_paper_F3_tasks.pdf` | fig_paper_F3_tasks.py (cross-task, #183) | `3f0bb49` | 2026-11-06 |
 | `fig_paper_F3_tasks.svg` | fig_paper_F3_tasks.py (cross-task, #183) | `3f0bb49` | 2026-11-06 |
@@ -403,3 +403,4 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py, with fig_ed_maze_interventions.py (panels g, h relabelled and spaced; PR #193 review) | `c19ae12` | 2026-11-06 |
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (Maze against all three controls and the 0.9 level; #194) | `52c77a4` | 2026-11-06 |
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py, with fig_ed_maze_interventions.py (technique panels against all three controls; #194) | `52c77a4` | 2026-11-06 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (the number below the bar where crosses sit beside the marker; PR #193 third review) | `acce609` | 2026-11-06 |
