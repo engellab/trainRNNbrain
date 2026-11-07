@@ -9,7 +9,8 @@ has no room for a fourth ablation sub-panel, so the maze gets this figure.
 
   (a) the clean probe's success rate against PPO updates, one thin line per ReLU run of the size
       series, colour by N, a filled mark at each run's "learned" probe (the first probe from which
-      the success stays at or above the dashed 0.9 for MAZE_LEARNED_HOLD probes);
+      the success stays at or above the dashed 0.9 for MAZE_LEARNED_HOLD probes); the key sits in
+      its own axes below the panel, because sixteen traces leave no clear corner inside it;
   (b) active units against PPO updates, the same runs, one sub-panel per N with y from 0 to that N.
       A shared 0 to 2,000 axis would put the N = 250 curve in its bottom eighth, where a change of
       20 units is 0.3 mm; one axis per size shows every curve at the same fraction of its network;
@@ -39,9 +40,10 @@ COLOUR. One task, so one hue: TASK_MAZE, with N as a lightness ramp (N_SHADE), a
 the 3BFF sizes. plotstyle.col_n is not used: its tab10 blue and green are the 3BFF and DMTS hues,
 and it has no entry for N = 250. Text is INK or MUTED.
 
-DATA. --root (default data/trained_RNNs_rl_maze/Maze_suite): N = 250, 500, 1000, 2000 x seeds 1-3,
-ReLU, and tanh, sigmoid (shifted), softplus (beta 25), leaky_relu at N = 1000, seeds 1-2 (the
-launcher slurm/rl_maze_suite_della.slurm). Each run folder holds a saved config, a *Progress.json and
+DATA. --root (default data/trained_RNNs_rl_maze/Maze_suite): N = 250, 500, 1000, 2000, 4000 x seeds
+1-3 (a fourth seed at N = 250), ReLU, and tanh, sigmoid (shifted), softplus (beta 25), leaky_relu at
+N = 1000, seeds 1-3 (the launcher slurm/rl_maze_suite_della.slurm). The N = 2,000 and 4,000 runs are
+chains of two runs (the second continued from the first; common.maze_load_runs joins them). Each run folder holds a saved config, a *Progress.json and
 a *Participation.npz (common.maze_load_runs reads the layout of run_rl.py and the earlier one of
 trainRNNbrain/rl/run_maze_ppo.py). Runs with the goal cue on (the "cue" arm of the first
 two arrays) are dropped unless --keep-cue. --ablation (default data/rl_maze_ablation): the JSONs of
@@ -77,11 +79,11 @@ ROOT = os.path.join(REPO, "data", "trained_RNNs_rl_maze", "Maze_suite")
 ABLATION_DIR = os.path.join(REPO, "data", "rl_maze_ablation")
 
 # the suite's grid (slurm/rl_maze_suite_della.slurm): the ReLU size series and the activations
-SIZES = (250, 500, 1000, 2000)
+SIZES = (250, 500, 1000, 2000, 4000)
 SEEDS = (1, 2, 3)
 ACT_N = 1000                      # the activations are compared at this size
 ACTS = ("relu", "leaky_relu", "softplus", "tanh", "sigmoid")   # saved names, drawing order
-ACT_SEEDS = (1, 2)
+ACT_SEEDS = (1, 2, 3)
 ACT_LABEL = {"relu": "ReLU", "leaky_relu": "leaky\nReLU", "softplus": "softplus", "tanh": "tanh",
              "sigmoid": "shifted\nsigmoid"}   # at most two lines, under 9 mm wide at TICK_PT
 EXPECTED = [(N, "relu", s) for N in SIZES for s in SEEDS] + \
@@ -98,10 +100,11 @@ D_YLIM = (0.0, 1.14)              # panel d: room above success = 1 for the inac
 
 # layout in millimetres from the canvas's top-left corner: (left, top, width, height)
 FIG_H_MM = 107.0
-B_STEP_MM = 27.0                  # panel b: one sub-panel every this many mm (19 wide, 8 gap)
+B_STEP_MM = 21.6                  # panel b: one sub-panel every this many mm (14.5 wide, 7.1 gap)
 LAYOUT_MM = {
     "a":  (12.5, 8.0, 32.5, 32.0),
-    "b0": (58.0, 8.0, 19.0, 32.0),      # the first of the four sub-panels of (b)
+    "a_key": (8.0, 49.5, 46.0, 6.0),    # the key of (a), below its x label and off the traces
+    "b0": (57.0, 8.0, 14.5, 32.0),      # the first of the five sub-panels of (b)
     "c":  (12.5, 60.0, 34.5, 34.0),      # 12.5: the "2,000" tick labels and the y label fit left of it
     "d":  (59.0, 60.0, 46.0, 34.0),
     "d_key": (57.0, 50.5, 50.0, 7.0),   # the legend of (d), above it and off the data
@@ -254,11 +257,12 @@ def time_axis(ax, x_max):
     ps.count_ticks(ax.xaxis)
 
 
-def panel_success(ax, series, x_max):
+def panel_success(ax, ax_key, series, x_max):
     """Panel (a): the clean probe's success rate against PPO updates, one line per run.
 
     Args:
-        ax: axes; series: the ReLU runs (with "pt"); x_max: int, the x limit.
+        ax: axes; ax_key: a blank axes below it for the key (one entry per size and one for the
+        learned mark); series: the ReLU runs (with "pt"); x_max: int, the x limit.
     Returns:
         None.
     """
@@ -278,8 +282,10 @@ def panel_success(ax, series, x_max):
     handles = [Line2D([], [], color=shade(N), lw=1.2, label=f"$N$ = {ps.fmt_count(N)}") for N in sizes]
     handles.append(Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, **ps.mark_floor(ps.MUTED),
                           label="learned"))
-    # lower right: a run that has learned sits at success 1, above the dashed line and the legend
-    ax.legend(handles=handles, loc="lower right", borderaxespad=0.3)
+    # the key sits below the panel: with sixteen traces, every corner inside the axes has data
+    ps.blank(ax_key)
+    ax_key.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.0, 1.0), ncol=3,
+                  handlelength=1.6, columnspacing=1.0, borderaxespad=0.0, borderpad=0.0)
     ps.ygrid(ax)
 
 
@@ -378,7 +384,10 @@ def panel_size(ax, rows):
     ax.set(xscale="log", yscale="log", xlim=(x_lo, x_hi), ylim=(y_lo, SIZES[-1] * 1.5))
     nn = np.array([x_lo, x_hi])
     ax.plot(nn, nn, "-", lw=ps.THIN_LW, color=ps.FAINT, zorder=2)
-    ax.text(SIZES[-1] / 1.7, SIZES[-1] / 1.7 * 1.08, "every unit active", rotation=45, transform_rotates_text=True,
+    # anchored at the lower-left end of the diagonal, above the line and below the legend: anchored
+    # near the largest size it ran into panel d's y label once N = 4,000 joined, and anchored in the
+    # middle its box met the legend's
+    ax.text(x_lo * 1.1, x_lo * 1.1 * 1.08, "every unit active", rotation=45, transform_rotates_text=True,
             fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="bottom", rotation_mode="anchor")
     ax.set_xticks(SIZES)
     ax.xaxis.set_minor_locator(NullLocator())
@@ -541,7 +550,7 @@ def draw(runs, rows, abl):
     """
     ps.setup()
     fig = ps.figure(FIG_H_MM)
-    ax_a = ax_mm(fig, *LAYOUT_MM["a"])
+    ax_a, ax_a_key = ax_mm(fig, *LAYOUT_MM["a"]), ax_mm(fig, *LAYOUT_MM["a_key"])
     left, top, width, height = LAYOUT_MM["b0"]
     axes_b = [ax_mm(fig, left + k * B_STEP_MM, top, width, height) for k in range(len(SIZES))]
     ax_c, ax_d, ax_key, ax_e = (ax_mm(fig, *LAYOUT_MM[k]) for k in ("c", "d", "d_key", "e"))
@@ -549,7 +558,7 @@ def draw(runs, rows, abl):
     series = [r for r in runs if r["act"] == "relu"]
     x_max = int(max((r["probes"]["update"][-1] for r in series), default=2000))
     x_max = int(np.ceil(x_max / 500.0) * 500)
-    panel_success(ax_a, series, x_max)
+    panel_success(ax_a, ax_a_key, series, x_max)
     empty_b = panel_active(axes_b, series, x_max)
     W, H = fig.get_figwidth() / ps.MM, fig.get_figheight() / ps.MM
     x_mid = (left + (len(SIZES) - 1) * B_STEP_MM + width + left) / 2.0
