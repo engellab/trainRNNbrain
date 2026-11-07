@@ -213,10 +213,12 @@ their 75k weights inside one (rescaling 14, rate penalty 3, rate + sparsity 3, p
 **C2 on the maze (5 Nov).** Learned runs of the uniform series (2,000 updates; N = 2,000 on a
 2,000 + 2,000 chain with a fresh Adam at the join): active units at the end 147, 158 (N = 250),
 265, 241, 276 (500), 426, 449 (1,000), 400, 506 (2,000; learned at updates 3,000 and 2,480); fit
-of the size means N^0.55 (bootstrap 95% 0.48-0.61). N = 4,000 is in training (Della: seed 1 on a
-1,000 + 3,000 chain after a stop at update 1,050; seeds 2 and 3 continued to 4,000, seed 3 from its
-update-1,700 checkpoint). N = 250 seed 2, N = 1,000 seed 3 and the N = 2,000 seed-3 rerun (0.84
-at 2,000, continuing) are not learned and enter no statistic.
+of the size means N^0.55 (bootstrap 95% 0.48-0.61). N = 2,000 seed 3 learned at 2,840 (414 -> 388). N = 4,000 (entry 2026-11-06 maze-package3-readout-and-n4000):
+seed 1 (a 1,000 + 3,000 chain after a stop at update 1,050) learned at 2,860, 619 -> 676 active,
+success 0.96; seed 2 ended its 4,000 updates at 0.84 (516 active), not learned; seed 3 (continued
+from its update-1,700 checkpoint) runs to 4,000; seeds 4 and 5 submitted (Della 17012367). Fit over
+N = 250 to 4,000, learned runs: N^0.52 (bootstrap 0.48-0.55); size means 146 (n = 3), 261 (3), 438
+(2), 431 (3), 676 (1). N = 250 seed 2 and N = 1,000 seed 3 are not learned and enter no statistic.
 
 **C6 across the three tasks (5 Nov; Pavel's instruction, trainRNNbrain issue #6, dead-relu-paper#183:
 report the rules that work on every task first).** Criterion per cell at N = 1,000: more active
@@ -250,7 +252,11 @@ below); rate + sparsity on CDDM only; read-out dropout on CDDM only (on 3BFF 2.0
 its earlier "works" was a floor read of 1 of 3 runs); rescaling on none (3BFF 1.65x at 0.013
 below, its earlier "works" a floor read of 1 of 4; CDDM 0.54x; the maze stopped or lowered);
 noisy synapses raise the count on all three (2.19x, 1.47x, 1.05x) and miss the tolerance on all
-three. The floor reads stay in the Extended Data table. **Cross-task figures (entry 2026-11-06_0934;
+three. The floor reads stay in the Extended Data table. Maze package 3 (entry 2026-11-06
+maze-package3-readout-and-n4000): the cap 0.3, the recurrent-weight penalty, the metabolic penalty
+at 0.01 and 0.1 and AdamW change nothing; the metabolic penalty at 1 and 10 lowers the count; SGD
+at 0.03 to 1 never learns the maze (success 0.00-0.02), so the maze cannot test 3BFF's SGD pattern;
+redraw and zero-out fail the rule (1.06x and 0.99x). **Cross-task figures (entry 2026-11-06_0934;
 `fig_paper_F5_tasks.py`, `fig_paper_F3_tasks.py`): at the same-size read-out point, 75,000 iterations,
 and by the one rule, read-out dropout (R² 0.017 below the control's mean) and rescaling (0.013 below)
 FAIL on 3BFF; the "works" of the previous sentence is the floor read of 1 of 3 and 1 of 4 runs. By the
