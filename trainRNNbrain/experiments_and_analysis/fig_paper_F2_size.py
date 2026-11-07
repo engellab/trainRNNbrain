@@ -1352,9 +1352,10 @@ def tex_row_maze(r):
     In the table's columns: Trained is the chain's last PPO update, t* the learned probe's update,
     Active the count there, and the R^2 column holds the probe success rate at the learned probe
     (in brackets at the end of training for a finished run that did not learn). The note names
-    the units (PPO updates) and gives the run's end of training: the active count there and, for
-    a learned run, the success rate there (a run that did not learn has it in the R^2 column);
-    the table's column notes describe the supervised runs. Fig.: a learned
+    gives the run's end of training: the active count there and, for a learned run, the success
+    rate there (a run that did not learn has it in the R^2 column); it is kept under 25 characters
+    because the table's Note column is the widest and the longtable overflows its line otherwise;
+    the table's own notes say that Trained and t* count PPO updates. Fig.: a learned
     run is in 2a,b and, at N = MAZE_TRAJ_N, in 1c (Figure 1's maze_rows reads the same runs at
     the same probe) and 2e; a finished run that did not learn is a cross in 2a,b and a line in 2e;
     1d when rl_maze_ablate.py's JSON of the run's final weights exists under MAZE_ABLATION_DIR
@@ -1379,9 +1380,9 @@ def tex_row_maze(r):
     a = f"{r['active_learned']:.0f}" if r["learned"] else "--"
     if r["learned"]:
         score = f"{r['success_learned']:.2f}"
-        note = f"PPO; at the end {r['active_end']:.0f} active, success {r['success_end']:.2f}"
+        note = f"end: {r['active_end']:.0f} active, {r['success_end']:.2f}"
     elif r["finished"]:
-        score, note = f"({r['success_end']:.2f})", f"PPO; not learned; at the end {r['active_end']:.0f} active"
+        score, note = f"({r['success_end']:.2f})", f"not learned; {r['active_end']:.0f} at end"
     else:
         score, note = "--", "PPO updates; " + r["reason"]
     return (f"{MAZE} & {r['N']:,} & {r['seed']} & {', '.join(fig) or '--'} & {trained} & {t} & {a} & "
