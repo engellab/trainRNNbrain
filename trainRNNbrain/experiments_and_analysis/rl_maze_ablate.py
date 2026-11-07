@@ -20,6 +20,14 @@ N, n_active, ks, score_quiet, score_busy, score_random (RANDOM lists), score_ful
 label, and the run folder; and a table on stdout.
 Run: python trainRNNbrain/experiments_and_analysis/rl_maze_ablate.py <run_dir> [--out DIR]
      [--score-drops 256] [--draws 4] [--probe-drops 128] [--random 5]   (GPU if available)
+
+ADDED-UNIT MODE (round 18, G4; rule in docs/project_trajectory/2026-11-07_0100_round18-rules.md):
+--added CTRL_MEAN scores a technique network at fixed removals only, with k = n_active - CTRL_MEAN
+(rounded) and its k added units = its k least participating active units: intact; every inactive
+unit; the k added units with the inactive units left in place (the 3BFF A3 removal); k active units at
+random (RANDOM sets); the N - CTRL_MEAN least participating units (the inactive units, then the k added
+units: the removal of Fig. 5d's Maze sub-panel); N - CTRL_MEAN units at random from all N (RANDOM
+sets). Output: <out>/<cell>__s<seed>.json with those scores (score_* keys) and n_active, k, n_remove_keep.
 """
 import argparse
 import json
@@ -149,6 +157,54 @@ def ablate(run_dir, out_dir, score_drops, draws, probe_drops, n_random):
     return res
 
 
+def ablate_added(run_dir, out_dir, ctrl_mean, score_drops, draws, probe_drops, n_random):
+    """Score a technique network with its k added units removed, in the two forms (module docstring).
+
+    Args:
+        run_dir: str; out_dir: str; ctrl_mean: float, the control networks' mean active count;
+        score_drops, draws, probe_drops, n_random: ints, as in `ablate`.
+    Returns:
+        the result dict that was written.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    cfg, task, trainer = load_run(run_dir, device)
+    T = trainer.T
+    p, clean_full = probe_participation(task, trainer, T, probe_drops, trainer.probe_seed)
+    active = active_mask(p)
+    N, n_active = len(p), int(active.sum())
+    quiet = np.argsort(p, kind="stable")
+    act_quiet = np.array([u for u in quiet if active[u]], dtype=np.int64)    # active units, least participating first
+    k = n_active - int(round(ctrl_mean))
+    n_keep = N - int(round(ctrl_mean))
+    rng = np.random.default_rng(1)
+
+    def one(order, n):
+        """Score with the first n units of `order` removed (n = 0: intact)."""
+        return removed_score(task, trainer, T, score_drops, draws, order, [n])[0]
+
+    res = {"run_dir": run_dir, "N": N, "n_active": n_active, "ctrl_mean": ctrl_mean, "k": k,
+           "n_remove_keep": n_keep, "T": T, "score_drops": score_drops, "draws": draws,
+           "clean_full": clean_full, "label": f"N={N}_s{cfg.seed}"}
+    res["score_full"] = score(task, trainer, T, score_drops, draws)
+    res["score_no_inactive"] = one(quiet, N - n_active)
+    if k > 0:
+        res["score_added"] = one(act_quiet, k)
+        res["score_random_active"] = [one(rng.permutation(act_quiet), k) for _ in range(n_random)]
+    res["score_keep_ctrl"] = one(quiet, n_keep)
+    res["score_random_keep"] = [one(rng.permutation(N), n_keep) for _ in range(n_random)]
+    os.makedirs(out_dir, exist_ok=True)
+    cell = os.path.basename(os.path.dirname(run_dir.rstrip("/")))
+    path = os.path.join(out_dir, f"{cell}__s{cfg.seed}.json")
+    with open(path, "w") as fh:
+        json.dump(res, fh)
+    print(f"{cell} s{cfg.seed}: {n_active} of {N} active, k {k}; intact {res['score_full']:.3f}, "
+          f"-inactive {res['score_no_inactive']:.3f}, -k added {res.get('score_added', float('nan')):.3f}, "
+          f"-k random active {np.median(res.get('score_random_active', [np.nan])):.3f}, "
+          f"-{n_keep} least {res['score_keep_ctrl']:.3f}, -{n_keep} random {np.median(res['score_random_keep']):.3f}"
+          f" -> {path}", flush=True)
+    return res
+
+
 def main():
     """Parse arguments and ablate one run."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -158,7 +214,12 @@ def main():
     ap.add_argument("--draws", type=int, default=4)
     ap.add_argument("--probe-drops", type=int, default=128)
     ap.add_argument("--random", type=int, default=5)
+    ap.add_argument("--added", type=float, default=None,
+                    help="the control networks' mean active count: run the added-unit mode (round 18, G4)")
     args = ap.parse_args()
+    if args.added is not None:
+        ablate_added(args.run_dir, args.out, args.added, args.score_drops, args.draws, args.probe_drops, args.random)
+        return
     ablate(args.run_dir, args.out, args.score_drops, args.draws, args.probe_drops, args.random)
 
 

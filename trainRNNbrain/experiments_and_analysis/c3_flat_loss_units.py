@@ -18,8 +18,12 @@ Per run it reports:
     participation probe at >= 150k, with its standard error.
 The test, written before any number was computed, is in `git show db10e7c:docs/notes/agent-c3.md`.
 
+CDDM (round 18, G7; rule in docs/project_trajectory/2026-11-07_0100_round18-rules.md): --cddm reads
+CDDM_CELLS instead, the standard CDDM networks trained in one piece to 200k (N = 500, 1,000) and 300k
+(N = 2,000), with the window, thresholds and verdict unchanged.
+
 Usage:
-    python trainRNNbrain/experiments_and_analysis/c3_flat_loss_units.py [ROOT]
+    python trainRNNbrain/experiments_and_analysis/c3_flat_loss_units.py [ROOT] [--cddm]
 ROOT is the folder holding the sweeps (default: common.DATA_DIR). On a local copy whose
 `init_from` paths do not exist, each run's parent must sit inside it as a `parent_*` folder (the
 layout common.warm_start_chain falls back to).
@@ -40,6 +44,9 @@ CELLS = [("N=1000 claim-1", "NBitFlipFlop_c1_snapshots_c300000/EqType=h_N=1000_a
          ("N=500", "NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=500_pen=none_arm=none"),
          ("N=1000 ff_revive", "NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=1000_pen=none_arm=none"),
          ("N=2000", "NBitFlipFlop_ff_revive_c200000/EqType=h_k=3_N=2000_pen=none_arm=none")]
+CDDM_CELLS = [("N=500 CDDM", "CDDM_std_g0_drift_bias0/EqType=h_N=500_iters=200000"),
+              ("N=1000 CDDM", "CDDM_std_g0_drift_bias0/EqType=h_N=1000_iters=200000"),
+              ("N=2000 CDDM", "CDDM_std_g0_drift_bias0/EqType=h_N=2000_iters=300000")]
 T_FLAT = 150_000        # start of the flat-loss window
 BLOCK = 5_000           # loss block length for the medians
 READS = (150_000, 200_000, 300_000)
@@ -93,14 +100,14 @@ def at(ita, act, t):
     return float(act[np.argmin(np.abs(ita - t))])
 
 
-def main(root):
+def main(root, cells=CELLS):
     """Read every run, print the per-run table and the per-size verdict of the written test.
 
     Args:
-        root: folder holding the sweeps.
+        root: folder holding the sweeps; cells: list of (size label, cell) pairs (CELLS or CDDM_CELLS).
     """
     seen, rows = set(), []
-    for size, rel in CELLS:
+    for size, rel in cells:
         for r in runs_with_loss(os.path.join(root, rel)):
             run_dir = os.path.join(root, rel, r["name"])
             chain = [os.path.basename(d.rstrip("/")).replace("parent_", "", 1)
@@ -146,4 +153,5 @@ def main(root):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else DATA_DIR)
+    args = [a for a in sys.argv[1:] if a != "--cddm"]
+    main(args[0] if args else DATA_DIR, CDDM_CELLS if "--cddm" in sys.argv[1:] else CELLS)
