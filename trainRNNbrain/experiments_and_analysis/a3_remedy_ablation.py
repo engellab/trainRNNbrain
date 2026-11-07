@@ -19,7 +19,10 @@ W_out, held-out R^2 under the training noise with sigma_w = 0, DRAWS = 9 seeded 
   r2_random_active  `surplus` active units drawn at random removed, RANDOM_ORDERS sets;
   r2_keep_ctrl      every unit but the n_ctrl most-participating removed, n_ctrl = the control's mean
                     active count: the remedy network cut to the control's active count;
-  r2_no_inactive    every inactive unit removed.
+  r2_no_inactive    every inactive unit removed;
+  r2_random_keep    N - n_ctrl units drawn at random from all N removed, RANDOM_ORDERS sets, from a
+                    generator of its own so the keys above are unchanged (round 18, G3 and G5: the
+                    random counterpart of r2_keep_ctrl, the removal the maze analysis makes).
 Reading: if the recruited units carry no task signal, r2_recruited stays near r2_full while
 r2_random_active falls; if they do work, the two are close.
 
@@ -81,16 +84,19 @@ def weights_at(run_dir, it=FIXED_ITER):
     return hit[0] if hit else None
 
 
-def ablate_net(run_dir, n_ctrl):
-    """All A3 scores for one network at 75k.
+def ablate_net(run_dir, n_ctrl, it=FIXED_ITER, pf=None):
+    """All A3 scores for one network at iteration `it` (75k unless another is given).
 
     Args:
         run_dir: a run folder; n_ctrl: the control's mean offline active count at this N, or None
-            while the control itself is being read.
+            while the control itself is being read; it: int, the iteration whose weights are read
+            (round 18 reads CDDM networks that kept weights only at 100k); pf: str or None, a
+            parameter file to read instead of looking one up at `it` (a run whose warm-start parent
+            is not on this machine, so its chain's iterations cannot be resolved).
     Returns:
-        JSON-ready dict of the scores listed in the module docstring, or None without 75k weights.
+        JSON-ready dict of the scores listed in the module docstring, or None without weights at `it`.
     """
-    pf = weights_at(run_dir)
+    pf = weights_at(run_dir, it) if pf is None else pf
     if pf is None:
         return None
     cfg, rnn = A.build(run_dir, A.load_params(pf))
@@ -121,6 +127,9 @@ def ablate_net(run_dir, n_ctrl):
             res["r2_random_active"] = [score(rng.choice(act_idx, size=k, replace=False))[0]
                                        for _ in range(RANDOM_ORDERS)]
             res["r2_keep_ctrl"] = score(order[:N - int(round(n_ctrl))])[0]
+            rng_keep = np.random.default_rng(zlib.crc32((run_dir + "|keep").encode()))
+            res["r2_random_keep"] = [score(rng_keep.choice(N, size=N - int(round(n_ctrl)), replace=False))[0]
+                                     for _ in range(RANDOM_ORDERS)]
     return res
 
 
