@@ -484,7 +484,8 @@ def collect():
 # ---------------------------------------------------------------------------------------------
 # drawing
 # ---------------------------------------------------------------------------------------------
-FIG2_H_MM = 117.0       # printed height of Figure 2 (width is \textwidth, 165.1 mm)
+FIG2_H_MM = 105.0       # printed height of Figure 2 (width is \textwidth, 165.1 mm); 117 until round 15,
+                        # when the caption grew by the maze's read-out and n per size (dead-relu-paper#182)
 FIG2_BOTTOM_WIDTHS = [2.15, 1.35]       # bottom row: panel e (three tasks), panel f (two columns)
 # gap between panels e and f, as a fraction of the mean panel width: about 13 mm, room for the maze
 # column's success-rate ticks and label on its right (round 14) beside panel f's left tick labels
