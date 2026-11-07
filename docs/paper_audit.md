@@ -320,6 +320,30 @@ tasks from 0.0032 (its CDDM difference; on 3BFF its best value is 0.0002 above t
 (the rate penalty at λ 0.01); under (b) from 0.0046 with no upper limit among the networks that exist,
 because every other technique's matched Maze value fails the 0.9 condition or did not finish.
 
+**C6, round 18, removals and sizes (entry 2026-11-07_0235_round18-results).** G3, CDDM removal of the k added
+units (A3 procedure): read-out dropout (R² drops 0.19-0.29) and the rate penalty 0.1 and 0.2 (0.27-0.35)
+depend on them; prune-and-duplicate is mixed (drops 0.07, 0.16, 0.07; 0.83 to 0.67-0.76); k random active
+units lower R² further in every network. G4, Maze, 3BFF removal on 12 networks: prune-and-duplicate (drops
+0.27-0.39) and rate 0.3 depend, rate 0.03 and 0.1 mixed (one network each below the 0.10 bar; rate 0.1 s1 did
+not learn). The 570-unit values of Fig. 5d and Results 5 were linear interpolations; exact values are 0.36-0.78
+(paper 0.53-0.76) and 0.06-0.37 random (paper 0.08-0.33). G5: the Maze form holds on 3BFF for every technique
+(random lower in 19 of 19). G6: CDDM prune-and-duplicate raises the count at N = 500-4,000 in every network,
+1.4-2.1x at the floor crossing (R² within 0.004), 1.7-2.7x at 75k; read-out dropout falls to 1.02x at the floor
+at N = 4,000 (count condition fails) and 1.14x at 75k. The Discussion's "techniques across sizes in 3BFF only"
+changes.
+
+**Round 18, other claims (same entry).** C2: the Maze exponent at N >= 500, the supervised fit range, is 0.35
+at the learned point (bootstrap 0.31-0.38) and 0.41 at the end (0.38-0.44), against 0.47 and 0.52 over every
+size; intervals narrow because N = 4,000 has one learned network; budgets 2,000 updates at N <= 1,000 and 4,000
+above. C3: the flat-loss test on CDDM, 9 of 9 flat networks lose 34-64 active units per 100k; on Maze no
+learned network has a flat training return (still rising by 10-55% of its rise per 1,000 updates), so Maze has
+no flat window. C5: 40 of 48 learned Maze networks of the control, setting and re-initialisation arms have fewer
+active units at update 2,000 than at the learned point; pooled 166 of 175. C4: 208-283 of the 1,000 units of
+the N = 1,000 Maze networks are silent on the frozen rollout (with CDDM). C7: from the logs, 3.6-9.7% of the
+inactive units at the learned point are active 700 updates later in 8 Maze networks and 17% and 19% in the two
+N = 1,000 networks: mixed, so C7 does not gain Maze. C8: the recurrent-weight s.d. is 24-28% lower over all
+units than over the active units in the three N = 1,000 Maze networks.
+
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
 421-457 for an untrained network trained on the new task; R² is the same (0.91). Verdict, by the

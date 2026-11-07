@@ -1,0 +1,47 @@
+
+=== prune-and-duplicate ===
+N=500: config differs no; runs without a crossing: none
+   1.05x: arm [404, 411, 411] control [291, 302, 302] fold 1.37 dR2 -0.0033 count ok True
+   1.10x: arm [407, 400, 408] control [312, 317, 321] fold 1.28 dR2 -- count ok True
+   1.20x: arm [434, 444, 450] control [382, 377, 390] fold 1.16 dR2 -- count ok True
+     75k: arm [409, 398, 409] control [252, 240, 242] fold 1.66 dR2 -0.0028 count ok True
+N=1000: config differs no; runs without a crossing: none
+   1.05x: arm [656, 672, 641] control [436, 420, 437] fold 1.52 dR2 -0.0025 count ok True
+   1.10x: arm [667, 630, 665] control [484, 485, 481] fold 1.35 dR2 -- count ok True
+   1.20x: arm [687, 723, 720] control [620, 593, 597] fold 1.18 dR2 -- count ok True
+     75k: arm [701, 699, 726] control [342, 334, 333] fold 2.11 dR2 -0.0032 count ok True
+N=2000: config differs no; runs without a crossing: none
+   1.05x: arm [1055, 1058, 1073] control [543, 522, 580] fold 1.94 dR2 +0.0022 count ok True
+   1.10x: arm [957, 894, 905] control [657, 635, 716] fold 1.37 dR2 -- count ok True
+   1.20x: arm [1002, 1015, 967] control [858, 877, 873] fold 1.14 dR2 -- count ok True
+     75k: arm [1053, 1097, 1130] control [446, 449, 449] fold 2.44 dR2 +0.0006 count ok True
+N=4000: config differs no; runs without a crossing: none
+   1.05x: arm [1605, 1630, 1626] control [776, 769, 756] fold 2.11 dR2 -0.0035 count ok True
+   1.10x: arm [1459, 1334, 1399] control [950, 928, 935] fold 1.49 dR2 -- count ok True
+   1.20x: arm [1384, 1392, 1339] control [1270, 1277, 1222] fold 1.09 dR2 -- count ok True
+     75k: arm [1673, 1719, 1704] control [623, 639, 636] fold 2.68 dR2 -0.0053 count ok True
+-> prune-and-duplicate: count condition at 1.05x and at 75k at every judged size: True
+
+=== read-out dropout ===
+N=500: config differs no; runs without a crossing: none
+   1.05x: arm [388, 387, 380] control [291, 302, 302] fold 1.29 dR2 -0.0039 count ok True
+   1.10x: arm [395, 395, 395] control [312, 317, 321] fold 1.25 dR2 -- count ok True
+   1.20x: arm [395, 404, 401] control [382, 377, 390] fold 1.04 dR2 -- count ok True
+     75k: arm [376, 370, 376] control [252, 240, 242] fold 1.53 dR2 -0.0080 count ok True
+N=1000: config differs no; runs without a crossing: ['never stays under the bar']
+   1.05x: arm [537, 546] control [436, 420, 437] fold 1.26 dR2 -0.0021 count ok True
+   1.10x: arm [589, 598] control [484, 485, 481] fold 1.23 dR2 -- count ok True
+   1.20x: arm [640, 616] control [620, 593, 597] fold 1.04 dR2 -- count ok False
+     75k: arm [524, 505, 523] control [342, 334, 333] fold 1.54 dR2 -0.0076 count ok True
+N=2000: config differs no; runs without a crossing: none
+   1.05x: arm [714, 664, 693] control [543, 522, 580] fold 1.26 dR2 -0.0011 count ok True
+   1.10x: arm [772, 756, 777] control [657, 635, 716] fold 1.15 dR2 -- count ok True
+   1.20x: arm [906, 876, 888] control [858, 877, 873] fold 1.02 dR2 -- count ok False
+     75k: arm [667, 644, 651] control [446, 449, 449] fold 1.46 dR2 -0.0041 count ok True
+N=4000: config differs no; runs without a crossing: none
+   1.05x: arm [809, 801, 743] control [776, 769, 756] fold 1.02 dR2 -0.0049 count ok False
+   1.10x: arm [938, 920, 824] control [950, 928, 935] fold 0.95 dR2 -- count ok False
+   1.20x: arm [1174, 1117, 994] control [1270, 1277, 1222] fold 0.87 dR2 -- count ok False
+     75k: arm [726, 725, 720] control [623, 639, 636] fold 1.14 dR2 -0.0052 count ok True
+-> read-out dropout: count condition at 1.05x and at 75k at every judged size: False
+-> /Users/pt1290/Documents/GitHub/trainRNNbrain/data/round18/g6_cddm_sizes.json

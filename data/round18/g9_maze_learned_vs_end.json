@@ -1,0 +1,627 @@
+{
+ "rows": [
+  {
+   "key": "control",
+   "cls": "control",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1050,
+   "active_learned": 451,
+   "active_end": 426,
+   "diff": -25
+  },
+  {
+   "key": "control",
+   "cls": "control",
+   "seed": 2,
+   "group": "counted",
+   "learned": 760,
+   "active_learned": 517,
+   "active_end": 449,
+   "diff": -68
+  },
+  {
+   "key": "cap0.3",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1110,
+   "active_learned": 495,
+   "active_end": 434,
+   "diff": -61
+  },
+  {
+   "key": "duplicate",
+   "cls": "rule",
+   "seed": 1,
+   "group": "technique",
+   "learned": 1060,
+   "active_learned": 695,
+   "active_end": 747,
+   "diff": 52
+  },
+  {
+   "key": "frm0.03",
+   "cls": "rule",
+   "seed": 1,
+   "group": "technique",
+   "learned": 1040,
+   "active_learned": 936,
+   "active_end": 878,
+   "diff": -58
+  },
+  {
+   "key": "frm0.1+rws0.05",
+   "cls": "rule",
+   "seed": 1,
+   "group": "technique",
+   "learned": 1610,
+   "active_learned": 950,
+   "active_end": 901,
+   "diff": -49
+  },
+  {
+   "key": "frm0.3",
+   "cls": "rule",
+   "seed": 1,
+   "group": "technique",
+   "learned": 1100,
+   "active_learned": 958,
+   "active_end": 962,
+   "diff": 4
+  },
+  {
+   "key": "inorm0.5",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 310,
+   "active_learned": 650,
+   "active_end": 577,
+   "diff": -73
+  },
+  {
+   "key": "met0.1",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1120,
+   "active_learned": 468,
+   "active_end": 431,
+   "diff": -37
+  },
+  {
+   "key": "met1",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1930,
+   "active_learned": 411,
+   "active_end": 390,
+   "diff": -21
+  },
+  {
+   "key": "redraw",
+   "cls": "rule",
+   "seed": 1,
+   "group": "counted",
+   "learned": 750,
+   "active_learned": 482,
+   "active_end": 447,
+   "diff": -35
+  },
+  {
+   "key": "rwm0.05",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1170,
+   "active_learned": 431,
+   "active_end": 481,
+   "diff": 50
+  },
+  {
+   "key": "rwm0.2",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 790,
+   "active_learned": 505,
+   "active_end": 517,
+   "diff": 12
+  },
+  {
+   "key": "rws0.05",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1190,
+   "active_learned": 447,
+   "active_end": 399,
+   "diff": -48
+  },
+  {
+   "key": "synnoise",
+   "cls": "rule",
+   "seed": 1,
+   "group": "technique",
+   "learned": 1950,
+   "active_learned": 456,
+   "active_end": 451,
+   "diff": -5
+  },
+  {
+   "key": "srad0.5",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1960,
+   "active_learned": 339,
+   "active_end": 338,
+   "diff": -1
+  },
+  {
+   "key": "srad1.5",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1590,
+   "active_learned": 369,
+   "active_end": 350,
+   "diff": -19
+  },
+  {
+   "key": "srec0.01",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 460,
+   "active_learned": 566,
+   "active_end": 456,
+   "diff": -110
+  },
+  {
+   "key": "srec0",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 270,
+   "active_learned": 629,
+   "active_end": 440,
+   "diff": -189
+  },
+  {
+   "key": "wd0",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1650,
+   "active_learned": 408,
+   "active_end": 404,
+   "diff": -4
+  },
+  {
+   "key": "wd1e-5",
+   "cls": "setting",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1800,
+   "active_learned": 403,
+   "active_end": 402,
+   "diff": -1
+  },
+  {
+   "key": "zeroout",
+   "cls": "rule",
+   "seed": 1,
+   "group": "counted",
+   "learned": 1850,
+   "active_learned": 470,
+   "active_end": 445,
+   "diff": -25
+  },
+  {
+   "key": "adamw",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 900,
+   "active_learned": 514,
+   "active_end": 452,
+   "diff": -62
+  },
+  {
+   "key": "cap0.3",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 1400,
+   "active_learned": 487,
+   "active_end": 463,
+   "diff": -24
+  },
+  {
+   "key": "duplicate",
+   "cls": "rule",
+   "seed": 2,
+   "group": "technique",
+   "learned": 930,
+   "active_learned": 677,
+   "active_end": 741,
+   "diff": 64
+  },
+  {
+   "key": "frm0.03",
+   "cls": "rule",
+   "seed": 2,
+   "group": "technique",
+   "learned": 1030,
+   "active_learned": 877,
+   "active_end": 862,
+   "diff": -15
+  },
+  {
+   "key": "frm0.1",
+   "cls": "rule",
+   "seed": 2,
+   "group": "technique",
+   "learned": 570,
+   "active_learned": 953,
+   "active_end": 927,
+   "diff": -26
+  },
+  {
+   "key": "frm0.3",
+   "cls": "rule",
+   "seed": 2,
+   "group": "technique",
+   "learned": 850,
+   "active_learned": 973,
+   "active_end": 930,
+   "diff": -43
+  },
+  {
+   "key": "inorm0.5",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 140,
+   "active_learned": 648,
+   "active_end": 593,
+   "diff": -55
+  },
+  {
+   "key": "inorm2",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 140,
+   "active_learned": 449,
+   "active_end": 443,
+   "diff": -6
+  },
+  {
+   "key": "met0.01",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 1280,
+   "active_learned": 465,
+   "active_end": 413,
+   "diff": -52
+  },
+  {
+   "key": "redraw",
+   "cls": "rule",
+   "seed": 2,
+   "group": "counted",
+   "learned": 960,
+   "active_learned": 488,
+   "active_end": 457,
+   "diff": -31
+  },
+  {
+   "key": "rwm0.05",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 1810,
+   "active_learned": 471,
+   "active_end": 459,
+   "diff": -12
+  },
+  {
+   "key": "synnoise",
+   "cls": "rule",
+   "seed": 2,
+   "group": "technique",
+   "learned": 1230,
+   "active_learned": 458,
+   "active_end": 478,
+   "diff": 20
+  },
+  {
+   "key": "srad0.5",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 1230,
+   "active_learned": 443,
+   "active_end": 393,
+   "diff": -50
+  },
+  {
+   "key": "srad1.5",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 1240,
+   "active_learned": 525,
+   "active_end": 471,
+   "diff": -54
+  },
+  {
+   "key": "srec0.01",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 560,
+   "active_learned": 563,
+   "active_end": 380,
+   "diff": -183
+  },
+  {
+   "key": "srec0",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 350,
+   "active_learned": 596,
+   "active_end": 425,
+   "diff": -171
+  },
+  {
+   "key": "wd0",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 900,
+   "active_learned": 514,
+   "active_end": 452,
+   "diff": -62
+  },
+  {
+   "key": "wd1e-5",
+   "cls": "setting",
+   "seed": 2,
+   "group": "counted",
+   "learned": 1790,
+   "active_learned": 413,
+   "active_end": 417,
+   "diff": 4
+  },
+  {
+   "key": "zeroout",
+   "cls": "rule",
+   "seed": 2,
+   "group": "counted",
+   "learned": 1200,
+   "active_learned": 466,
+   "active_end": 440,
+   "diff": -26
+  },
+  {
+   "key": "adamw",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 1080,
+   "active_learned": 458,
+   "active_end": 429,
+   "diff": -29
+  },
+  {
+   "key": "cap0.3",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 1090,
+   "active_learned": 394,
+   "active_end": 380,
+   "diff": -14
+  },
+  {
+   "key": "duplicate",
+   "cls": "rule",
+   "seed": 3,
+   "group": "technique",
+   "learned": 840,
+   "active_learned": 683,
+   "active_end": 712,
+   "diff": 29
+  },
+  {
+   "key": "frm0.03",
+   "cls": "rule",
+   "seed": 3,
+   "group": "technique",
+   "learned": 1450,
+   "active_learned": 783,
+   "active_end": 792,
+   "diff": 9
+  },
+  {
+   "key": "frm0.1",
+   "cls": "rule",
+   "seed": 3,
+   "group": "technique",
+   "learned": 1450,
+   "active_learned": 941,
+   "active_end": 982,
+   "diff": 41
+  },
+  {
+   "key": "frm0.3",
+   "cls": "rule",
+   "seed": 3,
+   "group": "technique",
+   "learned": 720,
+   "active_learned": 985,
+   "active_end": 812,
+   "diff": -173
+  },
+  {
+   "key": "inorm0.5",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 470,
+   "active_learned": 575,
+   "active_end": 549,
+   "diff": -26
+  },
+  {
+   "key": "inorm2",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 1230,
+   "active_learned": 342,
+   "active_end": 357,
+   "diff": 15
+  },
+  {
+   "key": "met0.01",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 1220,
+   "active_learned": 377,
+   "active_end": 379,
+   "diff": 2
+  },
+  {
+   "key": "met0.1",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 730,
+   "active_learned": 442,
+   "active_end": 387,
+   "diff": -55
+  },
+  {
+   "key": "met1",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 1900,
+   "active_learned": 358,
+   "active_end": 359,
+   "diff": 1
+  },
+  {
+   "key": "redraw",
+   "cls": "rule",
+   "seed": 3,
+   "group": "counted",
+   "learned": 900,
+   "active_learned": 479,
+   "active_end": 483,
+   "diff": 4
+  },
+  {
+   "key": "rwm0.05",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 1420,
+   "active_learned": 409,
+   "active_end": 394,
+   "diff": -15
+  },
+  {
+   "key": "rwm0.2",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 1490,
+   "active_learned": 412,
+   "active_end": 405,
+   "diff": -7
+  },
+  {
+   "key": "srad0.5",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 910,
+   "active_learned": 437,
+   "active_end": 414,
+   "diff": -23
+  },
+  {
+   "key": "srec0.01",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 520,
+   "active_learned": 567,
+   "active_end": 436,
+   "diff": -131
+  },
+  {
+   "key": "srec0",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 290,
+   "active_learned": 606,
+   "active_end": 400,
+   "diff": -206
+  },
+  {
+   "key": "wd0",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 920,
+   "active_learned": 466,
+   "active_end": 432,
+   "diff": -34
+  },
+  {
+   "key": "wd1e-4",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 1320,
+   "active_learned": 370,
+   "active_end": 378,
+   "diff": 8
+  },
+  {
+   "key": "wd1e-5",
+   "cls": "setting",
+   "seed": 3,
+   "group": "counted",
+   "learned": 1320,
+   "active_learned": 390,
+   "active_end": 370,
+   "diff": -20
+  },
+  {
+   "key": "zeroout",
+   "cls": "rule",
+   "seed": 3,
+   "group": "counted",
+   "learned": 880,
+   "active_learned": 458,
+   "active_end": 420,
+   "diff": -38
+  }
+ ],
+ "n_counted": 48,
+ "n_fewer": 40,
+ "verdict": "extends to Maze"
+}

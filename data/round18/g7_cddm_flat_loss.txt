@@ -1,0 +1,15 @@
+size              seed         end k chain floor k kind          @floor @150k @200k @300k    L150    Lend    dL% dL%/100k lost/100k   se
+N=500 CDDM        1851165457     200     1      27 fit              303   196   183   nan  0.0222  0.0222   -0.3     -0.7      33.9  1.1
+N=500 CDDM        2511109702     200     1      25 fit              305   203   180   nan  0.0223  0.0222   -0.7     -1.6      43.0  1.3
+N=500 CDDM        2778976239     200     1      29 fit              301   208   187   nan  0.0223  0.0222   -0.5     -1.1      46.7  1.1
+N=1000 CDDM       2490685872     200     1      28 fit              416   282   254   nan  0.0223  0.0222   -0.3     -0.7      51.8  1.1
+N=1000 CDDM       970815651      200     1      30 fit              424   300   274   nan  0.0224  0.0222   -0.7     -1.5      61.4  1.1
+N=1000 CDDM       3150611977     200     1      30 fit              420   285   270   nan  0.0223  0.0222   -0.3     -0.7      37.6  1.6
+N=2000 CDDM       1384935425     300     1      32 fit              548   404   360   307  0.0224  0.0222   -0.9     -0.6      64.2  0.8
+N=2000 CDDM       2598026004     300     1      32 fit              561   375   351   308  0.0225  0.0223   -0.9     -0.6      50.8  0.3
+N=2000 CDDM       2594605461     300     1      34 fit              562   372   333   290  0.0224  0.0223   -0.4     -0.3      51.5  0.3
+
+Test (pre-registered): flat = |loss change| < 3.0% per 100k; 'stopped' = loses < 5.0 units per 100k
+  N=500: 3 runs, 3 flat, 3 of the flat ones lose >= 5.0 per 100k -> units keep dying while the loss is flat
+  N=1000: 3 runs, 3 flat, 3 of the flat ones lose >= 5.0 per 100k -> units keep dying while the loss is flat
+  N=2000: 3 runs, 3 flat, 3 of the flat ones lose >= 5.0 per 100k -> units keep dying while the loss is flat

@@ -1,0 +1,16 @@
+Using cpu for RNN!
+ite/N=1000_act=relu/s1: 421 active (probe success 0.99); s.d. all 0.0412, active 0.0547, rel -25%, random subsets [0.0396, 0.0433] -> differs True
+Using cpu for RNN!
+ite/N=1000_act=relu/s2: 451 active (probe success 0.98); s.d. all 0.0421, active 0.0551, rel -24%, random subsets [0.0403, 0.0440] -> differs True
+Using cpu for RNN!
+ite/N=1000_act=relu/s3: 420 active (probe success 0.82); s.d. all 0.0387, active 0.0539, rel -28%, random subsets [0.0366, 0.0408] -> differs True
+-> 3 of 3 differ with S_all < S_act: extends to Maze
+-> /Users/pt1290/Documents/GitHub/trainRNNbrain/data/round18/g13_maze_weight_spread.json
+Using cpu for RNN!
+ite/N=1000_act=relu/s1: active 421, inactive 579; silent on the clean probe 277, on the frozen rollout 249 (both 242); low-active on the frozen rollout 330; frozen-rollout success 0.98
+Using cpu for RNN!
+ite/N=1000_act=relu/s2: active 451, inactive 549; silent on the clean probe 216, on the frozen rollout 208 (both 199); low-active on the frozen rollout 341; frozen-rollout success 0.97
+Using cpu for RNN!
+ite/N=1000_act=relu/s3: active 420, inactive 580; silent on the clean probe 312, on the frozen rollout 283 (both 279); low-active on the frozen rollout 297; frozen-rollout success 0.88
+-> with CDDM (silent units present)
+-> /Users/pt1290/Documents/GitHub/trainRNNbrain/data/round18/g14_maze_silent.json

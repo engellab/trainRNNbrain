@@ -1,0 +1,38 @@
+{
+ "rows": [
+  {
+   "folder": "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s1",
+   "n_active": 421,
+   "success": 0.9921875,
+   "s_all": 0.041170310229063034,
+   "s_act": 0.05472811684012413,
+   "rel": -0.24773018685563722,
+   "subset_min": 0.03955976665019989,
+   "subset_max": 0.04325408488512039,
+   "differs": true
+  },
+  {
+   "folder": "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s2",
+   "n_active": 451,
+   "success": 0.984375,
+   "s_all": 0.04207729175686836,
+   "s_act": 0.055138710886240005,
+   "rel": -0.23688292525226864,
+   "subset_min": 0.04031308367848396,
+   "subset_max": 0.04404750093817711,
+   "differs": true
+  },
+  {
+   "folder": "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s3",
+   "n_active": 420,
+   "success": 0.8203125,
+   "s_all": 0.03866255655884743,
+   "s_act": 0.053881771862506866,
+   "rel": -0.2824557318288486,
+   "subset_min": 0.03659695014357567,
+   "subset_max": 0.04081546142697334,
+   "differs": true
+  }
+ ],
+ "verdict": "extends to Maze"
+}

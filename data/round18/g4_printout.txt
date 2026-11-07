@@ -1,0 +1,19 @@
+         network  act    k intact -inact -k add -k rnd   drop  -keep  -rndN  check
+   duplicate__s1  748  318  0.936  0.948  0.670  0.475  0.266  0.674  0.327  
+   duplicate__s2  742  312  0.944  0.927  0.592  0.423  0.353  0.574  0.251  
+   duplicate__s3  714  284  0.955  0.958  0.562  0.430  0.393  0.564  0.239  
+     frm0.03__s1  919  489  0.936  0.932  0.747  0.336  0.188  0.776  0.334  old interp 0.757 ok=True
+     frm0.03__s2  853  423  0.889  0.902  0.754  0.374  0.135  0.729  0.366  old interp 0.733 ok=True
+     frm0.03__s3  791  361  0.862  0.877  0.782  0.203  0.080  0.821  0.081  
+      frm0.1__s1  773  343  0.534  0.534  0.465  0.006  0.069  0.475  0.006  
+      frm0.1__s2  929  499  0.888  0.909  0.661  0.304  0.227  0.632  0.242  
+      frm0.1__s3  982  552  0.943  0.942  0.365  0.061  0.578  0.359  0.061  old interp 0.530 ok=False
+      frm0.3__s1  962  532  0.842  0.827  0.682  0.312  0.160  0.690  0.348  old interp 0.677 ok=True
+      frm0.3__s2  930  500  0.956  0.968  0.631  0.319  0.325  0.647  0.317  old interp 0.613 ok=False
+      frm0.3__s3  810  380  0.955  0.957  0.621  0.381  0.334  0.622  0.273  
+  duplicate: drops [0.266, 0.353, 0.393] -> depends; k random active lower than k added in 3 of 3
+  frm0.03: drops [0.188, 0.135, 0.08] -> mixed; k random active lower than k added in 3 of 3
+  frm0.1: drops [0.069, 0.227, 0.578] -> mixed; k random active lower than k added in 3 of 3
+  frm0.3: drops [0.16, 0.325, 0.334] -> depends; k random active lower than k added in 3 of 3
+  rate penalty, all values pooled: mixed
+-> /Users/pt1290/Documents/GitHub/trainRNNbrain/data/round18/g4_maze_added_summary.json

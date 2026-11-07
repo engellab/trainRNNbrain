@@ -1,0 +1,213 @@
+{
+ "rows": [
+  {
+   "N": 250,
+   "seed": "1",
+   "learned": 1190.0,
+   "ref_update": 1200.0,
+   "n_inactive": 98,
+   "last_vector": 2000.0,
+   "later_50": {
+    "update": 1250.0,
+    "n_active_again": 1,
+    "fraction": 0.01020408163265306
+   },
+   "later_700": {
+    "update": 1900.0,
+    "n_active_again": 4,
+    "fraction": 0.04081632653061224
+   }
+  },
+  {
+   "N": 250,
+   "seed": "3",
+   "learned": 830.0,
+   "ref_update": 850.0,
+   "n_inactive": 77,
+   "last_vector": 2000.0,
+   "later_50": {
+    "update": 900.0,
+    "n_active_again": 2,
+    "fraction": 0.025974025974025976
+   },
+   "later_700": {
+    "update": 1550.0,
+    "n_active_again": 7,
+    "fraction": 0.09090909090909091
+   }
+  },
+  {
+   "N": 250,
+   "seed": "4",
+   "learned": 940.0,
+   "ref_update": 950.0,
+   "n_inactive": 113,
+   "last_vector": 2000.0,
+   "later_50": {
+    "update": 1000.0,
+    "n_active_again": 6,
+    "fraction": 0.05309734513274336
+   },
+   "later_700": {
+    "update": 1650.0,
+    "n_active_again": 6,
+    "fraction": 0.05309734513274336
+   }
+  },
+  {
+   "N": 500,
+   "seed": "1",
+   "learned": 1350.0,
+   "ref_update": 1350.0,
+   "n_inactive": 219,
+   "last_vector": 2000.0,
+   "later_50": {
+    "update": 1400.0,
+    "n_active_again": 14,
+    "fraction": 0.0639269406392694
+   },
+   "later_700": null
+  },
+  {
+   "N": 500,
+   "seed": "2",
+   "learned": 1280.0,
+   "ref_update": 1300.0,
+   "n_inactive": 247,
+   "last_vector": 2000.0,
+   "later_50": {
+    "update": 1350.0,
+    "n_active_again": 12,
+    "fraction": 0.048582995951417005
+   },
+   "later_700": {
+    "update": 2000.0,
+    "n_active_again": 24,
+    "fraction": 0.09716599190283401
+   }
+  },
+  {
+   "N": 500,
+   "seed": "3",
+   "learned": 1750.0,
+   "ref_update": 1750.0,
+   "n_inactive": 221,
+   "last_vector": 2000.0,
+   "later_50": {
+    "update": 1800.0,
+    "n_active_again": 8,
+    "fraction": 0.03619909502262444
+   },
+   "later_700": null
+  },
+  {
+   "N": 1000,
+   "seed": "1",
+   "learned": 1050.0,
+   "ref_update": 1050.0,
+   "n_inactive": 549,
+   "last_vector": 2000.0,
+   "later_50": {
+    "update": 1100.0,
+    "n_active_again": 59,
+    "fraction": 0.10746812386156648
+   },
+   "later_700": {
+    "update": 1750.0,
+    "n_active_again": 92,
+    "fraction": 0.16757741347905283
+   }
+  },
+  {
+   "N": 1000,
+   "seed": "2",
+   "learned": 760.0,
+   "ref_update": 800.0,
+   "n_inactive": 499,
+   "last_vector": 2000.0,
+   "later_50": {
+    "update": 850.0,
+    "n_active_again": 54,
+    "fraction": 0.10821643286573146
+   },
+   "later_700": {
+    "update": 1500.0,
+    "n_active_again": 96,
+    "fraction": 0.19238476953907815
+   }
+  },
+  {
+   "N": 2000,
+   "seed": "1",
+   "learned": 3000.0,
+   "ref_update": 3000.0,
+   "n_inactive": 1607,
+   "last_vector": 4000.0,
+   "later_50": {
+    "update": 3050.0,
+    "n_active_again": 32,
+    "fraction": 0.019912881144990666
+   },
+   "later_700": {
+    "update": 3700.0,
+    "n_active_again": 58,
+    "fraction": 0.03609209707529558
+   }
+  },
+  {
+   "N": 2000,
+   "seed": "2",
+   "learned": 2480.0,
+   "ref_update": 2500.0,
+   "n_inactive": 1440,
+   "last_vector": 4000.0,
+   "later_50": {
+    "update": 2550.0,
+    "n_active_again": 46,
+    "fraction": 0.03194444444444444
+   },
+   "later_700": {
+    "update": 3200.0,
+    "n_active_again": 122,
+    "fraction": 0.08472222222222223
+   }
+  },
+  {
+   "N": 2000,
+   "seed": "3",
+   "learned": 2840.0,
+   "ref_update": 2850.0,
+   "n_inactive": 1576,
+   "last_vector": 4000.0,
+   "later_50": {
+    "update": 2900.0,
+    "n_active_again": 42,
+    "fraction": 0.0266497461928934
+   },
+   "later_700": {
+    "update": 3550.0,
+    "n_active_again": 59,
+    "fraction": 0.037436548223350255
+   }
+  },
+  {
+   "N": 4000,
+   "seed": "1",
+   "learned": 2860.0,
+   "ref_update": 2900.0,
+   "n_inactive": 3360,
+   "last_vector": 4000.0,
+   "later_50": {
+    "update": 2950.0,
+    "n_active_again": 83,
+    "fraction": 0.02470238095238095
+   },
+   "later_700": {
+    "update": 3600.0,
+    "n_active_again": 227,
+    "fraction": 0.0675595238095238
+   }
+  }
+ ],
+ "verdict": "mixed"
+}

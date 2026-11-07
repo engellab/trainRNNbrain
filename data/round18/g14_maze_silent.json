@@ -1,0 +1,40 @@
+{
+ "rows": [
+  {
+   "folder": "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s1",
+   "success": 0.9921875,
+   "n_active": 421,
+   "n_inactive": 579,
+   "silent_clean": 277,
+   "silent_frozen": 249,
+   "silent_both": 242,
+   "frozen_success": 0.9765625,
+   "action_std": 0.5
+  },
+  {
+   "folder": "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s2",
+   "success": 0.984375,
+   "n_active": 451,
+   "n_inactive": 549,
+   "silent_clean": 216,
+   "silent_frozen": 208,
+   "silent_both": 199,
+   "frozen_success": 0.96875,
+   "action_std": 0.5
+  },
+  {
+   "folder": "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s3",
+   "success": 0.8203125,
+   "n_active": 420,
+   "n_inactive": 580,
+   "silent_clean": 312,
+   "silent_frozen": 283,
+   "silent_both": 279,
+   "frozen_success": 0.8828125,
+   "action_std": 0.5
+  }
+ ],
+ "verdict": "with CDDM (silent units present)",
+ "frozen_seed": 20261107,
+ "episodes": 256
+}
