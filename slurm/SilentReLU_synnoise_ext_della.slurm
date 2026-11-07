@@ -34,6 +34,9 @@
 #   7-9    3-bit flip-flop  N= 500  sigma_w 1.0   40k
 #   10-12  3-bit flip-flop  N=2000  sigma_w 1.0   40k
 #   13-15  CDDM             N=1000  sigma_w 1.0  100k
+#   16-18  CDDM             N=1000  sigma_w 0.1   75k   (round 18 parity, 7 Nov 2026: the 3BFF values that
+#   19-21  CDDM             N=1000  sigma_w 0.3   75k    pass the paper's criterion, run on CDDM;
+#                                                         docs/project_trajectory/*_round18-parity-rules.md)
 #
 # NO CONTROL CELLS. sigma_w = 0 is bit-for-bit the historical forward pass, pinned by
 # tests/test_synaptic_weight_noise.py, so the existing arms ARE the matched controls:
@@ -111,10 +114,10 @@ fi
 # index 0 unused, so the decode reads SLURM_ARRAY_TASK_ID directly
 TASK_TASK=(x NBitFlipFlop NBitFlipFlop NBitFlipFlop NBitFlipFlop NBitFlipFlop NBitFlipFlop \
              NBitFlipFlop NBitFlipFlop NBitFlipFlop NBitFlipFlop NBitFlipFlop NBitFlipFlop \
-             CDDM CDDM CDDM)
-TASK_N=(0 1000 1000 1000 1000 1000 1000 500 500 500 2000 2000 2000 1000 1000 1000)
-TASK_SW=(0 2.0 2.0 2.0 3.0 3.0 3.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0)
-TASK_IT=(0 40000 40000 40000 40000 40000 40000 40000 40000 40000 40000 40000 40000 100000 100000 100000)
+             CDDM CDDM CDDM CDDM CDDM CDDM CDDM CDDM CDDM)
+TASK_N=(0 1000 1000 1000 1000 1000 1000 500 500 500 2000 2000 2000 1000 1000 1000 1000 1000 1000 1000 1000 1000)
+TASK_SW=(0 2.0 2.0 2.0 3.0 3.0 3.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 0.1 0.1 0.1 0.3 0.3 0.3)
+TASK_IT=(0 40000 40000 40000 40000 40000 40000 40000 40000 40000 40000 40000 40000 100000 100000 100000 75000 75000 75000 75000 75000 75000)
 
 i=$SLURM_ARRAY_TASK_ID
 TASK=${TASK_TASK[$i]}; N=${TASK_N[$i]}; SW=${TASK_SW[$i]}; IT=${TASK_IT[$i]}

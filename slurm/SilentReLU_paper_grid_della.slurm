@@ -18,6 +18,10 @@
 #   mute dropout drop rate 0.20, beta 4, participation sampling -- the settings of the completed
 #                flip-flop size series, which this reuses rather than re-running.
 #   control      neither, otherwise identical.
+#   mute0.05     (round 18 parity, 7 Nov 2026) mute dropout at drop rate 0.05, beta 4: the 3BFF value that
+#                passes the paper's criterion, run on CDDM (docs/project_trajectory/*_round18-parity-rules.md).
+#                TASK=cddm SWEEP=parity_r18 ITERS_OVERRIDE=75000 sbatch --time=08:00:00 --array=40-42 ...
+#                (arm index 3: tasks 37-48; N=1000 is 40-42)
 #
 # WHY copy_noise 1.0 AND NOT 0.05. Across the jitter sweep the active count rises monotonically
 # (685, 676, 708, 751, 752 at jitter 0, 0.05, 0.3, 1.0, 3.0) and the final weight distribution is
@@ -106,7 +110,7 @@ fi
 echo "code: $PKG @ $GITSHA (git)"
 
 SIZES=(500 1000 2000 4000)
-ARMS=(control duplication mute)
+ARMS=(control duplication mute mute0.05)
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 3)); S_IDX=$(((TID / 3) % 4)); A_IDX=$((TID / 12))
@@ -136,6 +140,12 @@ case "$ARM" in
                          trainer.dropout_args.dropout_kind=mute
                          trainer.dropout_args.sampling_method=participation
                          trainer.dropout_args.drop_rate=0.20
+                         trainer.dropout_args.dropout_beta=4) ;;
+  mute0.05)    ARM_ARGS=(trainer.prune_reinit=false trainer.synaptic_scaling=false
+                         trainer.dropout=true
+                         trainer.dropout_args.dropout_kind=mute
+                         trainer.dropout_args.sampling_method=participation
+                         trainer.dropout_args.drop_rate=0.05
                          trainer.dropout_args.dropout_beta=4) ;;
 esac
 

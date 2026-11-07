@@ -69,6 +69,10 @@
 # output counts, so K is not passed and the folder carries no k) at the 75,000-iteration same-size
 # budget of silent_units_largeN. The paper's arm is cell 2 (target 10.0), 3 seeds, indices 9-11:
 #   TASK=cddm sbatch --time=08:00:00 --constraint=nomig --array=9-11 slurm/SilentReLU_target_ladder_della.slurm
+# Cell 3, target 4.0 (round 18 parity, 7 Nov 2026): the 3BFF revive_ops2 value that passes the paper's
+# criterion (target 4.0, protection 0.20, the rest as below), run on CDDM; tasks 13-16, three seeds:
+#   TASK=cddm sbatch --time=08:00:00 --constraint=nomig --array=13-15 slurm/SilentReLU_target_ladder_della.slurm
+# (docs/project_trajectory/*_round18-parity-rules.md)
 # Output: $SAVE_TO/CDDM_target_ladder/EqType=h_N=1000_tgt=<t>/
 
 #SBATCH --job-name=TgtLadder
@@ -125,7 +129,7 @@ case "${TASK:-ff}" in
   *) echo "FATAL: TASK must be ff or cddm; got '${TASK}'" >&2; exit 1 ;;
 esac
 
-CELL_TGT=(6.0 8.0 10.0)
+CELL_TGT=(6.0 8.0 10.0 4.0)
 
 TID=$((SLURM_ARRAY_TASK_ID - 1))
 REP=$((TID % 4)); CELL=$((TID / 4))

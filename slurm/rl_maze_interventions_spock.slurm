@@ -86,6 +86,11 @@
 #                             weight decay 1e-6) at the four rates of the B5 ladder that learned
 #                             the flip-flop (3 and 10 did not); the size rule and the warm-up ramp
 #                             apply as to Adam, so the rate at N = 1,000 is 0.464 x <v>
+#   115-126 sigmaw0.1, sigmaw0.3, dropout0.05_beta4, rescale_tgt4   (round 18 parity, 7 Nov 2026: the 3BFF
+#                             values that pass the paper's criterion, run on Maze: model.sigma_w 0.1 and 0.3
+#                             (submit with --time=24:00:00, about 16 h per run), read-out dropout at
+#                             drop rate 0.05 with beta 4, and the rescale arm above with target 4.0 (the
+#                             3BFF revive_ops2 cell); docs/project_trajectory/*_round18-parity-rules.md)
 #   109-114 redraw, zeroout   trainer.prune_reinit=true and the paper's re-initialisation arms as
 #                             swept keys (slurm/SilentReLU_replace_variants_della.slurm, modes random
 #                             and zero_out: max_replace_frac 0.025, maturity 1000, utility
@@ -105,7 +110,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=48G
 #SBATCH --time=12:00:00
-#SBATCH --array=1-114%114
+#SBATCH --array=1-126%126
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
@@ -147,7 +152,8 @@ echo "code: $PKG @ $GITSHA"
 ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4 rescale rescale_mild rescale_few
          wd0 wd1e-5 wd1e-4 inorm0.5 inorm2 inorm5 inorm20 duplicate
          srec0 srec0.01 srec0.1 srad0.5 srad1.5 rws0.05
-         cap0.3 rwm0.05 rwm0.2 met0.01 met0.1 met1 met10 adamw sgd0.03 sgd0.1 sgd0.3 sgd1 redraw zeroout)
+         cap0.3 rwm0.05 rwm0.2 met0.01 met0.1 met1 met10 adamw sgd0.03 sgd0.1 sgd0.3 sgd1 redraw zeroout
+         sigmaw0.1 sigmaw0.3 dropout0.05_beta4 rescale_tgt4)
 ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.lambda_frm=0.3"
                "trainer.lambda_frm=0.1 trainer.lambda_rws=0.05" "model.sigma_w=1.0" "trainer.dropout=true"
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
@@ -164,7 +170,10 @@ ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.la
                "trainer.optimizer=sgd trainer.lr=0.03" "trainer.optimizer=sgd trainer.lr=0.1"
                "trainer.optimizer=sgd trainer.lr=0.3" "trainer.optimizer=sgd trainer.lr=1"
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=random trainer.prune_args.max_replace_frac=0.025 trainer.prune_args.maturity=1000 trainer.prune_args.utility=contribution trainer.prune_args.check_every=100 trainer.prune_args.patience=3"
-               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=zero_out trainer.prune_args.max_replace_frac=0.025 trainer.prune_args.maturity=1000 trainer.prune_args.utility=contribution trainer.prune_args.check_every=100 trainer.prune_args.patience=3")
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=zero_out trainer.prune_args.max_replace_frac=0.025 trainer.prune_args.maturity=1000 trainer.prune_args.utility=contribution trainer.prune_args.check_every=100 trainer.prune_args.patience=3"
+               "model.sigma_w=0.1" "model.sigma_w=0.3"
+               "trainer.dropout=true trainer.dropout_args.drop_rate=0.05 trainer.dropout_args.dropout_beta=4.0"
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=4.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1")
 
 i=$SLURM_ARRAY_TASK_ID
 a=$(( (i - 1) / 3 )); SEED=$(( (i - 1) % 3 + 1 ))
