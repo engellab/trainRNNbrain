@@ -409,3 +409,4 @@ figures are written to `img/internal_figures/`.
 | `fig_paper_F2_size.pdf` | fig_paper_F2_size.py (Maze power law fitted at N >= 500, b = 0.35; the every-size fit printed as a second reading; r18-text, #201) | `49a0805` | 2026-11-07 |
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (c: 3BFF and CDDM sub-columns, CDDM from data/round18/g6_reads.json; d: one removal on 3BFF, CDDM and Maze, from a3_N1000.json, g3_cddm_removal.json and g4_maze_added_summary.json; r18-text, #201) | `49a0805` | 2026-11-07 |
 | `fig_ed_maze.pdf` | fig_ed_maze.py (c: fit at N >= 500, b = 0.41 [0.38, 0.45]; d: the N = 2,000 and 4,000 chain ablations drawn; r18-text, #201) | `6e4d03a` | 2026-11-07 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (a,b: the 3BFF rate penalty at 0.01 and 0.03 beside 0.1, #204; d: edge labels moved, PR #202 review item 12) | `3255125` | 2026-11-07 |

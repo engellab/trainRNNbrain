@@ -312,8 +312,14 @@ rate 0.1 + sparsity 0.05; noisy synapses σ_w 1.0; read-out dropout rate 0.2 β 
 technique (rate penalty 3), CDDM and Maze one each except the rate penalty (CDDM 0.1, 0.2; Maze 0.03,
 0.1, 0.3). **Provisional** until the training package runs noisy synapses σ_w 0.1 and 0.3, read-out
 dropout rate 0.05 and rescaling target 4.0 on CDDM and Maze: the (a) verdicts for those techniques and
-the "in CDDM networks only ... in none" sentence of Results 5. Not provisional: the headline
-"prune-and-duplicate is the one technique on all three tasks" at 0.01 holds under both (a) and (b); M09's
+the "in CDDM networks only ... in none" sentence of Results 5. **Also provisional (corrected 7 Nov,
+entry 2026-11-07_0331_correction-r18-headline-provisional; dead-relu-paper#205):** the headline
+"prune-and-duplicate is the one technique on all three tasks" at 0.01 and the one-value range 0.0032-0.0161.
+Both hold on present data under (a) and (b), but a parity value that meets the criterion on CDDM and Maze
+(for read-out dropout, on Maze alone) would make its technique pass on all three tasks; under (b) the parity
+values become matched values once run, and the matched-values rule was chosen after the (a) verdicts were
+computed (PR #202 review). The paper marks both as provisional (PR #202); recompute both when the parity
+runs are read. M09's
 "only technique at all three tolerances" is false under (a) (the rate penalty at 0.02). M09's range
 "from 0.0046 to about 0.0213" changes under both: under (a) prune-and-duplicate alone passes on all three
 tasks from 0.0032 (its CDDM difference; on 3BFF its best value is 0.0002 above the controls) to 0.0161
