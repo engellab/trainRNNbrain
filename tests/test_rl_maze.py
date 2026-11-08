@@ -363,6 +363,22 @@ def test_safe_rollout_restores():
     batch, restored = trainer.safe_rollout(bad, 4, 10, snapshot=snapshot)
     assert restored == 4 and torch.isfinite(batch["logp"]).all()
     assert torch.equal(trainer.RNN.W_rec, snapshot["W_rec"])
+    # NaN in W_rec reaches every step of every episode: each discarded rollout is classed "running"
+    assert trainer.restore_kinds == {"post_episode": 0, "running": 4}, trainer.restore_kinds
+    # a rollout whose only non-finite value sits after an episode's end is classed "post_episode"
+    real = trainer.rollout
+    def post_only(n, T_):
+        out = real(n, T_)
+        out["alive"][3:, 0] = 0.0                       # episode 0 ended before decision 3
+        out["logp"][5, 0] = float("nan")                # non-finite after its end only
+        return out
+    calls = {"n": 0}
+    def once(n, T_):
+        calls["n"] += 1
+        return post_only(n, T_) if calls["n"] == 1 else real(n, T_)
+    trainer.rollout = once
+    batch, restored = trainer.safe_rollout(good, 4, 10)
+    assert restored == 1 and trainer.restore_kinds == {"post_episode": 1, "running": 0}, trainer.restore_kinds
 
 
 def test_run_script_writes_standard_layout():

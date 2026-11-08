@@ -1266,11 +1266,18 @@ class TrainerPPO:
             RuntimeError if no finite rollout was obtained.
         """
         restored = 0
+        # WHERE each discarded rollout went non-finite (8 Nov 2026): "post_episode" when every step of a
+        # running episode was finite and only steps after an episode's end were not (the RNN keeps
+        # stepping after the cheese unless freeze_after_end), "running" otherwise; read by run_training
+        self.restore_kinds = {"post_episode": 0, "running": 0}
         for source in ([good] if snapshot is None else [good, snapshot]):
             for _ in range(tries):
                 batch = self.rollout(n_episodes, T)
                 if torch.isfinite(batch["logp"]).all() and torch.isfinite(batch["rewards"]).all():
                     return batch, restored
+                live = batch["alive"][:-1] > 0
+                ok_live = bool(torch.isfinite(batch["logp"][live]).all() and torch.isfinite(batch["rewards"][live]).all())
+                self.restore_kinds["post_episode" if ok_live else "running"] += 1
                 self.RNN.load_state_dict(source)
                 restored += 1
         raise RuntimeError(f"the rollout was not finite {restored} times in a row; the run is stopped")
@@ -1497,7 +1504,9 @@ class TrainerPPO:
             batch, restored = self.safe_rollout(good, hp.n_episodes, hp.T, snapshot=snapshot)
             if restored:
                 print(f"update {it}: rollout not finite, weights restored ({restored} tries"
-                      f"{', from the last checkpoint' if restored > 3 else ''})", flush=True)
+                      f"{', from the last checkpoint' if restored > 3 else ''}; non-finite after an episode's "
+                      f"end only in {self.restore_kinds['post_episode']}, within a running episode in "
+                      f"{self.restore_kinds['running']})", flush=True)
             if batch["participation"] is not None:
                 eta = float(self.dropout_args.get("eta", 0.5))
                 self.p_bar = (1 - eta) * self.p_bar + eta * batch["participation"]
@@ -1511,6 +1520,7 @@ class TrainerPPO:
                              "success": batch["success"].float().mean().item(),
                              "steps": batch["steps"].mean().item(),
                              "restored": restored,
+                             "restored_post_episode": self.restore_kinds["post_episode"],
                              "lr": lr_now,
                              **stats})
             good = {k: v.detach().clone() for k, v in self.RNN.state_dict().items()}
