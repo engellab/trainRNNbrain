@@ -25,6 +25,16 @@
 #   sbatch --array=1-16 --time=12:00:00 slurm/rl_maze_r19_pilot_della.slurm
 # Output: $SAVE_TO/Maze_r19pilot/N=1000_act=<act>_<cond>/s<seed>
 #
+# FULL RUNS (8 Nov 2026, docs/project_trajectory/*_round19-full-sigmoid-rules.md): the shifted sigmoid at
+# initial spectral radius 0.45 passed the pilot at 4,000 updates, and the coordinator approved full runs under
+# the stage protocol, with a ReLU control at the same radius. Indices 17-22 (seeds 3-5, new draws, so the
+# pilot's seeds 1-2, chosen on their outcome, are not reused), only model.spectral_rad=0.45 changed:
+#     17-19  sigmoid_shifted  rad0.45  seeds 3, 4, 5
+#     20-22  relu             rad0.45  seeds 3, 4, 5
+#   sbatch --array=17-22 --time=12:00:00 slurm/rl_maze_r19_pilot_della.slurm
+# Output: $SAVE_TO/Maze_r19full/N=1000_act=<act>_rad0.45/s<seed>; later stages continue them with
+# PARENT_ROOT=<SAVE_TO>/Maze_r19full (the continuation block below).
+#
 #SBATCH --job-name=R19pilot
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -79,7 +89,17 @@ case "$COND" in
   gain)       KEYS=(model.spectral_rad="${GAIN[$A]}") ;;
   gain_lr0.3) KEYS=(model.spectral_rad="${GAIN[$A]}" trainer.lr=0.0003) ;;
 esac
-TAG="r19pilot/N=1000_act=${ACT}_${COND}"
+PREFIX=r19pilot
+if [ "$SLURM_ARRAY_TASK_ID" -ge 17 ]; then
+  F=$((SLURM_ARRAY_TASK_ID - 17))
+  if [ "$F" -ge 6 ]; then
+    echo "FATAL: index ${SLURM_ARRAY_TASK_ID} is not in the grid (1-22)." >&2; exit 1
+  fi
+  SEED=$((F % 3 + 3))
+  if [ "$F" -lt 3 ]; then ACT=sigmoid_shifted; else ACT=relu; fi
+  COND=rad0.45; KEYS=(model.spectral_rad=0.45); PREFIX=r19full
+fi
+TAG="${PREFIX}/N=1000_act=${ACT}_${COND}"
 # CONTINUATION (7 Nov 2026, docs/project_trajectory/*_round19-pilot-stage2-rules.md): with PARENT_ROOT (the
 # folder holding the pilot cells, <SAVE_TO>/Maze_r19pilot) and EXTRA_UPDATES set, the index continues its own
 # pilot run from the parent's weights, as the suite launcher's continuation does: INIT_ADAM (default true)
