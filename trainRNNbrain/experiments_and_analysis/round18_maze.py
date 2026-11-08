@@ -345,7 +345,7 @@ def silent_on(trainer, T, out, inactive):
     """
     k = trainer.substeps
     with torch.no_grad():
-        states = trainer.sequence(out["u"], out["noise"])[0][:, :T * k]
+        states = trainer.sequence(out["u"], out["noise"], alive=out["alive"])[0][:, :T * k]
     alive = out["alive"][:-1].bool().repeat_interleave(k, dim=0)
     x = states[:, alive].cpu().numpy()                     # (N, steps while the episode runs, episodes)
     xmax = x.reshape(x.shape[0], -1).max(axis=1)

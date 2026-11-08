@@ -228,21 +228,28 @@ if [ -n "${PARENT_ROOT:-}" ]; then
   echo "continuation, stage ${STAGE}: from ${PARENT} (init_adam=${INIT_ADAM}), ${EXTRA_UPDATES} further updates -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 fi
 
-# FREEZE (round 19, 8 Nov 2026; docs/project_trajectory/*_round19-penalty-reruns-rules.md): FREEZE=true adds
-# trainer.freeze_after_end=true (an ended episode's state is held, and the rate and metabolic penalties average
-# over the steps before the end only; configs/trainer/trainer_ppo.yaml). Every run before 8 Nov ran with false.
-# Submit such runs into their own tree (SAVE_TO), since the readers derive the arm from the config and a run
-# with and without the key would otherwise share an arm. A continuation must use its parent's setting.
+# AFTER AN EPISODE ENDS (8 Nov 2026; docs/project_trajectory/*_round19-freeze-default-rules.md): a new run takes
+# configs/trainer/trainer_ppo.yaml's freeze_after_end (true since 8 Nov) unless FREEZE=true|false names it; a
+# continuation keeps its parent's setting (false for every run before 8 Nov, whose config has no key). FREEZE that
+# differs from the parent's is refused, unless FREEZE_SWITCH=true asks for the switch deliberately (a test).
+# Submit runs whose setting differs from an arm's existing runs into their own tree (SAVE_TO): the readers derive
+# the arm from the config.
 FZ=()
-if [ "${FREEZE:-false}" = true ]; then
-  FZ=(trainer.freeze_after_end=true)
-fi
 if [ -n "${PARENT_ROOT:-}" ]; then
   PARENT_FZ=false
   if grep -q "freeze_after_end: true" "${PARENT}"/*config.yaml 2>/dev/null; then PARENT_FZ=true; fi
-  if [ "$PARENT_FZ" != "${FREEZE:-false}" ]; then
-    echo "FATAL: ${PARENT} ran with freeze_after_end=${PARENT_FZ}; continue it with FREEZE=${PARENT_FZ}." >&2; exit 1
+  if [ -n "${FREEZE:-}" ] && [ "$FREEZE" != "$PARENT_FZ" ]; then
+    if [ "${FREEZE_SWITCH:-false}" != true ]; then
+      echo "FATAL: ${PARENT} ran with freeze_after_end=${PARENT_FZ}; continue it with FREEZE=${PARENT_FZ} (or FREEZE_SWITCH=true for a deliberate switch)." >&2; exit 1
+    fi
+    echo "WARNING: freeze_after_end switched from the parent's ${PARENT_FZ} to ${FREEZE} (FREEZE_SWITCH=true)"
+    FZ=(trainer.freeze_after_end="$FREEZE")
+  else
+    FZ=(trainer.freeze_after_end="$PARENT_FZ")
   fi
+  echo "freeze_after_end=${FZ[0]#*=}"
+elif [ -n "${FREEZE:-}" ]; then
+  FZ=(trainer.freeze_after_end="$FREEZE")
 fi
 
 # shellcheck disable=SC2086

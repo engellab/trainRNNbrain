@@ -136,6 +136,18 @@ if [ -n "${PARENT_ROOT:-}" ]; then
   echo "continuation, stage ${STAGE}: from ${PARENT} (init_adam=${INIT_ADAM}), ${EXTRA_UPDATES} further updates -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 fi
 
+# AFTER AN EPISODE ENDS (8 Nov 2026; docs/project_trajectory/*_round19-freeze-default-rules.md): a new run takes
+# configs/trainer/trainer_ppo.yaml's freeze_after_end (true since 8 Nov); a continuation keeps its parent's
+# setting, read from the parent's saved config (false for every run before 8 Nov, whose config has no key),
+# so a chain never changes it.
+FZ=()
+if [ -n "${PARENT_ROOT:-}" ]; then
+  PARENT_FZ=false
+  if grep -q "freeze_after_end: true" "${PARENT}"/*config.yaml 2>/dev/null; then PARENT_FZ=true; fi
+  FZ=(trainer.freeze_after_end="$PARENT_FZ")
+  echo "freeze_after_end=${PARENT_FZ}, the parent's"
+fi
+
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   task=Maze trainer=trainer_ppo seed="$SEED" model="rnn_${ACT}_standard" model.N="$N" \
-  paths=paths_DELLA paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\"" "${CONT[@]}"
+  paths=paths_DELLA paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\"" "${CONT[@]}" "${FZ[@]}"
