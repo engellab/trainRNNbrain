@@ -413,13 +413,17 @@ _1111, _1723).**
   equal-budget stages for the others wait for the coordinator.
 - *Settings (Fig. 3), Maze at 4,000 beside the stated 2,000 read* (controls at 4,000: 314-404):
   - weight decay 1e-4 decreases at both points (3 of 3 learned at 4,000, 301-311);
-  - the metabolic penalty 1 goes from "decreases" to "no change";
-  - the metabolic penalty 10 gains "decreases", on one learned seed;
   - activity noise 0.1 goes from "no direction" to "no change";
   - SGD does not learn within 4,000 updates at any rate.
-- *Techniques on Maze at 4,000.* Rate 0.1 + sparsity 0.05 (812-891 active) and σ_w 1.0 (409-455 against a
-  bar of 404) work; both fail at 2,000. The bar falls from 449 to 404 because the controls lose units between
-  2,000 and 4,000.
+- *Techniques on Maze at 4,000.* σ_w 1.0 works (409-455 active against a bar of 404); it fails at 2,000. The
+  bar falls from 449 to 404 because the controls lose units between 2,000 and 4,000.
+- **Withdrawn (entries 2026-11-08_0940 and _0943): every Maze verdict of the rate penalty (frm0.03, 0.1, 0.3,
+  rate + sparsity) and the metabolic penalty (0.01-10), at 2,000 and 4,000.** Until 8 Nov the Maze trainer kept
+  stepping the RNN after an episode ended and averaged both penalties over those steps too (20-56% of RNN steps
+  late in training). That froze met0.01 seed 1 (every optimiser step skipped from update 1,501: "frozen by a
+  non-finite loss"). The 24 networks are rerun with `trainer.freeze_after_end=true` (Della 17107385); "the rate
+  penalty works on Maze at 0.03 and 0.3" and the cross-task technique count wait for them. Active-unit
+  read-outs never include post-episode steps.
 - *tanh* learns under no tested setting within 4,000 updates. *The shifted sigmoid* learns at initial spectral
   radius 0.45, a per-activation change decided after the pilot was read. Full runs and a same-radius ReLU
   control are training (Della 17105877).
