@@ -85,6 +85,18 @@ checkpoint_every: 100       # updates between writes of the run folder (run_rl.p
 # (run_rl.py, save_snapshot), outside the tree the readers glob, so a network can be read at its
 # learned point. About 4 MB per snapshot at N = 1,000. A launcher turns it on with KEEP_ALL=true.
 checkpoint_keep: false
+# AFTER AN EPISODE ENDS (since 8 Nov 2026). false: the RNN keeps stepping on the last observation after the
+# cheese, in the rollout and in the recompute, and the rate and metabolic penalties average over those steps
+# too: every run before 8 Nov 2026 ran this way, and a run saved without the key did. Nothing in the task
+# constrains those post-episode dynamics, and they can grow without bound: in met0.01 seed 1 they reached
+# |x| ~ 1e21 while every running episode stayed below 2, the metabolic penalty overflowed and every optimiser
+# step from update 1,501 on was skipped; rwm0.2 seed 1 was stopped by the rollback guard the same way
+# (docs/project_trajectory/2026-11-08_*_round19-met0.01-frozen-cause.md). true: an ended episode's state is
+# held at its value at the end, and the two penalties average over the steps before the end only
+# (TrainerPPO.freeze_after_end). Kept false here so that a continuation of an existing chain trains as its
+# parent did; a run that should use the fix sets it on the command line, and switching the default is the
+# coordinator's decision (the existing Maze results ran with false).
+freeze_after_end: false
 # --- THE PAPER'S INTERVENTIONS (issue #5, the five of Figure 5 minus rescaling), each OFF here; an
 # arm sets its key on the launcher command line (slurm/rl_maze_interventions_spock.slurm). Every
 # definition is the supervised Trainer's, mirrored in TrainerPPO (its docstrings quote the

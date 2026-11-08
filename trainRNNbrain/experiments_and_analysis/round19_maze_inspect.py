@@ -90,7 +90,7 @@ def probe_rates(trainer):
     T, k = trainer.T, trainer.substeps
     out = trainer.rollout(PROBE_EPISODES, T, clean=True, generator=g)
     with torch.no_grad():
-        states = trainer.sequence(out["u"], out["noise"])[0][:, :T * k]
+        states = trainer.sequence(out["u"], out["noise"], alive=out["alive"])[0][:, :T * k]
     rates = trainer.RNN.get_firing_rates(states).cpu().numpy()
     alive = out["alive"][:-1].bool().repeat_interleave(k, dim=0).cpu().numpy()
     return rates[:, alive], float(out["success"].float().mean())

@@ -1331,6 +1331,65 @@ def test_other_modes_refused():
         make_trainer(task, prune_reinit=True, prune_args={**REDRAW_ARGS, "reinit_mode": mode})
 
 
+def test_freeze_after_end_holds_ended_episodes():
+    """trainer.freeze_after_end (8 Nov 2026): with a goal radius large enough that some drops end at the
+    first step and others do not, an ended episode's state is held at its value at the end, in the
+    recompute as in the rollout (the PPO ratio still starts at 1), while a running episode keeps moving;
+    with the option off (every run before 8 Nov) an ended episode's state keeps changing. The
+    recompute refuses to run without the alive rows when the option is on."""
+    for freeze in (True, False):
+        torch.manual_seed(5)
+        task = make_task(seed=5)
+        task.goal_radius = 2.0
+        trainer = make_trainer(task, substeps=2, critic=False, freeze_after_end=freeze)
+        T, B = 12, 16
+        out = trainer.rollout(B, T)
+        ended = out["alive"][1] == 0                      # ended at the first decision
+        assert ended.any() and (~ended).any(), ended
+        states, means, _ = trainer.sequence(out["u"], out["noise"], alive=out["alive"])
+        logp = trainer.log_prob(out["actions"], means[:, :T])
+        assert torch.allclose((logp - out["logp"]).exp(), torch.ones_like(logp), atol=1e-4)
+        after = states[:, 2:, :]                          # every RNN step after the first decision
+        moved = (after - after[:, :1]).abs().amax(dim=(0, 1))
+        if freeze:
+            assert (moved[ended] == 0).all() and (moved[~ended] > 0).all(), moved
+        else:
+            assert (moved[ended] > 0).all(), moved
+    trainer.freeze_after_end = True
+    try:
+        trainer.sequence(out["u"], out["noise"])
+        raise AssertionError("sequence ran without alive rows while freeze_after_end is on")
+    except ValueError:
+        pass
+
+
+def test_penalties_over_live_steps():
+    """With a step mask, the metabolic and rate penalties are those of the kept steps alone: states
+    of 1e30 after an episode's end make the unmasked metabolic penalty overflow to inf in float32 (the
+    cause of met0.01 seed 1's skipped steps, entry 2026-11-08 round19-met0.01-frozen-cause) and leave the
+    masked one finite and equal to the mean over the kept steps; the masked rate penalty equals the
+    penalty of a tensor holding only the kept steps."""
+    task = make_task()
+    trainer = make_trainer(task, N=32, lambda_met=0.1, lambda_frm=0.1, substeps=2)
+    rng = np.random.default_rng(6)
+    T, B = 5, 4
+    states = torch.tensor(rng.normal(0.0, 0.7, size=(32, T * 2, B)).astype(np.float32))
+    alive = torch.ones(T, B)
+    alive[3:, 1] = 0                                      # episode 1 ends before decision 3
+    mask = trainer.live_steps(alive)
+    assert mask.shape == (T * 2, B) and int((~mask).sum()) == 4
+    states[:, 6:, 1] = 1e30                               # its post-episode states blow up
+    assert not torch.isfinite(trainer.metabolic_penalty(states))
+    got = trainer.metabolic_penalty(states, mask).item()
+    kept = np.maximum(states.numpy().astype(np.float64), 0.0)[:, mask.numpy()]
+    assert np.isfinite(got) and abs(got - (kept ** 2).mean()) < 1e-6 * (kept ** 2).mean(), got
+    only = states[:, :6, :]                               # the steps every episode keeps, plus ...
+    ref = torch.cat([only.reshape(32, -1), states[:, 6:, [0, 2, 3]].reshape(32, -1)], dim=1)
+    a = trainer.fr_magnitude_penalty(states, mask).item()
+    b = trainer.fr_magnitude_penalty(ref.reshape(32, -1, 1)).item()
+    assert abs(a - b) < 1e-9 * max(abs(b), 1e-12), (a, b)
+
+
 def main():
     """Run every check and print one line each."""
     for fn in (test_maze_tables, test_sensors, test_step_wall_and_goal, test_corner_is_not_cut_but_slides,
@@ -1347,7 +1406,8 @@ def main():
                test_rescale_protection_blanks_the_incoming_gradient, test_rescale_counts_in_progress,
                test_copy_rule_duplicates_live_units, test_rule_ceiling_and_maturity, test_copy_counts_in_progress,
                test_redraw_modes_rewrite_doomed_units, test_redraw_counts_in_progress,
-               test_other_modes_refused):
+               test_other_modes_refused, test_freeze_after_end_holds_ended_episodes,
+               test_penalties_over_live_steps):
         fn()
         print(f"ok: {fn.__name__}")
 

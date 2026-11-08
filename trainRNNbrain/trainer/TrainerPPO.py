@@ -177,7 +177,7 @@ class TrainerPPO:
                  lambda_frm=0.0, frm_args=None, lambda_rws=0.0, rws_args=None,
                  lambda_rwm=0.0, rwm_args=None, lambda_met=0.0, met_args=None,
                  dropout=False, dropout_args=None, prune_reinit=False, prune_args=None,
-                 iter_offset=0, adam_restored=False):
+                 iter_offset=0, adam_restored=False, freeze_after_end=False):
         """Args:
             RNN: RNN_torch with n_outputs 2 + critic (turn, speed, and the value row with a
                 critic), on the task's device. Its sigma_w (model.sigma_w) switches synaptic noise
@@ -244,6 +244,18 @@ class TrainerPPO:
                 moment estimates exist, and a restored state has them
                 (configs/trainer/trainer_ppo.yaml, warmup_updates). A continuation without the
                 moments ramps again.
+            freeze_after_end: bool (configs/trainer/trainer_ppo.yaml; False in every run before 8 Nov
+                2026). False: the RNN keeps stepping on the last observation after an episode has
+                ended, in the rollout and in the recompute, and the rate and metabolic penalties
+                average over those steps too. True: an ended episode's state is held at its value
+                at the end (rollout and recompute alike, so the ratio still starts at 1), and the
+                two penalties average over the RNN steps before the end only (`live_steps`). Why: with
+                False, post-episode dynamics, which no task term constrains, can grow without bound;
+                in Maze_interventions/met0.01/s1 they reached |x| ~ 1e21 in one episode of 16 while
+                every running episode stayed below 2, the metabolic penalty's float32 square overflowed
+                and every optimiser step from update 1,501 on was skipped (entry
+                2026-11-08_*_round19-met0.01-frozen-cause.md). The per-unit rules' statistics
+                (prune_and_reinit, the dropout EMA) still take every step.
         Raises:
             ValueError if RNN.n_outputs is not 2 + critic; if lambda_rwm is above 0 on an RNN with
             Dale's law (RNN.dale_mask set: the penalty's two-cap branch is not mirrored); if dropout
@@ -341,6 +353,7 @@ class TrainerPPO:
         self.warmup_updates = int(warmup_updates or 0)
         self.iter_offset = int(iter_offset)
         self.adam_restored = bool(adam_restored)
+        self.freeze_after_end = bool(freeze_after_end)
         # the base learning rate, as the run script set it (the size rule); the warm-up ramps to it
         self.lr = None if optimizer is None else float(optimizer.param_groups[0]["lr"])
         self.probe_every, self.probe_episodes = int(probe_every), int(probe_episodes)
@@ -557,25 +570,31 @@ class TrainerPPO:
         value = out[2] if self.critic else torch.zeros_like(out[0])
         return out[:2], value
 
-    def sequence(self, u, noise, w_seed=None, outgoing=None):
+    def sequence(self, u, noise, w_seed=None, outgoing=None, alive=None):
         """Re-run the RNN over a stored observation sequence with stored noise (the PPO recompute).
 
         Args:
             u: (n_inputs, T, B) observations, one per decision;
             noise: dict from `draw_noise` for T * substeps RNN steps;
             w_seed: int or None, the rollout's synaptic-noise seed, whose per-step draws are
-                regenerated here (`advance`); outgoing: (N, 1) or None, the rollout's read-out mask.
+                regenerated here (`advance`); outgoing: (N, 1) or None, the rollout's read-out mask;
+            alive: (T, B) or None, the rollout's alive rows for these decisions; with
+                freeze_after_end on it holds an ended episode's state as the rollout did (required
+                then: without it the recompute would not match the rollout).
         Returns:
             (states, means, values): states (N, T * substeps, B), the state after every RNN step;
             means (2, T, B) and values (T, B), read from the state after the last substep of each
             decision.
         """
         T, B = u.shape[1], u.shape[2]
+        if self.freeze_after_end and alive is None:
+            raise ValueError("sequence: freeze_after_end is on, so the rollout's alive rows are needed")
         x = self.initial_state(B)
         states = []
         for t in range(T):
             for s in range(t * self.substeps, (t + 1) * self.substeps):
-                x = self.advance(x, u[:, t], noise["rec"][:, s], noise["inp"][:, s], w_seed, s)
+                x_new = self.advance(x, u[:, t], noise["rec"][:, s], noise["inp"][:, s], w_seed, s)
+                x = torch.where(alive[t].bool()[None, :], x_new, x) if self.freeze_after_end else x_new
                 states.append(x)
         states = torch.stack(states, dim=1)
         means, values = self.heads(states[:, self.substeps - 1::self.substeps], noise["out"], outgoing)
@@ -583,7 +602,18 @@ class TrainerPPO:
 
     # ------------------------------------------------------------------ the paper's penalties
 
-    def fr_magnitude_penalty(self, states):
+    def live_steps(self, alive):
+        """The RNN steps before each episode's end: the decision rows of `alive` repeated `substeps`
+        times, the rule the probe uses for participation.
+
+        Args:
+            alive: (T, B) float or bool, the rollout's alive rows for T decisions.
+        Returns:
+            (T * substeps, B) bool tensor.
+        """
+        return alive.bool().repeat_interleave(self.substeps, dim=0)
+
+    def fr_magnitude_penalty(self, states, mask=None):
         """The rate penalty of the supervised trainer (Trainer.Penalties.fr_magnitude_penalty), re-typed
         line for line at the paper's frm_args (configs/trainer/trainer_ptrack_freshbatch.yaml: cap_fr
         0.3, tau 0.1, g_top 3, g_bot 3, aggregation "mean", alpha = beta = 1).
@@ -605,6 +635,8 @@ class TrainerPPO:
             states: (N, T, B) RNN states (pre-activations for equation "h", rates for "s"): in
                 ppo_update the states `sequence` returns, every RNN step of every decision of the
                 minibatch, including the steps after an episode ended (the noisy rollout states).
+            mask: (T, B) bool or None, the steps to keep (`live_steps`, with freeze_after_end on);
+                None keeps every step, as every run before 8 Nov 2026 did.
         Returns:
             scalar float64 tensor P >= 0 on the states' device; the loss adds lambda_frm x P.
         """
@@ -613,6 +645,8 @@ class TrainerPPO:
         g_top, g_bot = float(args.get("g_top", 3.0)), float(args.get("g_bot", 3.0))
         dev, dt = states.device, states.dtype
         x = self.RNN.get_firing_rates(states.reshape(states.size(0), -1))        # (N, T * B)
+        if mask is not None:
+            x = x[:, mask.reshape(-1)]
         scale = (torch.log1p(torch.as_tensor(UNITS_PER_VOLUME, device=dev, dtype=dt))
                  / torch.log1p(torch.as_tensor(float(self.RNN.N), device=dev, dtype=dt)))
         cap = torch.as_tensor(cap_fr, device=dev, dtype=dt) * scale
@@ -677,7 +711,7 @@ class TrainerPPO:
         p = torch.pow(torch.relu(r - 1.0) + 1.0, gamma) - 1.0
         return p.mean() * (N / (N_ref * k_ref))
 
-    def metabolic_penalty(self, states):
+    def metabolic_penalty(self, states, mask=None):
         """The metabolic penalty of the supervised trainer (Trainer.Penalties.metabolic_penalty): the
         mean squared firing rate over every unit, step and episode. The supervised lines:
             fr = self.RNN.activation(states)    # equation "h"; the states themselves for "s"
@@ -688,10 +722,14 @@ class TrainerPPO:
         Args:
             states: (N, T, B) RNN states; in ppo_update the states `sequence` returns for the
                 minibatch, every RNN step of every decision, as for the rate penalty.
+            mask: (T, B) bool or None, the steps to keep (`live_steps`, with freeze_after_end on);
+                None keeps every step, as every run before 8 Nov 2026 did.
         Returns:
             scalar tensor P >= 0 in the states' dtype; the loss adds lambda_met x P.
         """
         fr = self.RNN.get_firing_rates(states)
+        if mask is not None:
+            fr = fr[:, mask]
         return torch.mean(fr ** 2)
 
     # ------------------------------------------------------------------ the per-unit rule (prune_reinit)
@@ -1162,8 +1200,10 @@ class TrainerPPO:
             xy, heading = [task.xy.clone()], [task.heading.clone()]
             actions, logp, values, rewards, states = [], [], [], [], []
             for t in range(T):
+                live = alive[-1].bool()[None, :]                  # (1, B): the episode has not ended
                 for s in range(t * k, (t + 1) * k):
-                    x = self.advance(x, u[-1], noise["rec"][:, s], noise["inp"][:, s], w_seed, s)
+                    x_new = self.advance(x, u[-1], noise["rec"][:, s], noise["inp"][:, s], w_seed, s)
+                    x = torch.where(live, x_new, x) if self.freeze_after_end else x_new
                     if keep_states:
                         states.append(x)
                 mean, value = self.heads(x, noise["out"][:, 0], outgoing)
@@ -1181,8 +1221,10 @@ class TrainerPPO:
                 alive.append((~done).float())
                 xy.append(task.xy.clone())
                 heading.append(task.heading.clone())
+            live = alive[-1].bool()[None, :]
             for s in range(T * k, (T + 1) * k):
-                x = self.advance(x, u[-1], noise["rec"][:, s], noise["inp"][:, s], w_seed, s)
+                x_new = self.advance(x, u[-1], noise["rec"][:, s], noise["inp"][:, s], w_seed, s)
+                x = torch.where(live, x_new, x) if self.freeze_after_end else x_new
                 if keep_states:
                     states.append(x)
             values.append(self.heads(x, noise["out"][:, 0], outgoing)[1])
@@ -1333,7 +1375,9 @@ class TrainerPPO:
             for idx in torch.randperm(B, device=adv.device).chunk(self.n_minibatches):
                 noise = {k: v[:, :, idx] for k, v in batch["noise"].items()}
                 states, means, values = self.sequence(batch["u"][:, :, idx], noise,
-                                                      batch["w_seed"], batch["outgoing"])
+                                                      batch["w_seed"], batch["outgoing"],
+                                                      batch["alive"][:, idx])
+                live = self.live_steps(batch["alive"][:, idx]) if self.freeze_after_end else None
                 logp = self.log_prob(batch["actions"][:, :, idx], means[:, :T])
                 m = alive[:, idx]
                 ratio = (logp - batch["logp"][:, idx]).clamp(-20.0, 20.0).exp()
@@ -1346,7 +1390,7 @@ class TrainerPPO:
                 loss = policy_loss + self.value_coef * value_loss - self.entropy_coef * entropy
                 penalties = {}
                 if self.lambda_frm:
-                    penalties["fr_magnitude"] = self.fr_magnitude_penalty(states)
+                    penalties["fr_magnitude"] = self.fr_magnitude_penalty(states, live)
                     loss = loss + self.lambda_frm * penalties["fr_magnitude"]
                 if self.lambda_rws:
                     penalties["rec_weights_sparsity"] = self.rec_weights_sparsity_penalty()
@@ -1355,7 +1399,7 @@ class TrainerPPO:
                     penalties["rec_weights_magnitude"] = self.rec_weights_magnitude_penalty()
                     loss = loss + self.lambda_rwm * penalties["rec_weights_magnitude"]
                 if self.lambda_met:
-                    penalties["metabolic"] = self.metabolic_penalty(states)
+                    penalties["metabolic"] = self.metabolic_penalty(states, live)
                     loss = loss + self.lambda_met * penalties["metabolic"]
                 if not torch.isfinite(loss):
                     skipped += 1
@@ -1398,7 +1442,7 @@ class TrainerPPO:
         T, k = self.T, self.substeps
         out = self.rollout(self.probe_episodes, T, clean=True, generator=g)
         with torch.no_grad():
-            states = self.sequence(out["u"], out["noise"])[0][:, :T * k]          # (N, T * k, B)
+            states = self.sequence(out["u"], out["noise"], alive=out["alive"])[0][:, :T * k]   # (N, T * k, B)
         rates = self.RNN.get_firing_rates(states).cpu().numpy()
         alive = out["alive"][:-1].bool().repeat_interleave(k, dim=0).cpu().numpy()  # (T * k, B)
         p = participation(rates[:, alive])
