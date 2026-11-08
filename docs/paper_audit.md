@@ -366,6 +366,44 @@ rescaling target 4.0 fails (224-231 active against 333-342); σ_w 0.1 fails (316
 networks); σ_w 0.3 passes in two of three networks so far; read-out dropout 0.05 and every Maze parity arm
 are still running.
 
+**Round 18 training package, final (entry 2026-11-08_0859_round18-training-final-results; settles the
+provisional notes of the C6 round-18 paragraph).**
+
+*C6 parity (the 3BFF values that pass, run on CDDM and Maze at N = 1,000).*
+- CDDM: σ_w 0.3 passes, with 356-380 active units against a control maximum of 342. Its mean R² is 0.0008
+  above the controls (SE 0.0012; 8.7 SE inside the 0.01 tolerance), and it also passes against the second
+  control. σ_w 0.1 (316-333), read-out dropout at rate 0.05 with β 4 (326-350) and rescaling at target 4.0
+  (224-231) fail on the count.
+- Maze: all four values fail on the count: σ_w 0.3 (396-432 against 449), σ_w 0.1 (342-418), dropout 0.05
+  (373-455), and rescaling target 4 (one network stopped, one at success 0.01).
+
+*Technique verdicts at tolerance 0.01.*
+- (a) Under the one-value rule, prune-and-duplicate is the only technique on all three tasks.
+- Noisy synapses now pass on 3BFF (σ_w 0.1, 0.3) and CDDM (σ_w 0.3), and fail on Maze.
+- Read-out dropout passes on 3BFF and CDDM; rescaling on 3BFF only; the rate penalty on CDDM and Maze (and
+  on 3BFF at 0.02, through λ 0.01).
+- (b) Under matched values, prune-and-duplicate is the only value passing on all three tasks. σ_w 0.3 passes
+  on 3BFF and CDDM.
+- **Headline unchanged: noisy synapses do not pass on all three tasks at σ_w 0.3.** "Prune-and-duplicate is
+  the one technique that meets the criterion on all three tasks" holds at 0.005 and 0.01 under both rules.
+- The Results 5 sentence "noisy synapses and rescaling in none" is false for noisy synapses under (a):
+  CDDM at σ_w 0.3 passes.
+
+*Settings (Fig. 3).* Against the five learned Maze controls (394-449 at update 2,000), weight decay 1e-5,
+spectral radius 0.5, the sparsity penalty 0.05 and the metabolic penalty 0.01 change from "decreases" to
+"no change" on Maze. Weight decay 1e-4 and the metabolic penalty at 1 still decrease the number of active
+units, and input norm 0.5 still increases it.
+
+*C2.* The Maze exponent at N ≥ 500 on equal 4,000-update budgets is 0.35 (0.32-0.38) at the learned point
+and 0.49 (0.46-0.52) at the end. It replaces the mixed-budget 0.35 and 0.41; N = 4,000 has one learned
+network.
+
+*C7.*
+- G17, Maze transfer on the first maze mirrored left to right: the gate fails (fresh 437 ± 47 against old
+  420 at transfer), so there is no B4 verdict. Old networks have 13.7-18.2% of their inactive units active
+  again at the learned point, between B4's 10% and 30% bars in all five.
+- G18, CDDM transfer: gate passes; between the bars at the floor; "do not come back" at 75k (not binding).
+
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
 421-457 for an untrained network trained on the new task; R² is the same (0.91). Verdict, by the

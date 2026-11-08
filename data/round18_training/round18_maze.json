@@ -179,14 +179,178 @@
   ],
   "result": "weight decay 1e-5 loses its Maze direction (seed(s) [4, 5, 6] at or below 417)"
  },
- "g17": [],
+ "g17": [
+  {
+   "seed": 1,
+   "cell": "N=1000_src=fresh",
+   "source": "null",
+   "source_learned": null,
+   "learned": 1080,
+   "active0": 632,
+   "n_S0": 368,
+   "S0_active_end": 163,
+   "active_end": 411,
+   "success_end": 0.984375,
+   "p_update0": 1,
+   "reason": null,
+   "active_star": 461,
+   "active_A": 453,
+   "revived": 162,
+   "newly_inactive": 341,
+   "a_update": 1100
+  },
+  {
+   "seed": 1,
+   "cell": "N=1000_src=old",
+   "source": "/usr/people/pt1290/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s1",
+   "source_learned": true,
+   "learned": 430,
+   "active0": 432,
+   "n_S0": 568,
+   "S0_active_end": 76,
+   "active_end": 361,
+   "success_end": 1.0,
+   "p_update0": 1,
+   "reason": null,
+   "active_star": 442,
+   "active_A": 433,
+   "revived": 89,
+   "newly_inactive": 88,
+   "a_update": 450
+  },
+  {
+   "seed": 2,
+   "cell": "N=1000_src=fresh",
+   "source": "null",
+   "source_learned": null,
+   "learned": 1440,
+   "active0": 627,
+   "n_S0": 373,
+   "S0_active_end": 166,
+   "active_end": 442,
+   "success_end": 0.984375,
+   "p_update0": 1,
+   "reason": null,
+   "active_star": 466,
+   "active_A": 454,
+   "revived": 163,
+   "newly_inactive": 336,
+   "a_update": 1450
+  },
+  {
+   "seed": 2,
+   "cell": "N=1000_src=old",
+   "source": "/usr/people/pt1290/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s2",
+   "source_learned": true,
+   "learned": 410,
+   "active0": 430,
+   "n_S0": 570,
+   "S0_active_end": 85,
+   "active_end": 375,
+   "success_end": 1.0,
+   "p_update0": 1,
+   "reason": null,
+   "active_star": 431,
+   "active_A": 423,
+   "revived": 104,
+   "newly_inactive": 111,
+   "a_update": 450
+  },
+  {
+   "seed": 3,
+   "cell": "N=1000_src=fresh",
+   "source": "null",
+   "source_learned": null,
+   "learned": 1330,
+   "active0": 582,
+   "n_S0": 418,
+   "S0_active_end": 138,
+   "active_end": 378,
+   "success_end": 0.96875,
+   "p_update0": 1,
+   "reason": null,
+   "active_star": 383,
+   "active_A": 380,
+   "revived": 130,
+   "newly_inactive": 332,
+   "a_update": 1350
+  },
+  {
+   "seed": 4,
+   "cell": "N=1000_src=old",
+   "source": "/usr/people/pt1290/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s4",
+   "source_learned": true,
+   "learned": 420,
+   "active0": 426,
+   "n_S0": 574,
+   "S0_active_end": 99,
+   "active_end": 376,
+   "success_end": 1.0,
+   "p_update0": 1,
+   "reason": null,
+   "active_star": 400,
+   "active_A": 415,
+   "revived": 96,
+   "newly_inactive": 107,
+   "a_update": 450
+  },
+  {
+   "seed": 5,
+   "cell": "N=1000_src=old",
+   "source": "/usr/people/pt1290/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s5",
+   "source_learned": true,
+   "learned": 1020,
+   "active0": 394,
+   "n_S0": 606,
+   "S0_active_end": 84,
+   "active_end": 361,
+   "success_end": 0.921875,
+   "p_update0": 1,
+   "reason": null,
+   "active_star": 390,
+   "active_A": 381,
+   "revived": 83,
+   "newly_inactive": 96,
+   "a_update": 1050
+  },
+  {
+   "seed": 6,
+   "cell": "N=1000_src=old",
+   "source": "/usr/people/pt1290/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s6",
+   "source_learned": true,
+   "learned": 1810,
+   "active0": 418,
+   "n_S0": 582,
+   "S0_active_end": 92,
+   "active_end": 389,
+   "success_end": 0.921875,
+   "p_update0": 1,
+   "reason": null,
+   "active_star": 388,
+   "active_A": 391,
+   "revived": 91,
+   "newly_inactive": 118,
+   "a_update": 1850
+  }
+ ],
  "g17_verdict": {
-  "n_old_eligible": 0,
-  "n_old_read": 0,
-  "need_old": 2,
-  "n_fresh": 0,
-  "revived_share": [],
-  "verdict": "no verdict"
+  "n_old_eligible": 5,
+  "n_old_read": 5,
+  "need_old": 4,
+  "n_fresh": 3,
+  "revived_share": [
+   0.15669014084507044,
+   0.1824561403508772,
+   0.1672473867595819,
+   0.13696369636963696,
+   0.1563573883161512
+  ],
+  "verdict": "gate fails: no B4 verdict (can be recruited by the bars alone)",
+  "gate": false,
+  "fresh_mean": 436.6666666666667,
+  "fresh_sd": 46.543886100467944,
+  "old_at_transfer": 420.0,
+  "old_star": 410.2
  },
  "parity": {
   "controls": {
@@ -206,47 +370,151 @@
    ]
   },
   "sigmaw0.1": {
-   "runs": [],
+   "runs": [
+    {
+     "seed": 1,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 418,
+     "success_end": 1.0,
+     "learned": 1230
+    },
+    {
+     "seed": 2,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 416,
+     "success_end": 0.984375,
+     "learned": 1380
+    },
+    {
+     "seed": 3,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 342,
+     "success_end": 1.0,
+     "learned": 1550
+    }
+   ],
    "passes": false,
    "why": [
-    "no finished network"
+    "not every network above 449 active"
    ],
    "passes_learned_controls": false,
    "why_learned_controls": [
-    "no finished network"
+    "not every network above 449 active"
    ]
   },
   "sigmaw0.3": {
-   "runs": [],
+   "runs": [
+    {
+     "seed": 1,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 400,
+     "success_end": 0.984375,
+     "learned": 1380
+    },
+    {
+     "seed": 2,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 432,
+     "success_end": 1.0,
+     "learned": 910
+    },
+    {
+     "seed": 3,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 396,
+     "success_end": 0.9765625,
+     "learned": 1140
+    }
+   ],
    "passes": false,
    "why": [
-    "no finished network"
+    "not every network above 449 active"
    ],
    "passes_learned_controls": false,
    "why_learned_controls": [
-    "no finished network"
+    "not every network above 449 active"
    ]
   },
   "dropout0.05_beta4": {
-   "runs": [],
+   "runs": [
+    {
+     "seed": 1,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 455,
+     "success_end": 0.9296875,
+     "learned": 860
+    },
+    {
+     "seed": 2,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 373,
+     "success_end": 0.9609375,
+     "learned": 1280
+    },
+    {
+     "seed": 3,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 420,
+     "success_end": 1.0,
+     "learned": 850
+    }
+   ],
    "passes": false,
    "why": [
-    "no finished network"
+    "not every network above 449 active"
    ],
    "passes_learned_controls": false,
    "why_learned_controls": [
-    "no finished network"
+    "not every network above 449 active"
    ]
   },
   "rescale_tgt4": {
-   "runs": [],
+   "runs": [
+    {
+     "seed": 1,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 352,
+     "success_end": 0.8125,
+     "learned": null
+    },
+    {
+     "seed": 2,
+     "status": "stopped",
+     "last_update": 800,
+     "active_end": 0,
+     "success_end": 0.0234375,
+     "learned": null
+    },
+    {
+     "seed": 3,
+     "status": "finished",
+     "last_update": 2000,
+     "active_end": 197,
+     "success_end": 0.0078125,
+     "learned": null
+    }
+   ],
    "passes": false,
    "why": [
-    "no finished network"
+    "not every network above 449 active",
+    "mean success 0.410 below 0.848",
+    "a network ends below 0.9"
    ],
    "passes_learned_controls": false,
    "why_learned_controls": [
-    "no finished network"
+    "not every network above 449 active",
+    "mean success 0.410 below 0.934",
+    "a network ends below 0.9"
    ]
   }
  }
