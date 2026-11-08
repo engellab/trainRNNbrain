@@ -80,6 +80,36 @@ case "$COND" in
   gain_lr0.3) KEYS=(model.spectral_rad="${GAIN[$A]}" trainer.lr=0.0003) ;;
 esac
 TAG="r19pilot/N=1000_act=${ACT}_${COND}"
+# CONTINUATION (7 Nov 2026, docs/project_trajectory/*_round19-pilot-stage2-rules.md): with PARENT_ROOT (the
+# folder holding the pilot cells, <SAVE_TO>/Maze_r19pilot) and EXTRA_UPDATES set, the index continues its own
+# pilot run from the parent's weights, as the suite launcher's continuation does: INIT_ADAM (default true)
+# restores the optimizer state or, false, starts it afresh with the warm-up ramp; the update clock continues
+# (trainer.iter_offset=auto); STAGE (default 2) continues <cell> into <cell>_cont, stage k >= 3 continues
+# <cell>_cont (k = 3) or <cell>_cont<k-1> into <cell>_cont<k>. The condition's keys are passed again.
+#   PARENT_ROOT=$HOME/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_r19pilot EXTRA_UPDATES=2000 INIT_ADAM=false \
+#     sbatch --array=5,6,13,14 --time=12:00:00 slurm/rl_maze_r19_pilot_della.slurm
+CONT=()
+if [ -n "${PARENT_ROOT:-}" ]; then
+  if [ -z "${EXTRA_UPDATES:-}" ]; then
+    echo "FATAL: PARENT_ROOT is set but EXTRA_UPDATES (the number of further updates) is not." >&2; exit 1
+  fi
+  INIT_ADAM="${INIT_ADAM:-true}"
+  STAGE="${STAGE:-2}"
+  if ! [[ "$STAGE" =~ ^[0-9]+$ ]] || [ "$STAGE" -lt 2 ]; then
+    echo "FATAL: STAGE must be an integer >= 2 (stage 1 is the fresh run); got '${STAGE}'." >&2; exit 1
+  fi
+  stage_suffix() { case "$1" in 1) echo "" ;; 2) echo "_cont" ;; *) echo "_cont$1" ;; esac; }
+  PARENT="${PARENT_ROOT}/N=1000_act=${ACT}_${COND}$(stage_suffix $((STAGE - 1)))/s${SEED}"
+  if ! ls "${PARENT}"/*Params_Maze.npz >/dev/null 2>&1; then
+    echo "FATAL: ${PARENT} has no *Params_Maze.npz to continue from." >&2; exit 1
+  fi
+  if [ "$INIT_ADAM" = true ] && ! ls "${PARENT}"/*AdamState_Maze.pt >/dev/null 2>&1; then
+    echo "FATAL: ${PARENT} has no *AdamState_Maze.pt; continue it with INIT_ADAM=false." >&2; exit 1
+  fi
+  TAG="${TAG}$(stage_suffix "$STAGE")"
+  CONT=(paths.init_from="\"${PARENT}\"" paths.init_adam="$INIT_ADAM" trainer.n_updates="$EXTRA_UPDATES" trainer.iter_offset=auto)
+  echo "continuation, stage ${STAGE}: from ${PARENT} (init_adam=${INIT_ADAM}), ${EXTRA_UPDATES} further updates"
+fi
 OUT="${SAVE_TO}/Maze_${TAG}/s${SEED}"
 if ls "$OUT"/*config.yaml >/dev/null 2>&1; then
   echo "FATAL: $OUT already holds a run; refusing to overwrite it." >&2; exit 1
@@ -88,4 +118,4 @@ echo "Task ${SLURM_ARRAY_TASK_ID}: act=${ACT} cond=${COND} seed=${SEED} keys=${K
 
 srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   task=Maze trainer=trainer_ppo seed="$SEED" model="rnn_${ACT}_standard" model.N=1000 \
-  paths=paths_DELLA paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\"" "${KEYS[@]}"
+  paths=paths_DELLA paths.save_to="$SAVE_TO" experiment_tag="\"${TAG}\"" "${KEYS[@]}" "${CONT[@]}"
