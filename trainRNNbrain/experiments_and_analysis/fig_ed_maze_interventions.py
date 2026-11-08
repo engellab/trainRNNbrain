@@ -338,7 +338,11 @@ def load_records(root, control_root):
                        rel=os.path.relpath(run["folder"], REPO),
                        last_update=int(run["progress"][-1]["update"]),
                        n_updates=int(tr.get("n_updates") or 0), source=source)
-            rec["finished"] = 0 < rec["n_updates"] <= rec["last_update"]
+            # a continuation's n_updates counts from its iter_offset (the parent's last update), so the budget
+            # the record must reach is their sum (round 19; fig_paper_F2_size.maze_budget does the same)
+            off = tr.get("iter_offset", 0)
+            rec["budget"] = rec["n_updates"] + (int(off) if isinstance(off, (int, float)) else 0)
+            rec["finished"] = 0 < rec["n_updates"] and rec["budget"] <= rec["last_update"]
             rec["stopped_at"] = rec["last_update"] if (not rec["finished"] and stopped_by_guard(run)) else None
             standard = run["N"] == N and run["act"] == "relu" and not run["cue"]
             if source == "control":

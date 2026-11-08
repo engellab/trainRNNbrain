@@ -404,6 +404,26 @@ network.
   again at the learned point, between B4's 10% and 30% bars in all five.
 - G18, CDDM transfer: gate passes; between the bars at the floor; "do not come back" at 75k (not binding).
 
+**Round 19, Maze networks trained until they learn (entry 2026-11-08_0915_round19-results; rules 2026-11-07_1008,
+_1111, _1723).**
+- *Protocol.* Every Maze network trains in 2,000-update stages until learned, cap 8,000. Every N ≤ 2,000
+  network is learned at 4,000 updates, softplus seed 3 included.
+- *Activations at N = 1,000, 4,000 updates.* ReLU 314-404 active, softplus 345-368, leaky ReLU 548-620.
+- *N = 4,000.* Seeds 1 and 3 are learned at 6,000 (645 and 652 active). Seed 2 trains its stage 4. The
+  equal-budget stages for the others wait for the coordinator.
+- *Settings (Fig. 3), Maze at 4,000 beside the stated 2,000 read* (controls at 4,000: 314-404):
+  - weight decay 1e-4 decreases at both points (3 of 3 learned at 4,000, 301-311);
+  - the metabolic penalty 1 goes from "decreases" to "no change";
+  - the metabolic penalty 10 gains "decreases", on one learned seed;
+  - activity noise 0.1 goes from "no direction" to "no change";
+  - SGD does not learn within 4,000 updates at any rate.
+- *Techniques on Maze at 4,000.* Rate 0.1 + sparsity 0.05 (812-891 active) and σ_w 1.0 (409-455 against a
+  bar of 404) work; both fail at 2,000. The bar falls from 449 to 404 because the controls lose units between
+  2,000 and 4,000.
+- *tanh* learns under no tested setting within 4,000 updates. *The shifted sigmoid* learns at initial spectral
+  radius 0.45, a per-activation change decided after the pilot was read. Full runs and a same-radius ReLU
+  control are training (Della 17105877).
+
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against
 421-457 for an untrained network trained on the new task; R² is the same (0.91). Verdict, by the
