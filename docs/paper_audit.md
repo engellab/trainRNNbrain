@@ -424,6 +424,11 @@ _1111, _1723).**
   non-finite loss"). The 24 networks are rerun with `trainer.freeze_after_end=true` (Della 17107385); "the rate
   penalty works on Maze at 0.03 and 0.3" and the cross-task technique count wait for them. Active-unit
   read-outs never include post-episode steps.
+- *Reruns at 2,000 with the fix (entries 2026-11-08_2346 and 2026-11-09 duplicate-rerun-headline):* the rate
+  penalty works on Maze at 0.03 and 0.1 and fails at 0.3 (one seed at 0.87); rate + sparsity fails (success
+  0.34-0.68). Metabolic: 0.01 no change, 0.1 decreases on one learned seed, 1 and 10 no direction.
+  **Prune-and-duplicate, rerun with the fix, still works on Maze (749-763 active, success 0.98-1.00): the
+  headline stands.** The 4,000 reads of the continued arms are pending.
 - *tanh* learns under no tested setting within 4,000 updates. *The shifted sigmoid* learns at initial spectral
   radius 0.45, a per-activation change decided after the pilot was read. Full runs and a same-radius ReLU
   control are training (Della 17105877).
