@@ -409,8 +409,13 @@ _1111, _1723).**
 - *Protocol.* Every Maze network trains in 2,000-update stages until learned, cap 8,000. Every N ≤ 2,000
   network is learned at 4,000 updates, softplus seed 3 included.
 - *Activations at N = 1,000, 4,000 updates.* ReLU 314-404 active, softplus 345-368, leaky ReLU 548-620.
-- *N = 4,000.* Seeds 1 and 3 are learned at 6,000 (645 and 652 active). Seed 2 trains its stage 4. The
-  equal-budget stages for the others wait for the coordinator.
+- *N = 4,000, final (entry 2026-11-09_1341).* Budget 8,000 updates. Seeds 1, 2, 3 and 5 are learned (learned
+  points 2,860, 3,900, 4,120, 3,970; 557, 595, 702 and 533 active at 8,000). Seed 4 stopped at 5,940 with
+  non-finite weights and is left out.
+- *C2, Maze exponent refit (same entry; replaces round 18's 0.35 and 0.49 above).* At the learned point,
+  N ≥ 500, with four N = 4,000 networks: **0.34 (0.29-0.40)**. On equal 4,000-update budgets (N = 4,000: seed 1
+  alone, the one network learned by then): 0.50 (0.47-0.52). At each size's final budget (unequal: 8,000 at
+  N = 4,000, 4,000 below): 0.44 (0.39-0.50), labelled unequal.
 - *Settings (Fig. 3), Maze at 4,000 beside the stated 2,000 read* (controls at 4,000: 314-404):
   - weight decay 1e-4 decreases at both points (3 of 3 learned at 4,000, 301-311);
   - activity noise 0.1 goes from "no direction" to "no change";
