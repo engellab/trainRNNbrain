@@ -424,3 +424,4 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py with maze_arms_r19.py (a-f settings at 2,000 and 4,000, g-i techniques; removal panel dropped; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
 | `fig_ed_techniques_3bff.pdf` | fig_paper_F5_drive.py, ed_techniques_3bff (panel b see-through face 65%; #200; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
 | `fig_ed_techniques_3bff.svg` | fig_paper_F5_drive.py, ed_techniques_3bff (as the PDF; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_ed_maze.pdf` | fig_ed_maze.py (b: the impossible zero read of N = 4,000 seed 3 at update 7,390 masked; a: 0.9 label outside the axes; PR #207 review item 7) | `32711d5` | 2026-11-09 |
