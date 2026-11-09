@@ -25,6 +25,14 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       "unfinished", a partly finished one carries the number of its finished seeds beside the
       marker. The task labels are the paper's ("Maze"). The columns are ORDERED by the number of tasks on which the technique works (ties: by
       the number of tasks on which the count condition passes, then the name).
+      Round 19 (dead-relu-paper#201, r19-text): every value run on all three tasks is drawn, so the round 18
+      parity values join (noisy synapses sigma_w 0.1 and 0.3, read-out dropout rate 0.05 with beta 4, rescaling
+      target 4.0: PARITY), inside each technique's slots in increasing order of value (value_key); and on Maze
+      the rate penalty, rate + sparsity and prune-and-duplicate are the trainer.freeze_after_end=true reruns
+      (entries 2026-11-09_0136 and _1221; the earlier runs averaged the penalties over post-episode steps and
+      their verdicts are withdrawn). The other Maze techniques keep their original runs. The printout adds the
+      verdicts under the one-value and the matched-values rules and the tolerance range over which
+      prune-and-duplicate alone passes on all three tasks (rule_tables).
   (b) the performance difference from the controls' mean: top, held-out R^2 (3BFF and CDDM), the
       tolerance 0.01 dashed; bottom, the maze's success at the end, the tolerance 0.05 dashed.
   (c) the techniques across network sizes, two sub-columns. 3BFF, the current Figure 5c:
@@ -43,12 +51,12 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       (data/remedy_reads_31oct/a3_N1000.json, held-out R^2 at 75,000 iterations, 19 networks). CDDM:
       G3 (data/round18/g3_cddm_removal.json, held-out R^2, 9 draws; prune-and-duplicate and read-out
       dropout at their 100,000-iteration weights against the paper-grid control, the rate penalty 0.1
-      and 0.2 at 75,000 against the Figure 3a control; 14 networks). Maze: G4
-      (data/round18/g4_maze_added_summary.json, success under the training noise, 256 drops x 4
-      draws, final weights, k from all three controls' mean of 430; the 9 finished rate-penalty
-      networks and the 3 prune-and-duplicate networks). The earlier Maze form (the inactive units
-      and then the k added units, 570 in all, interpolated on a removal grid) is no longer drawn; its
-      exact values are G4's "keep" column.
+      and 0.2 at 75,000 against the Figure 3a control; 14 networks). Maze (round 19): G4's procedure on
+      the freeze_after_end=true reruns at update 2,000 (data/round19/fz_maze_added_summary.json,
+      round19_fz_removal.py over rl_maze_ablate.py --added 430: success under the training noise, 256
+      drops x 4 draws, k from all three controls' mean of 430; prune-and-duplicate and the rate penalty
+      at 0.03, 0.1 and 0.3, 12 networks). Round 18's G4 on the runs before the fix
+      (data/round18/g4_maze_added_summary.json) is no longer drawn.
 
 READ-OUT FILES ONLY. Nothing is recomputed here. 3BFF: the remedies catalogue
 (data/remedy_reads_31oct/remedies_catalogue.json, read_remedies.py; the Figure 5 size series,
@@ -60,8 +68,13 @@ data/read_uniform_cells.json (read-out dropout, prune-and-duplicate, noisy synap
 paper-grid control), data/read_uniform_cells_2.json (rescaling, the rate penalty 0.1 alone and with
 the sparsity penalty) and the Figure 3 cache data/fig_paper_F2_fails_cache.pkl (the rate penalty
 0.2 alone and with the sparsity penalty, against the Figure 3a control). Maze:
-data/read_maze_arms.json (read_maze_arms.py; all three controls, dead-relu-paper#194). A cell that is
-still training is drawn as the JSON holds it and picked up on a rerun once the JSON is rebuilt.
+data/read_maze_arms.json (read_maze_arms.py; all three controls, dead-relu-paper#194) for the controls and
+the original arms; data/round19/fz_reruns.json (round19_read_fz.py) for the reruns, each seed's record cut
+at update 2,000. Parity values (round 18 training package, entry 2026-11-08_0859): 3BFF from G2
+(data/round18/g1g2.json, 36 draws at 75,000, against G2's control, the four default networks of Fig. 1),
+CDDM from data/round18_training/round18_cddm.json (against its CDDM_paper_grid control at 75,000), Maze
+from data/round18_training/round18_maze.json. The one-value rule's 3BFF verdicts in the printout use every
+G2 value (load_3bff_all_values), as G2 (a) does; the drawn 3BFF values give the same verdict at 0.01.
 Panels c (CDDM) and d (CDDM, Maze): the round-18 JSONs named above (entry
 2026-11-07_0235_round18-results, G3, G4, G6).
 
@@ -95,7 +108,13 @@ RUC2 = os.path.join(REPO, "data", "read_uniform_cells_2.json")
 MAZE_JSON = os.path.join(REPO, "data", "read_maze_arms.json")
 R18 = os.path.join(REPO, "data", "round18")
 G3_JSON = os.path.join(R18, "g3_cddm_removal.json")          # CDDM removal of the added units (G3)
-G4_JSON = os.path.join(R18, "g4_maze_added_summary.json")    # Maze removal of the added units (G4)
+G4_JSON = os.path.join(R18, "g4_maze_added_summary.json")    # Maze removal of the added units (G4; old runs, not drawn since round 19)
+R18T = os.path.join(REPO, "data", "round18_training")
+R18_CDDM = os.path.join(R18T, "round18_cddm.json")           # CDDM parity values at 75,000 (round 18 training package)
+R18_MAZE = os.path.join(R18T, "round18_maze.json")           # Maze parity values at update 2,000 (round 18 training package)
+R19 = os.path.join(REPO, "data", "round19")
+FZ_JSON = os.path.join(R19, "fz_reruns.json")                # Maze freeze_after_end=true reruns (round 19)
+FZ_REMOVAL_JSON = os.path.join(R19, "fz_maze_added_summary.json")   # G4's removal on the rerun networks (round19_fz_removal.py)
 G6_READS = os.path.join(R18, "g6_reads.json")                # CDDM techniques across sizes (G6)
 G1G2_JSON = os.path.join(R18, "g1g2.json")                   # 3BFF rate penalty at 0.01 and 0.03 at 75,000 (G1; #204)
 CDDM_SIZE_ARMS = (("duplicate", "duplication"), ("dropout", "mute"))   # panel c, CDDM: (technique, arm)
@@ -120,15 +139,29 @@ TECH = {
 TRIANGLES = ("^", "v", "<")       # drawn TRI_SCALE larger: a triangle has 64% of a circle's area
 TECH_NAME = {"duplicate": "prune-and-duplicate", "frm": "rate penalty", "dropout": "read-out dropout",
              "frm+rws": "rate + sparsity", "rescale": "rescaling", "synnoise": "noisy synapses"}
-# the maze arms per technique: (value label, arm key in read_maze_arms.json)
+# the maze arms per technique: (value label, arm key, source). Sources: "arms" read_maze_arms.json (the
+# original runs); "fz" data/round19/fz_reruns.json (the freeze_after_end=true reruns, which replace the
+# withdrawn penalty runs and prune-and-duplicate; entries 2026-11-09_0136 and _1221); "parity"
+# data/round18_training/round18_maze.json (the round 18 parity values)
 MAZE_ARMS = {
-    "duplicate": [("", "duplicate")],
-    "frm": [("0.03", "frm0.03"), ("0.1", "frm0.1"), ("0.3", "frm0.3")],
-    "dropout": [("", "dropout")],
-    "frm+rws": [("0.1", "frm0.1+rws0.05")],
-    "rescale": [("10\u00d7", "rescale"), ("slow tilt", "rescale_mild"), ("5% grow", "rescale_few")],
-    "synnoise": [("", "synnoise")],
+    "duplicate": [("", "duplicate", "fz")],
+    "frm": [("0.03", "frm0.03", "fz"), ("0.1", "frm0.1", "fz"), ("0.3", "frm0.3", "fz")],
+    "dropout": [("0.05", "dropout0.05_beta4", "parity"), ("0.2", "dropout", "arms")],
+    "frm+rws": [("0.1", "frm0.1_rws0.05", "fz")],
+    "rescale": [("4.0", "rescale_tgt4", "parity"), ("10\u00d7", "rescale", "arms"),
+                ("slow tilt", "rescale_mild", "arms"), ("5% grow", "rescale_few", "arms")],
+    "synnoise": [("0.1", "sigmaw0.1", "parity"), ("0.3", "sigmaw0.3", "parity"), ("1.0", "synnoise", "arms")],
 }
+# the round 18 parity values (entry 2026-11-07_0136): the 3BFF values that meet the criterion, run on CDDM and
+# Maze. (technique, label, the start of the 3BFF G2 name in data/round18/g1g2.json, the CDDM key of
+# round18_cddm.json's "parity")
+PARITY = [("synnoise", "0.1", "EqType=h_k=3_N=1000_sw=0.1", "sigma_w 0.1"),
+          ("synnoise", "0.3", "EqType=h_k=3_N=1000_sw=0.3", "sigma_w 0.3"),
+          ("dropout", "0.05", "EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.05_beta=4", "dropout 0.05, beta 4"),
+          ("rescale", "4.0", "EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=4.0_step=0.0005_prot=0.20",
+           "rescaling, target 4.0")]
+# the order of values inside one technique's group of slots
+LABEL_ORDER = {"": 0.0, "10\u00d7": 10.0, "slow tilt": 11.0, "5% grow": 12.0}
 # the maze's rescaling variants (entry 2026-11-05_0832), named as fig_ed_maze_interventions names them:
 # "slow tilt" is alpha 1.0005 and cap 8 (the paper's arm has 1.002 and 64), "5% grow" protects 0.05 N
 # units (the paper's 0.2 N); "10x" is the paper's arm
@@ -138,8 +171,8 @@ MAZE_RESCALE_NOTE = {"rescale": "the paper's values (target 10x, alpha 1.002, ca
 # layout, mm from the canvas' top-left: one slot per (technique, task, value) group
 FIG_H_MM = 112.5                  # 136 -> 128 mm (round 15) -> 112.5 (round 17): the float with its caption fits the page
 LEFT_MM = 16.0
-PITCH_MM = 5.1                    # one group's slot (5.4 until the 3BFF rate penalty gained 0.01 and 0.03, #204)
-GAP_MM = 2.8                      # between two techniques (3.2 until #204)
+PITCH_MM = 3.6                    # one group's slot (5.4 until #204; 5.1 until the parity values joined in round 19)
+GAP_MM = 2.0                      # between two techniques (3.2 until #204; 2.8 until round 19)
 SEED_DX_MM = 0.85                 # a cell's crosses sit this far apart
 CROSS_DX_MM = 1.3                 # a cross beside a group marker sits this far from it
 KEY_TOP_MM = 0.5
@@ -151,7 +184,7 @@ C_LEFT_MM, C_W_MM, C_GAP_MM = 16.0, 26.0, 2.5     # panel c: two sub-columns (3B
 D_LEFT_MM, D_W_MM, D_GAP_MM = 84.0, 22.5, 2.5     # panel d: three sub-panels (3BFF, CDDM, Maze) of D_W_MM each (at least 22 mm, tests/scan_open_markers.py), sharing y; the Maze title ends left of panel b's rotated rescaling labels
 FOLD_LIM = (0.0, 4.3)
 R2_LIM = (-0.038, 0.013)
-SUCC_LIM = (-0.52, 0.13)
+SUCC_LIM = (-0.95, 0.15)          # round 19: the Maze parity rescaling and the rate + sparsity rerun reach -0.89 (-0.52 until then)
 D_LO = -0.05                      # panel d: values below this are drawn at the edge with an arrow
 EDGE_JOIN = 0.03                  # panel d: edge markers of one series closer than this (data units) are one marker
 EDGE_ARROW_PT = 4.0               # panel d: arrow length (points) of a merged edge marker, its tail short of the circle at (0.02, 0.54) (PR #202 third review); fig_paper_F5_drive's is 9
@@ -236,7 +269,7 @@ def load_3bff():
     a3 = F5.load_a3()[N]
     ctrl = series["control"][N]
     a3_ctrl_r2 = [r["r2_full"] for r in a3 if r["family"] == "control"]
-    labels = {"frm": "0.1", "frm+rws": "0.1", "rescale": "10\u00d7"}
+    labels = {"frm": "0.1", "frm+rws": "0.1", "rescale": "10\u00d7", "synnoise": "1.0", "dropout": "0.2"}
     out, floor = [], []
     for fam in TECH:
         c = series[fam][N]
@@ -251,7 +284,47 @@ def load_3bff():
                         ctrl_perf, c["n_runs"], f"remedies_catalogue.json {c['cell'].split('/')[0]}", note=note))
         floor.append(dict(tech=fam, active=c["active"], r2=c["r2"], n_read=c["n_read"], n_runs=c["n_runs"],
                           ctrl_active=ctrl["active"], ctrl_r2=ctrl["r2"], excluded=c["excluded"]))
+    out += load_3bff_parity()
     return out, floor
+
+
+def g2_rows():
+    """Every 3BFF value of round 18's G2 (data/round18/g1g2.json) with G2's control.
+
+    Returns:
+        (rows, control): rows is the list of G2 dicts (name, family, active, r2, ...), control the
+        dict of the four default networks (active) and their R^2 (three with 75,000-iteration weights).
+    """
+    with open(G1G2_JSON) as fh:
+        g = json.load(fh)
+    return g["g2"], g["control"]
+
+
+def load_3bff_parity():
+    """The round 18 parity values on 3BFF, from G2 (36 draws on the 75,000-iteration weights) against G2's control.
+
+    Returns:
+        list of `cell` dicts, one per PARITY entry.
+    """
+    rows, ctrl = g2_rows()
+    out = []
+    for tech, label, name, _ in PARITY:
+        r = next(r for r in rows if r["name"] == name)
+        out.append(cell(tech, "3BFF", label, r["active"], r["r2"], ctrl["active"], ctrl["r2"], r["n_runs"],
+                        f"round18 g1g2.json G2 {r['source']}", note="parity value; R^2: G2, 36 draws at 75,000"))
+    return out
+
+
+def load_3bff_all_values():
+    """Every 3BFF value of G2 (57 values plus the rate penalty) as `cell` dicts, for the one-value rule's range.
+
+    Not drawn: the figure draws the values run on all three tasks and the rate penalty's three values.
+    Returns:
+        list of `cell` dicts (label = the G2 name).
+    """
+    rows, ctrl = g2_rows()
+    return [cell(r["family"], "3BFF", r["name"], r["active"], r["r2"], ctrl["active"], ctrl["r2"], r["n_runs"],
+                 f"round18 g1g2.json G2 {r['source']}") for r in rows]
 
 
 def load_3bff_rate_low():
@@ -331,24 +404,53 @@ def load_cddm():
         out.append(cell(tech, "CDDM", label, rung[i][0], rung[i][1], rung[0][0], rung[0][1], len(rung[i][0]),
                         f"fig_paper_F2_fails_cache.pkl slide_k_frm_rws rung {i} against rung 0 "
                         f"({lad['rungs'][0]['path'].split('trained_RNNs/')[-1]})"))
-    out += [ruc_cell("dropout", "", g1["CDDM per-unit rules"], "read-out dropout", "read_uniform_cells.json"),
+    out += [ruc_cell("dropout", "0.2", g1["CDDM per-unit rules"], "read-out dropout", "read_uniform_cells.json"),
             ruc_cell("frm+rws", "0.1", g2["CDDM rate penalty 0.1"], "rate 0.1 + sparsity", "read_uniform_cells_2.json"),
             ruc_cell("rescale", "10\u00d7", g2["CDDM rescaling"], "rescaling", "read_uniform_cells_2.json"),
-            ruc_cell("synnoise", "", g1["CDDM noisy synapses"], "sigma_w 1.0", "read_uniform_cells.json")]
+            ruc_cell("synnoise", "1.0", g1["CDDM noisy synapses"], "sigma_w 1.0", "read_uniform_cells.json")]
+    out += load_cddm_parity()
     return out, tol1
 
 
-def load_maze():
-    """The maze cells at update 2,000 from read_maze_arms.json.
+def load_cddm_parity():
+    """The round 18 parity values on CDDM at 75,000 iterations, against the CDDM_paper_grid control of that read.
 
-    The controls are all three (issue #5, dead-relu-paper#194): the file's reference_techniques.
+    Reads data/round18_training/round18_cddm.json (round18_training_read.py cddm; entry 2026-11-08_0859).
+    Returns:
+        list of `cell` dicts, one per PARITY entry.
+    """
+    with open(R18_CDDM) as fh:
+        d = json.load(fh)
+    ctrl = d["control"]
+    out = []
+    for tech, label, _, key in PARITY:
+        p = d["parity"][key]
+        stored = p["tol=0.01"]["text"]
+        out.append(cell(tech, "CDDM", label, [r["active"] for r in p["runs"]], [r["r2"] for r in p["runs"]],
+                        [r["active"] for r in ctrl], [r["r2"] for r in ctrl], len(p["runs"]),
+                        f"round18_cddm.json parity '{key}' ({p['cell']})", stored=stored, note="parity value"))
+    return out
+
+
+def load_maze():
+    """The maze cells at update 2,000: original arms, the freeze_after_end=true reruns and the parity values.
+
+    The controls are all three uniform-series networks (issue #5, dead-relu-paper#194): the reference_techniques
+    of read_maze_arms.json (426, 449, 415 active; mean success 0.898). Per MAZE_ARMS source: "arms" reads
+    read_maze_arms.json (the original runs, read at update 2,000); "fz" reads data/round19/fz_reruns.json (the
+    rate penalty, rate + sparsity and prune-and-duplicate rerun with trainer.freeze_after_end=true; the record of
+    each seed cut at update 2,000); "parity" reads round18_maze.json's parity block.
 
     Returns:
-        (cells, success_tol, reference): the `cell` dicts in MAZE_ARMS order, the tolerance the
-        file holds and its reference_techniques dict.
+        (cells, success_tol, reference): the `cell` dicts in MAZE_ARMS order, the tolerance read_maze_arms.json
+        holds and its reference_techniques dict.
     """
     with open(MAZE_JSON) as fh:
         d = json.load(fh)
+    with open(FZ_JSON) as fh:
+        fz = {a["key"]: a for a in json.load(fh)["arms"]}
+    with open(R18_MAZE) as fh:
+        par = json.load(fh)["parity"]
     ref = d["reference_techniques"]
     arms = {a["key"]: a for a in d["arms"]}
     ctrl = [r for r in d["runs"] if r["key"] == "control"]
@@ -358,15 +460,42 @@ def load_maze():
     learned_of = {(r["key"], r["seed"]): r["learned"] is not None for r in d["runs"]}
     out = []
     for tech, values in MAZE_ARMS.items():
-        for label, key in values:
-            a = arms[key]
-            out.append(cell(tech, "maze", label, a["active_end"], a["success_end"], ctrl_active, ctrl_succ,
-                            len(a["active_end"]) + a["n_running"] + a["n_stopped"],
-                            f"read_maze_arms.json '{key}'",
-                            learned=[learned_of[(key, s)] for s in a["seeds_finished"]],
-                            n_stopped=a["n_stopped"], n_running=a["n_running"], stored=a["verdict"],
-                            note=MAZE_RESCALE_NOTE.get(key, "")))
+        for label, key, src in values:
+            if src == "arms":
+                a = arms[key]
+                out.append(cell(tech, "maze", label, a["active_end"], a["success_end"], ctrl_active, ctrl_succ,
+                                len(a["active_end"]) + a["n_running"] + a["n_stopped"],
+                                f"read_maze_arms.json '{key}'",
+                                learned=[learned_of[(key, s)] for s in a["seeds_finished"]],
+                                n_stopped=a["n_stopped"], n_running=a["n_running"], stored=a["verdict"],
+                                note=MAZE_RESCALE_NOTE.get(key, "")))
+            elif src == "fz":
+                seeds = fz[key]["seeds"]
+                fin = [x["at2000"] for x in seeds if x["at2000"]["reached"]]
+                out.append(cell(tech, "maze", label, [x["active"] for x in fin], [x["success"] for x in fin],
+                                ctrl_active, ctrl_succ, len(seeds), f"fz_reruns.json '{key}' at update 2,000",
+                                learned=[x["learned"] for x in fin], n_stopped=len(seeds) - len(fin),
+                                stored=fz[key].get("verdict_2000"), note="freeze_after_end=true rerun"))
+            else:
+                runs = par[key]["runs"]
+                fin = [r for r in runs if r["status"] == "finished"]
+                out.append(cell(tech, "maze", label, [r["active_end"] for r in fin], [r["success_end"] for r in fin],
+                                ctrl_active, ctrl_succ, len(runs), f"round18_maze.json parity '{key}'",
+                                learned=[r["learned"] is not None for r in fin], n_stopped=len(runs) - len(fin),
+                                stored="works" if par[key]["passes"] else "fails: " + "; ".join(par[key]["why"]),
+                                note="parity value"))
     return out, d["success_tol"], ref
+
+
+def value_key(c):
+    """Sort key placing a technique's values in increasing order inside its slots (LABEL_ORDER for words)."""
+    lab = c["label"]
+    if lab in LABEL_ORDER:
+        return LABEL_ORDER[lab]
+    try:
+        return float(lab)
+    except ValueError:
+        return 99.0
 
 
 def tolerance_sensitivity(cells, tol, r2_tols=(0.005, 0.01, 0.02), success_tols=(0.025, 0.05, 0.10)):
@@ -414,6 +543,82 @@ def tolerance_sensitivity(cells, tol, r2_tols=(0.005, 0.01, 0.02), success_tols=
             if ok and m is not None and m <= tol["maze"]:
                 both.append(TECH_NAME[tech])
         print(f"    {t:.5f}: {both}")
+    return out
+
+
+def r2_need(c, maze_tol):
+    """The smallest R^2 tolerance at which a cell meets the criterion (0 for the maze if it passes at maze_tol).
+
+    Args:
+        c: a finished `cell` dict; maze_tol: the fixed success tolerance on the maze.
+    Returns:
+        float or None: max(0, -mean R^2 difference) when the count condition holds (3BFF, CDDM); 0.0 for a maze
+        cell that meets the whole criterion at maze_tol; None when no tolerance makes the cell pass.
+    """
+    if c["task"] == "maze":
+        return 0.0 if rule(c["active"], c["perf"], c["ctrl_active"], c["ctrl_perf"], maze_tol,
+                           MAZE_LEARNED_SUCCESS)["works"] else None
+    r = rule(c["active"], c["perf"], c["ctrl_active"], c["ctrl_perf"], 1e9)
+    return max(0.0, -r["dperf"]) if r["works"] else None
+
+
+def matched_labels(cells, tech):
+    """The value labels of a technique run on all three tasks (the matched-values rule)."""
+    per = [{c["label"] for c in cells if c["tech"] == tech and c["task"] == k and c["status"] == "finished"}
+           for k in TASKS]
+    return sorted(per[0] & per[1] & per[2], key=lambda lab: value_key(dict(label=lab)))
+
+
+def rule_tables(cells, extra_3bff, maze_tol, r2_tols=(0.005, 0.01, 0.02)):
+    """The verdicts under the one-value and the matched-values rules, and the tolerance ranges.
+
+    One-value rule: a technique meets the criterion on a task if one of its finished values does; on 3BFF every
+    G2 value counts (`extra_3bff`, as round 18's G2 (a) counts them). Matched-values rule: only the values run
+    on all three tasks (`matched_labels`); a value counts on all three tasks only if it passes on each.
+
+    Args:
+        cells: the drawn `cell` dicts; extra_3bff: load_3bff_all_values(); maze_tol: the success tolerance.
+    Returns:
+        dict with "one" and "matched": per technique the tolerance from which it passes on all three tasks
+        (None: never), and the per-task needs.
+    """
+    fin = [c for c in cells if c["status"] == "finished"]
+    pool = fin + [c for c in extra_3bff if c["status"] == "finished"]
+    out = dict(one={}, matched={})
+    print("\n--- the two rules: the smallest R^2 tolerance at which each technique passes on all three tasks "
+          f"(Maze at its fixed success tolerance {maze_tol}) ---")
+    for tech in TECH:
+        need = {}
+        for k in TASKS:
+            src = pool if k == "3BFF" else fin
+            ns = [(r2_need(c, maze_tol), c["label"]) for c in src if c["tech"] == tech and c["task"] == k]
+            ns = [n for n in ns if n[0] is not None]
+            need[k] = min(ns) if ns else None
+        one = None if any(v is None for v in need.values()) else max(v[0] for v in need.values())
+        out["one"][tech] = dict(need={k: v for k, v in need.items()}, from_tol=one)
+        per_value = {}
+        for lab in matched_labels(cells, tech):
+            ns = [r2_need(next(c for c in fin if c["tech"] == tech and c["task"] == k and c["label"] == lab),
+                          maze_tol) for k in TASKS]
+            per_value[lab] = dict(need=ns, from_tol=None if None in ns else max(ns))
+        cand = [v["from_tol"] for v in per_value.values() if v["from_tol"] is not None]
+        out["matched"][tech] = dict(values=per_value, from_tol=min(cand) if cand else None)
+        fmt_n = lambda v: "never" if v is None else f"{v:.4f}"
+        print(f"  {TECH_NAME[tech]:>20}  one-value: " + ", ".join(
+            f"{k} {fmt_n(need[k][0] if need[k] else None)}" + (f" ({need[k][1]})" if need[k] else "") for k in TASKS)
+              + f" -> all three from {fmt_n(one)}")
+        for lab, v in per_value.items():
+            print(f"  {'':>20}  matched value {lab or '(one value)'}: "
+                  + ", ".join(f"{k} {fmt_n(n)}" for k, n in zip(TASKS, v["need"])) + f" -> all three from {fmt_n(v['from_tol'])}")
+    for name in ("one", "matched"):
+        print(f"  {name}-value rule: techniques on all three tasks at R^2 tolerance " + "; ".join(
+            f"{t}: " + (", ".join(TECH_NAME[x] for x in TECH if out[name][x]["from_tol"] is not None
+                                  and out[name][x]["from_tol"] <= t) or "none") for t in r2_tols))
+        dup = out[name]["duplicate"]["from_tol"]
+        others = sorted((v["from_tol"], TECH_NAME[x]) for x, v in out[name].items()
+                        if x != "duplicate" and v["from_tol"] is not None)
+        print(f"  {name}-value rule: prune-and-duplicate alone passes on all three tasks from {dup:.4f}"
+              + (f" up to {others[0][0]:.4f} (exclusive), where {others[0][1]} joins it" if others else ", with no upper limit"))
     return out
 
 
@@ -607,8 +812,12 @@ def draw_marks(ax, x, c, key, zero=None):
     # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
     label = str(n_group) if n_group >= 1 and n_group != N_SEEDS else None
     crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None else [])
+    # below the bar only while the label stays inside the axes: below the axes it meets the value labels
+    # (round 19: the Maze parity rescaling, whose bar reaches -0.89); otherwise beside the marker
+    lo, hi = ax.get_ylim()
+    room_below = len(vals) > 0 and vals.min() - lo > 0.12 * (hi - lo)
     draw_group(ax, x, vals, col, marker, label, label_above=bool(crosses) and key != "dperf",
-               label_below=bool(crosses) and key == "dperf")
+               label_below=bool(crosses) and key == "dperf" and room_below)
     for xi, v in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
         ax.plot([xi], [v], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
 
@@ -638,6 +847,8 @@ def panel_ab(fig, slots, columns, width, tol):
     ax_a = ax_mm(fig, LEFT_MM, A_TOP_MM, width, A_H_MM)
     ax_b1 = ax_mm(fig, LEFT_MM, B1_TOP_MM, width, B1_H_MM)
     ax_b2 = ax_mm(fig, LEFT_MM, B2_TOP_MM, width, B2_H_MM)
+    for ax, lim in ((ax_a, FOLD_LIM), (ax_b1, R2_LIM), (ax_b2, SUCC_LIM)):
+        ax.set_ylim(*lim)                 # before drawing: draw_marks places labels by the limits
     for c, x in slots:
         band_ax = ax_b2 if c["task"] == "maze" else ax_b1
         for ax, key in ((ax_a, "band_fold"), (band_ax, "band_dperf")):
@@ -678,8 +889,8 @@ def panel_ab(fig, slots, columns, width, tol):
     ax_b2.text(0.3, -tol["maze"] - 0.012, f"tolerance {tol['maze']}", fontsize=ps.TICK_PT,
                color=ps.INK, ha="left", va="top")
     ax_b2.set_ylim(*SUCC_LIM)
-    ax_b2.set_yticks([-0.4, -0.2, 0])
-    ax_b2.set_yticklabels(["−0.4", "−0.2", "0"])
+    ax_b2.set_yticks([-0.8, -0.4, 0])
+    ax_b2.set_yticklabels(["−0.8", "−0.4", "0"])
     ax_b2.set_ylabel("success\nminus control")
     for ax in (ax_a, ax_b1, ax_b2):
         ax.set_xlim(0, width)
@@ -857,7 +1068,7 @@ def removal_rows():
                 rows.append(dict(task="CDDM", tech=G3_TECH[arm], name=f"{arm} network {i}",
                                  x=float(np.median(r["r2_random_active"])), y=float(r["r2_recruited"]),
                                  intact=float(r["r2_full"]), k=int(r["surplus"]), where="calm"))
-    with open(G4_JSON) as fh:
+    with open(FZ_REMOVAL_JSON) as fh:      # G4's procedure on the freeze_after_end=true reruns (round 19)
         g4 = json.load(fh)
     for r in g4["rows"]:
         tech = "duplicate" if r["cell"] == "duplicate" else "frm"
@@ -1030,7 +1241,7 @@ def main():
     cells_cddm, r2_tol = load_cddm()
     cells_maze, success_tol, _ = load_maze()
     tol = {"3BFF": r2_tol, "CDDM": r2_tol, "maze": success_tol}
-    cells = cells_ff + cells_cddm + cells_maze
+    cells = sorted(cells_ff + cells_cddm + cells_maze, key=value_key)    # stable: values in order within a slot group
     vs = verdicts(cells, tol)
     order, table = column_order(vs)
     ps.setup()
@@ -1044,6 +1255,7 @@ def main():
     report(cells, vs, order, table, floor, rows_c, rows_d, tol)
     learned_control_sensitivity(cells, tol)
     tolerance_sensitivity(cells, tol)
+    rule_tables(cells, load_3bff_all_values(), tol["maze"])
     check_overlaps(fig)
     ps.save(fig, "fig_paper_F5_tasks")
 

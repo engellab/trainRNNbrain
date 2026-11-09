@@ -1,0 +1,855 @@
+{
+ "check": {
+  "active_learned": {
+   "cells": {
+    "250": [
+     154.0,
+     136.0,
+     173.0,
+     138.0
+    ],
+    "500": [
+     281.0,
+     259.0,
+     279.0
+    ],
+    "1000": [
+     451.0,
+     517.0,
+     428.0
+    ],
+    "2000": [
+     393.0,
+     557.0,
+     414.0
+    ],
+    "4000": [
+     619.0
+    ]
+   },
+   "N>=500": {
+    "b": 0.3509660077697757,
+    "lo": 0.3178813187521746,
+    "hi": 0.38364492618940554
+   },
+   "every size": {
+    "b": 0.48210571243893297,
+    "lo": 0.44411381804144845,
+    "hi": 0.5207481407676217
+   }
+  },
+  "active_at": {
+   "cells": {
+    "250": [
+     140.0,
+     125.0,
+     146.0,
+     132.0
+    ],
+    "500": [
+     226.0,
+     226.0,
+     240.0
+    ],
+    "1000": [
+     360.0,
+     404.0,
+     317.0
+    ],
+    "2000": [
+     400.0,
+     506.0,
+     388.0
+    ],
+    "4000": [
+     676.0
+    ]
+   },
+   "N>=500": {
+    "b": 0.4913112222357702,
+    "lo": 0.4630886952808575,
+    "hi": 0.5199739072286861
+   },
+   "every size": {
+    "b": 0.553513577131143,
+    "lo": 0.528770028496642,
+    "hi": 0.5802943875680863
+   }
+  }
+ },
+ "learned": {
+  "cells": {
+   "250": [
+    154.0,
+    136.0,
+    173.0,
+    138.0
+   ],
+   "500": [
+    281.0,
+    259.0,
+    279.0
+   ],
+   "1000": [
+    451.0,
+    517.0,
+    428.0,
+    427.0,
+    412.0,
+    406.0
+   ],
+   "2000": [
+    393.0,
+    557.0,
+    414.0
+   ],
+   "4000": [
+    619.0,
+    532.0,
+    681.0,
+    553.0
+   ]
+  },
+  "N>=500": {
+   "b": 0.34278085727761326,
+   "lo": 0.2908313622641215,
+   "hi": 0.3951399894326644
+  },
+  "every size": {
+   "b": 0.47130130277465426,
+   "lo": 0.42588106710237683,
+   "hi": 0.5182233763671145
+  }
+ },
+ "learned_seeds1-3": {
+  "cells": {
+   "250": [
+    154.0,
+    136.0,
+    173.0,
+    138.0
+   ],
+   "500": [
+    281.0,
+    259.0,
+    279.0
+   ],
+   "1000": [
+    451.0,
+    517.0,
+    428.0
+   ],
+   "2000": [
+    393.0,
+    557.0,
+    414.0
+   ],
+   "4000": [
+    619.0,
+    532.0,
+    681.0,
+    553.0
+   ]
+  },
+  "N>=500": {
+   "b": 0.33475939327335813,
+   "lo": 0.2787991064157822,
+   "hi": 0.38594222748696205
+  },
+  "every size": {
+   "b": 0.4713013027746548,
+   "lo": 0.42493934869240063,
+   "hi": 0.516865131729861
+  }
+ },
+ "u4000_seeds1-6": {
+  "active_learned": {
+   "cells": {
+    "250": [
+     154.0,
+     136.0,
+     173.0,
+     138.0
+    ],
+    "500": [
+     281.0,
+     259.0,
+     279.0
+    ],
+    "1000": [
+     451.0,
+     517.0,
+     428.0,
+     427.0,
+     412.0,
+     406.0
+    ],
+    "2000": [
+     393.0,
+     557.0,
+     414.0
+    ],
+    "4000": [
+     619.0
+    ]
+   },
+   "N>=500": {
+    "b": 0.35898747177403145,
+    "lo": 0.3279417104968511,
+    "hi": 0.3918688048403489
+   },
+   "every size": {
+    "b": 0.4821057124389326,
+    "lo": 0.44312002200021466,
+    "hi": 0.5200244643031922
+   }
+  },
+  "active_at": {
+   "cells": {
+    "250": [
+     140.0,
+     125.0,
+     146.0,
+     132.0
+    ],
+    "500": [
+     226.0,
+     226.0,
+     240.0
+    ],
+    "1000": [
+     360.0,
+     404.0,
+     317.0,
+     373.0,
+     336.0,
+     314.0
+    ],
+    "2000": [
+     400.0,
+     506.0,
+     388.0
+    ],
+    "4000": [
+     676.0
+    ]
+   },
+   "N>=500": {
+    "b": 0.49523440408000585,
+    "lo": 0.4694295882789796,
+    "hi": 0.5213249414274989
+   },
+   "every size": {
+    "b": 0.553513577131143,
+    "lo": 0.5277463018515423,
+    "hi": 0.5802676682029634
+   }
+  }
+ },
+ "final_seeds1-6": {
+  "cells": {
+   "250": [
+    140.0,
+    125.0,
+    146.0,
+    132.0
+   ],
+   "500": [
+    226.0,
+    226.0,
+    240.0
+   ],
+   "1000": [
+    360.0,
+    404.0,
+    317.0,
+    373.0,
+    336.0,
+    314.0
+   ],
+   "2000": [
+    400.0,
+    506.0,
+    388.0
+   ],
+   "4000": [
+    557.0,
+    595.0,
+    702.0,
+    533.0
+   ]
+  },
+  "N>=500": {
+   "b": 0.4412654285198833,
+   "lo": 0.39110288324588394,
+   "hi": 0.4948186019640051
+  },
+  "every size": {
+   "b": 0.5175342600910612,
+   "lo": 0.4810031217259258,
+   "hi": 0.5586186999242151
+  }
+ },
+ "u4000_seeds1-3": {
+  "active_learned": {
+   "cells": {
+    "250": [
+     154.0,
+     136.0,
+     173.0,
+     138.0
+    ],
+    "500": [
+     281.0,
+     259.0,
+     279.0
+    ],
+    "1000": [
+     451.0,
+     517.0,
+     428.0
+    ],
+    "2000": [
+     393.0,
+     557.0,
+     414.0
+    ],
+    "4000": [
+     619.0
+    ]
+   },
+   "N>=500": {
+    "b": 0.3509660077697757,
+    "lo": 0.3178813187521746,
+    "hi": 0.38364492618940554
+   },
+   "every size": {
+    "b": 0.48210571243893297,
+    "lo": 0.44411381804144845,
+    "hi": 0.5207481407676217
+   }
+  },
+  "active_at": {
+   "cells": {
+    "250": [
+     140.0,
+     125.0,
+     146.0,
+     132.0
+    ],
+    "500": [
+     226.0,
+     226.0,
+     240.0
+    ],
+    "1000": [
+     360.0,
+     404.0,
+     317.0
+    ],
+    "2000": [
+     400.0,
+     506.0,
+     388.0
+    ],
+    "4000": [
+     676.0
+    ]
+   },
+   "N>=500": {
+    "b": 0.4913112222357702,
+    "lo": 0.4630886952808575,
+    "hi": 0.5199739072286861
+   },
+   "every size": {
+    "b": 0.553513577131143,
+    "lo": 0.528770028496642,
+    "hi": 0.5802943875680863
+   }
+  }
+ },
+ "final_seeds1-3": {
+  "cells": {
+   "250": [
+    140.0,
+    125.0,
+    146.0,
+    132.0
+   ],
+   "500": [
+    226.0,
+    226.0,
+    240.0
+   ],
+   "1000": [
+    360.0,
+    404.0,
+    317.0
+   ],
+   "2000": [
+    400.0,
+    506.0,
+    388.0
+   ],
+   "4000": [
+    557.0,
+    595.0,
+    702.0,
+    533.0
+   ]
+  },
+  "N>=500": {
+   "b": 0.4373422466756476,
+   "lo": 0.3862411780822201,
+   "hi": 0.4899980180331174
+  },
+  "every size": {
+   "b": 0.5175342600910617,
+   "lo": 0.47999070982125785,
+   "hi": 0.5571977459772753
+  }
+ },
+ "runs": [
+  {
+   "N": 250,
+   "seed": "1",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 1190.0,
+   "active_learned": 154.0,
+   "active_end": 140.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 1190.0,
+    "active_learned": 154.0,
+    "active_at": 140.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 250,
+   "seed": "2",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 2340.0,
+   "active_learned": 136.0,
+   "active_end": 125.0,
+   "success_end": 0.9921875,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 2340.0,
+    "active_learned": 136.0,
+    "active_at": 125.0,
+    "success_at": 0.9921875
+   }
+  },
+  {
+   "N": 250,
+   "seed": "3",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 830.0,
+   "active_learned": 173.0,
+   "active_end": 146.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 830.0,
+    "active_learned": 173.0,
+    "active_at": 146.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 250,
+   "seed": "4",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 940.0,
+   "active_learned": 138.0,
+   "active_end": 132.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 940.0,
+    "active_learned": 138.0,
+    "active_at": 132.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 500,
+   "seed": "1",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 1350.0,
+   "active_learned": 281.0,
+   "active_end": 226.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 1350.0,
+    "active_learned": 281.0,
+    "active_at": 226.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 500,
+   "seed": "2",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 1280.0,
+   "active_learned": 259.0,
+   "active_end": 226.0,
+   "success_end": 0.9921875,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 1280.0,
+    "active_learned": 259.0,
+    "active_at": 226.0,
+    "success_at": 0.9921875
+   }
+  },
+  {
+   "N": 500,
+   "seed": "3",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 1750.0,
+   "active_learned": 279.0,
+   "active_end": 240.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 1750.0,
+    "active_learned": 279.0,
+    "active_at": 240.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 1000,
+   "seed": "1",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 1050.0,
+   "active_learned": 451.0,
+   "active_end": 360.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 1050.0,
+    "active_learned": 451.0,
+    "active_at": 360.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 1000,
+   "seed": "2",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 760.0,
+   "active_learned": 517.0,
+   "active_end": 404.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 760.0,
+    "active_learned": 517.0,
+    "active_at": 404.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 1000,
+   "seed": "3",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 1750.0,
+   "active_learned": 428.0,
+   "active_end": 317.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 1750.0,
+    "active_learned": 428.0,
+    "active_at": 317.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 1000,
+   "seed": "4",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 1530.0,
+   "active_learned": 427.0,
+   "active_end": 373.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 1530.0,
+    "active_learned": 427.0,
+    "active_at": 373.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 1000,
+   "seed": "5",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 1180.0,
+   "active_learned": 412.0,
+   "active_end": 336.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 1180.0,
+    "active_learned": 412.0,
+    "active_at": 336.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 1000,
+   "seed": "6",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 1330.0,
+   "active_learned": 406.0,
+   "active_end": 314.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 1330.0,
+    "active_learned": 406.0,
+    "active_at": 314.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 2000,
+   "seed": "1",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 3000.0,
+   "active_learned": 393.0,
+   "active_end": 400.0,
+   "success_end": 0.984375,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 3000.0,
+    "active_learned": 393.0,
+    "active_at": 400.0,
+    "success_at": 0.984375
+   }
+  },
+  {
+   "N": 2000,
+   "seed": "2",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 2480.0,
+   "active_learned": 557.0,
+   "active_end": 506.0,
+   "success_end": 0.9765625,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 2480.0,
+    "active_learned": 557.0,
+    "active_at": 506.0,
+    "success_at": 0.9765625
+   }
+  },
+  {
+   "N": 2000,
+   "seed": "3",
+   "finished": true,
+   "budget": 4000,
+   "it_end": 4000,
+   "learned": true,
+   "t_star": 2840.0,
+   "active_learned": 414.0,
+   "active_end": 388.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 2840.0,
+    "active_learned": 414.0,
+    "active_at": 388.0,
+    "success_at": 1.0
+   }
+  },
+  {
+   "N": 4000,
+   "seed": "1",
+   "finished": true,
+   "budget": 8000,
+   "it_end": 8000,
+   "learned": true,
+   "t_star": 2860.0,
+   "active_learned": 619.0,
+   "active_end": 557.0,
+   "success_end": 1.0,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "t_star": 2860.0,
+    "active_learned": 619.0,
+    "active_at": 676.0,
+    "success_at": 0.9609375
+   }
+  },
+  {
+   "N": 4000,
+   "seed": "2",
+   "finished": true,
+   "budget": 8000,
+   "it_end": 8000,
+   "learned": true,
+   "t_star": 3900.0,
+   "active_learned": 532.0,
+   "active_end": 595.0,
+   "success_end": 0.9609375,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": false,
+    "t_star": NaN,
+    "active_learned": NaN,
+    "active_at": 516.0,
+    "success_at": 0.8359375
+   }
+  },
+  {
+   "N": 4000,
+   "seed": "3",
+   "finished": true,
+   "budget": 8000,
+   "it_end": 8000,
+   "learned": true,
+   "t_star": 4120.0,
+   "active_learned": 681.0,
+   "active_end": 702.0,
+   "success_end": 0.9921875,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": false,
+    "t_star": NaN,
+    "active_learned": NaN,
+    "active_at": 693.0,
+    "success_at": 0.796875
+   }
+  },
+  {
+   "N": 4000,
+   "seed": "4",
+   "finished": true,
+   "budget": 6000,
+   "it_end": 6000,
+   "learned": false,
+   "t_star": NaN,
+   "active_learned": NaN,
+   "active_end": 0.0,
+   "success_end": 0.0,
+   "reason": "not learned: the last probe (0.00) is below 0.9",
+   "at4000": {
+    "reached": true,
+    "learned": false,
+    "t_star": NaN,
+    "active_learned": NaN,
+    "active_at": 521.0,
+    "success_at": 0.71875
+   }
+  },
+  {
+   "N": 4000,
+   "seed": "5",
+   "finished": true,
+   "budget": 8000,
+   "it_end": 8000,
+   "learned": true,
+   "t_star": 3970.0,
+   "active_learned": 553.0,
+   "active_end": 533.0,
+   "success_end": 0.9921875,
+   "reason": null,
+   "at4000": {
+    "reached": true,
+    "learned": false,
+    "t_star": NaN,
+    "active_learned": NaN,
+    "active_at": 564.0,
+    "success_at": 0.9140625
+   }
+  }
+ ]
+}

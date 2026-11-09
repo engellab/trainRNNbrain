@@ -1,0 +1,20 @@
+         network   act    k learned intact -inact -k add -k rnd   drop
+   duplicate__s1   766  336    True  0.945  0.954  0.452  0.473  0.493
+   duplicate__s2   751  321    True  0.958  0.971  0.627  0.446  0.331
+   duplicate__s3   756  326    True  0.942  0.946  0.605  0.457  0.337
+     frm0.03__s1   994  564    True  0.951  0.954  0.775  0.305  0.176
+     frm0.03__s2   997  567    True  0.924  0.926  0.722  0.343  0.202
+     frm0.03__s3   989  559    True  0.947  0.954  0.745  0.286  0.202
+      frm0.1__s1   999  569    True  0.984  0.985  0.680  0.258  0.305
+      frm0.1__s2  1000  570    True  0.944  0.944  0.811  0.366  0.134
+      frm0.1__s3   999  569    True  0.923  0.929  0.380  0.074  0.543
+      frm0.3__s1  1000  570    True  0.914  0.914  0.692  0.392  0.222
+      frm0.3__s2  1000  570    True  0.918  0.918  0.581  0.388  0.337
+      frm0.3__s3   996  566   False  0.703  0.731  0.150  0.080  0.553
+  duplicate: drops [0.493, 0.331, 0.337] -> depends; k random active lower than k added in 2 of 3
+  frm0.03: drops [0.176, 0.202, 0.202] -> depends; k random active lower than k added in 3 of 3
+  frm0.1: drops [0.305, 0.134, 0.543] -> depends; k random active lower than k added in 3 of 3
+  frm0.3: drops [0.222, 0.337, 0.553] -> depends; k random active lower than k added in 3 of 3
+  rate penalty, all values pooled: depends
+  drops of at least 0.1: 12 of 12
+-> /Users/pt1290/Documents/Projects/paper_push/wt/r19-text-code/data/round19/fz_maze_added_summary.json

@@ -53,11 +53,24 @@ group holds them) and data/read_uniform_cells.json (the caps 0.1, 0.5 and 2.0 ag
 input-norm ladder's default), the Figure 3 cache data/fig_paper_F2_fails_cache.pkl (the input-weight
 norm ladder). CDDM: the Figure 3 cache (weight decay, noise, the metabolic penalty, the activations,
 the sparsity penalty alone, the cap 0.3 and the input-weight norm at 50,000), read_uniform_cells_2
-(the spectral radius and recurrent-weight penalty with their third seeds; the optimiser). Maze:
-data/read_maze_arms.json (read_maze_arms.py) and, for the activations, the uniform series' run
-folders (data/trained_RNNs_rl_maze/Maze_suite, N = 1,000: common.maze_load_runs and
-fig_ed_maze.read_points, the loaders read_maze_arms.py uses), against the learned controls. A cell
-still training is drawn as the files hold it and picked up on a rerun once they are rebuilt.
+(the spectral radius and recurrent-weight penalty with their third seeds; the optimiser). Maze (round 19,
+dead-relu-paper#201): maze_arms_r19.py, the reader the Extended Data Maze settings figure shares, every
+record cut at update 2,000 (the stated read; continued arms and controls hold records to 4,000, which are
+not drawn here). Its settings reference is the five N = 1,000 controls learned at update 2,000 (uniform
+seeds 1, 2 and the G12 seeds 4-6: 394-449 active; entry 2026-11-08_0859); uniform seed 3 (415, success
+0.73) is the cross in the control slot. The metabolic-penalty arms are the reruns with
+trainer.freeze_after_end=true (data/trained_RNNs_rl_maze_fz; entries 2026-11-08_0940, 2026-11-09_1221),
+which replace the withdrawn runs; the other arms keep their first runs. The activations are the suite's
+N = 1,000 runs cut at update 2,000 as well (since round 19 those records run to 4,000, so reading their
+last probe would read 4,000). The reader's cross-check against data/round19/round19_results.json and
+fz_reruns.json is printed. data/read_maze_arms.json is no longer read here.
+
+TALLIES. Two rules, both printed: the rule of the paper (a direction from the networks that learned
+the task; a value counts on a task when its cell is finished and has a direction) and the rule as
+first written (every finished network gives the direction, against every finished control; a value
+counts when every one of its networks finished on every task). For each, the values with a direction
+on both supervised tasks and on all three tasks, and which of them change the number in the same
+direction.
 
 OUTPUT. img/internal_figures/fig_paper_F3_tasks.{pdf,svg} (paperstyle.save, vector only), and on
 stdout every number drawn (per cell: the counts, performances, the control's values, the status,
@@ -76,15 +89,16 @@ import matplotlib
 matplotlib.use("Agg")
 
 import paperstyle as ps
-from common import MAZE_LEARNED_SUCCESS, maze_load_runs
-from fig_ed_maze import ROOT as MAZE_SUITE, ax_mm, check_overlaps, read_points
+from common import MAZE_LEARNED_SUCCESS
+from fig_ed_maze import ax_mm, check_overlaps
 from fig_paper_F2_fails import CACHE as F2_CACHE
 from fig_paper_F5_tasks import cross_positions, draw_group
+import maze_arms_r19 as M19
 
 REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 RUC1 = os.path.join(REPO, "data", "read_uniform_cells.json")
 RUC2 = os.path.join(REPO, "data", "read_uniform_cells_2.json")
-MAZE_JSON = os.path.join(REPO, "data", "read_maze_arms.json")
+MAZE_READ = 2000                  # the stated Maze read (update); the reads at 4,000 are the Extended Data figure's
 N = 1000
 TASKS = ("3BFF", "CDDM", "maze")
 TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM, "maze": ps.TASK_MAZE}
@@ -354,39 +368,52 @@ def load_supervised():
     return out
 
 
+def maze_cell(seeds, ca, cs, source, ctrl_all, stored=None):
+    """One maze cell at MAZE_READ from maze_arms_r19 seed rows, against the learned controls.
+
+    Args:
+        seeds: list of maze_arms_r19.seed_row dicts; ca, cs: the learned controls' counts and success
+            rates at MAZE_READ; source: str, printed; ctrl_all: every control's count at MAZE_READ (the
+            reference of the every-finished-network tally); stored: the direction maze_arms_r19 computes, printed.
+    Returns:
+        a `cell` dict: the seeds read at MAZE_READ are its runs (a cross when not learned there), the
+        seeds whose record ends before MAZE_READ are its stopped runs (a cross at 0).
+    """
+    pts = [s[f"at{MAZE_READ}"] for s in seeds]
+    read = [p for p in pts if p["reached"]]
+    n_stopped = sum(not p["reached"] for p in pts)
+    c = cell([p["active"] for p in read], [p["success"] for p in read], [p["learned"] for p in read],
+             ca, cs, len(seeds), source, n_stopped=n_stopped, stored=stored)
+    c["ctrl_all"] = list(ctrl_all)
+    return c
+
+
 def load_maze():
-    """Every maze cell: the arms of read_maze_arms.json and the suite's activations.
+    """Every maze cell at update MAZE_READ, from maze_arms_r19 (round 19).
 
     Returns:
-        (cells, reference): dict (task, setting, value) -> `cell` dict and the file's controls'
-        reference.
+        (cells, reference): dict (task, setting, value) -> `cell` dict, and the settings reference at
+        MAZE_READ (maze_arms_r19.settings_reference: the controls learned there).
     """
-    with open(MAZE_JSON) as fh:
-        d = json.load(fh)
-    ref = d["reference"]
-    arms = {a["key"]: a for a in d["arms"]}
-    learned_of = {(r["key"], r["seed"]): r["learned"] is not None for r in d["runs"]}
-    ctrl_runs = sorted([r for r in d["runs"] if r["key"] == "control"], key=lambda r: r["seed"])
-    ctrl_learned = [r for r in ctrl_runs if r["learned"] is not None]
-    ca = [r["active_end"] for r in ctrl_learned]
-    cs = [r["success_end"] for r in ctrl_learned]
-    assert (min(ca), max(ca)) == (ref["active_min"], ref["active_max"]), "the learned controls do not give the file's reference"
-    out = {("maze", "control", "control"): cell([r["active_end"] for r in ctrl_runs], [r["success_end"] for r in ctrl_runs],
-                                                [r["learned"] is not None for r in ctrl_runs], ca, cs, len(ctrl_runs),
-                                                "read_maze_arms.json controls (the learned ones are the reference)")}
+    controls = M19.load_controls()
+    arms = M19.load_arms()
+    M19.crosscheck(controls, arms)
+    ref = M19.settings_reference(controls, MAZE_READ)
+    learned = [c[f"at{MAZE_READ}"] for c in controls if c[f"at{MAZE_READ}"]["learned"]]
+    ca, cs = [p["active"] for p in learned], [p["success"] for p in learned]
+    call = [c[f"at{MAZE_READ}"]["active"] for c in controls if c[f"at{MAZE_READ}"]["reached"]]
+    out = {("maze", "control", "control"): maze_cell(controls, ca, cs,
+                                                     f"Maze_suite N = 1,000 ReLU seeds 1-6 at update {MAZE_READ:,} "
+                                                     "(the learned ones are the reference)", call)}
     for (setting, value), key in MAZE_KEY.items():
         a = arms[key]
-        out[("maze", setting, value)] = cell(a["active_end"], a["success_end"],
-                                             [learned_of[(key, s)] for s in a["seeds_finished"]], ca, cs,
-                                             len(a["active_end"]) + a["n_running"] + a["n_stopped"],
-                                             f"read_maze_arms.json '{key}'", n_running=a["n_running"],
-                                             n_stopped=a["n_stopped"], stored=a["verdict"])
-    suite = [r for r in maze_load_runs(MAZE_SUITE) if r["N"] == N and not r["cue"]]
+        out[("maze", setting, value)] = maze_cell(
+            a["seeds"], ca, cs, f"maze_arms_r19 '{key}' ({a['source']} tree)", call,
+            stored=M19.setting_direction(a["seeds"], ref, MAZE_READ))
+    suite = M19.load_suite_activations(MAZE_ACT.values())
     for value, act in MAZE_ACT.items():
-        pts = [read_points(r) for r in sorted(suite, key=lambda r: r["seed"]) if r["act"] == act]
-        out[("maze", "act", value)] = cell([p["active_end"] for p in pts], [p["success_end"] for p in pts],
-                                           [p["learned_i"] is not None for p in pts], ca, cs, N_SEEDS,
-                                           f"Maze_suite/N={N}_act=* ({act}), update 2,000")
+        out[("maze", "act", value)] = maze_cell(suite[act], ca, cs,
+                                                f"Maze_suite/N={N}_act={act}, update {MAZE_READ:,}", call)
     return out, ref
 
 
@@ -533,8 +560,8 @@ def report(cells, rows, ref):
     Returns:
         None.
     """
-    print(f"maze reference: {ref['n']} learned controls, {ref['active']:.1f} active ({ref['active_min']}-{ref['active_max']}), "
-          f"success {ref['success']:.3f}")
+    print(f"maze reference at update {MAZE_READ:,}: {ref['n']} learned controls (seeds {ref['seeds']}), "
+          f"{ref['active']:.1f} active ({ref['active_min']}-{ref['active_max']}), success {ref['success']:.3f}")
     table = {}
     for task in TASKS:
         print(f"\n--- {task}: per slot, what was drawn; direction by the rule (every seed outside the control's range on "
@@ -559,21 +586,49 @@ def report(cells, rows, ref):
         for key, _ in values:
             print(f"  {setting:>8} {key:>9} | " + " | ".join(
                 f"{short[table[(t, setting, key)][0]] + ' ' + table[(t, setting, key)][1][0]:^10}" for t in TASKS))
-    # the tallies the text quotes: a value counts on a task when its cell is finished and has a direction
+    # the tallies the text quotes, under the paper's rule (learned networks only): a value counts on a
+    # task when its cell is finished and has a direction
     def has(t, setting, key):
         """Whether the (task, setting, value) cell is finished with a direction (not 'none learned')."""
         d, status = table[(t, setting, key)]
         return status == "finished" and d in ("increase", "decrease", "no change")
     vals = [(s, k) for s, _, values in COLUMNS if s != "control" for k, _ in values]
+    print(f"\n--- tallies, the paper's rule (directions from the networks that learned; finished cells with a direction) ---")
+    tally(vals, has, lambda t, s, k: table[(t, s, k)][0], short)
+    # the rule as first written: every finished network gives the direction, against every finished
+    # control; a value counts only where every one of its networks finished
+    def dir_all(t, setting, key):
+        """The direction of a cell from every finished network against every finished control."""
+        c = cells[(t, setting, key)]
+        return direction(c["active"], c.get("ctrl_all", c["ctrl_active"]), None)
+
+    def has_all(t, setting, key):
+        """Whether every network of the cell finished (the rule as first written)."""
+        c = cells[(t, setting, key)]
+        return c["status"] == "finished" and c["n_stopped"] == 0 and len(c["active"]) == c["n_expected"]
+    print(f"\n--- tallies, the rule as first written (every finished network; values all of whose networks finished) ---")
+    tally(vals, has_all, dir_all, short)
+
+
+def tally(vals, has, dir_of, short):
+    """Print how many values have a direction on both supervised tasks and on all three, and which agree.
+
+    Args:
+        vals: list of (setting, value key); has: callable (task, setting, key) -> bool, the value counts on
+            that task; dir_of: callable (task, setting, key) -> direction string; short: dict direction -> word.
+    Returns:
+        None.
+    """
     both = [(s, k) for s, k in vals if has("3BFF", s, k) and has("CDDM", s, k)]
-    same2 = [(s, k) for s, k in both if table[("3BFF", s, k)][0] == table[("CDDM", s, k)][0]]
+    same2 = [(s, k) for s, k in both if dir_of("3BFF", s, k) == dir_of("CDDM", s, k)]
     all3 = [(s, k) for s, k in vals if all(has(t, s, k) for t in TASKS)]
-    same3 = [(s, k) for s, k in all3 if len({table[(t, s, k)][0] for t in TASKS}) == 1]
-    print(f"\n--- tallies (finished cells with a direction) ---")
+    same3 = [(s, k) for s, k in all3 if len({dir_of(t, s, k) for t in TASKS}) == 1]
     print(f"  with a direction on both supervised tasks: {len(both)}; the same direction on both: {len(same2)}: "
-          + ", ".join(f"{s} {k} ({short[table[('3BFF', s, k)][0]]})" for s, k in same2))
-    print(f"  with a direction on all three tasks: {len(all3)}; the same direction on all three: {len(same3)}: "
-          + ", ".join(f"{s} {k} ({short[table[('3BFF', s, k)][0]]})" for s, k in same3))
+          + ", ".join(f"{s} {k} ({short[dir_of('3BFF', s, k)]})" for s, k in same2))
+    print(f"  with a direction on all three tasks: {len(all3)}: "
+          + ", ".join(f"{s} {k} ({'/'.join(short[dir_of(t, s, k)] for t in TASKS)})" for s, k in all3))
+    print(f"  the same direction on all three: {len(same3)}: "
+          + ", ".join(f"{s} {k} ({short[dir_of('3BFF', s, k)]})" for s, k in same3))
 
 
 def main():

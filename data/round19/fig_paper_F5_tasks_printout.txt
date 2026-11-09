@@ -1,0 +1,270 @@
+
+--- panels a, b: one row per (technique, task, value) cell; fold = count / control mean; dperf = performance - control mean ---
+   prune-and-duplicate  3BFF        - [finished] active 793, 781, 830 (fold 3.04, 2.99, 3.18; mean 3.07) perf 0.946, 0.947, 0.947 (dperf -0.005, -0.004, -0.004; mean -0.0046); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; remedies_catalogue.json NBitFlipFlop_paper_grid_c200000; R^2: catalogue, 36 draws
+                                       rule: works
+   prune-and-duplicate  CDDM        - [finished] active 701, 699, 726 (fold 2.08, 2.08, 2.16; mean 2.11) perf 0.832, 0.827, 0.832 (dperf -0.001, -0.007, -0.002; mean -0.0032); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; read_uniform_cells.json 'prune-and-duplicate (copy noise 1, rate 0.025)'
+                                       rule: works | stored: works
+   prune-and-duplicate  maze        - [finished] active 763, 749, 757 (fold 1.77, 1.74, 1.76; mean 1.76) perf 1.000, 1.000, 0.984 (dperf 0.102, 0.102, 0.086; mean +0.0964); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 3/3; stopped 0; training 0; fz_reruns.json 'duplicate' at update 2,000; freeze_after_end=true rerun
+                                       rule: works | stored: works
+          rate penalty  3BFF     0.01 [finished] active 673, 611, 869 (fold 2.58, 2.34, 3.33; mean 2.75) perf 0.936, 0.933, 0.936 (dperf -0.015, -0.018, -0.015; mean -0.0161); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; round18 g1g2.json NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.01; R^2: G1, 36 draws on the 75,000-iteration snapshot
+                                       rule: fails: performance -0.016 beyond 0.01
+          rate penalty  3BFF     0.03 [finished] active 722, 606, 844 (fold 2.76, 2.32, 3.23; mean 2.77) perf 0.931, 0.923, 0.932 (dperf -0.021, -0.029, -0.020; mean -0.0230); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; round18 g1g2.json NBitFlipFlop_remedy_grid/EqType=h_N=1000_arm=frm0.03; R^2: G1, 36 draws on the 75,000-iteration snapshot
+                                       rule: fails: performance -0.023 beyond 0.01
+          rate penalty  maze     0.03 [finished] active 998, 997, 952 (fold 2.32, 2.32, 2.21; mean 2.28) perf 1.000, 0.969, 1.000 (dperf 0.102, 0.070, 0.102; mean +0.0911); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 3/3; stopped 0; training 0; fz_reruns.json 'frm0.03' at update 2,000; freeze_after_end=true rerun
+                                       rule: works | stored: works
+      read-out dropout  3BFF     0.05 [finished] active 392, 452, 418 (fold 1.50, 1.73, 1.60; mean 1.61) perf 0.946, 0.944, 0.946 (dperf -0.006, -0.008, -0.005; mean -0.0062); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; round18 g1g2.json G2 NBitFlipFlop_std_bernoulli_c200000/EqType=h_k=3_N=1000_pen=none_do=mute_rate=0.05_beta=4; parity value; R^2: G2, 36 draws at 75,000
+                                       rule: works
+      read-out dropout  CDDM     0.05 [finished] active 326, 334, 350 (fold 0.97, 0.99, 1.04; mean 1.00) perf 0.830, 0.829, 0.832 (dperf -0.003, -0.005, -0.002; mean -0.0035); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; round18_cddm.json parity 'dropout 0.05, beta 4' (CDDM_parity_r18/EqType=h_N=1000_arm=mute0.05); parity value
+                                       rule: fails: count not above every control's (342) | stored: fails: count not above the controls' largest (342) in seed(s) 1823286556, 701207233
+      read-out dropout  maze     0.05 [finished] active 455, 373, 420 (fold 1.06, 0.87, 0.98; mean 0.97) perf 0.930, 0.961, 1.000 (dperf 0.031, 0.062, 0.102; mean +0.0651); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 3/3; stopped 0; training 0; round18_maze.json parity 'dropout0.05_beta4'; parity value
+                                       rule: fails: count not above every control's (449) | stored: fails: not every network above 449 active
+          rate penalty  3BFF      0.1 [finished] active 985, 995, 935 (fold 3.77, 3.81, 3.58; mean 3.72) perf 0.932, 0.930, 0.927 (dperf -0.019, -0.021, -0.024; mean -0.0213); control active 279, 288, 242, 236 perf 0.952, 0.952, 0.951; learned 3/3; stopped 0; training 0; remedies_catalogue.json NBitFlipFlop_remedy_grid; R^2: no 75,000-iteration weights in the catalogue's chain; the removal analysis's intact score (9 draws) against its controls
+                                       rule: fails: performance -0.021 beyond 0.01
+       rate + sparsity  3BFF      0.1 [finished] active 894, 946, 958 (fold 3.42, 3.62, 3.67; mean 3.57) perf 0.916, 0.926, 0.927 (dperf -0.035, -0.025, -0.025; mean -0.0283); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; remedies_catalogue.json NBitFlipFlop_ff_both40k_c200000; R^2: catalogue, 36 draws
+                                       rule: fails: performance -0.028 beyond 0.01
+        noisy synapses  3BFF      0.1 [finished] active 320, 362, 348 (fold 1.22, 1.39, 1.33; mean 1.31) perf 0.952, 0.950, 0.950 (dperf 0.000, -0.002, -0.001; mean -0.0008); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; round18 g1g2.json G2 NBitFlipFlop_synnoise_c200000/EqType=h_k=3_N=1000_sw=0.1; parity value; R^2: G2, 36 draws at 75,000
+                                       rule: works
+          rate penalty  CDDM      0.1 [finished] active 1000, 1000, 1000 (fold 2.97, 2.97, 2.97; mean 2.97) perf 0.825, 0.829, 0.827 (dperf -0.009, -0.005, -0.007; mean -0.0068); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; read_uniform_cells_2.json 'rate 0.1'
+                                       rule: works | stored: works
+       rate + sparsity  CDDM      0.1 [finished] active 1000, 1000, 1000 (fold 2.97, 2.97, 2.97; mean 2.97) perf 0.823, 0.829, 0.827 (dperf -0.011, -0.005, -0.007; mean -0.0077); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; read_uniform_cells_2.json 'rate 0.1 + sparsity 0.05'
+                                       rule: works | stored: works
+        noisy synapses  CDDM      0.1 [finished] active 331, 316, 333 (fold 0.98, 0.94, 0.99; mean 0.97) perf 0.831, 0.833, 0.832 (dperf -0.002, -0.001, -0.002; mean -0.0018); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; round18_cddm.json parity 'sigma_w 0.1' (CDDM_synnoise_ext/EqType=h_N=1000_sw=0.1_iters=75000); parity value
+                                       rule: fails: count not above every control's (342) | stored: fails: count not above the controls' largest (342) in seed(s) 3442808246, 1985454904, 1995849264
+          rate penalty  maze      0.1 [finished] active 998, 1000, 997 (fold 2.32, 2.33, 2.32; mean 2.32) perf 1.000, 0.992, 1.000 (dperf 0.102, 0.094, 0.102; mean +0.0990); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 3/3; stopped 0; training 0; fz_reruns.json 'frm0.1' at update 2,000; freeze_after_end=true rerun
+                                       rule: works | stored: works
+       rate + sparsity  maze      0.1 [finished] active 1000, 1000, 1000 (fold 2.33, 2.33, 2.33; mean 2.33) perf 0.391, 0.680, 0.336 (dperf -0.508, -0.219, -0.562; mean -0.4297); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 0/3; stopped 0; training 0; fz_reruns.json 'frm0.1_rws0.05' at update 2,000; freeze_after_end=true rerun
+                                       rule: fails: performance -0.430 beyond 0.05; a network ends below 0.9 | stored: fails: mean success 0.469 against the controls' 0.898; a seed ends at 0.34
+        noisy synapses  maze      0.1 [finished] active 418, 416, 342 (fold 0.97, 0.97, 0.80; mean 0.91) perf 1.000, 0.984, 1.000 (dperf 0.102, 0.086, 0.102; mean +0.0964); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 3/3; stopped 0; training 0; round18_maze.json parity 'sigmaw0.1'; parity value
+                                       rule: fails: count not above every control's (449) | stored: fails: not every network above 449 active
+      read-out dropout  3BFF      0.2 [finished] active 496, 569, 539 (fold 1.90, 2.18, 2.06; mean 2.05) perf 0.932, 0.933, 0.939 (dperf -0.019, -0.019, -0.013; mean -0.0167); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; remedies_catalogue.json NBitFlipFlop_dropout_sizes_c200000; R^2: catalogue, 36 draws
+                                       rule: fails: performance -0.017 beyond 0.01
+          rate penalty  CDDM      0.2 [finished] active 1000.0, 1000.0, 1000.0, 1000.0, 1000.0 (fold 3.08, 3.08, 3.08, 3.08, 3.08; mean 3.08) perf 0.830, 0.828, 0.829, 0.829, 0.828 (dperf -0.003, -0.005, -0.004, -0.004, -0.005; mean -0.0044); control active 329.0, 320.0, 321.0, 320.0, 334.0 perf 0.833, 0.831, 0.834, 0.834, 0.834; learned 5/5; stopped 0; training 0; fig_paper_F2_fails_cache.pkl slide_k_frm_rws rung 1 against rung 0 (CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0)
+                                       rule: works
+       rate + sparsity  CDDM      0.2 [finished] active 1000.0, 1000.0, 1000.0, 1000.0, 1000.0 (fold 3.08, 3.08, 3.08, 3.08, 3.08; mean 3.08) perf 0.822, 0.824, 0.825, 0.829, 0.828 (dperf -0.012, -0.009, -0.008, -0.004, -0.005; mean -0.0076); control active 329.0, 320.0, 321.0, 320.0, 334.0 perf 0.833, 0.831, 0.834, 0.834, 0.834; learned 5/5; stopped 0; training 0; fig_paper_F2_fails_cache.pkl slide_k_frm_rws rung 3 against rung 0 (CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0)
+                                       rule: works
+      read-out dropout  CDDM      0.2 [finished] active 524, 505, 523 (fold 1.56, 1.50, 1.56; mean 1.54) perf 0.824, 0.825, 0.830 (dperf -0.010, -0.009, -0.004; mean -0.0076); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; read_uniform_cells.json 'read-out dropout (mute 0.2, beta 4)'
+                                       rule: works | stored: works
+      read-out dropout  maze      0.2 [finished] active 413, 461, 436 (fold 0.96, 1.07, 1.01; mean 1.02) perf 0.836, 0.789, 0.758 (dperf -0.062, -0.109, -0.141; mean -0.1042); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 0/3; stopped 0; training 0; read_maze_arms.json 'dropout'
+                                       rule: fails: count not above every control's (449); performance -0.104 beyond 0.05; a network ends below 0.9 | stored: fails: count not above every control's (449) in seeds 1, 3; success cost -0.104 beyond 0.05; seeds 1, 2, 3 ending below 0.9
+        noisy synapses  3BFF      0.3 [finished] active 373, 351, 432 (fold 1.43, 1.34, 1.65; mean 1.47) perf 0.948, 0.948, 0.946 (dperf -0.003, -0.003, -0.006; mean -0.0039); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; round18 g1g2.json G2 NBitFlipFlop_synnoise_c200000/EqType=h_k=3_N=1000_sw=0.3; parity value; R^2: G2, 36 draws at 75,000
+                                       rule: works
+        noisy synapses  CDDM      0.3 [finished] active 356, 360, 380 (fold 1.06, 1.07, 1.13; mean 1.09) perf 0.835, 0.834, 0.835 (dperf 0.001, 0.001, 0.001; mean +0.0008); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; round18_cddm.json parity 'sigma_w 0.3' (CDDM_synnoise_ext/EqType=h_N=1000_sw=0.3_iters=75000); parity value
+                                       rule: works | stored: works
+          rate penalty  maze      0.3 [finished] active 1000, 1000, 997 (fold 2.33, 2.33, 2.32; mean 2.32) perf 1.000, 0.984, 0.867 (dperf 0.102, 0.086, -0.031; mean +0.0521); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 2/3; stopped 0; training 0; fz_reruns.json 'frm0.3' at update 2,000; freeze_after_end=true rerun
+                                       rule: fails: a network ends below 0.9 | stored: fails: a seed ends at 0.87
+        noisy synapses  maze      0.3 [finished] active 400, 432, 396 (fold 0.93, 1.00, 0.92; mean 0.95) perf 0.984, 1.000, 0.977 (dperf 0.086, 0.102, 0.078; mean +0.0885); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 3/3; stopped 0; training 0; round18_maze.json parity 'sigmaw0.3'; parity value
+                                       rule: fails: count not above every control's (449) | stored: fails: not every network above 449 active
+        noisy synapses  3BFF      1.0 [finished] active 572, 552, 589 (fold 2.19, 2.11, 2.25; mean 2.19) perf 0.929, 0.926, 0.933 (dperf -0.022, -0.025, -0.019; mean -0.0222); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; remedies_catalogue.json NBitFlipFlop_synnoise_c200000; R^2: catalogue, 36 draws
+                                       rule: fails: performance -0.022 beyond 0.01
+        noisy synapses  CDDM      1.0 [finished] active 486, 487, 511 (fold 1.44, 1.45, 1.52; mean 1.47) perf 0.820, 0.828, 0.808 (dperf -0.014, -0.006, -0.026; mean -0.0150); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; read_uniform_cells.json 'sigma_w 1.0'
+                                       rule: fails: performance -0.015 beyond 0.01 | stored: fails: R2 gap -0.015 beyond 0.01
+        noisy synapses  maze      1.0 [finished] active 451, 478, 454 (fold 1.05, 1.11, 1.06; mean 1.07) perf 0.906, 0.961, 0.898 (dperf 0.008, 0.062, 0.000; mean +0.0234); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 2/3; stopped 0; training 0; read_maze_arms.json 'synnoise'
+                                       rule: fails: a network ends below 0.9 | stored: fails: seed 3 ending below 0.9
+             rescaling  3BFF      4.0 [finished] active 317, 388, 402 (fold 1.21, 1.49, 1.54; mean 1.41) perf 0.942, 0.941, 0.942 (dperf -0.009, -0.010, -0.009; mean -0.0097); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 3/3; stopped 0; training 0; round18 g1g2.json G2 NBitFlipFlop_revive_ops2_c200000/EqType=h_k=3_N=1000_op=rescale_novel=false_tgt=4.0_step=0.0005_prot=0.20; parity value; R^2: G2, 36 draws at 75,000
+                                       rule: works
+             rescaling  CDDM      4.0 [finished] active 231, 230, 224 (fold 0.69, 0.68, 0.67; mean 0.68) perf 0.827, 0.827, 0.827 (dperf -0.006, -0.006, -0.007; mean -0.0066); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; round18_cddm.json parity 'rescaling, target 4.0' (CDDM_target_ladder/EqType=h_N=1000_tgt=4.0); parity value
+                                       rule: fails: count not above every control's (342) | stored: fails: count not above the controls' largest (342) in seed(s) 3026728724, 3026817625, 2440458200
+             rescaling  maze      4.0 [incomplete] active 352, 197 (fold 0.82, 0.46; mean 0.64) perf 0.812, 0.008 (dperf -0.086, -0.891; mean -0.4883); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 0/2; stopped 1; training 0; round18_maze.json parity 'rescale_tgt4'; parity value
+                                       rule: fails: count not above every control's (449); performance -0.488 beyond 0.05; a network ends below 0.9 | stored: fails: not every network above 449 active; mean success 0.410 below 0.848; a network ends below 0.9
+             rescaling  3BFF      10× [finished] active 476, 364, 422, 460 (fold 1.82, 1.39, 1.62, 1.76; mean 1.65) perf 0.938, 0.938, 0.938, 0.940 (dperf -0.013, -0.013, -0.013, -0.011; mean -0.0127); control active 279, 288, 242, 236 perf 0.951, 0.952, 0.951; learned 4/4; stopped 0; training 0; remedies_catalogue.json NBitFlipFlop_target_ladder_c200000; R^2: catalogue, 36 draws
+                                       rule: fails: performance -0.013 beyond 0.01
+             rescaling  CDDM      10× [finished] active 196, 183, 169 (fold 0.58, 0.54, 0.50; mean 0.54) perf 0.819, 0.813, 0.824 (dperf -0.015, -0.021, -0.009; mean -0.0150); control active 342, 334, 333 perf 0.831, 0.835, 0.835; learned 3/3; stopped 0; training 0; read_uniform_cells_2.json 'rescaling (target 10x the rate cap, the paper's arm)'
+                                       rule: fails: count not above every control's (342); performance -0.015 beyond 0.01 | stored: fails: count not above the controls' largest (342) in seed(s) 3366773033, 803704226, 511030482; R2 gap -0.015 beyond 0.01
+             rescaling  maze      10× [stopped] active - (fold -; mean nan) perf - (dperf -; mean +nan); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 0/0; stopped 3; training 0; read_maze_arms.json 'rescale'; the paper's values (target 10x, alpha 1.002, cap 64, protect 0.2 N)
+                                       rule: no finished run | stored: no verdict (stopped)
+             rescaling  maze slow tilt [incomplete] active 314, 321 (fold 0.73, 0.75; mean 0.74) perf 0.750, 0.633 (dperf -0.148, -0.266; mean -0.2070); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 0/2; stopped 1; training 0; read_maze_arms.json 'rescale_mild'; slow tilt: alpha 1.0005, cap 8
+                                       rule: fails: count not above every control's (449); performance -0.207 beyond 0.05; a network ends below 0.9 | stored: incomplete (2 of 3 finished, 1 stopped)
+             rescaling  maze  5% grow [finished] active 255, 231, 234 (fold 0.59, 0.54, 0.54; mean 0.56) perf 0.656, 0.750, 0.812 (dperf -0.242, -0.148, -0.086; mean -0.1589); control active 426, 449, 415 perf 0.992, 0.977, 0.727; learned 0/3; stopped 0; training 0; read_maze_arms.json 'rescale_few'; 5% grow: protect 0.05 N
+                                       rule: fails: count not above every control's (449); performance -0.159 beyond 0.05; a network ends below 0.9 | stored: fails: count not above every control's (449) in seeds 1, 2, 3; success cost -0.159 beyond 0.05; seeds 1, 2, 3 ending below 0.9
+
+--- 3BFF at the floor crossing (not drawn; the catalogue's 1.05x read) ---
+   prune-and-duplicate: 3 of 3 read; active 745, 788, 772 R2 0.944, 0.945, 0.946; control active 277, 296, 297, 240 R2 0.949, 0.950, 0.950, 0.950; works
+          rate penalty: 0 of 3 read; active - R2 -; control active 277, 296, 297, 240 R2 0.949, 0.950, 0.950, 0.950; no floor read; excluded: ['0.93226_NB: loss ends below its floor', '0.9323066_: never stays under the bar', '0.9394087_: never stays under the bar']
+      read-out dropout: 1 of 3 read; active 502 R2 0.940; control active 277, 296, 297, 240 R2 0.949, 0.950, 0.950, 0.950; works; excluded: ['0.9422186_: never stays under the bar', '0.94345_NB: never stays under the bar']
+       rate + sparsity: 3 of 3 read; active 976, 986, 961 R2 0.932, 0.924, 0.929; control active 277, 296, 297, 240 R2 0.949, 0.950, 0.950, 0.950; fails: performance -0.022 beyond 0.01
+             rescaling: 1 of 4 read; active 418 R2 0.943; control active 277, 296, 297, 240 R2 0.949, 0.950, 0.950, 0.950; works; excluded: ['0.9446984_: never stays under the bar', '0.947893_N: never stays under the bar', '0.9491874_: never stays under the bar']
+        noisy synapses: 3 of 3 read; active 561, 544, 583 R2 0.926, 0.926, 0.930; control active 277, 296, 297, 240 R2 0.949, 0.950, 0.950, 0.950; fails: performance -0.023 beyond 0.01
+
+--- verdict table (technique x task), the drawn read-out ---
+             technique |   3BFF    |   CDDM    |   maze    | works on
+   prune-and-duplicate |   works   |   works   |   works   | 3 task(s)
+                         3BFF: works
+                         CDDM: works
+                         maze: works
+        noisy synapses |   works   |   works   |   fails   | 2 task(s)
+                         3BFF: works at 0.1; works at 0.3; fails: performance -0.022 beyond 0.01 at 1.0
+                         CDDM: fails: count not above every control's (342) at 0.1; works at 0.3; fails: performance -0.015 beyond 0.01 at 1.0
+                         maze: fails: count not above every control's (449) at 0.1; fails: count not above every control's (449) at 0.3; fails: a network ends below 0.9 at 1.0
+          rate penalty |   fails   |   works   |   works   | 2 task(s)
+                         3BFF: fails: performance -0.016 beyond 0.01 at 0.01; fails: performance -0.023 beyond 0.01 at 0.03; fails: performance -0.021 beyond 0.01 at 0.1
+                         CDDM: works at 0.1; works at 0.2
+                         maze: works at 0.03; works at 0.1; fails: a network ends below 0.9 at 0.3
+      read-out dropout |   works   |   works   |   fails   | 2 task(s)
+                         3BFF: works at 0.05; fails: performance -0.017 beyond 0.01 at 0.2
+                         CDDM: fails: count not above every control's (342) at 0.05; works at 0.2
+                         maze: fails: count not above every control's (449) at 0.05; fails: count not above every control's (449); performance -0.104 beyond 0.05; a network ends below 0.9 at 0.2
+       rate + sparsity |   fails   |   works   |   fails   | 1 task(s)
+                         3BFF: fails: performance -0.028 beyond 0.01 at 0.1
+                         CDDM: works at 0.1; works at 0.2
+                         maze: fails: performance -0.430 beyond 0.05; a network ends below 0.9 at 0.1
+             rescaling |   works   |   fails   |   fails   | 1 task(s)
+                         3BFF: works at 4.0; fails: performance -0.013 beyond 0.01 at 10×
+                         CDDM: fails: count not above every control's (342) at 4.0; fails: count not above every control's (342); performance -0.015 beyond 0.01 at 10×
+                         maze: incomplete at 4.0; stopped at 10×; incomplete at slow tilt; fails: count not above every control's (449); performance -0.159 beyond 0.05; a network ends below 0.9 at 5% grow
+
+  column order: prune-and-duplicate, noisy synapses, rate penalty, read-out dropout, rate + sparsity, rescaling
+
+--- panel c (across sizes; 3BFF read as Figure 5c: floor crossing, rescaling and read-out dropout at 75,000; CDDM at the floor crossing, G6) ---
+   3BFF         rate penalty N=2000  n=3 fold 4.81 dR2 median -0.0214
+   3BFF         rate penalty N=4000  n=2 fold 5.64 dR2 median -0.0111
+   3BFF       noisy synapses N=500   n=3 fold 1.81 dR2 median -0.0442
+   3BFF       noisy synapses N=1000  n=3 fold 2.03 dR2 median -0.0237
+   3BFF       noisy synapses N=2000  n=3 fold 1.54 dR2 median -0.0269
+   3BFF       noisy synapses N=4000  n=5 fold 1.60 dR2 median -0.0189
+   3BFF            rescaling N=500   n=4 fold 1.55 dR2 median -0.0114
+   3BFF            rescaling N=1000  n=4 fold 1.65 dR2 median -0.0132
+   3BFF            rescaling N=2000  n=4 fold 1.73 dR2 median -0.0142
+   3BFF            rescaling N=4000  n=6 fold 1.95 dR2 median -0.0166
+   3BFF  prune-and-duplicate N=500   n=3 fold 2.06 dR2 median -0.0032
+   3BFF  prune-and-duplicate N=1000  n=3 fold 2.77 dR2 median -0.0047
+   3BFF  prune-and-duplicate N=2000  n=3 fold 3.24 dR2 median -0.0086
+   3BFF  prune-and-duplicate N=4000  n=1 fold 3.59 dR2 median -0.0177
+   3BFF     read-out dropout N=500   n=3 fold 2.05 dR2 median -0.0203
+   3BFF     read-out dropout N=1000  n=3 fold 2.05 dR2 median -0.0185
+   3BFF     read-out dropout N=2000  n=3 fold 2.00 dR2 median -0.0128
+   3BFF     read-out dropout N=4000  n=3 fold 2.01 dR2 median -0.0127
+   CDDM  prune-and-duplicate N=500   n=3/3 fold 1.37 dR2 median -0.0023
+   CDDM  prune-and-duplicate N=1000  n=3/3 fold 1.52 dR2 median -0.0012
+   CDDM  prune-and-duplicate N=2000  n=3/3 fold 1.94 dR2 median +0.0020
+   CDDM  prune-and-duplicate N=4000  n=3/3 fold 2.11 dR2 median -0.0006
+   CDDM     read-out dropout N=500   n=3/3 fold 1.29 dR2 median -0.0044
+   CDDM     read-out dropout N=1000  n=2/3 fold 1.26 dR2 median -0.0021
+   CDDM     read-out dropout N=2000  n=3/3 fold 1.26 dR2 median -0.0017
+   CDDM     read-out dropout N=4000  n=3/3 fold 1.02 dR2 median -0.0049
+
+--- panel d (every task: x = after k random active units, median of 5; y = after the k added units, the inactive units left in place) ---
+   3BFF     read-out dropout 0.9380336_NBitFlipFlop_relu;     k=228  intact 0.933 x +0.228 y +0.193 drop 0.740 (calm)
+   3BFF     read-out dropout 0.9422186_NBitFlipFlop_relu;     k=300  intact 0.933 x +0.127 y +0.176 drop 0.757 (calm)
+   3BFF     read-out dropout 0.94345_NBitFlipFlop_relu;N=     k=270  intact 0.939 x +0.181 y +0.272 drop 0.667 (calm)
+   3BFF      rate + sparsity 0.9322648_NBitFlipFlop_relu;     k=624  intact 0.916 x +0.159 y +0.489 drop 0.427 (calm)
+   3BFF      rate + sparsity 0.9340293_NBitFlipFlop_relu;     k=677  intact 0.926 x +0.151 y +0.373 drop 0.554 (calm)
+   3BFF      rate + sparsity 0.9344968_NBitFlipFlop_relu;     k=689  intact 0.927 x +0.140 y +0.355 drop 0.572 (calm)
+   3BFF  prune-and-duplicate 0.9472282_NBitFlipFlop_relu;     k=530  intact 0.946 x +0.057 y -4901.649 drop 4902.595 (calm)
+   3BFF  prune-and-duplicate 0.9479261_NBitFlipFlop_relu;     k=513  intact 0.947 x +0.104 y +0.233 drop 0.714 (calm)
+   3BFF  prune-and-duplicate 0.9484472_NBitFlipFlop_relu;     k=560  intact 0.947 x +0.054 y +0.227 drop 0.720 (calm)
+   3BFF         rate penalty 0.93226_NBitFlipFlop_relu;N=     k=716  intact 0.932 x +0.106 y +0.218 drop 0.715 (calm)
+   3BFF         rate penalty 0.9323066_NBitFlipFlop_relu;     k=726  intact 0.930 x +0.128 y +0.184 drop 0.747 (burst)
+   3BFF         rate penalty 0.9394087_NBitFlipFlop_relu;     k=666  intact 0.927 x +0.146 y +0.279 drop 0.648 (calm)
+   3BFF       noisy synapses 0.9364085_NBitFlipFlop_relu;     k=303  intact 0.929 x +0.155 y +0.578 drop 0.351 (calm)
+   3BFF       noisy synapses 0.9371972_NBitFlipFlop_relu;     k=284  intact 0.926 x +0.175 y +0.604 drop 0.322 (calm)
+   3BFF       noisy synapses 0.9389377_NBitFlipFlop_relu;     k=321  intact 0.932 x +0.152 y +0.571 drop 0.361 (calm)
+   3BFF            rescaling 0.9446984_NBitFlipFlop_relu;     k=210  intact 0.938 x +0.040 y +0.309 drop 0.629 (calm)
+   3BFF            rescaling 0.9461284_NBitFlipFlop_relu;     k=94   intact 0.938 x +0.211 y +0.703 drop 0.235 (calm)
+   3BFF            rescaling 0.947893_NBitFlipFlop_relu;N     k=155  intact 0.938 x -41973.704 y +0.430 drop 0.508 (burst)
+   3BFF            rescaling 0.9491874_NBitFlipFlop_relu;     k=194  intact 0.941 x +0.073 y +0.558 drop 0.383 (burst)
+   CDDM  prune-and-duplicate prune-and-duplicate network 1    k=395  intact 0.836 x +0.095 y +0.763 drop 0.073 (calm)
+   CDDM  prune-and-duplicate prune-and-duplicate network 2    k=400  intact 0.831 x -0.115 y +0.672 drop 0.159 (calm)
+   CDDM  prune-and-duplicate prune-and-duplicate network 3    k=395  intact 0.835 x -0.075 y +0.761 drop 0.074 (calm)
+   CDDM     read-out dropout read-out dropout network 1       k=183  intact 0.829 x +0.240 y +0.639 drop 0.190 (calm)
+   CDDM     read-out dropout read-out dropout network 2       k=182  intact 0.828 x +0.449 y +0.535 drop 0.293 (calm)
+   CDDM     read-out dropout read-out dropout network 3       k=198  intact 0.832 x +0.362 y +0.595 drop 0.238 (calm)
+   CDDM         rate penalty rate penalty 0.1 network 1       k=671  intact 0.827 x -0.024 y +0.532 drop 0.295 (calm)
+   CDDM         rate penalty rate penalty 0.1 network 2       k=671  intact 0.831 x -0.006 y +0.507 drop 0.325 (calm)
+   CDDM         rate penalty rate penalty 0.1 network 3       k=671  intact 0.829 x -0.033 y +0.483 drop 0.346 (calm)
+   CDDM         rate penalty rate penalty 0.2 network 1       k=671  intact 0.830 x +0.022 y +0.538 drop 0.292 (calm)
+   CDDM         rate penalty rate penalty 0.2 network 2       k=671  intact 0.833 x -0.033 y +0.515 drop 0.318 (calm)
+   CDDM         rate penalty rate penalty 0.2 network 3       k=671  intact 0.830 x -0.047 y +0.485 drop 0.344 (calm)
+   CDDM         rate penalty rate penalty 0.2 network 4       k=671  intact 0.829 x -0.061 y +0.557 drop 0.271 (calm)
+   CDDM         rate penalty rate penalty 0.2 network 5       k=671  intact 0.830 x -0.074 y +0.553 drop 0.276 (calm)
+   maze  prune-and-duplicate duplicate__s1                    k=336  intact 0.945 x +0.473 y +0.452 drop 0.493 (calm)
+   maze  prune-and-duplicate duplicate__s2                    k=321  intact 0.958 x +0.446 y +0.627 drop 0.331 (calm)
+   maze  prune-and-duplicate duplicate__s3                    k=326  intact 0.942 x +0.457 y +0.605 drop 0.337 (calm)
+   maze         rate penalty frm0.03__s1                      k=564  intact 0.951 x +0.305 y +0.775 drop 0.176 (calm)
+   maze         rate penalty frm0.03__s2                      k=567  intact 0.924 x +0.343 y +0.722 drop 0.202 (calm)
+   maze         rate penalty frm0.03__s3                      k=559  intact 0.947 x +0.286 y +0.745 drop 0.202 (calm)
+   maze         rate penalty frm0.1__s1                       k=569  intact 0.984 x +0.258 y +0.680 drop 0.305 (calm)
+   maze         rate penalty frm0.1__s2                       k=570  intact 0.944 x +0.366 y +0.811 drop 0.134 (calm)
+   maze         rate penalty frm0.1__s3                       k=569  intact 0.923 x +0.074 y +0.380 drop 0.543 (calm)
+   maze         rate penalty frm0.3__s1                       k=570  intact 0.914 x +0.392 y +0.692 drop 0.222 (calm)
+   maze         rate penalty frm0.3__s2                       k=570  intact 0.918 x +0.388 y +0.581 drop 0.337 (calm)
+   maze         rate penalty frm0.3__s3                       k=566  intact 0.703 x +0.080 y +0.150 drop 0.553 (calm)
+  3BFF: 19 networks; random lower than added in 17; y -4901.649 to 0.703; x -41973.704 to +0.228
+  CDDM: 14 networks; random lower than added in 14; y 0.483 to 0.763; x -0.115 to +0.449
+  maze: 12 networks; random lower than added in 11; y 0.150 to 0.811; x +0.074 to +0.473
+
+--- Maze verdicts: all three controls (drawn) against the two learned controls ---
+  control success [0.992, 0.977, 0.727], active [426, 449, 415]; all three: 0.898, 430.0; two learned: 0.984, 437.5
+   prune-and-duplicate          : all three +0.096 fold 1.76 works (without the 0.9 condition works); two learned +0.010 fold 1.73 works (without it works)
+          rate penalty      0.03: all three +0.091 fold 2.28 works (without the 0.9 condition works); two learned +0.005 fold 2.25 works (without it works)
+      read-out dropout      0.05: all three +0.065 fold 0.97 fails (without the 0.9 condition fails); two learned -0.021 fold 0.95 fails (without it fails)
+          rate penalty       0.1: all three +0.099 fold 2.32 works (without the 0.9 condition works); two learned +0.013 fold 2.28 works (without it works)
+       rate + sparsity       0.1: all three -0.430 fold 2.33 fails (without the 0.9 condition fails); two learned -0.516 fold 2.29 fails (without it fails)
+        noisy synapses       0.1: all three +0.096 fold 0.91 fails (without the 0.9 condition fails); two learned +0.010 fold 0.90 fails (without it fails)
+      read-out dropout       0.2: all three -0.104 fold 1.02 fails (without the 0.9 condition fails); two learned -0.190 fold 1.00 fails (without it fails)
+          rate penalty       0.3: all three +0.052 fold 2.32 fails (without the 0.9 condition works); two learned -0.034 fold 2.28 fails (without it works)
+        noisy synapses       0.3: all three +0.089 fold 0.95 fails (without the 0.9 condition fails); two learned +0.003 fold 0.94 fails (without it fails)
+        noisy synapses       1.0: all three +0.023 fold 1.07 fails (without the 0.9 condition works); two learned -0.062 fold 1.05 fails (without it fails)
+             rescaling       4.0: all three -0.488 fold 0.64 fails (without the 0.9 condition fails); two learned -0.574 fold 0.63 fails (without it fails)
+             rescaling slow tilt: all three -0.207 fold 0.74 fails (without the 0.9 condition fails); two learned -0.293 fold 0.73 fails (without it fails)
+             rescaling   5% grow: all three -0.159 fold 0.56 fails (without the 0.9 condition fails); two learned -0.245 fold 0.55 fails (without it fails)
+  verdicts that differ between the two references: []
+
+--- tolerance sensitivity: technique x task, works (W) or fails (-), full-precision differences ---
+  3BFF: tolerances (0.005, 0.01, 0.02)
+     prune-and-duplicate W W W   works from tolerance 0.00460   (-: -0.00460)
+            rate penalty - - W   works from tolerance 0.01613   (0.01: -0.01613, 0.03: -0.02304, 0.1: -0.02134)
+        read-out dropout - W W   works from tolerance 0.00615   (0.05: -0.00615, 0.2: -0.01668)
+         rate + sparsity - - -   works from tolerance 0.02830   (0.1: -0.02830)
+               rescaling - W W   works from tolerance 0.00968   (4.0: -0.00968, 10×: -0.01267)
+          noisy synapses W W W   works from tolerance 0.00084   (0.1: -0.00084, 0.3: -0.00395, 1.0: -0.02216)
+  CDDM: tolerances (0.005, 0.01, 0.02)
+     prune-and-duplicate W W W   works from tolerance 0.00324   (-: -0.00324)
+            rate penalty W W W   works from tolerance 0.00443   (0.1: -0.00685, 0.2: -0.00443)
+        read-out dropout - W W   works from tolerance 0.00757   (0.05: -0.00347, 0.2: -0.00757)
+         rate + sparsity - W W   works from tolerance 0.00759   (0.1: -0.00773, 0.2: -0.00759)
+               rescaling - - -   works from tolerance never   (4.0: -0.00663, 10×: -0.01498)
+          noisy synapses W W W   works from tolerance 0.00000   (0.1: -0.00181, 0.3: +0.00078, 1.0: -0.01504)
+  maze: tolerances (0.025, 0.05, 0.1)
+     prune-and-duplicate W W W   works from tolerance 0.00000   (-: +0.09635)
+            rate penalty W W W   works from tolerance 0.00000   (0.03: +0.09115, 0.1: +0.09896, 0.3: +0.05208)
+        read-out dropout - - -   works from tolerance never   (0.05: +0.06510, 0.2: -0.10417)
+         rate + sparsity - - -   works from tolerance never   (0.1: -0.42969)
+               rescaling - - -   works from tolerance never   (5% grow: -0.15885)
+          noisy synapses - - -   works from tolerance never   (0.1: +0.09635, 0.3: +0.08854, 1.0: +0.02344)
+  techniques that work on all three tasks, as the R^2 tolerance varies (maze at the figure's):
+    0.00000: []
+    0.00084: []
+    0.00324: []
+    0.00443: []
+    0.00460: ['prune-and-duplicate']
+    0.00500: ['prune-and-duplicate']
+    0.00615: ['prune-and-duplicate']
+    0.00757: ['prune-and-duplicate']
+    0.00759: ['prune-and-duplicate']
+    0.00968: ['prune-and-duplicate']
+    0.01000: ['prune-and-duplicate']
+    0.01613: ['prune-and-duplicate', 'rate penalty']
+    0.02000: ['prune-and-duplicate', 'rate penalty']
+    0.02830: ['prune-and-duplicate', 'rate penalty']
+
+--- the two rules: the smallest R^2 tolerance at which each technique passes on all three tasks (Maze at its fixed success tolerance 0.05) ---
+   prune-and-duplicate  one-value: 3BFF 0.0000 (EqType=h_k=3_N=1000_mode=copy_rate=0.005_mat=0), CDDM 0.0032 (), maze 0.0000 () -> all three from 0.0032
+                        matched value (one value): 3BFF 0.0046, CDDM 0.0032, maze 0.0000 -> all three from 0.0046
+          rate penalty  one-value: 3BFF 0.0161 (0.01), CDDM 0.0044 (0.2), maze 0.0000 (0.03) -> all three from 0.0161
+                        matched value 0.1: 3BFF 0.0213, CDDM 0.0068, maze 0.0000 -> all three from 0.0213
+      read-out dropout  one-value: 3BFF 0.0062 (0.05), CDDM 0.0076 (0.2), maze never -> all three from never
+                        matched value 0.05: 3BFF 0.0062, CDDM never, maze never -> all three from never
+                        matched value 0.2: 3BFF 0.0167, CDDM 0.0076, maze never -> all three from never
+       rate + sparsity  one-value: 3BFF 0.0283 (0.1), CDDM 0.0076 (0.2), maze never -> all three from never
+                        matched value 0.1: 3BFF 0.0283, CDDM 0.0077, maze never -> all three from never
+             rescaling  one-value: 3BFF 0.0097 (4.0), CDDM never, maze never -> all three from never
+        noisy synapses  one-value: 3BFF 0.0008 (0.1), CDDM 0.0000 (0.3), maze never -> all three from never
+                        matched value 0.1: 3BFF 0.0008, CDDM never, maze never -> all three from never
+                        matched value 0.3: 3BFF 0.0039, CDDM 0.0000, maze never -> all three from never
+                        matched value 1.0: 3BFF 0.0222, CDDM 0.0150, maze never -> all three from never
+  one-value rule: techniques on all three tasks at R^2 tolerance 0.005: prune-and-duplicate; 0.01: prune-and-duplicate; 0.02: prune-and-duplicate, rate penalty
+  one-value rule: prune-and-duplicate alone passes on all three tasks from 0.0032 up to 0.0161 (exclusive), where rate penalty joins it
+  matched-value rule: techniques on all three tasks at R^2 tolerance 0.005: prune-and-duplicate; 0.01: prune-and-duplicate; 0.02: prune-and-duplicate
+  matched-value rule: prune-and-duplicate alone passes on all three tasks from 0.0046 up to 0.0213 (exclusive), where rate penalty joins it
+  .. no overlapping text (120 text artists checked)
+wrote /Users/pt1290/Documents/Projects/paper_push/wt/r19-text-code/trainRNNbrain/experiments_and_analysis/../../img/internal_figures/fig_paper_F5_tasks.pdf (+ .svg)

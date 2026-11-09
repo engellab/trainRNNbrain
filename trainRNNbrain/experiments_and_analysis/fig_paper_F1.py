@@ -37,9 +37,12 @@ them. The maze is read when the figure is drawn, from this repo and not from COL
 ReLU runs (MAZE_ROOT, common.maze_load_runs; maze_rows) and the ablation JSONs of rl_maze_ablate.py
 (MAZE_ABLATION_DIR; maze_ablation). Panel (c) draws each maze run at its "learned" probe, the first
 probe from which the clean probe's success rate stays at or above 0.9 for 5 probes
-(common.maze_learned_index), the maze counterpart of the floor crossing: 511, 434 and 410 active
-units of 1,000 for seeds 1, 2 and 3 (at the end of training, update 2,000, the counts are 455, 423
-and 404; those are not drawn). Its tick label gives the probe success rate at that probe (SCORE),
+(common.maze_learned_index), the maze counterpart of the floor crossing, on each run's record joined
+across its continuations: 451, 517 and 428 active units of 1,000 for seeds 1, 2 and 3 (learned at
+updates 1,050, 760 and 1,750; at the end of training, update 4,000, 360, 404 and 317; those are not
+drawn). Only seeds 1-3 are drawn (MAZE_SEEDS; round 19, dead-relu-paper#206). The maze sub-panels of
+(d) and (e) keep seeds 1 and 2 at update 2,000, the two runs learned by then: seed 3's stage-1
+record ends at 0.73 and is left out by maze_learned_index. Its tick label gives the probe success rate at that probe (SCORE),
 not an R^2. Panel (d)'s maze sub-panel draws the success rate under the training noise against
 units removed, in the three orders of the other sub-panels, on a y axis of its own labelled
 "success rate" (D_YLABEL_MM of room before it); the ablated weights are the final ones, because no
@@ -53,6 +56,12 @@ budget, so the maze's markers in (e) are OPEN (mark_fixed), where the supervised
 filled (their floor-crossing snapshots; #83). In the (d) strip every task's markers are open: the
 retrained networks are read at the end of a fixed further-training budget (dead-relu-paper#190,
 Reviewer S, figures item 1). Either reads "no data" until its file exists.
+
+ROUND 19 (dead-relu-paper#206, absorbing #195). The read-out JSONs store run_dir relative to the
+folder their script ran from (the retrain JSONs held "../trainRNNbrain/data/...", which resolves only
+from a sibling of the original checkout), so the figure failed in any other checkout. repo_run_dir
+resolves every stored run_dir from its "data/" component against this checkout, and the nine
+data/rl_maze_retrain JSONs now store repository-relative paths.
 
 ROUND 13 (dead-relu-paper#165). The 24 trials of (a) and (b) are drawn from a seeded task: the
 flip-flop task draws its trials from its own generator, seeded from cfg.task.seed (null in every
@@ -255,6 +264,29 @@ MAZE_ROOT = os.path.join(REPO_ROOT, "data", "trained_RNNs_rl_maze", "Maze_suite"
 MAZE_ABLATION_DIR = os.path.join(REPO_ROOT, "data", "rl_maze_ablation")
 MAZE_RETRAIN_DIR = os.path.join(REPO_ROOT, "data", "rl_maze_retrain")          # rl_maze_retrain.py
 MAZE_POP_STATS = os.path.join(REPO_ROOT, "data", "population_stats_maze.json")  # rl_maze_population_stats.py
+# Panel (c) draws the three uniform-series maze seeds, as it draws three CDDM networks (r19-text,
+# dead-relu-paper#206; entry 2026-11-08_0954). The G12 seeds 4-6 of the same cell are not drawn here.
+MAZE_SEEDS = (1, 2, 3)
+
+
+def repo_run_dir(stored):
+    """Resolve a run folder stored in a maze read-out JSON against this checkout (dead-relu-paper#195).
+
+    The JSONs of rl_maze_ablate.py and rl_maze_retrain.py store run_dir relative to the folder the
+    script was run from, which differs between checkouts (e.g. "../trainRNNbrain/data/..." in the
+    retrain JSONs written from a worktree). Every run folder lives under this repository's data/, so
+    the path from its first "data/" component on is joined to REPO_ROOT. An absolute path, or one
+    without a "data/" component, is joined as stored.
+
+    Args:
+        stored: str, the run_dir field of a read-out JSON.
+    Returns:
+        str, the run folder in this checkout.
+    """
+    parts = stored.replace(os.sep, "/").split("/")
+    if not os.path.isabs(stored) and "data" in parts:
+        return os.path.join(REPO_ROOT, *parts[parts.index("data"):])
+    return os.path.join(REPO_ROOT, stored)
 
 
 def load_population_stats_all():
@@ -309,7 +341,7 @@ def maze_retrain(folder=MAZE_RETRAIN_DIR, N=N_UNITS):
                 d[arm] = [tuple(pt) for pt in a["curve"]]
                 d.update(label=a["label"], N=a["N"], n_silent=a["n_silent"], n_active=a["n_active"],
                          retrain_updates=a["retrain_updates"], run_dir=a["run_dir"])
-        probes = np.load(sorted(glob.glob(os.path.join(REPO_ROOT, d["run_dir"], "*Participation.npz")))[0])
+        probes = np.load(sorted(glob.glob(os.path.join(repo_run_dir(d["run_dir"]), "*Participation.npz")))[0])
         if maze_learned_index(np.asarray(probes["probe_success"])) is None:
             print(f"  panel d, maze retrain: {d['label']} did not learn the task; left out")
             continue
@@ -1569,7 +1601,7 @@ def maze_ablation(folder=MAZE_ABLATION_DIR, N=N_UNITS):
         with open(path) as fh:
             a = json.load(fh)
         ks, n_silent = np.asarray(a["ks"], float), a["N"] - a["n_active"]
-        probes = np.load(sorted(glob.glob(os.path.join(REPO_ROOT, a["run_dir"], "*Participation.npz")))[0])
+        probes = np.load(sorted(glob.glob(os.path.join(repo_run_dir(a["run_dir"]), "*Participation.npz")))[0])
         if maze_learned_index(np.asarray(probes["probe_success"])) is None:
             print(f"  panel d, maze: {a['label']} did not learn the task (last probe "
                   f"{probes['probe_success'][-1]:.2f}); left out")
@@ -2028,21 +2060,26 @@ def task_color(label):
     return ps.TASK_COLORS[TASK_SHORT[label]]
 
 
-def maze_rows(root=MAZE_ROOT, N=N_UNITS):
+def maze_rows(root=MAZE_ROOT, N=N_UNITS, seeds=MAZE_SEEDS):
     """Panel (c)'s rows for the maze networks, in the shape of the collect record's rows (#182).
 
     Every ReLU run of size N without a goal cue under `root` (common.maze_load_runs) is read at its
     "learned" probe: the first probe from which the clean probe's success rate stays at or above
     MAZE_LEARNED_SUCCESS for MAZE_LEARNED_HOLD probes in a row (common.maze_learned_index), the
-    maze counterpart of the supervised runs' floor crossing. The count drawn is therefore the one
-    at the point where the task is first solved, not the one at the end of training (511, 434 and
-    410 of 1,000 at the learned probe for seeds 1-3; 455, 423 and 404 at update 2,000). The run's
+    maze counterpart of the supervised runs' floor crossing, on the run's record joined across its
+    continuations (2,000-update stages; the uniform series ends at update 4,000). Only the seeds in
+    `seeds` are drawn (MAZE_SEEDS: the uniform-series seeds 1-3, three networks per task as for CDDM;
+    entry 2026-11-08_0954). The count drawn is the one at the point where the task is first solved,
+    not the one at the end of training: 451, 517 and 428 of 1,000 at the learned probe (updates 1,050,
+    760 and 1,750) for seeds 1-3, and 360, 404 and 317 at update 4,000. (Until round 19 this docstring
+    gave 511, 434 and 410, the Della runs of the first series that the Mac copy then held.) The run's
     score is the probe success rate at that probe, stored under "r2" because panel_tasks reads that
     key; SCORE names it "success" in the tick label. A run that never meets the learned rule gets
     a reason and is listed among the runs not drawn.
 
     Args:
-        root: str, the suite folder (cell/s<seed>/ run folders); N: int, the network size.
+        root: str, the suite folder (cell/s<seed>/ run folders); N: int, the network size;
+        seeds: tuple of int, the seeds drawn.
     Returns:
         list of dicts with the collect record's keys: task (MAZE_LABEL), name, active, t_star (the
         PPO update of the learned probe), reason, covered, excluded, r2 (the success rate),
@@ -2050,7 +2087,7 @@ def maze_rows(root=MAZE_ROOT, N=N_UNITS):
     """
     rows = []
     for r in maze_load_runs(root):
-        if r["N"] != N or r["act"] != "relu" or r["cue"]:
+        if r["N"] != N or r["act"] != "relu" or r["cue"] or r["seed"] not in seeds:
             continue
         pr = r["probes"]
         li = maze_learned_index(pr["probe_success"])

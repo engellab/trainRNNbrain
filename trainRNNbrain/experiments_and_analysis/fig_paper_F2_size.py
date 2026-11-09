@@ -92,6 +92,7 @@ import heldout_r2 as heldout
 from common import (DATA_DIR, FLOOR_DELTAS, HOLD_FRAC, IMG_DIR, MAZE_LEARNED_HOLD,
                     MAZE_LEARNED_SUCCESS, floor_curve, logbin, maze_learned_index, maze_load_runs,
                     read_run, runs_with_loss, warm_start_chain)
+from fig_ed_maze import MAZE_STOPPED
 from c3_flat_loss_units import (BLOCK as FLAT_BLOCK, CELLS as C3_CELLS, DIE_BAR, T_FLAT, FLAT_PCT,
                                 loss_change, loss_rate)
 
@@ -126,6 +127,9 @@ MAZE_ABLATION_DIR = os.path.join(REPO, "data", "rl_maze_ablation")   # Fig. 1d's
 MAIN_TASKS = ["3BFF", "CDDM", MAZE]
 SUPERVISED_MAIN = [t for t in MAIN_TASKS if t != MAZE]     # panel (c): margins over the loss floor
 MAZE_TRAJ_N = 1000            # panel (e)'s maze column: the suite's N = 1,000 ReLU runs
+MAZE_FIG1D_SEEDS = ("1", "2")       # Figure 1d's maze networks: learned at update 2,000, removed there
+MAZE_TRAJ_SEEDS = ("1", "2", "3")   # ... the uniform series' seeds, as Figure 1c draws them (round 19;
+                                    # the G12 seeds 4-6 enter panels a, b and the fit)
 SERIES = {
     "3BFF": {100: "NBitFlipFlop_n100/EqType=h_N=100_arm=control",
              500: FF200.format(N=500), 1000: FF200.format(N=1000), 2000: FF200.format(N=2000),
@@ -578,7 +582,9 @@ def maze_series(root=MAZE_ROOT):
     MAZE_LEARNED_SUCCESS for MAZE_LEARNED_HOLD probes in a row (common.maze_learned_index), the
     maze counterpart of the supervised floor crossing, and at the chain's last probe (the end of
     training). A run whose last recorded update is below its budget (maze_budget) is unfinished:
-    stopped by the trainer's guard or still running. It is listed with a reason and drawn nowhere.
+    stopped by the trainer's guard or still running. A run named in fig_ed_maze.MAZE_STOPPED (non-finite
+    weights; N = 4,000 seed 4, stopped at update 5,940) counts as unfinished too. Either is listed with
+    a reason and drawn nowhere.
 
     Args:
         root: str, the suite folder (<cell>/s<seed>/ run folders).
@@ -597,10 +603,15 @@ def maze_series(root=MAZE_ROOT):
         pr = r["probes"]
         budget = maze_budget(r["folder"])
         it_end = int(pr["update"][-1])
-        finished = int(r["progress"][-1]["update"]) >= budget
+        stop = MAZE_STOPPED.get((int(r["N"]), r["act"], int(r["seed"])))
+        finished = int(r["progress"][-1]["update"]) >= budget and stop is None
         li = maze_learned_index(pr["probe_success"])
         learned = finished and li is not None
-        if not finished:
+        if stop is not None:
+            # fig_ed_maze.MAZE_STOPPED (entry 2026-11-08_2346): non-finite weights after the update
+            # named there, so the record past it is not a network's behaviour; listed, drawn nowhere
+            reason = f"stopped at update {stop:,} (non-finite weights)"
+        elif not finished:
             reason = (f"unfinished: records end at update {r['progress'][-1]['update']:,} of "
                       f"{budget:,}")
         elif pr["probe_success"][-1] < MAZE_LEARNED_SUCCESS:
@@ -682,14 +693,18 @@ def maze_fit(rows, at="learned", min_n=FIT_MIN_N):
             fit over every size, printed as a second reading).
     Returns:
         (b, A, lo, hi, cells) with b and A as power_fit, lo and hi the bootstrap 95% interval
-        (BOOT_SEED) and cells the maze_cells (every size; the fit uses N >= min_n);
+        (BOOT_SEED; runs resampled within each fitted size) and cells the maze_cells (every size;
+        the fit uses N >= min_n);
         (nan, nan, nan, nan, cells) with fewer than two fitted sizes.
     """
     cells = maze_cells(rows, at)
     if sum(N >= min_n for N in cells) < 2:
         return float("nan"), float("nan"), float("nan"), float("nan"), cells
     b, A = power_fit(cells, min_n=min_n)
-    lo, hi = boot_exponent(cells, np.random.default_rng(BOOT_SEED), min_n=min_n)
+    # resample the fitted sizes only, as the round 18 and 19 read-outs do (round19_size_exponent.fit,
+    # round18_training_read.read_exponent), so the interval is the notebook's (round 19, #206)
+    lo, hi = boot_exponent({N: v for N, v in cells.items() if N >= min_n}, np.random.default_rng(BOOT_SEED),
+                           min_n=min_n)
     return b, A, float(lo), float(hi), cells
 
 
@@ -886,7 +901,8 @@ def panel_margins(ax, series, tasks=SUPERVISED_MAIN):
 def panel_maze_trajectories(at, ab, maze, N=MAZE_TRAJ_N):
     """Panel (e)'s maze column: probe success (top) and inactive units (bottom) against PPO update.
 
-    Every finished maze run of size N: the clean probe's success rate (ink, with the learned
+    Every finished maze run of size N among the seeds MAZE_TRAJ_SEEDS (the uniform series' three,
+    on their joined 4,000-update records since round 19): the clean probe's success rate (ink, with the learned
     criterion MAZE_LEARNED_SUCCESS as a dashed guide) and N minus the active count (the task's
     hue), on a linear update axis from 0 to the longest run's end rounded up to 500; a dashed
     vertical line at each learned run's learned probe. The success axis has its ticks and label
@@ -901,7 +917,7 @@ def panel_maze_trajectories(at, ab, maze, N=MAZE_TRAJ_N):
         end update), nan where the run did not learn; one per run drawn.
     """
     rows = []
-    runs = [r for r in maze if r["N"] == N and r["finished"]]
+    runs = [r for r in maze if r["N"] == N and r["finished"] and r["seed"] in MAZE_TRAJ_SEEDS]
     x_max = int(np.ceil(max((r["it_end"] for r in runs), default=2000) / 500.0) * 500)
     for r in runs:
         at.plot(r["it_act"], r["success"], "-", lw=ps.THIN_LW, color=ps.INK, alpha=0.7)
@@ -1366,12 +1382,13 @@ def tex_row_maze(r):
     rate there (a run that did not learn has it in the R^2 column); it is kept under 25 characters
     because the table's Note column is the widest and the longtable overflows its line otherwise;
     the table's own notes say that Trained and t* count PPO updates. Fig.: a learned
-    run is in 2a,b and, at N = MAZE_TRAJ_N, in 1c (Figure 1's maze_rows reads the same runs at
-    the same probe) and 2e; a finished run that did not learn is a cross in 2a,b and a line in 2e;
-    1d for a learned run of N = MAZE_TRAJ_N whose rl_maze_ablate.py JSON exists under
-    MAZE_ABLATION_DIR (Figure 1's maze_ablation draws the learned N = 1,000 files only); every
-    finished run is in the Extended Data maze figure (fig_ed_maze.py), marked EDM; an unfinished
-    run is in no panel.
+    run is in 2a,b; at N = MAZE_TRAJ_N and a seed of MAZE_TRAJ_SEEDS, in 1c (Figure 1's maze_rows
+    reads the same runs at the same probe) and 2e; a finished run that did not learn is a cross in
+    2a,b; 1d for a seed of MAZE_FIG1D_SEEDS whose rl_maze_ablate.py JSON exists under
+    MAZE_ABLATION_DIR (the two networks learned at update 2,000, where their units were removed);
+    every finished run is in the Extended Data maze figure (fig_ed_maze.py), marked EDM; a stopped
+    run (fig_ed_maze.MAZE_STOPPED) is drawn to its stop in its panels a and b ("EDM a,b") and its note
+    names the update; another unfinished run is in no panel.
 
     Args:
         r: a maze_series row.
@@ -1379,16 +1396,19 @@ def tex_row_maze(r):
         str ending in a LaTeX line break.
     """
     fig = []
+    fig1 = r["N"] == MAZE_TRAJ_N and r["seed"] in MAZE_TRAJ_SEEDS
     if r["finished"]:
-        if r["learned"] and r["N"] == MAZE_TRAJ_N:
+        if r["learned"] and fig1:
             fig.append("1c")
-        if r["learned"] and r["N"] == MAZE_TRAJ_N and glob.glob(
+        if r["learned"] and fig1 and r["seed"] in MAZE_FIG1D_SEEDS and glob.glob(
                 os.path.join(MAZE_ABLATION_DIR, f"N={r['N']}_act=relu__s{r['seed']}.json")):
             fig.append("1d")
         fig.append("2a,b")
-        if r["N"] == MAZE_TRAJ_N:
+        if fig1:
             fig.append("2e")
         fig.append("EDM")
+    elif str(r["reason"]).startswith("stopped"):
+        fig.append("EDM a,b")         # drawn to its stop in the Extended Data maze figure
     trained = ps.fmt_count(r["it_end"])
     t = ps.fmt_count(r["t_star"]) if r["learned"] else "--"
     a = f"{r['active_learned']:.0f}" if r["learned"] else "--"
@@ -1397,6 +1417,8 @@ def tex_row_maze(r):
         note = f"end: {r['active_end']:.0f} active, {r['success_end']:.2f}"
     elif r["finished"]:
         score, note = f"({r['success_end']:.2f})", f"not learned; {r['active_end']:.0f} at end"
+    elif str(r["reason"]).startswith("stopped"):
+        score, note = "--", r["reason"].replace("stopped at update", "stopped at").replace(" (non-finite weights)", "")
     else:
         score, note = "--", "PPO updates; " + r["reason"]
     return (f"{MAZE} & {r['N']:,} & {r['seed']} & {', '.join(fig) or '--'} & {trained} & {t} & {a} & "

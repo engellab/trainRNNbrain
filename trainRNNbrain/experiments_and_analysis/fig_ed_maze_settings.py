@@ -1,133 +1,193 @@
 #!/usr/bin/env python3
-"""Extended Data figure: the standard training settings on the maze task (PPO) at N = 1,000.
+"""Extended Data figure: the standard training settings and the training techniques on the maze task (PPO), N = 1,000.
 
-QUESTION. Figure 3 shows, on CDDM and the 3-bit flip-flop, that changing a standard training
-setting moves the number of active units but no setting stops its fall. Issue
-engellab/trainRNNbrain#6 (Pavel, 5 Nov) asks for the same settings on every task, so every value
-of Figure 3's ladders was run on the maze (slurm/rl_maze_interventions_spock.slurm; the inventory in
-docs/interventions_matrix.md). This is the maze counterpart of Figure 3a: one column per setting,
-its values along the column, the controls beside them.
+QUESTION. Figure 3 and Figure 5 draw one marker per value; this figure draws every Maze network behind them,
+at the stated read (update 2,000) and, for the arms continued to update 4,000 in round 19, at update 4,000
+as well (dead-relu-paper#201; entries 2026-11-07_1111, 2026-11-08_0915, 2026-11-09_1221). Issues
+engellab/trainRNNbrain#5 (the techniques) and #6 (the settings) asked for the same settings and techniques on
+every task.
 
-PANELS (165.1 x FIG_H_MM mm, bold letters). The settings (a-d): two blocks, each of two rows that
-share their columns. Under them, since round 17, the training techniques (e-h): the panels of
-fig_ed_maze_interventions (its panel_key, panel_traces, panel_end, panel_fold and panel_ablation,
-drawn here into TECH_MM; that module's own figure is no longer in the paper), so the paper holds
-at most ten Extended Data figures (dead-relu-paper#190, Reviewer S, structure item 7). The
-settings rows:
-  (a, c) active units at the end of training (update 2,000), one OPEN marker per run (paperstyle,
-      dead-relu-paper#83: an open marker is a fixed iteration) and a bar at the value's mean over
-      its finished runs; a run that did not learn (common.maze_learned_index) is a cross in the
-      value's colour, as in fig_ed_maze; a run the rollback guard stopped is a cross at 0 with
-      "stopped" printed once in its column; a value with no finished run says "unfinished"; a value
-      with some runs still training says how many finished. The learned controls' range of counts
-      is a band across the row, their mean a line (the uniform series' N = 1,000 ReLU runs; the
-      settings rule compares networks that learned with controls that learned);
-  (b, d) the clean probe's success rate at the end, the same marks; the controls' mean success as a
-      line and the "learned" level (0.9) dashed.
-  Block 1 (a, b): weight decay, input-weight row norm, activity noise, initial spectral radius, the
-      sparsity penalty alone. Block 2 (c, d): the input-weight cap, the recurrent-weight magnitude
-      penalty, the metabolic penalty, AdamW, SGD at four learning rates, the re-initialisation of
-      inactive units (random redraw; zero-out of the outgoing weights as well). Each block starts
-      with the controls. Colours: the controls BASELINE grey; a setting's values on the teal
-      SETTING_RAMP, light to dark in the ladder's order (Figure 3's convention); no task colour.
+ROUND 19 (this version). The data come from maze_arms_r19.py, the reader Figure 3 shares, which cuts every
+joined record at update 2,000 and at update 4,000 and cross-checks every read against
+data/round19/round19_results.json and fz_reruns.json (printed):
+  - settings at 2,000 compare with the five controls learned at update 2,000 (uniform seeds 1, 2 and the G12
+    seeds 4-6, 394-449 active; entry 2026-11-08_0859); uniform seed 3 (415, success 0.73) is the cross in the
+    control column;
+  - settings and techniques at 4,000 compare with ReLU N = 1,000 seeds 1-6 at update 4,000, all learned
+    (314-404 active, success 1.00);
+  - techniques at 2,000 compare with the three uniform-series controls, mean 430 active, success 0.898, bar
+    449 (issue #5 as written; decision #194);
+  - the rate-penalty, rate + sparsity and metabolic-penalty arms and prune-and-duplicate are their reruns with
+    trainer.freeze_after_end=true (data/trained_RNNs_rl_maze_fz); the first runs of those arms are withdrawn
+    (entries 2026-11-08_0940, _0943) and are not drawn. Read-out dropout, noisy synapses, rescaling, redraw
+    and zero-out keep their first runs;
+  - the round 18 parity values (entry 2026-11-07_0136: noisy synapses sigma_w 0.3 and 0.1, read-out dropout at
+    rate 0.05, rescaling at target 4) are drawn beside the paper's values of their techniques;
+  - the panel of removal curves on the rate-penalty networks (panel h until round 18) is removed: it drew the
+    withdrawn networks, and Figure 5d carries the Maze removal.
 
-ARMS ARE DERIVED FROM EACH RUN'S SAVED CONFIG (fig_ed_maze_interventions.arm_of), never from the
-folder name; load_records reports a folder whose name does not match. The verdicts on these arms
-(a setting "changes the count" when all three seeds lie outside the learned controls' range on one
-side) are read_maze_arms.py's; this figure draws the numbers behind them.
+PANELS (165.1 x FIG_H_MM mm, bold letters).
+  (a, b) settings, block 1, at update 2,000: active units (a) and the clean probe's success (b), one OPEN marker
+      per network that learned by 2,000, a cross for a network that did not, a cross at 0 with "stopped" for a
+      network the rollback guard stopped before 2,000; a bar at the mean over the networks that learned (the
+      networks the settings rule reads). The grey band is the learned controls' range of counts, the grey line
+      their mean; in (b) the grey line is their mean success and the dashed line the learned level 0.9.
+      Weight decay, the input-weight row norm, activity noise, the initial spectral radius, the sparsity
+      penalty.
+  (c, d) block 2, the same marks: the input-weight cap, the recurrent-weight magnitude penalty, the metabolic
+      penalty, AdamW, SGD at four learning rates, re-initialisation of inactive units (redraw, zero-out).
+  (e, f) the setting arms continued to update 4,000 (every seed of an arm with a seed not learned at 2,000),
+      read at update 4,000 against the six controls there; the same marks. Titles staggered on two rows with
+      a thin rule under each, as Figure 3.
+  key  one entry per technique value (colour, marker) and a row of marker meanings.
+  (g) the techniques at update 2,000: top, active units as a fold change over the three controls' mean (430),
+      one open marker per network (a cross for a network without a learned point, a cross at 0 for one
+      stopped), a bar at the mean over every network read (the mean the criterion judges), the grey band the
+      three controls' range in the same units; bottom, success minus the controls' mean success (0.898), the
+      same marks, the tolerance -0.05 dashed. Columns grouped under their technique.
+  (h) active units against PPO updates for every technique network and the six controls (grey), one thin line
+      per network to the end of its record, a filled marker at its learned point.
+  (i) the technique arms continued to update 4,000, as (g) at update 4,000: the fold change over the six
+      controls' mean at 4,000 (350.7) and success minus their mean (1.00).
 
-DATA. --root (default data/trained_RNNs_rl_maze/Maze_interventions), --control-root (default
-data/trained_RNNs_rl_maze/Maze_suite), as fig_ed_maze_interventions.py.
+COLOURS. Settings: the controls BASELINE grey, a setting's values on the teal SETTING_RAMP light to dark in the
+ladder's order (Figure 3's convention). Techniques: Figure 5's colours and shapes (fig_ed_maze_interventions.ARMS),
+a parity value as a lighter (or, for rescaling at target 4, darker) shade of its technique's colour. Rate +
+sparsity is a left triangle, as in fig_paper_F5_tasks: Figure 5's earlier filled plus has no white inside once it
+is drawn open (tests/scan_open_markers.py, rule 1).
 
-OUTPUT. img/internal_figures/fig_ed_maze_settings_techniques.{pdf,svg} (paperstyle.save, vector
-only) and, on stdout, one line per settings column (the value, its runs' counts and success rates,
-what is drawn), fig_ed_maze_interventions' printout of every technique run and arm, the ablation
-numbers of panel h, and the text-overlap check (fig_ed_maze.check_overlaps).
+OUTPUT. img/internal_figures/fig_ed_maze_settings_techniques.{pdf,svg} (paperstyle.save, vector only) and, on
+stdout: the reader's cross-check, the references, one line per slot of every block, one line per technique
+value at each read with its verdict and failing clauses, and the text-overlap check (fig_ed_maze.check_overlaps).
 
-Run:  python trainRNNbrain/experiments_and_analysis/fig_ed_maze_settings.py [--root DIR]
-      [--control-root DIR] [--ablation DIR] [--control-ablation DIR]
+Run:  PYTHONPATH=. python trainRNNbrain/experiments_and_analysis/fig_ed_maze_settings.py
 """
 import argparse
-import os
 
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
+from matplotlib.lines import Line2D
 
 import paperstyle as ps
-from common import MAZE_LEARNED_SUCCESS
-from fig_ed_maze import ax_mm, check_overlaps, load_ablation
-from fig_ed_maze_interventions import (ABLATION_DIR, ARMS, CONTROL_ABLATION_DIR, CONTROL_ROOT, N, ROOT, SEEDS,
-                                       arm_summaries, close_markers, control_reference, load_records,
-                                       match_ablations, panel_ablation, panel_end, panel_fold, panel_key,
-                                       panel_traces, print_arms, print_runs, technique_reference)
+from common import MAZE_LEARNED_SUCCESS, maze_learned_index
+from fig_ed_maze import ax_mm, check_overlaps, time_axis
+from fig_ed_maze_interventions import ARMS, RATE_RAMP, RESCALE_RAMP, TRI_SCALE
+import maze_arms_r19 as M19
 
-# The two blocks: (column title, [(arm key, value label), ...]) per setting, in drawing order. The
-# keys are fig_ed_maze_interventions.arm_of's; the labels are the values as Figure 3 prints them.
+N = M19.N
+# The settings blocks at update 2,000: (column title, [(arm key, value label), ...]) per setting. The keys are
+# the stage-1 folder names maze_arms_r19 reads; the labels are the values as Figure 3 prints them.
 BLOCKS = [
     [("control", [("control", "control")]),
      ("weight decay\n(default $10^{-6}$)", [("wd0", "0"), ("wd1e-5", "$10^{-5}$"), ("wd1e-4", "$10^{-4}$")]),
-     ("input-weight\nrow norm", [("inorm0.5", "0.5"), ("inorm2", "2"), ("inorm5", "5"), ("inorm20", "20")]),
+     ("input-weight\nnorm", [("inorm0.5", "0.5"), ("inorm2", "2"), ("inorm5", "5"), ("inorm20", "20")]),
      ("activity noise\n(default 0.05)", [("srec0", "0"), ("srec0.01", "0.01"), ("srec0.1", "0.1")]),
      ("initial spectral\nradius (default 1.2)", [("srad0.5", "0.5"), ("srad1.5", "1.5")]),
      ("sparsity\npenalty", [("rws0.05", "0.05")])],
     [("control", [("control", "control")]),
      ("input-\nweight cap", [("cap0.3", "0.3")]),
-     ("recurrent-weight\npenalty", [("rwm0.05", "0.05"), ("rwm0.2", "0.2")]),
+     ("magnitude\npenalty", [("rwm0.05", "0.05"), ("rwm0.2", "0.2")]),
      ("metabolic\npenalty", [("met0.01", "0.01"), ("met0.1", "0.1"), ("met1", "1"), ("met10", "10")]),
      ("AdamW", [("adamw", "")]),
      ("SGD,\nlearning rate", [("sgd0.03", "0.03"), ("sgd0.1", "0.1"), ("sgd0.3", "0.3"), ("sgd1", "1")]),
      ("re-initialise\ninactive units", [("redraw", "redraw"), ("zeroout", "zero-out")])],
 ]
-
-# layout in millimetres: one slot per value, a gap between settings, two rows per block
-LEFT_MM = 14.0                    # the rows' y labels (two lines) fit left of it
-PITCH_MM = 8.5                    # one value's column
-GAP_MM = 3.5                      # between two settings
-TOP_MM = (12.0, 58.0)             # the top of each block's count axes
-COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 17.0, 12.0, 2.0
-FIG_H_MM = 199.0                  # the settings blocks (to 96 mm) over the technique panels; the float fits a page
-SEED_DX_MM = 0.9                  # the three seeds' markers sit this far apart
-# the technique panels e-h: fig_ed_maze_interventions.LAYOUT_MM moved under the settings blocks
-# (left, top, width, height), the same widths, the heights a little smaller
-TECH_MM = {
-    "key":   (0.0, 100.0, 165.1, 14.5),   # three rows of arms (four per row) and the marker row
-    "e":     (12.5, 119.0, 66.0, 27.0),
-    "f":     (97.0, 119.0, 63.0, 27.0),
-    "g_top": (15.5, 156.5, 90.0, 14.5),   # the two rows' two-line y labels must not touch
-    "g_bot": (15.5, 175.5, 90.0, 13.5),   # 4.5 mm gap: the y labels read as two labels
-    "h_key": (114.0, 153.5, 50.0, 7.0),   # clears panel f's x label and the letter h
-    "h":     (123.0, 161.0, 37.0, 28.0),  # its y label clears panel g's last column label
-}
+# block 3 (e, f): the same settings, at update 4,000, for the arms with a continued seed (one-line titles,
+# staggered on two rows); key prefix -> title
+TITLE_4000 = {"wd": "weight decay", "inorm": "input-weight norm", "srec": "activity noise",
+              "srad": "spectral radius", "rws": "sparsity penalty", "rwm": "magnitude penalty",
+              "met": "metabolic penalty", "adamw": "AdamW", "sgd": "SGD, learning rate"}
 
 
-def slot_positions(groups):
-    """The x position (mm from the axes' left edge) of every value slot and of every group's centre.
+def shade(col, w):
+    """A colour mixed with white (w < 1: lighter) or with black (w > 1: darker, by w - 1).
 
     Args:
-        groups: one block of BLOCKS.
+        col: a matplotlib colour; w: float, 1 leaves the colour unchanged.
     Returns:
-        (slots, centres, width): slots is a list of (key, label, x) in order; centres a list of
-        (title, x) per group; width the axes width in mm.
+        str, a hex colour.
     """
-    slots, centres, x = [], [], PITCH_MM / 2
+    rgb = matplotlib.colors.to_rgb(col)
+    if w <= 1:
+        return matplotlib.colors.to_hex(tuple(1 - (1 - c) * w for c in rgb))
+    return matplotlib.colors.to_hex(tuple(c * (2 - w) for c in rgb))
+
+
+# The technique values (panels g-i), in drawing order: arm key -> (key-row label, colour, marker, column label in
+# panel g, group heading in panel g or None)
+TECH = {
+    "frm0.03":           ("rate penalty 0.03",            RATE_RAMP[0.03],            "o", "0.03", "rate penalty"),
+    "frm0.1":            ("rate penalty 0.1",             RATE_RAMP[0.1],             "o", "0.1", "rate penalty"),
+    "frm0.3":            ("rate penalty 0.3",             RATE_RAMP[0.3],             "o", "0.3", "rate penalty"),
+    "frm0.1_rws0.05":    ("rate 0.1 + sparsity 0.05",     ARMS["frm0.1+rws0.05"][1],  "<", "rate 0.1\n+ sparsity", None),
+    "dropout0.2_beta4":  ("read-out dropout 0.2",         ARMS["dropout"][1],         "v", "0.2", "read-out\ndropout"),
+    "dropout0.05_beta4": ("read-out dropout 0.05",        shade(ARMS["dropout"][1], 0.55), "v", "0.05", "read-out\ndropout"),
+    "sigmaw1.0":         ("noisy synapses $\\sigma_w$ 1.0", ARMS["synnoise"][1],      "s", "1.0", "noisy\nsynapses"),
+    "sigmaw0.3":         ("noisy synapses $\\sigma_w$ 0.3", shade(ARMS["synnoise"][1], 0.62), "s", "0.3", "noisy\nsynapses"),
+    "sigmaw0.1":         ("noisy synapses $\\sigma_w$ 0.1", shade(ARMS["synnoise"][1], 0.36), "s", "0.1", "noisy\nsynapses"),
+    "rescale":           ("rescaling, 3BFF values",       RESCALE_RAMP["rescale"],    "D", "3BFF\nvalues", "rescaling"),
+    "rescale_mild":      ("rescaling, slow tilt",         RESCALE_RAMP["rescale_mild"], "D", "slow\ntilt", "rescaling"),
+    "rescale_few":       ("rescaling, 5% grow",           RESCALE_RAMP["rescale_few"], "D", "5%\ngrow", "rescaling"),
+    "rescale_tgt4":      ("rescaling, target 4",          shade(ps.RESCALE, 1.45),    "D", "target\n4", "rescaling"),
+    "duplicate":         ("prune-and-duplicate",          ARMS["duplicate"][1],       "^", "prune-and-\nduplicate", None),
+}
+# panel i's column labels (a heading per technique does not fit one column)
+LABEL_4000 = {"frm0.3": "rate\n0.3", "frm0.1_rws0.05": "rate 0.1\n+ sparsity", "dropout0.2_beta4": "dropout\n0.2",
+              "sigmaw1.0": "$\\sigma_w$\n1.0", "rescale_mild": "slow\ntilt", "rescale_few": "5%\ngrow"}
+
+# layout in millimetres from the canvas's top-left corner
+LEFT_MM = 15.0                    # the rows' two-line y labels fit left of it
+PITCH_MM = 8.5                    # one value's column in blocks 1 and 2
+GAP_MM = 3.5                      # between two settings
+PITCH4_MM, GAP4_MM = 7.0, 2.6     # block 3
+TOP_MM = (9.5, 48.0, 90.5)        # the top of each block's count axes
+COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 14.5, 9.5, 3.0
+TITLE4_ROWS_MM = (2.2, 7.4)       # block 3: the titles' baselines above its count axes, staggered
+TITLE_RULE_MM = 0.9               # a thin rule this far under each staggered title
+SEED_DX_MM = 1.5                  # the seeds' markers sit this far apart in a settings slot: an open marker's
+                                  # ring and rim must not reach its neighbour's centre (tests/scan_open_markers.py)
+TRIANGLES = ("^", "v", "<")       # drawn TRI_SCALE larger, as in Figure 5
+KEY_MM = (0.0, 123.5, 165.1, 13.5)
+G_MM = dict(top=(17.0, 143.0, 145.0, 13.0), bot=(17.0, 159.0, 145.0, 11.0))
+H_MM = (17.0, 187.5, 66.0, 19.0)
+I_MM = dict(top=(103.5, 187.5, 57.0, 9.5), bot=(103.5, 199.5, 57.0, 7.5))
+FIG_H_MM = 216.0
+HEAD_MM = -6.6                    # panel g: the group headings' rule, this far below the bottom axes
+TECH_DX = 0.22                    # panels g, i: the seeds' markers sit this far apart (column units)
+
+
+# --------------------------------------------------------------------------------------------
+# settings blocks
+# --------------------------------------------------------------------------------------------
+
+def slot_positions(groups, pitch=PITCH_MM, gap=GAP_MM):
+    """The x position (mm from the axes' left edge) of every value slot and the span of every group.
+
+    Args:
+        groups: list of (title, [(key, label), ...]); pitch, gap: mm.
+    Returns:
+        (slots, spans, width): slots a list of (key, label, x); spans a list of (title, x_centre, x_left,
+        x_right) per group; width the axes width in mm.
+    """
+    slots, spans, x = [], [], pitch / 2
     for g, (title, values) in enumerate(groups):
         if g:
-            x += GAP_MM
+            x += gap
         xs = []
         for key, label in values:
             slots.append((key, label, x))
             xs.append(x)
-            x += PITCH_MM
-        centres.append((title, float(np.mean(xs))))
-    return slots, centres, x - PITCH_MM / 2
+            x += pitch
+        spans.append((title, float(np.mean(xs)), xs[0] - pitch / 2, xs[-1] + pitch / 2))
+    return slots, spans, x - pitch / 2
 
 
 def colour_of(groups):
     """Each arm key's colour: the controls grey, a setting's values on the teal ramp light to dark.
 
     Args:
-        groups: one block of BLOCKS.
+        groups: list of (title, [(key, label), ...]).
     Returns:
         dict key -> colour.
     """
@@ -138,203 +198,331 @@ def colour_of(groups):
     return out
 
 
-def runs_of(records, key):
-    """The records of one arm: the controls from the series, every other arm from the ladder root.
+def draw_slot(ax_n, ax_s, x, col, seeds, U, pitch):
+    """One value's marks at update U in both rows: a marker per network, crosses, the mean bar.
 
     Args:
-        records: list from fig_ed_maze_interventions.load_records; key: an arm key.
-    Returns:
-        (fin, running, stopped): finished records (by seed), records still training, records the
-        guard stopped.
-    """
-    source = "control" if key == "control" else "ladder"
-    mine = sorted([r for r in records if r["key"] == key and r["source"] == source], key=lambda r: r["seed"])
-    fin = [r for r in mine if r["finished"]]
-    stopped = [r for r in mine if not r["finished"] and r["stopped_at"] is not None]
-    running = [r for r in mine if not r["finished"] and r["stopped_at"] is None]
-    return fin, running, stopped
-
-
-def draw_slot(ax_n, ax_s, x, key, col, fin, running, stopped, n_no_files):
-    """One value's marks in both rows: a marker per finished run, crosses for the stopped, a mean bar.
-
-    Args:
-        ax_n, ax_s: the count and success axes (x in mm); x: the slot's centre; key: the arm key;
-        col: its colour; fin, running, stopped: from runs_of; n_no_files: int, the arm's folders
-        that hold no run files (stopped before their first checkpoint).
+        ax_n, ax_s: the count and success axes (x in mm); x: the slot's centre; col: its colour; seeds: the
+        arm's maze_arms_r19 seed rows; U: int, the read; pitch: mm, the slot width.
     Returns:
         str, what was drawn, for the printout.
     """
-    marks = fin + stopped
-    n_marks = len(marks) + n_no_files
-    xs = x + (np.arange(n_marks) - (n_marks - 1) / 2) * SEED_DX_MM
-    what = []
-    for xi, r in zip(xs, marks):
-        if r["finished"]:
-            y_n, y_s = r["pt"]["active_end"], r["pt"]["success_end"]
-            if r["pt"]["learned_i"] is None:
-                for ax, y in ((ax_n, y_n), (ax_s, y_s)):
-                    ax.plot([xi], [y], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
-            else:
-                for ax, y in ((ax_n, y_n), (ax_s, y_s)):
+    xs = x + (np.arange(len(seeds)) - (len(seeds) - 1) / 2) * SEED_DX_MM
+    what, learned, n_stop = [], [], 0
+    for xi, s in zip(xs, seeds):
+        p = s[f"at{U}"]
+        if p["reached"]:
+            for ax, y in ((ax_n, p["active"]), (ax_s, p["success"])):
+                if p["learned"]:
                     ax.plot([xi], [y], "o", ms=ps.MARKER_PT, ls="none", zorder=5, clip_on=False, **ps.mark_fixed(col))
-            what.append(f"s{r['seed']} {y_n} {y_s:.2f}" + ("" if r["pt"]["learned_i"] is not None else " (not learned)"))
+                else:
+                    ax.plot([xi], [y], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
+            if p["learned"]:
+                learned.append(p)
         else:
+            n_stop += 1
             for ax in (ax_n, ax_s):
                 ax.plot([xi], [0], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
-            what.append(f"s{r['seed']} stopped@{r['stopped_at']}")
-    for xi in xs[len(marks):]:
-        for ax in (ax_n, ax_s):
-            ax.plot([xi], [0], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
-    if n_no_files:
-        what.append(f"{n_no_files} stopped before a checkpoint")
-    if len(fin) == len(SEEDS):
-        for ax, v in ((ax_n, np.mean([r["pt"]["active_end"] for r in fin])),
-                      (ax_s, np.mean([r["pt"]["success_end"] for r in fin]))):
-            ax.plot([x - 0.36 * PITCH_MM, x + 0.36 * PITCH_MM], [v] * 2, "-", lw=1.4, color=col,
-                    zorder=4, solid_capstyle="butt")
-    if stopped or n_no_files:
+        what.append(f"s{s['seed']} {M19.fmt_seed(s, U)}")
+    if learned:
+        for ax, v in ((ax_n, np.mean([p["active"] for p in learned])), (ax_s, np.mean([p["success"] for p in learned]))):
+            ax.plot([x - 0.36 * pitch, x + 0.36 * pitch], [v] * 2, "-", lw=1.4, color=col, zorder=4,
+                    solid_capstyle="butt")
+    if n_stop:
         ax_n.text(x, 0.08 * N, "stopped", fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="bottom")
-    if running and not fin:
-        ax_n.text(x, 0.5, "unfinished", rotation=90, transform=ax_n.get_xaxis_transform(),
-                  fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="center")
-        what.append(f"{len(running)} training (at updates {', '.join(str(r['last_update']) for r in running)})")
-    elif running:
-        ax_n.text(x, 0.96, f"{len(fin)} of {len(SEEDS)}", transform=ax_n.get_xaxis_transform(),
-                  fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="top")
-        what.append(f"{len(running)} training")
-    if not marks and not running and not n_no_files:
-        ax_n.text(x, 0.5, "absent", rotation=90, transform=ax_n.get_xaxis_transform(),
-                  fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="center")
-        what.append("absent")
     return "; ".join(what)
 
 
-def draw_block(fig, top, groups, records, no_files, ref, letters):
-    """One block: the count row and the success row of a set of settings.
+def axes_rows(fig, top, width, U, ref, letters):
+    """The count and success axes of one block, with the reference band and lines and the axis labels.
 
     Args:
-        fig: the figure; top: mm, the top of the count axes; groups: one block of BLOCKS;
-        records: from load_records; no_files: dict folder name -> number of run folders without
-        run files; ref: control_reference; letters: (count row letter, success row letter).
+        fig: the figure; top: mm; width: mm; U: int, the read; ref: maze_arms_r19.settings_reference at U;
+        letters: (count letter, success letter).
     Returns:
-        list of (key, what was drawn) per slot.
+        (ax_n, ax_s).
     """
-    slots, centres, width = slot_positions(groups)
-    cols = colour_of(groups)
     ax_n = ax_mm(fig, LEFT_MM, top, width, COUNT_H_MM)
     ax_s = ax_mm(fig, LEFT_MM, top + COUNT_H_MM + ROW_GAP_MM, width, SUCCESS_H_MM)
-    if ref is not None:
-        ax_n.axhspan(ref["active_min"], ref["active_max"], color=ps.FAINT, alpha=0.3, lw=0, zorder=1)
-        ax_n.axhline(ref["active"], lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
-        ax_s.axhline(ref["success"], lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
+    ax_n.axhspan(ref["active_min"], ref["active_max"], color=ps.FAINT, alpha=0.3, lw=0, zorder=1)
+    ax_n.axhline(ref["active"], lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
+    ax_s.axhline(ref["success"], lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
     ax_s.axhline(MAZE_LEARNED_SUCCESS, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
-    out = []
-    for key, label, x in slots:
-        fin, running, stopped = runs_of(records, key)
-        from_folder = no_files.get(key, 0)
-        out.append((key, draw_slot(ax_n, ax_s, x, key, cols[key], fin, running, stopped, from_folder)))
-    for title, x in centres:
-        ax_n.text(x, 1.04, title, transform=ax_n.get_xaxis_transform(), fontsize=ps.LABEL_PT,
-                  color=ps.INK, ha="center", va="bottom", linespacing=1.15)
     for ax in (ax_n, ax_s):
         ax.set_xlim(0, width)
-        ax.set_xticks([x for _, _, x in slots])
         ps.ygrid(ax)
     ax_n.set_ylim(0, N)
     ax_n.set_yticks([0, N / 2, N])
     ps.count_ticks(ax_n.yaxis)
-    ax_n.set_ylabel(f"active units\nat the end (of {ps.fmt_count(N)})")
+    ax_n.set_ylabel("active\nunits")
+    ax_n.text(0.004, 0.97, f"update {U:,}", transform=ax_n.transAxes, fontsize=ps.LABEL_PT, color=ps.INK,
+              ha="left", va="top", fontweight="bold")
     ax_n.tick_params(axis="x", length=0, labelbottom=False)
     ax_s.set_ylim(0, 1.03)
     ax_s.set_yticks([0, 0.5, 1.0])
-    ax_s.set_ylabel("success\nat the end")
-    ax_s.set_xticklabels([label for _, label, _ in slots], fontsize=ps.TICK_PT, linespacing=1.25)
+    ax_s.set_ylabel("success")
     ax_s.tick_params(axis="x", length=0, pad=3)
     ax_s.text(0.3, MAZE_LEARNED_SUCCESS - 0.03, f"{MAZE_LEARNED_SUCCESS:g}", fontsize=ps.TICK_PT,
               color=ps.MUTED, ha="left", va="top")
     ps.panel_letter(ax_n, letters[0])
     ps.panel_letter(ax_s, letters[1])
+    return ax_n, ax_s
+
+
+def draw_block(fig, top, groups, controls, arms, U, ref, letters, pitch=PITCH_MM, gap=GAP_MM, stagger=False):
+    """One settings block at update U: the count row and the success row.
+
+    Args:
+        fig: the figure; top: mm; groups: list of (title, [(key, label), ...]); controls, arms: maze_arms_r19
+        output; U: int, the read; ref: settings_reference at U; letters: (count, success) letters; pitch,
+        gap: mm; stagger: bool, the titles on two rows with a rule under each (block 3), else one row.
+    Returns:
+        list of (key, what was drawn, direction at U) per slot.
+    """
+    slots, spans, width = slot_positions(groups, pitch, gap)
+    cols = colour_of(groups)
+    ax_n, ax_s = axes_rows(fig, top, width, U, ref, letters)
+    out = []
+    for key, label, x in slots:
+        seeds = controls if key == "control" else arms[key]["seeds"]
+        what = draw_slot(ax_n, ax_s, x, cols[key], seeds, U, pitch)
+        d = "reference" if key == "control" else M19.setting_direction(seeds, ref, U)
+        out.append((key, what, d))
+    for i, (title, x, x0, x1) in enumerate(spans):
+        if stagger:
+            y_mm = TITLE4_ROWS_MM[i % 2]
+            ax_n.text(x, 1.0 + y_mm / COUNT_H_MM, title, transform=ax_n.get_xaxis_transform(), fontsize=ps.LABEL_PT,
+                      color=ps.INK, ha="center", va="bottom")
+            ax_n.plot([x0, x1], [1.0 + (y_mm - TITLE_RULE_MM) / COUNT_H_MM] * 2, transform=ax_n.get_xaxis_transform(),
+                      color=ps.MUTED, lw=ps.THIN_LW, clip_on=False, zorder=1)
+        else:
+            ax_n.text(x, 1.04, title, transform=ax_n.get_xaxis_transform(), fontsize=ps.LABEL_PT,
+                      color=ps.INK, ha="center", va="bottom", linespacing=1.15)
+    for ax in (ax_n, ax_s):
+        ax.set_xticks([x for _, _, x in slots])
+    ax_s.set_xticklabels([label for _, label, _ in slots], fontsize=ps.TICK_PT, linespacing=1.25)
     return out
 
 
-def panel_techniques(fig, records, stopped_folders, ref, ablation_dir, control_ablation_dir):
-    """Panels e-h: the training techniques on the maze, fig_ed_maze_interventions' panels in TECH_MM.
+def block_4000(arms):
+    """The groups of block 3: every settings arm of BLOCKS with a seed continued past update 2,000.
 
     Args:
-        fig: the figure; records, stopped_folders: load_records output; ref: control_reference (the
-            settings' learned controls; these panels use technique_reference of it, all three);
-        ablation_dir, control_ablation_dir: folders of rl_maze_ablate.py JSONs for the technique
-            networks and for the uniform series (panel h).
+        arms: maze_arms_r19.load_arms output.
     Returns:
-        list of (record, x, y) markers of panel f, for the proximity check.
+        list of (title, [(key, label), ...]), the control first, in BLOCKS' order.
     """
-    tref = technique_reference(ref)
-    summ = arm_summaries(records, stopped_folders, tref)
-    print_runs(records, stopped_folders, ref)
-    print_arms(summ)
-    tech = match_ablations(load_ablation(ablation_dir) if os.path.isdir(ablation_dir) else [], records)
-    tech = [(a, r) for a, r in tech if r["key"] != "control"]
-    ctrls = [(a, r) for a, r in match_ablations(load_ablation(control_ablation_dir)
-                                                if os.path.isdir(control_ablation_dir) else [], records)
-             if r["key"] == "control" and r["pt"]["learned_i"] is not None]
-    ctrl = min(ctrls, key=lambda ar: ar[1]["seed"]) if ctrls else None
-    print(f"{len(tech)} technique ablation(s) under {ablation_dir}; control drawn: "
-          + (f"s{ctrl[1]['seed']}" if ctrl else "none"))
-    ax_key, ax_e, ax_f, ax_gt, ax_gb, ax_hk, ax_h = (ax_mm(fig, *TECH_MM[k]) for k in
-                                                    ("key", "e", "f", "g_top", "g_bot", "h_key", "h"))
-    keys = [k for k in ARMS if any(r["key"] == k and r["drawn"] for r in records)]
-    panel_key(ax_key, keys)
-    x_max = int(max((r["probes"]["update"][-1] for r in records if r["drawn"]), default=2000))
-    x_max = int(np.ceil(x_max / 500.0) * 500)
-    n_e = panel_traces(ax_e, records, x_max)
-    pts = panel_end(ax_f, records, tref)
-    panel_fold(ax_gt, ax_gb, summ, tref)
-    rows = panel_ablation(ax_h, ax_hk, tech, ctrl, tref)
-    for ax, letter in ((ax_e, "e"), (ax_f, "f"), (ax_gt, "g")):
-        ps.panel_letter(ax, letter)
-    ps.panel_letter(ax_h, "h", x_mm=12.0)              # left of the key above the panel
-    print(f"\nPanel e: {n_e} runs drawn; panel f: {len(pts)} markers")
-    print("Panel h:", "no technique network ablated" if not tech else "")
-    for w in rows:
-        line = (f"  {w['key']} s{w['seed']}: {w['n_inactive']} of {N} inactive; success intact {w['full']:.2f}; "
-                f"with the inactive units removed: quietest first {w['quiet_at_inactive']:.2f}, random "
-                f"{w['random_at_inactive']:.2f}, busiest first {w['busy_at_inactive']:.2f}")
-        if "k_added" in w:
-            line += (f"; added units {w['k_added']:.0f} (count minus the controls' mean): quietest-first "
-                     f"success {w['quiet_at_added']:.2f} with {w['k_grid']} units removed (the nearest grid point)")
-        print(line)
-    close_markers(ax_f, pts)
-    return pts
+    groups = [("control", [("control", "control")])]
+    for block in BLOCKS:
+        for _, values in block:
+            keep = [(k, lab) for k, lab in values if k != "control" and k in arms
+                    and any(s["continued"] for s in arms[k]["seeds"])]
+            if not keep:
+                continue
+            stem = next(t for t in TITLE_4000 if keep[0][0].startswith(t))
+            groups.append((TITLE_4000[stem], [(k, lab if lab else "") for k, lab in keep]))
+    return groups
+
+
+# --------------------------------------------------------------------------------------------
+# technique panels
+# --------------------------------------------------------------------------------------------
+
+def tech_marker(ax, x, y, key, learned):
+    """One technique network's marker: open in its value's shape if learned, a cross if not.
+
+    Args:
+        ax: axes; x, y: data coordinates; key: a TECH key; learned: bool.
+    Returns:
+        None.
+    """
+    _, col, marker = TECH[key][:3]
+    if learned:
+        ax.plot([x], [y], marker, ms=ps.MARKER_PT * (TRI_SCALE if marker in TRIANGLES else 1.0), ls="none",
+                zorder=5, clip_on=False, **ps.mark_fixed(col))
+    else:
+        ax.plot([x], [y], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
+
+
+def panel_fold(ax_t, ax_b, keys, arms, tref, U, labels, headings):
+    """Panels g and i: fold change over the controls' mean (top) and success minus their mean (bottom).
+
+    Args:
+        ax_t, ax_b: the two axes; keys: the TECH keys, one column each; arms: maze_arms_r19 output; tref:
+        maze_arms_r19.technique_reference at U; U: int, the read; labels: list of column labels; headings:
+        bool, draw each technique's heading under its columns.
+    Returns:
+        list of (key, verdict, clauses, per-seed text, mean fold, mean success difference) per column.
+    """
+    rows = []
+    folds_all, costs_all = [1.0], [-M19.SUCCESS_TOL]
+    for i, key in enumerate(keys):
+        seeds = arms[key]["seeds"] if key in arms else []
+        col = TECH[key][1]
+        read = [s for s in seeds if s[f"at{U}"]["reached"]]
+        n_stop = len(seeds) - len(read) if seeds else len(M19.SEEDS)
+        n = len(read) + n_stop
+        xs = [i + (j - (n - 1) / 2) * TECH_DX for j in range(n)]
+        fold = [s[f"at{U}"]["active"] / tref["active"] for s in read]
+        cost = [s[f"at{U}"]["success"] - tref["success"] for s in read]
+        for xj, s, f, c in zip(xs, read, fold, cost):
+            tech_marker(ax_t, xj, f, key, s[f"at{U}"]["learned"])
+            tech_marker(ax_b, xj, c, key, s[f"at{U}"]["learned"])
+        for xj in xs[len(read):]:
+            ax_t.plot([xj], [0], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
+        if n_stop and not read:
+            ax_t.text(i, 0.12, "stopped", fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="bottom",
+                      transform=ax_t.get_xaxis_transform(), rotation=90)
+        if read:
+            for ax, v in ((ax_t, np.mean(fold)), (ax_b, np.mean(cost))):
+                ax.plot([i - 0.34, i + 0.34], [v] * 2, "-", lw=1.4, color=col, zorder=4, solid_capstyle="butt")
+            folds_all += fold
+            costs_all += cost
+        v, cl = M19.technique_verdict(seeds, tref, U) if seeds else ("no verdict", [])
+        txt = "; ".join(f"s{s['seed']} {M19.fmt_seed(s, U)}" for s in seeds) or "3 stopped before a checkpoint"
+        rows.append((key, v, cl, txt, float(np.mean(fold)) if fold else None, float(np.mean(cost)) if cost else None))
+    ax_t.axhspan(tref["active_min"] / tref["active"], tref["active_max"] / tref["active"], color=ps.FAINT,
+                 alpha=0.3, lw=0, zorder=1)
+    ax_t.axhline(1, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
+    ax_t.set_ylim(0, np.ceil(max(folds_all) * 1.12 * 2) / 2)
+    ax_t.set_yticks(np.arange(0, ax_t.get_ylim()[1] + 1e-9, 1.0))
+    ax_t.set_ylabel("fold\nchange")
+    ax_t.tick_params(axis="x", length=0, labelbottom=False)
+    lo = np.floor(min(costs_all) * 10) / 10 - 0.05
+    hi = max(0.12, np.ceil(max(costs_all) * 20) / 20 + 0.03)
+    ax_b.set_ylim(lo, hi)
+    ax_b.axhline(0, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
+    ax_b.axhline(-M19.SUCCESS_TOL, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
+    step = 0.5 if lo < -0.45 else 0.2
+    ax_b.set_yticks(list(np.arange(0.0, lo, -step)))
+    ax_b.set_ylabel("success\ndifference")
+    ax_b.set_xticks(range(len(keys)))
+    ax_b.set_xticklabels(labels, fontsize=ps.TICK_PT, linespacing=1.2)
+    ax_b.tick_params(axis="x", length=0, pad=3)
+    for ax in (ax_t, ax_b):
+        ax.set_xlim(-0.6, len(keys) - 0.4)
+        ps.ygrid(ax)
+    if headings:
+        height_mm = ax_b.get_position().height * ax_b.figure.get_figheight() / ps.MM
+        y_rule = HEAD_MM / height_mm
+        i = 0
+        while i < len(keys):
+            h, j = TECH[keys[i]][4], i
+            while j + 1 < len(keys) and TECH[keys[j + 1]][4] == h:
+                j += 1
+            if h is not None:
+                ax_b.plot([i - 0.4, j + 0.4], [y_rule] * 2, transform=ax_b.get_xaxis_transform(), color=ps.MUTED,
+                          lw=ps.THIN_LW, clip_on=False, solid_capstyle="butt")
+                ax_b.text((i + j) / 2, y_rule - 0.4 / height_mm, h, transform=ax_b.get_xaxis_transform(),
+                          fontsize=ps.TICK_PT, color=ps.INK, ha="center", va="top", linespacing=1.1)
+            i = j + 1
+    return rows
+
+
+def panel_traces(ax, keys, arms, controls, x_max):
+    """Panel h: active units against PPO updates, one line per network, a filled marker at the learned point.
+
+    Args:
+        ax: axes; keys: the TECH keys drawn; arms, controls: maze_arms_r19 output; x_max: int, the x limit.
+    Returns:
+        int, the number of networks drawn.
+    """
+    n = 0
+    lines = [(c, ps.BASELINE, "o", 2) for c in controls]
+    lines += [(s, TECH[k][1], TECH[k][2], 3) for k in keys if k in arms for s in arms[k]["seeds"]]
+    for s, col, marker, z in lines:
+        r = s["run"]
+        if r is None:
+            continue
+        pr = r["probes"]
+        ax.plot(pr["update"], pr["active"], "-", lw=ps.THIN_LW, color=col, zorder=z)
+        li = maze_learned_index(pr["probe_success"])
+        if li is not None:
+            ax.plot([pr["update"][li]], [pr["active"][li]], marker, ls="none", zorder=5,
+                    ms=ps.MARKER_PT * (TRI_SCALE if marker in TRIANGLES else 1.0), **ps.mark_floor(col))
+        n += 1
+    time_axis(ax, x_max)
+    ax.set(ylim=(0, N), xlabel="PPO update", ylabel=ps.of_n(ps.LABELS["active"], N))
+    ax.set_yticks([0, N / 2, N])
+    ps.count_ticks(ax.yaxis)
+    ps.ygrid(ax)
+    return n
+
+
+def panel_key(ax, keys):
+    """The key row: one entry per technique value (colour, marker) and a row of marker meanings.
+
+    Args:
+        ax: a blank axes spanning the figure width; keys: the TECH keys.
+    Returns:
+        None.
+    """
+    ps.blank(ax)
+    h = [Line2D([], [], marker="o", color=ps.BASELINE, ls="-", lw=ps.DATA_LW, ms=3.4, mec=ps.INK,
+                mew=ps.MARKER_EW, label="control")]
+    h += [Line2D([], [], marker=TECH[k][2], color=TECH[k][1], ls="-", lw=ps.DATA_LW, ms=3.4, mec=ps.INK,
+                 mew=ps.MARKER_EW, label=TECH[k][0]) for k in keys]
+    leg = ax.legend(handles=h, loc="upper center", ncol=5, frameon=False, fontsize=ps.TICK_PT, handlelength=1.5,
+                    columnspacing=1.1, handletextpad=0.35, borderaxespad=0)
+    ax.add_artist(leg)
+    h2 = [Line2D([], [], marker="o", ls="none", ms=ps.MARKER_PT, **ps.mark_floor(ps.INK), label="learned point (h)"),
+          Line2D([], [], marker="o", ls="none", ms=ps.MARKER_PT, **ps.mark_fixed(ps.INK),
+                 label="learned by the update read"),
+          Line2D([], [], marker="x", ls="none", ms=ps.MARKER_PT, mec=ps.INK, mew=0.8,
+                 label="not learned by the update read; at 0, stopped")]
+    ax.legend(handles=h2, loc="lower center", ncol=len(h2), frameon=False, fontsize=ps.TICK_PT,
+              handlelength=1.0, columnspacing=1.6, handletextpad=0.35, borderaxespad=0)
 
 
 def main():
-    """Parse arguments, load the runs, draw the settings blocks and the technique panels, print every number, save."""
+    """Load every network, draw the three settings blocks and the technique panels, print every number, save."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--root", default=ROOT, help="the arms: <arm>/s<seed>/ maze run folders")
-    ap.add_argument("--control-root", default=CONTROL_ROOT, help="the uniform series' run folders")
-    ap.add_argument("--ablation", default=ABLATION_DIR, help="rl_maze_ablate.py JSONs of the technique networks")
-    ap.add_argument("--control-ablation", default=CONTROL_ABLATION_DIR,
-                    help="rl_maze_ablate.py JSONs of the uniform series")
-    args = ap.parse_args()
-    records, stopped_folders = load_records(args.root, args.control_root)
-    ref = control_reference(records)
-    no_files = {}
-    for s in stopped_folders:
-        no_files[s["folder_arm"]] = no_files.get(s["folder_arm"], 0) + 1
+    ap.parse_args()
+    controls, arms = M19.load_controls(), M19.load_arms()
+    M19.crosscheck(controls, arms)
+    sref = {U: M19.settings_reference(controls, U) for U in M19.READS}
+    tref = {U: M19.technique_reference(controls, U) for U in M19.READS}
+    for U in M19.READS:
+        print(f"settings reference at {U}: {sref[U]}\ntechnique reference at {U}: {tref[U]}")
     ps.setup()
     fig = ps.figure(FIG_H_MM)
-    rows = []
-    for top, groups, letters in zip(TOP_MM, BLOCKS, (("a", "b"), ("c", "d"))):
-        rows += draw_block(fig, top, groups, records, no_files, ref, letters)
-    if ref is None:
-        print("no learned control: no band and no reference line")
-    else:
-        print(f"controls' reference: {ref['n']} learned, active {ref['active']:.1f} "
-              f"({ref['active_min']}-{ref['active_max']}), success {ref['success']:.3f}")
-    for key, what in rows:
-        print(f"  {key:>10}: {what}")
-    panel_techniques(fig, records, stopped_folders, ref, args.ablation, args.control_ablation)
+    groups4 = block_4000(arms)
+    for top, groups, letters, U, kw in ((TOP_MM[0], BLOCKS[0], ("a", "b"), 2000, {}),
+                                        (TOP_MM[1], BLOCKS[1], ("c", "d"), 2000, {}),
+                                        (TOP_MM[2], groups4, ("e", "f"), 4000,
+                                         dict(pitch=PITCH4_MM, gap=GAP4_MM, stagger=True))):
+        print(f"\n--- settings, panels {letters[0]} and {letters[1]}, update {U:,} (direction against "
+              f"{sref[U]['active_min']}-{sref[U]['active_max']}, learned seeds only) ---")
+        for key, what, d in draw_block(fig, top, groups, controls, arms, U, sref[U], letters, **kw):
+            seeds = controls if key == "control" else arms[key]["seeds"]
+            read = [s[f"at{U}"] for s in seeds if s[f"at{U}"]["reached"]]
+            dperf = (np.mean([p["success"] for p in read]) - sref[U]["success"]) if read else float("nan")
+            src = "" if key == "control" else f" [{arms[key]['source']}]"
+            print(f"  {key:>14}{src}: {d}; success minus the learned controls' mean {dperf:+.3f}; {what}")
+    keys2 = list(TECH)
+    keys4 = [k for k in TECH if k in arms and any(s["continued"] for s in arms[k]["seeds"])]
+    panel_key(ax_mm(fig, *KEY_MM), keys2)
+    ax_gt, ax_gb = ax_mm(fig, *G_MM["top"]), ax_mm(fig, *G_MM["bot"])
+    rows2 = panel_fold(ax_gt, ax_gb, keys2, arms, tref[2000], 2000, [TECH[k][3] for k in keys2], headings=True)
+    ps.panel_letter(ax_gt, "g")
+    ax_gt.text(0.0, 1.06, "techniques at update 2,000", transform=ax_gt.transAxes, fontsize=ps.LABEL_PT,
+               color=ps.INK, ha="left", va="bottom")
+    ax_h = ax_mm(fig, *H_MM)
+    n_h = panel_traces(ax_h, keys2, arms, controls, 4000)
+    ps.panel_letter(ax_h, "h")
+    ax_it, ax_ib = ax_mm(fig, *I_MM["top"]), ax_mm(fig, *I_MM["bot"])
+    rows4 = panel_fold(ax_it, ax_ib, keys4, arms, tref[4000], 4000, [LABEL_4000[k] for k in keys4], headings=False)
+    ps.panel_letter(ax_it, "i")
+    ax_it.text(0.0, 1.08, "techniques at update 4,000", transform=ax_it.transAxes, fontsize=ps.LABEL_PT,
+               color=ps.INK, ha="left", va="bottom")
+    for U, rows in ((2000, rows2), (4000, rows4)):
+        print(f"\n--- techniques at update {U:,}: fold over {tref[U]['active']:.1f} (controls {tref[U]['seeds']}, bar "
+              f"{tref[U]['active_max']}), success minus {tref[U]['success']:.3f} ---")
+        for key, v, cl, txt, mf, mc in rows:
+            src = f" [{arms[key]['source']}]" if key in arms else ""
+            print(f"  {key:>18}{src}: {v}{' (' + ','.join(cl) + ')' if cl else ''}; mean fold "
+                  f"{'-' if mf is None else f'{mf:.2f}'}; success difference {'-' if mc is None else f'{mc:+.3f}'}; {txt}")
+    print(f"\npanel h: {n_h} networks drawn")
     check_overlaps(fig)
     ps.save(fig, "fig_ed_maze_settings_techniques")
 

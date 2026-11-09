@@ -119,6 +119,11 @@ TRIANGLES = ("^", "v")
 TRI_SCALE = 1.25
 JOIN = 1.15                    # points closer than JOIN marker diameters (or rings) form one group
 SEE_THROUGH = (1, 1, 1, 0.5)   # face of two different markers that overlap at their values
+# The same face in Extended Data techniques (b) (ed_techniques_3bff, panel_removal): at 50% the rim
+# of the read-out-dropout triangle under the N = 1,000 rate-penalty circle left that circle's centre
+# at 199 of the scan's 200 (dead-relu-paper#200); at 65% the rim still shows through and the centre
+# reads as paper. Figure 5's panel d keeps SEE_THROUGH.
+SEE_THROUGH_REMOVAL = (1, 1, 1, 0.65)
 # Panel a: the noisy-synapse and read-out-dropout medians at 75,000 iterations (572 and 539 active
 # units) would overlap, so they are drawn 2,500 iterations either side of it (#104, PR #118 review).
 A_OFFSET = {"synnoise": 2500, "dropout": -2500}
@@ -417,7 +422,7 @@ def open_groups(ax, xs, ys, col, marker, s, burst=None, merge=False):
     return out
 
 
-def see_through(ax, groups):
+def see_through(ax, groups, face=SEE_THROUGH):
     """Give markers of different series that overlap at their measured positions half-white faces.
 
     No marker is moved off its measured value (review of PR #118). Two groups whose printed centres
@@ -427,7 +432,8 @@ def see_through(ax, groups):
     over it; the larger shape is drawn first.
 
     Args:
-        ax: axes with limits set; groups: list of open_groups() dicts.
+        ax: axes with limits set; groups: list of open_groups() dicts; face: RGBA of the see-through
+            face (default SEE_THROUGH, white at 50% opacity).
     Returns:
         the groups, larger see-through shapes first (changed in place: a "face" key on the pairs).
     """
@@ -439,7 +445,7 @@ def see_through(ax, groups):
             if (a["col"], a["marker"]) == (b["col"], b["marker"]):
                 continue
             if np.hypot(*(pts[i] - pts[j])) < (np.sqrt(a["s"]) + np.sqrt(b["s"])) / 2:
-                a["face"] = b["face"] = SEE_THROUGH
+                a["face"] = b["face"] = face
     return sorted(groups, key=lambda g: -g["s"] if "face" in g else 0)
 
 
@@ -892,7 +898,7 @@ def panel_removal(axs, a3, marks):
             if inside[fam]:
                 x, y, b = (np.array(v) for v in zip(*inside[fam]))
                 groups += open_groups(ax, x, y, COL[fam], MARK[fam], 11, burst=b.astype(bool))
-        draw_groups(ax, see_through(ax, groups))
+        draw_groups(ax, see_through(ax, groups, face=SEE_THROUGH_REMOVAL))
         ax.set_xticks([0, 0.2, 0.4])
         ax.set_yticks([0, 0.4, 0.8])
         ax.set_title(f"$N$ = {ps.fmt_count(N)}", fontsize=ps.LABEL_PT, pad=3)
