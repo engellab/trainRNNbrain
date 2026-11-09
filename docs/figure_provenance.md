@@ -412,3 +412,15 @@ figures are written to `img/internal_figures/`.
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (a,b: the 3BFF rate penalty at 0.01 and 0.03 beside 0.1, #204; d: edge labels moved, PR #202 review item 12) | `3255125` | 2026-11-07 |
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (d: merged CDDM edge marker, shorter arrow, count beside it outside the axes; PR #202 second review item 1) | `094c424` | 2026-11-07 |
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (d: merged CDDM edge arrow 4 pt, tail clear of the neighbouring circle; PR #202 third review) | `c781c69` | 2026-11-07 |
+| `fig_paper_F1.pdf` | fig_paper_F1.py (Maze c: uniform seeds 1-3 on the joined records; #195 run_dir resolver; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_paper_F1.svg` | fig_paper_F1.py (as the PDF; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_paper_F2_size.pdf` | fig_paper_F2_size.py (Maze 4, 3, 6, 3, 4 learned networks, b = 0.343; seed 4 stopped; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_paper_F2_size.svg` | fig_paper_F2_size.py (as the PDF; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_paper_F3_tasks.pdf` | fig_paper_F3_tasks.py with maze_arms_r19.py (Maze at update 2,000 against five learned controls; metabolic reruns; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_paper_F3_tasks.svg` | fig_paper_F3_tasks.py (as the PDF; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (parity values on every task; Maze reruns; d Maze from fz_maze_added_summary.json; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_paper_F5_tasks.svg` | fig_paper_F5_tasks.py (as the PDF; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_ed_maze.pdf` | fig_ed_maze.py (final budgets; c fit to the end b = 0.441; e at update 4,000 with radius 0.45; #203; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py with maze_arms_r19.py (a-f settings at 2,000 and 4,000, g-i techniques; removal panel dropped; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_ed_techniques_3bff.pdf` | fig_paper_F5_drive.py, ed_techniques_3bff (panel b see-through face 65%; #200; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
+| `fig_ed_techniques_3bff.svg` | fig_paper_F5_drive.py, ed_techniques_3bff (as the PDF; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
