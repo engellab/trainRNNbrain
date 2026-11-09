@@ -220,7 +220,7 @@ from its update-1,700 checkpoint) runs to 4,000; seeds 4 and 5 submitted (Della 
 N = 250 to 4,000, learned runs: N^0.52 (bootstrap 0.49-0.55 with the one seed both scripts use since round 17, entry 2026-11-06_2135; 0.48-0.55 with fig_ed_maze's old seed); size means 146 (n = 3), 261 (3), 438
 (2), 431 (3), 676 (1). N = 250 seed 2 and N = 1,000 seed 3 are not learned and enter no statistic.
 
-**When the rules were written (entry 2026-11-06_2259).** "Only stronger weight decay on all three tasks" holds for networks that learned, a restriction chosen after the data: 18 values, 2 the same; counting every finished network, among values all of whose networks finished, 25 values, 4 the same (SGD 0.03 and 0.1 too). Prune-and-duplicate alone passes on all three tasks at R^2 tolerances from 0.0046 to about 0.0213, SE of the upper limit 0.0015 (entry 2026-11-06_2317); the abstract says no "only". The Maze technique conditions predate every Maze technique network; the R^2 tolerance postdates every 3BFF and most CDDM networks; the at-one-value rule and the 75,000-iteration 3BFF read postdate the data.
+**When the rules were written (entry 2026-11-06_2259).** "Only stronger weight decay on all three tasks" holds for networks that learned, a restriction chosen after the data: 18 values, 2 the same; counting every finished network, among values all of whose networks finished, 25 values, 4 the same (SGD 0.03 and 0.1 too). **Corrected (entry 2026-11-09_1509):** the 4 used the two learned Maze controls as the range; with all three controls, as the every-network rule counts them, it is 3. Since G12 the tallies are 17 and 1 (learned networks) and 24 and 3 (every finished network). Prune-and-duplicate alone passes on all three tasks at R^2 tolerances from 0.0046 to about 0.0213, SE of the upper limit 0.0015 (entry 2026-11-06_2317); the abstract says no "only". The Maze technique conditions predate every Maze technique network; the R^2 tolerance postdates every 3BFF and most CDDM networks; the at-one-value rule and the 75,000-iteration 3BFF read postdate the data.
 
 **C6 across the three tasks (5 Nov; Pavel's instruction, trainRNNbrain issue #6, dead-relu-paper#183:
 report the rules that work on every task first).** Criterion per cell at N = 1,000: more active
@@ -442,8 +442,34 @@ _1111, _1723).**
   direction (no seed learned), 1 incomplete (seed 2 stopped at 1,900, seed 3 at 3,902, both within running
   episodes). No metabolic value has a Maze direction at both points.
 - *tanh* learns under no tested setting within 4,000 updates. *The shifted sigmoid* learns at initial spectral
-  radius 0.45, a per-activation change decided after the pilot was read. Full runs and a same-radius ReLU
-  control are training (Della 17105877).
+  radius 0.45, a per-activation change decided after the pilot was read. Full runs (entry 2026-11-09_0213):
+  three sigmoid networks learned at 1,410-3,330 with 227-250 active at 4,000; the same-radius ReLU control has
+  two networks (344 and 273; the third stopped). Numbers only, no verdict.
+
+**Round 19 text package (r19-text, dead-relu-paper#206; entry 2026-11-09_1442_r19-text-package).** The paper
+carries rounds 18 and 19. Recomputed for it on trainRNNbrain wp/r19-text:
+- *C5 settings tallies (Fig. 3; fig_paper_F3_tasks.py with the reader maze_arms_r19.py).* With the five
+  learned Maze controls (394-449) and the metabolic reruns: 17 values have a direction on all three tasks and
+  1 agrees (weight decay 1e-4); counting every finished network, 24 and 3 (wd 1e-4, SGD 0.03, 0.1). The paper's
+  "only stronger weight decay" becomes "only the strongest weight decay tested" (1e-4).
+- *C5 Maze check after the learned point.* G9 without the six withdrawn metabolic networks and with the three
+  fz metabolic networks learned by update 2,000, plus default seeds 4-6 and the five leaky ReLU and softplus
+  networks learned by then: 44 of 53 (pooled 170 of 180; entry 2026-11-09_1509). Prune-and-duplicate rerun: 64 to
+  109 more active units at 2,000 than at the learned point.
+- *C6 matched-values range.* With the Maze rate penalty at 0.1 working after the fix, prune-and-duplicate is the
+  only technique on all three tasks under matched values from 0.0046 to 0.021 (the rate penalty at 0.1 joins at
+  its 3BFF difference, 0.0211 at 36 draws); round 18's "no upper limit" is false. One-value range unchanged
+  (0.0032-0.0161).
+- *C6 Maze removal of the added units, redone on the 12 fz networks at update 2,000*
+  (data/round19/fz_maze_added_summary.json): every arm depends (drops 0.33-0.49 prune-and-duplicate, 0.13-0.55
+  rate penalty); k random active units lower success further in 11 of 12 (not prune-and-duplicate s1, 0.47
+  against 0.45). Pooled with 3BFF and CDDM: 43 of 45 networks drop by at least 0.10.
+- *C2 size series.* 24 of 27 followed networks have fewer active units at the end than at the floor crossing
+  or the learned point: 7 of 7 supervised, 17 of 20 Maze (the end at 4,000 for N <= 2,000, 8,000 at N = 4,000;
+  decreases of 6-113 units, 4-26%; increases: N = 2,000 s1 393 -> 400, N = 4,000 s2 532 -> 595, s3 681 -> 702).
+- *Figures redrawn:* Fig. 1 (Maze c: seeds 1-3; #195 fixed), Fig. 2, Fig. 3, Fig. 5 (parity values, reruns),
+  Extended Data Maze (#203 fixed) and Maze settings and techniques (2,000 and 4,000; the old removal panel
+  dropped), Extended Data techniques (#200 fixed).
 
 **C7.** B4 at N = 1000 (entry 2026-10-31_1532): when a trained flip-flop network learns the 3-bit
 hyper flip-flop, 5-9% of its inactive units become active, and it ends with 232-259 active against

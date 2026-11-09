@@ -1,0 +1,5 @@
+Using cpu for RNN!
+duplicate s3: 756 of 1000 active, k 326; intact 0.942, -inactive 0.946, -k added 0.605, -k random active 0.457, -570 least 0.590, -570 random 0.248 -> data/round19/fz_maze_added/duplicate__s3.json
+real 1421.77
+user 701.68
+sys 277.10

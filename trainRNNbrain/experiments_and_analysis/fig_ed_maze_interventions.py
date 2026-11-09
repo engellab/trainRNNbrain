@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Extended Data figure: the paper's training techniques on the maze task (PPO) at N = 1,000.
 
+ROUND 19 NOTE (dead-relu-paper#201). This module's own figure is not in the paper, and since round 19 the
+paper's technique panels (fig_ed_maze_settings.py, panels g-i) no longer draw from it: they read
+maze_arms_r19.py, which cuts every record at updates 2,000 and 4,000 and takes the rate-penalty, rate + sparsity,
+metabolic-penalty and prune-and-duplicate arms from their freeze_after_end=true reruns. fig_ed_maze_settings
+imports only ARMS, RATE_RAMP, RESCALE_RAMP and TRI_SCALE from here, and round19_read imports arm_of. Run alone,
+this script reads the END of each joined record, which for the arms continued in round 19 is update 4,000, and
+it reads the withdrawn first runs of the penalty arms; its printout is therefore not the paper's read.
+
 QUESTION. On 3BFF, each training technique of Figure 5 increases the number of active units and
 lowers held-out R^2. Does the same hold when the task is the maze and the optimiser is PPO (issue
 engellab/trainRNNbrain#5)? The test was set before any run (issue #5): a technique "works" at a

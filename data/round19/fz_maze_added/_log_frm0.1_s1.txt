@@ -1,0 +1,5 @@
+Using cpu for RNN!
+frm0.1 s1: 999 of 1000 active, k 569; intact 0.984, -inactive 0.985, -k added 0.680, -k random active 0.258, -570 least 0.682, -570 random 0.220 -> data/round19/fz_maze_added/frm0.1__s1.json
+real 1432.35
+user 708.24
+sys 271.95

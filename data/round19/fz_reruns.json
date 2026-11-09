@@ -1,0 +1,808 @@
+{
+ "controls": [
+  {
+   "seed": 1,
+   "at2000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 1050,
+    "active_learned": 451,
+    "success": 0.9921875,
+    "active": 426
+   },
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 1050,
+    "active_learned": 451,
+    "success": 1.0,
+    "active": 360
+   }
+  },
+  {
+   "seed": 2,
+   "at2000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 760,
+    "active_learned": 517,
+    "success": 0.9765625,
+    "active": 449
+   },
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 760,
+    "active_learned": 517,
+    "success": 1.0,
+    "active": 404
+   }
+  },
+  {
+   "seed": 3,
+   "at2000": {
+    "reached": true,
+    "learned": false,
+    "learned_update": null,
+    "active_learned": null,
+    "success": 0.7265625,
+    "active": 415
+   },
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 1750,
+    "active_learned": 428,
+    "success": 1.0,
+    "active": 317
+   }
+  },
+  {
+   "seed": 4,
+   "at2000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 1530,
+    "active_learned": 427,
+    "success": 0.953125,
+    "active": 394
+   },
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 1530,
+    "active_learned": 427,
+    "success": 1.0,
+    "active": 373
+   }
+  },
+  {
+   "seed": 5,
+   "at2000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 1180,
+    "active_learned": 412,
+    "success": 0.9375,
+    "active": 398
+   },
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 1180,
+    "active_learned": 412,
+    "success": 1.0,
+    "active": 336
+   }
+  },
+  {
+   "seed": 6,
+   "at2000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 1330,
+    "active_learned": 406,
+    "success": 1.0,
+    "active": 417
+   },
+   "at4000": {
+    "reached": true,
+    "learned": true,
+    "learned_update": 1330,
+    "active_learned": 406,
+    "success": 1.0,
+    "active": 314
+   }
+  }
+ ],
+ "reference_4000": {
+  "n": 6,
+  "n_learned_4000": 6,
+  "learned_range_4000": [
+   314,
+   404
+  ],
+  "all_max_4000": 404,
+  "mean_success_4000": 1.0
+ },
+ "arms": [
+  {
+   "key": "duplicate",
+   "cls": "rule",
+   "seeds": [
+    {
+     "seed": 1,
+     "continued": false,
+     "end": 2000,
+     "budget": 2000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 760,
+      "active_learned": 699,
+      "success": 1.0,
+      "active": 763
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    },
+    {
+     "seed": 2,
+     "continued": false,
+     "end": 2000,
+     "budget": 2000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 950,
+      "active_learned": 683,
+      "success": 1.0,
+      "active": 749
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    },
+    {
+     "seed": 3,
+     "continued": false,
+     "end": 2000,
+     "budget": 2000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 710,
+      "active_learned": 648,
+      "success": 0.984375,
+      "active": 757
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    }
+   ],
+   "verdict_2000": "works"
+  },
+  {
+   "key": "frm0.03",
+   "cls": "rule",
+   "seeds": [
+    {
+     "seed": 1,
+     "continued": false,
+     "end": 2000,
+     "budget": 2000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 770,
+      "active_learned": 994,
+      "success": 1.0,
+      "active": 998
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    },
+    {
+     "seed": 2,
+     "continued": false,
+     "end": 2000,
+     "budget": 2000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 1110,
+      "active_learned": 996,
+      "success": 0.96875,
+      "active": 997
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    },
+    {
+     "seed": 3,
+     "continued": false,
+     "end": 2000,
+     "budget": 2000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 460,
+      "active_learned": 991,
+      "success": 1.0,
+      "active": 952
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    }
+   ],
+   "verdict_2000": "works"
+  },
+  {
+   "key": "frm0.1",
+   "cls": "rule",
+   "seeds": [
+    {
+     "seed": 1,
+     "continued": false,
+     "end": 2000,
+     "budget": 2000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 560,
+      "active_learned": 1000,
+      "success": 1.0,
+      "active": 998
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    },
+    {
+     "seed": 2,
+     "continued": false,
+     "end": 2000,
+     "budget": 2000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 760,
+      "active_learned": 1000,
+      "success": 0.9921875,
+      "active": 1000
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    },
+    {
+     "seed": 3,
+     "continued": false,
+     "end": 2000,
+     "budget": 2000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 1390,
+      "active_learned": 994,
+      "success": 1.0,
+      "active": 997
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    }
+   ],
+   "verdict_2000": "works"
+  },
+  {
+   "key": "frm0.1_rws0.05",
+   "cls": "rule",
+   "seeds": [
+    {
+     "seed": 1,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.390625,
+      "active": 1000
+     },
+     "at4000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.8359375,
+      "active": 1000
+     }
+    },
+    {
+     "seed": 2,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.6796875,
+      "active": 1000
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 2920,
+      "active_learned": 1000,
+      "success": 0.9921875,
+      "active": 1000
+     }
+    },
+    {
+     "seed": 3,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.3359375,
+      "active": 1000
+     },
+     "at4000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.6640625,
+      "active": 1000
+     }
+    }
+   ],
+   "verdict_2000": "fails: mean success 0.469 against the controls' 0.898; a seed ends at 0.34",
+   "label": "1 of 3 seeds learn within 4,000 updates",
+   "stopped_before_4000": [],
+   "verdict_4000": "fails: mean success 0.831 against the controls' 1.000; a seed ends at 0.66"
+  },
+  {
+   "key": "frm0.3",
+   "cls": "rule",
+   "seeds": [
+    {
+     "seed": 1,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 970,
+      "active_learned": 1000,
+      "success": 1.0,
+      "active": 1000
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 970,
+      "active_learned": 1000,
+      "success": 1.0,
+      "active": 1000
+     }
+    },
+    {
+     "seed": 2,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 830,
+      "active_learned": 1000,
+      "success": 0.984375,
+      "active": 1000
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 830,
+      "active_learned": 1000,
+      "success": 1.0,
+      "active": 1000
+     }
+    },
+    {
+     "seed": 3,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.8671875,
+      "active": 997
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 2410,
+      "active_learned": 1000,
+      "success": 1.0,
+      "active": 1000
+     }
+    }
+   ],
+   "verdict_2000": "fails: a seed ends at 0.87",
+   "label": "learns within 4,000 updates; one seed after update 2,000, as one of the six controls",
+   "stopped_before_4000": [],
+   "verdict_4000": "works"
+  },
+  {
+   "key": "met0.01",
+   "cls": "setting",
+   "seeds": [
+    {
+     "seed": 1,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 800,
+      "active_learned": 481,
+      "success": 0.9921875,
+      "active": 503
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 800,
+      "active_learned": 481,
+      "success": 0.984375,
+      "active": 437
+     }
+    },
+    {
+     "seed": 2,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 900,
+      "active_learned": 513,
+      "success": 1.0,
+      "active": 449
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 900,
+      "active_learned": 513,
+      "success": 1.0,
+      "active": 367
+     }
+    },
+    {
+     "seed": 3,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.875,
+      "active": 393
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 1740,
+      "active_learned": 393,
+      "success": 1.0,
+      "active": 349
+     }
+    }
+   ],
+   "verdict_2000": "no change in the count (394-449)",
+   "label": "learns within 4,000 updates; one seed after update 2,000, as one of the six controls",
+   "stopped_before_4000": [],
+   "verdict_4000": "no change in the count"
+  },
+  {
+   "key": "met0.1",
+   "cls": "setting",
+   "seeds": [
+    {
+     "seed": 1,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.8359375,
+      "active": 423
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 2070,
+      "active_learned": 403,
+      "success": 1.0,
+      "active": 376
+     }
+    },
+    {
+     "seed": 2,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.6484375,
+      "active": 331
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 2250,
+      "active_learned": 347,
+      "success": 0.96875,
+      "active": 311
+     }
+    },
+    {
+     "seed": 3,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 1290,
+      "active_learned": 408,
+      "success": 0.953125,
+      "active": 368
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 1290,
+      "active_learned": 408,
+      "success": 1.0,
+      "active": 307
+     }
+    }
+   ],
+   "verdict_2000": "decreases the count (394-449)",
+   "label": "learns more slowly",
+   "stopped_before_4000": [],
+   "verdict_4000": "no change in the count"
+  },
+  {
+   "key": "met1",
+   "cls": "setting",
+   "seeds": [
+    {
+     "seed": 1,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.9375,
+      "active": 341
+     },
+     "at4000": {
+      "reached": true,
+      "learned": true,
+      "learned_update": 2000,
+      "active_learned": 341,
+      "success": 0.9609375,
+      "active": 339
+     }
+    },
+    {
+     "seed": 2,
+     "continued": false,
+     "end": 1900,
+     "budget": 2000,
+     "at2000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    },
+    {
+     "seed": 3,
+     "continued": true,
+     "end": 3900,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.8671875,
+      "active": 360
+     },
+     "at4000": {
+      "reached": false,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": null,
+      "active": null
+     }
+    }
+   ],
+   "verdict_2000": "no direction (no seed learned); seeds [2] stopped",
+   "label": "1 of 3 seeds learn within 4,000 updates",
+   "stopped_before_4000": [
+    2,
+    3
+   ],
+   "verdict_4000": "incomplete (1 of 3 reach 4,000; seeds [2, 3] stopped)"
+  },
+  {
+   "key": "met10",
+   "cls": "setting",
+   "seeds": [
+    {
+     "seed": 1,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.7109375,
+      "active": 190
+     },
+     "at4000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.6875,
+      "active": 150
+     }
+    },
+    {
+     "seed": 2,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.515625,
+      "active": 217
+     },
+     "at4000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.765625,
+      "active": 198
+     }
+    },
+    {
+     "seed": 3,
+     "continued": true,
+     "end": 4000,
+     "budget": 4000,
+     "at2000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.6953125,
+      "active": 219
+     },
+     "at4000": {
+      "reached": true,
+      "learned": false,
+      "learned_update": null,
+      "active_learned": null,
+      "success": 0.75,
+      "active": 204
+     }
+    }
+   ],
+   "verdict_2000": "no direction (no seed learned)",
+   "label": "does not learn within 4,000 updates",
+   "stopped_before_4000": [],
+   "verdict_4000": "no direction (no seed learned)"
+  }
+ ]
+}
