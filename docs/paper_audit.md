@@ -428,7 +428,14 @@ _1111, _1723).**
   penalty works on Maze at 0.03 and 0.1 and fails at 0.3 (one seed at 0.87); rate + sparsity fails (success
   0.34-0.68). Metabolic: 0.01 no change, 0.1 decreases on one learned seed, 1 and 10 no direction.
   **Prune-and-duplicate, rerun with the fix, still works on Maze (749-763 active, success 0.98-1.00): the
-  headline stands.** The 4,000 reads of the continued arms are pending.
+  headline stands.**
+- *Reruns at 4,000, beside the stated 2,000 read (entry 2026-11-09_1221; controls 314-404 active, success
+  1.00):* the rate penalty 0.3 works at 4,000 (all three seeds learned, 1,000 of 1,000 active, success 1.00),
+  so on Maze the rate penalty works at 0.03 and 0.1 at 2,000 and at 0.3 only at 4,000. Rate + sparsity fails
+  at both points (success 0.84, 0.99, 0.66 at 4,000); before the fix it worked at 4,000. The cross-task count
+  keeps the Maze rate penalty at 0.03 and 0.1 (update 2,000). Metabolic at 4,000: 0.01 and 0.1 no change, 10 no
+  direction (no seed learned), 1 incomplete (seed 2 stopped at 1,900, seed 3 at 3,902, both within running
+  episodes). No metabolic value has a Maze direction at both points.
 - *tanh* learns under no tested setting within 4,000 updates. *The shifted sigmoid* learns at initial spectral
   radius 0.45, a per-activation change decided after the pilot was read. Full runs and a same-radius ReLU
   control are training (Della 17105877).
