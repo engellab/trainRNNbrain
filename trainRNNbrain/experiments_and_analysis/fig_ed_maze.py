@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Extended Data figure: the maze task (reinforcement learning) shows the same loss of participation.
 
+ROUND 19 REVIEW (PR #207, items 7a, 7b): in panel b a probe that reads 0 active units at success >= 0.5
+(ZERO_READ_SUCCESS; N = 4,000 seed 3 at update 7,390, success 0.98) is drawn as a gap and printed
+(masked_active); panel a's '0.9' sits outside the right spine.
+
 QUESTION. Does a network trained by PPO on the maze (issue engellab/trainRNNbrain#3; paper package
 ptolmachev/dead-relu-paper#182) leave units inactive the way the supervised tasks do: fewer active
 units than N once the task is solved, a share of active units that falls with N, a count that keeps
@@ -113,6 +117,8 @@ RADIUS = 0.45                     # their initial spectral radius (model.spectra
 # update from 5,941 (probe success 0 and no active unit from 5,950); it is "stopped at update 5,940".
 # A stopped run is drawn to that update and marked; it enters no mean and no fit.
 MAZE_STOPPED = {(4000, "relu", 4): 5940}
+# a probe with 0 active units at this success or above is a read-out artefact, masked in panel b
+ZERO_READ_SUCCESS = 0.5
 
 # N as a lightness ramp of the maze hue (ps.TASK_MAZE = #941862 is N = 2,000): light to dark
 N_SHADE = {250: "#d29ebd", 500: "#bf74a1", 1000: "#a94681", 2000: ps.TASK_MAZE, 4000: "#681145"}
@@ -425,9 +431,9 @@ def panel_success(ax, ax_key, series, x_max):
             ax.plot([pr["update"][li]], [pr["probe_success"][li]], "o", ms=ps.MARKER_PT, zorder=5,
                     **ps.mark_floor(col))
     ax.axhline(MAZE_LEARNED_SUCCESS, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
-    # the level's label at the right end, under the line: the learned marks crowd its left part
-    ax.text(0.99 * x_max, MAZE_LEARNED_SUCCESS - 0.02, f"{MAZE_LEARNED_SUCCESS:g}",
-            fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="top")
+    # the level's label just outside the right spine, clear of the 21 traces (PR #207 review, item 7b)
+    ax.text(1.01, MAZE_LEARNED_SUCCESS, f"{MAZE_LEARNED_SUCCESS:g}", transform=ax.get_yaxis_transform(),
+            fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="center", clip_on=False)
     time_axis(ax, x_max)
     ax.set(ylim=(0, 1.02), xlabel="PPO update", ylabel="success rate (clean probe)")
     ax.set_yticks([0, 0.5, 1.0])
@@ -443,6 +449,29 @@ def panel_success(ax, ax_key, series, x_max):
     ax_key.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.0, 1.0), ncol=3,
                   handlelength=1.6, columnspacing=1.0, borderaxespad=0.0, borderpad=0.0)
     ps.ygrid(ax)
+
+
+def masked_active(run):
+    """A run's probe active counts for drawing, with impossible zero reads masked.
+
+    A probe that reports 0 active units while the agent still succeeds (success at or above
+    ZERO_READ_SUCCESS) cannot be a real state of the network: with no active unit the read-out is
+    zero. Such a probe is drawn as a gap and printed (PR #207 review, item 7a: N = 4,000 seed 3 has
+    one, at update 7,390, success 0.98). A stopped run's zero reads at success 0 are not masked.
+
+    Args:
+        run: dict from common.maze_load_runs (with "N" and "seed").
+    Returns:
+        np.ndarray of float, the probe active counts with the masked probes set to NaN.
+    """
+    pr = run["probes"]
+    act = np.asarray(pr["active"], dtype=float)
+    bad = (act == 0) & (np.asarray(pr["probe_success"], dtype=float) >= ZERO_READ_SUCCESS)
+    for i in np.flatnonzero(bad):
+        print(f"  panel b: masked probe N = {run['N']} seed {run.get('seed')} update {int(pr['update'][i])}: "
+              f"0 active at success {float(pr['probe_success'][i]):.2f}")
+    act[bad] = np.nan
+    return act
 
 
 def panel_active(axes, series):
@@ -470,7 +499,7 @@ def panel_active(axes, series):
         placed, ends = [], []
         for r in runs:
             pr, li = r["probes"], r["pt"]["learned_i"]
-            ax.plot(pr["update"], pr["active"], "-", lw=ps.THIN_LW, color=col, zorder=3)
+            ax.plot(pr["update"], masked_active(r), "-", lw=ps.THIN_LW, color=col, zorder=3)
             if r.get("stopped") is not None:
                 stopped_mark(ax, pr["update"][-1], pr["active"][-1], ps.INK, clip_on=False)
                 continue
