@@ -177,10 +177,18 @@ MAZE_RESCALE_NOTE = {"rescale": "the paper's values (target 10x, alpha 1.002, ca
 # layout, mm from the canvas' top-left: one slot per (technique, task, value) group
 FIG_H_MM = 130.0                  # 136 -> 128 mm (round 15) -> 112.5 (round 17) -> 130 (round 20: printed at 100%, caption cut to 350 words, panel c enlarged)
 LEFT_MM = 16.0
-PITCH_MM = 3.6                    # one group's slot (5.4 until #204; 5.1 until the parity values joined in round 19)
+PITCH_MM = 3.1                    # one group's slot (3.6 until round 21; 5.4 until #204; 5.1 until the parity values joined in round 19)
 GAP_MM = 2.0                      # between two techniques (3.2 until #204; 2.8 until round 19)
-SEED_DX_MM = 0.85                 # a cell's crosses sit this far apart
-CROSS_DX_MM = 1.3                 # a cross beside a group marker sits this far from it
+SEED_DX_MM = 1.15                 # a cell's crosses sit this far apart (0.85 until round 21, when three crosses ran together)
+# Round 21 (dead-relu-paper #217, Reviewer S figures 5 and Reviewer R): the Maze crosses of rate + sparsity and of
+# the rescaling values were drawn over the mean markers and over the neighbouring slots' crosses (1.3 mm from the
+# marker in 3.6 mm slots). A cross beside a group marker now sits CROSS_DX_MM from it, wholly clear of it, further
+# crosses CROSS_STEP_MM apart, alternately right and left; a slot holding crosses is as wide as they need
+# (slot_layout), and the other slots are narrower (PITCH_MM 3.1) to keep the panel inside the canvas.
+CROSS_DX_MM = 1.6                 # a cross beside a group marker sits this far from it (1.3 until round 21)
+CROSS_STEP_MM = 1.2               # between two crosses on one side of a marker
+CROSS_HALF_MM = 0.6               # half the width of a drawn cross (MARKER_PT and its stroke), for the slot width
+SLOT_PAD_MM = 0.35                # between a slot's outermost cross and the slot's edge
 KEY_TOP_MM = 0.5
 A_TOP_MM, A_H_MM = 14.5, 16.0
 # round 20 (dead-relu-paper #212, Reviewers S and W): 6 mm between panel a's axis and panel b's top, so the
@@ -193,6 +201,10 @@ C_LEFT_MM, C_W_MM, C_GAP_MM = 16.0, 31.0, 2.5     # panel c: two sub-columns (3B
 D_LEFT_MM, D_W_MM, D_GAP_MM = 93.5, 22.0, 2.5     # panel d: three sub-panels (3BFF, CDDM, Maze) of D_W_MM each (at least 22 mm, tests/scan_open_markers.py), sharing y
 C_DODGE = 1.07                   # panel c: the techniques' markers at one size sit this factor apart along the log x axis
 FOLD_LIM = (0.0, 4.3)
+# Round 21 (dead-relu-paper #217, Reviewer S figures 7): panel c rings the means of the 3BFF rate-penalty networks
+# at the sizes where every network had non-finite loss values during training (Results 5; Extended Data Table 2,
+# notebook 2026-11-01_0801 and _0833; their loss spikes are Extended Data Fig. 9d-f).
+NONFINITE = {("3BFF", "frm"): (2000, 4000)}
 R2_LIM = (-0.038, 0.013)
 SUCC_LIM = (-0.29, 1.06)          # round 20: panel b's Maze row draws each value's success rate itself (0 to 1), not its difference from the control mean
 STOP_SEP = -0.105                 # panel b's Maze row: the thin line between the success rates and the stopped line
@@ -761,11 +773,52 @@ def slot_layout(order, cells):
         for task in TASKS:
             for c in cells:
                 if c["tech"] == tech and c["task"] == task:
-                    slots.append((c, x + PITCH_MM / 2))
-                    x += PITCH_MM
+                    left, right = slot_extent(c)
+                    slots.append((c, x + left))
+                    c["span"] = (x, x + left + right)        # the slot's edges, for its grey band
+                    x += left + right
         columns.append((tech, x0, x))
         x += GAP_MM
     return slots, columns, x - GAP_MM
+
+
+def n_beside(c):
+    """The most crosses a cell draws beside its group marker in any panel (draw_marks).
+
+    Panel a draws the networks without a learned point and the stopped ones; panel b's Maze row only the
+    networks without a learned point (its stopped networks sit on a line of their own). A cell with no group
+    marker draws its crosses about the slot's centre, not beside it.
+
+    Args:
+        c: a `cell` dict.
+    Returns:
+        int.
+    """
+    n_group = len(c["fold"])
+    if not n_group:
+        return 0
+    not_learned = int((~np.asarray(c["learned"][:n_group], bool)).sum())
+    return not_learned + c["n_stopped"]
+
+
+def slot_extent(c):
+    """The widths (mm) of a cell's slot left and right of its group marker.
+
+    PITCH_MM / 2 to either side, or as far as the crosses beside the marker (or, in a cell without one, about the
+    slot's centre) reach (cross_positions) plus SLOT_PAD_MM.
+
+    Args:
+        c: a `cell` dict.
+    Returns:
+        (left, right) in mm.
+    """
+    if len(c["fold"]):
+        offs = cross_positions(0.0, n_beside(c), True)
+    else:                                       # no group marker: the stopped networks' crosses about the centre
+        offs = cross_positions(0.0, c["n_stopped"], False)
+    left = max(PITCH_MM / 2, -min(offs, default=0.0) + CROSS_HALF_MM + SLOT_PAD_MM)
+    right = max(PITCH_MM / 2, max(offs, default=0.0) + CROSS_HALF_MM + SLOT_PAD_MM)
+    return left, right
 
 
 def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=False, label_below=False,
@@ -848,8 +901,14 @@ def draw_marks(ax, x, c, key, zero=None, guide=None):
     lo_data = STOP_SEP if own_line else lo
     room_below = len(vals) > 0 and vals.min() - lo_data > 0.12 * (hi - lo)
     near = label and guide is not None and len(vals) and abs(vals.mean() - guide) < 0.09 * (hi - lo)
-    draw_group(ax, x, vals, col, marker, label, label_above=bool(crosses) and key == "fold",
-               label_below=bool(crosses) and key != "fold" and room_below, guide=guide if near else None)
+    # round 21 (dead-relu-paper #217, Reviewer S figures 8): a number written beside a marker sat nearer the next
+    # slot's marker than its own (panel b, the "4" of 3BFF rescaling), so it goes above the bar where the axes
+    # leave room for it, else below, and beside the marker only where neither has room
+    room_above = key != "perf" and len(vals) > 0 and hi - vals.max() > 0.2 * (hi - lo)   # perf: 0.9 line above
+    above = bool(label) and (room_above or (bool(crosses) and key == "fold"))
+    below = bool(label) and not above and room_below
+    draw_group(ax, x, vals, col, marker, label, label_above=above, label_below=below,
+               guide=guide if near else None)
     for xi, v in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
         ax.plot([xi], [v], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
     if own_line:
@@ -868,7 +927,7 @@ def cross_positions(x, n, beside):
     """
     if not beside:
         return x + (np.arange(n) - (n - 1) / 2) * SEED_DX_MM
-    return x + np.array([CROSS_DX_MM * (k // 2 + 1) * (1 if k % 2 == 0 else -1) for k in range(n)])
+    return x + np.array([(CROSS_DX_MM + CROSS_STEP_MM * (k // 2)) * (1 if k % 2 == 0 else -1) for k in range(n)])
 
 
 def panel_ab(fig, slots, columns, width, tol):
@@ -895,8 +954,7 @@ def panel_ab(fig, slots, columns, width, tol):
         band_ax = ax_b2 if maze else ax_b1
         for ax, key in ((ax_a, "band_fold"), (band_ax, "band_perf" if maze else "band_dperf")):
             lo, hi = c[key]
-            ax.fill_between([x - PITCH_MM / 2, x + PITCH_MM / 2], [lo] * 2, [hi] * 2, color=ps.FAINT,
-                            alpha=0.3, lw=0, zorder=1)
+            ax.fill_between(list(c["span"]), [lo] * 2, [hi] * 2, color=ps.FAINT, alpha=0.3, lw=0, zorder=1)
         draw_marks(ax_a, x, c, "fold", zero=0.0)
         if maze:
             draw_marks(ax_b2, x, c, "perf", zero=STOP_Y, guide=MAZE_LEARNED_SUCCESS)
@@ -1024,13 +1082,14 @@ def panel_sizes(fig):
     rows = []
     order = list(F5.MAIN)
 
-    def draw_family(ax_m, ax_r, fam, xs, folds, dr2s, at_75k, col):
+    def draw_family(ax_m, ax_r, fam, xs, folds, dr2s, at_75k, col, ringed=()):
         """Draw one technique's line through its means (top) and medians (bottom), with its marker at each
         size, and one small filled marker per network for prune-and-duplicate.
 
         Args:
             ax_m, ax_r: the fold-change and R^2 axes; fam: technique key; xs: sizes; folds, dr2s: per-size
-                arrays; at_75k: bool, read at 75,000 iterations (dashed line, open markers); col: task colour.
+                arrays; at_75k: bool, read at 75,000 iterations (dashed line, open markers); col: task colour;
+            ringed: sizes whose markers get an ink ring (NONFINITE: training had non-finite losses).
         Returns:
             (means, medians): lists per size.
         """
@@ -1052,6 +1111,10 @@ def panel_sizes(fig):
             if not dup:
                 kw = ps.mark_fixed(col) if at_75k else ps.mark_floor(col)
                 ax.plot(xd, ys, marker, ms=size, ls="none", zorder=5, clip_on=False, **kw)
+            for n, x, y in zip(xs, xd, ys):
+                if n in ringed:          # Figure 5's ring (fig_paper_F5_drive.ring_size), as Extended Data Fig. 10 rings
+                    ax.scatter([x], [y], s=F5.ring_size(marker, size ** 2, at_75k), marker="o", facecolors="none",
+                               edgecolors=ps.INK, linewidths=F5.RING_LW, zorder=6, clip_on=False)
         return mm, rr
 
     ax_m, ax_r = axes["3BFF"]
@@ -1065,7 +1128,13 @@ def panel_sizes(fig):
             xs.append(n)
             folds.append(np.asarray(d["mult"], float))
             dr2s.append(np.asarray(d["dr2"], float))
-        mm, rr = draw_family(ax_m, ax_r, fam, xs, folds, dr2s, fam in F5.AT_75K, TASK_COL["3BFF"])
+        mm, rr = draw_family(ax_m, ax_r, fam, xs, folds, dr2s, fam in F5.AT_75K, TASK_COL["3BFF"],
+                             ringed=NONFINITE.get(("3BFF", fam), ()))
+        if ("3BFF", fam) in NONFINITE:                # name the ring once, left of the first ringed mean
+            n0 = NONFINITE[("3BFF", fam)][0]
+            x0 = n0 * C_DODGE ** (order.index(fam) - (len(order) - 1) / 2)
+            ax_m.annotate("non-finite\nlosses", xy=(x0, mm[xs.index(n0)]), xytext=(-6, 0), textcoords="offset points",
+                          ha="right", va="center", fontsize=ps.TICK_PT, color=ps.INK, linespacing=1.0)
         rows += [("3BFF", fam, n, len(f), m, r) for n, f, m, r in zip(xs, folds, mm, rr)]
     ax_m, ax_r = axes["CDDM"]
     crows = cddm_size_rows()
@@ -1172,10 +1241,16 @@ def panel_removal(fig):
         if j:
             ax.tick_params(labelleft=False)
     # round 20 (dead-relu-paper #212, Reviewer W item 6): the units by what they are, not "added units"
-    axes[0].set_ylabel("$k$ least participating\nactive units removed")
-    fig.text((D_LEFT_MM + 1.5 * D_W_MM + D_GAP_MM) / ps.W_FULL_MM, 1.0 - (ROW2_TOP_MM + ROW2_H_MM + 6.0) / FIG_H_MM,
-             "$k$ random active units removed (median of 5)", ha="center", va="top", fontsize=ps.LABEL_PT,
-             color=ps.INK)
+    # round 21 (dead-relu-paper #217, Reviewer W figures): the axis labels name the quantity, not the operation
+    axes[0].set_ylabel("$R^2$ or success rate after\nremoving the $k$ least\nparticipating active units",
+                       linespacing=1.05)
+    label_x = fig.text((D_LEFT_MM + 1.5 * D_W_MM + D_GAP_MM) / ps.W_FULL_MM,
+                       1.0 - (ROW2_TOP_MM + ROW2_H_MM + 6.0) / FIG_H_MM,
+                       "$R^2$ or success rate after removing $k$ random active units (median of 5)",
+                       ha="center", va="top", fontsize=ps.LABEL_PT, color=ps.INK)
+    fig.canvas.draw()
+    box = label_x.get_window_extent(fig.canvas.get_renderer())
+    assert box.x1 <= fig.bbox.x1 and box.x0 >= 0, "panel d's horizontal label leaves the canvas"
     axes[0].text(0.49, 0.50, "equal", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
     ps.panel_letter(axes[0], "d")
     return axes, rows

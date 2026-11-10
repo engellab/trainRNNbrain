@@ -670,14 +670,23 @@ def draw_drift(ax, summ):
     groups = [("CDDM", "active"), ("CDDM", "low_reached"), ("CDDM", "low_unreached"), ("CDDM", "silent"),
               ("3BFF", "active"), ("3BFF", "low_reached"), ("3BFF", "low_unreached")]
     # open: read at fixed offsets after the Fig. 1d weights (#83); the ring is the task colour (round 20),
-    # and the class is the horizontal axis
+    # and the class is the horizontal axis. Round 21 (dead-relu-paper #217, Reviewer S figures 4): the two
+    # measurement times differ by position only, left LATER[0] and right LATER[1], every marker a circle, and
+    # the first low-active class of each task names the two times above its groups (until round 21 LATER[0]
+    # was a triangle, the shape of the young networks in d and e, and a legend named the shapes).
     xs = np.array([0, 1, 2, 3, 4.6, 5.6, 6.6])
     offs = np.array([-0.13, 0.0, 0.13])               # the three networks at fixed offsets, no jitter
     for x, (task, cls) in zip(xs, groups):
-        for dt, dx, mk in ((LATER[0], -0.22, "^"), (LATER[1], 0.22, "o")):
+        tops = []
+        for dt, dx in ((LATER[0], -0.22), (LATER[1], 0.22)):
             v = np.array([100 * s[f"{cls}_{dt}"] for s in summ[task]])
             ax.plot([x + dx - 0.17, x + dx + 0.17], [v.mean()] * 2, color=ps.INK, lw=ps.DATA_LW, zorder=2)
-            ax.plot(x + dx + offs, v, ls="", marker=mk, ms=3, clip_on=False, zorder=3, **open_mark(TASK_COL[task]))
+            ax.plot(x + dx + offs, v, ls="", marker="o", ms=3, clip_on=False, zorder=3, **open_mark(TASK_COL[task]))
+            tops.append(v.max())
+        if cls == "low_reached":                          # name the two times once per task
+            for (dt, dx), top in zip(((LATER[0], -0.22), (LATER[1], 0.22)), tops):
+                ax.text(x + dx, max(tops) + 6, f"+{ps.fmt_count(dt)}", ha="center", va="bottom",
+                        fontsize=ps.TICK_PT, color=ps.INK)
     ax.set_xticks(xs)
     ax.set_xticklabels(["active", "above\nthreshold", "below\nthreshold", "silent", "active", "above\nthreshold",
                         "below\nthreshold"])
@@ -692,9 +701,6 @@ def draw_drift(ax, summ):
     for xm, task in ((1.5, "CDDM"), (5.6, "3BFF")):
         ax.text(xm, 1.03, f"{task}, $N$ = 1,000", transform=ax.get_xaxis_transform(), ha="center",
                 va="bottom", fontsize=ps.LABEL_PT)
-    ax.legend(handles=[Line2D([], [], marker=mk, ls="", ms=3, **open_mark(ps.INK),
-                              label=f"+{ps.fmt_count(dt)} iterations") for mk, dt in zip("^o", LATER)],
-              loc="center right", handletextpad=0.2, bbox_to_anchor=(1.0, 0.6))
     ps.ygrid(ax)
 
 
@@ -807,6 +813,15 @@ def draw_b4_active(ax, b4):
                   f"R2 {min(r2):.3f}-{max(r2):.3f}")
         bar = g["fresh_mean"] - 3 * g["fresh_sd"]
         ax.plot([x0 - 0.65, x0 + 0.35], [bar] * 2, color=ps.INK, lw=ps.THIN_LW, ls="--")
+        # round 21 (dead-relu-paper #217, Reviewer S figures 5): the threshold's value above its left end, and
+        # the value of any old network within 25 units of it beside its marker, so the side it lies on reads
+        ax.text(x0 - 0.65, bar + 12, f"{bar:.0f}", ha="left", va="bottom", fontsize=ps.TICK_PT, color=ps.INK)
+        for r in g["old"]:
+            if abs(r["active_star"] - bar) < 25:
+                ax.text(x0 + 0.42, r["active_star"], f"{r['active_star']:.0f}", ha="left", va="center",
+                        fontsize=ps.TICK_PT, color=ps.TASK_3BFF)
+        print(f"  panel e N={N}: pass threshold (fresh mean - 3 SD) {bar:.1f}; old mean "
+              f"{np.mean([r['active_star'] for r in g['old']]):.1f}")
         ax.text(x0 + 1, 1.03, f"$N$ = {ps.fmt_count(N)}", transform=ax.get_xaxis_transform(), ha="center",
                 va="bottom", fontsize=ps.LABEL_PT)
     ax.annotate("$R^2$", xy=(-0.03, -0.2), xycoords="axes fraction", ha="right", va="center",
@@ -1063,8 +1078,8 @@ def ed_tanh(tanh, traces):
     a  active count by the participation criterion over training; b units at or above 5% of the
     untrained network's 95th percentile, four per-unit measures; c median activation slope,
     untrained against trained; d the state-gradient histograms of one network per activation
-    (draw_tanh_hist; Figure 4d until round 7). Rows: a, b on top; c, d below. The activation function is a standard training setting, so tanh
-    takes the setting colour and ReLU, the default, the baseline grey.
+    (draw_tanh_hist; Figure 4d until round 7). Rows: a, b on top; c, d below. Colour means task (round 21): the
+    tanh networks are CDDM networks and take the CDDM colour; ReLU, the default, the baseline grey.
 
     Args:
         tanh: load_tanh() output; traces: tanh_traces() output.
@@ -1082,7 +1097,9 @@ def ed_tanh(tanh, traces):
                           width_ratios=[1, 1.45])
     r2 = fig.add_gridspec(1, 2, left=0.075, right=0.99, top=y(57), bottom=y(88), wspace=0.22,
                           width_ratios=[0.55, 1.45])
-    col = {"ReLU": ps.BASELINE, "tanh": ps.SETTING}
+    # round 21 (dead-relu-paper #217, Reviewer S figures 4): colour means task, so the tanh networks, CDDM networks
+    # with a setting changed, are drawn in the CDDM colour (were the teal setting colour); ReLU, the default, grey
+    col = {"ReLU": ps.BASELINE, "tanh": ps.TASK_CDDM}
     ax = fig.add_subplot(r1[0, 0])
     for act in ("ReLU", "tanh"):
         it, cnt, _ = traces[act]

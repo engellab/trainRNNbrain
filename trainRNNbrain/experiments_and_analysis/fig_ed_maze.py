@@ -724,7 +724,7 @@ def panel_activations(ax, cols):
 
     Per column, open circles (participation rule) left of the column's centre and open squares
     (modulation rule) right of it, each group spread sideways (spread_x) with its mean as an ink tick
-    beside it; a run stopped before the read is a cross at 0 on the column's centre. Under every
+    beside it; a run stopped before the read is a cross on the column's centre, on a "stopped" line below 0. Under every
     column, its name, the update read and the mean success rate there. The columns of RADIUS_ROOT
     (initial spectral radius 0.45) are set apart right of a thin separator, under their own header.
 
@@ -740,7 +740,11 @@ def panel_activations(ax, cols):
             x += 0.7                                  # the gap between the two blocks
         xs_col.append(x)
         x += 1.0
-    ax.set(xlim=(-0.6, xs_col[-1] + 0.6), ylim=(0, 1.08 * ACT_N))
+    # round 21 (dead-relu-paper #217, Reviewer S figures 5): a stopped run is a cross on a line of its own below
+    # 0, tick-labelled "stopped" (as in Figure 5b), where until round 21 its cross at 0 sat on the "ReLU" tick label
+    stop_y, stop_sep = -0.15 * ACT_N, -0.075 * ACT_N
+    ax.set(xlim=(-0.6, xs_col[-1] + 0.6), ylim=(-0.2 * ACT_N, 1.08 * ACT_N))
+    ax.axhline(stop_sep, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
     placed, ticks = [], []
     for c, xc in zip(cols, xs_col):
         c["x"] = xc
@@ -751,7 +755,7 @@ def panel_activations(ax, cols):
             ax.plot(xs, v, marker, ms=ps.MARKER_PT, ls="none", zorder=5, **ps.mark_fixed(col))
             mean_tick(ax, xs, v.mean())
         if c["stopped"]:
-            stopped_mark(ax, xc, 0, ps.INK, clip_on=False)
+            stopped_mark(ax, xc, stop_y, ps.INK, clip_on=False)
         stop_txt = f", {c['stopped']} stopped" if c["stopped"] else ""
         succ = f"{c['s'].mean():.2f}" if len(c["s"]) else "-"
         name = c["label"] if "\n" in c["label"] else c["label"] + "\n"
@@ -769,8 +773,8 @@ def panel_activations(ax, cols):
     ax.set_xticks(xs_col)
     ax.set_xticklabels(ticks, fontsize=ps.TICK_PT, linespacing=1.2)
     ax.tick_params(axis="x", length=0, pad=3)
-    ax.set_yticks([0, ACT_N / 2, ACT_N])
-    ps.count_ticks(ax.yaxis)
+    ax.set_yticks([stop_y, 0, ACT_N / 2, ACT_N])
+    ax.set_yticklabels(["stopped", "0", ps.fmt_count(ACT_N // 2), ps.fmt_count(ACT_N)])
     ax.set_ylabel(ps.of_n(ps.LABELS["active"], ACT_N))
     ax.legend(handles=[Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, **ps.mark_fixed(ps.MUTED),
                               label="participation"),

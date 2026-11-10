@@ -151,8 +151,12 @@ PITCH4_MM, GAP4_MM = 7.0, 2.6     # block 3
 # one page at a print scale of at least 0.9 (rows 14.5/9.5/3.0 mm and tops 9.5/48/90.5 mm until then)
 TOP_MM = (9.5, 44.5, 83.5)        # the top of each block's count axes
 COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 12.5, 8.5, 2.5
-TITLE4_ROWS_MM = (2.2, 7.4)       # block 3: the titles' baselines above its count axes, staggered
-TITLE4_DX_MM = {"initial spectral radius": -1.75}   # block 3: a title moved left of its slots' centre, clear of the next title in its row (round 20: the Methods name is longer)
+TITLE4_ROWS_MM = (2.2, 8.8)       # block 3: the titles' baselines above its count axes, staggered (7.4 until round 21, when the lower row wrapped)
+TITLE4_DX_MM = {}                 # block 3: a title moved off its slots' centre ("initial spectral radius" -1.75 in round 20)
+# Round 21 (dead-relu-paper #217, Reviewer S figures 5): on the lower row of block 3 the titles "input-weight norm",
+# "initial spectral radius" and "magnitude penalty" ran together; they are written on two lines each
+TITLE4_WRAP = {"input-weight norm": "input-weight\nnorm", "initial spectral radius": "initial spectral\nradius",
+               "magnitude penalty": "magnitude\npenalty"}
 TITLE_RULE_MM = 0.9               # a thin rule this far under each staggered title
 SEED_DX_MM = 1.5                  # the seeds' markers sit this far apart in a settings slot: an open marker's
                                   # ring and rim must not reach its neighbour's centre (tests/scan_open_markers.py)
@@ -305,9 +309,9 @@ def draw_block(fig, top, groups, controls, arms, U, ref, letters, pitch=PITCH_MM
     for i, (title, x, x0, x1) in enumerate(spans):
         if stagger:
             y_mm = TITLE4_ROWS_MM[i % 2]
-            ax_n.text(x + TITLE4_DX_MM.get(title, 0.0), 1.0 + y_mm / COUNT_H_MM, title,
+            ax_n.text(x + TITLE4_DX_MM.get(title, 0.0), 1.0 + y_mm / COUNT_H_MM, TITLE4_WRAP.get(title, title),
                       transform=ax_n.get_xaxis_transform(), fontsize=ps.LABEL_PT, color=ps.INK, ha="center",
-                      va="bottom")
+                      va="bottom", linespacing=1.0)
             ax_n.plot([x0, x1], [1.0 + (y_mm - TITLE_RULE_MM) / COUNT_H_MM] * 2, transform=ax_n.get_xaxis_transform(),
                       color=ps.MUTED, lw=ps.THIN_LW, clip_on=False, zorder=1)
         else:

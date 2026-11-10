@@ -18,9 +18,9 @@ floor makes more units inactive.
       idealised loss on the curve of Eq. (floor), its floor, the band to 1.05x the floor, t* and the
       hold to 1.2 t*. No network's data; Extended Data Fig. 3a shows real losses and fits.
   (e) one column per main-text task, every run at N = 1000. Supervised columns: the noisy training
-      loss over its own start and the inactive-unit count against iteration; dashed lines at each
-      run's own 1.05x crossing. Maze column: the clean probe's success rate and the inactive-unit
-      count against PPO update, on a linear axis; dashed lines at each run's learned probe.
+      loss over its own start and the active-unit count against iteration (the inactive-unit count until
+      round 21); dashed lines at each run's own 1.05x crossing. Maze column: the clean probe's success
+      rate and the active-unit count against PPO update, on a linear axis; dashed lines at each run's learned probe.
   (f) the flat-loss test drawn from its raw quantities (round 12, Pavel's item 55), every 3BFF run
       trained to 200,000 or 300,000 iterations, one column per training length: top, the noisy
       loss as 5,000-iteration block medians, % change from the first block after 150,000, inside
@@ -899,12 +899,12 @@ def panel_margins(ax, series, tasks=SUPERVISED_MAIN):
 
 
 def panel_maze_trajectories(at, ab, maze, N=MAZE_TRAJ_N):
-    """Panel (e)'s maze column: probe success (top) and inactive units (bottom) against PPO update.
+    """Panel (e)'s maze column: probe success (top) and active units (bottom) against PPO update.
 
     Every finished maze run of size N among the seeds MAZE_TRAJ_SEEDS (the uniform series' three,
     on their joined 4,000-update records since round 19): the clean probe's success rate (ink, with the learned
-    criterion MAZE_LEARNED_SUCCESS as a dashed guide) and N minus the active count (the task's
-    hue), on a linear update axis from 0 to the longest run's end rounded up to 500; a dashed
+    criterion MAZE_LEARNED_SUCCESS as a dashed guide) and the number of active units (the task's
+    hue; N minus that number until round 21, dead-relu-paper #217, Reviewer W: every other panel uses active units), on a linear update axis from 0 to the longest run's end rounded up to 500; a dashed
     vertical line at each learned run's learned probe. The success axis has its ticks and label
     on the right, because the column's left neighbour carries the supervised loss axis. An
     unfinished run is not drawn; with no run the column reads "no runs".
@@ -913,7 +913,7 @@ def panel_maze_trajectories(at, ab, maze, N=MAZE_TRAJ_N):
         at, ab: the top and bottom axes of the column (sharing x); maze: maze_series rows;
         N: int, the size drawn.
     Returns:
-        list of (MAZE, seed, learned update, inactive at the learned probe, inactive at the end,
+        list of (MAZE, seed, learned update, active at the learned probe, active at the end,
         end update), nan where the run did not learn; one per run drawn.
     """
     rows = []
@@ -921,16 +921,13 @@ def panel_maze_trajectories(at, ab, maze, N=MAZE_TRAJ_N):
     x_max = int(np.ceil(max((r["it_end"] for r in runs), default=2000) / 500.0) * 500)
     for r in runs:
         at.plot(r["it_act"], r["success"], "-", lw=ps.THIN_LW, color=ps.INK, alpha=0.7)
-        ab.plot(r["it_act"], N - r["active"], "-", lw=ps.THIN_LW + 0.2, color=TASK_COL[MAZE],
-                alpha=0.85)
+        ab.plot(r["it_act"], r["active"], "-", lw=ps.THIN_LW + 0.2, color=TASK_COL[MAZE], alpha=0.85)
         if r["learned"]:
             for ax in (at, ab):
                 ax.axvline(r["t_star"], color=ps.MUTED, lw=ps.THIN_LW, ls=(0, (3, 2)), zorder=1)
-            rows.append((MAZE, r["seed"], r["t_star"], N - r["active_learned"], N - r["active_end"],
-                         float(r["it_end"])))
+            rows.append((MAZE, r["seed"], r["t_star"], r["active_learned"], r["active_end"], float(r["it_end"])))
         else:
-            rows.append((MAZE, r["seed"], float("nan"), float("nan"), N - r["active_end"],
-                         float(r["it_end"])))
+            rows.append((MAZE, r["seed"], float("nan"), float("nan"), r["active_end"], float(r["it_end"])))
     if not runs:
         at.text(0.5, 0.5, "no runs", transform=at.transAxes, ha="center", va="center",
                 fontsize=ps.TICK_PT, color=ps.MUTED)
@@ -954,14 +951,14 @@ def panel_maze_trajectories(at, ab, maze, N=MAZE_TRAJ_N):
 
 
 def panel_trajectories(axes_top, axes_bot, traj, maze):
-    """Panel (e): noisy loss over its start (top) and inactive units (bottom) against iteration,
+    """Panel (e): noisy loss over its start (top) and active units (bottom; inactive until round 21) against iteration,
     one column per task of MAIN_TASKS; the maze column is panel_maze_trajectories.
 
     Args:
         axes_top, axes_bot: one axes per task each; traj: the collect record's trajectory rows;
         maze: maze_series rows.
     Returns:
-        list of (task, run seed, t*, inactive at t*, inactive at the end, end iteration).
+        list of (task, run seed, t*, active at t*, active at the end, end iteration).
     """
     rows = []
     x_hi = max(r["it_end"] for r in traj) * 1.15
@@ -974,17 +971,14 @@ def panel_trajectories(axes_top, axes_bot, traj, maze):
         N = runs[0]["N"]
         for r in runs:
             at.plot(r["tb"], r["lb"] / r["lb"][0], "-", lw=ps.THIN_LW, color=ps.INK, alpha=0.7)
-            ab.plot(r["it_act"][1:], N - r["active"][1:], "-", lw=ps.THIN_LW + 0.2,
-                    color=TASK_COL[task], alpha=0.85)
+            ab.plot(r["it_act"][1:], r["active"][1:], "-", lw=ps.THIN_LW + 0.2, color=TASK_COL[task], alpha=0.85)
             if r["reason"] is None:
                 for ax in (at, ab):
                     ax.axvline(r["t_star"], color=ps.MUTED, lw=ps.THIN_LW, ls=(0, (3, 2)), zorder=1)
                 j = int(np.argmin(np.abs(r["it_act"] - r["t_star"])))
-                rows.append((task, r["seed"], r["t_star"], N - r["active"][j], N - r["active"][-1],
-                             r["it_act"][-1]))
+                rows.append((task, r["seed"], r["t_star"], r["active"][j], r["active"][-1], r["it_act"][-1]))
             else:
-                rows.append((task, r["seed"], float("nan"), float("nan"), N - r["active"][-1],
-                             r["it_act"][-1]))
+                rows.append((task, r["seed"], float("nan"), float("nan"), r["active"][-1], r["it_act"][-1]))
         at.set(xscale="log", yscale="log", xlim=(80, x_hi), ylim=(3e-4, 2.0))
         ab.set(xscale="log", xlim=(80, x_hi), ylim=(0, N), xlabel="training iteration")
         at.tick_params(labelbottom=False)
@@ -1005,7 +999,7 @@ def panel_trajectories(axes_top, axes_bot, traj, maze):
             ab.tick_params(labelleft=False)
         ps.ygrid(ab)
     axes_top[0].set_ylabel("loss / initial loss")
-    axes_bot[0].set_ylabel(ps.LABELS["inactive"])
+    axes_bot[0].set_ylabel(ps.LABELS["active"])
     return rows
 
 
@@ -1301,7 +1295,7 @@ def draw_fig2(rec, flat, maze):
     print(f"Panel d (schematic, Eq. floor with A/L_inf {SCHEMATIC_A}, s {SCHEMATIC_S:,.0f}, beta "
           f"{SCHEMATIC_BETA}, t0 {SCHEMATIC_T0:.0f}): t* {schem[0]:,.0f}, hold to "
           f"{(1 + HOLD_FRAC) * schem[0]:,.0f}, axis end {schem[1]:,.0f}, loss / floor there {schem[2]:.5f}")
-    print("Panel e (task, seed, t* or learned update, inactive there, inactive at end, end):")
+    print("Panel e (task, seed, t* or learned update, active there, active at end, end):")
     for row in trows:
         print("  ", row, f"-> {row[4] - row[3]:+.0f} after the floor" if np.isfinite(row[3]) else "")
     print("Panel f (N, seed, end, loss %/100k, decrease/100k, flat, decreasing), recomputed from the "

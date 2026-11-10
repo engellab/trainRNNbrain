@@ -14,7 +14,7 @@ Nothing is computed here beyond reading those files.
       statistic over 200 random sets of as many units as are active (round 12, r12-weights; this
       panel replaced the participation ratio of the rate covariance)
   (b) participation ratio after dividing each unit's rates by their standard deviation
-  (c) selective (task marker) and mixed-selective (x) unit counts. Every marker is filled or a
+  (c) selective (circle) and mixed-selective (x) unit counts. Every marker is filled or a
       cross, never open: the weights are the floor-crossing snapshots, and fill means the floor
       crossing in every figure (dead-relu-paper#83), so selective and mixed-selective differ by shape
   (d) the same as shares: count / 1,000 against count / active count
@@ -27,7 +27,7 @@ task. Maze, panels b-f: the two learned networks of data/population_stats_maze.j
 the Maze networks of Figure 1e, seeds 1 and 2 of N = 1,000 at update 2,000, the learned agents only as Figure
 1e draws them); panel a: the same two networks in data/round18/g13_maze_weight_spread.json (notebook entry
 2026-11-07_0235, G13), drawn as one marker at their mean with "2" beside it, because their values lie within a
-quarter of a marker of each other. Maze markers are OPEN diamonds (update 2,000, a fixed budget). The figure is
+quarter of a marker of each other. Maze markers are OPEN circles (update 2,000, a fixed budget; diamonds until round 21). The figure is
 drawn at its print size, 165.1 x FIG_H_MM mm, so its text prints at the house sizes (6 and 6.5 pt; until round
 20 it was drawn 112 mm tall and shrunk to 0.78 by the float, which printed its text at 4.7 pt).
 
@@ -59,8 +59,12 @@ W1_LIM = (0.003, 0.3)          # panel a, both axes (log)
 # Every marker has a thin ink edge (Pavel's item 54): ps.mark_floor / ps.mark_fixed set it (MARKER_EW).
 
 TASKS = ("3BFF", "CDDM", "Maze", "DMTS")
-MARKER = {"3BFF": "o", "CDDM": "s", "Maze": "D", "DMTS": "^"}
-TASK_LABEL = {"3BFF": "3BFF", "CDDM": "CDDM", "Maze": "Maze", "DMTS": "DMTS (fourth task)"}
+# Round 21 (dead-relu-paper #217, Reviewer S figures 4): colour means task and shape means technique or setting in
+# every figure, so every task is a circle here, told apart by its colour (until round 21 each task had a shape of its
+# own: CDDM a square, Maze a diamond, DMTS a triangle, the shapes Figure 5 gives to techniques). DMTS is named
+# without "fourth task" (the text gives its history; round-21 text package).
+MARKER = {"3BFF": "o", "CDDM": "o", "Maze": "o", "DMTS": "o"}
+TASK_LABEL = {"3BFF": "3BFF", "CDDM": "CDDM", "Maze": "Maze", "DMTS": "DMTS"}
 MIXED_MARKER = "x"             # mixed-selective units in panels c and d, in the task colour
 # panel e: each network is shifted ALONG the diagonal (the same amount in x and y), so equal values
 # stay on the identity line; tasks get separate stretches of the diagonal, networks 0.1 apart, at most 0.3 from the true value
@@ -207,7 +211,7 @@ def weight_panel(ax, conf, maze):
 
 
 def selectivity_panel(ax, res, share):
-    """Panels c and d: selective (task marker) and mixed-selective (cross) units, as counts or shares.
+    """Panels c and d: selective (circle) and mixed-selective (cross) units, as counts or shares.
 
     Args:
         ax: axes; res: results; share: False for counts, True for count / set size.
@@ -307,7 +311,7 @@ def main():
     fill = [axes[0].plot([], [], "o", ms=ps.MARKER_PT + 0.6, ls="none", **ps.mark_floor(ps.INK))[0],
             axes[0].plot([], [], MIXED_MARKER, ms=ps.MARKER_PT + 1.0, mec=ps.INK, mew=0.8,
                          ls="none")[0]]
-    fig.legend(fill, ["selective (task marker)", "mixed-selective"], loc="upper right", bbox_to_anchor=(0.985, 0.995),
+    fig.legend(fill, ["selective (circle)", "mixed-selective (cross)"], loc="upper right", bbox_to_anchor=(0.985, 0.995),
                ncol=2, frameon=False, handletextpad=0.3, columnspacing=1.2, title="panels c, d:",
                alignment="left")
     n = check_overlaps(fig)

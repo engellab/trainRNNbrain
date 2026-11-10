@@ -242,6 +242,38 @@ RULE_COLORS = {
 SETTING_RAMP = ["#70c0c9", "#1894a1", "#0e5c64", "#043d43"]    # light -> dark teal, ordered values
 SETTING = SETTING_RAMP[2]       # "a setting changed from its default", one colour
 
+# Round 21 (dead-relu-paper #217, Reviewer S figures 4): one code across the paper, colour = task and
+# shape = technique or setting. A figure that tells a setting's values apart by colour uses shades of the
+# task colour (task_ramp), never the teal SETTING_RAMP. No shade is lighter than 0.62: a lighter filled
+# marker prints near white and reads as open (dead-relu-paper PR #216 re-review).
+TASK_RAMP_W = (0.62, 0.85, 1.0, 1.35)
+
+
+def task_shade(col, w):
+    """A shade of a colour: mixed with white for w < 1 (lighter), with black for w > 1 (darker, by w - 1).
+
+    Args:
+        col: a matplotlib colour; w: float, 1 leaves the colour unchanged.
+    Returns:
+        str, a hex colour.
+    """
+    rgb = matplotlib.colors.to_rgb(col)
+    if w <= 1:
+        return matplotlib.colors.to_hex(tuple(1 - (1 - c) * w for c in rgb))
+    return matplotlib.colors.to_hex(tuple(c * (2 - w) for c in rgb))
+
+
+def task_ramp(task):
+    """Four shades of a task's colour, light to dark, for the ordered values of one setting.
+
+    Args:
+        task: "3BFF", "CDDM", "DMTS" or "Maze".
+    Returns:
+        list of four hex colours (TASK_RAMP_W shades of TASK_COLORS[task]).
+    """
+    return [task_shade(TASK_COLORS[task], w) for w in TASK_RAMP_W]
+
+
 # Verdict marks are ink plus a word and a line style: no status hue may echo a task hue.
 GOOD = BAD = INK
 

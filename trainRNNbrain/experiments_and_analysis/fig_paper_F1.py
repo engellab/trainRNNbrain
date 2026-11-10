@@ -290,27 +290,22 @@ def repo_run_dir(stored):
 
 
 def load_population_stats_all():
-    """The per-network results of population_stats.py plus the maze's, when its file exists.
+    """The per-network results of population_stats.py plus the learned maze networks.
 
-    The maze results (rl_maze_population_stats.py, task "Maze") live in their own file because
-    fig_ed_population.load sorts data/population_stats.json by the three supervised tasks.
-
-    Only the maze networks whose run learned the task are kept (the file's `learned` flag,
-    common.maze_learned_index; the pre-registered exclusion of issue #3), the networks of the maze
-    sub-panel of (d).
+    fig_ed_population.load already appends the learned maze networks of MAZE_POP_STATS
+    (rl_maze_population_stats.py, task "Maze"; the file's `learned` flag, common.maze_learned_index,
+    the pre-registered exclusion of issue #3). Appending them here a second time drew every maze
+    network twice in panel (e) (round 21, Reviewer S figures 1, dead-relu-paper#217), so this
+    function only reads that list and prints the maze networks it leaves out.
 
     Returns:
-        list of result dicts, the supervised ones first; the maze's are left out when
-        MAZE_POP_STATS does not exist, and panel (e) then reads "no data" for the maze.
+        list of result dicts, one per network: the supervised ones, then the learned maze networks.
     """
     res = load_population_stats()
-    if os.path.exists(MAZE_POP_STATS):
-        with open(MAZE_POP_STATS) as fh:
-            maze = json.load(fh)["results"]
-        for s in maze:
+    with open(MAZE_POP_STATS) as fh:
+        for s in json.load(fh)["results"]:
             if not s["learned"]:
                 print(f"  panel e, maze: {s['label']} did not learn the task; left out")
-        res = res + [s for s in maze if s["learned"]]
     return res
 
 
@@ -2167,7 +2162,7 @@ def panel_tasks(ax, rows, tasks=MAIN_TASKS):
     return out
 
 
-def panel_selective(ax, res, seeds_d, tasks=MAIN_TASKS):
+def panel_selective(ax, res, seeds_d, maze_seeds_d, tasks=MAIN_TASKS):
     """Panel (e): fraction of units selective for a task variable, over all units and over active units.
 
     One column per task, in the order of panel (c). Each network is a pair of filled markers in the
@@ -2183,7 +2178,9 @@ def panel_selective(ax, res, seeds_d, tasks=MAIN_TASKS):
         ax: axes; res: the per-network results of population_stats.py (fig_ed_population.load()),
             each with "task", "seed", "N" and "S3a" = {"all", "act", "n_all", "n_act"};
         seeds_d: set of int, the seeds of the supervised panel (d) networks; the supervised
-            results must be those networks (the maze's seeds are 1-3 and are not checked here);
+            results must be those networks;
+        maze_seeds_d: list of int, the seeds of the maze networks of panel (d); the maze results
+            must be exactly those networks, each once;
         tasks: the task labels to draw, left to right (default MAIN_TASKS).
     Returns:
         list of (task, shares over all units, shares over active units), one per task; both arrays
@@ -2191,6 +2188,9 @@ def panel_selective(ax, res, seeds_d, tasks=MAIN_TASKS):
     """
     seeds_e = {int(str(s["seed"]).lstrip("s")) for s in res if s["task"] != TASK_SHORT[MAZE_LABEL]}
     assert seeds_e == seeds_d, ("panel e must draw the panel d networks", sorted(seeds_e), sorted(seeds_d))
+    maze_e = sorted(int(s["seed"]) for s in res if s["task"] == TASK_SHORT[MAZE_LABEL])
+    assert maze_e == sorted(maze_seeds_d), ("panel e must draw each maze network of panel d once",
+                                            maze_e, sorted(maze_seeds_d))
     out = []
     for k, label in enumerate(tasks):
         col = task_color(label)
@@ -2412,7 +2412,8 @@ def main():
 
     ax_e = ax_mm(fig, *L["e"])
     seeds_d = {int(re.search(r"__s(\d+)__", lab).group(1)) for lab in rec["floor_now"]}
-    rows_e = panel_selective(ax_e, load_population_stats_all(), seeds_d)
+    maze_seeds_d = [int(re.search(r"_s(\d+)$", r["label"]).group(1)) for r in ablation[MAZE_LABEL][0]]
+    rows_e = panel_selective(ax_e, load_population_stats_all(), seeds_d, maze_seeds_d)
     letter_mm(ax_e, "e")
 
     check_overlaps(fig)
