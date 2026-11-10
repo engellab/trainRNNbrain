@@ -476,3 +476,6 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (e: lower headers on two lines; r21-figures, #219) | `e6b0377` | 2026-11-09 |
 | `fig_ed_tanh.pdf` | fig_paper_F4_noreturn.py draw, ed_tanh (tanh in the CDDM colour; r21-figures, #219) | `e6b0377` | 2026-11-09 |
 | `fig_ed_tanh.svg` | fig_paper_F4_noreturn.py draw, ed_tanh (as the PDF; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_ed_population.pdf` | fig_ed_population.py (a Maze marker that would hide another network drawn beside its value; PR #222) | `4dbac3d` | 2026-11-09 |
+| `fig_ed_population.svg` | fig_ed_population.py (as the PDF; PR #222) | `4dbac3d` | 2026-11-09 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (h: single networks thin, each value's mean thick; PR #222) | `4dbac3d` | 2026-11-09 |
