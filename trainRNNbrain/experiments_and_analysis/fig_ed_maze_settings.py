@@ -160,6 +160,7 @@ TITLE4_WRAP = {"input-weight norm": "input-weight\nnorm", "initial spectral radi
 TITLE_RULE_MM = 0.9               # a thin rule this far under each staggered title
 SEED_DX_MM = 1.5                  # the seeds' markers sit this far apart in a settings slot: an open marker's
                                   # ring and rim must not reach its neighbour's centre (tests/scan_open_markers.py)
+TRACE_ALPHA = 0.35                # panel h: the single networks' lines (round 21)
 TRIANGLES = ("^", "v", "<")       # drawn TRI_SCALE larger, as in Figure 5
 KEY_MM = (0.0, 113.0, 165.1, 14.5)        # (0, 123.5, 165.1, 13.5) until round 20
 G_MM = dict(top=(17.0, 132.5, 145.0, 11.0), bot=(17.0, 146.5, 145.0, 10.0))
@@ -444,7 +445,12 @@ def panel_fold(ax_t, ax_b, keys, arms, tref, U, labels, headings):
 
 
 def panel_traces(ax, keys, arms, controls, x_max):
-    """Panel h: active units against PPO updates, one line per network, a filled marker at the learned point.
+    """Panel h: active units against PPO updates, per network thin and light, per value a thick mean line.
+
+    Round 21 (dead-relu-paper #219, editor's request): about 40 networks drawn at one weight could not be told
+    apart. Each network is now a thin line at TRACE_ALPHA; each value's networks (and the control networks) are
+    summarised by a thick line in the value's colour, their mean at every update all of them reached; each
+    network's learned point is a small filled marker in the value's colour and shape.
 
     Args:
         ax: axes; keys: the TECH keys drawn; arms, controls: maze_arms_r19 output; x_max: int, the x limit.
@@ -452,19 +458,21 @@ def panel_traces(ax, keys, arms, controls, x_max):
         int, the number of networks drawn.
     """
     n = 0
-    lines = [(c, ps.BASELINE, "o", 2) for c in controls]
-    lines += [(s, TECH[k][1], TECH[k][2], 3) for k in keys if k in arms for s in arms[k]["seeds"]]
-    for s, col, marker, z in lines:
-        r = s["run"]
-        if r is None:
-            continue
-        pr = r["probes"]
-        ax.plot(pr["update"], pr["active"], "-", lw=ps.THIN_LW, color=col, zorder=z)
-        li = maze_learned_index(pr["probe_success"])
-        if li is not None:
-            ax.plot([pr["update"][li]], [pr["active"][li]], marker, ls="none", zorder=5,
-                    ms=ps.MARKER_PT * (TRI_SCALE if marker in TRIANGLES else 1.0), **ps.mark_floor(col))
-        n += 1
+    groups = [(controls, ps.BASELINE, "o", 2)]
+    groups += [(arms[k]["seeds"], TECH[k][1], TECH[k][2], 3) for k in keys if k in arms]
+    for seeds, col, marker, z in groups:
+        probes = [s["run"]["probes"] for s in seeds if s["run"] is not None]
+        for pr in probes:
+            ax.plot(pr["update"], pr["active"], "-", lw=ps.THIN_LW * 0.7, color=col, alpha=TRACE_ALPHA, zorder=z)
+            li = maze_learned_index(pr["probe_success"])
+            if li is not None:
+                ax.plot([pr["update"][li]], [pr["active"][li]], marker, ls="none", zorder=5,
+                        ms=ps.SMALL_MARKER_PT * (TRI_SCALE if marker in TRIANGLES else 1.0), **ps.mark_floor(col))
+            n += 1
+        if probes:
+            common = sorted(set.intersection(*[set(np.asarray(pr["update"]).tolist()) for pr in probes]))
+            mean = [np.mean([np.asarray(pr["active"])[list(pr["update"]).index(u)] for pr in probes]) for u in common]
+            ax.plot(common, mean, "-", lw=ps.DATA_LW, color=col, zorder=z + 1)
     time_axis(ax, x_max)
     ax.set(ylim=(0, N), xlabel="PPO update", ylabel=ps.of_n(ps.LABELS["active"], N))
     ax.set_yticks([0, N / 2, N])
