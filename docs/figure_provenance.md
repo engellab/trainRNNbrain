@@ -495,3 +495,7 @@ figures are written to `img/internal_figures/`.
 | `fig_paper_F4_noreturn.svg` | fig_paper_F4_noreturn.py draw (as the PDF; r22-polish, #223) | `b8f926c` | 2026-11-10 |
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (d: two 3BFF rate-penalty circles beside their values; r22-polish, #223) | `b8f926c` | 2026-11-10 |
 | `fig_paper_F5_tasks.svg` | fig_paper_F5_tasks.py (as the PDF; r22-polish, #223) | `b8f926c` | 2026-11-10 |
+| `fig_paper_F1.pdf` | fig_paper_F1.py (d: random removal as hexagons; r22-polish, #223) | `52e4b5c` | 2026-11-10 |
+| `fig_paper_F1.svg` | fig_paper_F1.py (as the PDF; r22-polish, #223) | `52e4b5c` | 2026-11-10 |
+| `fig_supp_ablation.pdf` | fig_supp_ablation.py (random removal as hexagons; r22-polish, #223) | `52e4b5c` | 2026-11-10 |
+| `fig_supp_ablation.svg` | fig_supp_ablation.py (as the PDF; r22-polish, #223) | `52e4b5c` | 2026-11-10 |
