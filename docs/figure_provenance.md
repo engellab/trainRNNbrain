@@ -443,3 +443,12 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_techniques_3bff.svg` | fig_paper_F5_drive.py, ed_techniques_3bff (as the PDF; r20-figures, #214) | `b085b6c` | 2026-11-09 |
 | `fig_ed_readout.pdf` | fig_ed_readout.py (c legend: input-weight norm changed; r20-figures, #214) | `74ba229` | 2026-11-09 |
 | `fig_ed_readout.svg` | fig_ed_readout.py (c legend: input-weight norm changed; r20-figures, #214) | `74ba229` | 2026-11-09 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (b: stopped Maze networks on a 'stopped' line; PR #216 review) | `8eac414` | 2026-11-09 |
+| `fig_paper_F5_tasks.svg` | fig_paper_F5_tasks.py (as the PDF; PR #216 review) | `8eac414` | 2026-11-09 |
+| `fig_ed_population.pdf` | fig_ed_population.py (a: Maze random-set ranges in the Maze colour, counts beside their markers; PR #216 review) | `8eac414` | 2026-11-09 |
+| `fig_ed_population.svg` | fig_ed_population.py (as the PDF; PR #216 review) | `8eac414` | 2026-11-09 |
+| `fig_ed_techniques_3bff.pdf` | fig_paper_F5_drive.py, ed_techniques_3bff (Figure 5's colour code; PR #216 review) | `8eac414` | 2026-11-09 |
+| `fig_ed_techniques_3bff.svg` | fig_paper_F5_drive.py, ed_techniques_3bff (as the PDF; PR #216 review) | `8eac414` | 2026-11-09 |
+| `fig_ed_maze.pdf` | fig_ed_maze.py (e: legend 'modulation count'; PR #216 review) | `8eac414` | 2026-11-09 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (g-i: Figure 5's colour code; PR #216 review) | `8eac414` | 2026-11-09 |
+| `fig_ed_techniques_sizes.pdf` | fig_ed_remedies.py, ed_sizes (Figure 5's colour code; PR #216 review) | `8eac414` | 2026-11-09 |
