@@ -479,3 +479,13 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_population.pdf` | fig_ed_population.py (a Maze marker that would hide another network drawn beside its value; PR #222) | `4dbac3d` | 2026-11-09 |
 | `fig_ed_population.svg` | fig_ed_population.py (as the PDF; PR #222) | `4dbac3d` | 2026-11-09 |
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (h: single networks thin, each value's mean thick; PR #222) | `4dbac3d` | 2026-11-09 |
+| `fig_ed_maze.pdf` | fig_ed_maze.py (e: y label inside the canvas; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (key: 'measurement point'; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_ed_population.pdf` | fig_ed_population.py (covering markers moved along the diagonal; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_ed_population.svg` | fig_ed_population.py (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F1.pdf` | fig_paper_F1.py (e: networks spread wider; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F1.svg` | fig_paper_F1.py (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F2_fails.pdf` | fig_paper_F2_fails.py (l: SGD 3 darker; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F2_fails.svg` | fig_paper_F2_fails.py (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F4_noreturn.pdf` | fig_paper_F4_noreturn.py draw (e: '613' in ink by the old networks; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F4_noreturn.svg` | fig_paper_F4_noreturn.py draw (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |
