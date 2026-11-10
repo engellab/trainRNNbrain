@@ -1520,7 +1520,10 @@ D_YLIM = (0.0, 1.10)           # room above R^2 = 1 for the retrained stars and 
 D_BAR_Y = (1.055, 1.09)        # inactive-units bar, in R^2 units, above every curve and star
 D_TITLE_PAD_PT = 6.0           # task title above the axes
 D_SPINE_OUT_PT = 4.0           # left spine offset: 1.4 mm between the spine and the busiest-first drop
-D_STAR_MS, D_TRI_MS = 5.5, 3.8 # retrained marks: star (inactive removed), triangle (random removed)
+# Round 22 (dead-relu-paper #223; committee #217, Reviewer S figures 2): random removal is a hexagon, no longer a
+# triangle, which means prune-and-duplicate in Figure 5 and Extended Data Figs. 6, 9 and 10 (Fig. 4d,e: young
+# networks are pentagons), at the triangle's former size, 3.8 pt
+D_STAR_MS, D_HEX_MS = 5.5, 3.8 # retrained marks: star (inactive removed), hexagon (random removed)
 D_STRIP_BAR_LW = 0.5           # the thin bar over a retraining's range of networks in the strip
 D_STRIP_XLIM = (-0.42, 1.42)   # strip x range: columns at 0 and 1, 3.5 mm apart on a 6.5 mm strip,
                                # which leaves 1 mm of white between the star and triangle columns (#85)
@@ -1692,7 +1695,7 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
                 ax.plot(xs, t["silent_removed"][-1][1], "*", ms=D_STAR_MS, **mark,
                         zorder=7, clip_on=False)
                 if t.get("random_removed"):
-                    ax.plot(xs, t["random_removed"][-1][1], "^", ms=D_TRI_MS, **mark,
+                    ax.plot(xs, t["random_removed"][-1][1], "h", ms=D_HEX_MS, **mark,
                             zorder=6, clip_on=False)
         else:
             # one column per retraining: one open marker at the mean over the networks with a thin
@@ -1700,7 +1703,7 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
             # (dead-relu-paper#104, tests/scan_open_markers.py; the networks' values lie within
             # 0.03 of each other, so jittered markers printed on top of one another)
             for xk, key, marker, ms, z in ((0, "silent_removed", "*", D_STAR_MS, 7),
-                                           (1, "random_removed", "^", D_TRI_MS, 6)):
+                                           (1, "random_removed", "h", D_HEX_MS, 6)):
                 ys = np.array([max(t[key][-1][1], 0) for t in ret if t.get(key)])
                 if not len(ys):
                     continue
@@ -1752,7 +1755,7 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
             Patch(color=SILENT_GREY, lw=0, label="share of inactive units"),
             Line2D([], [], marker="*", ls="", ms=D_STAR_MS, **ps.mark_fixed(ps.MUTED),
                    label="inactive units removed,\nthen trained further"),
-            Line2D([], [], marker="^", ls="", ms=D_TRI_MS, **ps.mark_fixed(ps.MUTED),
+            Line2D([], [], marker="h", ls="", ms=D_HEX_MS, **ps.mark_fixed(ps.MUTED),
                    label="as many removed at random,\nthen trained further")],
             loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=3, fontsize=ps.TICK_PT,
             handlelength=2.0, columnspacing=0.8, borderaxespad=0.0, borderpad=0.0, frameon=False)

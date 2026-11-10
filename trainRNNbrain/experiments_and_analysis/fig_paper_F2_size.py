@@ -1121,7 +1121,7 @@ def panel_flat(axes, c3, flat):
     # words on the two thresholds, in the right column where the wedge and the line are widest
     axes[0][1].text(298_000, -4.6, f"flat: under {FLAT_PCT:.0f}%\nper 100,000", fontsize=ps.TICK_PT,
                     color=ps.MUTED, ha="right", va="bottom", linespacing=1.0)
-    axes[1][1].text(298_000, -4.0, f"−{DIE_BAR:.0f} per\n100,000", fontsize=ps.TICK_PT,
+    axes[1][1].text(298_000, -1.0, f"−{DIE_BAR:.0f} per\n100,000", fontsize=ps.TICK_PT,
                     color=ps.INK, ha="right", va="bottom", linespacing=1.0)
     handles = [Line2D([], [], color=FLAT_SHADE[N], lw=1.0, label=f"$N$ = {ps.fmt_count(N)}")
                for N in sorted(FLAT_SHADE)]

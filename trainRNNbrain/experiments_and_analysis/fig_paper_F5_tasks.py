@@ -214,6 +214,13 @@ STOP_Y = -0.21                    # panel b's Maze row: networks stopped by the 
 D_LO = -0.05                      # panel d: values below this are drawn at the edge with an arrow
 EDGE_JOIN = 0.03                  # panel d: edge markers of one series closer than this (data units) are one marker
 EDGE_ARROW_PT = 4.0               # panel d: arrow length (points) of a merged edge marker, its tail short of the circle at (0.02, 0.54) (PR #202 third review); fig_paper_F5_drive's is 9
+# Round 22 (dead-relu-paper #223; committee #217, Reviewer S figures 1): in the 3BFF sub-panel of d two rate-penalty
+# networks lie 0.5 and 0.3 mm from a prune-and-duplicate and a read-out-dropout network, and the see-through faces
+# of those pairs printed grey. These two circles are drawn beside their values, offset by D_MOVE_PT (points, x and
+# y), with a thin line from the rim of the triangle that covers each value to the circle. Keys are the measured (x, y) values (printout,
+# panel d: rate penalty 0.106/0.218 and 0.128/0.184); a key must match exactly one marker. Both stay above the
+# diagonal, on the side of their values.
+D_MOVE_PT = {("3BFF", "frm", 0.106, 0.218): (-6.0, -4.0), ("3BFF", "frm", 0.128, 0.184): (-4.4, -4.6)}
 
 
 def rule(active, perf, ctrl_active, ctrl_perf, tol, floor=None):
@@ -1233,6 +1240,7 @@ def panel_removal(fig):
         for g in groups:
             if g["x"] < 0.0:      # a label on the left would sit on the y axis (PR #202 review, item 12)
                 g["side"] = "below"
+        displace(ax, task, groups)
         F5.draw_groups(ax, F5.see_through(ax, groups))
         ax.set_xticks([0, 0.2, 0.4])
         ax.set_yticks([0, 0.4, 0.8])
@@ -1254,6 +1262,44 @@ def panel_removal(fig):
     axes[0].text(0.49, 0.50, "equal", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
     ps.panel_letter(axes[0], "d")
     return axes, rows
+
+
+def displace(ax, task, groups):
+    """Move the panel-d markers named in D_MOVE_PT beside their values; a line joins each to the marker covering its value.
+
+    Args:
+        ax: the sub-panel's axes, limits set; task: "3BFF", "CDDM" or "maze";
+        groups: edge_or_group() dicts of that sub-panel (single networks have n = 1), changed in place:
+            a moved group's x, y become the drawn position.
+    Raises:
+        AssertionError if a D_MOVE_PT key of this task matches no group or more than one.
+    """
+    to_pt = 72 / ax.figure.dpi
+    for (t, tech, vx, vy), (dx, dy) in D_MOVE_PT.items():
+        if t != task:
+            continue
+        hit = [g for g in groups if g["n"] == 1 and g["marker"] == TECH[tech][1]
+               and abs(g["x"] - vx) < 0.0015 and abs(g["y"] - vy) < 0.0015]
+        assert len(hit) == 1, f"D_MOVE_PT {t} {tech} ({vx}, {vy}) matches {len(hit)} markers"
+        g = hit[0]
+        px, py = ax.transData.transform((g["x"], g["y"])) * to_pt
+        nx, ny = ax.transData.inverted().transform(((px + dx) / to_pt, (py + dy) / to_pt))
+        # the line runs from the rim of the neighbouring marker that covers the measured value (the closest
+        # marker of another series) to the moved circle's rim, so that neither inside carries ink
+        others = [h for h in groups if h is not g and h["marker"] != g["marker"]]
+        nb = min(others, key=lambda h: np.hypot(*(ax.transData.transform((h["x"], h["y"])) * to_pt - (px, py))))
+        qx, qy = ax.transData.transform((nb["x"], nb["y"])) * to_pt
+        r_nb = np.sqrt(nb["s"]) / 2 + 0.3
+        steps = np.linspace(0.0, 1.0, 401)
+        t0 = steps[np.argmax(np.hypot(px + steps * dx - qx, py + steps * dy - qy) >= r_nb)]
+        t1 = 1.0 - (np.sqrt(g["s"]) / 2) / np.hypot(dx, dy)
+        (sx, sy), (ex, ey) = (ax.transData.inverted().transform(((px + t * dx) / to_pt, (py + t * dy) / to_pt))
+                              for t in (t0, t1))
+        ax.plot([sx, ex], [sy, ey], color=g["col"], lw=ps.THIN_LW, zorder=F5.Z_OPEN + 1,
+                solid_capstyle="butt", clip_on=False)
+        print(f"  panel d {task} {tech}: marker of the network at ({g['x']:.3f}, {g['y']:.3f}) drawn at "
+              f"({nx:.3f}, {ny:.3f}), joined by a line to the marker that covers its value")
+        g["x"], g["y"], g["xs"], g["ys"] = float(nx), float(ny), np.array([nx]), np.array([ny])
 
 
 def edge_or_group(ax, pts, col, marker):

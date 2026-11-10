@@ -270,10 +270,13 @@ B4_VERDICT_4000 = os.path.join(LOCAL, "b4_verdict_4000.json")
 # every other main figure does: the traces of a, the active units of b, the rings of c, and the networks
 # trained on 3BFF in d and e. Inactive units stay light grey (low-active circles, silent diamonds), and the
 # fresh networks of d and e stay BASELINE grey. ED Figs. 7 and 8 (ed_mechanism, ed_tanh) keep C_ACT.
+# Round 22 (dead-relu-paper #223; committee #217, Reviewer S figures 2): the young networks of d and e are
+# pentagons, no longer triangles; the triangle means prune-and-duplicate in Figure 5 and Extended Data Figs. 6,
+# 9 and 10, and the pentagon is used nowhere else in the paper.
 C_ACT, C_INA = ps.ACTIVE, ps.INACTIVE
 TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM}
 SRC_STYLE = {"old": dict(marker="o", **ps.mark_floor(ps.TASK_3BFF)),
-             "young": dict(marker="^", **ps.mark_floor(ps.TASK_3BFF)),
+             "young": dict(marker="p", **ps.mark_floor(ps.TASK_3BFF)),
              "fresh": dict(marker="s", **ps.mark_floor(ps.BASELINE))}
 def open_mark(col):
     """Keywords for an open marker (read at a fixed iteration, #83) whose inside is painted paper.
