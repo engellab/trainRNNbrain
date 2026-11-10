@@ -24,6 +24,10 @@
 #                                                          N = 1,000 controls learned; submit with
 #                                                          KEEP_ALL=true so the weights are kept at every
 #                                                          checkpoint, docs/project_trajectory/*_round18-training-rules.md)
+#   32-35   N=  100  relu              seeds 1-4        (Pavel, 9 Nov: "try to train 100 unit maze networks";
+#                                                          four seeds as at N = 250; a new run, so it takes
+#                                                          trainer_ppo.yaml's freeze_after_end (true), unlike the
+#                                                          series' runs; docs/project_trajectory/*_n250-n100maze-rules.md)
 # Model configs: configs/model/rnn_<act>_standard.yaml, the same files the supervised series use.
 # ONE PROTOCOL FOR EVERY SIZE: the paper's learning-rate rule with the warm-up of
 # configs/trainer/trainer_ppo.yaml (trainer.warmup_updates). Before the warm-up existed, every N = 2000 run
@@ -80,9 +84,9 @@ fi
 echo "code: $PKG @ $GITSHA"
 
 # index 0 unused so the decode reads SLURM_ARRAY_TASK_ID directly
-TASK_N=(0 250 250 250 500 500 500 1000 1000 1000 2000 2000 2000 1000 1000 1000 1000 1000 1000 1000 1000 4000 4000 4000 1000 1000 1000 1000 250 1000 1000 1000)
-TASK_ACT=(x relu relu relu relu relu relu relu relu relu relu relu relu tanh tanh sigmoid_shifted sigmoid_shifted softplus_beta25 softplus_beta25 leaky_relu leaky_relu relu relu relu tanh sigmoid_shifted softplus_beta25 leaky_relu relu relu relu relu)
-TASK_SEED=(0 1 2 3 1 2 3 1 2 3 1 2 3 1 2 1 2 1 2 1 2 1 2 3 3 3 3 3 4 4 5 6)
+TASK_N=(0 250 250 250 500 500 500 1000 1000 1000 2000 2000 2000 1000 1000 1000 1000 1000 1000 1000 1000 4000 4000 4000 1000 1000 1000 1000 250 1000 1000 1000 100 100 100 100)
+TASK_ACT=(x relu relu relu relu relu relu relu relu relu relu relu relu tanh tanh sigmoid_shifted sigmoid_shifted softplus_beta25 softplus_beta25 leaky_relu leaky_relu relu relu relu tanh sigmoid_shifted softplus_beta25 leaky_relu relu relu relu relu relu relu relu relu)
+TASK_SEED=(0 1 2 3 1 2 3 1 2 3 1 2 3 1 2 1 2 1 2 1 2 1 2 3 3 3 3 3 4 4 5 6 1 2 3 4)
 
 i=$SLURM_ARRAY_TASK_ID
 N=${TASK_N[$i]}; ACT=${TASK_ACT[$i]}; SEED=${TASK_SEED[$i]}
