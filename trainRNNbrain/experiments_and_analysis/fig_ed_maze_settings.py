@@ -120,19 +120,20 @@ def shade(col, w):
 # task's colour (Maze raspberry) with the technique's marker shape; shades of the raspberry tell a technique's
 # values apart. Until round 20 each technique had its own hue family.
 MAZE = ps.TASK_MAZE
+MAZE_RAMP = [shade(MAZE, 0.62), shade(MAZE, 0.85), MAZE, shade(MAZE, 1.35)]   # a setting's values, light to dark
 TECH = {
-    "frm0.03":           ("rate penalty 0.03",            shade(MAZE, 0.5),            "o", "0.03", "rate penalty"),
-    "frm0.1":            ("rate penalty 0.1",             shade(MAZE, 0.75),             "o", "0.1", "rate penalty"),
+    "frm0.03":           ("rate penalty 0.03",            shade(MAZE, 0.62),            "o", "0.03", "rate penalty"),
+    "frm0.1":            ("rate penalty 0.1",             shade(MAZE, 0.8),             "o", "0.1", "rate penalty"),
     "frm0.3":            ("rate penalty 0.3",             MAZE,             "o", "0.3", "rate penalty"),
     "frm0.1_rws0.05":    ("rate 0.1 + sparsity 0.05",     shade(MAZE, 1.45),  "<", "rate 0.1\n+ sparsity", None),
     "dropout0.2_beta4":  ("read-out dropout 0.2",         MAZE,         "v", "0.2", "read-out\ndropout"),
-    "dropout0.05_beta4": ("read-out dropout 0.05",        shade(MAZE, 0.55), "v", "0.05", "read-out\ndropout"),
+    "dropout0.05_beta4": ("read-out dropout 0.05",        shade(MAZE, 0.7), "v", "0.05", "read-out\ndropout"),
     "sigmaw1.0":         ("noisy synapses $\\sigma_w$ 1.0", MAZE,      "s", "1.0", "noisy\nsynapses"),
-    "sigmaw0.3":         ("noisy synapses $\\sigma_w$ 0.3", shade(MAZE, 0.7), "s", "0.3", "noisy\nsynapses"),
-    "sigmaw0.1":         ("noisy synapses $\\sigma_w$ 0.1", shade(MAZE, 0.45), "s", "0.1", "noisy\nsynapses"),
+    "sigmaw0.3":         ("noisy synapses $\\sigma_w$ 0.3", shade(MAZE, 0.8), "s", "0.3", "noisy\nsynapses"),
+    "sigmaw0.1":         ("noisy synapses $\\sigma_w$ 0.1", shade(MAZE, 0.62), "s", "0.1", "noisy\nsynapses"),
     "rescale":           ("rescaling, $m$ = 10",          MAZE,    "D", "$m$ = 10", "rescaling"),
-    "rescale_mild":      ("rescaling, smaller factor", shade(MAZE, 0.7), "D", "smaller\nfactor", "rescaling"),
-    "rescale_few":       ("rescaling, fewer units",  shade(MAZE, 0.45), "D", "fewer\nunits", "rescaling"),
+    "rescale_mild":      ("rescaling, smaller factor", shade(MAZE, 0.8), "D", "smaller\nfactor", "rescaling"),
+    "rescale_few":       ("rescaling, fewer units",  shade(MAZE, 0.62), "D", "fewer\nunits", "rescaling"),
     "rescale_tgt4":      ("rescaling, $m$ = 4",           shade(MAZE, 1.4),    "D", "$m$ = 4", "rescaling"),
     "duplicate":         ("prune-and-duplicate",          shade(MAZE, 1.5),       "^", "prune-and-\nduplicate", None),
 }
@@ -192,7 +193,11 @@ def slot_positions(groups, pitch=PITCH_MM, gap=GAP_MM):
 
 
 def colour_of(groups):
-    """Each arm key's colour: the controls grey, a setting's values on the teal ramp light to dark.
+    """Each arm key's colour: the controls grey, a setting's values in shades of the Maze colour, light to dark.
+
+    Round 20 (dead-relu-paper PR #216 re-review): one Maze colour throughout the figure, as in Figures 1-3 and 5;
+    until round 20 the setting values were on the teal ramp. No shade is lighter than 0.62 (a lighter filled
+    marker prints near white).
 
     Args:
         groups: list of (title, [(key, label), ...]).
@@ -202,7 +207,7 @@ def colour_of(groups):
     out = {}
     for _, values in groups:
         for k, (key, _) in enumerate(values):
-            out[key] = ps.BASELINE if key == "control" else ps.SETTING_RAMP[min(k, len(ps.SETTING_RAMP) - 1)]
+            out[key] = ps.BASELINE if key == "control" else MAZE_RAMP[min(k, len(MAZE_RAMP) - 1)]
     return out
 
 

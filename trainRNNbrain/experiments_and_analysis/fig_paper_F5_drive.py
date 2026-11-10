@@ -109,9 +109,10 @@ def task_shade(col, w):
 # Until round 20 each technique had its own hue (RULE_COLORS).
 COL = {"control": ps.BASELINE, "frm": task_shade(ps.TASK_3BFF, 1.25), "synnoise": task_shade(ps.TASK_3BFF, 0.62),
        "rescale": ps.TASK_3BFF, "duplicate": task_shade(ps.TASK_3BFF, 1.5),
-       "dropout": task_shade(ps.TASK_3BFF, 0.42), "frm+rws": task_shade(ps.TASK_3BFF, 1.68)}
+       "dropout": task_shade(ps.TASK_3BFF, 0.8), "frm+rws": task_shade(ps.TASK_3BFF, 1.68)}
+# no shade lighter than 0.62: a lighter filled marker prints near white and reads as open (PR #216 re-review)
 MARK = {"control": "o", "frm": "o", "synnoise": "s", "rescale": "D", "duplicate": "^",
-        "dropout": "v", "frm+rws": "P"}
+        "dropout": "v", "frm+rws": "<"}   # round 20: rate + sparsity a left triangle, as in Figure 5 (was a filled plus)
 # Rules whose size series is drawn at 75,000 iterations: no floor crossing at N >= 2,000
 # (dead-relu-paper#16).
 AT_75K = ("rescale", "dropout")
@@ -147,7 +148,7 @@ SEE_THROUGH_REMOVAL = (1, 1, 1, 0.65)
 A_OFFSET = {"synnoise": 2500, "dropout": -2500}
 # The three rate-penalty networks of panel d and Extended Data Fig. 8: the rate violet and two
 # lighter steps of it, none darker (a darker violet is RATE_SPARSITY's; dead-relu-paper#84 item 4).
-RATE_SHADES = (COL["frm"], task_shade(ps.TASK_3BFF, 0.7), task_shade(ps.TASK_3BFF, 0.42))   # round 20: shades of the 3BFF blue
+RATE_SHADES = (COL["frm"], task_shade(ps.TASK_3BFF, 0.85), task_shade(ps.TASK_3BFF, 0.62))   # round 20: shades of the 3BFF blue
 # Row labels of panel f, in words (dead-relu-paper#84 item 1); the rules are those of B3_PARTS.
 B3_LABEL = {"none": "none", "rate": "rate", "noise": "noise", "rescale": "rescaling",
             "rate+noise": "rate + noise", "rate+rescale": "rate + rescaling",
