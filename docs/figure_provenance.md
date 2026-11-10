@@ -425,3 +425,19 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_techniques_3bff.pdf` | fig_paper_F5_drive.py, ed_techniques_3bff (panel b see-through face 65%; #200; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
 | `fig_ed_techniques_3bff.svg` | fig_paper_F5_drive.py, ed_techniques_3bff (as the PDF; r19-text, #206) | `8b7e5f3` | 2026-11-09 |
 | `fig_ed_maze.pdf` | fig_ed_maze.py (b: the impossible zero read of N = 4,000 seed 3 at update 7,390 masked; a: 0.9 label outside the axes; PR #207 review item 7) | `32711d5` | 2026-11-09 |
+| `fig_paper_F1.pdf` | fig_paper_F1.py (d: the three removal orders named as Methods and Results 1, the bar 'share of inactive units'; c, e enlarged; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_paper_F1.svg` | fig_paper_F1.py (as the PDF; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_paper_F3_tasks.pdf` | fig_paper_F3_tasks.py (Methods names of the settings; 'measured at 150,000 only'; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_paper_F3_tasks.svg` | fig_paper_F3_tasks.py (as the PDF; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_paper_F4_noreturn.pdf` | fig_paper_F4_noreturn.py draw (task colours, CDDM orange, 3BFF blue; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_paper_F4_noreturn.svg` | fig_paper_F4_noreturn.py draw (as the PDF; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (100% print, a/b gap, Maze row by success rate with 0.9, c task colours and technique shapes, d 'k least participating active units'; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_paper_F5_tasks.svg` | fig_paper_F5_tasks.py (as the PDF; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_ed_maze.pdf` | fig_ed_maze.py (a: 0.9 by tick label, 'noise-free probe'; d: removal orders named as Fig. 1d; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_ed_population.pdf` | fig_ed_population.py (Maze networks added; print size 126 mm; a: open-marker groups; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_ed_population.svg` | fig_ed_population.py (as the PDF; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_paper_F2_fails.pdf` | fig_paper_F2_fails.py (panel titles activity noise, magnitude penalty, input-weight norm; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_paper_F2_fails.svg` | fig_paper_F2_fails.py (as the PDF; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (0.9 by tick labels; g, i success rate with 0.9; rescaling variant names; 202 mm; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_ed_techniques_3bff.pdf` | fig_paper_F5_drive.py, ed_techniques_3bff (b: 'k least participating active units removed'; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_ed_techniques_3bff.svg` | fig_paper_F5_drive.py, ed_techniques_3bff (as the PDF; r20-figures, #214) | `b085b6c` | 2026-11-09 |
