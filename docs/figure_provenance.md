@@ -489,3 +489,9 @@ figures are written to `img/internal_figures/`.
 | `fig_paper_F2_fails.svg` | fig_paper_F2_fails.py (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |
 | `fig_paper_F4_noreturn.pdf` | fig_paper_F4_noreturn.py draw (e: '613' in ink by the old networks; PR #222 review) | `44dcb43` | 2026-11-09 |
 | `fig_paper_F4_noreturn.svg` | fig_paper_F4_noreturn.py draw (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F2_size.pdf` | fig_paper_F2_size.py (f: label of the dashed line at y -1.0, was -4.0; r22-polish, #223) | `b8f926c` | 2026-11-10 |
+| `fig_paper_F2_size.svg` | fig_paper_F2_size.py (as the PDF; r22-polish, #223) | `b8f926c` | 2026-11-10 |
+| `fig_paper_F4_noreturn.pdf` | fig_paper_F4_noreturn.py draw (d, e: young networks as pentagons; r22-polish, #223) | `b8f926c` | 2026-11-10 |
+| `fig_paper_F4_noreturn.svg` | fig_paper_F4_noreturn.py draw (as the PDF; r22-polish, #223) | `b8f926c` | 2026-11-10 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (d: two 3BFF rate-penalty circles beside their values; r22-polish, #223) | `b8f926c` | 2026-11-10 |
+| `fig_paper_F5_tasks.svg` | fig_paper_F5_tasks.py (as the PDF; r22-polish, #223) | `b8f926c` | 2026-11-10 |
