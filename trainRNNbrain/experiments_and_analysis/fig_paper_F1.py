@@ -1749,16 +1749,18 @@ def panel_d(axes, loaded=None, ax_key=None, strips=None, tasks=ABLATION):
     if ax_key is not None:
         ps.blank(ax_key)
         ax_key.legend(handles=[
-            Line2D([], [], color=ps.MUTED, lw=1.2, label="increasing participation"),
-            Line2D([], [], color=ps.MUTED, lw=0.9, ls="--", label="random order"),
-            Line2D([], [], color=ps.MUTED, lw=1.1, ls=":", label="decreasing participation"),
-            Patch(color=SILENT_GREY, lw=0, label="inactive units"),
+            # round 20 (dead-relu-paper #212, Reviewer S, figures items 1 and 7): the three orders by the
+            # names of Methods: Removing units and retraining, and the bar by what it spans
+            Line2D([], [], color=ps.MUTED, lw=1.2, label="least to most participating"),
+            Line2D([], [], color=ps.MUTED, lw=0.9, ls="--", label="random orders"),
+            Line2D([], [], color=ps.MUTED, lw=1.1, ls=":", label="most to least participating"),
+            Patch(color=SILENT_GREY, lw=0, label="share of inactive units"),
             Line2D([], [], marker="*", ls="", ms=D_STAR_MS, **ps.mark_fixed(ps.MUTED),
                    label="inactive units removed,\nthen trained further"),
             Line2D([], [], marker="^", ls="", ms=D_TRI_MS, **ps.mark_fixed(ps.MUTED),
                    label="as many removed at random,\nthen trained further")],
             loc="lower left", bbox_to_anchor=(0.0, 0.0), ncol=3, fontsize=ps.TICK_PT,
-            handlelength=2.0, columnspacing=1.2, borderaxespad=0.0, borderpad=0.0, frameon=False)
+            handlelength=2.0, columnspacing=0.8, borderaxespad=0.0, borderpad=0.0, frameon=False)
     return rows
 
 
@@ -1973,8 +1975,8 @@ LAYOUT_MM = {                  # name: (left, top, width, height)
     "trace": (55.0, 10.0, 46.0, 42.0),    # a, eight random units
     "b_top": (111.0, 10.0, 51.0, 18.0),   # b, untrained
     "b_bot": (111.0, 36.5, 51.0, 18.0),   # b, trained
-    "c":     (14.0, 73.0, 40.0, 25.0),    # c, active units per task
-    "e":     (14.0, 114.0, 40.0, 17.5),   # e, fraction of units selective, under c
+    "c":     (14.0, 72.5, 45.0, 26.5),    # c, active units per task (40 x 25 until round 20, Reviewer R: the left column's empty space)
+    "e":     (14.0, 113.5, 45.0, 19.0),   # e, fraction of units selective, under c (40 x 17.5 until round 20)
     "d_key": (69.0, 68.0, 93.0, 7.0),     # d, legend strip, above the sub-panels and off the data
     "d":     (70.5, 83.0, 18.0, 49.0),    # d, first of three side-by-side sub-panels (removal curves);
                                           # 20.5 until round 14, when the maze's own y label took 7.5 mm
@@ -2140,8 +2142,11 @@ def panel_tasks(ax, rows, tasks=MAIN_TASKS):
         ax.plot([k - 0.26, k + 0.26], [y.mean()] * 2, lw=1.2, color=col, zorder=3,
                 solid_capstyle="butt")
         ax.plot(xs, y, "o", ms=ps.MARKER_PT + 0.6, color=col, zorder=4)
-        ax.text(k + 0.31, y.mean(), f"{y.mean():.0f}", ha="left", va="center", fontsize=ps.TICK_PT,
-                color=ps.INK)
+        # a mean within 60 of the half-of-the-units line is written under its bar, clear of the line
+        # (round 20: the Maze mean, 465, sat on it)
+        near = abs(y.mean() - 500) < 60
+        ax.text(k + 0.31, y.mean() - (12 if near else 0), f"{y.mean():.0f}", ha="left",
+                va="top" if near else "center", fontsize=ps.TICK_PT, color=ps.INK)
         sc = score_of(label)
         ticks.append(f"{TASK_SHORT.get(label, label)}\n{sc['tick']} = {r2.mean():{sc['fmt']}}"
                      f"\n$n$ = {len(y)}")

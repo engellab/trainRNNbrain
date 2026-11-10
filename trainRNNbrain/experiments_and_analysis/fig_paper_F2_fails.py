@@ -312,16 +312,18 @@ VALUE_LABELS = {
     "revival_cddm": ["none (default)", "input-weight cap", "re-initialised"],
     "revival_ff": ["none (default)", "outgoing zeroed", "outgoing kept"],
 }
-# Panel titles: the setting by its glossary name, then the task.
+# Panel titles: the setting by its glossary name, then the task. Round 20 (dead-relu-paper #212, Reviewer S,
+# figures item 7): activity noise, magnitude penalty and input-weight norm, the names of Methods: Standard
+# training settings and of Figure 3.
 TITLES = {
     "slide_k_weightdecay": "weight decay, CDDM",
-    "slide_k_recnoise": "recurrent noise $\\sigma_{rec}$, CDDM",
+    "slide_k_recnoise": "activity noise $\\sigma_{rec}$, CDDM",
     "slide_k_metabolic": "metabolic penalty $\\lambda_{met}$, CDDM",
     "slide_k_recgain": "initial spectral radius, CDDM",
-    "slide_k_rwm": "recurrent-weight magnitude penalty, CDDM",
+    "slide_k_rwm": "magnitude penalty, CDDM",
     "slide_k_activation": "activation function, CDDM",
-    "slide_k_inputscale_cddm": "initial input-weight scale, CDDM",
-    "slide_k_inputscale": "initial input-weight scale, 3BFF",
+    "slide_k_inputscale_cddm": "input-weight norm, CDDM",
+    "slide_k_inputscale": "input-weight norm, 3BFF",
     "slide_k_frm_rws": "rate and sparsity penalties, CDDM",
     "revival_cddm": "re-initialisation and input-weight cap, CDDM",
     "revival_ff": "re-initialisation, 3BFF",
@@ -334,9 +336,11 @@ BORROW_LEGEND = {"slide_k_inputscale": "slide_k_inputscale_cddm"}
 # item is the number of legend columns. "r2": one column in the empty upper half of the R^2 panel.
 LEGEND_AT = {"slide_k_activation": "r2", "slide_k_weightdecay": "r2", "slide_k_recnoise": "r2",
              "slide_k_frm_rws": ("lower left", (0.02, 0.02), 1)}
-# Rate-penalty values, a per-unit rule, drawn in the violet rule family (paperstyle.RULE_COLORS), by
-# (stem, value index). The sparsity penalty alone is a standard setting and stays on the teal ramp.
-PENALTY_COLORS = {("slide_k_frm_rws", 1): ps.RATE_PENALTY, ("slide_k_frm_rws", 3): ps.RATE_SPARSITY}
+# Rate-penalty values, a training technique, by (stem, value index). Round 20 (dead-relu-paper PR #216 review):
+# in the CDDM colour, as Figure 5 draws these networks (the rate penalty alone in TASK_CDDM, with the sparsity
+# penalty in a darker shade of it, 0.6 of each channel); until round 20 the violet rule family. The sparsity
+# penalty alone is a standard setting and stays on the teal ramp.
+PENALTY_COLORS = {("slide_k_frm_rws", 1): ps.TASK_CDDM, ("slide_k_frm_rws", 3): "#6b3504"}
 # Revival methods: one marker per method across both screens (cap: square; re-initialising: diamond),
 # the shade telling the two re-initialising variants apart. The CDDM screen re-initialises with the
 # outgoing weights kept (no reinit_mode in its configs: Trainer's default "random"), so it shares the

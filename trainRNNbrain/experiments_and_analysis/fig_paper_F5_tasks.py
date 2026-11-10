@@ -162,6 +162,12 @@ PARITY = [("synnoise", "0.1", "EqType=h_k=3_N=1000_sw=0.1", "sigma_w 0.1"),
            "rescaling, target 4.0")]
 # the order of values inside one technique's group of slots
 LABEL_ORDER = {"": 0.0, "10\u00d7": 10.0, "slow tilt": 11.0, "5% grow": 12.0}
+# the value labels as printed under panel b (round 20, dead-relu-paper #212, Reviewer W item 14): the rescaling
+# value m, and the two Maze variants of m = 10 by the names Methods: Training techniques and Supplementary
+# Table 2 give them in round 20 (dead-relu-paper PR #215): "smaller factor" (alpha = 1.0005, the cumulative
+# factor capped at 8) and "fewer units" (at most 0.05 N units rescaled at a time). The labels
+# inside the cells stay as they are, because round18_g1g2.py matches cells by them.
+LABEL_SHOWN = {"10\u00d7": "10", "4.0": "4", "slow tilt": "smaller factor", "5% grow": "fewer units"}
 # the maze's rescaling variants (entry 2026-11-05_0832), named as fig_ed_maze_interventions names them:
 # "slow tilt" is alpha 1.0005 and cap 8 (the paper's arm has 1.002 and 64), "5% grow" protects 0.05 N
 # units (the paper's 0.2 N); "10x" is the paper's arm
@@ -169,7 +175,7 @@ MAZE_RESCALE_NOTE = {"rescale": "the paper's values (target 10x, alpha 1.002, ca
                      "rescale_mild": "slow tilt: alpha 1.0005, cap 8", "rescale_few": "5% grow: protect 0.05 N"}
 
 # layout, mm from the canvas' top-left: one slot per (technique, task, value) group
-FIG_H_MM = 112.5                  # 136 -> 128 mm (round 15) -> 112.5 (round 17): the float with its caption fits the page
+FIG_H_MM = 130.0                  # 136 -> 128 mm (round 15) -> 112.5 (round 17) -> 130 (round 20: printed at 100%, caption cut to 350 words, panel c enlarged)
 LEFT_MM = 16.0
 PITCH_MM = 3.6                    # one group's slot (5.4 until #204; 5.1 until the parity values joined in round 19)
 GAP_MM = 2.0                      # between two techniques (3.2 until #204; 2.8 until round 19)
@@ -177,14 +183,22 @@ SEED_DX_MM = 0.85                 # a cell's crosses sit this far apart
 CROSS_DX_MM = 1.3                 # a cross beside a group marker sits this far from it
 KEY_TOP_MM = 0.5
 A_TOP_MM, A_H_MM = 14.5, 16.0
-B1_TOP_MM, B1_H_MM = 33.0, 13.5
-B2_TOP_MM, B2_H_MM = 48.5, 13.5
-ROW2_TOP_MM, ROW2_H_MM = 72.5, 29.0      # panel d keeps 29 mm: its open markers overlap in 27 (tests/scan_open_markers.py)
-C_LEFT_MM, C_W_MM, C_GAP_MM = 16.0, 26.0, 2.5     # panel c: two sub-columns (3BFF, CDDM) of C_W_MM each, sharing y
-D_LEFT_MM, D_W_MM, D_GAP_MM = 84.0, 22.5, 2.5     # panel d: three sub-panels (3BFF, CDDM, Maze) of D_W_MM each (at least 22 mm, tests/scan_open_markers.py), sharing y; the Maze title ends left of panel b's rotated rescaling labels
+# round 20 (dead-relu-paper #212, Reviewers S and W): 6 mm between panel a's axis and panel b's top, so the
+# letter b no longer sits beside panel a's "0" tick
+B1_TOP_MM, B1_H_MM = 36.5, 13.5
+B2_TOP_MM, B2_H_MM = 52.0, 16.0
+ROW2_TOP_MM, ROW2_H_MM = 84.0, 36.0      # panel c's height; both panels end at ROW2_TOP_MM + ROW2_H_MM
+D_H_MM = 30.0                     # panel d: 29 to 30 mm; its open markers overlap in 27 and from 32 (tests/scan_open_markers.py, a see-through pair in 3BFF)
+C_LEFT_MM, C_W_MM, C_GAP_MM = 16.0, 31.0, 2.5     # panel c: two sub-columns (3BFF, CDDM) of C_W_MM each, sharing y (26 mm until round 20)
+D_LEFT_MM, D_W_MM, D_GAP_MM = 93.5, 22.0, 2.5     # panel d: three sub-panels (3BFF, CDDM, Maze) of D_W_MM each (at least 22 mm, tests/scan_open_markers.py), sharing y
+C_DODGE = 1.07                   # panel c: the techniques' markers at one size sit this factor apart along the log x axis
 FOLD_LIM = (0.0, 4.3)
 R2_LIM = (-0.038, 0.013)
-SUCC_LIM = (-0.95, 0.15)          # round 19: the Maze parity rescaling and the rate + sparsity rerun reach -0.89 (-0.52 until then)
+SUCC_LIM = (-0.29, 1.06)          # round 20: panel b's Maze row draws each value's success rate itself (0 to 1), not its difference from the control mean
+STOP_SEP = -0.105                 # panel b's Maze row: the thin line between the success rates and the stopped line
+STOP_Y = -0.21                    # panel b's Maze row: networks stopped by the rollback guard have no success rate; their crosses sit on a
+                                  # line of their own below 0, tick-labelled "stopped", so that a finished network with success near 0 (the
+                                  # rescaling m = 4 network at 0.008) is not read as a stopped one (PR #216 review, item 1)
 D_LO = -0.05                      # panel d: values below this are drawn at the edge with an arrow
 EDGE_JOIN = 0.03                  # panel d: edge markers of one series closer than this (data units) are one marker
 EDGE_ARROW_PT = 4.0               # panel d: arrow length (points) of a merged edge marker, its tail short of the circle at (0.02, 0.54) (PR #202 third review); fig_paper_F5_drive's is 9
@@ -236,7 +250,7 @@ def cell(tech, task, label, active, perf, ctrl_active, ctrl_perf, n_expected, so
             str, printed.
     Returns:
         dict with the inputs plus status ("finished", "incomplete", "unfinished", "stopped"), fold
-        (per seed), dperf (per seed) and the band (the control's range in fold and dperf units).
+        (per seed), dperf (per seed) and the band (the control's range in fold, dperf and perf units).
     """
     ctrl_mean, perf_mean = float(np.mean(ctrl_active)), float(np.mean(ctrl_perf))
     if len(active) == n_expected:
@@ -253,7 +267,8 @@ def cell(tech, task, label, active, perf, ctrl_active, ctrl_perf, n_expected, so
                 n_stopped=n_stopped, n_running=n_running, stored=stored, note=note, status=status,
                 fold=[a / ctrl_mean for a in active], dperf=[p - perf_mean for p in perf],
                 band_fold=(min(ctrl_active) / ctrl_mean, max(ctrl_active) / ctrl_mean),
-                band_dperf=(min(ctrl_perf) - perf_mean, max(ctrl_perf) - perf_mean))
+                band_dperf=(min(ctrl_perf) - perf_mean, max(ctrl_perf) - perf_mean),
+                band_perf=(min(ctrl_perf), max(ctrl_perf)))
 
 
 def load_3bff():
@@ -753,7 +768,8 @@ def slot_layout(order, cells):
     return slots, columns, x - GAP_MM
 
 
-def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=False, label_below=False):
+def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=False, label_below=False,
+               guide=None):
     """One group of open markers the paper's way: a marker at the mean, a bar over the range.
 
     Open markers of one group would overlap at any spacing that fits the slots of these figures,
@@ -768,7 +784,10 @@ def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=
             the label above the bar instead, for a slot whose crosses sit beside the marker
             (review of PR #193, item 11: check_overlaps tests text against text only); label_below:
             bool, write it below the bar instead (third review, item 6: above the slow-tilt bar in
-            panel b it lay on the tolerance line).
+            panel b it lay on the tolerance line); guide: float or None, the y of a dashed line that a
+            label written beside the marker would sit on; the label is then written just below that
+            line when the mean is above it, and just above it otherwise (round 20: the "4" and "5" of
+            panel b's held-out R^2 row lay on the tolerance line).
     Returns:
         None (nothing drawn for an empty group).
     """
@@ -786,11 +805,16 @@ def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=
     elif label and label_below:
         ax.annotate(label, xy=(x, ys.min()), xytext=(0, -2.5), textcoords="offset points", fontsize=ps.TICK_PT,
                     color=ps.INK, ha="center", va="top", zorder=6, annotation_clip=False)
+    elif label and guide is not None:
+        above = ys.mean() < guide
+        ax.annotate(label, xy=(x + 1.0, guide), xytext=(0, 1.0 if above else -1.0), textcoords="offset points",
+                    fontsize=ps.TICK_PT, color=ps.INK, ha="left", va="bottom" if above else "top", zorder=6,
+                    annotation_clip=False)
     elif label:
         ax.text(x + 1.0, ys.mean(), label, fontsize=ps.TICK_PT, color=ps.INK, ha="left", va="center", zorder=6)
 
 
-def draw_marks(ax, x, c, key, zero=None):
+def draw_marks(ax, x, c, key, zero=None, guide=None):
     """One cell's marks in one axes: every finished seed as one group, the not-learned ones also as crosses.
 
     The group marker is the mean over every finished seed, the mean the criterion
@@ -800,8 +824,10 @@ def draw_marks(ax, x, c, key, zero=None):
     guard stopped is a cross at `zero`.
 
     Args:
-        ax: axes (x in mm); x: the slot's centre; c: a `cell` dict; key: "fold" or "dperf", the
-            values drawn; zero: the y of a stopped run's cross, or None to draw none.
+        ax: axes (x in mm); x: the slot's centre; c: a `cell` dict; key: "fold", "dperf" or "perf",
+            the values drawn; zero: the y of a stopped run's cross, or None to draw none; guide: the y
+            of a dashed line in this axes, or None; a number written beside a marker that would sit on
+            it is moved off it.
     Returns:
         None.
     """
@@ -811,15 +837,24 @@ def draw_marks(ax, x, c, key, zero=None):
     n_group = len(vals)
     # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
     label = str(n_group) if n_group >= 1 and n_group != N_SEEDS else None
-    crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None else [])
+    # in panel b's Maze row ("perf") the stopped networks have a line of their own below the success rates, so
+    # their crosses sit at the slot's centre there, apart from the crosses of finished networks (PR #216 review)
+    own_line = key == "perf" and zero is not None
+    crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None and not own_line else [])
     # below the bar only while the label stays inside the axes: below the axes it meets the value labels
-    # (round 19: the Maze parity rescaling, whose bar reaches -0.89); otherwise beside the marker
+    # (round 19: the Maze parity rescaling, whose bar reaches -0.89); otherwise beside the marker. In the Maze
+    # row the success rates end at the line that separates the stopped networks, just below 0.
     lo, hi = ax.get_ylim()
-    room_below = len(vals) > 0 and vals.min() - lo > 0.12 * (hi - lo)
-    draw_group(ax, x, vals, col, marker, label, label_above=bool(crosses) and key != "dperf",
-               label_below=bool(crosses) and key == "dperf" and room_below)
+    lo_data = STOP_SEP if own_line else lo
+    room_below = len(vals) > 0 and vals.min() - lo_data > 0.12 * (hi - lo)
+    near = label and guide is not None and len(vals) and abs(vals.mean() - guide) < 0.09 * (hi - lo)
+    draw_group(ax, x, vals, col, marker, label, label_above=bool(crosses) and key == "fold",
+               label_below=bool(crosses) and key != "fold" and room_below, guide=guide if near else None)
     for xi, v in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
         ax.plot([xi], [v], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
+    if own_line:
+        for xi in cross_positions(x, c["n_stopped"], False):
+            ax.plot([xi], [zero], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
 
 
 def cross_positions(x, n, beside):
@@ -837,7 +872,13 @@ def cross_positions(x, n, beside):
 
 
 def panel_ab(fig, slots, columns, width, tol):
-    """Panels a and b: the fold change and the two performance differences over the shared slots.
+    """Panels a and b: the fold change, the held-out R^2 difference and the Maze success rate over the shared slots.
+
+    Round 20 (dead-relu-paper #212, Reviewer W, figures item 1): panel b's Maze row draws each value's
+    success rate of the noise-free probe itself, with the learned level 0.9 dashed, in place of the
+    success rate minus the control mean against the tolerance 0.05. The 0.9 condition decides every Maze
+    verdict the success rate decides (Methods: Training techniques), and every network that ends below
+    0.9 has no learned point, so it is a cross: a value with a cross under the dashed line fails.
 
     Args:
         fig: the figure; slots, columns, width: slot_layout output; tol: dict task -> tolerance.
@@ -850,13 +891,17 @@ def panel_ab(fig, slots, columns, width, tol):
     for ax, lim in ((ax_a, FOLD_LIM), (ax_b1, R2_LIM), (ax_b2, SUCC_LIM)):
         ax.set_ylim(*lim)                 # before drawing: draw_marks places labels by the limits
     for c, x in slots:
-        band_ax = ax_b2 if c["task"] == "maze" else ax_b1
-        for ax, key in ((ax_a, "band_fold"), (band_ax, "band_dperf")):
+        maze = c["task"] == "maze"
+        band_ax = ax_b2 if maze else ax_b1
+        for ax, key in ((ax_a, "band_fold"), (band_ax, "band_perf" if maze else "band_dperf")):
             lo, hi = c[key]
             ax.fill_between([x - PITCH_MM / 2, x + PITCH_MM / 2], [lo] * 2, [hi] * 2, color=ps.FAINT,
                             alpha=0.3, lw=0, zorder=1)
         draw_marks(ax_a, x, c, "fold", zero=0.0)
-        draw_marks(band_ax, x, c, "dperf")
+        if maze:
+            draw_marks(ax_b2, x, c, "perf", zero=STOP_Y, guide=MAZE_LEARNED_SUCCESS)
+        else:
+            draw_marks(ax_b1, x, c, "dperf", guide=-tol[c["task"]])
         if c["status"] == "unfinished":
             ax_a.text(x, 0.5, "unfinished", rotation=90, transform=ax_a.get_xaxis_transform(),
                       fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="center")
@@ -866,8 +911,9 @@ def panel_ab(fig, slots, columns, width, tol):
         # a partly finished cell carries no "k/n": the number beside its marker gives the finished
         # networks, as in every other cell (dead-relu-paper#190, Reviewer S, figures item 3)
         if c["label"]:
-            ax_b2.text(x, -0.06, c["label"], rotation=90, transform=ax_b2.get_xaxis_transform(),
-                       fontsize=ps.TICK_PT, color=ps.INK, ha="center", va="top")
+            ax_b2.text(x, -0.06, LABEL_SHOWN.get(c["label"], c["label"]), rotation=90,
+                       transform=ax_b2.get_xaxis_transform(), fontsize=ps.TICK_PT, color=ps.INK, ha="center",
+                       va="top")
     for tech, x0, x1 in columns:
         ax_a.text((x0 + x1) / 2, 1.04, TECH[tech][0], transform=ax_a.get_xaxis_transform(),
                   fontsize=ps.LABEL_PT, color=ps.INK, ha="center", va="bottom", linespacing=1.15)
@@ -883,15 +929,13 @@ def panel_ab(fig, slots, columns, width, tol):
     ax_b1.set_yticks([-0.03, -0.02, -0.01, 0])
     ax_b1.set_yticklabels(["−0.03", "−0.02", "−0.01", "0"])
     ax_b1.set_ylabel("held-out $R^2$\nminus control")
-    ax_b2.axhline(0.0, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
-    ax_b2.axhline(-tol["maze"], lw=ps.THIN_LW, ls=(0, (4, 3)), color=ps.INK, zorder=2)
-    # at the left, under the first column: at the right it met the number above the slow-tilt bar
-    ax_b2.text(0.3, -tol["maze"] - 0.012, f"tolerance {tol['maze']}", fontsize=ps.TICK_PT,
-               color=ps.INK, ha="left", va="top")
+    # the learned level, named by its own tick label (no in-panel text to overprint)
+    ax_b2.axhline(MAZE_LEARNED_SUCCESS, lw=ps.THIN_LW, ls=(0, (4, 3)), color=ps.INK, zorder=2)
     ax_b2.set_ylim(*SUCC_LIM)
-    ax_b2.set_yticks([-0.8, -0.4, 0])
-    ax_b2.set_yticklabels(["−0.8", "−0.4", "0"])
-    ax_b2.set_ylabel("success\nminus control")
+    ax_b2.axhline(STOP_SEP, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)       # separates the stopped line from the success rates
+    ax_b2.set_yticks([STOP_Y, 0, 0.5, MAZE_LEARNED_SUCCESS])
+    ax_b2.set_yticklabels(["stopped", "0", "0.5", f"{MAZE_LEARNED_SUCCESS:g}"])
+    ax_b2.set_ylabel("success rate")
     for ax in (ax_a, ax_b1, ax_b2):
         ax.set_xlim(0, width)
         ax.set_xticks([])
@@ -918,7 +962,8 @@ def panel_key(fig):
                      handlelength=1.0, columnspacing=1.2, handletextpad=0.35, borderaxespad=0)
     ax.add_artist(leg1)
     h2 = [Line2D([], [], marker="o", ls="none", ms=3.2, label=TASK_NAME[t], **ps.mark_fixed(TASK_COL[t])) for t in TASKS]
-    h2.append(Line2D([], [], ls="none", label="open: 75,000 iterations (3BFF, CDDM); update 2,000 (Maze)"))
+    h2.append(Line2D([], [], ls="none", label="open: 75,000 iterations (3BFF, CDDM), update 2,000 (Maze); "
+                                              "filled: floor crossing"))
     ax.legend(handles=h2, loc="lower center", ncol=len(h2), frameon=False, fontsize=ps.TICK_PT,
               handlelength=1.0, columnspacing=1.2, handletextpad=0.35, borderaxespad=0)
     return ax
@@ -953,10 +998,15 @@ def cddm_size_rows():
 def panel_sizes(fig):
     """Panel c: the techniques across sizes, 3BFF (left) and CDDM (right) sub-columns sharing y.
 
-    3BFF reuses fig_paper_F5_drive's loaders and read-outs (floor crossing, filled; rescaling and
-    read-out dropout at 75,000 iterations, dashed). CDDM draws prune-and-duplicate per network and
-    read-out dropout as a context line, both at the floor crossing (cddm_size_rows). The technique
-    colours are fig_paper_F5_drive.COL in both sub-columns, with one key in the CDDM sub-column.
+    3BFF reuses fig_paper_F5_drive's loaders and read-outs (floor crossing; rescaling and read-out
+    dropout at 75,000 iterations, dashed). CDDM draws prune-and-duplicate per network and read-out
+    dropout, both at the floor crossing (cddm_size_rows). Round 20 (dead-relu-paper #212, Reviewer S,
+    figures items 5 and 6): one code for the whole figure, colour the task and marker shape the
+    technique (TECH, the shapes of panels a, b and d), in place of one colour per technique. Each
+    technique is a line through its means (top) and medians (bottom) with its marker at every size,
+    filled at the floor crossing and open at 75,000 iterations; prune-and-duplicate also draws one
+    small filled marker per network and the thicker line. A technique's markers at one size are
+    spread along x by C_DODGE so that markers of two techniques at one size do not cover each other.
 
     Args:
         fig: the figure.
@@ -965,30 +1015,44 @@ def panel_sizes(fig):
     """
     series = F5.size_series(F5.load_catalogue())
     marks = F5.load_marks()
-    h_top = ROW2_H_MM * 0.58
+    h_top = ROW2_H_MM * 0.55
     axes = {}
     for j, task in enumerate(("3BFF", "CDDM")):
         left = C_LEFT_MM + j * (C_W_MM + C_GAP_MM)
         axes[task] = (ax_mm(fig, left, ROW2_TOP_MM, C_W_MM, h_top),
                       ax_mm(fig, left, ROW2_TOP_MM + h_top + 1.5, C_W_MM, ROW2_H_MM - h_top - 1.5))
-    rows, handles = [], []
+    rows = []
+    order = list(F5.MAIN)
 
-    def draw_family(ax_m, ax_r, fam, xs, folds, dr2s, dashed):
-        """Draw one technique's line through its means (top) and medians (bottom), per-network
-        filled markers for prune-and-duplicate; xs: sizes; folds, dr2s: per-size arrays."""
+    def draw_family(ax_m, ax_r, fam, xs, folds, dr2s, at_75k, col):
+        """Draw one technique's line through its means (top) and medians (bottom), with its marker at each
+        size, and one small filled marker per network for prune-and-duplicate.
+
+        Args:
+            ax_m, ax_r: the fold-change and R^2 axes; fam: technique key; xs: sizes; folds, dr2s: per-size
+                arrays; at_75k: bool, read at 75,000 iterations (dashed line, open markers); col: task colour.
+        Returns:
+            (means, medians): lists per size.
+        """
         mm = [float(f.mean()) for f in folds]
         rr = [float(np.median(d)) for d in dr2s]
-        if fam == "duplicate":
-            for n, f, d in zip(xs, folds, dr2s):
-                ax_m.scatter(np.full(len(f), n), f, s=9, marker=F5.MARK[fam], zorder=4,
-                             **ps.mark_floor(F5.COL[fam], scatter=True))
-                ax_r.scatter(np.full(len(d), n), d, s=9, marker=F5.MARK[fam], zorder=4,
-                             **ps.mark_floor(F5.COL[fam], scatter=True))
-        ls = "--" if dashed else "-"
-        alpha, lw, z = (1.0, ps.DATA_LW, 3) if fam == "duplicate" else (0.45, 0.8, 2)
-        ax_m.plot(xs, mm, ls=ls, color=F5.COL[fam], lw=lw, alpha=alpha, zorder=z)
-        ax_r.plot(xs, rr, ls=ls, color=F5.COL[fam], lw=lw, alpha=alpha, zorder=z)
-        return mm, rr, Line2D([], [], ls=ls, color=F5.COL[fam], lw=lw, alpha=alpha, label=F5.NAME[fam])
+        xd = [n * C_DODGE ** (order.index(fam) - (len(order) - 1) / 2) for n in xs]
+        marker = TECH[fam][1]
+        dup = fam == "duplicate"
+        if dup:
+            for n, f, d in zip(xd, folds, dr2s):
+                for ax, v in ((ax_m, f), (ax_r, d)):
+                    ax.scatter(np.full(len(v), n), v, s=5, marker=marker, zorder=4,
+                               **ps.mark_floor(col, scatter=True))
+        ls = "--" if at_75k else "-"
+        lw = ps.DATA_LW if dup else ps.THIN_LW
+        size = ps.MARKER_PT * (F5.TRI_SCALE if marker in TRIANGLES else 1.0)
+        for ax, ys in ((ax_m, mm), (ax_r, rr)):
+            ax.plot(xd, ys, ls=ls, color=col, lw=lw, zorder=3 if dup else 2)
+            if not dup:
+                kw = ps.mark_fixed(col) if at_75k else ps.mark_floor(col)
+                ax.plot(xd, ys, marker, ms=size, ls="none", zorder=5, clip_on=False, **kw)
+        return mm, rr
 
     ax_m, ax_r = axes["3BFF"]
     for fam in F5.MAIN:
@@ -1001,15 +1065,14 @@ def panel_sizes(fig):
             xs.append(n)
             folds.append(np.asarray(d["mult"], float))
             dr2s.append(np.asarray(d["dr2"], float))
-        mm, rr, h = draw_family(ax_m, ax_r, fam, xs, folds, dr2s, fam in F5.AT_75K)
-        handles.append(h)
+        mm, rr = draw_family(ax_m, ax_r, fam, xs, folds, dr2s, fam in F5.AT_75K, TASK_COL["3BFF"])
         rows += [("3BFF", fam, n, len(f), m, r) for n, f, m, r in zip(xs, folds, mm, rr)]
     ax_m, ax_r = axes["CDDM"]
     crows = cddm_size_rows()
     for fam, _ in CDDM_SIZE_ARMS:
         cr = [r for r in crows if r["tech"] == fam and len(r["fold"])]
-        mm, rr, _ = draw_family(ax_m, ax_r, fam, [r["N"] for r in cr], [r["fold"] for r in cr],
-                                [r["dr2"] for r in cr], False)
+        mm, rr = draw_family(ax_m, ax_r, fam, [r["N"] for r in cr], [r["fold"] for r in cr],
+                             [r["dr2"] for r in cr], False, TASK_COL["CDDM"])
         rows += [("CDDM", fam, r["N"], f"{len(r['fold'])}/{r['n_runs']}", m, q) for r, m, q in zip(cr, mm, rr)]
     for j, task in enumerate(("3BFF", "CDDM")):
         ax_m, ax_r = axes[task]
@@ -1022,10 +1085,10 @@ def panel_sizes(fig):
             ps.ygrid(ax)
         ax_m.axhline(1, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
         ax_r.axhline(0, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
-        ax_m.set_ylim(0.6, 8.6)           # the 3BFF rate penalty ends at 5.6; the key sits in the CDDM sub-column
+        ax_m.set_ylim(0.6, 6.2)           # the 3BFF rate penalty ends at 5.6
         ax_m.set_yticks([1, 3, 5])
         ax_m.tick_params(labelbottom=False)
-        ax_r.set_ylim(-0.045, 0.006)
+        ax_r.set_ylim(-0.048, 0.006)      # the 3BFF noisy-synapse median at N = 500 is -0.044
         ax_r.set_yticks([-0.04, -0.02, 0])
         ax_r.set_yticklabels(["−0.04", "−0.02", "0"])
         ax_m.set_title(task, fontsize=ps.LABEL_PT, pad=3, loc="left")
@@ -1036,9 +1099,6 @@ def panel_sizes(fig):
     axes["3BFF"][1].set_ylabel("$R^2$ minus\ncontrol")
     fig.text((C_LEFT_MM + C_W_MM + C_GAP_MM / 2) / ps.W_FULL_MM, 1.0 - (ROW2_TOP_MM + ROW2_H_MM + 6.0) / FIG_H_MM,
              ps.LABELS["size"], ha="center", va="top", fontsize=ps.LABEL_PT, color=ps.INK)
-    # one key for both sub-columns, in the CDDM sub-column's upper part (its lines end below 2.2)
-    axes["CDDM"][0].legend(handles=handles, loc="upper right", fontsize=ps.MIN_PT, handlelength=1.6, ncol=1,
-                           labelspacing=0.2, borderaxespad=0.2, frameon=False)
     ps.panel_letter(axes["3BFF"][0], "c")
     return axes, rows
 
@@ -1092,7 +1152,7 @@ def panel_removal(fig):
     rows = removal_rows()
     axes = []
     for j, (task, title) in enumerate((("3BFF", "3BFF, $R^2$"), ("CDDM", "CDDM, $R^2$"), ("maze", "Maze, success"))):
-        ax = ax_mm(fig, D_LEFT_MM + j * (D_W_MM + D_GAP_MM), ROW2_TOP_MM, D_W_MM, ROW2_H_MM)
+        ax = ax_mm(fig, D_LEFT_MM + j * (D_W_MM + D_GAP_MM), ROW2_TOP_MM + ROW2_H_MM - D_H_MM, D_W_MM, D_H_MM)
         axes.append(ax)
         ax.set_xlim(D_LO - 0.012, 0.5)
         ax.set_ylim(D_LO - 0.015, 0.85)
@@ -1111,7 +1171,8 @@ def panel_removal(fig):
         ps.ygrid(ax)
         if j:
             ax.tick_params(labelleft=False)
-    axes[0].set_ylabel("$k$ added units\nremoved")
+    # round 20 (dead-relu-paper #212, Reviewer W item 6): the units by what they are, not "added units"
+    axes[0].set_ylabel("$k$ least participating\nactive units removed")
     fig.text((D_LEFT_MM + 1.5 * D_W_MM + D_GAP_MM) / ps.W_FULL_MM, 1.0 - (ROW2_TOP_MM + ROW2_H_MM + 6.0) / FIG_H_MM,
              "$k$ random active units removed (median of 5)", ha="center", va="top", fontsize=ps.LABEL_PT,
              color=ps.INK)
@@ -1175,6 +1236,38 @@ def edge_or_group(ax, pts, col, marker):
 def fmt(vals, nd=3):
     """Comma-separated values rounded to nd decimals ('-' for an empty list)."""
     return ", ".join(f"{v:.{nd}f}" for v in vals) if len(vals) else "-"
+
+
+def maze_marks_check(cells):
+    """Print what panel b's Maze row draws for every Maze cell, and check the fail rule by the mark.
+
+    Every finished network enters the mean; a network without a learned point is also a cross at its success
+    rate; a network stopped by the rollback guard is a cross on the "stopped" line (STOP_Y) and enters no mean.
+    The rule read from the marks, "a Maze value fails the 0.9 condition if it has a cross at a success rate",
+    holds only if every finished network below 0.9 has no learned point and every network without one ends
+    below 0.9; both are checked here (PR #216 review, item 1).
+
+    Args:
+        cells: every `cell` dict.
+    Returns:
+        int, the number of finished networks whose learned flag and success rate disagree with the rule.
+    """
+    bad = 0
+    print("\n--- panel b, Maze row: the marks drawn per cell ---")
+    for c in cells:
+        if c["task"] != "maze":
+            continue
+        perf = np.asarray(c["perf"], float)
+        learned = np.asarray(c["learned"][:len(perf)], bool)
+        crosses = perf[~learned]
+        wrong = int(np.sum(learned & (perf < MAZE_LEARNED_SUCCESS)) + np.sum(~learned & (perf >= MAZE_LEARNED_SUCCESS)))
+        bad += wrong
+        mean = f"{perf.mean():.3f}" if len(perf) else "-"
+        print(f"  {TECH_NAME[c['tech']]:>20} {c['label'] or '-':>9}: finished {fmt(perf)} (mean {mean}); crosses at "
+              f"{fmt(crosses)}; stopped {c['n_stopped']} (crosses on the stopped line)"
+              + (f"; {wrong} DISAGREE WITH THE RULE" if wrong else ""))
+    print(f"  finished networks whose learned flag disagrees with 'below 0.9 if and only if no learned point': {bad}")
+    return bad
 
 
 def report(cells, vs, order, table, floor, rows_c, rows_d, tol):
@@ -1253,6 +1346,7 @@ def main():
     _, rows_c = panel_sizes(fig)
     _, rows_d = panel_removal(fig)
     report(cells, vs, order, table, floor, rows_c, rows_d, tol)
+    maze_marks_check(cells)
     learned_control_sensitivity(cells, tol)
     tolerance_sensitivity(cells, tol)
     rule_tables(cells, load_3bff_all_values(), tol["maze"])

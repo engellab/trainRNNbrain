@@ -103,24 +103,27 @@ N = 1000
 TASKS = ("3BFF", "CDDM", "maze")
 TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM, "maze": ps.TASK_MAZE}
 TASK_NAME = {"3BFF": "3BFF", "CDDM": "CDDM", "maze": "Maze"}       # the tasks as the paper names them
-PERF_NAME = {"3BFF": "held-out $R^2$", "CDDM": "held-out $R^2$", "maze": "success"}
+PERF_NAME = {"3BFF": "held-out $R^2$", "CDDM": "held-out $R^2$", "maze": "success rate"}
 PERF_LIM = {"3BFF": (0.80, 0.975), "CDDM": (0.775, 0.85), "maze": (0.0, 1.04)}
 PERF_TICKS = {"3BFF": [0.8, 0.9], "CDDM": [0.78, 0.82], "maze": [0, 0.5, 1.0]}
-# the columns: (setting key, column title, [(value key, slot label), ...]) in drawing order
+# the columns: (setting key, column title, [(value key, slot label), ...]) in drawing order. Round 20
+# (dead-relu-paper #212, Reviewer S, figures item 7): each setting by the name Methods: Standard training
+# settings gives it (input-weight norm, initial spectral radius, magnitude penalty, activation function,
+# shifted sigmoid)
 COLUMNS = [
     ("control", "control", [("control", "control")]),
     ("wd", "weight decay\n(default $10^{-6}$)", [("0", "0"), ("1e-5", "$10^{-5}$"), ("1e-4", "$10^{-4}$")]),
-    ("inorm", "input-weight\nrow norm", [("0.5", "0.5"), ("2", "2"), ("5", "5"), ("20", "20")]),
+    ("inorm", "input-weight\nnorm", [("0.5", "0.5"), ("2", "2"), ("5", "5"), ("20", "20")]),
     ("cap", "input-\nweight cap", [("0.1", "0.1"), ("0.3", "0.3"), ("0.5", "0.5"), ("2.0", "2")]),
     ("srec", "activity noise\n(default 0.05)", [("0", "0"), ("0.01", "0.01"), ("0.1", "0.1")]),
-    ("srad", "spectral radius\n(default 1.2)", [("0.5", "0.5"), ("1.5", "1.5"), ("2.0", "2")]),
+    ("srad", "initial spectral radius\n(default 1.2)", [("0.5", "0.5"), ("1.5", "1.5"), ("2.0", "2")]),
     ("rws", "sparsity\npenalty", [("0.05", "0.05")]),
     ("met", "metabolic\npenalty", [("0.01", "0.01"), ("0.1", "0.1"), ("1", "1"), ("10", "10")]),
-    ("rwm", "recurrent-\nweight penalty", [("0.05", "0.05"), ("0.2", "0.2")]),
+    ("rwm", "magnitude\npenalty", [("0.05", "0.05"), ("0.2", "0.2")]),
     ("opt", "optimizer\n(default Adam)", [("adamw", "AdamW"), ("sgd0.03", "SGD 0.03"), ("sgd0.1", "SGD 0.1"),
                                           ("sgd0.3", "SGD 0.3"), ("sgd1", "SGD 1")]),
-    ("act", "activation\n(default ReLU)", [("leaky", "leaky ReLU"), ("softplus", "softplus"),
-                                           ("sigmoid", "sigmoid"), ("tanh", "tanh")]),
+    ("act", "activation function\n(default ReLU)", [("leaky", "leaky ReLU"), ("softplus", "softplus"),
+                                           ("sigmoid", "shifted sigmoid"), ("tanh", "tanh")]),
 ]
 # the maze arm keys of read_maze_arms.json per (setting, value)
 MAZE_KEY = {("wd", "0"): "wd0", ("wd", "1e-5"): "wd1e-5", ("wd", "1e-4"): "wd1e-4",
@@ -174,7 +177,7 @@ F2_CONTROL_RUNG = {"slide_k_weightdecay": 1, "slide_k_inputscale_cddm": 0, "revi
 N_SEEDS = 3
 
 # layout, mm from the canvas' top-left
-FIG_H_MM = 122.0                  # 133.5 -> 122 (round 17): the float with its longer caption fits the page
+FIG_H_MM = 125.0                  # 133.5 -> 122 (round 17) -> 125 (round 20: room for the label "shifted sigmoid")
 LEFT_MM = 15.5
 PITCH_MM = 3.6                    # one value's slot
 GAP_MM = 2.0                      # between two settings
@@ -486,7 +489,8 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim, note=False):
                       color=ps.MUTED, ha="center", va="center")
         what.append("not run")
     elif c["status"] in ("unfinished", "no read"):
-        text = {"unfinished": "unfinished", "no read": "no read at 75k"}[c["status"]]
+        # round 20 (Reviewers W and R): the reason in words, in place of the lab label "no read at 75k"
+        text = {"unfinished": "unfinished", "no read": "measured at\n150,000 only"}[c["status"]]
         ax_n.text(x, 0.5, text, rotation=90, transform=ax_n.get_xaxis_transform(), fontsize=ps.TICK_PT,
                   color=ps.MUTED, ha="center", va="center")
         what.append(text + (f" ({c['n_running']} training)" if c["n_running"] else ""))

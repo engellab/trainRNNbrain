@@ -289,7 +289,7 @@ def panel_snapshot(ax_c, ax_d, rec, noise):
     ax_c.legend(handles=[Line2D([], [], ls="none", marker=DEFAULT_MARK, ms=ps.MARKER_PT, color=ps.INK,
                                 label="default network"),
                          Line2D([], [], ls="none", marker=SCALED_MARK, ms=ps.MARKER_PT, color=ps.INK,
-                                label="input weights scaled")],
+                                label="input-weight norm changed")],   # round 20: the Methods name (dead-relu-paper #214)
                 loc="upper left", borderaxespad=0.2, handletextpad=0.2)
     ps.ygrid(ax_c)
     ax_d.axhspan(-10, 10, color=ps.GRID, lw=0, zorder=0)
