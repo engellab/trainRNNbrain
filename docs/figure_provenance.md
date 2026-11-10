@@ -441,3 +441,5 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (0.9 by tick labels; g, i success rate with 0.9; rescaling variant names; 202 mm; r20-figures, #214) | `b085b6c` | 2026-11-09 |
 | `fig_ed_techniques_3bff.pdf` | fig_paper_F5_drive.py, ed_techniques_3bff (b: 'k least participating active units removed'; r20-figures, #214) | `b085b6c` | 2026-11-09 |
 | `fig_ed_techniques_3bff.svg` | fig_paper_F5_drive.py, ed_techniques_3bff (as the PDF; r20-figures, #214) | `b085b6c` | 2026-11-09 |
+| `fig_ed_readout.pdf` | fig_ed_readout.py (c legend: input-weight norm changed; r20-figures, #214) | `74ba229` | 2026-11-09 |
+| `fig_ed_readout.svg` | fig_ed_readout.py (c legend: input-weight norm changed; r20-figures, #214) | `74ba229` | 2026-11-09 |
