@@ -151,11 +151,16 @@ PITCH4_MM, GAP4_MM = 7.0, 2.6     # block 3
 # one page at a print scale of at least 0.9 (rows 14.5/9.5/3.0 mm and tops 9.5/48/90.5 mm until then)
 TOP_MM = (9.5, 44.5, 83.5)        # the top of each block's count axes
 COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 12.5, 8.5, 2.5
-TITLE4_ROWS_MM = (2.2, 7.4)       # block 3: the titles' baselines above its count axes, staggered
-TITLE4_DX_MM = {"initial spectral radius": -1.75}   # block 3: a title moved left of its slots' centre, clear of the next title in its row (round 20: the Methods name is longer)
+TITLE4_ROWS_MM = (2.2, 8.8)       # block 3: the titles' baselines above its count axes, staggered (7.4 until round 21, when the lower row wrapped)
+TITLE4_DX_MM = {}                 # block 3: a title moved off its slots' centre ("initial spectral radius" -1.75 in round 20)
+# Round 21 (dead-relu-paper #217, Reviewer S figures 5): on the lower row of block 3 the titles "input-weight norm",
+# "initial spectral radius" and "magnitude penalty" ran together; they are written on two lines each
+TITLE4_WRAP = {"input-weight norm": "input-weight\nnorm", "initial spectral radius": "initial spectral\nradius",
+               "magnitude penalty": "magnitude\npenalty"}
 TITLE_RULE_MM = 0.9               # a thin rule this far under each staggered title
 SEED_DX_MM = 1.5                  # the seeds' markers sit this far apart in a settings slot: an open marker's
                                   # ring and rim must not reach its neighbour's centre (tests/scan_open_markers.py)
+TRACE_ALPHA = 0.35                # panel h: the single networks' lines (round 21)
 TRIANGLES = ("^", "v", "<")       # drawn TRI_SCALE larger, as in Figure 5
 KEY_MM = (0.0, 113.0, 165.1, 14.5)        # (0, 123.5, 165.1, 13.5) until round 20
 G_MM = dict(top=(17.0, 132.5, 145.0, 11.0), bot=(17.0, 146.5, 145.0, 10.0))
@@ -305,9 +310,9 @@ def draw_block(fig, top, groups, controls, arms, U, ref, letters, pitch=PITCH_MM
     for i, (title, x, x0, x1) in enumerate(spans):
         if stagger:
             y_mm = TITLE4_ROWS_MM[i % 2]
-            ax_n.text(x + TITLE4_DX_MM.get(title, 0.0), 1.0 + y_mm / COUNT_H_MM, title,
+            ax_n.text(x + TITLE4_DX_MM.get(title, 0.0), 1.0 + y_mm / COUNT_H_MM, TITLE4_WRAP.get(title, title),
                       transform=ax_n.get_xaxis_transform(), fontsize=ps.LABEL_PT, color=ps.INK, ha="center",
-                      va="bottom")
+                      va="bottom", linespacing=1.0)
             ax_n.plot([x0, x1], [1.0 + (y_mm - TITLE_RULE_MM) / COUNT_H_MM] * 2, transform=ax_n.get_xaxis_transform(),
                       color=ps.MUTED, lw=ps.THIN_LW, clip_on=False, zorder=1)
         else:
@@ -440,7 +445,12 @@ def panel_fold(ax_t, ax_b, keys, arms, tref, U, labels, headings):
 
 
 def panel_traces(ax, keys, arms, controls, x_max):
-    """Panel h: active units against PPO updates, one line per network, a filled marker at the learned point.
+    """Panel h: active units against PPO updates, per network thin and light, per value a thick mean line.
+
+    Round 21 (dead-relu-paper #219, editor's request): about 40 networks drawn at one weight could not be told
+    apart. Each network is now a thin line at TRACE_ALPHA; each value's networks (and the control networks) are
+    summarised by a thick line in the value's colour, their mean at every update all of them reached; each
+    network's learned point is a small filled marker in the value's colour and shape.
 
     Args:
         ax: axes; keys: the TECH keys drawn; arms, controls: maze_arms_r19 output; x_max: int, the x limit.
@@ -448,19 +458,21 @@ def panel_traces(ax, keys, arms, controls, x_max):
         int, the number of networks drawn.
     """
     n = 0
-    lines = [(c, ps.BASELINE, "o", 2) for c in controls]
-    lines += [(s, TECH[k][1], TECH[k][2], 3) for k in keys if k in arms for s in arms[k]["seeds"]]
-    for s, col, marker, z in lines:
-        r = s["run"]
-        if r is None:
-            continue
-        pr = r["probes"]
-        ax.plot(pr["update"], pr["active"], "-", lw=ps.THIN_LW, color=col, zorder=z)
-        li = maze_learned_index(pr["probe_success"])
-        if li is not None:
-            ax.plot([pr["update"][li]], [pr["active"][li]], marker, ls="none", zorder=5,
-                    ms=ps.MARKER_PT * (TRI_SCALE if marker in TRIANGLES else 1.0), **ps.mark_floor(col))
-        n += 1
+    groups = [(controls, ps.BASELINE, "o", 2)]
+    groups += [(arms[k]["seeds"], TECH[k][1], TECH[k][2], 3) for k in keys if k in arms]
+    for seeds, col, marker, z in groups:
+        probes = [s["run"]["probes"] for s in seeds if s["run"] is not None]
+        for pr in probes:
+            ax.plot(pr["update"], pr["active"], "-", lw=ps.THIN_LW * 0.7, color=col, alpha=TRACE_ALPHA, zorder=z)
+            li = maze_learned_index(pr["probe_success"])
+            if li is not None:
+                ax.plot([pr["update"][li]], [pr["active"][li]], marker, ls="none", zorder=5,
+                        ms=ps.SMALL_MARKER_PT * (TRI_SCALE if marker in TRIANGLES else 1.0), **ps.mark_floor(col))
+            n += 1
+        if probes:
+            common = sorted(set.intersection(*[set(np.asarray(pr["update"]).tolist()) for pr in probes]))
+            mean = [np.mean([np.asarray(pr["active"])[list(pr["update"]).index(u)] for pr in probes]) for u in common]
+            ax.plot(common, mean, "-", lw=ps.DATA_LW, color=col, zorder=z + 1)
     time_axis(ax, x_max)
     ax.set(ylim=(0, N), xlabel="PPO update", ylabel=ps.of_n(ps.LABELS["active"], N))
     ax.set_yticks([0, N / 2, N])
@@ -487,9 +499,9 @@ def panel_key(ax, keys):
     ax.add_artist(leg)
     h2 = [Line2D([], [], marker="o", ls="none", ms=ps.MARKER_PT, **ps.mark_floor(ps.INK), label="learned point (h)"),
           Line2D([], [], marker="o", ls="none", ms=ps.MARKER_PT, **ps.mark_fixed(ps.INK),
-                 label="learned by the update read"),
+                 label="learned by the measurement point"),
           Line2D([], [], marker="x", ls="none", ms=ps.MARKER_PT, mec=ps.INK, mew=0.8,
-                 label="not learned by the update read; at 0, stopped")]
+                 label="not learned by the measurement point; at 0, stopped")]
     ax.legend(handles=h2, loc="lower center", ncol=len(h2), frameon=False, fontsize=ps.TICK_PT,
               handlelength=1.0, columnspacing=1.6, handletextpad=0.35, borderaxespad=0)
 

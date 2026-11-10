@@ -98,7 +98,14 @@ from common import DATA_DIR, END_FRAC, logbin, noisy_floor, r2_at_floor_estimate
 from heldout_r2 import R2_DRAWS, heldout_r2, load_cache, read_rung, save_cache
 from read_remedies import chain_member_ending_at
 
-CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "fig_paper_F2_fails_cache.pkl"))
+# Round 21 (dead-relu-paper #217, Reviewer S figures 3): the Della cache (CACHE_DELLA, collected before
+# the third CDDM seed of the spectral-radius and magnitude-penalty sweeps was trained on 5-6 Nov, job
+# 16957558) held two networks per value in panels d and e. `--refresh-ladders` re-reads the ladders in
+# REFRESH_STEMS from the local data (their held-out R^2 are all in data/heldout_r2_cache.json, so nothing
+# is simulated; the two older seeds read the same as on Della) and writes CACHE, which the figure draws.
+CACHE_DELLA = os.path.normpath(os.path.join(DATA_DIR, "..", "fig_paper_F2_fails_cache.pkl"))
+CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "fig_paper_F2_fails_cache_r21.pkl"))
+REFRESH_STEMS = ("slide_k_recgain", "slide_k_rwm")
 # The optimizer comparison's cache, written by `b5_read.py` (the same path as b5_read.CACHE; not
 # imported from there because b5_read imports this module).
 B5_CACHE = os.path.normpath(os.path.join(DATA_DIR, "..", "b5_read_cache.pkl"))
@@ -240,6 +247,28 @@ def collect():
     return CACHE
 
 
+def refresh_ladders():
+    """Re-read the ladders of REFRESH_STEMS from the local data into a copy of CACHE_DELLA; write CACHE.
+
+    The held-out R^2 cache is read and not written (other jobs write it without a lock); a ladder whose
+    R^2 is missing from it is scored in memory only. Returns CACHE.
+    """
+    with open(CACHE_DELLA, "rb") as fh:
+        data = pickle.load(fh)
+    r2cache = load_cache()
+    by_stem = {s["stem"]: s for s in K.LADDERS}
+    for i, lad in enumerate(data["ladders"]):
+        stem = lad["spec"]["stem"]
+        if stem in REFRESH_STEMS:
+            data["ladders"][i] = collect_spec(by_stem[stem], r2cache)
+            print(f"  {stem}: networks per value " +
+                  ", ".join(str(len(rg["runs"])) for rg in data["ladders"][i]["rungs"]))
+    with open(CACHE, "wb") as fh:
+        pickle.dump(data, fh)
+    print(f"wrote {CACHE}")
+    return CACHE
+
+
 def active_at(run, t):
     """A run's active-unit count at the probe nearest iteration t, or nan if t is outside its trace.
 
@@ -340,19 +369,45 @@ LEGEND_AT = {"slide_k_activation": "r2", "slide_k_weightdecay": "r2", "slide_k_r
 # in the CDDM colour, as Figure 5 draws these networks (the rate penalty alone in TASK_CDDM, with the sparsity
 # penalty in a darker shade of it, 0.6 of each channel); until round 20 the violet rule family. The sparsity
 # penalty alone is a standard setting and stays on the teal ramp.
+# Round 21 (dead-relu-paper #217, Reviewer S figures 4): the shapes too are Figure 5's, the rate penalty a circle
+# and rate + sparsity a left triangle (were a square and an upward triangle, Figure 5's noisy synapses and
+# prune-and-duplicate); the sparsity penalty, a setting, keeps the diamond of MARKERS.
 PENALTY_COLORS = {("slide_k_frm_rws", 1): ps.TASK_CDDM, ("slide_k_frm_rws", 3): "#6b3504"}
+PENALTY_MARKERS = {("slide_k_frm_rws", 1): "o", ("slide_k_frm_rws", 3): "<"}
+# Round 21 (dead-relu-paper #217, Reviewer S figures 4): colour means task in every figure. Each sweep is
+# drawn in shades of its task's colour (paperstyle.task_ramp; CDDM orange, 3BFF blue), where until round 21
+# every sweep took the teal setting ramp whatever its task. The default value stays BASELINE grey.
+TASK_OF = {"slide_k_inputscale": "3BFF", "revival_ff": "3BFF"}     # every other sweep: CDDM
+
+
+def ramp_of(spec):
+    """The four shades (light to dark) of the task colour of one sweep.
+
+    Args:
+        spec: a sweep (fig_knobs_at_floor.LADDERS or REVIVAL entry).
+    Returns:
+        list of four hex colours, paperstyle.task_ramp of the sweep's task (TASK_OF, else CDDM).
+    """
+    return ps.task_ramp(TASK_OF.get(spec["stem"], "CDDM"))
+
+
 # Revival methods: one marker per method across both screens (cap: square; re-initialising: diamond),
 # the shade telling the two re-initialising variants apart. The CDDM screen re-initialises with the
 # outgoing weights kept (no reinit_mode in its configs: Trainer's default "random"), so it shares the
 # 3BFF "outgoing kept" style.
-REVIVAL_STYLE = {("revival_cddm", 1): (ps.SETTING_RAMP[1], "s"), ("revival_cddm", 2): (ps.SETTING_RAMP[2], "D"),
-                 ("revival_ff", 1): (ps.SETTING_RAMP[3], "D"), ("revival_ff", 2): (ps.SETTING_RAMP[2], "D")}
+REVIVAL_STYLE = {("revival_cddm", 1): (ps.task_ramp("CDDM")[1], "s"), ("revival_cddm", 2): (ps.task_ramp("CDDM")[2], "D"),
+                 ("revival_ff", 1): (ps.task_ramp("3BFF")[3], "D"), ("revival_ff", 2): (ps.task_ramp("3BFF")[2], "D")}
 MARKERS = "osD^v"
-# The optimizer comparison (panel l). SGD learning rates take the teal ramp, light to dark; the two
-# Adam variants are SETTING teal and differ from SGD in marker shape (circle, square) and position.
+# The optimizer comparison (panel l), 3BFF. SGD learning rates take the 3BFF ramp, light to dark (round 21; was
+# the teal ramp); the two Adam variants are the 3BFF blue and differ from SGD in marker shape (circle, square).
+# Round 21 (Reviewer S figures 2): a key names every mark (optimizer_key).
 # SGD with and without weight decay share one marker per learning rate.
 SGD_LRS = ["0.03", "0.1", "0.3", "1", "3"]
 SGD_MARKER = "^"
+# one 3BFF shade per learning rate, light to dark; 3 has a fifth, darker step of its own (until round 21 it shared
+# the darkest step with 1), so the key tells every learning rate apart
+SGD_COLORS = dict(zip(SGD_LRS, ps.task_ramp("3BFF") + [ps.task_shade(ps.TASK_3BFF, 1.85)]))   # 1.6 until the PR #222 review
+#   (SGD 1 and SGD 3 could not be told apart at print size)
 OPT_R2_LO = 0.86            # R^2 below this is drawn as an arrowhead inside the bottom edge
 OPT_Y_MIN = 0.852           # lower limit of the optimizer R^2 axis: the arrowheads sit above the spine
 OPEN_S = 11                 # area (pt^2) of the one open marker that stands for a group of networks
@@ -526,9 +581,10 @@ def rung_style(spec, i, n):
     The default value is BASELINE grey: a square in a sweep of ordered values, whose other values are
     all circles (one of them SETTING_RAMP[0], close to grey: paperstyle's palette notes), and a circle
     where the other values have shapes of their own. The rate penalty (alone or with the sparsity penalty) takes
-    the violet rule family. The revival methods follow REVIVAL_STYLE. Every other value takes the teal
-    setting ramp: ordered values light to dark in sweep order (circles); unordered values (activation
-    function, sparsity penalty) ramp steps 1-3 with one marker shape each. No task colour is used.
+    the CDDM colour with Figure 5's shapes (PENALTY_COLORS, PENALTY_MARKERS). The revival methods follow
+    REVIVAL_STYLE. Every other value takes the shades of its task's colour (ramp_of): ordered values light
+    to dark in sweep order (circles); unordered values (activation function, sparsity penalty) ramp steps
+    1-3 with one marker shape each.
 
     Args:
         spec: a sweep (fig_knobs_at_floor.LADDERS or REVIVAL entry); i: value index; n: number of values.
@@ -540,14 +596,15 @@ def rung_style(spec, i, n):
             (spec["stem"], k) in PENALTY_COLORS or (spec["stem"], k) in REVIVAL_STYLE for k in range(n))
         return ps.BASELINE, "o" if own_shapes else "s"
     if (spec["stem"], i) in PENALTY_COLORS:
-        return PENALTY_COLORS[(spec["stem"], i)], MARKERS[i]
+        return PENALTY_COLORS[(spec["stem"], i)], PENALTY_MARKERS[(spec["stem"], i)]
     if (spec["stem"], i) in REVIVAL_STYLE:
         return REVIVAL_STYLE[(spec["stem"], i)]
     k = i - (i > spec["ref"])                       # position among the non-default values
+    ramp = ramp_of(spec)
     if spec.get("categorical", False):
-        return ps.SETTING_RAMP[1 + k], MARKERS[i]
+        return ramp[1 + k], MARKERS[i]
     steps = {1: [2], 2: [1, 3], 3: [1, 2, 3], 4: [0, 1, 2, 3]}[n - 1]
-    return ps.SETTING_RAMP[steps[k]], "o"
+    return ramp[steps[k]], "o"
 
 
 def b5_style(opt, wd, lr):
@@ -564,13 +621,10 @@ def b5_style(opt, wd, lr):
     if opt == "adam" and wd == "1e-6":
         return dict(color=ps.BASELINE, marker="o", label="Adam (default)")
     if opt == "adam":
-        return dict(color=ps.SETTING, marker="o", label="Adam, no weight decay")
+        return dict(color=ps.TASK_3BFF, marker="o", label="Adam, no weight decay")
     if opt == "adamw":
-        return dict(color=ps.SETTING, marker="s", label="AdamW")
-    # learning rate 3 shares the darkest shade with 1 (four ramp steps); its runs all sit below the
-    # R^2 axis, drawn as arrowheads inside the bottom edge
-    col = ps.SETTING_RAMP[min(SGD_LRS.index(lr), 3)]
-    return dict(color=col, marker=SGD_MARKER, label=f"SGD, learning rate {lr}")
+        return dict(color=ps.TASK_3BFF, marker="s", label="AdamW")
+    return dict(color=SGD_COLORS[lr], marker=SGD_MARKER, label=f"SGD, learning rate {lr}")
 
 
 def b5_points(rows, key):
@@ -908,12 +962,52 @@ def place_legend(ax, handles, alt=None):
     return ax, ax.legend(ncol=1, bbox_to_anchor=(m, m), **kw)
 
 
+def optimizer_key(ax):
+    """Panel l's key, above its two axes: every mark of the optimizer comparison, named (round 21, Reviewer S
+    figures 2: the panel had only the group labels "Adam, AdamW" and "SGD").
+
+    Three rows, laid out left to right in millimetres from the measured widths of the texts: the two Adam
+    variants; SGD at each learning rate (one shade each, b5_style); AdamW and the downward triangle that marks an
+    R^2 below the axis. Key markers are filled, the floor-crossing form; the caption says that open markers are
+    the same arms at 200,000 iterations.
+
+    Args:
+        ax: a blank axes spanning the key band.
+    Returns:
+        list of the key's Text artists.
+    """
+    fig = ax.figure
+    ax.set_axis_off()
+    pos = ax.get_position()
+    W, H = pos.width * fig.get_figwidth() / ps.MM, pos.height * fig.get_figheight() / ps.MM
+    ax.set_xlim(0, W)
+    ax.set_ylim(0, H)
+    rend = fig.canvas.get_renderer()
+    rows = [[(b5_style("adam", "1e-6", "1e-3"), None), (b5_style("adam", "0", "1e-3"), None)],
+            [(None, "SGD:")] + [(b5_style("sgd", "0", lr), lr) for lr in SGD_LRS],
+            [(b5_style("adamw", "1e-6", "1e-3"), None),
+             (dict(color=SGD_COLORS["3"], marker="v", label=f"$R^2$ below {OPT_R2_LO}"), None)]]
+    texts = []
+    for j, row in enumerate(rows):
+        y = H - (j + 0.5) * H / len(rows)
+        x = 0.6
+        for st, short in row:
+            if st is not None:
+                ax.plot([x], [y], ls="none", marker=st["marker"], ms=3.0, clip_on=False,
+                        **ps.mark_floor(st["color"]))
+                x += 1.4
+            t = ax.text(x, y, short or st["label"], fontsize=ps.TICK_PT, color=ps.INK, va="center", ha="left")
+            texts.append(t)
+            x += t.get_window_extent(rend).width / fig.dpi / ps.MM + (1.2 if short and st else 2.4)
+    return texts
+
+
 def optimizer_pair(ax_fl, ax_end, b5):
     """Panel l: the optimizer comparison at each run's floor crossing and at 200,000 iterations.
 
     Its 75,000-iteration view is Figure 3d and is not repeated. Markers and colours are those of
-    Figure 3d (b5_style); the two groups are labelled directly ("Adam, AdamW", "SGD") because no
-    corner of either axes is free for a legend. The R^2 axis runs to 1.0 to make room for the label.
+    b5_style; optimizer_key, drawn by the caller above the two axes, names every mark (round 21; until then
+    the two groups were labelled directly, "Adam, AdamW" and "SGD").
 
     Args:
         ax_fl, ax_end: the two axes; b5: b5_read rows.
@@ -923,19 +1017,15 @@ def optimizer_pair(ax_fl, ax_end, b5):
     nums = {}
     for ax, key, title in ((ax_fl, "floor", "floor crossing"),
                            (ax_end, "end", "200,000 iterations")):
-        nums[key], _ = b5_scatter(ax, b5, key, y_hi=1.0, rings_on_top=True)
+        nums[key], _ = b5_scatter(ax, b5, key, y_hi=0.975, rings_on_top=True)
         ax.set_title(title, fontsize=ps.LABEL_PT, pad=2)
         ax.set_xlabel(ps.LABELS["active"], labelpad=1)
     ax_fl.set_xticks([0, 500])
     ps.count_ticks(ax_fl.xaxis)
     for ax in (ax_fl, ax_end):
-        ax.set_yticks([0.88, 0.92, 0.96, 1.0])
+        ax.set_yticks([0.88, 0.92, 0.96])
     ax_fl.set_ylabel(ps.LABELS["r2"], labelpad=1)
     ax_end.tick_params(labelleft=False)
-    # direct labels instead of a legend (no free corner holds one); the markers are those of Fig. 3d
-    for ax in (ax_fl, ax_end):
-        ax.text(30, 0.985, "Adam, AdamW", fontsize=ps.TICK_PT, color=ps.INK, va="center")
-    ax_end.text(560, 0.93, "SGD", fontsize=ps.TICK_PT, color=ps.INK, va="center")
     # an SGD group holds 6 networks (with and without weight decay); say so at the clearest group
     ax_end.text(690, 0.881, "6 networks", fontsize=ps.TICK_PT, color=ps.INK, va="center",
                 ha="center")
@@ -1028,12 +1118,16 @@ def draw(data, b5):
         leg.set_zorder(20)
         legends.append((holder, lad, leg))
 
-    sub = GridSpecFromSubplotSpec(1, 2, subplot_spec=slots[11], wspace=0.10, width_ratios=[0.8, 1.2])
-    ax_fl, ax_end = fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[0, 1])
+    # round 21: a key band (optimizer_key) above the two axes of panel l, inside its slot
+    sub = GridSpecFromSubplotSpec(2, 2, subplot_spec=slots[11], wspace=0.10, width_ratios=[0.8, 1.2],
+                                  height_ratios=[0.62, 1.0], hspace=0.22)
+    ax_fl, ax_end = fig.add_subplot(sub[1, 0]), fig.add_subplot(sub[1, 1])
+    ax_key = fig.add_subplot(sub[0, :])
     opt = optimizer_pair(ax_fl, ax_end, b5)
-    ps.panel_letter(ax_fl, "l", x_mm=7.5, y_mm=4.0)
-    pos_l, pos_r = ax_fl.get_position(), ax_end.get_position()
-    fig.text((pos_l.x0 + pos_r.x1) / 2, pos_l.y1 + 0.006 + 0.012, "optimizer, 3BFF",
+    optimizer_key(ax_key)
+    pos_k = ax_key.get_position()
+    ps.panel_letter(ax_key, "l", x_mm=7.5, y_mm=4.0)
+    fig.text((pos_k.x0 + pos_k.x1) / 2, pos_k.y1 + 0.006, "optimizer, 3BFF",
              ha="center", va="bottom", fontsize=ps.LABEL_PT, color=ps.INK)
     ps.floor_label_pads(fig)                     # what save() will do, so the check sees the page
     check_layout(fig, legends)
@@ -1157,9 +1251,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--collect", action="store_true", help="read every run and write the cache")
     ap.add_argument("--probe", action="store_true", help="print the per-run table from the cache")
+    ap.add_argument("--refresh-ladders", action="store_true",
+                    help="re-read the REFRESH_STEMS ladders locally into CACHE (round 21)")
     a = ap.parse_args()
     if a.collect:
         collect()
+    if a.refresh_ladders:
+        refresh_ladders()
     with open(CACHE, "rb") as fh:
         data = pickle.load(fh)
     if a.probe:

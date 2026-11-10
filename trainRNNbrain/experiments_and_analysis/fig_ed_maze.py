@@ -146,7 +146,7 @@ LAYOUT_MM = {
     "c":  (12.5, 63.0, 52.0, 34.0),
     "d":  (79.0, 63.0, 46.0, 34.0),
     "d_key": (129.0, 63.0, 34.0, 20.0),  # the legend of (d), right of it and off the data
-    "e":  (12.5, 114.0, 150.0, 27.0),
+    "e":  (16.5, 114.0, 146.0, 27.0),   # round 21: left edge 12.5 -> 16.5 mm, room for the "stopped" tick label
 }
 
 
@@ -724,7 +724,7 @@ def panel_activations(ax, cols):
 
     Per column, open circles (participation rule) left of the column's centre and open squares
     (modulation rule) right of it, each group spread sideways (spread_x) with its mean as an ink tick
-    beside it; a run stopped before the read is a cross at 0 on the column's centre. Under every
+    beside it; a run stopped before the read is a cross on the column's centre, on a "stopped" line below 0. Under every
     column, its name, the update read and the mean success rate there. The columns of RADIUS_ROOT
     (initial spectral radius 0.45) are set apart right of a thin separator, under their own header.
 
@@ -740,7 +740,11 @@ def panel_activations(ax, cols):
             x += 0.7                                  # the gap between the two blocks
         xs_col.append(x)
         x += 1.0
-    ax.set(xlim=(-0.6, xs_col[-1] + 0.6), ylim=(0, 1.08 * ACT_N))
+    # round 21 (dead-relu-paper #217, Reviewer S figures 5): a stopped run is a cross on a line of its own below
+    # 0, tick-labelled "stopped" (as in Figure 5b), where until round 21 its cross at 0 sat on the "ReLU" tick label
+    stop_y, stop_sep = -0.15 * ACT_N, -0.075 * ACT_N
+    ax.set(xlim=(-0.6, xs_col[-1] + 0.6), ylim=(-0.2 * ACT_N, 1.08 * ACT_N))
+    ax.axhline(stop_sep, color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
     placed, ticks = [], []
     for c, xc in zip(cols, xs_col):
         c["x"] = xc
@@ -751,7 +755,7 @@ def panel_activations(ax, cols):
             ax.plot(xs, v, marker, ms=ps.MARKER_PT, ls="none", zorder=5, **ps.mark_fixed(col))
             mean_tick(ax, xs, v.mean())
         if c["stopped"]:
-            stopped_mark(ax, xc, 0, ps.INK, clip_on=False)
+            stopped_mark(ax, xc, stop_y, ps.INK, clip_on=False)
         stop_txt = f", {c['stopped']} stopped" if c["stopped"] else ""
         succ = f"{c['s'].mean():.2f}" if len(c["s"]) else "-"
         name = c["label"] if "\n" in c["label"] else c["label"] + "\n"
@@ -769,8 +773,8 @@ def panel_activations(ax, cols):
     ax.set_xticks(xs_col)
     ax.set_xticklabels(ticks, fontsize=ps.TICK_PT, linespacing=1.2)
     ax.tick_params(axis="x", length=0, pad=3)
-    ax.set_yticks([0, ACT_N / 2, ACT_N])
-    ps.count_ticks(ax.yaxis)
+    ax.set_yticks([stop_y, 0, ACT_N / 2, ACT_N])
+    ax.set_yticklabels(["stopped", "0", ps.fmt_count(ACT_N // 2), ps.fmt_count(ACT_N)])
     ax.set_ylabel(ps.of_n(ps.LABELS["active"], ACT_N))
     ax.legend(handles=[Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, **ps.mark_fixed(ps.MUTED),
                               label="participation"),
@@ -786,16 +790,19 @@ def panel_activations(ax, cols):
 
 
 def check_overlaps(fig):
-    """Print every pair of drawn text artists whose rendered boxes overlap.
+    """Print every pair of drawn text artists whose rendered boxes overlap, and every text that leaves the canvas.
 
     Collected per axes: free text, titles, axis labels, legend entries and the tick labels whose
-    tick lies inside the view; plus the figure's own texts.
+    tick lies inside the view; plus the figure's own texts. Axis-label pads are first floored as save() floors
+    them (paperstyle.floor_label_pads), so the boxes are the printed ones. Round 21 (PR #222 review): a text
+    reaching past the canvas edge is reported too (panel e's y label was cut off at the left edge).
 
     Args:
         fig: the finished figure.
     Returns:
-        list of (text a, text b) pairs that overlap.
+        list of (text a, text b) pairs that overlap; a text outside the canvas is listed as (text, "canvas edge").
     """
+    ps.floor_label_pads(fig)
     fig.canvas.draw()
     rend = fig.canvas.get_renderer()
     texts = list(fig.texts)
@@ -812,6 +819,9 @@ def check_overlaps(fig):
     boxes = [(t, t.get_window_extent(rend)) for t in texts]
     hits = [(a.get_text(), b.get_text()) for i, (a, ba) in enumerate(boxes) for b, bb in boxes[i + 1:]
             if ba.overlaps(bb) and ba.width > 0 and bb.width > 0]
+    W, H = fig.bbox.width, fig.bbox.height
+    hits += [(t.get_text(), "canvas edge") for t, b in boxes
+             if b.width > 0 and (b.x0 < 0 or b.y0 < 0 or b.x1 > W or b.y1 > H)]
     for a, b in hits:
         print(f"  !! text overlap: {a[:40]!r} <-> {b[:40]!r}")
     if not hits:

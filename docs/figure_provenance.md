@@ -458,3 +458,34 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_techniques_3bff.svg` | fig_paper_F5_drive.py, ed_techniques_3bff (as the PDF; PR #216 re-review) | `3376566` | 2026-11-09 |
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (a-f in Maze shades; no shade below 0.62; PR #216 re-review) | `3376566` | 2026-11-09 |
 | `fig_ed_techniques_sizes.pdf` | fig_ed_remedies.py, ed_sizes (read-out dropout shade 0.8, rate + sparsity a left triangle; PR #216 re-review) | `3376566` | 2026-11-09 |
+| `fig_paper_F1.pdf` | fig_paper_F1.py (e: each learned Maze network once; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F1.svg` | fig_paper_F1.py (as the PDF; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F2_size.pdf` | fig_paper_F2_size.py (e: active units; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F2_size.svg` | fig_paper_F2_size.py (as the PDF; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F3_tasks.pdf` | fig_paper_F3_tasks.py (a cross below the axis 1 mm inside it; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F3_tasks.svg` | fig_paper_F3_tasks.py (as the PDF; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F4_noreturn.pdf` | fig_paper_F4_noreturn.py draw (c: times by position; e: threshold values; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F4_noreturn.svg` | fig_paper_F4_noreturn.py draw (as the PDF; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (a,b: crosses clear of the means; c: rings for non-finite losses; d: axis labels; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F5_tasks.svg` | fig_paper_F5_tasks.py (as the PDF; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_ed_maze.pdf` | fig_ed_maze.py (e: a 'stopped' line; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_ed_population.pdf` | fig_ed_population.py (every task a circle; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_ed_population.svg` | fig_ed_population.py (as the PDF; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F2_fails.pdf` | fig_paper_F2_fails.py, cache fig_paper_F2_fails_cache_r21.pkl (d, e: three networks per value; task-colour shades; l: key; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_paper_F2_fails.svg` | fig_paper_F2_fails.py (as the PDF; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (e: lower headers on two lines; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_ed_tanh.pdf` | fig_paper_F4_noreturn.py draw, ed_tanh (tanh in the CDDM colour; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_ed_tanh.svg` | fig_paper_F4_noreturn.py draw, ed_tanh (as the PDF; r21-figures, #219) | `e6b0377` | 2026-11-09 |
+| `fig_ed_population.pdf` | fig_ed_population.py (a Maze marker that would hide another network drawn beside its value; PR #222) | `4dbac3d` | 2026-11-09 |
+| `fig_ed_population.svg` | fig_ed_population.py (as the PDF; PR #222) | `4dbac3d` | 2026-11-09 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (h: single networks thin, each value's mean thick; PR #222) | `4dbac3d` | 2026-11-09 |
+| `fig_ed_maze.pdf` | fig_ed_maze.py (e: y label inside the canvas; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (key: 'measurement point'; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_ed_population.pdf` | fig_ed_population.py (covering markers moved along the diagonal; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_ed_population.svg` | fig_ed_population.py (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F1.pdf` | fig_paper_F1.py (e: networks spread wider; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F1.svg` | fig_paper_F1.py (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F2_fails.pdf` | fig_paper_F2_fails.py (l: SGD 3 darker; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F2_fails.svg` | fig_paper_F2_fails.py (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F4_noreturn.pdf` | fig_paper_F4_noreturn.py draw (e: '613' in ink by the old networks; PR #222 review) | `44dcb43` | 2026-11-09 |
+| `fig_paper_F4_noreturn.svg` | fig_paper_F4_noreturn.py draw (as the PDF; PR #222 review) | `44dcb43` | 2026-11-09 |

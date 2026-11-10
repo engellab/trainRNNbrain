@@ -185,6 +185,7 @@ SEED_DX_MM = 0.8                  # a cell's crosses sit this far apart
 DASH_MM = 1.6                     # the dash of a value not run on a task
 BLOCK_TOP_MM = (15.0, 48.0, 81.0)
 COUNT_H_MM, PERF_H_MM, ROW_GAP_MM = 15.0, 9.5, 2.5   # the performance row keeps 9.5 mm: its y label clears the tick labels
+CROSS_EDGE_MM = 1.0       # height above the performance row's bottom spine of a cross whose value is below the axis
 TITLE_ROWS_MM = (2.0, 7.5)        # the column titles' baselines above the first block, staggered
 TITLE_RULE_MM = 0.9               # a thin rule this far under each title, spanning the title's slots
 
@@ -472,7 +473,10 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim, note=False):
     for xi, (a, p) in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
         ax_n.plot([xi], [a], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
         if p is not None:
-            y_p = max(p, perf_lim[0] + 0.03 * (perf_lim[1] - perf_lim[0]))
+            # round 21 (dead-relu-paper #217, Reviewer S figures 5): a cross below the axis sits wholly inside it,
+            # its centre CROSS_EDGE_MM above the bottom spine (at 0.03 of the range, 0.3 mm, the 3BFF SGD 1
+            # cross lay on the line between the 3BFF and CDDM blocks)
+            y_p = max(p, perf_lim[0] + CROSS_EDGE_MM / PERF_H_MM * (perf_lim[1] - perf_lim[0]))
             ax_p.plot([xi], [y_p], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
             what.append(f"{a:.0f} {p:.3f} (not learned)")
     if c["n_stopped"]:
