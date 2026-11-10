@@ -452,3 +452,9 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_maze.pdf` | fig_ed_maze.py (e: legend 'modulation count'; PR #216 review) | `8eac414` | 2026-11-09 |
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (g-i: Figure 5's colour code; PR #216 review) | `8eac414` | 2026-11-09 |
 | `fig_ed_techniques_sizes.pdf` | fig_ed_remedies.py, ed_sizes (Figure 5's colour code; PR #216 review) | `8eac414` | 2026-11-09 |
+| `fig_paper_F2_fails.pdf` | fig_paper_F2_fails.py (f: rate-penalty networks in the CDDM colour; PR #216 re-review) | `3376566` | 2026-11-09 |
+| `fig_paper_F2_fails.svg` | fig_paper_F2_fails.py (as the PDF; PR #216 re-review) | `3376566` | 2026-11-09 |
+| `fig_ed_techniques_3bff.pdf` | fig_paper_F5_drive.py, ed_techniques_3bff (read-out dropout shade 0.8; PR #216 re-review) | `3376566` | 2026-11-09 |
+| `fig_ed_techniques_3bff.svg` | fig_paper_F5_drive.py, ed_techniques_3bff (as the PDF; PR #216 re-review) | `3376566` | 2026-11-09 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py (a-f in Maze shades; no shade below 0.62; PR #216 re-review) | `3376566` | 2026-11-09 |
+| `fig_ed_techniques_sizes.pdf` | fig_ed_remedies.py, ed_sizes (read-out dropout shade 0.8, rate + sparsity a left triangle; PR #216 re-review) | `3376566` | 2026-11-09 |
