@@ -1982,6 +1982,7 @@ D_STRIP_MM = (1.5, 6.5)        # retrain strip right of each sub-panel: (gap, wi
 LETTER_X_MM = {"a": 1.0, "c": 1.0, "e": 1.0, "b": 100.0, "d": 59.0}  # letters: left edges
 LETTER_TOP_MM = {"a": 4.5, "b": 4.5, "c": 68.0, "d": 68.0, "e": 110.0}  # letter baseline, from the top
 E_DX = 0.2                     # panel (e): the two sets of units sit this far either side of a task
+E_SPREAD = 0.1                 # panel (e): the networks of one task lie within this distance either side (0.05 until round 21)
 
 
 def ax_mm(fig, left, top, width, height):
@@ -2199,8 +2200,9 @@ def panel_selective(ax, res, seeds_d, maze_seeds_d, tasks=MAIN_TASKS):
             ax.text(k, 0.5, "no data", ha="center", va="center", fontsize=ps.TICK_PT, color=ps.MUTED)
             out.append((TASK_SHORT[label], np.array([]), np.array([])))
             continue
-        # the networks of a task side by side: three at +-0.05, two at +-0.025, one at 0
-        offs = np.linspace(-0.05, 0.05, len(rows)) if len(rows) > 1 else np.zeros(1)
+        # the networks of a task side by side, E_SPREAD apart from the first to the last (round 21, PR #222 review:
+        # at +-0.05 two lines of nearly equal slope printed as one, in Maze and in 3BFF)
+        offs = np.linspace(-E_SPREAD, E_SPREAD, len(rows)) if len(rows) > 1 else np.zeros(1)
         y_all = np.array([s["S3a"]["n_all"] / s["N"] for s in rows])
         y_act = np.array([s["S3a"]["act"] for s in rows])
         for dx, ya, yb in zip(offs, y_all, y_act):

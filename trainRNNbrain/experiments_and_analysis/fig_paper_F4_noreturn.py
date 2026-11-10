@@ -818,8 +818,10 @@ def draw_b4_active(ax, b4):
         ax.text(x0 - 0.65, bar + 12, f"{bar:.0f}", ha="left", va="bottom", fontsize=ps.TICK_PT, color=ps.INK)
         for r in g["old"]:
             if abs(r["active_star"] - bar) < 25:
-                ax.text(x0 + 0.42, r["active_star"], f"{r['active_star']:.0f}", ha="left", va="center",
-                        fontsize=ps.TICK_PT, color=ps.TASK_3BFF)
+                # below and left of the old networks' markers, in ink: in 3BFF blue right of them it read as a young
+                # network's value (PR #222 review)
+                ax.text(x0 - 0.1, (r["active_star"] + g["old_star"]) / 2, f"{r['active_star']:.0f}", ha="right",
+                        va="center", fontsize=ps.TICK_PT, color=ps.INK)   # between the marker and the old mean bar
         print(f"  panel e N={N}: pass threshold (fresh mean - 3 SD) {bar:.1f}; old mean "
               f"{np.mean([r['active_star'] for r in g['old']]):.1f}")
         ax.text(x0 + 1, 1.03, f"$N$ = {ps.fmt_count(N)}", transform=ax.get_xaxis_transform(), ha="center",

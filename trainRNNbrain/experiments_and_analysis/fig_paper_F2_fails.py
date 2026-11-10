@@ -406,7 +406,8 @@ SGD_LRS = ["0.03", "0.1", "0.3", "1", "3"]
 SGD_MARKER = "^"
 # one 3BFF shade per learning rate, light to dark; 3 has a fifth, darker step of its own (until round 21 it shared
 # the darkest step with 1), so the key tells every learning rate apart
-SGD_COLORS = dict(zip(SGD_LRS, ps.task_ramp("3BFF") + [ps.task_shade(ps.TASK_3BFF, 1.6)]))
+SGD_COLORS = dict(zip(SGD_LRS, ps.task_ramp("3BFF") + [ps.task_shade(ps.TASK_3BFF, 1.85)]))   # 1.6 until the PR #222 review
+#   (SGD 1 and SGD 3 could not be told apart at print size)
 OPT_R2_LO = 0.86            # R^2 below this is drawn as an arrowhead inside the bottom edge
 OPT_Y_MIN = 0.852           # lower limit of the optimizer R^2 axis: the arrowheads sit above the spine
 OPEN_S = 11                 # area (pt^2) of the one open marker that stands for a group of networks

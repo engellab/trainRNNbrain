@@ -14,9 +14,10 @@ Nothing is computed here beyond reading those files.
       statistic over 200 random sets of as many units as are active (round 12, r12-weights; this
       panel replaced the participation ratio of the rate covariance)
   (b) participation ratio after dividing each unit's rates by their standard deviation
-  (c) selective (circle) and mixed-selective (x) unit counts. Every marker is filled or a
-      cross, never open: the weights are the floor-crossing snapshots, and fill means the floor
-      crossing in every figure (dead-relu-paper#83), so selective and mixed-selective differ by shape
+  (c) selective (circle) and mixed-selective (x) unit counts. The 3BFF, CDDM and DMTS markers are filled or
+      a cross (floor-crossing snapshots; fill means the floor crossing in every figure, dead-relu-paper#83), the
+      Maze markers open circles or crosses (update 2,000, a fixed budget); selective and mixed-selective differ
+      by shape
   (d) the same as shares: count / 1,000 against count / active count
   (e) k-means class count k* chosen by silhouette
   (f) class shares of matched classes, one point per matched pair
@@ -63,16 +64,20 @@ TASKS = ("3BFF", "CDDM", "Maze", "DMTS")
 # Round 21 (dead-relu-paper #217, Reviewer S figures 4): colour means task and shape means technique or setting in
 # every figure, so every task is a circle here, told apart by its colour (until round 21 each task had a shape of its
 # own: CDDM a square, Maze a diamond, DMTS a triangle, the shapes Figure 5 gives to techniques). DMTS is named
-# without "fourth task" (the text gives its history; round-21 text package).
+# without "fourth task" (round-21 text package; its history is in Supplementary Table 7 only, Pavel's decision of
+# 9 Nov).
 MARKER = {"3BFF": "o", "CDDM": "o", "Maze": "o", "DMTS": "o"}
 TASK_LABEL = {"3BFF": "3BFF", "CDDM": "CDDM", "Maze": "Maze", "DMTS": "DMTS"}
-# Round 21 (dead-relu-paper #219, editor's request): with every task a circle, an open Maze circle drawn on a filled
-# circle of another task at the same values hid it (panels c and f). Maze markers are now drawn last
-# (place_maze_markers): one that would cover another network's marker is set beside its value by MAZE_STEP marker
-# widths, to the right or else to the left, so every network stays visible.
-MAZE_PENDING = []              # (ax, x, y, mixed, ms) of the Maze markers of panels b, c, d and f, drawn last
-DRAWN = []                     # (ax, x, y, ms) of every other network's marker in those panels
-MAZE_STEP = 1.15               # a moved Maze marker sits this many marker widths from its value
+# Round 21 (dead-relu-paper #219; PR #222 editor's request and review): with every task a circle, markers at nearly
+# the same values hid one another (an open Maze circle on a filled 3BFF circle in c and f; three 3BFF crosses near
+# the origin of c and d; a DMTS circle on a CDDM cross in c and d). In panels b, c, d and f every marker is placed
+# after all are known (place_markers): the 3BFF, CDDM and DMTS markers first, in drawing order, then the Maze
+# markers; a marker whose centre lies within CLEAR_FRAC marker widths of a marker already placed is moved along the
+# diagonal (so its position relative to the line of equality is kept) by MARKER_STEP marker widths, up the diagonal
+# first, then down, then by two steps, until it clears every placed marker. Panel e shifts its own (K_SHIFT).
+PENDING = []                   # (ax, x, y, task, mixed, ms) of every marker of panels b, c, d and f, drawn last
+MARKER_STEP = 0.75             # a moved marker sits a multiple of this many marker widths along the diagonal
+CLEAR_FRAC = 0.6               # two markers whose centres are closer than this many widths count as covering
 MIXED_MARKER = "x"             # mixed-selective units in panels c and d, in the task colour
 # panel e: each network is shifted ALONG the diagonal (the same amount in x and y), so equal values
 # stay on the identity line; tasks get separate stretches of the diagonal, networks 0.1 apart, at most 0.3 from the true value
@@ -128,15 +133,12 @@ def dots(ax, x, y, task, mixed=False, ms=ps.MARKER_PT + 0.6, defer=True):
 
     Args:
         ax: axes; x, y: coordinates; task: "3BFF", "CDDM", "Maze" or "DMTS"; mixed: draw the cross;
-        ms: marker size in points; defer: True to leave a Maze marker to place_maze_markers and record any
-            other marker in DRAWN (panels b, c, d, f); False to draw at once (panel e, which shifts its own).
+        ms: marker size in points; defer: True to leave the marker to place_markers (panels b, c, d, f); False to
+            draw it at once (panel e, which shifts its own).
     """
-    col = ps.TASK_COLORS[task]
-    if defer and task == "Maze":
-        MAZE_PENDING.append((ax, x, y, mixed, ms))
-        return
     if defer:
-        DRAWN.append((ax, x, y, ms))
+        PENDING.append((ax, x, y, task, mixed, ms))
+        return
     draw_marker(ax, x, y, task, mixed, ms)
 
 
@@ -156,36 +158,40 @@ def draw_marker(ax, x, y, task, mixed, ms, transform=None):
         ax.plot(x, y, MARKER[task], ms=ms, **mk, zorder=4 if task == "Maze" else 3, clip_on=False, **kw)
 
 
-def place_maze_markers(fig):
-    """Draw the deferred Maze markers, each beside its value when it would cover another network's marker.
+def place_markers(fig):
+    """Draw the deferred markers of panels b, c, d and f, each moved along the diagonal if it would cover another.
 
-    Call after every panel is drawn, so that the axes have their final size. A Maze marker whose centre lies
-    within one marker width of the centre of any marker in DRAWN on the same axes (or of a Maze marker already
-    placed) is moved MAZE_STEP widths to the right, or, if that spot is taken too, to the left.
+    Call after every panel is drawn, so that the axes have their final size. The 3BFF, CDDM and DMTS markers are
+    placed first, in drawing order, then the Maze markers (an open Maze circle must not hide a filled one). A
+    marker whose centre lies within CLEAR_FRAC marker widths of a marker already placed on the same axes is moved
+    along the diagonal by k * MARKER_STEP marker widths, k = 1, -1, 2, -2, 3, -3, the first k that clears every
+    placed marker.
 
     Args:
         fig: the figure.
     Returns:
-        list of (axes title, x, y, shift in points) for every moved marker.
+        list of (axes title, task, x, y, shift along the diagonal in points) for every moved marker.
     """
     fig.canvas.draw()
     placed, moved = [], []
-    for ax, x, y, mixed, ms in MAZE_PENDING:
-        others = [ax.transData.transform((xo, yo)) for a, xo, yo, _ in DRAWN if a is ax]
-        others += [p for a, p in placed if a is ax]
+    order = [m for m in PENDING if m[3] != "Maze"] + [m for m in PENDING if m[3] == "Maze"]
+    for ax, x, y, task, mixed, ms in order:
+        others = [p for a, p in placed if a is ax]
         px = ax.transData.transform((x, y))
         d_px = ms * fig.dpi / 72
+        unit = np.array([1.0, 1.0]) / np.sqrt(2)          # up the diagonal, in display space (equal aspect)
         shift_pt = 0.0
-        for step in (0.0, MAZE_STEP, -MAZE_STEP):
-            q = px + np.array([step * d_px, 0.0])
-            if all(np.hypot(*(q - o)) >= d_px for o in others):
-                shift_pt = step * ms
+        for k in (0, 1, -1, 2, -2, 3, -3):
+            q = px + k * MARKER_STEP * d_px * unit
+            if all(np.hypot(*(q - o)) >= CLEAR_FRAC * d_px for o in others):
+                shift_pt = k * MARKER_STEP * ms
                 break
-        tr = ax.transData + ScaledTranslation(shift_pt / 72, 0, fig.dpi_scale_trans) if shift_pt else None
-        draw_marker(ax, x, y, "Maze", mixed, ms, transform=tr)
-        placed.append((ax, px + np.array([shift_pt * fig.dpi / 72, 0.0])))
+        dx_pt, dy_pt = shift_pt * unit
+        tr = ax.transData + ScaledTranslation(dx_pt / 72, dy_pt / 72, fig.dpi_scale_trans) if shift_pt else None
+        draw_marker(ax, x, y, task, mixed, ms, transform=tr)
+        placed.append((ax, px + np.array([dx_pt, dy_pt]) * fig.dpi / 72))
         if shift_pt:
-            moved.append((ax.get_title(), x, y, shift_pt))
+            moved.append((ax.get_title(), task, x, y, shift_pt))
     return moved
 
 
@@ -373,8 +379,8 @@ def main():
     fig.legend(fill, ["selective (circle)", "mixed-selective (cross)"], loc="upper right", bbox_to_anchor=(0.985, 0.995),
                ncol=2, frameon=False, handletextpad=0.3, columnspacing=1.2, title="panels c, d:",
                alignment="left")
-    for title, x, y, sh in place_maze_markers(fig):
-        print(f"  Maze marker at ({x:.3g}, {y:.3g}) in '{title}' drawn {sh:+.1f} pt beside its value")
+    for title, task, x, y, sh in place_markers(fig):
+        print(f"  {task} marker at ({x:.3g}, {y:.3g}) in '{title}' moved {sh:+.1f} pt along the diagonal")
     n = check_overlaps(fig)
     print(f"text overlaps or overflows: {n}")
     for s in res:

@@ -499,9 +499,9 @@ def panel_key(ax, keys):
     ax.add_artist(leg)
     h2 = [Line2D([], [], marker="o", ls="none", ms=ps.MARKER_PT, **ps.mark_floor(ps.INK), label="learned point (h)"),
           Line2D([], [], marker="o", ls="none", ms=ps.MARKER_PT, **ps.mark_fixed(ps.INK),
-                 label="learned by the update read"),
+                 label="learned by the measurement point"),
           Line2D([], [], marker="x", ls="none", ms=ps.MARKER_PT, mec=ps.INK, mew=0.8,
-                 label="not learned by the update read; at 0, stopped")]
+                 label="not learned by the measurement point; at 0, stopped")]
     ax.legend(handles=h2, loc="lower center", ncol=len(h2), frameon=False, fontsize=ps.TICK_PT,
               handlelength=1.0, columnspacing=1.6, handletextpad=0.35, borderaxespad=0)
 
