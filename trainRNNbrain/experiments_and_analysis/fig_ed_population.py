@@ -163,9 +163,11 @@ def weight_panel(ax, conf, maze):
         y = r["all"]["W1"]
         ax.plot([r["sub_min"]["W1"], r["sub_max"]["W1"]], [y, y], color=ps.FAINT, lw=ps.THIN_LW,
                 solid_capstyle="butt", zorder=2)
+    # the Maze networks' random-set ranges in the Maze colour, above the grey lines: at y = 0.04 the 3BFF lines
+    # pass under the Maze diamond, and in grey the Maze value would seem to lie inside its own range (PR #216 review)
     for r in maze:
-        ax.plot([r["subset_min"], r["subset_max"]], [r["s_all"]] * 2, color=ps.FAINT, lw=ps.THIN_LW,
-                solid_capstyle="butt", zorder=2)
+        ax.plot([r["subset_min"], r["subset_max"]], [r["s_all"]] * 2, color=ps.TASK_COLORS["Maze"], lw=ps.THIN_LW,
+                solid_capstyle="butt", zorder=2.5)
     s_open = (ps.MARKER_PT + 0.2) ** 2
     groups = []
     for task in ("3BFF", "CDDM", "DMTS"):
@@ -179,8 +181,12 @@ def weight_panel(ax, conf, maze):
                 ax.plot(r["act"]["W1"], r["all"]["W1"], MARKER[task], ms=ps.MARKER_PT + 0.2, ls="none",
                         zorder=3, clip_on=False, **ps.mark_floor(col))
         fixed = [r for r, f in zip(rows, at_floor) if not f]
-        groups += F5D.open_groups(ax, [r["act"]["W1"] for r in fixed], [r["all"]["W1"] for r in fixed], col,
-                                  MARKER[task], s_open)
+        task_groups = F5D.open_groups(ax, [r["act"]["W1"] for r in fixed], [r["all"]["W1"] for r in fixed], col,
+                                      MARKER[task], s_open)
+        if task == "3BFF":
+            for g in task_groups:
+                g["side"] = "above"   # each count on one side of its own marker, clear of the Maze diamond's
+        groups += task_groups
     maze_groups = F5D.open_groups(ax, [r["s_act"] for r in maze], [r["s_all"] for r in maze],
                                   ps.TASK_COLORS["Maze"], MARKER["Maze"], s_open)
     for g in maze_groups:

@@ -51,7 +51,7 @@ PANELS (165.1 x FIG_H_MM mm, bold letters).
       controls' mean at 4,000 (350.7) and success minus their mean (1.00).
 
 COLOURS. Settings: the controls BASELINE grey, a setting's values on the teal SETTING_RAMP light to dark in the
-ladder's order (Figure 3's convention). Techniques: Figure 5's colours and shapes (fig_ed_maze_interventions.ARMS),
+ladder's order (Figure 3's convention). Techniques: Figure 5's code, the Maze colour with shades per value and the technique shapes (round 20),
 a parity value as a lighter (or, for rescaling at target 4, darker) shade of its technique's colour. Rate +
 sparsity is a left triangle, as in fig_paper_F5_tasks: Figure 5's earlier filled plus has no white inside once it
 is drawn open (tests/scan_open_markers.py, rule 1).
@@ -72,7 +72,7 @@ from matplotlib.lines import Line2D
 import paperstyle as ps
 from common import MAZE_LEARNED_SUCCESS, maze_learned_index
 from fig_ed_maze import ax_mm, check_overlaps, time_axis
-from fig_ed_maze_interventions import ARMS, RATE_RAMP, RESCALE_RAMP, TRI_SCALE
+from fig_ed_maze_interventions import TRI_SCALE
 import maze_arms_r19 as M19
 
 N = M19.N
@@ -116,21 +116,25 @@ def shade(col, w):
 
 # The technique values (panels g-i), in drawing order: arm key -> (key-row label, colour, marker, column label in
 # panel g, group heading in panel g or None)
+# Round 20 (dead-relu-paper #212, Reviewer S figures item 6; PR #216 review): panels g-i use Figure 5's code, the
+# task's colour (Maze raspberry) with the technique's marker shape; shades of the raspberry tell a technique's
+# values apart. Until round 20 each technique had its own hue family.
+MAZE = ps.TASK_MAZE
 TECH = {
-    "frm0.03":           ("rate penalty 0.03",            RATE_RAMP[0.03],            "o", "0.03", "rate penalty"),
-    "frm0.1":            ("rate penalty 0.1",             RATE_RAMP[0.1],             "o", "0.1", "rate penalty"),
-    "frm0.3":            ("rate penalty 0.3",             RATE_RAMP[0.3],             "o", "0.3", "rate penalty"),
-    "frm0.1_rws0.05":    ("rate 0.1 + sparsity 0.05",     ARMS["frm0.1+rws0.05"][1],  "<", "rate 0.1\n+ sparsity", None),
-    "dropout0.2_beta4":  ("read-out dropout 0.2",         ARMS["dropout"][1],         "v", "0.2", "read-out\ndropout"),
-    "dropout0.05_beta4": ("read-out dropout 0.05",        shade(ARMS["dropout"][1], 0.55), "v", "0.05", "read-out\ndropout"),
-    "sigmaw1.0":         ("noisy synapses $\\sigma_w$ 1.0", ARMS["synnoise"][1],      "s", "1.0", "noisy\nsynapses"),
-    "sigmaw0.3":         ("noisy synapses $\\sigma_w$ 0.3", shade(ARMS["synnoise"][1], 0.62), "s", "0.3", "noisy\nsynapses"),
-    "sigmaw0.1":         ("noisy synapses $\\sigma_w$ 0.1", shade(ARMS["synnoise"][1], 0.36), "s", "0.1", "noisy\nsynapses"),
-    "rescale":           ("rescaling, $m$ = 10",          RESCALE_RAMP["rescale"],    "D", "$m$ = 10", "rescaling"),
-    "rescale_mild":      ("rescaling, smaller factor", RESCALE_RAMP["rescale_mild"], "D", "smaller\nfactor", "rescaling"),
-    "rescale_few":       ("rescaling, fewer units",  RESCALE_RAMP["rescale_few"], "D", "fewer\nunits", "rescaling"),
-    "rescale_tgt4":      ("rescaling, $m$ = 4",           shade(ps.RESCALE, 1.45),    "D", "$m$ = 4", "rescaling"),
-    "duplicate":         ("prune-and-duplicate",          ARMS["duplicate"][1],       "^", "prune-and-\nduplicate", None),
+    "frm0.03":           ("rate penalty 0.03",            shade(MAZE, 0.5),            "o", "0.03", "rate penalty"),
+    "frm0.1":            ("rate penalty 0.1",             shade(MAZE, 0.75),             "o", "0.1", "rate penalty"),
+    "frm0.3":            ("rate penalty 0.3",             MAZE,             "o", "0.3", "rate penalty"),
+    "frm0.1_rws0.05":    ("rate 0.1 + sparsity 0.05",     shade(MAZE, 1.45),  "<", "rate 0.1\n+ sparsity", None),
+    "dropout0.2_beta4":  ("read-out dropout 0.2",         MAZE,         "v", "0.2", "read-out\ndropout"),
+    "dropout0.05_beta4": ("read-out dropout 0.05",        shade(MAZE, 0.55), "v", "0.05", "read-out\ndropout"),
+    "sigmaw1.0":         ("noisy synapses $\\sigma_w$ 1.0", MAZE,      "s", "1.0", "noisy\nsynapses"),
+    "sigmaw0.3":         ("noisy synapses $\\sigma_w$ 0.3", shade(MAZE, 0.7), "s", "0.3", "noisy\nsynapses"),
+    "sigmaw0.1":         ("noisy synapses $\\sigma_w$ 0.1", shade(MAZE, 0.45), "s", "0.1", "noisy\nsynapses"),
+    "rescale":           ("rescaling, $m$ = 10",          MAZE,    "D", "$m$ = 10", "rescaling"),
+    "rescale_mild":      ("rescaling, smaller factor", shade(MAZE, 0.7), "D", "smaller\nfactor", "rescaling"),
+    "rescale_few":       ("rescaling, fewer units",  shade(MAZE, 0.45), "D", "fewer\nunits", "rescaling"),
+    "rescale_tgt4":      ("rescaling, $m$ = 4",           shade(MAZE, 1.4),    "D", "$m$ = 4", "rescaling"),
+    "duplicate":         ("prune-and-duplicate",          shade(MAZE, 1.5),       "^", "prune-and-\nduplicate", None),
 }
 # panel i's column labels (a heading per technique does not fit one column)
 LABEL_4000 = {"frm0.3": "rate\n0.3", "frm0.1_rws0.05": "rate 0.1\n+ sparsity", "dropout0.2_beta4": "dropout\n0.2",

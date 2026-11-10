@@ -89,9 +89,27 @@ MAIN = ("frm", "synnoise", "rescale", "duplicate", "dropout")
 NAME = {"control": "control networks", "frm": "rate penalty", "synnoise": "noisy synapses",
         "rescale": "rescaling", "duplicate": "prune-and-duplicate", "dropout": "read-out dropout",
         "frm+rws": "rate + sparsity"}
-COL = {"control": ps.BASELINE, "frm": ps.RATE_PENALTY, "synnoise": ps.SYNAPTIC_NOISE,
-       "rescale": ps.RESCALE, "duplicate": ps.DUPLICATE, "dropout": ps.DROPOUT,
-       "frm+rws": ps.RATE_SPARSITY}
+def task_shade(col, w):
+    """A shade of a task colour: mixed with white for w < 1 (lighter), with black for w > 1 (darker, by w - 1).
+
+    Args:
+        col: a matplotlib colour; w: float, 1 leaves the colour unchanged.
+    Returns:
+        str, a hex colour.
+    """
+    rgb = matplotlib.colors.to_rgb(col)
+    if w <= 1:
+        return matplotlib.colors.to_hex(tuple(1 - (1 - c) * w for c in rgb))
+    return matplotlib.colors.to_hex(tuple(c * (2 - w) for c in rgb))
+
+
+# Round 20 (dead-relu-paper #212, Reviewer S, figures item 6; PR #216 review): every figure that draws these
+# 3BFF networks (Extended Data Figs. 9 and 10) uses Figure 5's code, the task's colour (3BFF blue) with the
+# technique's marker shape; shades of the blue keep lines of different techniques apart where they cross.
+# Until round 20 each technique had its own hue (RULE_COLORS).
+COL = {"control": ps.BASELINE, "frm": task_shade(ps.TASK_3BFF, 1.25), "synnoise": task_shade(ps.TASK_3BFF, 0.62),
+       "rescale": ps.TASK_3BFF, "duplicate": task_shade(ps.TASK_3BFF, 1.5),
+       "dropout": task_shade(ps.TASK_3BFF, 0.42), "frm+rws": task_shade(ps.TASK_3BFF, 1.68)}
 MARK = {"control": "o", "frm": "o", "synnoise": "s", "rescale": "D", "duplicate": "^",
         "dropout": "v", "frm+rws": "P"}
 # Rules whose size series is drawn at 75,000 iterations: no floor crossing at N >= 2,000
@@ -129,7 +147,7 @@ SEE_THROUGH_REMOVAL = (1, 1, 1, 0.65)
 A_OFFSET = {"synnoise": 2500, "dropout": -2500}
 # The three rate-penalty networks of panel d and Extended Data Fig. 8: the rate violet and two
 # lighter steps of it, none darker (a darker violet is RATE_SPARSITY's; dead-relu-paper#84 item 4).
-RATE_SHADES = (ps.RATE_PENALTY, "#9d7fd3", "#c3b0e8")
+RATE_SHADES = (COL["frm"], task_shade(ps.TASK_3BFF, 0.7), task_shade(ps.TASK_3BFF, 0.42))   # round 20: shades of the 3BFF blue
 # Row labels of panel f, in words (dead-relu-paper#84 item 1); the rules are those of B3_PARTS.
 B3_LABEL = {"none": "none", "rate": "rate", "noise": "noise", "rescale": "rescaling",
             "rate+noise": "rate + noise", "rate+rescale": "rate + rescaling",

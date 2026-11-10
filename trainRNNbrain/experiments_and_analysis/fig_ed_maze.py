@@ -773,9 +773,9 @@ def panel_activations(ax, cols):
     ps.count_ticks(ax.yaxis)
     ax.set_ylabel(ps.of_n(ps.LABELS["active"], ACT_N))
     ax.legend(handles=[Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, **ps.mark_fixed(ps.MUTED),
-                              label="participation rule"),
+                              label="participation"),
                        Line2D([], [], ls="none", marker="s", ms=ps.MARKER_PT, **ps.mark_fixed(ps.MUTED),
-                              label="modulation rule"),
+                              label="modulation count"),
                        Line2D([], [], color=ps.INK, lw=0.9, label="mean"),
                        Line2D([], [], ls="none", marker="x", ms=ps.MARKER_PT + 1.0, mec=ps.INK, mew=1.0,
                               label="stopped")],

@@ -186,7 +186,7 @@ A_TOP_MM, A_H_MM = 14.5, 16.0
 # round 20 (dead-relu-paper #212, Reviewers S and W): 6 mm between panel a's axis and panel b's top, so the
 # letter b no longer sits beside panel a's "0" tick
 B1_TOP_MM, B1_H_MM = 36.5, 13.5
-B2_TOP_MM, B2_H_MM = 52.0, 15.0
+B2_TOP_MM, B2_H_MM = 52.0, 16.0
 ROW2_TOP_MM, ROW2_H_MM = 84.0, 36.0      # panel c's height; both panels end at ROW2_TOP_MM + ROW2_H_MM
 D_H_MM = 30.0                     # panel d: 29 to 30 mm; its open markers overlap in 27 and from 32 (tests/scan_open_markers.py, a see-through pair in 3BFF)
 C_LEFT_MM, C_W_MM, C_GAP_MM = 16.0, 31.0, 2.5     # panel c: two sub-columns (3BFF, CDDM) of C_W_MM each, sharing y (26 mm until round 20)
@@ -194,7 +194,11 @@ D_LEFT_MM, D_W_MM, D_GAP_MM = 93.5, 22.0, 2.5     # panel d: three sub-panels (3
 C_DODGE = 1.07                   # panel c: the techniques' markers at one size sit this factor apart along the log x axis
 FOLD_LIM = (0.0, 4.3)
 R2_LIM = (-0.038, 0.013)
-SUCC_LIM = (-0.04, 1.06)          # round 20: panel b's Maze row draws each value's success rate itself (0 to 1), not its difference from the control mean
+SUCC_LIM = (-0.29, 1.06)          # round 20: panel b's Maze row draws each value's success rate itself (0 to 1), not its difference from the control mean
+STOP_SEP = -0.105                 # panel b's Maze row: the thin line between the success rates and the stopped line
+STOP_Y = -0.21                    # panel b's Maze row: networks stopped by the rollback guard have no success rate; their crosses sit on a
+                                  # line of their own below 0, tick-labelled "stopped", so that a finished network with success near 0 (the
+                                  # rescaling m = 4 network at 0.008) is not read as a stopped one (PR #216 review, item 1)
 D_LO = -0.05                      # panel d: values below this are drawn at the edge with an arrow
 EDGE_JOIN = 0.03                  # panel d: edge markers of one series closer than this (data units) are one marker
 EDGE_ARROW_PT = 4.0               # panel d: arrow length (points) of a merged edge marker, its tail short of the circle at (0.02, 0.54) (PR #202 third review); fig_paper_F5_drive's is 9
@@ -833,16 +837,24 @@ def draw_marks(ax, x, c, key, zero=None, guide=None):
     n_group = len(vals)
     # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
     label = str(n_group) if n_group >= 1 and n_group != N_SEEDS else None
-    crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None else [])
+    # in panel b's Maze row ("perf") the stopped networks have a line of their own below the success rates, so
+    # their crosses sit at the slot's centre there, apart from the crosses of finished networks (PR #216 review)
+    own_line = key == "perf" and zero is not None
+    crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None and not own_line else [])
     # below the bar only while the label stays inside the axes: below the axes it meets the value labels
-    # (round 19: the Maze parity rescaling, whose bar reaches -0.89); otherwise beside the marker
+    # (round 19: the Maze parity rescaling, whose bar reaches -0.89); otherwise beside the marker. In the Maze
+    # row the success rates end at the line that separates the stopped networks, just below 0.
     lo, hi = ax.get_ylim()
-    room_below = len(vals) > 0 and vals.min() - lo > 0.12 * (hi - lo)
+    lo_data = STOP_SEP if own_line else lo
+    room_below = len(vals) > 0 and vals.min() - lo_data > 0.12 * (hi - lo)
     near = label and guide is not None and len(vals) and abs(vals.mean() - guide) < 0.09 * (hi - lo)
     draw_group(ax, x, vals, col, marker, label, label_above=bool(crosses) and key == "fold",
                label_below=bool(crosses) and key != "fold" and room_below, guide=guide if near else None)
     for xi, v in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
         ax.plot([xi], [v], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
+    if own_line:
+        for xi in cross_positions(x, c["n_stopped"], False):
+            ax.plot([xi], [zero], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
 
 
 def cross_positions(x, n, beside):
@@ -887,7 +899,7 @@ def panel_ab(fig, slots, columns, width, tol):
                             alpha=0.3, lw=0, zorder=1)
         draw_marks(ax_a, x, c, "fold", zero=0.0)
         if maze:
-            draw_marks(ax_b2, x, c, "perf", guide=MAZE_LEARNED_SUCCESS)
+            draw_marks(ax_b2, x, c, "perf", zero=STOP_Y, guide=MAZE_LEARNED_SUCCESS)
         else:
             draw_marks(ax_b1, x, c, "dperf", guide=-tol[c["task"]])
         if c["status"] == "unfinished":
@@ -920,8 +932,9 @@ def panel_ab(fig, slots, columns, width, tol):
     # the learned level, named by its own tick label (no in-panel text to overprint)
     ax_b2.axhline(MAZE_LEARNED_SUCCESS, lw=ps.THIN_LW, ls=(0, (4, 3)), color=ps.INK, zorder=2)
     ax_b2.set_ylim(*SUCC_LIM)
-    ax_b2.set_yticks([0, 0.5, MAZE_LEARNED_SUCCESS])
-    ax_b2.set_yticklabels(["0", "0.5", f"{MAZE_LEARNED_SUCCESS:g}"])
+    ax_b2.axhline(STOP_SEP, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)       # separates the stopped line from the success rates
+    ax_b2.set_yticks([STOP_Y, 0, 0.5, MAZE_LEARNED_SUCCESS])
+    ax_b2.set_yticklabels(["stopped", "0", "0.5", f"{MAZE_LEARNED_SUCCESS:g}"])
     ax_b2.set_ylabel("success rate")
     for ax in (ax_a, ax_b1, ax_b2):
         ax.set_xlim(0, width)
@@ -1225,6 +1238,38 @@ def fmt(vals, nd=3):
     return ", ".join(f"{v:.{nd}f}" for v in vals) if len(vals) else "-"
 
 
+def maze_marks_check(cells):
+    """Print what panel b's Maze row draws for every Maze cell, and check the fail rule by the mark.
+
+    Every finished network enters the mean; a network without a learned point is also a cross at its success
+    rate; a network stopped by the rollback guard is a cross on the "stopped" line (STOP_Y) and enters no mean.
+    The rule read from the marks, "a Maze value fails the 0.9 condition if it has a cross at a success rate",
+    holds only if every finished network below 0.9 has no learned point and every network without one ends
+    below 0.9; both are checked here (PR #216 review, item 1).
+
+    Args:
+        cells: every `cell` dict.
+    Returns:
+        int, the number of finished networks whose learned flag and success rate disagree with the rule.
+    """
+    bad = 0
+    print("\n--- panel b, Maze row: the marks drawn per cell ---")
+    for c in cells:
+        if c["task"] != "maze":
+            continue
+        perf = np.asarray(c["perf"], float)
+        learned = np.asarray(c["learned"][:len(perf)], bool)
+        crosses = perf[~learned]
+        wrong = int(np.sum(learned & (perf < MAZE_LEARNED_SUCCESS)) + np.sum(~learned & (perf >= MAZE_LEARNED_SUCCESS)))
+        bad += wrong
+        mean = f"{perf.mean():.3f}" if len(perf) else "-"
+        print(f"  {TECH_NAME[c['tech']]:>20} {c['label'] or '-':>9}: finished {fmt(perf)} (mean {mean}); crosses at "
+              f"{fmt(crosses)}; stopped {c['n_stopped']} (crosses on the stopped line)"
+              + (f"; {wrong} DISAGREE WITH THE RULE" if wrong else ""))
+    print(f"  finished networks whose learned flag disagrees with 'below 0.9 if and only if no learned point': {bad}")
+    return bad
+
+
 def report(cells, vs, order, table, floor, rows_c, rows_d, tol):
     """Print every number drawn and the verdict table.
 
@@ -1301,6 +1346,7 @@ def main():
     _, rows_c = panel_sizes(fig)
     _, rows_d = panel_removal(fig)
     report(cells, vs, order, table, floor, rows_c, rows_d, tol)
+    maze_marks_check(cells)
     learned_control_sensitivity(cells, tol)
     tolerance_sensitivity(cells, tol)
     rule_tables(cells, load_3bff_all_values(), tol["maze"])
