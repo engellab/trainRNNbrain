@@ -59,6 +59,8 @@ TASKS = [("3BFF", ("NBitFlipFlop_ff_revive_c75000", "NBitFlipFlop_paper_grid_c75
 SIZES = [500, 1000, 2000, 4000]
 Y_FLOOR = -0.5
 JITTER = 0.12                  # half-width, in size slots, over which a size's networks are spread
+# Round 22 (dead-relu-paper #223; committee #217, Reviewer S figures 2): random removal is a hexagon, as in Fig. 1d;
+# the triangle means prune-and-duplicate in Figure 5 and Extended Data Figs. 6, 9 and 10
 MS = 3.4                       # open markers, ps.mark_75k: no network here is at its floor crossing (#83)
 
 FIG_H_MM = 90.0                # under the float's 0.40 \\textheight cap (91.4 mm), so it prints at 100%
@@ -119,7 +121,7 @@ def panel_a(ax, runs, col):
             ax.plot(x, r["r2_full"], "_", ms=3.6, mew=0.9, color=ps.INK, zorder=5)
             ax.plot(x, max(r["r2_no_silent"], Y_FLOOR), "o", ms=MS, **ps.mark_75k(col),
                     zorder=4, clip_on=False)
-            ax.plot(x, max(rnd, Y_FLOOR), "^", ms=MS, **ps.mark_75k(col),
+            ax.plot(x, max(rnd, Y_FLOOR), "h", ms=MS, **ps.mark_75k(col),
                     zorder=3, clip_on=False)
     ax.set(xlim=(-0.6, len(SIZES) - 0.4), ylim=(Y_FLOOR - 0.04, 1.05))
     ax.set_xticks(range(len(SIZES)))
@@ -177,7 +179,7 @@ def main():
         Line2D([], [], ls="", marker="_", ms=3.6, mew=0.9, color=ps.INK, label="intact network"),
         Line2D([], [], ls="", marker="o", ms=MS, **ps.mark_75k(ps.MUTED),
                label="every inactive unit removed"),
-        Line2D([], [], ls="", marker="^", ms=MS, **ps.mark_75k(ps.MUTED),
+        Line2D([], [], ls="", marker="h", ms=MS, **ps.mark_75k(ps.MUTED),
                label="as many units removed in random order")],
         loc="upper left", bbox_to_anchor=(LEFT_MM / ps.W_FULL_MM, 1.0 - 2.5 / FIG_H_MM), ncol=3,
         fontsize=ps.TICK_PT, handlelength=1.2, columnspacing=1.6, borderaxespad=0.0, frameon=False)
