@@ -431,12 +431,13 @@ def panel_success(ax, ax_key, series, x_max):
             ax.plot([pr["update"][li]], [pr["probe_success"][li]], "o", ms=ps.MARKER_PT, zorder=5,
                     **ps.mark_floor(col))
     ax.axhline(MAZE_LEARNED_SUCCESS, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
-    # the level's label just outside the right spine, clear of the 21 traces (PR #207 review, item 7b)
-    ax.text(1.01, MAZE_LEARNED_SUCCESS, f"{MAZE_LEARNED_SUCCESS:g}", transform=ax.get_yaxis_transform(),
-            fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="center", clip_on=False)
+    # round 20 (dead-relu-paper #212, Reviewer S, figures item 4): the level is named by its own tick label,
+    # so no text sits beside the 21 traces (until round 20 a "0.9" just outside the right spine, PR #207
+    # review, item 7b); and the probe by the paper's name for it, the noise-free probe (item 7)
     time_axis(ax, x_max)
-    ax.set(ylim=(0, 1.02), xlabel="PPO update", ylabel="success rate (clean probe)")
-    ax.set_yticks([0, 0.5, 1.0])
+    ax.set(ylim=(0, 1.02), xlabel="PPO update", ylabel="success rate (noise-free probe)")
+    ax.set_yticks([0, 0.5, MAZE_LEARNED_SUCCESS, 1.0])
+    ax.set_yticklabels(["0", "0.5", f"{MAZE_LEARNED_SUCCESS:g}", ""])    # "1" would touch "0.9"
     sizes = sorted({r["N"] for r in series})
     handles = [Line2D([], [], color=shade(N), lw=1.2, label=f"$N$ = {ps.fmt_count(N)}") for N in sizes]
     handles.append(Line2D([], [], ls="none", marker="o", ms=ps.MARKER_PT, **ps.mark_floor(ps.MUTED),
@@ -674,8 +675,8 @@ def panel_ablation(ax, ax_key, abl):
                             Line2D([], [], color=ps.MUTED, lw=0.9, ls="--")),
                            Line2D([], [], color=ps.MUTED, lw=1.1, ls=":"),
                            Line2D([], [], color=ps.MUTED, lw=ps.THIN_LW)],
-                  labels=["quietest first", "random order (band: range)",
-                          "busiest first", "inactive units"],
+                  labels=["least to most participating", "random orders (band: range)",
+                          "most to least participating", "inactive units"],
                   loc="upper left", bbox_to_anchor=(0.0, 1.0), ncol=1, handlelength=1.6,
                   borderaxespad=0.0, borderpad=0.0)
     ps.ygrid(ax)

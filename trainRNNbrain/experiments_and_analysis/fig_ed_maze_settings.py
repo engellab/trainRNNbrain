@@ -96,7 +96,7 @@ BLOCKS = [
 # block 3 (e, f): the same settings, at update 4,000, for the arms with a continued seed (one-line titles,
 # staggered on two rows); key prefix -> title
 TITLE_4000 = {"wd": "weight decay", "inorm": "input-weight norm", "srec": "activity noise",
-              "srad": "spectral radius", "rws": "sparsity penalty", "rwm": "magnitude penalty",
+              "srad": "initial spectral radius", "rws": "sparsity penalty", "rwm": "magnitude penalty",
               "met": "metabolic penalty", "adamw": "AdamW", "sgd": "SGD, learning rate"}
 
 
@@ -126,33 +126,37 @@ TECH = {
     "sigmaw1.0":         ("noisy synapses $\\sigma_w$ 1.0", ARMS["synnoise"][1],      "s", "1.0", "noisy\nsynapses"),
     "sigmaw0.3":         ("noisy synapses $\\sigma_w$ 0.3", shade(ARMS["synnoise"][1], 0.62), "s", "0.3", "noisy\nsynapses"),
     "sigmaw0.1":         ("noisy synapses $\\sigma_w$ 0.1", shade(ARMS["synnoise"][1], 0.36), "s", "0.1", "noisy\nsynapses"),
-    "rescale":           ("rescaling, 3BFF values",       RESCALE_RAMP["rescale"],    "D", "3BFF\nvalues", "rescaling"),
-    "rescale_mild":      ("rescaling, slow tilt",         RESCALE_RAMP["rescale_mild"], "D", "slow\ntilt", "rescaling"),
-    "rescale_few":       ("rescaling, 5% grow",           RESCALE_RAMP["rescale_few"], "D", "5%\ngrow", "rescaling"),
-    "rescale_tgt4":      ("rescaling, target 4",          shade(ps.RESCALE, 1.45),    "D", "target\n4", "rescaling"),
+    "rescale":           ("rescaling, $m$ = 10",          RESCALE_RAMP["rescale"],    "D", "$m$ = 10", "rescaling"),
+    "rescale_mild":      ("rescaling, smaller factor", RESCALE_RAMP["rescale_mild"], "D", "smaller\nfactor", "rescaling"),
+    "rescale_few":       ("rescaling, fewer units",  RESCALE_RAMP["rescale_few"], "D", "fewer\nunits", "rescaling"),
+    "rescale_tgt4":      ("rescaling, $m$ = 4",           shade(ps.RESCALE, 1.45),    "D", "$m$ = 4", "rescaling"),
     "duplicate":         ("prune-and-duplicate",          ARMS["duplicate"][1],       "^", "prune-and-\nduplicate", None),
 }
 # panel i's column labels (a heading per technique does not fit one column)
 LABEL_4000 = {"frm0.3": "rate\n0.3", "frm0.1_rws0.05": "rate 0.1\n+ sparsity", "dropout0.2_beta4": "dropout\n0.2",
-              "sigmaw1.0": "$\\sigma_w$\n1.0", "rescale_mild": "slow\ntilt", "rescale_few": "5%\ngrow"}
+              "sigmaw1.0": "$\\sigma_w$\n1.0", "rescale_mild": "smaller\nfactor",
+              "rescale_few": "fewer\nunits"}
 
 # layout in millimetres from the canvas's top-left corner
 LEFT_MM = 15.0                    # the rows' two-line y labels fit left of it
 PITCH_MM = 8.5                    # one value's column in blocks 1 and 2
 GAP_MM = 3.5                      # between two settings
 PITCH4_MM, GAP4_MM = 7.0, 2.6     # block 3
-TOP_MM = (9.5, 48.0, 90.5)        # the top of each block's count axes
-COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 14.5, 9.5, 3.0
+# round 20 (dead-relu-paper #212, Reviewer S, structure 4): the figure 216 -> 202 mm, so that it and its caption fit
+# one page at a print scale of at least 0.9 (rows 14.5/9.5/3.0 mm and tops 9.5/48/90.5 mm until then)
+TOP_MM = (9.5, 44.5, 83.5)        # the top of each block's count axes
+COUNT_H_MM, SUCCESS_H_MM, ROW_GAP_MM = 12.5, 8.5, 2.5
 TITLE4_ROWS_MM = (2.2, 7.4)       # block 3: the titles' baselines above its count axes, staggered
+TITLE4_DX_MM = {"initial spectral radius": -1.75}   # block 3: a title moved left of its slots' centre, clear of the next title in its row (round 20: the Methods name is longer)
 TITLE_RULE_MM = 0.9               # a thin rule this far under each staggered title
 SEED_DX_MM = 1.5                  # the seeds' markers sit this far apart in a settings slot: an open marker's
                                   # ring and rim must not reach its neighbour's centre (tests/scan_open_markers.py)
 TRIANGLES = ("^", "v", "<")       # drawn TRI_SCALE larger, as in Figure 5
-KEY_MM = (0.0, 123.5, 165.1, 13.5)
-G_MM = dict(top=(17.0, 143.0, 145.0, 13.0), bot=(17.0, 159.0, 145.0, 11.0))
-H_MM = (17.0, 187.5, 66.0, 19.0)
-I_MM = dict(top=(103.5, 187.5, 57.0, 9.5), bot=(103.5, 199.5, 57.0, 7.5))
-FIG_H_MM = 216.0
+KEY_MM = (0.0, 113.0, 165.1, 14.5)        # (0, 123.5, 165.1, 13.5) until round 20
+G_MM = dict(top=(17.0, 132.5, 145.0, 11.0), bot=(17.0, 146.5, 145.0, 10.0))
+H_MM = (17.0, 174.0, 66.0, 19.0)
+I_MM = dict(top=(103.5, 174.0, 57.0, 9.5), bot=(103.5, 186.0, 57.0, 7.5))
+FIG_H_MM = 202.0
 HEAD_MM = -6.6                    # panel g: the group headings' rule, this far below the bottom axes
 TECH_DX = 0.22                    # panels g, i: the seeds' markers sit this far apart (column units)
 
@@ -259,11 +263,12 @@ def axes_rows(fig, top, width, U, ref, letters):
               ha="left", va="top", fontweight="bold")
     ax_n.tick_params(axis="x", length=0, labelbottom=False)
     ax_s.set_ylim(0, 1.03)
-    ax_s.set_yticks([0, 0.5, 1.0])
-    ax_s.set_ylabel("success")
+    # round 20 (dead-relu-paper #212, Reviewer S, figures item 4): the learned level is named by its tick
+    # label; the "0.9" written inside the axes overlapped the control markers
+    ax_s.set_yticks([0, 0.5, MAZE_LEARNED_SUCCESS])
+    ax_s.set_yticklabels(["0", "0.5", f"{MAZE_LEARNED_SUCCESS:g}"])
+    ax_s.set_ylabel("success\nrate")
     ax_s.tick_params(axis="x", length=0, pad=3)
-    ax_s.text(0.3, MAZE_LEARNED_SUCCESS - 0.03, f"{MAZE_LEARNED_SUCCESS:g}", fontsize=ps.TICK_PT,
-              color=ps.MUTED, ha="left", va="top")
     ps.panel_letter(ax_n, letters[0])
     ps.panel_letter(ax_s, letters[1])
     return ax_n, ax_s
@@ -291,8 +296,9 @@ def draw_block(fig, top, groups, controls, arms, U, ref, letters, pitch=PITCH_MM
     for i, (title, x, x0, x1) in enumerate(spans):
         if stagger:
             y_mm = TITLE4_ROWS_MM[i % 2]
-            ax_n.text(x, 1.0 + y_mm / COUNT_H_MM, title, transform=ax_n.get_xaxis_transform(), fontsize=ps.LABEL_PT,
-                      color=ps.INK, ha="center", va="bottom")
+            ax_n.text(x + TITLE4_DX_MM.get(title, 0.0), 1.0 + y_mm / COUNT_H_MM, title,
+                      transform=ax_n.get_xaxis_transform(), fontsize=ps.LABEL_PT, color=ps.INK, ha="center",
+                      va="bottom")
             ax_n.plot([x0, x1], [1.0 + (y_mm - TITLE_RULE_MM) / COUNT_H_MM] * 2, transform=ax_n.get_xaxis_transform(),
                       color=ps.MUTED, lw=ps.THIN_LW, clip_on=False, zorder=1)
         else:
@@ -345,7 +351,12 @@ def tech_marker(ax, x, y, key, learned):
 
 
 def panel_fold(ax_t, ax_b, keys, arms, tref, U, labels, headings):
-    """Panels g and i: fold change over the controls' mean (top) and success minus their mean (bottom).
+    """Panels g and i: fold change over the controls' mean (top) and each network's success rate (bottom).
+
+    Round 20 (dead-relu-paper #212, Reviewer W, figures item 1, as in Figure 5b): the bottom row draws the
+    success rate itself, with the learned level 0.9 dashed and the controls' mean as a grey line, in place of
+    the success rate minus the controls' mean against the tolerance 0.05, because the 0.9 condition decides
+    every Maze verdict the success rate decides. The printout keeps the difference.
 
     Args:
         ax_t, ax_b: the two axes; keys: the TECH keys, one column each; arms: maze_arms_r19 output; tref:
@@ -355,7 +366,7 @@ def panel_fold(ax_t, ax_b, keys, arms, tref, U, labels, headings):
         list of (key, verdict, clauses, per-seed text, mean fold, mean success difference) per column.
     """
     rows = []
-    folds_all, costs_all = [1.0], [-M19.SUCCESS_TOL]
+    folds_all = [1.0]
     for i, key in enumerate(keys):
         seeds = arms[key]["seeds"] if key in arms else []
         col = TECH[key][1]
@@ -364,20 +375,22 @@ def panel_fold(ax_t, ax_b, keys, arms, tref, U, labels, headings):
         n = len(read) + n_stop
         xs = [i + (j - (n - 1) / 2) * TECH_DX for j in range(n)]
         fold = [s[f"at{U}"]["active"] / tref["active"] for s in read]
-        cost = [s[f"at{U}"]["success"] - tref["success"] for s in read]
-        for xj, s, f, c in zip(xs, read, fold, cost):
+        succ = [s[f"at{U}"]["success"] for s in read]
+        cost = [v - tref["success"] for v in succ]
+        for xj, s, f, c in zip(xs, read, fold, succ):
             tech_marker(ax_t, xj, f, key, s[f"at{U}"]["learned"])
             tech_marker(ax_b, xj, c, key, s[f"at{U}"]["learned"])
         for xj in xs[len(read):]:
             ax_t.plot([xj], [0], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
         if n_stop and not read:
+            # on a paper patch, so the grey line at a fold change of 1 does not run through the word (round 20)
             ax_t.text(i, 0.12, "stopped", fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="bottom",
-                      transform=ax_t.get_xaxis_transform(), rotation=90)
+                      transform=ax_t.get_xaxis_transform(), rotation=90, zorder=3,
+                      bbox=dict(boxstyle="square,pad=0.1", fc=ps.PAPER, ec="none"))
         if read:
-            for ax, v in ((ax_t, np.mean(fold)), (ax_b, np.mean(cost))):
+            for ax, v in ((ax_t, np.mean(fold)), (ax_b, np.mean(succ))):
                 ax.plot([i - 0.34, i + 0.34], [v] * 2, "-", lw=1.4, color=col, zorder=4, solid_capstyle="butt")
             folds_all += fold
-            costs_all += cost
         v, cl = M19.technique_verdict(seeds, tref, U) if seeds else ("no verdict", [])
         txt = "; ".join(f"s{s['seed']} {M19.fmt_seed(s, U)}" for s in seeds) or "3 stopped before a checkpoint"
         rows.append((key, v, cl, txt, float(np.mean(fold)) if fold else None, float(np.mean(cost)) if cost else None))
@@ -388,14 +401,12 @@ def panel_fold(ax_t, ax_b, keys, arms, tref, U, labels, headings):
     ax_t.set_yticks(np.arange(0, ax_t.get_ylim()[1] + 1e-9, 1.0))
     ax_t.set_ylabel("fold\nchange")
     ax_t.tick_params(axis="x", length=0, labelbottom=False)
-    lo = np.floor(min(costs_all) * 10) / 10 - 0.05
-    hi = max(0.12, np.ceil(max(costs_all) * 20) / 20 + 0.03)
-    ax_b.set_ylim(lo, hi)
-    ax_b.axhline(0, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
-    ax_b.axhline(-M19.SUCCESS_TOL, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
-    step = 0.5 if lo < -0.45 else 0.2
-    ax_b.set_yticks(list(np.arange(0.0, lo, -step)))
-    ax_b.set_ylabel("success\ndifference")
+    ax_b.set_ylim(0, 1.03)
+    ax_b.axhline(tref["success"], lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
+    ax_b.axhline(MAZE_LEARNED_SUCCESS, ls=(0, (4, 3)), lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
+    ax_b.set_yticks([0, 0.5, MAZE_LEARNED_SUCCESS])
+    ax_b.set_yticklabels(["0", "0.5", f"{MAZE_LEARNED_SUCCESS:g}"])
+    ax_b.set_ylabel("success\nrate")
     ax_b.set_xticks(range(len(keys)))
     ax_b.set_xticklabels(labels, fontsize=ps.TICK_PT, linespacing=1.2)
     ax_b.tick_params(axis="x", length=0, pad=3)

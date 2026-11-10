@@ -312,16 +312,18 @@ VALUE_LABELS = {
     "revival_cddm": ["none (default)", "input-weight cap", "re-initialised"],
     "revival_ff": ["none (default)", "outgoing zeroed", "outgoing kept"],
 }
-# Panel titles: the setting by its glossary name, then the task.
+# Panel titles: the setting by its glossary name, then the task. Round 20 (dead-relu-paper #212, Reviewer S,
+# figures item 7): activity noise, magnitude penalty and input-weight norm, the names of Methods: Standard
+# training settings and of Figure 3.
 TITLES = {
     "slide_k_weightdecay": "weight decay, CDDM",
-    "slide_k_recnoise": "recurrent noise $\\sigma_{rec}$, CDDM",
+    "slide_k_recnoise": "activity noise $\\sigma_{rec}$, CDDM",
     "slide_k_metabolic": "metabolic penalty $\\lambda_{met}$, CDDM",
     "slide_k_recgain": "initial spectral radius, CDDM",
-    "slide_k_rwm": "recurrent-weight magnitude penalty, CDDM",
+    "slide_k_rwm": "magnitude penalty, CDDM",
     "slide_k_activation": "activation function, CDDM",
-    "slide_k_inputscale_cddm": "initial input-weight scale, CDDM",
-    "slide_k_inputscale": "initial input-weight scale, 3BFF",
+    "slide_k_inputscale_cddm": "input-weight norm, CDDM",
+    "slide_k_inputscale": "input-weight norm, 3BFF",
     "slide_k_frm_rws": "rate and sparsity penalties, CDDM",
     "revival_cddm": "re-initialisation and input-weight cap, CDDM",
     "revival_ff": "re-initialisation, 3BFF",

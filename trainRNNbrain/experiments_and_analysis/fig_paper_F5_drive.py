@@ -903,7 +903,8 @@ def panel_removal(axs, a3, marks):
         ax.set_yticks([0, 0.4, 0.8])
         ax.set_title(f"$N$ = {ps.fmt_count(N)}", fontsize=ps.LABEL_PT, pad=3)
         style_axes(ax)
-    axs[0].set_ylabel("$R^2$, $k$ added\nunits removed")
+    # round 20 (dead-relu-paper #212, Reviewer W item 6; PR #215): the units by what they are, not "added units"
+    axs[0].set_ylabel("$R^2$, $k$ least\nparticipating active\nunits removed")
     axs[1].tick_params(labelleft=False)
     axs[0].text(0.44, 0.47, "equal\n$R^2$", fontsize=ps.TICK_PT, color=ps.INK, ha="right",
                 va="bottom")
