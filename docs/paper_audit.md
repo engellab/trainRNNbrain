@@ -458,6 +458,14 @@ _1111, _1723).**
   keeps the Maze rate penalty at 0.03 and 0.1 (update 2,000). Metabolic at 4,000: 0.01 and 0.1 no change, 10 no
   direction (no seed learned), 1 incomplete (seed 2 stopped at 1,900, seed 3 at 3,902, both within running
   episodes). No metabolic value has a Maze direction at both points.
+- *Read-out dropout and rescaling rerun with the fix, at 2,000 (entry 2026-11-10_2014; rules 2026-11-09_1513;
+  Della 17207738, 17207739):* read-out dropout fails on Maze at rate 0.05 (444, 416, 498 active against the bar of
+  449; success 1.00, 0.98, 0.97) and at rate 0.2 (428, 456, 436; seed 2 ends at 0.84). Rescaling fails or is
+  incomplete at all four values (233-375 active, success 0.19-0.81; three networks stopped within running
+  episodes). **The headline stands under both rules, the tolerance ranges are unchanged, and the post-episode
+  caveat (entry 2026-11-08_0953) is removed for read-out dropout and rescaling.** It remains for
+  re-initialisation, which was not rerun. The 4,000 stage (Della 17289218: dropout 0.2 and the rescaling arms)
+  is reported beside the stated 2,000 read.
 - *tanh* learns under no tested setting within 4,000 updates. *The shifted sigmoid* learns at initial spectral
   radius 0.45, a per-activation change decided after the pilot was read. Full runs (entry 2026-11-09_0213):
   three sigmoid networks learned at 1,410-3,330 with 227-250 active at 4,000; the same-radius ReLU control has
