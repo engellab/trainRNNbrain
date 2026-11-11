@@ -499,3 +499,10 @@ figures are written to `img/internal_figures/`.
 | `fig_paper_F1.svg` | fig_paper_F1.py (as the PDF; r22-polish, #223) | `52e4b5c` | 2026-11-10 |
 | `fig_supp_ablation.pdf` | fig_supp_ablation.py (random removal as hexagons; r22-polish, #223) | `52e4b5c` | 2026-11-10 |
 | `fig_supp_ablation.svg` | fig_supp_ablation.py (as the PDF; r22-polish, #223) | `52e4b5c` | 2026-11-10 |
+| `fig_paper_F2_size.pdf` | fig_paper_F2_size.py (a, b: N = 250 3BFF/CDDM and N = 100 Maze networks, outside the fits; r22-sizes, #226) | `6da8ad8` | 2026-11-10 |
+| `fig_paper_F2_size.svg` | fig_paper_F2_size.py (as the PDF; r22-sizes, #226) | `6da8ad8` | 2026-11-10 |
+| `fig_ed_readout.pdf` | fig_ed_readout.py (b: N = 250 3BFF/CDDM networks; r22-sizes, #226) | `6da8ad8` | 2026-11-10 |
+| `fig_ed_readout.svg` | fig_ed_readout.py (as the PDF; r22-sizes, #226) | `6da8ad8` | 2026-11-10 |
+| `fig_ed_maze.pdf` | fig_ed_maze.py (a-c: N = 100 networks, sixth sub-panel of b, c from 45; r22-sizes, #226) | `6da8ad8` | 2026-11-10 |
+| `fig_paper_F2_size.pdf` | fig_paper_F2_size.py (a, b: x axis from 70, N = 100 markers clear of the y axis; PR #227 review) | `794219f` | 2026-11-10 |
+| `fig_paper_F2_size.svg` | fig_paper_F2_size.py (as the PDF; PR #227 review) | `794219f` | 2026-11-10 |

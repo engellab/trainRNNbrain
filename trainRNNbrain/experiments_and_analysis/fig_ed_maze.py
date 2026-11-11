@@ -5,6 +5,11 @@ ROUND 19 REVIEW (PR #207, items 7a, 7b): in panel b a probe that reads 0 active 
 (ZERO_READ_SUCCESS; N = 4,000 seed 3 at update 7,390, success 0.98) is drawn as a gap and printed
 (masked_active); panel a's '0.9' sits outside the right spine.
 
+ROUND 22 (dead-relu-paper#226; rules: trainRNNbrain entry 2026-11-09_1925_n250-n100maze-rules.md, results
+2026-11-10_0806_n250-n100maze-results.md): the four N = 100 networks (seeds 1-4, 4,000 updates, all learned)
+join the size series: a sixth sub-panel in (b), a sixth shade, and panel c's y axis from 45 so that their
+counts (60-75) are drawn. Every fit drawn or printed with FIT_MIN_N is unchanged.
+
 QUESTION. Does a network trained by PPO on the maze (issue engellab/trainRNNbrain#3; paper package
 ptolmachev/dead-relu-paper#182) leave units inactive the way the supervised tasks do: fewer active
 units than N once the task is solved, a share of active units that falls with N, a count that keeps
@@ -96,10 +101,10 @@ RADIUS_ROOT = os.path.join(REPO, "data", "trained_RNNs_rl_maze", "Maze_r19full")
 ABLATION_DIR = os.path.join(REPO, "data", "rl_maze_ablation")
 
 # the suite's grid (slurm/rl_maze_suite_*.slurm): the ReLU size series and the activations
-SIZES = (250, 500, 1000, 2000, 4000)
+SIZES = (100, 250, 500, 1000, 2000, 4000)
 SEEDS = (1, 2, 3)
-SIZE_SEEDS = {250: (1, 2, 3, 4), 500: (1, 2, 3), 1000: (1, 2, 3, 4, 5, 6), 2000: (1, 2, 3),
-              4000: (1, 2, 3, 4, 5)}      # every ReLU run of the size series since round 19
+SIZE_SEEDS = {100: (1, 2, 3, 4), 250: (1, 2, 3, 4), 500: (1, 2, 3), 1000: (1, 2, 3, 4, 5, 6), 2000: (1, 2, 3),
+              4000: (1, 2, 3, 4, 5)}      # every ReLU run of the size series since round 19 (N = 100: round 22)
 ACT_N = 1000                      # the activations are compared at this size
 ACTS = ("relu", "leaky_relu", "softplus", "tanh", "sigmoid")   # saved names, drawing order
 ACT_SEEDS = (1, 2, 3)
@@ -120,8 +125,10 @@ MAZE_STOPPED = {(4000, "relu", 4): 5940}
 # a probe with 0 active units at this success or above is a read-out artefact, masked in panel b
 ZERO_READ_SUCCESS = 0.5
 
-# N as a lightness ramp of the maze hue (ps.TASK_MAZE = #941862 is N = 2,000): light to dark
-N_SHADE = {250: "#d29ebd", 500: "#bf74a1", 1000: "#a94681", 2000: ps.TASK_MAZE, 4000: "#681145"}
+# N as a lightness ramp of the maze hue (ps.TASK_MAZE = #941862 is N = 2,000): light to dark. Round 22: N = 100
+# takes the old N = 250 tint (the lightest that still prints as a thin line); 250 and 500 are re-spaced at a third
+# and two thirds of the way from it to the N = 1,000 tint, channel by channel in RGB
+N_SHADE = {100: "#d29ebd", 250: "#c481a9", 500: "#b76395", 1000: "#a94681", 2000: ps.TASK_MAZE, 4000: "#681145"}
 
 N_BOOT = 2000                     # bootstrap resamples for the exponent's interval (panel c)
 FIT_MIN_N = 500                   # fig_paper_F2_size.FIT_MIN_N: the smallest size fitted (round 18, #201)
@@ -134,15 +141,16 @@ SPREAD_MM = 1.15                  # least distance between two marker centres of
                                   # 0.15 mm of paper beyond it
 TICK_MM = 1.6                     # the length of a mean tick beside a group
 D_YLIM = (0.0, 1.14)              # panel d: room above success = 1
-C_YLIM = (90, 3000)               # panel c: counts from 125 (N = 250) to 851 (N = 4,000)
+C_YLIM = (45, 3000)               # panel c: counts from 60 (N = 100, round 22) to 702 (N = 4,000)
 
 # layout in millimetres from the canvas's top-left corner: (left, top, width, height)
 FIG_H_MM = 155.0
-B_STEP_MM = 21.6                  # panel b: one sub-panel every this many mm (14.5 wide, 7.1 gap)
+B_STEP_MM = 19.4                  # panel b: one sub-panel every this many mm (11.5 wide, 7.9 gap; round 22,
+                                  # six sizes: was 21.6 with 14.5 wide)
 LAYOUT_MM = {
-    "a":  (12.5, 8.0, 32.5, 32.0),
+    "a":  (12.5, 8.0, 31.0, 32.0),      # round 22: 32.5 -> 31.0 wide, room for the sixth sub-panel of (b)
     "a_key": (8.0, 49.5, 46.0, 9.0),    # the key of (a), below its x label and off the traces
-    "b0": (57.0, 8.0, 14.5, 32.0),      # the first of the five sub-panels of (b)
+    "b0": (53.0, 8.0, 11.5, 32.0),      # the first of the six sub-panels of (b) (round 22; was 57.0, 14.5 wide)
     "c":  (12.5, 63.0, 52.0, 34.0),
     "d":  (79.0, 63.0, 46.0, 34.0),
     "d_key": (129.0, 63.0, 34.0, 20.0),  # the legend of (d), right of it and off the data
@@ -496,6 +504,8 @@ def panel_active(axes, series):
         x_max = int(np.ceil(max((r["probes"]["update"][-1] for r in runs), default=2000) / 500.0) * 500)
         x_lims[N] = x_max
         time_axis(ax, x_max)
+        # round 22: with six sub-panels of 11.5 mm the middle label ran into the last one; the tick stays
+        ax.set_xticklabels(["0", "", ps.fmt_count(x_max)])
         ax.set(ylim=(0, N), title=f"$N$ = {ps.fmt_count(N)}")
         placed, ends = [], []
         for r in runs:
@@ -503,6 +513,9 @@ def panel_active(axes, series):
             ax.plot(pr["update"], masked_active(r), "-", lw=ps.THIN_LW, color=col, zorder=3)
             if r.get("stopped") is not None:
                 stopped_mark(ax, pr["update"][-1], pr["active"][-1], ps.INK, clip_on=False)
+                # round 22: the end markers are spread round the cross too (in the 11.5 mm sub-panel of
+                # N = 4,000 one landed on it; tests/scan_open_markers.py rule 1)
+                placed.append(tuple(ax.transData.transform((pr["update"][-1], pr["active"][-1]))))
                 continue
             if li is not None:
                 ax.plot([pr["update"][li]], [pr["active"][li]], "o", ms=ps.MARKER_PT, zorder=5,
@@ -611,13 +624,13 @@ def panel_size(ax, rows, runs):
         fit["u4000"] = (power_fit(c4)[0], *boot_exponent(c4, np.random.default_rng(BOOT_SEED)), c4)
     nn = np.array([x_lo, x_hi])
     ax.plot(nn, nn, "-", lw=ps.THIN_LW, color=ps.FAINT, zorder=2)
-    x_lab = 280.0
+    x_lab = 125.0       # round 22: was 280; with the y axis from 45 the label there met the legend
     ax.text(x_lab, x_lab * 1.1, "every unit active", rotation=45, transform_rotates_text=True,
             fontsize=ps.TICK_PT, color=ps.MUTED, ha="left", va="bottom", rotation_mode="anchor")
     ax.set_xticks(SIZES)
     ax.xaxis.set_minor_locator(NullLocator())
     ps.count_ticks(ax.xaxis)
-    ax.set_yticks([t for t in (100, 200, 500, 1000, 2000) if C_YLIM[0] <= t <= C_YLIM[1]])
+    ax.set_yticks([t for t in (50, 100, 200, 500, 1000, 2000) if C_YLIM[0] <= t <= C_YLIM[1]])
     ax.yaxis.set_minor_locator(NullLocator())
     ps.count_ticks(ax.yaxis)
     ax.set(xlabel=ps.LABELS["size"], ylabel=ps.LABELS["active"])

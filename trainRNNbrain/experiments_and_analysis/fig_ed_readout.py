@@ -4,7 +4,8 @@
   (a) the noisy training loss of one N = 1,000 default network per task, with the smoothed loss, the
       fitted decay, the loss floor, the 1.05x, 1.10x and 1.20x levels and their crossings, and the
       loss bursts masked before smoothing;
-  (b) the floor crossing t* (1.05x) against N, every network of Fig. 2a;
+  (b) the floor crossing t* (1.05x) against N, every network of Fig. 2a (with the N = 250 3BFF and CDDM
+      networks since round 22, dead-relu-paper#226: fig_paper_F2_size.add_size250);
   (c) t* against the snapshot estimate of the same crossing, for every N = 1,000 network whose weights
       were kept every 1,000 iterations;
   (d) the difference between t* and the snapshot estimate, in percent of the snapshot estimate, per
@@ -44,7 +45,7 @@ from matplotlib.ticker import FuncFormatter, NullFormatter, NullLocator
 
 import paperstyle as ps
 from common import FLOOR_DELTAS, HOLD_FRAC
-from fig_paper_F2_size import (COLLECT, ORACLE_DIR, REPO, SIZES, TASK_COL, TASKS, apply_decisions,
+from fig_paper_F2_size import (COLLECT, ORACLE_DIR, REPO, TASK_COL, TASKS, add_size250, apply_decisions,
                                check_overlaps, is_read, network_xs, seed_of)
 
 BATCH_NOISE = os.path.join(REPO, "data", "fig_ed_readout_batch_noise.json")
@@ -203,14 +204,15 @@ def panel_tstar(ax, rec):
     """
     means = {}
     rows = [r for r in rec["series"] if is_read(r)]
+    sizes = sorted({r["N"] for r in rows})      # fig_paper_F2_size.SIZES plus N = 250 (round 22)
     # scales and limits first: network_xs places the dots in millimetres on the page
     ax.set(xscale="log", yscale="log", xlim=(75, 5500), ylim=(8_000, 160_000))
     for task in TASKS:
         own = [r for r in rows if r["task"] == task]
         means[task] = {N: float(np.mean([r["t_star"] for r in own if r["N"] == N]))
-                       for N in SIZES if any(r["N"] == N for r in own)}
+                       for N in sizes if any(r["N"] == N for r in own)}
     # one point per network, in a narrow column centred on its size, as in Fig. 2a,b (network_xs)
-    for N in SIZES:
+    for N in sizes:
         pts = [(r["task"], r["t_star"]) for r in rows if r["N"] == N]
         vals = np.array([t for _, t in pts], float)
         mean_ts = np.array([means[task][N] for task in TASKS if N in means[task]])
@@ -221,7 +223,7 @@ def panel_tstar(ax, rec):
         ax.plot(uN, [means[task][N] for N in uN], "o-", ms=ps.MARKER_PT, lw=ps.DATA_LW,
                 color=TASK_COL[task], label=task, **ps.mark_floor(TASK_COL[task]))
     ax.set(xlabel=ps.LABELS["size"], ylabel="floor crossing $t^*$ (iterations)")
-    ax.set_xticks(SIZES)
+    ax.set_xticks(sizes)
     ax.set_yticks([10_000, 20_000, 50_000, 100_000])
     for axis in (ax.xaxis, ax.yaxis):
         axis.set_minor_locator(NullLocator())
@@ -373,7 +375,7 @@ if __name__ == "__main__":
         batch_noise(args.oracle_dir)
     else:
         with open(COLLECT, "rb") as fh:
-            record = apply_decisions(pickle.load(fh))
+            record = add_size250(apply_decisions(pickle.load(fh)))
         bn = {}
         if os.path.exists(BATCH_NOISE):
             with open(BATCH_NOISE) as fh:

@@ -9,7 +9,10 @@ floor makes more units inactive.
       probe (maze_series). Power laws fitted to the size means from N = 500 for every task
       (N = 100 drawn, not fitted; the maze's N = 250 drawn, not fitted, since round 18: the
       supervised fit range, dead-relu-paper#201 decision 2). The maze's fit over every size with a
-      learned run is printed as a second reading.
+      learned run is printed as a second reading. Round 22 (dead-relu-paper#226): the N = 250 3BFF
+      and CDDM networks (data/size250/supervised.json, add_size250) and the N = 100 Maze networks
+      (found by maze_series) are drawn, not fitted (rules: trainRNNbrain entry
+      2026-11-09_1925_n250-n100maze-rules.md).
   (b) the same runs as a percentage of N, guides at 50% and 10%.
   (c) the fitted exponent at the 1.05x, 1.10x and 1.20x margins, with a bootstrap 95% interval
       (runs resampled within each size); 3BFF and CDDM only, because the margins are margins over
@@ -139,8 +142,15 @@ SERIES = {
     "DMTS": {100: "DMTS_n100/EqType=h_N=100_arm=control",
              **{N: f"DMTS_paper_grid_d5/EqType=h_N={N}_arm=control" for N in (500, 1000, 2000, 4000)}},
 }
-SIZES = [100, 500, 1000, 2000, 4000]
+SIZES = [100, 500, 1000, 2000, 4000]    # the sizes collect() reads (SERIES); N = 250 comes from SIZE250
 FIT_MIN_N = 500        # N = 100 is drawn but not fitted: nearly every unit is active there
+# Round 22 (dead-relu-paper#226): the N = 250 3BFF and CDDM networks, read on the Mac with read_one by
+# size250_n100maze_read.py (entry 2026-11-10_0806_n250-n100maze-results.md), are added to the collect
+# record's size series when the figure is drawn (add_size250); drawn and tabulated, outside every fit
+# with FIT_MIN_N (rules entry 2026-11-09_1925_n250-n100maze-rules.md).
+SIZE250 = os.path.join(REPO, "data", "size250", "supervised.json")
+SIZE250_CELLS = {"3BFF": "NBitFlipFlop_n250/EqType=h_N=250_arm=control",
+                 "CDDM": "CDDM_n250/EqType=h_N=250_arm=control"}
 # A network that never learned the task is no evidence about how many units the task needs. DMTS is
 # bimodal per seed: solved (R^2 > 0.99) or stuck at the constant-output solution (R^2 ~ 0.4).
 MIN_R2 = {"DMTS": 0.8}
@@ -217,6 +227,35 @@ def apply_decisions(rec):
         for r in rec[key]:
             if not (r.get("excluded") or "").startswith("never learned"):
                 r["excluded"] = excluded_by_decision(r["name"])
+    return rec
+
+
+def add_size250(rec, path=SIZE250):
+    """Append the N = 250 3BFF and CDDM networks to a collect record's size series.
+
+    The rows of `path` were written by size250_n100maze_read.py with read_one, the reader collect()
+    applies to every size-series network; the JSON's string margins become the float keys of
+    FLOOR_DELTAS. A row added twice is an error.
+
+    Args:
+        rec: the unpickled COLLECT record (its "series" list is extended in place);
+        path: str, data/size250/supervised.json.
+    Returns:
+        the same record.
+    """
+    with open(path) as fh:
+        nets = json.load(fh)["networks"]
+    have = {(r["task"], r["N"], r["seed"]) for r in rec["series"]}
+    for n in nets:
+        assert (n["task"], n["N"], n["seed"]) not in have, f"{n['task']} N = {n['N']} s{n['seed']} added twice"
+        rec["series"].append(dict(
+            task=n["task"], N=int(n["N"]), seed=str(n["seed"]), cell=SIZE250_CELLS[n["task"]],
+            name=f"{SIZE250_CELLS[n['task']]}/seed={n['seed']}", role="size series", excluded=None,
+            it_end=float(n["it_end"]), t_star=float(n["t_star"]), reason=n["reason"],
+            t_stars={float(d): float(t) for d, t in n["t_stars"].items()},
+            active_at={float(d): float(a) for d, a in n["active_at"].items()},
+            active_end=n["active_end"], r2_floor=float(n["r2_floor"]), r2_measured=bool(n["r2_measured"]),
+            r2_end=float(n["r2_end"]), n_bursts=n["n_bursts"], floor_kind=n["floor_kind"]))
     return rec
 
 
@@ -501,7 +540,7 @@ TOP_WIDTHS = [1.2, 1.2, 0.64, 0.86]     # top row: panels a, b, c, d
 TOP_WSPACE = 0.37       # gaps of the top row, as a fraction of the mean panel width (about 11 mm)
 # x range of panels a-b: 80 to 4,800 gives 20 mm per factor of 10 in N at print size, so the tick
 # labels 1,000, 2,000 and 4,000 (5.3 mm wide at 6 pt, 6.2 mm apart) stay apart
-SIZE_XLIM = (80, 4800)
+SIZE_XLIM = (70, 4800)   # round 22 (PR #227 review): 80 -> 70, the leftmost N = 100 marker touched the y axis
 N_BOOT = 2000           # bootstrap resamples for the exponent's interval (panel c)
 BOOT_SEED = 20261031
 # Panel f: one line per network, coloured by N in shades of the 3BFF blue (every network is 3BFF),
@@ -546,7 +585,7 @@ def cells_of(series, task, margin=0.05):
         dict N -> float array of active counts (sizes with no read run left out).
     """
     out = {}
-    for N in SIZES:
+    for N in sorted({r["N"] for r in series if r["task"] == task}):    # SIZES plus N = 250 (add_size250)
         v = [r["active_at"][margin] for r in series if r["task"] == task and r["N"] == N
              and is_read(r, margin)]
         if v:
@@ -592,7 +631,8 @@ def maze_series(root=MAZE_ROOT):
         list of dicts, one per run, sorted by N and seed: task (MAZE), N, seed (str), name (the
         run folder relative to root), n_chain (runs in the chain), it_end (last probe's update),
         budget, finished (bool), learned (bool), t_star (the learned probe's update, nan when
-        none), active_learned, success_learned (nan when none), active_end, success_end, reason
+        none), active_learned, success_learned (nan when none), active_end, success_end,
+        update_first and active_first (the first probe's update and active count), reason
         (None, or why the run is not read at a learned point), and the probe arrays it_act
         (update per probe), active (count per probe) and success (probe success rate).
     """
@@ -632,6 +672,7 @@ def maze_series(root=MAZE_ROOT):
                          active_learned=float(pr["active"][li]) if learned else float("nan"),
                          success_learned=float(pr["probe_success"][li]) if learned else float("nan"),
                          active_end=float(pr["active"][-1]), success_end=float(pr["probe_success"][-1]),
+                         update_first=float(pr["update"][0]), active_first=float(pr["active"][0]),
                          reason=reason, it_act=np.asarray(pr["update"], float),
                          active=np.asarray(pr["active"], float),
                          success=np.asarray(pr["probe_success"], float)))
@@ -785,7 +826,7 @@ def panel_size(ax_a, ax_b, series, maze):
     all_cells = {task: cells_of(series, task) for task in SUPERVISED_MAIN}
     all_cells[MAZE] = maze_cells(maze, "learned")
     crosses = [(r["N"], r["active_end"]) for r in maze if r["finished"] and not r["learned"]]
-    sizes = sorted(set(SIZES) | set(all_cells[MAZE]) | {N for N, _ in crosses})
+    sizes = sorted(set(SIZES) | {N for c in all_cells.values() for N in c} | {N for N, _ in crosses})
     # scales and limits first: network_xs places the dots in millimetres on the page
     ax_a.set(xscale="log", yscale="log", xlim=SIZE_XLIM, ylim=(50, 2500))
     ax_b.set(xscale="log", xlim=SIZE_XLIM, ylim=(0, 100))
@@ -839,7 +880,7 @@ def panel_size(ax_a, ax_b, series, maze):
     if crosses:
         handles.append(Line2D([], [], ls="none", marker="x", ms=ps.SMALL_MARKER_PT + 0.8,
                               mec=TASK_COL[MAZE], mew=0.7, label=f"{MAZE}, not learned"))
-    nn = np.array([80, 5000.0])
+    nn = np.array([SIZE_XLIM[0], 5000.0])
     ax_a.plot(nn, nn, "-", lw=ps.THIN_LW, color=ps.MUTED, zorder=2)
     # the label's angle follows the diagonal on screen, whatever the panel's aspect
     ax_a.text(250, 250, "every unit active", rotation=45, transform_rotates_text=True,
@@ -1189,13 +1230,18 @@ def panel_floor_schematic(ax):
 
 
 def check_overlaps(fig):
-    """Print every pair of drawn text artists whose rendered boxes overlap (as fig_paper_F1's check).
+    """Print every pair of drawn text artists whose rendered boxes overlap, and every text that leaves the canvas.
+
+    As fig_paper_F1's check; round 22 (dead-relu-paper#226): axis-label pads are first floored as save()
+    floors them (paperstyle.floor_label_pads), and a text reaching past the canvas edge is reported, as
+    fig_ed_maze.check_overlaps does since round 21.
 
     Args:
         fig: the finished figure.
     Returns:
-        list of (text a, text b) pairs that overlap.
+        list of (text a, text b) pairs that overlap; a text outside the canvas is listed as (text, "canvas edge").
     """
+    ps.floor_label_pads(fig)
     fig.canvas.draw()
     rend = fig.canvas.get_renderer()
     texts = list(fig.texts)
@@ -1212,6 +1258,9 @@ def check_overlaps(fig):
     boxes = [(t, t.get_window_extent(rend)) for t in texts]
     hits = [(a.get_text(), b.get_text()) for i, (a, ba) in enumerate(boxes) for b, bb in boxes[i + 1:]
             if ba.overlaps(bb) and ba.width > 0 and bb.width > 0]
+    W, H = fig.bbox.width, fig.bbox.height
+    hits += [(t.get_text(), "canvas edge") for t, b in boxes
+             if b.width > 0 and (b.x0 < 0 or b.y0 < 0 or b.x1 > W or b.y1 > H)]
     for a, b in hits:
         print(f"  !! text overlap: {a[:40]!r} <-> {b[:40]!r}")
     if not hits:
@@ -1275,7 +1324,8 @@ def draw_fig2(rec, flat, maze):
         print(f"  N={r['N']} s{r['seed']} chain {r['n_chain']} end {r['it_end']:,} of {r['budget']:,}: "
               f"learned {r['t_star']:,.0f} active {r['active_learned']:.0f} success "
               f"{r['success_learned']:.2f}; end active {r['active_end']:.0f} success "
-              f"{r['success_end']:.2f}; {r['reason'] or 'learned'}")
+              f"{r['success_end']:.2f}; first probe (update {r['update_first']:.0f}) active "
+              f"{r['active_first']:.0f}; {r['reason'] or 'learned'}")
     for at, what in (("learned", "learned-probe counts (panel a's fit)"), ("end", "end-of-training counts")):
         for min_n, rng_txt in ((FIT_MIN_N, f"N >= {FIT_MIN_N} (the paper's fit)"),
                                (0, "every size with one (second reading)")):
@@ -1476,7 +1526,7 @@ if __name__ == "__main__":
         collect_flat()
     else:
         with open(COLLECT, "rb") as fh:
-            record = apply_decisions(pickle.load(fh))
+            record = add_size250(apply_decisions(pickle.load(fh)))
         with open(FLAT, "rb") as fh:
             flat_record = pickle.load(fh)
         maze_rows = maze_series()
