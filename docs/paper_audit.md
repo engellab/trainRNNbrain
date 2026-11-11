@@ -464,8 +464,12 @@ _1111, _1723).**
   incomplete at all four values (233-375 active, success 0.19-0.81; three networks stopped within running
   episodes). **The headline stands under both rules, the tolerance ranges are unchanged, and the post-episode
   caveat (entry 2026-11-08_0953) is removed for read-out dropout and rescaling.** It remains for
-  re-initialisation, which was not rerun. The 4,000 stage (Della 17289218: dropout 0.2 and the rescaling arms)
-  is reported beside the stated 2,000 read.
+  re-initialisation, which was not rerun. *At 4,000* (entry 2026-11-11_0306; Della 17289218; the criterion
+  used for noisy synapses at 4,000, bar 404): read-out dropout 0.2 is incomplete (seed 3 stopped at 2,100,
+  within running episodes), and its two complete seeds are below the bar (397, 388; success 0.98, 0.96).
+  Rescaling has no verdict (rescale), is incomplete (rescale_mild) or fails (rescale_few, rescale_tgt4; 190-333
+  active, success 0.41-0.84). **The paper's 4,000 statement (noisy synapses at σ_w 1.0 meet the criterion on Maze,
+  so on all three tasks under the one-value rule) stands; read-out dropout does not join them.**
 - *tanh* learns under no tested setting within 4,000 updates. *The shifted sigmoid* learns at initial spectral
   radius 0.45, a per-activation change decided after the pilot was read. Full runs (entry 2026-11-09_0213):
   three sigmoid networks learned at 1,410-3,330 with 227-250 active at 4,000; the same-radius ReLU control has
