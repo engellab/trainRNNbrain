@@ -49,6 +49,70 @@
    "active_end": 548
   },
   {
+   "N": 100,
+   "act": "relu",
+   "seed": 1,
+   "n_runs": 2,
+   "end": 4000,
+   "budget": 4000,
+   "learned_at": {
+    "2000": true,
+    "4000": true
+   },
+   "learned_update": 1550,
+   "active_learned": 61,
+   "success_end": 0.9921875,
+   "active_end": 60
+  },
+  {
+   "N": 100,
+   "act": "relu",
+   "seed": 2,
+   "n_runs": 2,
+   "end": 4000,
+   "budget": 4000,
+   "learned_at": {
+    "2000": true,
+    "4000": true
+   },
+   "learned_update": 1780,
+   "active_learned": 71,
+   "success_end": 0.984375,
+   "active_end": 71
+  },
+  {
+   "N": 100,
+   "act": "relu",
+   "seed": 3,
+   "n_runs": 2,
+   "end": 4000,
+   "budget": 4000,
+   "learned_at": {
+    "2000": true,
+    "4000": true
+   },
+   "learned_update": 1370,
+   "active_learned": 64,
+   "success_end": 1.0,
+   "active_end": 60
+  },
+  {
+   "N": 100,
+   "act": "relu",
+   "seed": 4,
+   "n_runs": 2,
+   "end": 4000,
+   "budget": 4000,
+   "learned_at": {
+    "2000": true,
+    "4000": true
+   },
+   "learned_update": 580,
+   "active_learned": 75,
+   "success_end": 1.0,
+   "active_end": 68
+  },
+  {
    "N": 250,
    "act": "relu",
    "seed": 1,
@@ -308,23 +372,60 @@
    "N": 4000,
    "act": "relu",
    "seed": 1,
-   "n_runs": 3,
-   "end": 6000,
-   "budget": 6000,
+   "n_runs": 4,
+   "end": 8000,
+   "budget": 8000,
    "learned_at": {
     "2000": false,
     "4000": true,
-    "6000": true
+    "6000": true,
+    "8000": true
    },
    "learned_update": 2860,
    "active_learned": 619,
    "success_end": 1.0,
-   "active_end": 645
+   "active_end": 557
   },
   {
    "N": 4000,
    "act": "relu",
    "seed": 2,
+   "n_runs": 4,
+   "end": 8000,
+   "budget": 8000,
+   "learned_at": {
+    "2000": false,
+    "4000": false,
+    "6000": false,
+    "8000": true
+   },
+   "learned_update": 3900,
+   "active_learned": 532,
+   "success_end": 0.9609375,
+   "active_end": 595
+  },
+  {
+   "N": 4000,
+   "act": "relu",
+   "seed": 3,
+   "n_runs": 4,
+   "end": 8000,
+   "budget": 8000,
+   "learned_at": {
+    "2000": false,
+    "4000": false,
+    "6000": true,
+    "8000": true
+   },
+   "learned_update": 4120,
+   "active_learned": 681,
+   "success_end": 0.9921875,
+   "active_end": 702
+  },
+  {
+   "N": 4000,
+   "act": "relu",
+   "seed": 4,
    "n_runs": 3,
    "end": 6000,
    "budget": 6000,
@@ -335,57 +436,26 @@
    },
    "learned_update": null,
    "active_learned": null,
-   "success_end": 0.7265625,
-   "active_end": 504
-  },
-  {
-   "N": 4000,
-   "act": "relu",
-   "seed": 3,
-   "n_runs": 3,
-   "end": 6000,
-   "budget": 6000,
-   "learned_at": {
-    "2000": false,
-    "4000": false,
-    "6000": true
-   },
-   "learned_update": 4120,
-   "active_learned": 681,
-   "success_end": 0.953125,
-   "active_end": 652
-  },
-  {
-   "N": 4000,
-   "act": "relu",
-   "seed": 4,
-   "n_runs": 2,
-   "end": 4000,
-   "budget": 4000,
-   "learned_at": {
-    "2000": false,
-    "4000": false
-   },
-   "learned_update": null,
-   "active_learned": null,
-   "success_end": 0.71875,
-   "active_end": 521
+   "success_end": 0.0,
+   "active_end": 0
   },
   {
    "N": 4000,
    "act": "relu",
    "seed": 5,
-   "n_runs": 2,
-   "end": 4000,
-   "budget": 4000,
+   "n_runs": 4,
+   "end": 8000,
+   "budget": 8000,
    "learned_at": {
     "2000": false,
-    "4000": false
+    "4000": false,
+    "6000": true,
+    "8000": true
    },
-   "learned_update": null,
-   "active_learned": null,
-   "success_end": 0.9140625,
-   "active_end": 564
+   "learned_update": 3970,
+   "active_learned": 553,
+   "success_end": 0.9921875,
+   "active_end": 533
   },
   {
    "N": 1000,
@@ -874,7 +944,7 @@
       }
      }
     ],
-    "verdict_2000": "fails: count not above every control's (449) in seeds 1, 3; success cost -0.104 beyond 0.05; seeds 1, 2, 3 ending below 0.9"
+    "verdict_2000": null
    },
    {
     "key": "dropout0.2_beta4",
@@ -2230,7 +2300,7 @@
       }
      }
     ],
-    "verdict_2000": "no verdict (stopped)"
+    "verdict_2000": null
    },
    {
     "key": "rwm0.05",
@@ -2835,7 +2905,7 @@
       }
      }
     ],
-    "verdict_2000": "fails: seed 3 ending below 0.9"
+    "verdict_2000": null
    },
    {
     "key": "sigmaw0.3",
@@ -2908,7 +2978,7 @@
       }
      }
     ],
-    "verdict_2000": "fails: seed 3 ending below 0.9"
+    "verdict_2000": null
    },
    {
     "key": "sigmaw1.0",

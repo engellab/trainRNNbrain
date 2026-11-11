@@ -20,7 +20,8 @@ PARTS (all from the rsynced trees under --root):
             controls, mean success within 0.05 of theirs, no seed below 0.9); an arm with a seed stopped
             before 4,000 is "incomplete". The labels of the part 2 rules ("learns more slowly", ...). The
             2,000 verdicts are quoted from data/round18_training/round18_settings.json (settings) and
-            data/read_maze_arms.json (techniques), not recomputed.
+            data/read_maze_arms.json (techniques, by arm folder; None for the round 18 parity arms, which that
+            file predates), not recomputed.
   pilot     every Maze_r19pilot run: learned at 2,000 and, for the continued ones, at 4,000; the pass rule.
 
 Usage (repository root):
@@ -154,7 +155,12 @@ def read_settings(root, suite_root):
                mean_success_4000=float(np.mean([c["at4000"]["success"] for c in crow if c["at4000"]["reached"]])))
     s2000 = {x["key"]: x["new_text"] for x in json.load(open(os.path.join(REPO, "data", "round18_training",
                                                                           "round18_settings.json")))["rows"]}
-    t2000 = {x["key"]: x["verdict"] for x in json.load(open(os.path.join(REPO, "data", "read_maze_arms.json")))["arms"]}
+    # technique verdicts keyed on the arm (the launcher's ARM_TAG, read_maze_arms' "folder"), never on the class
+    # key: a class holds several arms (dropout0.2_beta4 and dropout0.05_beta4 are both "dropout"), and arms added
+    # after read_maze_arms.json was written (the round 18 parity arms) have no verdict there (entry 2026-11-10_2018)
+    tarms = json.load(open(os.path.join(REPO, "data", "read_maze_arms.json")))["arms"]
+    t2000 = {x["folder"]: x["verdict"] for x in tarms}
+    assert len(t2000) == len(tarms), "two read_maze_arms.json entries share one arm folder"
     arms = {}
     for r in maze_load_runs(root):
         cfg = yaml.safe_load(open([os.path.join(r["folder"], f) for f in os.listdir(r["folder"])
@@ -171,7 +177,7 @@ def read_settings(root, suite_root):
         seeds = sorted(seeds, key=lambda x: x["seed"])
         cls = arm_class(cls_key)
         row = dict(key=key, cls=cls, seeds=seeds,
-                   verdict_2000=s2000.get(key) if cls == "setting" else t2000.get(key, t2000.get(cls_key)))
+                   verdict_2000=s2000.get(key) if cls == "setting" else t2000.get(key))
         if any(s["continued"] for s in seeds):
             n2 = sum(s["at2000"]["learned"] for s in seeds)
             n4 = sum(s["at4000"]["learned"] for s in seeds)
