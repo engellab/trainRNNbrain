@@ -17,13 +17,14 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       (3BFF, CDDM, maze: the task colours), one open marker per group at the mean over every
       finished seed, the mean the criterion judges (dead-relu-paper#190, Reviewer R item 4), with a
       thin bar over their range (the paper's convention for open markers that would overlap,
-      dead-relu-paper#104; the number of seeds beside it when it is not 3) and, where a
+      dead-relu-paper#104; no number of seeds beside it since the final review of 11 Nov) and, where a
       technique was run at several values on a task, one group per value (the value written
       under the column); the band behind a group is the control's own range of seeds. A run the maze's rollback guard stopped
       is a cross at 0; a maze run that did not learn the task (common.maze_learned_index) is
-      inside its group's mean and also a cross at its value; a group with no finished run says
-      "unfinished", a partly finished one carries the number of its finished seeds beside the
-      marker. The task labels are the paper's ("Maze"). The columns are ORDERED by the number of tasks on which the technique works (ties: by
+      inside its group's mean and also a cross at its value (the crosses light grey, smaller than the
+      markers and behind them); a group with no finished run says "unfinished". The column of
+      prune-and-duplicate, the technique that works on all three tasks, has a pale grey-yellow
+      background across panels a and b. The task labels are the paper's ("Maze"). The columns are ORDERED by the number of tasks on which the technique works (ties: by
       the number of tasks on which the count condition passes, then the name).
       Round 19 (dead-relu-paper#201, r19-text): every value run on all three tasks is drawn, so the round 18
       parity values join (noisy synapses sigma_w 0.1 and 0.3, read-out dropout rate 0.05 with beta 4, rescaling
@@ -98,6 +99,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
 
 import paperstyle as ps
 import fig_paper_F5_drive as F5
@@ -124,7 +126,6 @@ CDDM_SIZE_ARMS = (("duplicate", "duplication"), ("dropout", "mute"))   # panel c
 G3_TECH = {"prune-and-duplicate": "duplicate", "read-out dropout": "dropout",
            "rate penalty 0.1": "frm", "rate penalty 0.2": "frm"}
 N = 1000
-N_SEEDS = 3                      # the groups' usual size; another size is written beside the marker
 TASKS = ("3BFF", "CDDM", "maze")
 TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM, "maze": ps.TASK_MAZE}
 TASK_NAME = {"3BFF": "3BFF", "CDDM": "CDDM", "maze": "Maze"}       # the tasks as the paper names them
@@ -193,6 +194,16 @@ CROSS_DX_MM = 1.6                 # a cross beside a group marker sits this far 
 CROSS_STEP_MM = 1.2               # between two crosses on one side of a marker
 CROSS_HALF_MM = 0.6               # half the width of a drawn cross (MARKER_PT and its stroke), for the slot width
 SLOT_PAD_MM = 0.35                # between a slot's outermost cross and the slot's edge
+# Final review (Pavel, 11 Nov: every plot understandable at a glance): the crosses of single networks are light
+# grey, smaller and behind the group markers, so the means carry the panel; no network counts beside markers;
+# the column of the technique that passes on all three tasks has a pale background in panels a and b
+CROSS_COL = "#bbbbbb"             # a network without a learned point, or a stopped one (the task colour until 11 Nov)
+CROSS_PT = 2.2                    # its marker size in pt (ps.MARKER_PT, 3.0, until 11 Nov)
+CROSS_EW = 0.7                    # its stroke width in pt
+CROSS_Z = 3                       # above the control bands (1) and guide lines (2), behind range bars (4) and markers (5)
+HIGHLIGHT_TECH = "duplicate"      # the technique whose column is shaded in panels a and b
+HIGHLIGHT_COL = "#c8b040"         # a neutral grey-yellow, no task's or rule's hue
+HIGHLIGHT_ALPHA = 0.15
 KEY_TOP_MM = 0.5
 A_TOP_MM, A_H_MM = 14.5, 16.0
 # round 20 (dead-relu-paper #212, Reviewers S and W): 6 mm between panel a's axis and panel b's top, so the
@@ -834,26 +845,18 @@ def slot_extent(c):
     return left, right
 
 
-def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=False, label_below=False,
-               guide=None):
+def draw_group(ax, x, ys, col, marker, ms=ps.MARKER_PT):
     """One group of open markers the paper's way: a marker at the mean, a bar over the range.
 
     Open markers of one group would overlap at any spacing that fits the slots of these figures,
     and an open marker drawn over another's ink rim no longer reads as open (dead-relu-paper#104,
     tests/scan_open_markers.py), so a group is one open marker at its mean with a thin bar from
-    its smallest to its largest value and, when `label` is given, that text beside it.
+    its smallest to its largest value. No network count is written beside it (final review, 11 Nov:
+    the supplementary table carries the counts).
 
     Args:
         ax: axes whose x is in mm; x: the group's x; ys: the values (array-like); col: the
-            colour; marker: the shape; label: str or None, written 1 mm right of the marker;
-            ms: marker size in pt (triangles are drawn TRI_SCALE larger); label_above: bool, write
-            the label above the bar instead, for a slot whose crosses sit beside the marker
-            (review of PR #193, item 11: check_overlaps tests text against text only); label_below:
-            bool, write it below the bar instead (third review, item 6: above the slow-tilt bar in
-            panel b it lay on the tolerance line); guide: float or None, the y of a dashed line that a
-            label written beside the marker would sit on; the label is then written just below that
-            line when the mean is above it, and just above it otherwise (round 20: the "4" and "5" of
-            panel b's held-out R^2 row lay on the tolerance line).
+            colour; marker: the shape; ms: marker size in pt (triangles are drawn TRI_SCALE larger).
     Returns:
         None (nothing drawn for an empty group).
     """
@@ -865,35 +868,31 @@ def draw_group(ax, x, ys, col, marker, label=None, ms=ps.MARKER_PT, label_above=
                 clip_on=False)
     size = ms * (F5.TRI_SCALE if marker in TRIANGLES else 1.0)
     ax.plot([x], [ys.mean()], marker, ms=size, ls="none", zorder=5, clip_on=False, **ps.mark_fixed(col))
-    if label and label_above:
-        ax.annotate(label, xy=(x, ys.max()), xytext=(0, 2.5), textcoords="offset points", fontsize=ps.TICK_PT,
-                    color=ps.INK, ha="center", va="bottom", zorder=6, annotation_clip=False)
-    elif label and label_below:
-        ax.annotate(label, xy=(x, ys.min()), xytext=(0, -2.5), textcoords="offset points", fontsize=ps.TICK_PT,
-                    color=ps.INK, ha="center", va="top", zorder=6, annotation_clip=False)
-    elif label and guide is not None:
-        above = ys.mean() < guide
-        ax.annotate(label, xy=(x + 1.0, guide), xytext=(0, 1.0 if above else -1.0), textcoords="offset points",
-                    fontsize=ps.TICK_PT, color=ps.INK, ha="left", va="bottom" if above else "top", zorder=6,
-                    annotation_clip=False)
-    elif label:
-        ax.text(x + 1.0, ys.mean(), label, fontsize=ps.TICK_PT, color=ps.INK, ha="left", va="center", zorder=6)
 
 
-def draw_marks(ax, x, c, key, zero=None, guide=None):
+def draw_cross(ax, x, y):
+    """One light-grey cross for a single network (no learned point, or stopped), behind the group markers.
+
+    Args:
+        ax: axes whose x is in mm; x: float, mm; y: float, data units of `ax`.
+    Returns:
+        None.
+    """
+    ax.plot([x], [y], "x", ms=CROSS_PT, mec=CROSS_COL, mew=CROSS_EW, ls="none", zorder=CROSS_Z, clip_on=False)
+
+
+def draw_marks(ax, x, c, key, zero=None):
     """One cell's marks in one axes: every finished seed as one group, the not-learned ones also as crosses.
 
     The group marker is the mean over every finished seed, the mean the criterion
     judges (`rule`; dead-relu-paper#190, Reviewer R item 4), so a marker inside the tolerance band
     passes the performance condition and one outside it fails. A seed that did not learn the task
-    is inside that mean and is also drawn as a cross at its value, beside the marker; a seed the
-    guard stopped is a cross at `zero`.
+    is inside that mean and is also drawn as a light-grey cross at its value, beside the marker; a seed
+    the guard stopped is a cross at `zero`.
 
     Args:
         ax: axes (x in mm); x: the slot's centre; c: a `cell` dict; key: "fold", "dperf" or "perf",
-            the values drawn; zero: the y of a stopped run's cross, or None to draw none; guide: the y
-            of a dashed line in this axes, or None; a number written beside a marker that would sit on
-            it is moved off it.
+            the values drawn; zero: the y of a stopped run's cross, or None to draw none.
     Returns:
         None.
     """
@@ -901,32 +900,16 @@ def draw_marks(ax, x, c, key, zero=None, guide=None):
     vals = np.asarray(c[key], float)
     ok = np.asarray(c["learned"][:len(vals)], bool)
     n_group = len(vals)
-    # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
-    label = str(n_group) if n_group >= 1 and n_group != N_SEEDS else None
     # in panel b's Maze row ("perf") the stopped networks have a line of their own below the success rates, so
     # their crosses sit at the slot's centre there, apart from the crosses of finished networks (PR #216 review)
     own_line = key == "perf" and zero is not None
     crosses = list(vals[~ok]) + ([zero] * c["n_stopped"] if zero is not None and not own_line else [])
-    # below the bar only while the label stays inside the axes: below the axes it meets the value labels
-    # (round 19: the Maze parity rescaling, whose bar reaches -0.89); otherwise beside the marker. In the Maze
-    # row the success rates end at the line that separates the stopped networks, just below 0.
-    lo, hi = ax.get_ylim()
-    lo_data = STOP_SEP if own_line else lo
-    room_below = len(vals) > 0 and vals.min() - lo_data > 0.12 * (hi - lo)
-    near = label and guide is not None and len(vals) and abs(vals.mean() - guide) < 0.09 * (hi - lo)
-    # round 21 (dead-relu-paper #217, Reviewer S figures 8): a number written beside a marker sat nearer the next
-    # slot's marker than its own (panel b, the "4" of 3BFF rescaling), so it goes above the bar where the axes
-    # leave room for it, else below, and beside the marker only where neither has room
-    room_above = key != "perf" and len(vals) > 0 and hi - vals.max() > 0.2 * (hi - lo)   # perf: 0.9 line above
-    above = bool(label) and (room_above or (bool(crosses) and key == "fold"))
-    below = bool(label) and not above and room_below
-    draw_group(ax, x, vals, col, marker, label, label_above=above, label_below=below,
-               guide=guide if near else None)
+    draw_group(ax, x, vals, col, marker)
     for xi, v in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
-        ax.plot([xi], [v], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
+        draw_cross(ax, xi, v)
     if own_line:
         for xi in cross_positions(x, c["n_stopped"], False):
-            ax.plot([xi], [zero], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
+            draw_cross(ax, xi, zero)
 
 
 def cross_positions(x, n, beside):
@@ -961,7 +944,7 @@ def panel_ab(fig, slots, columns, width, tol):
     ax_b1 = ax_mm(fig, LEFT_MM, B1_TOP_MM, width, B1_H_MM)
     ax_b2 = ax_mm(fig, LEFT_MM, B2_TOP_MM, width, B2_H_MM)
     for ax, lim in ((ax_a, FOLD_LIM), (ax_b1, R2_LIM), (ax_b2, SUCC_LIM)):
-        ax.set_ylim(*lim)                 # before drawing: draw_marks places labels by the limits
+        ax.set_ylim(*lim)
     for c, x in slots:
         maze = c["task"] == "maze"
         band_ax = ax_b2 if maze else ax_b1
@@ -970,22 +953,29 @@ def panel_ab(fig, slots, columns, width, tol):
             ax.fill_between(list(c["span"]), [lo] * 2, [hi] * 2, color=ps.FAINT, alpha=0.3, lw=0, zorder=1)
         draw_marks(ax_a, x, c, "fold", zero=0.0)
         if maze:
-            draw_marks(ax_b2, x, c, "perf", zero=STOP_Y, guide=MAZE_LEARNED_SUCCESS)
+            draw_marks(ax_b2, x, c, "perf", zero=STOP_Y)
         else:
-            draw_marks(ax_b1, x, c, "dperf", guide=-tol[c["task"]])
+            draw_marks(ax_b1, x, c, "dperf")
         if c["status"] == "unfinished":
             ax_a.text(x, 0.5, "unfinished", rotation=90, transform=ax_a.get_xaxis_transform(),
                       fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="center")
         elif c["status"] == "stopped":
             ax_a.text(x, 0.55, "stopped", rotation=90, transform=ax_a.get_xaxis_transform(),
                       fontsize=ps.TICK_PT, color=ps.MUTED, ha="center", va="center")
-        # a partly finished cell carries no "k/n": the number beside its marker gives the finished
-        # networks, as in every other cell (dead-relu-paper#190, Reviewer S, figures item 3)
+        # a partly finished cell carries no "k/n" (dead-relu-paper#190, Reviewer S, figures item 3)
         if c["label"]:
             ax_b2.text(x, -0.06, LABEL_SHOWN.get(c["label"], c["label"]), rotation=90,
                        transform=ax_b2.get_xaxis_transform(), fontsize=ps.TICK_PT, color=ps.INK, ha="center",
                        va="top")
     for tech, x0, x1 in columns:
+        if tech == HIGHLIGHT_TECH:
+            # one pale span from panel a's top to the Maze row's bottom: each axes shades its own height and the
+            # gap down to the next axes (an axes' white face would hide a span drawn by the axes above it)
+            for ax, top, h, nxt in ((ax_a, A_TOP_MM, A_H_MM, B1_TOP_MM), (ax_b1, B1_TOP_MM, B1_H_MM, B2_TOP_MM),
+                                    (ax_b2, B2_TOP_MM, B2_H_MM, B2_TOP_MM + B2_H_MM)):
+                ax.add_patch(Rectangle((x0, -(nxt - top - h) / h), x1 - x0, 1.0 + (nxt - top - h) / h,
+                                       transform=ax.get_xaxis_transform(), fc=HIGHLIGHT_COL, alpha=HIGHLIGHT_ALPHA,
+                                       lw=0, zorder=0, clip_on=False))
         ax_a.text((x0 + x1) / 2, 1.04, TECH[tech][0], transform=ax_a.get_xaxis_transform(),
                   fontsize=ps.LABEL_PT, color=ps.INK, ha="center", va="bottom", linespacing=1.15)
     ax_a.axhline(1.0, lw=ps.THIN_LW, color=ps.FAINT, zorder=1)
@@ -1464,6 +1454,8 @@ def main():
     cells = sorted(cells_ff + cells_cddm + cells_maze, key=value_key)    # stable: values in order within a slot group
     vs = verdicts(cells, tol)
     order, table = column_order(vs)
+    assert order[0] == HIGHLIGHT_TECH and all(table[(HIGHLIGHT_TECH, k)][0] for k in TASKS), \
+        "the shaded column is no longer the first one or no longer works on all three tasks"
     ps.setup()
     fig = ps.figure(FIG_H_MM)
     panel_key(fig)

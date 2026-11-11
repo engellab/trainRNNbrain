@@ -25,18 +25,21 @@ level 0.9 dashed). One column per setting, one slot per value, the slots in the 
 a ladder that spans decades (weight decay, the metabolic penalty, SGD's learning rate) is evenly
 spaced in the log of its value; the first column is the task's control. Inside a slot, the seeds that
 learned the task are one open marker at their mean with a thin bar over their range (the paper's
-convention for open markers that would overlap, dead-relu-paper#104; the number of seeds beside
-the marker when it is not 3), and behind it the band of the cell's OWN control (each ladder is read against the control its read-out file names; the bands
+convention for open markers that would overlap, dead-relu-paper#104; no number of seeds beside
+the marker since the final review of 11 Nov), and behind it the band of the cell's OWN control (each ladder is read against the control its read-out file names; the bands
 differ between columns where the controls do). A maze run that did not learn the task
 (common.maze_learned_index) and a supervised run with R^2 below the read-out file's "learned" bar
 (0.8) are crosses, in the performance row at their value or at the axis' bottom edge when below
-it; a run the maze's rollback guard stopped is a cross at 0. A slot reads "unfinished" when no run
-of the cell has finished; a partly finished cell carries the number of its learned runs beside the
-marker, as every cell does when that number is not 3. A short dash marks a value the programme has
-no cell for on the task (the maze's upper spectral-radius rung is 1.5 where the supervised tasks'
-is 2.0; the input-weight cap was run at 0.1, 0.5 and 2.0 on 3BFF only), with the words "not run"
-written once per block in the performance row of its first such slot (dead-relu-paper#190); "no
-read at 75k" marks CDDM's tanh cell, which was read at the end of its 150,000 iterations only. The
+it; a run the maze's rollback guard stopped is a cross at 0. The crosses are light grey, smaller
+than the markers and behind them (final review, 11 Nov). A slot reads "unfinished" when no run
+of the cell has finished. A value the programme has no cell for on the task (the maze's upper
+spectral-radius rung is 1.5 where the supervised tasks' is 2.0; the input-weight cap was run at
+0.1, 0.5 and 2.0 on 3BFF only) is an empty slot, with the words "not run" written once per block
+in the performance row of its first such slot (dead-relu-paper#190); "measured at 150,000 only"
+marks CDDM's tanh cell, which was read at the end of its 150,000 iterations only. A slot whose
+direction on the task is "increase" (`direction`) has a pale background in the task's colour over
+both rows of the block, so a value that increased the count on every task is shaded in all three
+blocks; the shaded cells and their performance against the control are printed last. The
 task label of each block is the paper's name ("Maze"). Adam without weight decay is the
 weight-decay column's 0 and is not repeated in the optimiser column.
 
@@ -87,12 +90,13 @@ import pickle
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
+from matplotlib.patches import Rectangle
 
 import paperstyle as ps
 from common import MAZE_LEARNED_SUCCESS
 from fig_ed_maze import ax_mm, check_overlaps
 from fig_paper_F2_fails import CACHE as F2_CACHE
-from fig_paper_F5_tasks import cross_positions, draw_group
+from fig_paper_F5_tasks import cross_positions, draw_cross, draw_group
 import maze_arms_r19 as M19
 
 REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
@@ -182,7 +186,8 @@ LEFT_MM = 15.5
 PITCH_MM = 3.6                    # one value's slot
 GAP_MM = 2.0                      # between two settings
 SEED_DX_MM = 0.8                  # a cell's crosses sit this far apart
-DASH_MM = 1.6                     # the dash of a value not run on a task
+NOTE_COL = ps.FAINT               # the notes "not run", "stopped", "measured at 150,000 only" (ps.MUTED until 11 Nov)
+SHADE_ALPHA = 0.13                # the background of a slot whose direction on the task is "increase", in the task colour
 BLOCK_TOP_MM = (15.0, 48.0, 81.0)
 COUNT_H_MM, PERF_H_MM, ROW_GAP_MM = 15.0, 9.5, 2.5   # the performance row keeps 9.5 mm: its y label clears the tick labels
 CROSS_EDGE_MM = 1.0       # height above the performance row's bottom spine of a cross whose value is below the axis
@@ -444,6 +449,17 @@ def fill_absent(cells):
     return cells
 
 
+def shaded(c):
+    """Whether a cell's slot gets the "increase" background: every learned network above every control network.
+
+    Args:
+        c: a `cell` dict.
+    Returns:
+        bool.
+    """
+    return direction(c["active"], c["ctrl_active"], c["learned"]) == "increase"
+
+
 def draw_cell(ax_n, ax_p, x, c, col, perf_lim, note=False):
     """One cell's marks in both rows: a marker per finished seed, crosses, the mean bars, the band.
 
@@ -454,6 +470,12 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim, note=False):
     Returns:
         str, what was drawn, for the printout.
     """
+    if shaded(c):
+        # one pale span over both rows: the count axes shade their own height and the gap down to the
+        # performance axes, whose white face would hide a span drawn from above
+        for ax, gap in ((ax_n, ROW_GAP_MM / COUNT_H_MM), (ax_p, 0.0)):
+            ax.add_patch(Rectangle((x - PITCH_MM / 2, -gap), PITCH_MM, 1.0 + gap, transform=ax.get_xaxis_transform(),
+                                   fc=col, alpha=SHADE_ALPHA, lw=0, zorder=0, clip_on=False))
     # round 23 (dead-relu-paper #231, Reviewer S figures 4): a cell measured only at another iteration (CDDM tanh, at
     # 150,000) has no marker, so it gets no control band either; its band in the R^2 row stood alone beside no marker
     bands = () if c["status"] == "no read" else ((ax_n, min(c["ctrl_active"]), max(c["ctrl_active"])),
@@ -464,49 +486,43 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim, note=False):
     active, perf = np.asarray(c["active"], float), np.asarray(c["perf"], float)
     ok = np.asarray(c["learned"], bool)
     n_group = int(ok.sum())
-    # the number of networks behind the marker when it is not 3, "1" included (PR #188 review, 9a)
-    label = str(n_group) if c["status"] == "finished" and n_group >= 1 and n_group != N_SEEDS else None
     # the runs that did not learn, and the stopped ones, are crosses set apart along x
     crosses = [(a, p) for a, p, o in zip(active, perf, ok) if not o] + [(0.0, None)] * c["n_stopped"]
-    # with crosses beside the marker the number goes above its bar, in the count row only: above the
-    # performance row's marker it would meet the count axis (review of PR #193, item 11)
-    draw_group(ax_n, x, active[ok], col, "o", label, label_above=bool(crosses))
-    draw_group(ax_p, x, perf[ok], col, "o", None if crosses else label)
+    draw_group(ax_n, x, active[ok], col, "o")
+    draw_group(ax_p, x, perf[ok], col, "o")
     what = [f"{a:.0f} {p:.3f}" for a, p in zip(active[ok], perf[ok])]
     for xi, (a, p) in zip(cross_positions(x, len(crosses), n_group > 0), crosses):
-        ax_n.plot([xi], [a], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
+        draw_cross(ax_n, xi, a)
         if p is not None:
             # round 21 (dead-relu-paper #217, Reviewer S figures 5): a cross below the axis sits wholly inside it,
             # its centre CROSS_EDGE_MM above the bottom spine (at 0.03 of the range, 0.3 mm, the 3BFF SGD 1
             # cross lay on the line between the 3BFF and CDDM blocks)
             y_p = max(p, perf_lim[0] + CROSS_EDGE_MM / PERF_H_MM * (perf_lim[1] - perf_lim[0]))
-            ax_p.plot([xi], [y_p], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5, clip_on=False)
+            draw_cross(ax_p, xi, y_p)
             what.append(f"{a:.0f} {p:.3f} (not learned)")
     if c["n_stopped"]:
         what.append(f"{c['n_stopped']} stopped")
     if c["status"] == "not run":
-        # a short dash just above the count row's axis line marks a value the programme did not run
-        # on this task (at mid-height it read as a value, review of PR #193); the words "not run"
-        # are written once per block, in the performance row of the block's first such slot
-        # (dead-relu-paper#190, Reviewer W, figures item 2)
-        ax_n.plot([x - DASH_MM / 2, x + DASH_MM / 2], [0.03, 0.03], transform=ax_n.get_xaxis_transform(),
-                  color=ps.MUTED, lw=ps.DATA_LW, solid_capstyle="butt", clip_on=False, zorder=2)
+        # a value the programme did not run on this task is an empty slot (its dash above the count
+        # row's axis line went in the final review, 11 Nov); the words "not run" are written once per
+        # block, in the performance row of the block's first such slot (dead-relu-paper#190, Reviewer W,
+        # figures item 2)
+        # at 0.45 of the row's height, not 0.5: at 0.5 the words ended 0.15 mm under the Maze row's dashed 0.9 line
         if note:
-            ax_p.text(x, 0.5, "not run", rotation=90, transform=ax_p.get_xaxis_transform(), fontsize=ps.TICK_PT,
-                      color=ps.MUTED, ha="center", va="center")
+            ax_p.text(x, 0.45, "not run", rotation=90, transform=ax_p.get_xaxis_transform(), fontsize=ps.TICK_PT,
+                      color=NOTE_COL, ha="center", va="center")
         what.append("not run")
     elif c["status"] in ("unfinished", "no read"):
         # round 20 (Reviewers W and R): the reason in words, in place of the lab label "no read at 75k"
         text = {"unfinished": "unfinished", "no read": "measured at\n150,000 only"}[c["status"]]
         ax_n.text(x, 0.5, text, rotation=90, transform=ax_n.get_xaxis_transform(), fontsize=ps.TICK_PT,
-                  color=ps.MUTED, ha="center", va="center")
+                  color=NOTE_COL, ha="center", va="center")
         what.append(text + (f" ({c['n_running']} training)" if c["n_running"] else ""))
     elif c["status"] == "stopped":
         ax_n.text(x, 0.55, "stopped", rotation=90, transform=ax_n.get_xaxis_transform(), fontsize=ps.TICK_PT,
-                  color=ps.MUTED, ha="center", va="center")
+                  color=NOTE_COL, ha="center", va="center")
     elif c["status"] == "incomplete":
-        # no "k/n" text: the crosses at 0 show the stopped runs, and the number beside a marker
-        # gives the networks behind it (dead-relu-paper#190, Reviewer S, figures item 3)
+        # no "k/n" text: the crosses at 0 show the stopped runs (dead-relu-paper#190, Reviewer S, figures item 3)
         what.append(f"{len(c['active'])} of {c['n_expected']}" + (f", {c['n_running']} training" if c["n_running"] else ""))
     return "; ".join(what)
 
@@ -621,6 +637,43 @@ def report(cells, rows, ref):
     tally(vals, has_all, dir_all, short)
 
 
+def report_shaded(cells):
+    """Print the cells whose slot is shaded ("increase"), each with its performance against the control.
+
+    Args:
+        cells: dict (task, setting, value) -> `cell` dict.
+    Returns:
+        list of (task, setting, value) shaded, in drawing order.
+    """
+    print("\n--- shaded slots (direction 'increase': every learned network has more active units than every control "
+          "network): task, setting, value; active units of the learned networks against the control's range; mean "
+          "performance of the learned networks (the marker drawn) minus the control mean; the same over every "
+          "finished network ---")
+    out = []
+    for task in TASKS:
+        for setting, _, values in COLUMNS:
+            for key, _ in values:
+                c = cells[(task, setting, key)]
+                if not shaded(c):
+                    continue
+                ok = np.asarray(c["learned"], bool)
+                perf, active = np.asarray(c["perf"], float), np.asarray(c["active"], float)
+                d_learned = perf[ok].mean() - np.mean(c["ctrl_perf"])
+                d_all = perf.mean() - np.mean(c["ctrl_perf"])
+                print(f"  {TASK_NAME[task]:>5} {setting:>7} {key:>8}: active {active[ok].min():.0f}-{active[ok].max():.0f} "
+                      f"(mean {active[ok].mean():.0f}) vs control {min(c['ctrl_active'])}-{max(c['ctrl_active'])}; "
+                      f"{PERF_NAME[task].replace('$R^2$', 'R^2')} {perf[ok].mean():.3f} vs control {np.mean(c['ctrl_perf']):.3f}: "
+                      f"{d_learned:+.3f} ({int(ok.sum())} learned of {len(ok) + c['n_stopped']} networks; over every "
+                      f"finished network {d_all:+.3f}) [{c['status']}]")
+                out.append((task, setting, key))
+    per_value = {}
+    for task, setting, key in out:
+        per_value.setdefault((setting, key), []).append(TASK_NAME[task])
+    print(f"  {len(out)} slots shaded; shaded on all three tasks: "
+          + (", ".join(f"{s} {k}" for (s, k), ts in per_value.items() if len(ts) == len(TASKS)) or "none"))
+    return out
+
+
 def tally(vals, has, dir_of, short):
     """Print how many values have a direction on both supervised tasks and on all three, and which agree.
 
@@ -659,6 +712,7 @@ def main():
         rows[task] = draw_block(fig, task, top, cells, slots, columns, width, letter, titles=task == TASKS[0])
     report(cells, rows, ref)
     check_overlaps(fig)
+    report_shaded(cells)
     ps.save(fig, "fig_paper_F3_tasks")
 
 
