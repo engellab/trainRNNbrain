@@ -540,7 +540,7 @@ TOP_WIDTHS = [1.2, 1.2, 0.64, 0.86]     # top row: panels a, b, c, d
 TOP_WSPACE = 0.37       # gaps of the top row, as a fraction of the mean panel width (about 11 mm)
 # x range of panels a-b: 80 to 4,800 gives 20 mm per factor of 10 in N at print size, so the tick
 # labels 1,000, 2,000 and 4,000 (5.3 mm wide at 6 pt, 6.2 mm apart) stay apart
-SIZE_XLIM = (80, 4800)
+SIZE_XLIM = (70, 4800)   # round 22 (PR #227 review): 80 -> 70, the leftmost N = 100 marker touched the y axis
 N_BOOT = 2000           # bootstrap resamples for the exponent's interval (panel c)
 BOOT_SEED = 20261031
 # Panel f: one line per network, coloured by N in shades of the 3BFF blue (every network is 3BFF),
@@ -880,7 +880,7 @@ def panel_size(ax_a, ax_b, series, maze):
     if crosses:
         handles.append(Line2D([], [], ls="none", marker="x", ms=ps.SMALL_MARKER_PT + 0.8,
                               mec=TASK_COL[MAZE], mew=0.7, label=f"{MAZE}, not learned"))
-    nn = np.array([80, 5000.0])
+    nn = np.array([SIZE_XLIM[0], 5000.0])
     ax_a.plot(nn, nn, "-", lw=ps.THIN_LW, color=ps.MUTED, zorder=2)
     # the label's angle follows the diagonal on screen, whatever the panel's aspect
     ax_a.text(250, 250, "every unit active", rotation=45, transform_rotates_text=True,
