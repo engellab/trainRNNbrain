@@ -21,7 +21,7 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       technique was run at several values on a task, one group per value (the value written
       under the column); the band behind a group is the control's own range of seeds. A run the maze's rollback guard stopped
       is a cross at 0; a maze run that did not learn the task (common.maze_learned_index) is
-      inside its group's mean and also a cross at its value (the crosses light grey, smaller than the
+      inside its group's mean and also a cross at its value (the crosses mid grey, smaller than the
       markers and behind them); a group with no finished run says "unfinished". The column of
       prune-and-duplicate, the technique that works on all three tasks, has a pale grey-yellow
       background across panels a and b. The task labels are the paper's ("Maze"). The columns are ORDERED by the number of tasks on which the technique works (ties: by
@@ -47,11 +47,23 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       dropout as a context line, both at the floor crossing (data/round18/g6_reads.json, the
       CDDM_paper_grid networks at N = 500 to 4,000 against the same-size control; R^2 estimated
       from the final weights, as the G6 read-out does). One technique key for both sub-columns.
-  (d) removing the added units, one marker per network, by ONE procedure on all three tasks since
-      round 18 (dead-relu-paper#201 decision 3): the k added units removed, the inactive units left
-      in place, against k active units removed at random (median over 5 draws). k is a network's
-      number of active units minus the controls' mean; its k added units ("recruited" in the read-out
-      files) are its k least participating active units. 3BFF: the removal analysis A3
+  (d) removing active units, one line per network, by ONE procedure on all three tasks since
+      round 18 (dead-relu-paper#201 decision 3). Redrawn on 11 Nov (final review: readable at a glance)
+      as three sub-panels (3BFF, CDDM, Maze) sharing the y axis (held-out R^2, or the Maze success
+      rate), each with three positions along x: the intact network, the network after its k least
+      participating active units are removed (the inactive units left in place), and after k active
+      units are removed at random (median over 5 draws). Each network is one thin line through its
+      three values, with its technique's open marker at the middle position only: at "intact" and
+      after the random removal the networks of a sub-panel lie closer together than a marker is wide
+      (the 19 3BFF networks within 0.03 in R^2 when intact, 18 of them within 0.19 after the random
+      removal), and open markers there cover one another's insides (with 2.2 pt markers at both
+      removals, moved sideways by up to a quarter of the spacing of the positions,
+      tests/scan_open_markers.py found 21 dark centres). Markers that would overlap are moved
+      sideways by at most D_SWARM_MAX (0.4) of the spacing of the positions (swarm_offsets). A short
+      thick ink tick at each position is the median over the sub-panel's networks. A value below
+      D_LO is drawn at D_LO with an arrowhead pointing down.
+      k is a network's number of active units minus the controls' mean; its k least participating
+      active units are called "added" or "recruited" in the read-out files. 3BFF: the removal analysis A3
       (data/remedy_reads_31oct/a3_N1000.json, held-out R^2 at 75,000 iterations, 19 networks). CDDM:
       G3 (data/round18/g3_cddm_removal.json, held-out R^2, 9 draws; prune-and-duplicate and read-out
       dropout at their 100,000-iteration weights against the paper-grid control, the rate penalty 0.1
@@ -194,10 +206,11 @@ CROSS_DX_MM = 1.6                 # a cross beside a group marker sits this far 
 CROSS_STEP_MM = 1.2               # between two crosses on one side of a marker
 CROSS_HALF_MM = 0.6               # half the width of a drawn cross (MARKER_PT and its stroke), for the slot width
 SLOT_PAD_MM = 0.35                # between a slot's outermost cross and the slot's edge
-# Final review (Pavel, 11 Nov: every plot understandable at a glance): the crosses of single networks are light
+# Final review (Pavel, 11 Nov: every plot understandable at a glance): the crosses of single networks are
 # grey, smaller and behind the group markers, so the means carry the panel; no network counts beside markers;
 # the column of the technique that passes on all three tasks has a pale background in panels a and b
-CROSS_COL = "#bbbbbb"             # a network without a learned point, or a stopped one (the task colour until 11 Nov)
+CROSS_COL = "#8f8f8f"             # a network without a learned point, or a stopped one (the task colour until 11 Nov; #bbbbbb,
+                                  # hard to see on the grey control bands, in the first draft of 11 Nov)
 CROSS_PT = 2.2                    # its marker size in pt (ps.MARKER_PT, 3.0, until 11 Nov)
 CROSS_EW = 0.7                    # its stroke width in pt
 CROSS_Z = 3                       # above the control bands (1) and guide lines (2), behind range bars (4) and markers (5)
@@ -211,11 +224,11 @@ A_TOP_MM, A_H_MM = 14.5, 16.0
 B1_TOP_MM, B1_H_MM = 36.5, 13.5
 B2_TOP_MM, B2_H_MM = 52.0, 16.0
 ROW2_TOP_MM, ROW2_H_MM = 84.0, 36.0      # panel c's height; both panels end at ROW2_TOP_MM + ROW2_H_MM
-D_H_MM = 30.0                     # panel d: 29 to 30 mm; its open markers overlap in 27 and from 32 (tests/scan_open_markers.py, a see-through pair in 3BFF)
+D_H_MM = 30.0                     # panel d's height
 C_LEFT_MM, C_W_MM, C_GAP_MM = 16.0, 30.0, 2.5     # panel c: two sub-columns (3BFF, CDDM) of C_W_MM each, sharing y (26 mm until round 20;
                                                    # 31 until round 23, when panel d's y label ran 0.5 mm into the CDDM column:
                                                    # dead-relu-paper #231, Reviewer S figures 1; tests/scan_text_on_axes.py)
-D_LEFT_MM, D_W_MM, D_GAP_MM = 93.5, 22.0, 2.5     # panel d: three sub-panels (3BFF, CDDM, Maze) of D_W_MM each (at least 22 mm, tests/scan_open_markers.py), sharing y
+D_LEFT_MM, D_W_MM, D_GAP_MM = 93.5, 22.0, 2.5     # panel d: three sub-panels (3BFF, CDDM, Maze) of D_W_MM each, sharing y
 C_DODGE = 1.07                   # panel c: the techniques' markers at one size sit this factor apart along the log x axis
 FOLD_LIM = (0.0, 4.3)
 # Round 21 (dead-relu-paper #217, Reviewer S figures 7): panel c rings the means of the 3BFF rate-penalty networks
@@ -228,16 +241,19 @@ STOP_SEP = -0.105                 # panel b's Maze row: the thin line between th
 STOP_Y = -0.21                    # panel b's Maze row: networks stopped by the rollback guard have no success rate; their crosses sit on a
                                   # line of their own below 0, tick-labelled "stopped", so that a finished network with success near 0 (the
                                   # rescaling m = 4 network at 0.008) is not read as a stopped one (PR #216 review, item 1)
-D_LO = -0.05                      # panel d: values below this are drawn at the edge with an arrow
-EDGE_JOIN = 0.03                  # panel d: edge markers of one series closer than this (data units) are one marker
-EDGE_ARROW_PT = 4.0               # panel d: arrow length (points) of a merged edge marker, its tail short of the circle at (0.02, 0.54) (PR #202 third review); fig_paper_F5_drive's is 9
-# Round 22 (dead-relu-paper #223; committee #217, Reviewer S figures 1): in the 3BFF sub-panel of d two rate-penalty
-# networks lie 0.5 and 0.3 mm from a prune-and-duplicate and a read-out-dropout network, and the see-through faces
-# of those pairs printed grey. These two circles are drawn beside their values, offset by D_MOVE_PT (points, x and
-# y), with a thin line from the rim of the triangle that covers each value to the circle. Keys are the measured (x, y) values (printout,
-# panel d: rate penalty 0.106/0.218 and 0.128/0.184); a key must match exactly one marker. Both stay above the
-# diagonal, on the side of their values.
-D_MOVE_PT = {("3BFF", "frm", 0.106, 0.218): (-6.0, -4.0), ("3BFF", "frm", 0.128, 0.184): (-4.4, -4.6)}
+# panel d (redrawn 11 Nov): three positions along x per sub-panel, one line per network
+D_YLIM = (-0.25, 1.03)            # the shared y axis; the lowest value drawn at its own height is CDDM's -0.115
+D_LO = -0.17                      # a value below this is drawn at this height with an arrowhead pointing down
+D_ARROW = 0.075                   # the arrowhead's tip lies this far (data units) below D_LO, inside the axes
+D_XLIM = (-0.45, 2.4)             # positions 0 (intact), 1 (k least participating removed), 2 (k random removed)
+D_SEP_MM = 1.6                    # two markers are drawn this far apart (centre to centre), or as far as fits (swarm_offsets)
+D_SWARM_MAX = 0.4                 # a marker is moved sideways by at most this, in units of the position spacing (a quarter
+                                  # leaves CDDM's eight rate-penalty circles, within 0.07 in R^2, on one another's insides)
+D_SWARM_STEP = 0.01               # the sideways positions tried, in units of the position spacing
+D_LINE_ALPHA = 0.5                # a network's line
+D_MED_HALF = (0.3, 0.52, 0.3)     # half the length of the median tick at each position, in units of the position spacing
+                                  # (the middle one reaches past the markers moved sideways)
+D_MED_LW = 1.6                    # its width, pt
 
 
 def rule(active, perf, ctrl_active, ctrl_perf, tol, floor=None):
@@ -871,7 +887,7 @@ def draw_group(ax, x, ys, col, marker, ms=ps.MARKER_PT):
 
 
 def draw_cross(ax, x, y):
-    """One light-grey cross for a single network (no learned point, or stopped), behind the group markers.
+    """One grey cross for a single network (no learned point, or stopped), behind the group markers.
 
     Args:
         ax: axes whose x is in mm; x: float, mm; y: float, data units of `ax`.
@@ -887,7 +903,7 @@ def draw_marks(ax, x, c, key, zero=None):
     The group marker is the mean over every finished seed, the mean the criterion
     judges (`rule`; dead-relu-paper#190, Reviewer R item 4), so a marker inside the tolerance band
     passes the performance condition and one outside it fails. A seed that did not learn the task
-    is inside that mean and is also drawn as a light-grey cross at its value, beside the marker; a seed
+    is inside that mean and is also drawn as a grey cross at its value, beside the marker; a seed
     the guard stopped is a cross at `zero`.
 
     Args:
@@ -1209,145 +1225,124 @@ def removal_rows():
     return rows
 
 
-def panel_removal(fig):
-    """Panel d: performance after removing the added units against performance after a random removal.
+def removal_medians(rows):
+    """Panel d's median ticks: per task the medians of the three values over its networks.
 
-    Three sub-axes sharing both axes, 3BFF and CDDM (held-out R^2) and the maze (success), one removal
-    in all three (removal_rows): the k added units removed, the inactive units left in place, against
-    k active units removed at random.
+    Args:
+        rows: removal_rows().
+    Returns:
+        dict task -> (median intact, median y, median x), floats, from the values as measured (not clipped).
+    """
+    return {task: tuple(float(np.median([r[key] for r in rows if r["task"] == task])) for key in ("intact", "y", "x"))
+            for task in TASKS}
+
+
+def swarm_offsets(y_mm, scale, sep_mm, max_mm, step_mm):
+    """Sideways offsets that keep the markers of one position apart (a deterministic swarm, no random draw).
+
+    The markers are placed in order of height. Each takes the offset closest to 0 (the right-hand one first
+    on a tie) at which it is at least a distance d from every marker already placed, d times the larger of
+    the two scales for a pair with a larger marker. d starts at sep_mm and is lowered in steps of 0.05 mm
+    until every marker finds such an offset within the limit.
+
+    Args:
+        y_mm: array (n,), the markers' heights in mm; scale: array (n,), each marker's size relative to a
+        circle's (TRI_SCALE for a triangle, 1 otherwise); sep_mm: the centre-to-centre distance wanted;
+        max_mm: the largest offset allowed to either side; step_mm: the grid of offsets tried.
+    Returns:
+        (offsets, d): offsets is an array (n,) in mm, in the order of y_mm; d the distance (mm, float) that
+        every pair of markers keeps (times the larger scale of the pair).
+    """
+    y_mm = np.asarray(y_mm, float)
+    n_side = int(round(max_mm / step_mm))
+    cand = sorted((k * step_mm for k in range(-n_side, n_side + 1)), key=lambda v: (abs(v), -v))
+    for d in np.arange(sep_mm, 0.0, -0.05):
+        off, placed = np.zeros(len(y_mm)), []
+        for i in np.argsort(y_mm, kind="stable"):
+            fits = [c for c in cand if all(np.hypot(c - px, y_mm[i] - py) >= d * max(scale[i], sc)
+                                           for px, py, sc in placed)]
+            if not fits:
+                break
+            off[i] = fits[0]
+            placed.append((fits[0], y_mm[i], scale[i]))
+        if len(placed) == len(y_mm):
+            return off, float(d)
+    return np.zeros(len(y_mm)), 0.0
+
+
+def panel_removal(fig):
+    """Panel d: each network intact, after its k least participating active units are removed, and after k random ones.
+
+    Three sub-axes sharing the y axis, 3BFF and CDDM (held-out R^2) and the maze (success rate), one removal
+    in all three (removal_rows). Along x three positions: 0 the intact network, 1 after the removal of its k
+    least participating active units (the inactive units left in place), 2 after the removal of k active units
+    at random (median of 5 draws). Per network: one thin line in the task colour through its three values, and
+    its technique's open marker at position 1, moved sideways where it would cover another marker
+    (swarm_offsets; the line passes through the marker). No markers at positions 0 and 2, where the networks
+    of a sub-panel lie closer together than a marker is wide. A short thick ink tick at each position is the
+    median over the sub-panel's networks (removal_medians). A value below D_LO is drawn at D_LO with an
+    arrowhead pointing down.
 
     Args:
         fig: the figure.
     Returns:
-        (axes, rows): rows as removal_rows.
+        (axes, rows, drawn): rows as removal_rows; drawn a dict with clipped (list of (task, network name,
+        "least" or "random", value)) and closest (dict task -> the centre-to-centre distance in mm that every
+        two circles, squares or diamonds keep; a pair with a triangle keeps TRI_SCALE times it).
     """
     rows = removal_rows()
-    axes = []
+    medians = removal_medians(rows)
+    axes, drawn = [], dict(clipped=[], closest={})
+    mm_per_y = D_H_MM / (D_YLIM[1] - D_YLIM[0])
+    mm_per_x = D_W_MM / (D_XLIM[1] - D_XLIM[0])
+    arrow = dict(arrowstyle="-|>,head_length=0.25,head_width=0.12", lw=0.5, shrinkB=0)
     for j, (task, title) in enumerate((("3BFF", "3BFF, $R^2$"), ("CDDM", "CDDM, $R^2$"), ("maze", "Maze, success"))):
         ax = ax_mm(fig, D_LEFT_MM + j * (D_W_MM + D_GAP_MM), ROW2_TOP_MM + ROW2_H_MM - D_H_MM, D_W_MM, D_H_MM)
         axes.append(ax)
-        ax.set_xlim(D_LO - 0.012, 0.5)
-        ax.set_ylim(D_LO - 0.015, 0.85)
-        ax.plot([D_LO, 0.5], [D_LO, 0.5], color=ps.FAINT, lw=ps.THIN_LW, zorder=1)
-        groups = []
-        for tech in TECH:
-            pts = [(r["x"], r["y"]) for r in rows if r["task"] == task and r["tech"] == tech]
-            groups += edge_or_group(ax, pts, TASK_COL[task], TECH[tech][1])
-        for g in groups:
-            if g["x"] < 0.0:      # a label on the left would sit on the y axis (PR #202 review, item 12)
-                g["side"] = "below"
-        displace(ax, task, groups)
-        F5.draw_groups(ax, F5.see_through(ax, groups))
-        ax.set_xticks([0, 0.2, 0.4])
-        ax.set_yticks([0, 0.4, 0.8])
+        ax.set_xlim(*D_XLIM)
+        ax.set_ylim(*D_YLIM)
+        sel = [r for r in rows if r["task"] == task]
+        col = TASK_COL[task]
+        y_least = np.array([max(r["y"], D_LO) for r in sel])
+        y_random = np.array([max(r["x"], D_LO) for r in sel])
+        scale = [F5.TRI_SCALE if TECH[r["tech"]][1] in TRIANGLES else 1.0 for r in sel]
+        off, drawn["closest"][task] = swarm_offsets(y_least * mm_per_y, scale, D_SEP_MM, D_SWARM_MAX * mm_per_x,
+                                                    D_SWARM_STEP * mm_per_x)
+        x_least = 1 + off / mm_per_x
+        # the triangles first: their corners reach furthest, and a marker drawn later keeps its own inside white
+        for i, r in sorted(enumerate(sel), key=lambda ir: -scale[ir[0]]):
+            ax.plot([0, x_least[i], 2], [r["intact"], y_least[i], y_random[i]], color=col, lw=ps.THIN_LW,
+                    alpha=D_LINE_ALPHA, zorder=2, solid_joinstyle="round")
+            size = ps.MARKER_PT * scale[i]
+            ax.plot([x_least[i]], [y_least[i]], TECH[r["tech"]][1], ms=size, ls="none", zorder=5, **ps.mark_fixed(col))
+            # an arrowhead below a value drawn at D_LO: from the marker's rim (least) or the line's end (random)
+            for x, key, what, shrink in ((x_least[i], "y", "least", size / 2 + 1.2), (2, "x", "random", 0.0)):
+                if r[key] < D_LO:
+                    drawn["clipped"].append((task, r["name"], what, r[key]))
+                    ax.annotate("", xy=(x, D_LO - D_ARROW), xytext=(x, D_LO), zorder=4,
+                                arrowprops=dict(arrow, color=col, shrinkA=shrink))
+        for pos, m in enumerate(medians[task]):
+            ax.plot([pos - D_MED_HALF[pos], pos + D_MED_HALF[pos]], [m, m], color=ps.INK, lw=D_MED_LW, zorder=3,
+                    solid_capstyle="butt")
+        ax.set_xticks([0, 1, 2])
+        ax.set_xticklabels(["intact", "least", "random"])
+        ax.tick_params(axis="x", length=0)
+        ax.set_yticks([0, 0.5, 1.0])
+        ax.set_yticklabels(["0", "0.5", "1"])
         ax.set_title(title, fontsize=ps.LABEL_PT, pad=3, loc="left")
         ps.ygrid(ax)
         if j:
             ax.tick_params(labelleft=False)
-    # round 20 (dead-relu-paper #212, Reviewer W item 6): the units by what they are, not "added units"
-    # round 21 (dead-relu-paper #217, Reviewer W figures): the axis labels name the quantity, not the operation
-    axes[0].set_ylabel("$R^2$ or success rate after\nremoving the $k$ least\nparticipating active units",
-                       linespacing=1.05)
+    axes[0].set_ylabel("$R^2$ or success rate")
     label_x = fig.text((D_LEFT_MM + 1.5 * D_W_MM + D_GAP_MM) / ps.W_FULL_MM,
                        1.0 - (ROW2_TOP_MM + ROW2_H_MM + 6.0) / FIG_H_MM,
-                       "$R^2$ or success rate after removing $k$ random active units (median of 5)",
+                       "active units removed ($k$ = active units in excess of the control mean)",
                        ha="center", va="top", fontsize=ps.LABEL_PT, color=ps.INK)
     fig.canvas.draw()
     box = label_x.get_window_extent(fig.canvas.get_renderer())
     assert box.x1 <= fig.bbox.x1 and box.x0 >= 0, "panel d's horizontal label leaves the canvas"
-    axes[0].text(0.49, 0.50, "equal", fontsize=ps.TICK_PT, color=ps.MUTED, ha="right", va="bottom")
     ps.panel_letter(axes[0], "d")
-    return axes, rows
-
-
-def displace(ax, task, groups):
-    """Move the panel-d markers named in D_MOVE_PT beside their values; a line joins each to the marker covering its value.
-
-    Args:
-        ax: the sub-panel's axes, limits set; task: "3BFF", "CDDM" or "maze";
-        groups: edge_or_group() dicts of that sub-panel (single networks have n = 1), changed in place:
-            a moved group's x, y become the drawn position.
-    Raises:
-        AssertionError if a D_MOVE_PT key of this task matches no group or more than one.
-    """
-    to_pt = 72 / ax.figure.dpi
-    for (t, tech, vx, vy), (dx, dy) in D_MOVE_PT.items():
-        if t != task:
-            continue
-        hit = [g for g in groups if g["n"] == 1 and g["marker"] == TECH[tech][1]
-               and abs(g["x"] - vx) < 0.0015 and abs(g["y"] - vy) < 0.0015]
-        assert len(hit) == 1, f"D_MOVE_PT {t} {tech} ({vx}, {vy}) matches {len(hit)} markers"
-        g = hit[0]
-        px, py = ax.transData.transform((g["x"], g["y"])) * to_pt
-        nx, ny = ax.transData.inverted().transform(((px + dx) / to_pt, (py + dy) / to_pt))
-        # the line runs from the rim of the neighbouring marker that covers the measured value (the closest
-        # marker of another series) to the moved circle's rim, so that neither inside carries ink
-        others = [h for h in groups if h is not g and h["marker"] != g["marker"]]
-        nb = min(others, key=lambda h: np.hypot(*(ax.transData.transform((h["x"], h["y"])) * to_pt - (px, py))))
-        qx, qy = ax.transData.transform((nb["x"], nb["y"])) * to_pt
-        r_nb = np.sqrt(nb["s"]) / 2 + 0.3
-        steps = np.linspace(0.0, 1.0, 401)
-        t0 = steps[np.argmax(np.hypot(px + steps * dx - qx, py + steps * dy - qy) >= r_nb)]
-        t1 = 1.0 - (np.sqrt(g["s"]) / 2) / np.hypot(dx, dy)
-        (sx, sy), (ex, ey) = (ax.transData.inverted().transform(((px + t * dx) / to_pt, (py + t * dy) / to_pt))
-                              for t in (t0, t1))
-        ax.plot([sx, ex], [sy, ey], color=g["col"], lw=ps.THIN_LW, zorder=F5.Z_OPEN + 1,
-                solid_capstyle="butt", clip_on=False)
-        print(f"  panel d {task} {tech}: marker of the network at ({g['x']:.3f}, {g['y']:.3f}) drawn at "
-              f"({nx:.3f}, {ny:.3f}), joined by a line to the marker that covers its value")
-        g["x"], g["y"], g["xs"], g["ys"] = float(nx), float(ny), np.array([nx]), np.array([ny])
-
-
-def edge_or_group(ax, pts, col, marker):
-    """Open-marker groups of one series in panel d; a value below the axis goes to the edge.
-
-    Args:
-        ax: the axes, limits set; pts: list of (x, y); col: colour; marker: shape.
-    Returns:
-        list of fig_paper_F5_drive.open_groups dicts for the points inside the axes.
-    """
-    inside, edge = [], []
-    for x, y in pts:
-        if x < D_LO or y < D_LO:
-            edge.append(((D_LO + 0.01, y) if x < D_LO else (x, D_LO + 0.012), "<" if x < D_LO else "v"))
-        else:
-            inside.append((x, y))
-    # edge markers of one series closer than EDGE_JOIN (data units along the edge) are drawn as one
-    # marker at their mean with their number beside it (round 18: two CDDM rate-penalty networks)
-    edge.sort(key=lambda e: (e[1], e[0][1] if e[1] == "<" else e[0][0]))
-    merged = []
-    for (xy, d) in edge:
-        along = xy[1] if d == "<" else xy[0]
-        if merged and merged[-1][1] == d and abs(along - merged[-1][2][-1]) < EDGE_JOIN:
-            merged[-1][0].append(xy)
-            merged[-1][2].append(along)
-        else:
-            merged.append(([xy], d, [along]))
-    s_mark = 11 * (F5.TRI_SCALE ** 2 if marker == "<" else 1.0)
-    for xys, d, _ in merged:
-        xd, yd = np.mean([q[0] for q in xys]), np.mean([q[1] for q in xys])
-        if len(xys) == 1:
-            F5.edge_arrow(ax, xd, yd, d, col, False, marker, s=s_mark)
-            continue
-        # a merged marker (PR #202 second review, item 1): its arrow is shortened to EDGE_ARROW_PT so the
-        # tail stops short of the neighbouring markers, and its count sits outside the axes, beside the
-        # marker it counts (as fig_paper_F5_drive.draw_groups labels a group at the edge)
-        ax.scatter([xd], [yd], s=F5.open_size(marker, s_mark), marker=marker, zorder=F5.Z_OPEN, clip_on=False,
-                   **F5.open_kw(col))
-        off = (EDGE_ARROW_PT, 0) if d == "<" else (0, EDGE_ARROW_PT)
-        ax.annotate("", xy=(xd, yd), xytext=off, textcoords="offset points", zorder=4,
-                    arrowprops=dict(arrowstyle="-|>,head_length=0.15,head_width=0.12", lw=0.5, color=col,
-                                    shrinkA=0, shrinkB=2.2))
-        if d == "<":
-            ax.annotate(str(len(xys)), xy=(D_LO - 0.012, yd), xytext=(-1.5, 0), textcoords="offset points",
-                        fontsize=ps.TICK_PT, color=ps.INK, ha="right", va="center", annotation_clip=False)
-        else:
-            ax.annotate(str(len(xys)), xy=(xd, D_LO - 0.015), xytext=(0, -1.5), textcoords="offset points",
-                        fontsize=ps.TICK_PT, color=ps.INK, ha="center", va="top", annotation_clip=False)
-    if not inside:
-        return []
-    x, y = (np.array(v) for v in zip(*inside))
-    return F5.open_groups(ax, x, y, col, marker, 11 * (F5.TRI_SCALE ** 2 if marker == "<" else 1.0))
+    return axes, rows, drawn
 
 
 def fmt(vals, nd=3):
@@ -1387,13 +1382,13 @@ def maze_marks_check(cells):
     return bad
 
 
-def report(cells, vs, order, table, floor, rows_c, rows_d, tol):
+def report(cells, vs, order, table, floor, rows_c, rows_d, drawn_d, tol):
     """Print every number drawn and the verdict table.
 
     Args:
         cells: the `cell` dicts; vs: `verdicts` output; order, table: `column_order` output;
-        floor: load_3bff's floor list; rows_c, rows_d: the panel c and d rows; tol: dict task ->
-        tolerance.
+        floor: load_3bff's floor list; rows_c, rows_d: the panel c and d rows; drawn_d: panel_removal's
+        dict of what it drew (clipped values, closest markers); tol: dict task -> tolerance.
     Returns:
         None.
     """
@@ -1441,6 +1436,18 @@ def report(cells, vs, order, table, floor, rows_c, rows_d, tol):
         print(f"  {task}: {len(sel)} networks; random lower than added in {sum(r['x'] < r['y'] for r in sel)}; "
               f"y {min(r['y'] for r in sel):.3f} to {max(r['y'] for r in sel):.3f}; "
               f"x {min(r['x'] for r in sel):+.3f} to {max(r['x'] for r in sel):+.3f}")
+    n = len(rows_d)
+    print(f"  networks whose performance is lower by at least 0.10 after the removal of their k least participating "
+          f"active units (intact - y >= 0.10): {sum(r['intact'] - r['y'] >= 0.10 for r in rows_d)} of {n}")
+    print(f"  networks in which the removal of k random active units lowers performance more (x < y): "
+          f"{sum(r['x'] < r['y'] for r in rows_d)} of {n}")
+    print("  panel d as drawn (11 Nov): per network a line through intact, y and x; median ticks (intact, y, x): "
+          + "; ".join(f"{task} " + ", ".join(f"{m:.3f}" for m in med) for task, med in removal_medians(rows_d).items()))
+    print(f"  values below {D_LO} drawn at {D_LO} with an arrowhead: {len(drawn_d['clipped'])} of {2 * n} ("
+          + "; ".join(f"{t} {name.strip()} {what} {v:.3f}" for t, name, what, v in drawn_d["clipped"]) + ")")
+    print("  distance every two markers of a sub-panel keep, centre to centre (mm; a pair with a triangle "
+          f"{F5.TRI_SCALE} times it; markers are moved sideways by at most {D_SWARM_MAX} of the position spacing to stay "
+          f"up to {D_SEP_MM} apart): " + ", ".join(f"{t} {d:.2f}" for t, d in drawn_d["closest"].items()))
 
 
 def main():
@@ -1463,8 +1470,8 @@ def main():
     assert LEFT_MM + width <= ps.W_FULL_MM - 2, f"the slots are {width:.1f} mm wide; the canvas is too narrow"
     panel_ab(fig, slots, columns, width, tol)
     _, rows_c = panel_sizes(fig)
-    _, rows_d = panel_removal(fig)
-    report(cells, vs, order, table, floor, rows_c, rows_d, tol)
+    _, rows_d, drawn_d = panel_removal(fig)
+    report(cells, vs, order, table, floor, rows_c, rows_d, drawn_d, tol)
     maze_marks_check(cells)
     learned_control_sensitivity(cells, tol)
     tolerance_sensitivity(cells, tol)
