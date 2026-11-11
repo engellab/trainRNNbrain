@@ -704,7 +704,8 @@ def act_columns(suite, radius_runs):
     Returns:
         list of dicts: key, label (tick text, two name lines), block ("default" or "radius"), read
         (the update read), runs (finished runs read at that update), stopped (number of runs of the
-        column stopped before it), p, m (participation-rule and modulation-rule counts), s (success).
+        column stopped before it), p, m (participation-rule and modulation-rule counts), s (success),
+        learned (bool per run of p: a learned point at or before the read), learned_m (the same per value of m).
     """
     cols = []
 
@@ -720,7 +721,10 @@ def act_columns(suite, radius_runs):
         cols.append(dict(key=key, label=name, block=block, read=read, runs=keep, stopped=n_stop,
                          p=np.array([q["active_end"] for q in pts], float),
                          m=np.array([q["mod_end"] for q in pts if q["mod_end"] is not None], float),
-                         s=np.array([q["success_end"] for q in pts], float)))
+                         s=np.array([q["success_end"] for q in pts], float),
+                         learned=np.array([q["learned_i"] is not None for q in pts], bool),
+                         learned_m=np.array([q["learned_i"] is not None for q in pts if q["mod_end"] is not None],
+                                            bool)))
 
     for act in ACTS:
         runs = [r for r in suite if r["N"] == ACT_N and r["act"] == act]
@@ -737,7 +741,9 @@ def panel_activations(ax, cols):
 
     Per column, open circles (participation rule) left of the column's centre and open squares
     (modulation rule) right of it, each group spread sideways (spread_x) with its mean as an ink tick
-    beside it; a run stopped before the read is a cross on the column's centre, on a "stopped" line below 0. Under every
+    beside it; a run without a learned point at the read is a cross in the task colour at its count, as in
+    Figure 3c, and enters no mean; a run stopped before the read is an ink cross on the column's centre, on a
+    "stopped" line below 0. Under every
     column, its name, the update read and the mean success rate there. The columns of RADIUS_ROOT
     (initial spectral radius 0.45) are set apart right of a thin separator, under their own header.
 
@@ -761,12 +767,18 @@ def panel_activations(ax, cols):
     placed, ticks = [], []
     for c, xc in zip(cols, xs_col):
         c["x"] = xc
-        for dx, v, marker in ((-0.2, c["p"], "o"), (0.2, c["m"], "s")):
+        for dx, v, ok, marker in ((-0.2, c["p"], c["learned"], "o"), (0.2, c["m"], c["learned_m"], "s")):
             if not len(v):
                 continue
             xs = spread_x(ax, xc + dx, v, placed)
-            ax.plot(xs, v, marker, ms=ps.MARKER_PT, ls="none", zorder=5, **ps.mark_fixed(col))
-            mean_tick(ax, xs, v.mean())
+            # round 23 (dead-relu-paper #231, Reviewer S figures 3): the tanh and shifted-sigmoid networks (radius 1.2)
+            # have no learned point at update 2,000; they were open markers here and crosses in Figure 3c, which
+            # marks a network that did not learn the task with a cross in the task colour, outside every mean
+            if ok.any():
+                ax.plot(xs[ok], v[ok], marker, ms=ps.MARKER_PT, ls="none", zorder=5, **ps.mark_fixed(col))
+                mean_tick(ax, xs[ok], v[ok].mean())
+            if (~ok).any():
+                ax.plot(xs[~ok], v[~ok], "x", ms=ps.MARKER_PT, mec=col, mew=0.8, ls="none", zorder=5)
         if c["stopped"]:
             stopped_mark(ax, xc, stop_y, ps.INK, clip_on=False)
         stop_txt = f", {c['stopped']} stopped" if c["stopped"] else ""
@@ -794,9 +806,11 @@ def panel_activations(ax, cols):
                        Line2D([], [], ls="none", marker="s", ms=ps.MARKER_PT, **ps.mark_fixed(ps.MUTED),
                               label="modulation count"),
                        Line2D([], [], color=ps.INK, lw=0.9, label="mean"),
+                       Line2D([], [], ls="none", marker="x", ms=ps.MARKER_PT, mec=col, mew=0.8,
+                              label="did not learn"),
                        Line2D([], [], ls="none", marker="x", ms=ps.MARKER_PT + 1.0, mec=ps.INK, mew=1.0,
                               label="stopped")],
-              loc="lower right", bbox_to_anchor=(1.0, 1.09), ncol=4, borderaxespad=0.0,
+              loc="lower right", bbox_to_anchor=(1.0, 1.09), ncol=5, borderaxespad=0.0,
               columnspacing=1.2, handlelength=1.4)
     ps.ygrid(ax)
     return cols
@@ -944,7 +958,8 @@ def draw(runs, rows, abl, radius_runs):
         print(f"  {c['block']:>7} {c['key']:>11} at update {c['read']:,} (seeds {seeds}; {c['stopped']} stopped): "
               f"p rule {', '.join(f'{v:.0f}' for v in c['p']) or '-'} (mean {c['p'].mean() if len(c['p']) else float('nan'):.0f}); "
               f"modulation {', '.join(f'{v:.0f}' for v in c['m']) or '-'}; "
-              f"success {', '.join(f'{v:.2f}' for v in c['s'])} (mean {c['s'].mean() if len(c['s']) else float('nan'):.3f})")
+              f"success {', '.join(f'{v:.2f}' for v in c['s'])} (mean {c['s'].mean() if len(c['s']) else float('nan'):.3f}); "
+              f"{int(c['learned'].sum())} of {len(c['learned'])} learned by the read (the rest are crosses)")
     check_overlaps(fig)
     return ps.save(fig, "fig_ed_maze")
 

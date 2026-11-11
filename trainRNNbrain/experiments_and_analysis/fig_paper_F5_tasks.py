@@ -201,7 +201,9 @@ B1_TOP_MM, B1_H_MM = 36.5, 13.5
 B2_TOP_MM, B2_H_MM = 52.0, 16.0
 ROW2_TOP_MM, ROW2_H_MM = 84.0, 36.0      # panel c's height; both panels end at ROW2_TOP_MM + ROW2_H_MM
 D_H_MM = 30.0                     # panel d: 29 to 30 mm; its open markers overlap in 27 and from 32 (tests/scan_open_markers.py, a see-through pair in 3BFF)
-C_LEFT_MM, C_W_MM, C_GAP_MM = 16.0, 31.0, 2.5     # panel c: two sub-columns (3BFF, CDDM) of C_W_MM each, sharing y (26 mm until round 20)
+C_LEFT_MM, C_W_MM, C_GAP_MM = 16.0, 30.0, 2.5     # panel c: two sub-columns (3BFF, CDDM) of C_W_MM each, sharing y (26 mm until round 20;
+                                                   # 31 until round 23, when panel d's y label ran 0.5 mm into the CDDM column:
+                                                   # dead-relu-paper #231, Reviewer S figures 1; tests/scan_text_on_axes.py)
 D_LEFT_MM, D_W_MM, D_GAP_MM = 93.5, 22.0, 2.5     # panel d: three sub-panels (3BFF, CDDM, Maze) of D_W_MM each (at least 22 mm, tests/scan_open_markers.py), sharing y
 C_DODGE = 1.07                   # panel c: the techniques' markers at one size sit this factor apart along the log x axis
 FOLD_LIM = (0.0, 4.3)

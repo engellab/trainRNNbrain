@@ -816,15 +816,13 @@ def draw_b4_active(ax, b4):
                   f"R2 {min(r2):.3f}-{max(r2):.3f}")
         bar = g["fresh_mean"] - 3 * g["fresh_sd"]
         ax.plot([x0 - 0.65, x0 + 0.35], [bar] * 2, color=ps.INK, lw=ps.THIN_LW, ls="--")
-        # round 21 (dead-relu-paper #217, Reviewer S figures 5): the threshold's value above its left end, and
-        # the value of any old network within 25 units of it beside its marker, so the side it lies on reads
+        # round 21 (dead-relu-paper #217, Reviewer S figures 5): the threshold's value above its left end
         ax.text(x0 - 0.65, bar + 12, f"{bar:.0f}", ha="left", va="bottom", fontsize=ps.TICK_PT, color=ps.INK)
-        for r in g["old"]:
-            if abs(r["active_star"] - bar) < 25:
-                # below and left of the old networks' markers, in ink: in 3BFF blue right of them it read as a young
-                # network's value (PR #222 review)
-                ax.text(x0 - 0.1, (r["active_star"] + g["old_star"]) / 2, f"{r['active_star']:.0f}", ha="right",
-                        va="center", fontsize=ps.TICK_PT, color=ps.INK)   # between the marker and the old mean bar
+        # round 23 (dead-relu-paper #231, Reviewer S figures 2): the criterion applies to the old networks' mean, so the
+        # mean's value is printed right of its bar; the value of the one old N = 4,000 network near the threshold
+        # (613, printed until round 23) was undefined in the legend and could be read as the mean
+        ax.text(x0 + 0.27, g["old_star"], f"{g['old_star']:.0f}", ha="left", va="center", fontsize=ps.TICK_PT,
+                color=ps.INK)
         print(f"  panel e N={N}: pass threshold (fresh mean - 3 SD) {bar:.1f}; old mean "
               f"{np.mean([r['active_star'] for r in g['old']]):.1f}")
         ax.text(x0 + 1, 1.03, f"$N$ = {ps.fmt_count(N)}", transform=ax.get_xaxis_transform(), ha="center",
