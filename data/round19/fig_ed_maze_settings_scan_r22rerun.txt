@@ -1,0 +1,105 @@
+/Users/pt1290/Documents/Projects/paper_push/wt/r22-rerun-code/trainRNNbrain/experiments_and_analysis/paperstyle.py:603: UserWarning: paperstyle.figure: 202.0 mm is taller than MAX_H_MM = 141.0 mm; a main float will shrink it
+  warnings.warn(f"paperstyle.figure: {h_mm} mm is taller than MAX_H_MM = {MAX_H_MM} mm; "
+maze_arms_r19 cross-check against round19_results.json and fz_reruns.json: every read matches
+settings reference at 2000: {'n': 5, 'seeds': [1, 2, 4, 5, 6], 'active_min': 394, 'active_max': 449, 'active': 416.8, 'success': 0.971875}
+technique reference at 2000: {'n': 3, 'seeds': [1, 2, 3], 'active': 430.0, 'active_min': 415, 'active_max': 449, 'success': 0.8984375}
+settings reference at 4000: {'n': 6, 'seeds': [1, 2, 3, 4, 5, 6], 'active_min': 314, 'active_max': 404, 'active': 350.6666666666667, 'success': 1.0}
+technique reference at 4000: {'n': 6, 'seeds': [1, 2, 3, 4, 5, 6], 'active': 350.6666666666667, 'active_min': 314, 'active_max': 404, 'success': 1.0}
+
+--- settings, panels a and b, update 2,000 (direction against 394-449, learned seeds only) ---
+         control: reference; success minus the learned controls' mean -0.041; s1 L 0.99, 426 (1050); s2 L 0.98, 449 (760); s3 0.73, 415; s4 L 0.95, 394 (1530); s5 L 0.94, 398 (1180); s6 L 1.00, 417 (1330)
+             wd0 [orig]: no change; success minus the learned controls' mean +0.020; s1 L 0.98, 404 (1650); s2 L 1.00, 452 (900); s3 L 0.99, 432 (920)
+          wd1e-5 [orig]: no change; success minus the learned controls' mean -0.003; s1 L 0.93, 402 (1800); s2 L 0.99, 417 (1790); s3 L 0.98, 370 (1320)
+          wd1e-4 [orig]: decreases; success minus the learned controls' mean -0.188; s1 0.64, 335; s2 0.71, 341; s3 L 1.00, 378 (1320)
+        inorm0.5 [orig]: increases; success minus the learned controls' mean +0.028; s1 L 1.00, 577 (310); s2 L 1.00, 593 (140); s3 L 1.00, 549 (470)
+          inorm2 [orig]: no change; success minus the learned controls' mean -0.081; s1 0.68, 290; s2 L 1.00, 443 (140); s3 L 0.99, 357 (1230)
+          inorm5 [orig]: no verdict; success minus the learned controls' mean +nan; s1 stopped at 500; s2 stopped at 600; s3 stopped at 300
+         inorm20 [orig]: incomplete; success minus the learned controls' mean -0.972; s1 0.00, 331; s2 stopped at 200; s3 stopped at 400
+           srec0 [orig]: no change; success minus the learned controls' mean +0.028; s1 L 1.00, 440 (270); s2 L 1.00, 425 (350); s3 L 1.00, 400 (290)
+        srec0.01 [orig]: no change; success minus the learned controls' mean +0.028; s1 L 1.00, 456 (460); s2 L 1.00, 380 (560); s3 L 1.00, 436 (520)
+         srec0.1 [orig]: no direction; success minus the learned controls' mean -0.258; s1 0.68, 346; s2 0.61, 317; s3 0.85, 311
+         srad0.5 [orig]: no change; success minus the learned controls' mean -0.008; s1 L 0.92, 338 (1960); s2 L 0.99, 393 (1230); s3 L 0.98, 414 (910)
+         srad1.5 [orig]: no change; success minus the learned controls' mean -0.050; s1 L 0.92, 350 (1590); s2 L 0.97, 471 (1240); s3 0.88, 319
+         rws0.05 [orig]: no change; success minus the learned controls' mean -0.081; s1 L 1.00, 399 (1190); s2 0.82, 378; s3 0.85, 386
+
+--- settings, panels c and d, update 2,000 (direction against 394-449, learned seeds only) ---
+         control: reference; success minus the learned controls' mean -0.041; s1 L 0.99, 426 (1050); s2 L 0.98, 449 (760); s3 0.73, 415; s4 L 0.95, 394 (1530); s5 L 0.94, 398 (1180); s6 L 1.00, 417 (1330)
+          cap0.3 [orig]: no change; success minus the learned controls' mean +0.015; s1 L 0.98, 434 (1110); s2 L 0.98, 463 (1400); s3 L 1.00, 380 (1090)
+         rwm0.05 [orig]: no change; success minus the learned controls' mean -0.042; s1 L 0.93, 481 (1170); s2 L 0.91, 459 (1810); s3 L 0.95, 394 (1420)
+          rwm0.2 [orig]: no change; success minus the learned controls' mean -0.021; s1 L 0.95, 517 (790); s2 0.91, 452; s3 L 0.98, 405 (1490)
+         met0.01 [fz]: no change; success minus the learned controls' mean -0.016; s1 L 0.99, 503 (800); s2 L 1.00, 449 (900); s3 0.88, 393
+          met0.1 [fz]: decreases; success minus the learned controls' mean -0.159; s1 0.84, 423; s2 0.65, 331; s3 L 0.95, 368 (1290)
+            met1 [fz]: incomplete; success minus the learned controls' mean -0.070; s1 0.94, 341; s2 stopped at 1,900; s3 0.87, 360
+           met10 [fz]: no direction; success minus the learned controls' mean -0.331; s1 0.71, 190; s2 0.52, 217; s3 0.70, 219
+           adamw [orig]: no change; success minus the learned controls' mean -0.027; s1 0.91, 434; s2 L 1.00, 452 (900); s3 L 0.93, 429 (1080)
+         sgd0.03 [orig]: no direction; success minus the learned controls' mean -0.969; s1 0.00, 521; s2 0.00, 556; s3 0.01, 540
+          sgd0.1 [orig]: no direction; success minus the learned controls' mean -0.915; s1 0.17, 686; s2 0.00, 566; s3 0.00, 540
+          sgd0.3 [orig]: no direction; success minus the learned controls' mean -0.891; s1 0.00, 488; s2 0.00, 483; s3 0.24, 611
+            sgd1 [orig]: no direction; success minus the learned controls' mean -0.912; s1 0.01, 268; s2 0.09, 423; s3 0.09, 371
+          redraw [orig]: no change; success minus the learned controls' mean +0.012; s1 L 1.00, 447 (750); s2 L 0.98, 457 (960); s3 L 0.98, 483 (900)
+         zeroout [orig]: no change; success minus the learned controls' mean -0.019; s1 L 0.92, 445 (1850); s2 L 0.95, 440 (1200); s3 L 0.98, 420 (880)
+
+--- settings, panels e and f, update 4,000 (direction against 314-404, learned seeds only) ---
+         control: reference; success minus the learned controls' mean +0.000; s1 L 1.00, 360 (1050); s2 L 1.00, 404 (760); s3 L 1.00, 317 (1750); s4 L 1.00, 373 (1530); s5 L 1.00, 336 (1180); s6 L 1.00, 314 (1330)
+          wd1e-4 [orig]: decreases; success minus the learned controls' mean -0.016; s1 L 0.96, 311 (3580); s2 L 1.00, 301 (2660); s3 L 0.99, 308 (1320)
+          inorm2 [orig]: no change; success minus the learned controls' mean -0.104; s1 0.69, 298; s2 L 1.00, 445 (140); s3 L 1.00, 361 (1230)
+         inorm20 [orig]: no verdict; success minus the learned controls' mean +nan; s1 stopped at 2,700; s2 stopped at 200; s3 stopped at 400
+         srec0.1 [orig]: no change; success minus the learned controls' mean -0.167; s1 L 0.93, 363 (3040); s2 0.65, 316; s3 L 0.92, 323 (2730)
+         srad1.5 [orig]: no change; success minus the learned controls' mean +0.000; s1 L 1.00, 326 (1590); s2 L 1.00, 416 (1240); s3 L 1.00, 317 (2030)
+         rws0.05 [orig]: no change; success minus the learned controls' mean -0.031; s1 L 1.00, 342 (1190); s2 L 0.93, 328 (3090); s3 L 0.98, 321 (2010)
+          rwm0.2 [orig]: incomplete; success minus the learned controls' mean +0.000; s1 stopped at 3,000; s2 L 1.00, 460 (1970); s3 stopped at 3,400
+         met0.01 [fz]: no change; success minus the learned controls' mean -0.005; s1 L 0.98, 437 (800); s2 L 1.00, 367 (900); s3 L 1.00, 349 (1740)
+          met0.1 [fz]: no change; success minus the learned controls' mean -0.010; s1 L 1.00, 376 (2070); s2 L 0.97, 311 (2250); s3 L 1.00, 307 (1290)
+            met1 [fz]: incomplete; success minus the learned controls' mean -0.039; s1 L 0.96, 339 (2000); s2 stopped at 1,900; s3 stopped at 3,900
+           met10 [fz]: no direction; success minus the learned controls' mean -0.266; s1 0.69, 150; s2 0.77, 198; s3 0.75, 204
+           adamw [orig]: no change; success minus the learned controls' mean +0.000; s1 L 1.00, 377 (2270); s2 L 1.00, 395 (900); s3 L 1.00, 400 (1080)
+         sgd0.03 [orig]: no direction; success minus the learned controls' mean -1.000; s1 0.00, 496; s2 0.00, 574; s3 0.00, 493
+          sgd0.1 [orig]: no direction; success minus the learned controls' mean -0.977; s1 0.00, 575; s2 0.07, 641; s3 0.00, 412
+          sgd0.3 [orig]: no direction; success minus the learned controls' mean -0.906; s1 0.00, 497; s2 0.00, 425; s3 0.28, 621
+            sgd1 [orig]: no direction; success minus the learned controls' mean -0.898; s1 0.02, 163; s2 0.00, 292; s3 0.29, 350
+
+--- techniques at update 2,000: fold over 430.0 (controls [1, 2, 3], bar 449), success minus 0.898 ---
+             frm0.03 [fz]: works; mean fold 2.28; success difference +0.091; s1 L 1.00, 998 (770); s2 L 0.97, 997 (1110); s3 L 1.00, 952 (460)
+              frm0.1 [fz]: works; mean fold 2.32; success difference +0.099; s1 L 1.00, 998 (560); s2 L 0.99, 1000 (760); s3 L 1.00, 997 (1390)
+              frm0.3 [fz]: fails (l); mean fold 2.32; success difference +0.052; s1 L 1.00, 1000 (970); s2 L 0.98, 1000 (830); s3 0.87, 997
+      frm0.1_rws0.05 [fz]: fails (p,l); mean fold 2.33; success difference -0.430; s1 0.39, 1000; s2 0.68, 1000; s3 0.34, 1000
+    dropout0.2_beta4 [fz]: fails (a,l); mean fold 1.02; success difference +0.000; s1 L 0.92, 428 (1520); s2 0.84, 456; s3 L 0.93, 436 (1090)
+   dropout0.05_beta4 [fz]: fails (a); mean fold 1.05; success difference +0.083; s1 L 1.00, 444 (1200); s2 L 0.98, 416 (1490); s3 L 0.97, 498 (980)
+           sigmaw1.0 [orig]: fails (l); mean fold 1.07; success difference +0.023; s1 L 0.91, 451 (1950); s2 L 0.96, 478 (1230); s3 0.90, 454
+           sigmaw0.3 [orig]: fails (a); mean fold 0.95; success difference +0.089; s1 L 0.98, 400 (1380); s2 L 1.00, 432 (910); s3 L 0.98, 396 (1140)
+           sigmaw0.1 [orig]: fails (a); mean fold 0.91; success difference +0.096; s1 L 1.00, 418 (1230); s2 L 0.98, 416 (1380); s3 L 1.00, 342 (1550)
+             rescale [fz]: incomplete; mean fold 0.55; success difference -0.695; s1 0.19, 233; s2 0.22, 239; s3 stopped at 500
+        rescale_mild [fz]: incomplete; mean fold 0.59; success difference -0.281; s1 0.62, 252; s2 stopped at 1,100; s3 stopped at 1,100
+         rescale_few [fz]: fails (a,p,l); mean fold 0.56; success difference -0.289; s1 0.54, 240; s2 0.81, 251; s3 0.48, 233
+        rescale_tgt4 [fz]: fails (a,p,l); mean fold 0.77; success difference -0.445; s1 0.62, 370; s2 0.36, 251; s3 0.38, 375
+           duplicate [fz]: works; mean fold 1.76; success difference +0.096; s1 L 1.00, 763 (760); s2 L 1.00, 749 (950); s3 L 0.98, 757 (710)
+
+--- techniques at update 4,000: fold over 350.7 (controls [1, 2, 3, 4, 5, 6], bar 404), success minus 1.000 ---
+              frm0.3 [fz]: works; mean fold 2.85; success difference +0.000; s1 L 1.00, 1000 (970); s2 L 1.00, 1000 (830); s3 L 1.00, 1000 (2410)
+      frm0.1_rws0.05 [fz]: fails (p,l); mean fold 2.85; success difference -0.169; s1 0.84, 1000; s2 L 0.99, 1000 (2920); s3 0.66, 1000
+    dropout0.2_beta4 [fz]: incomplete; mean fold 1.12; success difference -0.027; s1 L 0.98, 397 (1520); s2 L 0.96, 388 (2240); s3 stopped at 2,100
+           sigmaw1.0 [orig]: works; mean fold 1.23; success difference -0.023; s1 L 1.00, 409 (1950); s2 L 0.97, 455 (1230); s3 L 0.96, 425 (1950)
+             rescale [fz]: no verdict; mean fold -; success difference -; s1 stopped at 2,800; s2 stopped at 2,900; s3 stopped at 500
+        rescale_mild [fz]: incomplete; mean fold 0.85; success difference -0.078; s1 0.92, 297; s2 stopped at 1,100; s3 stopped at 1,100
+         rescale_few [fz]: fails (a,p,l); mean fold 0.60; success difference -0.289; s1 0.74, 231; s2 0.70, 200; s3 0.69, 203
+        rescale_tgt4 [fz]: fails (a,p,l); mean fold 0.73; success difference -0.380; s1 0.84, 333; s2 0.41, 190; s3 0.62, 241
+
+panel h: 48 networks drawn
+  .. no overlapping text (167 text artists checked)
+wrote /Users/pt1290/Documents/Projects/paper_push/wt/r22-rerun-code/trainRNNbrain/experiments_and_analysis/../../img/internal_figures/fig_ed_maze_settings_techniques.pdf (+ .svg)
+
+fig_ed_maze_settings_techniques.pdf: mapping check, 218 of 218 filled-marker centres read dark
+axes                                          open centre<200 darkest anchor overlaps rings closest ring mm rings<1mm
+active units                                    29          0     255    255        0     0             nan         0
+success rate                                    29          0     255    255        0     0             nan         0
+active units                                    24          0     255    255        0     0             nan         0
+success rate                                    24          0     255    255        0     0             nan         0
+active units                                    30          0     255    255        0     0             nan         0
+success rate                                    30          0     255    255        0     0             nan         0
+axes at x=0.00, y=0.37 (legend)                  1          0     255    255        0     0             nan         0
+fold change                                     24          0     255    110        0     0             nan         0
+success rate                                    24          0     255    106        0     0             nan         0
+fold change                                      9          0     255    166        0     0             nan         0
+success rate                                     9          0     255    159        0     0             nan         0
+
+PASS: 0 rule failures

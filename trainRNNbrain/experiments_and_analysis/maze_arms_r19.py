@@ -12,7 +12,11 @@ changed (dead-relu-paper#201):
     reported beside it, against ReLU N = 1,000 seeds 1-6 at update 4,000 (314-404 active, all learned);
   - the rate-penalty, rate + sparsity and metabolic-penalty arms are read from their reruns with
     trainer.freeze_after_end=true (entries 2026-11-08_0940, 2026-11-09_1221), which replace the withdrawn runs,
-    and prune-and-duplicate from its rerun with the same switch (entry 2026-11-09_0136).
+    and prune-and-duplicate from its rerun with the same switch (entry 2026-11-09_0136);
+  - round 22 (dead-relu-paper#228): read-out dropout (rates 0.2 and 0.05, beta 4) and the four rescaling arms are
+    read from their reruns with the same switch (entries 2026-11-09_1513 rules, 2026-11-10_2014 update 2,000,
+    2026-11-11_0306 update 4,000), which replace the runs made before the trainer correction. Noisy synapses and
+    re-initialisation (redraw, zeroout) were not rerun and keep their first runs.
 This module is the one reader both figures use, so the two draw the same numbers.
 
 SOURCES (the Mac's copies of the cluster trees):
@@ -59,7 +63,8 @@ TECH_CONTROL_SEEDS = (1, 2, 3)    # the technique criterion's controls at 2,000 
 SUCCESS_TOL = 0.05                # the technique criterion's tolerance in success
 LEARNED_LEVEL = 0.9               # no technique network may end below this
 # the arms read from the freeze_after_end=true reruns only (stage-1 folder names)
-FZ_ARMS = ("frm0.03", "frm0.1", "frm0.3", "frm0.1_rws0.05", "met0.01", "met0.1", "met1", "met10", "duplicate")
+FZ_ARMS = ("frm0.03", "frm0.1", "frm0.3", "frm0.1_rws0.05", "met0.01", "met0.1", "met1", "met10", "duplicate",
+           "dropout0.2_beta4", "dropout0.05_beta4", "rescale", "rescale_mild", "rescale_few", "rescale_tgt4")
 
 
 def run_config(folder):
