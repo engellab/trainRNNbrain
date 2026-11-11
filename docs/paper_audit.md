@@ -470,6 +470,10 @@ _1111, _1723).**
   Rescaling has no verdict (rescale), is incomplete (rescale_mild) or fails (rescale_few, rescale_tgt4; 190-333
   active, success 0.41-0.84). **The paper's 4,000 statement (noisy synapses at σ_w 1.0 meet the criterion on Maze,
   so on all three tasks under the one-value rule) stands; read-out dropout does not join them.**
+  *In the paper (r22-rerun, dead-relu-paper#228; entry 2026-11-11_0327):* Fig. 5a,b and Extended Data Fig. 6g-i draw
+  the rerun networks; Results 5 and the Discussion state that read-out dropout (and, in the Discussion, rescaling)
+  retrained with the corrected trainer does not meet the criterion on Maze, in place of the caveat. No count in the
+  paper's main claims changes.
 - *tanh* learns under no tested setting within 4,000 updates. *The shifted sigmoid* learns at initial spectral
   radius 0.45, a per-activation change decided after the pilot was read. Full runs (entry 2026-11-09_0213):
   three sigmoid networks learned at 1,410-3,330 with 227-250 active at 4,000; the same-radius ReLU control has

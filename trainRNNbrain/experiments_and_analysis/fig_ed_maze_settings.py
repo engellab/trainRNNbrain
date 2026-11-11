@@ -19,8 +19,10 @@ data/round19/round19_results.json and fz_reruns.json (printed):
     449 (issue #5 as written; decision #194);
   - the rate-penalty, rate + sparsity and metabolic-penalty arms and prune-and-duplicate are their reruns with
     trainer.freeze_after_end=true (data/trained_RNNs_rl_maze_fz); the first runs of those arms are withdrawn
-    (entries 2026-11-08_0940, _0943) and are not drawn. Read-out dropout, noisy synapses, rescaling, redraw
-    and zero-out keep their first runs;
+    (entries 2026-11-08_0940, _0943) and are not drawn. Round 22 (dead-relu-paper#228): read-out dropout and
+    the four rescaling arms are their reruns with the same switch too (entries 2026-11-10_2014 and
+    2026-11-11_0306), which replace the runs made before the correction. Noisy synapses, redraw and zero-out
+    keep their first runs;
   - the round 18 parity values (entry 2026-11-07_0136: noisy synapses sigma_w 0.3 and 0.1, read-out dropout at
     rate 0.05, rescaling at target 4) are drawn beside the paper's values of their techniques;
   - the panel of removal curves on the rate-penalty networks (panel h until round 18) is removed: it drew the
@@ -138,9 +140,10 @@ TECH = {
     "duplicate":         ("prune-and-duplicate",          shade(MAZE, 1.5),       "^", "prune-and-\nduplicate", None),
 }
 # panel i's column labels (a heading per technique does not fit one column)
+# (round 22, dead-relu-paper#228: the rescaling reruns continue at m = 10 and m = 4 as well)
 LABEL_4000 = {"frm0.3": "rate\n0.3", "frm0.1_rws0.05": "rate 0.1\n+ sparsity", "dropout0.2_beta4": "dropout\n0.2",
-              "sigmaw1.0": "$\\sigma_w$\n1.0", "rescale_mild": "smaller\nfactor",
-              "rescale_few": "fewer\nunits"}
+              "sigmaw1.0": "$\\sigma_w$\n1.0", "rescale": "$m$\n10", "rescale_mild": "smaller\nfactor",
+              "rescale_few": "fewer\nunits", "rescale_tgt4": "$m$\n4"}
 
 # layout in millimetres from the canvas's top-left corner
 LEFT_MM = 15.0                    # the rows' two-line y labels fit left of it
@@ -164,8 +167,10 @@ TRACE_ALPHA = 0.35                # panel h: the single networks' lines (round 2
 TRIANGLES = ("^", "v", "<")       # drawn TRI_SCALE larger, as in Figure 5
 KEY_MM = (0.0, 113.0, 165.1, 14.5)        # (0, 123.5, 165.1, 13.5) until round 20
 G_MM = dict(top=(17.0, 132.5, 145.0, 11.0), bot=(17.0, 146.5, 145.0, 10.0))
-H_MM = (17.0, 174.0, 66.0, 19.0)
-I_MM = dict(top=(103.5, 174.0, 57.0, 9.5), bot=(103.5, 186.0, 57.0, 7.5))
+# round 22 (dead-relu-paper#228): panel i holds eight columns (the rescaling reruns at m = 10 and 4 continued too),
+# so panel h is 10 mm narrower and panel i starts 11.5 mm further left (h 66 mm wide, i at 103.5 mm and 57 mm wide until then)
+H_MM = (17.0, 174.0, 56.0, 19.0)
+I_MM = dict(top=(92.0, 174.0, 68.5, 9.5), bot=(92.0, 186.0, 68.5, 7.5))
 FIG_H_MM = 202.0
 HEAD_MM = -6.6                    # panel g: the group headings' rule, this far below the bottom axes
 TECH_DX = 0.22                    # panels g, i: the seeds' markers sit this far apart (column units)

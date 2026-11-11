@@ -30,7 +30,10 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       target 4.0: PARITY), inside each technique's slots in increasing order of value (value_key); and on Maze
       the rate penalty, rate + sparsity and prune-and-duplicate are the trainer.freeze_after_end=true reruns
       (entries 2026-11-09_0136 and _1221; the earlier runs averaged the penalties over post-episode steps and
-      their verdicts are withdrawn). The other Maze techniques keep their original runs. The printout adds the
+      their verdicts are withdrawn). Round 22 (dead-relu-paper#228): read-out dropout (0.05 and 0.2) and the four
+      rescaling values on Maze are their freeze_after_end=true reruns too (entries 2026-11-09_1513 rules,
+      2026-11-10_2014 read at update 2,000), which replace the runs made before the trainer correction; noisy
+      synapses keeps its original runs (sigma_w 1.0) and parity runs (0.1, 0.3). The printout adds the
       verdicts under the one-value and the matched-values rules and the tolerance range over which
       prune-and-duplicate alone passes on all three tasks (rule_tables).
   (b) the performance difference from the controls' mean: top, held-out R^2 (3BFF and CDDM), the
@@ -141,15 +144,16 @@ TECH_NAME = {"duplicate": "prune-and-duplicate", "frm": "rate penalty", "dropout
              "frm+rws": "rate + sparsity", "rescale": "rescaling", "synnoise": "noisy synapses"}
 # the maze arms per technique: (value label, arm key, source). Sources: "arms" read_maze_arms.json (the
 # original runs); "fz" data/round19/fz_reruns.json (the freeze_after_end=true reruns, which replace the
-# withdrawn penalty runs and prune-and-duplicate; entries 2026-11-09_0136 and _1221); "parity"
+# withdrawn penalty runs and prune-and-duplicate, entries 2026-11-09_0136 and _1221, and since round 22,
+# dead-relu-paper#228, read-out dropout and rescaling, entries 2026-11-09_1513 and 2026-11-10_2014); "parity"
 # data/round18_training/round18_maze.json (the round 18 parity values)
 MAZE_ARMS = {
     "duplicate": [("", "duplicate", "fz")],
     "frm": [("0.03", "frm0.03", "fz"), ("0.1", "frm0.1", "fz"), ("0.3", "frm0.3", "fz")],
-    "dropout": [("0.05", "dropout0.05_beta4", "parity"), ("0.2", "dropout", "arms")],
+    "dropout": [("0.05", "dropout0.05_beta4", "fz"), ("0.2", "dropout0.2_beta4", "fz")],
     "frm+rws": [("0.1", "frm0.1_rws0.05", "fz")],
-    "rescale": [("4.0", "rescale_tgt4", "parity"), ("10\u00d7", "rescale", "arms"),
-                ("slow tilt", "rescale_mild", "arms"), ("5% grow", "rescale_few", "arms")],
+    "rescale": [("4.0", "rescale_tgt4", "fz"), ("10\u00d7", "rescale", "fz"),
+                ("slow tilt", "rescale_mild", "fz"), ("5% grow", "rescale_few", "fz")],
     "synnoise": [("0.1", "sigmaw0.1", "parity"), ("0.3", "sigmaw0.3", "parity"), ("1.0", "synnoise", "arms")],
 }
 # the round 18 parity values (entry 2026-11-07_0136): the 3BFF values that meet the criterion, run on CDDM and
@@ -472,8 +476,8 @@ def load_maze():
     The controls are all three uniform-series networks (issue #5, dead-relu-paper#194): the reference_techniques
     of read_maze_arms.json (426, 449, 415 active; mean success 0.898). Per MAZE_ARMS source: "arms" reads
     read_maze_arms.json (the original runs, read at update 2,000); "fz" reads data/round19/fz_reruns.json (the
-    rate penalty, rate + sparsity and prune-and-duplicate rerun with trainer.freeze_after_end=true; the record of
-    each seed cut at update 2,000); "parity" reads round18_maze.json's parity block.
+    rate penalty, rate + sparsity, prune-and-duplicate, read-out dropout and rescaling rerun with
+    trainer.freeze_after_end=true; the record of each seed cut at update 2,000); "parity" reads round18_maze.json's parity block.
 
     Returns:
         (cells, success_tol, reference): the `cell` dicts in MAZE_ARMS order, the tolerance read_maze_arms.json
