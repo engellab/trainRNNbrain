@@ -30,7 +30,7 @@ the marker since the final review of 11 Nov), and behind it the band of the cell
 differ between columns where the controls do). A maze run that did not learn the task
 (common.maze_learned_index) and a supervised run with R^2 below the read-out file's "learned" bar
 (0.8) are crosses, in the performance row at their value or at the axis' bottom edge when below
-it; a run the maze's rollback guard stopped is a cross at 0. The crosses are light grey, smaller
+it; a run the maze's rollback guard stopped is a cross at 0. The crosses are mid grey, smaller
 than the markers and behind them (final review, 11 Nov). A slot reads "unfinished" when no run
 of the cell has finished. A value the programme has no cell for on the task (the maze's upper
 spectral-radius rung is 1.5 where the supervised tasks' is 2.0; the input-weight cap was run at
