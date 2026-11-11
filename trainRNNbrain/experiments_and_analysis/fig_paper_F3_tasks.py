@@ -454,8 +454,11 @@ def draw_cell(ax_n, ax_p, x, c, col, perf_lim, note=False):
     Returns:
         str, what was drawn, for the printout.
     """
-    for ax, lo, hi in ((ax_n, min(c["ctrl_active"]), max(c["ctrl_active"])),
-                       (ax_p, min(c["ctrl_perf"]), max(c["ctrl_perf"]))):
+    # round 23 (dead-relu-paper #231, Reviewer S figures 4): a cell measured only at another iteration (CDDM tanh, at
+    # 150,000) has no marker, so it gets no control band either; its band in the R^2 row stood alone beside no marker
+    bands = () if c["status"] == "no read" else ((ax_n, min(c["ctrl_active"]), max(c["ctrl_active"])),
+                                                 (ax_p, min(c["ctrl_perf"]), max(c["ctrl_perf"])))
+    for ax, lo, hi in bands:
         ax.fill_between([x - PITCH_MM / 2, x + PITCH_MM / 2], [lo] * 2, [hi] * 2, color=ps.FAINT, alpha=0.3,
                         lw=0, zorder=1)
     active, perf = np.asarray(c["active"], float), np.asarray(c["perf"], float)

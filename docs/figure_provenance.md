@@ -509,3 +509,10 @@ figures are written to `img/internal_figures/`.
 | `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (a, b: Maze read-out dropout and rescaling from their freeze_after_end reruns, fz_reruns.json; r22-rerun, #228) | `5f75d85` | 2026-11-11 |
 | `fig_paper_F5_tasks.svg` | fig_paper_F5_tasks.py (as the PDF; r22-rerun, #228) | `5f75d85` | 2026-11-11 |
 | `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py with maze_arms_r19.py (g-i: Maze read-out dropout and rescaling reruns; i: m = 10 and m = 4 continued; r22-rerun, #228) | `5f75d85` | 2026-11-11 |
+| `fig_paper_F3_tasks.pdf` | fig_paper_F3_tasks.py (b: no control band in the CDDM tanh slot, measured at 150,000 only; r23-figures, #232) | `793ea67` | 2026-11-11 |
+| `fig_paper_F3_tasks.svg` | fig_paper_F3_tasks.py (as the PDF; r23-figures, #232) | `793ea67` | 2026-11-11 |
+| `fig_paper_F4_noreturn.pdf` | fig_paper_F4_noreturn.py draw (e: old networks' mean printed beside its bar; 613 removed; r23-figures, #232) | `793ea67` | 2026-11-11 |
+| `fig_paper_F4_noreturn.svg` | fig_paper_F4_noreturn.py draw (as the PDF; r23-figures, #232) | `793ea67` | 2026-11-11 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (c: columns 30 mm wide, clear of the d y label; r23-figures, #232) | `793ea67` | 2026-11-11 |
+| `fig_paper_F5_tasks.svg` | fig_paper_F5_tasks.py (as the PDF; r23-figures, #232) | `793ea67` | 2026-11-11 |
+| `fig_ed_maze.pdf` | fig_ed_maze.py (e: networks without a learned point as crosses outside the mean ticks; r23-figures, #232) | `793ea67` | 2026-11-11 |
