@@ -506,3 +506,6 @@ figures are written to `img/internal_figures/`.
 | `fig_ed_maze.pdf` | fig_ed_maze.py (a-c: N = 100 networks, sixth sub-panel of b, c from 45; r22-sizes, #226) | `6da8ad8` | 2026-11-10 |
 | `fig_paper_F2_size.pdf` | fig_paper_F2_size.py (a, b: x axis from 70, N = 100 markers clear of the y axis; PR #227 review) | `794219f` | 2026-11-10 |
 | `fig_paper_F2_size.svg` | fig_paper_F2_size.py (as the PDF; PR #227 review) | `794219f` | 2026-11-10 |
+| `fig_paper_F5_tasks.pdf` | fig_paper_F5_tasks.py (a, b: Maze read-out dropout and rescaling from their freeze_after_end reruns, fz_reruns.json; r22-rerun, #228) | `5f75d85` | 2026-11-11 |
+| `fig_paper_F5_tasks.svg` | fig_paper_F5_tasks.py (as the PDF; r22-rerun, #228) | `5f75d85` | 2026-11-11 |
+| `fig_ed_maze_settings_techniques.pdf` | fig_ed_maze_settings.py with maze_arms_r19.py (g-i: Maze read-out dropout and rescaling reruns; i: m = 10 and m = 4 continued; r22-rerun, #228) | `5f75d85` | 2026-11-11 |
