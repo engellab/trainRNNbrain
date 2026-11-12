@@ -567,7 +567,7 @@ def pic_maze(ax, scene, tcol):
     """
     ps.blank(ax)
     ax.set(xlim=(0, 1), ylim=(0, 1))
-    ax.text(0.50, 0.995, "find the cheese from the walls alone", ha="center", va="top",
+    ax.text(0.50, 0.995, "find the goal from the walls alone", ha="center", va="top",
             fontsize=ps.TICK_PT, color=ps.MUTED)
 
     wall, xy, heading = scene["wall"], scene["xy"], scene["heading"]
@@ -611,7 +611,7 @@ def pic_maze(ax, scene, tcol):
     ax.plot([kx - 0.02, kx + 0.025], [ky[2]] * 2, lw=0.7, color=tcol)
     ax.text(tx, ky[2], "path taken", ha="left", va="center", fontsize=ps.TICK_PT, color=tcol)
     ax.plot([kx], [ky[3]], "*", ms=6.0, color=tcol, zorder=5)
-    ax.text(tx, ky[3], "cheese: the goal", ha="left", va="center", fontsize=ps.TICK_PT, color=tcol)
+    ax.text(tx, ky[3], "goal", ha="left", va="center", fontsize=ps.TICK_PT, color=tcol)
 
 
 def check_text(fig):
@@ -667,7 +667,7 @@ def main():
             # the episode's end: the cheese, or the cut of an untrained agent's wandering
             t_end = (inp.shape[1] - 1) * dt_over_tau
             ax_c.axvline(t_end, color=spec["tcol"], lw=ps.THIN_LW, ls=(0, (1.5, 1.5)), zorder=2)
-            ax_c.text(t_end, 1.0, "cheese reached" if scene["reached"] else "episode cut",
+            ax_c.text(t_end, 1.0, "goal reached" if scene["reached"] else "episode cut",
                       transform=ax_c.get_xaxis_transform(), ha="right", va="bottom",
                       fontsize=ps.TICK_PT, color=spec["tcol"])
         print(f"  {name:13} {inp.shape[0]} inputs x {inp.shape[1]} steps "
