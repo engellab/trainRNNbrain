@@ -15,16 +15,21 @@ SAVE_TO=$DATA/trained_RNNs_rl_maze_long_resumed
 OLD_ROOT=$DATA/trained_RNNs_rl_maze_long/Maze_suite
 
 # 1. the code: a new detached worktree at the pin, and the launcher from main (gitignored there)
-[ -e "$REPO" ] && { echo "FATAL: $REPO exists; not touching it." >&2; exit 1; }
 git -C "$HOME/trainRNNbrain_mazelong" fetch -q origin wp/maze-finite main
-git -C "$HOME/trainRNNbrain_mazelong" worktree add -q --detach "$REPO" "$PIN"
+if [ -e "$REPO" ]; then   # left by an earlier run of this script that stopped later: reuse only if it is at the pin
+  [ "$(git -C "$REPO" rev-parse HEAD)" = "$PIN" ] || { echo "FATAL: $REPO exists and is not at $PIN." >&2; exit 1; }
+else
+  git -C "$HOME/trainRNNbrain_mazelong" worktree add -q --detach "$REPO" "$PIN"
+fi
 git -C "$REPO" show origin/main:"$LAUNCHER" > "$REPO/$LAUNCHER"
 grep -q "^PIN=$PIN$" "$REPO/$LAUNCHER" || { echo "FATAL: the launcher on main does not pin $PIN." >&2; exit 1; }
 [ -z "$(git -C "$REPO" status --porcelain)" ] || { echo "FATAL: $REPO is not clean." >&2; exit 1; }
 echo "code: $REPO @ $(git -C "$REPO" rev-parse HEAD); launcher md5 $(md5sum "$REPO/$LAUNCHER" | cut -d' ' -f1)"
 
 module purge; module load anaconda3/2024.10
+set +u   # conda's activation scripts read unset variables
 source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate torch-env
+set -u
 
 # 2. read-only check of the inference in the entry: were Adam's moments NaN at the stops?
 for f in "$OLD_ROOT/N=1000_act=relu_cont5/s6/s6_AdamState_Maze.pt" "$OLD_ROOT/N=500_act=relu_cont6/s2/s2_AdamState_Maze.pt" \
