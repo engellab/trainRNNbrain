@@ -17,6 +17,7 @@
 #      stage from SAVE_TO. PARENT_ROOT is replaced by OLD_ROOT;
 #   5. only indices 5, 8 and 28, only stages FIRST_STAGE..10;
 #      index 6 (N = 500 seed 3, stopped in stage 7 at update 12,400, job 17546732_6) added 15 Nov from stage 7.
+#      index 4 (N = 500 seed 1, stopped in stage 10 at update 18,300, job 17546735_4) added 15 Nov, stage 10 only.
 # The training command line is unchanged; the resumed configs record the new trainer keys
 # (trainer.rollout_tries, trainer.snapshot_keep) from configs/trainer/trainer_ppo.yaml of the pin.
 #
@@ -88,8 +89,8 @@ TASK_ACT=(x relu relu relu relu relu relu relu relu relu relu relu relu tanh tan
 TASK_SEED=(0 1 2 3 1 2 3 1 2 3 1 2 3 1 2 1 2 1 2 1 2 1 2 3 4 5 4 5 6)
 
 i=$SLURM_ARRAY_TASK_ID
-case "$i" in 5) FIRST_STAGE=6 ;; 6) FIRST_STAGE=7 ;; 8) FIRST_STAGE=3 ;; 28) FIRST_STAGE=5 ;;
-  *) echo "FATAL: index $i is not one of the resumed networks (5, 6, 8, 28)." >&2; exit 1 ;; esac
+case "$i" in 4) FIRST_STAGE=10 ;; 5) FIRST_STAGE=6 ;; 6) FIRST_STAGE=7 ;; 8) FIRST_STAGE=3 ;; 28) FIRST_STAGE=5 ;;
+  *) echo "FATAL: index $i is not one of the resumed networks (4, 5, 6, 8, 28)." >&2; exit 1 ;; esac
 N=${TASK_N[$i]}; ACT=${TASK_ACT[$i]}; SEED=${TASK_SEED[$i]}
 if ! [[ "$STAGE" =~ ^[0-9]+$ ]] || [ "$STAGE" -lt "$FIRST_STAGE" ] || [ "$STAGE" -gt 10 ]; then
   echo "FATAL: STAGE must be ${FIRST_STAGE}-10 for index $i; got '${STAGE}'." >&2; exit 1
