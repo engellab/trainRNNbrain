@@ -137,4 +137,78 @@ one run with updates 1 to the last, without gap or repeat.
 
 ## 4. Results
 
-(added after the tests ran)
+Code: commit `8c6b36e9ea20c449aad550ac1b544d318b8c0631` on branch `wp/maze-finite` (pushed to origin), whose
+parent is 1a80f5e. The test scripts are in the session's scratch folder and are not committed; each is
+described here.
+
+| Test | Result |
+|---|---|
+| P1 | **Pass.** 12 records, 144 values equal; new keys at 0, 0, -1 throughout; Participation, Params and AdamState equal. Controls: two runs of the 1a80f5e code agree (pass); a run with the learning rate changed by 0.01% fails with 47 differences, so the comparison can fail. Re-run at commit 8c6b36e (which changed only docstrings after the first run): pass. |
+| P2 | **Pass.** N = 1,000 seed 2 from its real update-4,000 folder, full size, 3 updates (4,001-4,003), snapshot capture at every update: 36 values equal, weights and Adam state equal. The saved config records `rollout_tries: 3`, `snapshot_keep: 3`. |
+| P3 | **Pass.** 1a80f5e: `RuntimeError: the rollout was not finite 6 times in a row`, so the stop is reproduced. New trainer: update 5,901 has `restored 3`, `snapshot_restores 1`, `snapshot_from 4000`; updates 5,901-5,903 complete with probe success 1.00 and success 0.98-0.99; weights and moments finite; the only snapshot kept is update 4,000, and none holds the update-5,900 weights. |
+| P4 | **Pass on the fourth run; the first three failed in the test script, before any trainer step was compared** (details below). With 1a80f5e, one update on a minibatch with a finite loss (0.35) and a non-finite gradient left every entry of W_rec, W_inp and W_out NaN and both Adam moments NaN, and the update recorded `skipped 0`, like updates 8,463 and 10,833 of the stopped runs. With the new trainer: `skipped_grad 1`, weights and moments unchanged bit for bit. |
+| P5 | **Pass.** `tests/test_maze_nonfinite_recovery.py`: 4 of 4. `tests/test_rl_maze.py`: all 36 checks, exit 0. `tests/test_no_function_imports.py`: 221 files clean. |
+| P6 | **Pass.** Launcher runs (Mac, stubs, real parents copied): index 8 stages 3 and 4, index 28 stage 5, index 5 stages 6 and 7 exit 0, each first stage reading the old tree and each later stage the new one; refusals for an existing folder, a stage below the first (28, stage 4), a stage above 10, and an index not resumed (9). Saved configs differ from the stopped stages' configs only in `experiment_tag`, `paths.init_from`, `paths.save_to`, `trainer.iter_offset` (later stages), the stub's keys and the two new keys. Reader: in one folder with the local chains, the stopped partial folders and the resumed folders, with the recorded `init_from` paths no longer on disk, `common.maze_load_runs` reads each resumed network as one run (N = 1,000 seed 2: updates 1-4,004 through 4 folders; seed 6: 1-8,002 through 5; N = 500 seed 2: 1-10,004 through 7), every step +1. Each stopped chain stays a record of its own (ending at 5,900, 8,500, 10,900). |
+
+**The three failed P4 runs (test script, not trainer).** (1) The advantages were computed from the one-episode
+batch, whose Monte-Carlo baseline equals the episode's own return, so every advantage was 0; in training,
+advantages come from the 256-episode rollout. Fixed by slicing the full-batch advantages. (2) A clean update,
+run first so that Adam's moments exist, moved the weights by one Adam step after the overflowing episodes had
+been located; (3) located again after that step, no episode of the batch overflowed any more: one Adam step
+(about 5e-4 per weight) moved the network out of the unstable region. Fixed by loading the update-5,900
+weights again after the clean update, keeping the moments it created. The pass condition was not changed.
+
+**Not tested.** A full 2,000-update stage with the new trainer, on any device. The bit-identity was checked on
+the Mac's CPU (torch 2.10); Della runs torch 2.7 on a GPU, where the added code only reads the gradient norm
+and copies state, but no comparison was run there. No real run has yet met a non-finite event with the new
+trainer; P3 and P4 are built from saved weights. That a non-finite gradient poisoned the moments at updates
+8,463 and 10,833 is still an inference: step 2 of the submission script prints the share of NaN entries in the
+AdamState files written at those stages' last checkpoints. If the explanation is right, the seed 6 and N = 500
+seed 2 files are entirely NaN and the seed 2 file has none.
+
+**The same change on main.** Main's TrainerPPO has the same `good`/`snapshot` recovery, plus the
+`freeze_after_end` option and the `restore_kinds` bookkeeping inside `safe_rollout` and `run_training`. The
+gradient guard in `ppo_update` applies without conflict; `safe_rollout` and `run_training` need a hand merge
+that keeps `restore_kinds`. Not applied to main.
+
+## 5. Deployment and submission: not done, Della refused the connection
+
+`ssh -o BatchMode=yes della true` failed (Duo session expired) at 16:05 and again after the tests. Everything
+is prepared so that submission is one command once Pavel has run `ssh -fN della`:
+
+```
+ssh della 'bash -s' < slurm/rl_maze_resume_submit_della.sh
+```
+
+The script (committed with this entry) makes the new worktree `~/trainRNNbrain_mazefinite` at 8c6b36e
+(from `~/trainRNNbrain_mazelong`, whose working tree and jobs it does not touch), copies the launcher
+`slurm/rl_maze_resume_della.slurm` from origin/main into it, prints the AdamState check, refuses if any
+resumed folder exists, runs the launcher once on the login node with `srun` stubbed (index 8, stage 3,
+output under /tmp), and submits 19 tasks as three chains, each stage one task with
+`--dependency=aftercorr:<previous stage>`, job name MazeResume, `INIT_ADAM=false` (fresh Adam and the
+50-update warm-up at every stage, as in every earlier stage):
+
+| Network | Index | From (update) | Stages | Tasks |
+|---|---|---|---|---|
+| N = 1,000 seed 2 | 8 | `N=1000_act=relu_cont/s2` (4,000) | 3-10 → `N=1000_act=relu_resume_cont3..10` | 8 |
+| N = 1,000 seed 6 | 28 | `N=1000_act=relu_cont4/s6` (8,000) | 5-10 → `N=1000_act=relu_resume_cont5..10` | 6 |
+| N = 500 seed 2 | 5 | `N=500_act=relu_cont5/s2` (10,000) | 6-10 → `N=500_act=relu_resume_cont6..10` | 5 |
+
+Outputs: `~/trainRNNbrain/data/trained_RNNs_rl_maze_long_resumed/Maze_suite/`. Cost: 14 stages at
+N = 1,000 x about 5.5 GPU-h + 5 at N = 500 x 4.2-5.3 GPU-h = about 100 GPU-h. Wall time if every stage starts
+when its parent ends: 8 stages x 5.5 h = about 44 h for N = 1,000 seed 2, about 33 h for seed 6, about 21-27 h
+for N = 500 seed 2.
+
+**Pull to the Mac** (adds new folders only; the parents are already in the local folder):
+
+```
+rsync -a --ignore-existing --exclude='*AdamState_Maze.pt' --exclude='*.png' \
+  --include='N=1000_act=relu_resume_cont*/***' --include='N=500_act=relu_resume_cont*/***' --exclude='*' \
+  della:trainRNNbrain/data/trained_RNNs_rl_maze_long_resumed/Maze_suite/ \
+  ~/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/
+```
+
+There, `common.maze_load_runs` returns two records for each of the three networks: the stopped chain (ending at
+5,900, 8,500 or 10,900; `maze_series` lists it as unfinished) and the resumed chain (to 20,000). A reader marks
+a record as resumed by `_resume_` in its folder name, as the rule entry requires. Every recovery event is in the
+resumed stages' progress records: `restored`, `snapshot_restores`, `snapshot_from`, `skipped_grad`.
