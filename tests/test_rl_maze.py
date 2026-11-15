@@ -340,29 +340,22 @@ def test_ppo_update_guards():
 
 
 def test_safe_rollout_restores():
-    """With NaN written into W_rec the rollout is not finite; safe_rollout restores the saved
-    weights and returns a finite rollout, counting one restore."""
+    """With finite weights safe_rollout plays one rollout and restores nothing; with NaN written
+    into W_rec every replay from the current weights fails (rollout_tries of them) and the newest
+    verified snapshot is restored, giving a finite rollout (since 14 Nov 2026; the recovery itself
+    is tested in tests/test_maze_nonfinite_recovery.py)."""
     torch.manual_seed(3)
     task = make_task()
     trainer = make_trainer(task, critic=False)
-    good = {k: v.detach().clone() for k, v in trainer.RNN.state_dict().items()}
+    trainer.snapshots = [trainer.capture_state(0)]
+    good = trainer.snapshots[0]["params"]
+    batch, restored, restores, snapshot_from = trainer.safe_rollout(4, 10)
+    assert (restored, restores, snapshot_from) == (0, 0, -1)
     with torch.no_grad():
         trainer.RNN.W_rec[0, 0] = float("nan")
-    batch, restored = trainer.safe_rollout(good, 4, 10)
-    assert restored == 1 and torch.isfinite(batch["logp"]).all()
-    assert torch.equal(trainer.RNN.W_rec, good["W_rec"])
-    batch, restored = trainer.safe_rollout(good, 4, 10)
-    assert restored == 0
-    # the weights after the last update are themselves unstable: every replay from `good` fails
-    # and the last checkpoint's weights are restored instead (counted beyond the three tries)
-    snapshot = {k: v.clone() for k, v in good.items()}
-    bad = {k: v.clone() for k, v in good.items()}
-    bad["W_rec"][0, 0] = float("nan")
-    with torch.no_grad():
-        trainer.RNN.W_rec[0, 0] = float("nan")
-    batch, restored = trainer.safe_rollout(bad, 4, 10, snapshot=snapshot)
-    assert restored == 4 and torch.isfinite(batch["logp"]).all()
-    assert torch.equal(trainer.RNN.W_rec, snapshot["W_rec"])
+    batch, restored, restores, snapshot_from = trainer.safe_rollout(4, 10)
+    assert (restored, restores, snapshot_from) == (trainer.rollout_tries, 1, 0)
+    assert torch.isfinite(batch["logp"]).all() and torch.equal(trainer.RNN.W_rec, good["W_rec"])
 
 
 def test_run_script_writes_standard_layout():

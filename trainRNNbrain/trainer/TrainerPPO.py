@@ -128,9 +128,29 @@ criterion (std alone: the count to read for tanh and sigmoid networks, whose res
 the p bar on its own), the probe's success rate, and every store_participation_every-th probe's
 full participation vector.
 
+RECOVERY FROM NON-FINITE VALUES (14 Nov 2026, branch wp/maze-finite; notebook entry
+2026-11-14_1605_maze-nonfinite-recovery.md). Three of nine long-trained ReLU networks stopped with "the
+rollout was not finite 6 times in a row" (Della 17379992_8, 17379994_28, 17379995_5). Two causes,
+both in the recovery code, not in the learning problem: (1) a minibatch whose loss is finite can have
+a non-finite gradient (an episode whose state grows without bound near the end of the recompute; the
+log-ratio clamp keeps its loss finite), and clip_grad_norm_ then turns EVERY gradient into NaN, so
+the Adam step writes NaN into all weights and into Adam's moments, after which every later step
+writes NaN again, whatever weights are restored; (2) the fallback snapshot was copied from the
+weights after the last update without checking that they give a finite rollout, so it could itself
+be the unstable weights (N = 1,000 seed 2: the snapshot of update 5,900 was the update that
+diverged). The recovery is therefore: an optimizer step whose clipped gradient norm is not finite
+is skipped (`ppo_update`, counted in skipped_grad); a snapshot is the weights AND the optimizer state,
+captured at every checkpoint and kept only once the next rollout from those weights was finite on
+its first try (`capture_state`, `run_training`); up to snapshot_keep verified snapshots are kept, a
+restore loads the weights and the optimizer state together, newest first, and each snapshot is
+restored at most once until a newer one is verified (`safe_rollout`). None of this draws a random
+number or changes a computed value while every rollout and every gradient is finite, so such a run
+is bit-identical to one made at 1a80f5e (checked in the notebook entry above).
+
 `load_run` at the end of this file rebuilds a trained agent (task, RNN, trainer) from a run folder,
 for the analysis scripts.
 """
+import copy
 import glob
 import math
 import os
@@ -177,7 +197,7 @@ class TrainerPPO:
                  lambda_frm=0.0, frm_args=None, lambda_rws=0.0, rws_args=None,
                  lambda_rwm=0.0, rwm_args=None, lambda_met=0.0, met_args=None,
                  dropout=False, dropout_args=None, prune_reinit=False, prune_args=None,
-                 iter_offset=0, adam_restored=False):
+                 iter_offset=0, adam_restored=False, rollout_tries=3, snapshot_keep=3):
         """Args:
             RNN: RNN_torch with n_outputs 2 + critic (turn, speed, and the value row with a
                 critic), on the task's device. Its sigma_w (model.sigma_w) switches synaptic noise
@@ -244,6 +264,11 @@ class TrainerPPO:
                 moment estimates exist, and a restored state has them
                 (configs/trainer/trainer_ppo.yaml, warmup_updates). A continuation without the
                 moments ramps again.
+            rollout_tries: int >= 1, rollouts played from one set of weights (the current ones, then
+                each restored snapshot) before safe_rollout gives up on them (3, the value that was
+                hard-coded before 14 Nov 2026).
+            snapshot_keep: int >= 1, verified snapshots (weights and optimizer state) kept as
+                fallbacks, one per checkpoint (`capture_state`; module docstring, RECOVERY).
         Raises:
             ValueError if RNN.n_outputs is not 2 + critic; if lambda_rwm is above 0 on an RNN with
             Dale's law (RNN.dale_mask set: the penalty's two-cap branch is not mirrored); if dropout
@@ -351,6 +376,10 @@ class TrainerPPO:
         # fn(updates_done, params), and reads this trainer's progress, probes and last_probe.
         self.checkpoint_every = int(checkpoint_every or 0)
         self.checkpoint_fn = None
+        # THE FALLBACKS of safe_rollout: verified snapshots from capture_state, oldest first, at most
+        # snapshot_keep; run_training fills it
+        self.rollout_tries, self.snapshot_keep = int(rollout_tries), int(snapshot_keep)
+        self.snapshots = []
         # filled by run_training: one dict per update; dict of lists, one entry per probe; the
         # last probe's rollout (for the trajectory figure)
         self.progress, self.probes, self.last_probe = [], None, None
@@ -1197,41 +1226,97 @@ class TrainerPPO:
                 "xy": torch.stack(xy), "heading": torch.stack(heading),
                 "w_seed": w_seed, "outgoing": outgoing, "participation": p_new}
 
-    def safe_rollout(self, good, n_episodes, T, tries=3, snapshot=None):
-        """A rollout that is finite, or the last finite weights restored and the rollout replayed,
-        or, failing that, the last checkpoint's weights restored.
+    def capture_state(self, update):
+        """A snapshot of the trainer's state: the RNN's state_dict and the optimizer's state, copied.
+
+        Args:
+            update: int, the absolute update index after which the snapshot is taken (iter_offset +
+                updates done), recorded as snapshot_from when the snapshot is restored.
+        Returns:
+            dict: update (int), params (RNN.state_dict() tensors, cloned), opt (a deep copy of
+            optimizer.state_dict(), {} without an optimizer), used (False: not restored since it was
+            verified).
+        """
+        params = {k: v.detach().clone() for k, v in self.RNN.state_dict().items()}
+        opt = copy.deepcopy(self.optimizer.state_dict()) if self.optimizer is not None else {}
+        return {"update": int(update), "params": params, "opt": opt, "used": False}
+
+    @staticmethod
+    def state_is_finite(snap):
+        """Whether every floating-point tensor of a snapshot (weights and optimizer moments) is finite.
+
+        Args:
+            snap: dict from capture_state.
+        Returns:
+            bool.
+        """
+        tensors = list(snap["params"].values())
+        for st in snap["opt"].get("state", {}).values():
+            tensors += [v for v in st.values() if torch.is_tensor(v)]
+        return all(bool(torch.isfinite(t).all()) for t in tensors if t.is_floating_point())
+
+    def restore_state(self, snap):
+        """Load a snapshot's weights and optimizer state into the RNN and the optimizer (in place).
+
+        The optimizer state is loaded from a deep copy, so the optimizer's later in-place updates
+        cannot change the snapshot (torch's load_state_dict may keep the given tensors). The
+        learning rate that load_state_dict brings back is the snapshot's; run_training sets the
+        current update's rate again after a restore.
+
+        Args:
+            snap: dict from capture_state.
+        Returns:
+            None.
+        """
+        self.RNN.load_state_dict(snap["params"])
+        if self.optimizer is not None and snap["opt"]:
+            self.optimizer.load_state_dict(copy.deepcopy(snap["opt"]))
+
+    def safe_rollout(self, n_episodes, T):
+        """A finite rollout: from the current weights, or else from the newest verified snapshot not
+        yet restored, weights and optimizer state together.
 
         The maze counterpart of the supervised trainer's rollback: at N = 2,000 the recurrent dynamics
         blew up (states to infinity over the 2,500-step episode) after a few updates at the paper's
         learning rate (arrays 16856487 and 16859389, 4 Nov 2026), and every later loss was skipped.
-        Here a rollout whose log-probabilities or rewards are not finite is discarded, the weights are
-        restored from `good` (the RNN's state_dict after the last update whose rollout was finite),
-        and the rollout is played again with fresh noise. When `tries` replays from `good` all fail,
-        the weights after the last update are themselves unstable (the N = 2,000 seed-3 runs of
-        5 Nov died this way at updates 341 and 1,225); then, as the supervised trainer restores its
-        last snapshot after repeated skips, the weights of the last checkpoint (`snapshot`, up to
-        checkpoint_every updates earlier) are restored and `tries` more replays are made. The
-        optimizer's moments are kept as they are in both cases.
+        A rollout whose log-probabilities or rewards are not finite is discarded and played again
+        with fresh noise, up to rollout_tries times from the current weights (a rollout whose state
+        grows without bound in one of 256 episodes can be followed by a finite one from the same
+        weights). Then the snapshots in self.snapshots are tried, newest first, skipping those marked
+        used: each is restored (restore_state), marked used, and given rollout_tries rollouts. A
+        snapshot stays marked until run_training verifies a newer one, so a snapshot that leads back
+        into instability before the run reaches its next checkpoint is not restored a second time;
+        the next older one is. Until 14 Nov 2026 the fallback was one unverified snapshot and the
+        optimizer moments were kept (module docstring, RECOVERY).
+
+        While the first rollout is finite this is one call of `rollout`, as it was before.
 
         Args:
-            good: dict, RNN.state_dict() tensors (copied); n_episodes, T: ints; tries: int,
-            attempts from `good` and then from `snapshot`; snapshot: dict like `good` from the
-            last checkpoint, or None.
+            n_episodes, T: ints, the rollout's batch and length.
         Returns:
-            (batch, restored): the finite rollout dict and the number of restores; a restore from
-            the snapshot counts tries + 1 or more, so a reader can tell the two apart.
+            (batch, discarded, restores, snapshot_from): the finite rollout dict; the number of
+            non-finite rollouts discarded (the progress record's `restored`, as before); the number
+            of snapshots restored; the absolute update of the snapshot in effect after the last
+            restore, -1 when none was restored.
         Raises:
-            RuntimeError if no finite rollout was obtained.
+            RuntimeError if no finite rollout was obtained from the current weights or from any
+            snapshot not yet used.
         """
-        restored = 0
-        for source in ([good] if snapshot is None else [good, snapshot]):
-            for _ in range(tries):
+        discarded, restores, snapshot_from = 0, 0, -1
+        sources = [None] + [s for s in reversed(self.snapshots) if not s["used"]]
+        for snap in sources:
+            if snap is not None:
+                self.restore_state(snap)
+                snap["used"] = True
+                restores += 1
+                snapshot_from = snap["update"]
+            for _ in range(self.rollout_tries):
                 batch = self.rollout(n_episodes, T)
                 if torch.isfinite(batch["logp"]).all() and torch.isfinite(batch["rewards"]).all():
-                    return batch, restored
-                self.RNN.load_state_dict(source)
-                restored += 1
-        raise RuntimeError(f"the rollout was not finite {restored} times in a row; the run is stopped")
+                    return batch, discarded, restores, snapshot_from
+                discarded += 1
+        raise RuntimeError(f"the rollout was not finite {discarded} times in a row, from the current weights and "
+                           f"{restores} snapshot(s); the run is stopped")
 
     @staticmethod
     def mc_advantages(rewards, alive, gamma):
@@ -1285,7 +1370,9 @@ class TrainerPPO:
             dict of floats averaged over the minibatch steps: policy_loss, value_loss, entropy,
             approx_kl (mean of old minus new log-probability), clip_frac (share of steps with the
             ratio outside the clip range), skipped, the number of minibatch steps whose loss was
-            not finite and which were therefore not applied, and, only when the option is on, the
+            not finite and which were therefore not applied, skipped_grad, the number whose loss
+            was finite but whose clipped gradient norm was not (not applied either; since 14 Nov
+            2026), and, only when the option is on, the
             raw penalty values fr_magnitude (lambda_frm > 0), rec_weights_sparsity
             (lambda_rws > 0), rec_weights_magnitude (lambda_rwm > 0) and metabolic
             (lambda_met > 0), before their lambda; with the rescale rule on, four ints:
@@ -1311,7 +1398,11 @@ class TrainerPPO:
         died in their first update, array 16856487): the log-ratio is clamped to [-20, 20] before it
         is exponentiated, so an action that the updated policy finds very unlikely gives a ratio of
         e^-20 instead of 0 or inf; and a minibatch whose loss is not finite is skipped, so one bad
-        pass cannot write NaN into the weights for the rest of the run.
+        pass cannot write NaN into the weights for the rest of the run. A THIRD (14 Nov 2026): the
+        clamp keeps the loss finite when an episode's recomputed state grows without bound near the
+        end of the sequence, but the gradient can then be non-finite (seen on the weights of
+        N = 1,000 seed 2 at update 5,900), so a step whose clipped gradient norm is not finite is
+        skipped too (skipped_grad).
         """
         clip = self.clip
         T, B = adv.shape
@@ -1328,6 +1419,7 @@ class TrainerPPO:
             sums["metabolic"] = 0.0
         n = 0
         skipped = 0
+        skipped_grad = 0
         rule = {}
         for _ in range(self.n_epochs):
             for idx in torch.randperm(B, device=adv.device).chunk(self.n_minibatches):
@@ -1362,7 +1454,13 @@ class TrainerPPO:
                     continue
                 self.optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.RNN.parameters(), self.max_grad_norm)
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.RNN.parameters(), self.max_grad_norm)
+                if not torch.isfinite(grad_norm):
+                    # a finite loss with a non-finite gradient (module docstring, RECOVERY): the
+                    # clip has already made every gradient NaN, and a step would write NaN into the
+                    # weights and Adam's moments
+                    skipped_grad += 1
+                    continue
                 self.zero_protected_grads()
                 self.optimizer.step()
                 if self.prune_reinit:
@@ -1380,6 +1478,7 @@ class TrainerPPO:
                 n += 1
         out = {k: v / max(n, 1) for k, v in sums.items()}
         out["skipped"] = float(skipped)
+        out["skipped_grad"] = float(skipped_grad)
         out.update(rule)
         return out
 
@@ -1410,7 +1509,9 @@ class TrainerPPO:
 
         Every update: the learning rate for this update (the warm-up ramp, unless the Adam moments
         were restored), a finite rollout
-        (safe_rollout, rolling back to the last finite weights if needed), with dropout on the
+        (safe_rollout, restoring the newest verified snapshot if needed, weights and optimizer state;
+        the state at every checkpoint becomes a snapshot once the next rollout from it is finite on
+        its first try), with dropout on the
         participation EMA p_bar updated from that rollout's states as the supervised train_step
         updates it (`self.participation = (1 - eta) * self.participation + eta * new_part`, after the
         mask of the same batch was drawn from the old value), advantages (GAE with a critic,
@@ -1425,13 +1526,15 @@ class TrainerPPO:
             update: update (iter_offset + this run's own count, so a continuation's records continue
             its parent's), discounted_return (mean over the batch of sum_t gamma^t r_t, the quantity
             PPO maximises), success (share of the batch that reached the cheese), steps (mean steps
-            to the cheese, T if never), restored (rollouts discarded and weights rolled back), lr
+            to the cheese, T if never), restored (non-finite rollouts discarded), lr
             (the rate used, after the warm-up ramp), the statistics of ppo_update (including
-            skipped minibatches, when a penalty is on its raw value, and with the rescale rule on
+            skipped minibatches, skipped_grad, when a penalty is on its raw value, and with the rescale rule on
             its counts of that update: rescale_opened, rescale_graduated and rescale_spent summed
             over the update's checks, rescale_growing after the last one; with the copy rule on
             copy_replaced summed over the checks and copy_units_ever after the last one; with a
-            redraw mode on reinit_replaced and reinit_units_ever the same way); probes,
+            redraw mode on reinit_replaced and reinit_units_ever the same way), snapshot_restores
+            (snapshots restored before this update's rollout, 0 normally) and snapshot_from (the
+            absolute update of the snapshot restored, -1 when none; both since 14 Nov 2026); probes,
             a dict of lists
             over probes: update (the update index, offset the same way),
             active, active_mod, probe_success, and p_update and p, the stored participation vectors
@@ -1442,18 +1545,30 @@ class TrainerPPO:
         probes = {"update": [], "active": [], "active_mod": [], "probe_success": [], "p_update": [], "p": []}
         self.progress, self.probes, self.last_probe = progress, probes, None
         discount = hp.gamma ** torch.arange(hp.T, device=self.device, dtype=torch.float32)[:, None]
-        good = {k: v.detach().clone() for k, v in self.RNN.state_dict().items()}   # last finite weights
-        snapshot = {k: v.clone() for k, v in good.items()}                         # the last checkpoint's
+        # THE SNAPSHOT CANDIDATE (module docstring, RECOVERY): the starting state and then the state
+        # at every checkpoint, appended to self.snapshots only once the next rollout from it was
+        # finite on its first try and every tensor in it is finite
+        pending = self.capture_state(hp.iter_offset)
         tic = time.perf_counter()
         for it in range(1, hp.n_updates + 1):
             ramp = hp.warmup_updates and not self.adam_restored
             lr_now = self.lr * min(1.0, it / hp.warmup_updates) if ramp else self.lr
             for group in self.optimizer.param_groups:
                 group["lr"] = lr_now
-            batch, restored = self.safe_rollout(good, hp.n_episodes, hp.T, snapshot=snapshot)
+            batch, restored, restores, snapshot_from = self.safe_rollout(hp.n_episodes, hp.T)
+            if restores:
+                # the snapshot's optimizer state brought back its own rate
+                for group in self.optimizer.param_groups:
+                    group["lr"] = lr_now
+            if pending is not None and restored == 0 and self.state_is_finite(pending):
+                self.snapshots = (self.snapshots + [pending])[-self.snapshot_keep:]
+                for snap in self.snapshots:
+                    snap["used"] = False
+            pending = None
             if restored:
-                print(f"update {it}: rollout not finite, weights restored ({restored} tries"
-                      f"{', from the last checkpoint' if restored > 3 else ''})", flush=True)
+                print(f"update {it}: {restored} rollout(s) not finite"
+                      + (f"; restored the snapshot of update {snapshot_from} ({restores} snapshot(s) tried)"
+                         if restores else "; a replay from the same weights was finite"), flush=True)
             if batch["participation"] is not None:
                 eta = float(self.dropout_args.get("eta", 0.5))
                 self.p_bar = (1 - eta) * self.p_bar + eta * batch["participation"]
@@ -1468,8 +1583,12 @@ class TrainerPPO:
                              "steps": batch["steps"].mean().item(),
                              "restored": restored,
                              "lr": lr_now,
-                             **stats})
-            good = {k: v.detach().clone() for k, v in self.RNN.state_dict().items()}
+                             **stats,
+                             "snapshot_restores": restores,
+                             "snapshot_from": snapshot_from})
+            if stats["skipped_grad"]:
+                print(f"update {it}: {int(stats['skipped_grad'])} optimizer step(s) skipped, gradient not finite",
+                      flush=True)
             if it == 1 or it % hp.probe_every == 0:
                 n_active, n_active_mod, p, out = self.probe()
                 self.last_probe = out
@@ -1490,7 +1609,7 @@ class TrainerPPO:
                       + (f"  redrawn {r['reinit_units_ever']}" if "reinit_units_ever" in r else "")
                       + f"  {(time.perf_counter() - tic) / it:.2f} s/update", flush=True)
             if self.checkpoint_every and it % self.checkpoint_every == 0:
-                snapshot = {k: v.clone() for k, v in good.items()}      # the fallback of safe_rollout
+                pending = self.capture_state(hp.iter_offset + it)     # verified by the next rollout
                 if self.checkpoint_fn is not None and it < hp.n_updates:
                     self.checkpoint_fn(it, self.RNN.get_params())
         print(f"done: {hp.n_updates} updates in {time.perf_counter() - tic:.0f} s", flush=True)
