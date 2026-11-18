@@ -544,6 +544,16 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
 | Redraw silent units | Engineering (≈ continual backprop / ReDo) | Re-initialises a silent unit | 0.84-0.96× | Negative (Fig. 3e) |
 | Rate + sparsity | Bio-inspired pair | Both penalties | 3.51×; 5.87× at N = 4000 (1 run) | Not in Fig. 5; reported in the per-unit-rule table, the Extended Data figure of per-unit rules at three margins, and on CDDM in Fig. 3a (all 1000 active, −0.008 R²) |
 
+**Maze after convergence (17 Nov; entries 2026-11-14_1051, _1107 rules, 2026-11-17 result).** Nine default Maze
+networks (N = 500 and 1,000) trained to update 20,000; five stopped with non-finite rollouts under the old trainer
+and were resumed with the recovery fix (`wp/maze-finite` 8c6b36e). All nine have 22-44% fewer active units at
+update 20,000 than at 4,000. After update 12,000 the decrease slows (8 of 9 lose 1-7 units per 1,000 updates, below
+the 5-unit bar). Flat-return test over 15,000-20,000: return flat in 7 of 9, none loses 5 units per 1,000 updates:
+**not decreasing** (pre-set primary reading). The stage-by-stage reading says decreasing (12 of 15 flat stages), but
+its within-stage slopes include the recovery after each optimizer restart. The claim "the number of active units
+keeps decreasing after the loss has nearly converged" stays limited to 3BFF and CDDM; on Maze the decrease slows
+once the return is flat.
+
 ## Parked (do not restart without a `decision` issue on dead-relu-paper; PROTOCOL.md, 31 Oct)
 
 - The selective/modular solution under rate + sparsity: burst units, assemblies, penalty switching.
