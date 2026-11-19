@@ -554,6 +554,12 @@ its within-stage slopes include the recovery after each optimizer restart. The c
 keeps decreasing after the loss has nearly converged" stays limited to 3BFF and CDDM; on Maze the decrease slows
 once the return is flat.
 
+**Maze warm-start test (18 Nov; rules 2026-11-17_2249, result 2026-11-18).** Warm starts (Adam state reloaded)
+are exact and not disruptive (9 of 9 within noise at both boundaries); adopted for new Maze continuations. A cold restart
+adds a median of 3 active units just after its warm-up (7 of 9; post hoc, paired), not lasting through the stage, so
+restarts do not explain the late Maze result. Without restarts (updates 20,000-24,000) 2 of 5 flat-return networks lose
+>= 5 units per 100k Adam steps. No paper claim changes.
+
 ## Parked (do not restart without a `decision` issue on dead-relu-paper; PROTOCOL.md, 31 Oct)
 
 - The selective/modular solution under rate + sparsity: burst units, assemblies, penalty switching.
