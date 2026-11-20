@@ -296,8 +296,8 @@ def cddm_main(a):
         s = [x["active"] for x in sigma[k] if x["active"] is not None]
         c = [x["active"] for x in ctrl[1000][k] if x["active"] is not None]
         sigma_mult = float(np.mean(s) / np.mean(c)) if s and c else float("nan")
-        verdicts[k] = dict(sigma_mult_1000=sigma_mult,
-                           **cddm_verdict({N: arm[N][k] for N in SIZES}, {N: ctrl[N][k] for N in SIZES}, sigma_mult))
+        verdicts[k] = {"sigma_mult_1000": sigma_mult,
+                       **cddm_verdict({N: arm[N][k] for N in SIZES}, {N: ctrl[N][k] for N in SIZES}, sigma_mult)}
         print(f"margin {k}: {verdicts[k]['verdict']}")
         for N in SIZES:
             v = verdicts[k][N]
