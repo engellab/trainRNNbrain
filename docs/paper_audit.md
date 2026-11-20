@@ -560,6 +560,22 @@ adds a median of 3 active units just after its warm-up (7 of 9; post hoc, paired
 restarts do not explain the late Maze result. Without restarts (updates 20,000-24,000) 2 of 5 flat-return networks lose
 >= 5 units per 100k Adam steps. No paper claim changes.
 
+**Maze long warm continuation (20 Nov; rules 2026-11-18_0745, result 2026-11-20_0811; Phase B).** The same nine
+networks continued to update 34,000 with warm starts at every boundary (no optimizer restart after update 18,000),
+read over updates 24,001-34,000 (80,000 Adam steps) with bars matched to the supervised flat-loss test: decreasing if
+>= 5 units are lost per 100,000 Adam steps (chosen after the earlier Maze data), flat if the return's least-squares
+slope is below 3% of the rise per 100,000 Adam steps. **Primary reading: no verdict**: 1 of 9 networks is flat (5
+needed); the return still rises by 3.6-35.6% of the rise per 100,000 Adam steps in 7 and falls by 14% in 1. 8 of 9
+lose 10-79 units per 100,000 Adam steps (5-23% fewer active units at 34,000 than at 24,000; CDDM's flat-loss networks
+lose 34-64), N=1000 s3 gains; the same 8 over updates 29,001-34,000 alone. By the earlier Maze flat criterion (12.5
+times looser per Adam step) 9 of 9 are flat and 8 decreasing (secondary). No disruption at the warm boundaries (|J|
+above noise in 0 and 1 of 9). Consequence (fixed in the rules): Maze neither supports nor contradicts the flat-loss
+claim, which stays scoped to 3BFF and CDDM, as the paper already has it after dead-relu-paper PR #243. That paper's
+Results 2 paragraph describes Maze as a task where the claim fails (0 of 7 at 5 units per 1,000 updates); by this
+reading Maze does not test the claim, since its return has not stopped rising at the supervised flatness bar by
+update 34,000. The general claim ("continues to decrease after the task is learned") gains a restart-free Maze
+observation: 8 of 9 networks lose units over updates 24,001-34,000.
+
 ## Parked (do not restart without a `decision` issue on dead-relu-paper; PROTOCOL.md, 31 Oct)
 
 - The selective/modular solution under rate + sparsity: burst units, assemblies, penalty switching.
