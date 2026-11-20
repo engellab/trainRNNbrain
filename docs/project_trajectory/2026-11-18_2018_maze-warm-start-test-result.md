@@ -3,14 +3,15 @@
 Follows `2026-11-17_2249_rules-maze-warm-start-test.md` (rules, unchanged) and
 `2026-11-18_0727_maze-warm-start-test-submitted.md`. All 27 stage tasks finished with exit 0 on Della (warm 11
 17851661, warm 12 17851662, cold 11 17851663; 4.98-7.07 h each, 147 GPU-h in all). Records pulled without the Adam
-state files; read with `maze_warm_start_read.py` (committed in 7b62310 before any record was pulled):
+state files; read with `maze_warm_start_readings.py` (committed in 7b62310 as `maze_warm_start_read.py`, before any record was pulled; renamed on 20 Nov because main received a different script of that name, 4dcf8da):
 
 ```
-CUDA_VISIBLE_DEVICES= PYTHONPATH=. python maze_warm_start_read.py <reading root>/Maze_suite <out>.json
+CUDA_VISIBLE_DEVICES= PYTHONPATH=. python maze_warm_start_readings.py <reading root>/Maze_suite <out>.json
 ```
 
 The reading root holds the warm and cold cells and links to every earlier stage of the nine networks, so each arm
-is read as one record from update 0. The parent's last 5 probes before update 20,000 are identical in the two arms
+is read as one record from update 0 (and no Phase B cell: those would extend the warm record past 24,000, where R5's
+flat test would then read to). The parent's last 5 probes before update 20,000 are identical in the two arms
 of every network (column "same before" of the reader).
 
 ## Verdicts (rules as written)

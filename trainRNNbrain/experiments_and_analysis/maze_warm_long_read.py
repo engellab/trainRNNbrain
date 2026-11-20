@@ -12,7 +12,7 @@ update 34,000. Per network:
   P2: flat by maze_flat_return_full.measure over W (3% of the rise per 1,000 updates), decreasing as in P1.
   P3: P1's flat networks, decreasing if at least 5 units per 1,000 updates (62.5 per 100,000 Adam steps).
   P4: P1 over updates 29,001-34,000 alone (W only).
-  P5: jumps J(24,000) and J(29,000) against the noise of maze_warm_start_read (descriptive; flagged if more than
+  P5: jumps J(24,000) and J(29,000) against the noise of maze_warm_start_readings (descriptive; flagged if more than
       2 of 9 networks exceed it at either boundary).
 Every record is cut at the window's end first; the learned point (common.maze_learned_index), the rise and the
 read condition refer to the cut record. A network is read if its record reaches the window's end and the cut
@@ -32,7 +32,7 @@ import numpy as np
 from common import maze_learned_index, maze_load_runs
 from fig_paper_F2_size import maze_series
 from maze_flat_return_full import BLOCK, FLAT_BAR, measure
-from maze_warm_start_read import jump, noise
+from maze_warm_start_readings import jump, noise
 from round18_maze import three_way
 
 START, MID, END, END_SHORT = 24000.0, 29000.0, 34000.0, 29000.0   # W = (START, END]; W' = (START, END_SHORT]

@@ -15,11 +15,14 @@ Noise of a network: the largest |J| over the non-boundary points 18,250, 18,500,
 A network whose arm does not reach the probes a reading needs does not meet that reading's condition (counted).
 
 Usage (from trainRNNbrain/experiments_and_analysis):
-  CUDA_VISIBLE_DEVICES= PYTHONPATH=. python maze_warm_start_read.py <suite root> <out.json>
+  CUDA_VISIBLE_DEVICES= PYTHONPATH=. python maze_warm_start_readings.py <suite root> <out.json>
 The root holds the warm and cold cells of trained_RNNs_rl_maze_warmtest and every earlier stage of the nine
 networks (links into data/trained_RNNs_rl_maze/Maze_suite), so that common.maze_load_runs joins each arm into one
 record from update 0 (the flat-return test needs the rise up to the learned point). Partial records (stages still
 running) are read as far as they go; a reading that needs probes beyond them is reported as pending.
+The root must NOT hold the Phase B cells (warm_cont13, warm_cont14 of trained_RNNs_rl_maze_warmlong): they extend the
+warm record past update 24,000, and R5's flat test (measure from 20,001) reads to the record's end (note added 20 Nov;
+the 18 Nov reading had no Phase B cells and is reproduced byte for byte on such a root).
 """
 import json
 import sys

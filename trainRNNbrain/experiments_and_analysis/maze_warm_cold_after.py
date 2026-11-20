@@ -5,14 +5,14 @@ the median of the last 5 probes up to 20,000.
 Why: R2 (cold restart disruptive) read J(20,000), the first 5 probes after the boundary (updates 20,001-20,040),
 which all fall inside the cold arm's 50-update learning-rate ramp; this table shows the arms after the ramp.
 
-Usage (from trainRNNbrain/experiments_and_analysis), on the same root as maze_warm_start_read.py:
+Usage (from trainRNNbrain/experiments_and_analysis), on the same root as maze_warm_start_readings.py:
   CUDA_VISIBLE_DEVICES= PYTHONPATH=. python maze_warm_cold_after.py <suite root>
 """
 import sys
 
 import numpy as np
 
-from maze_warm_start_read import B0, N_SIDE, arm_records
+from maze_warm_start_readings import B0, N_SIDE, arm_records
 
 WINDOWS = [(20001, 20040), (20050, 20100), (20100, 20200), (20200, 20500), (20500, 21000), (21000, 21500),
            (21500, 22000)]
