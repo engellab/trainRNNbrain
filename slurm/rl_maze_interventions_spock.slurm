@@ -196,7 +196,12 @@ ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.la
 
 i=$SLURM_ARRAY_TASK_ID
 a=$(( (i - 1) / 3 )); SEED=$(( (i - 1) % 3 + 1 ))
-N=1000
+# N_OVERRIDE (claim gaps, 19 Nov 2026; docs/project_trajectory/2026-11-19_1749_rules-*-sizes.md): the same arm at
+# another network size. The run folder does not name N, so another size must write to its own SAVE_TO tree.
+N=${N_OVERRIDE:-1000}
+if [ -n "${N_OVERRIDE:-}" ] && [ "$SAVE_TO" = "$HOME/trainRNNbrain/data/trained_RNNs_rl_maze" ]; then
+  echo "FATAL: N_OVERRIDE=${N_OVERRIDE} needs its own SAVE_TO; the default tree holds the N = 1,000 runs." >&2; exit 1
+fi
 TAG="interventions/${ARM_TAG[$a]}"
 echo "Task ${i}: arm=${ARM_TAG[$a]} N=${N} seed=${SEED} overrides='${ARM_OVERRIDES[$a]}' -> ${SAVE_TO}/Maze_${TAG}/s${SEED}"
 
