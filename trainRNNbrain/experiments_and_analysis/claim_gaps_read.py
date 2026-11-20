@@ -20,8 +20,9 @@ Usage:
   python claim_gaps_read.py maze --new-root DIR --suite DIR --sigmaw DIR --out FILE.json
       DIR of --new-root holds cg_N500, cg_N1000, cg_N2000, each a copy of a Della trained_RNNs_rl_maze_cg_N<N>
       tree (cg_N1000 also holds copies of the fz parents under Maze_interventions/<arm>/s<seed>).
-  python claim_gaps_read.py cddm --data DIR --logs DIR --out FILE.json
-      DIR of --data holds trained_RNNs and trained_RNNs_cg (Della: ~/trainRNNbrain/data).
+  python claim_gaps_read.py cddm --data DIR --logs DIR --sigma CELL --out FILE.json
+      DIR of --data holds trained_RNNs and trained_RNNs_cg (Della: ~/trainRNNbrain/data); CELL is the CDDM
+      sigma_w 1.0 cell CDDM_synnoise_ext/EqType=h_N=1000_sw=1.0_iters=100000 (on the Mac only; copied to Della).
 """
 
 import argparse
@@ -204,7 +205,9 @@ def log_skips(log_dir, patterns):
     Args:
         log_dir: str, Della ~/trainRNNbrain_logs; patterns: list of glob patterns of .out files.
     Returns:
-        dict seed (int) -> skipped updates (int), for every log that printed both a seed and the line.
+        dict seed (int) -> skipped updates (int), for every log that printed a seed and finished training.
+        run_experiment.py prints the "gradient spikes" line only when an update was skipped or rolled
+        back, so a log that reached "Executed training" without it records 0.
     """
     out = {}
     for pat in patterns:
@@ -212,8 +215,8 @@ def log_skips(log_dir, patterns):
             txt = open(f, errors="replace").read()
             seed = re.search(r"'seed': (\d+)", txt)
             sk = re.search(r"gradient spikes: (\d+) updates skipped", txt)
-            if seed and sk:
-                out[int(seed.group(1))] = int(sk.group(1))
+            if seed and (sk or "Executed training" in txt):
+                out[int(seed.group(1))] = int(sk.group(1)) if sk else 0
     return out
 
 
@@ -278,12 +281,12 @@ def cddm_verdict(arm, ctrl, sigma_mult):
 
 
 def cddm_main(a):
-    """Read gap B and write the JSON (args: data, logs, out)."""
+    """Read gap B and write the JSON (args: data, logs, sigma, out)."""
     tr, cg = os.path.join(a.data, "trained_RNNs"), os.path.join(a.data, "trained_RNNs_cg")
     pen = "CDDM_std_g0_penalties_bias0/EqType=h_N={N}_pen=frm0.1_iters=75000"
     arm_path = {N: os.path.join(cg if N != 1000 else tr, pen.format(N=N)) for N in SIZES}
     ctrl_path = {N: os.path.join(tr, f"CDDM_paper_grid/EqType=h_N={N}_arm=control") for N in SIZES}
-    sigma_path = os.path.join(tr, "CDDM_synnoise_ext/EqType=h_N=1000_sw=1.0_iters=100000")
+    sigma_path = a.sigma
     skips = log_skips(a.logs, ["CGcddm_N*.out", "StdPen.16957419_*.out"])
     cache_path = os.path.splitext(a.out)[0] + "_r2_cache.json"
     cache = json.load(open(cache_path)) if os.path.exists(cache_path) else {}
@@ -318,6 +321,7 @@ def main():
     c = sub.add_parser("cddm")
     c.add_argument("--data", required=True)
     c.add_argument("--logs", required=True)
+    c.add_argument("--sigma", required=True)
     c.add_argument("--out", required=True)
     a = ap.parse_args()
     maze_main(a) if a.cmd == "maze" else cddm_main(a)
