@@ -41,14 +41,16 @@ def window_start(reading, learned, end):
     return {"A": learned, "B": 0.75 * end, "half": 0.5 * end}[reading]
 
 
-def measure(row, run, reading, flat_bar=FLAT_BAR):
+def measure(row, run, reading, flat_bar=FLAT_BAR, start=None):
     """The return change and the active-unit slope of one network inside one window.
 
     Args:
         row: dict from fig_paper_F2_size.maze_series (N, seed, t_star, it_act, active).
         run: dict from common.maze_load_runs (progress: one dict per PPO update).
-        reading: "A", "B" or "half" (see window_start).
+        reading: "A", "B" or "half" (see window_start); ignored when `start` is given.
         flat_bar: float, the flat threshold as a fraction of the rise, per 1,000 updates.
+        start: float or None, an explicit first update of the window (the window then runs from it to the
+            end of the record); None takes the window from `reading`.
     Returns:
         dict with N, seed, learned, end, start, rise, tested (bool), and when tested: D_per_1000,
         D_over_rise, flat (bool), lost_per_1000, decreasing (bool), active_first, active_last.
@@ -56,7 +58,7 @@ def measure(row, run, reading, flat_bar=FLAT_BAR):
     upd = np.array([p["update"] for p in run["progress"]], float)
     ret = np.array([p["discounted_return"] for p in run["progress"]], float)
     learned, end = float(row["t_star"]), float(upd[-1])
-    start = window_start(reading, learned, end)
+    start = window_start(reading, learned, end) if start is None else float(start)
     rise = float(np.median(ret[(upd > learned - BLOCK) & (upd <= learned)]) - np.median(ret[upd <= BLOCK]))
     out = dict(N=int(row["N"]), seed=int(row["seed"]), learned=learned, end=end, start=start, rise=rise)
     tested = learned <= start and end - start >= MIN_WINDOW
