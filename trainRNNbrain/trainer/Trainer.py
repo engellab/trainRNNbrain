@@ -142,6 +142,58 @@ class Penalties:
         p_under = torch.pow(under, g_bot)
         return (alpha * p_under + beta * p_over).mean()
 
+    def entropy_setpoint_penalty(self, states, input=None, output=None, target=None, mask=None,
+                                 target_bits=0.75, eps=1e-6):
+        '''Per-unit activity-entropy set point (lambda_ent), read from PRE-activations.
+
+        Each unit's pre-activation h_i over the T*B steps of the batch is modelled as Gaussian with the
+        batch mean mu_i and s.d. sd_i, so the fraction of steps the unit is above threshold is
+        p_i = Phi(mu_i / sd_i), and the entropy of its on/off state is H_i = H_b(p_i) bits (1 at p = 0.5,
+        0 for a unit that is always off or always on). Two-sided penalty around target_bits:
+            P = mean_i ((H_i - target_bits) / target_bits)^2,
+        so a unit that is off on every step (H_i ~ 0) contributes about 1, as in the rate penalty. It
+        reads h, not r = relu(h): such a unit still has p_i > 0 and a nonzero gradient on its incoming
+        weights. Rules and target: docs/project_trajectory/2026-11-20_2307_rules-entropy-correlation-setpoint.md.
+
+        Args:
+            states: (N, T, B) hidden states h (equation_type "h"); target_bits: float, set point in bits;
+            eps: float added to sd_i. The other arguments are unused (Penalties call signature).
+        Returns:
+            scalar tensor (float64).
+        '''
+        assert self.RNN.equation_type == "h", "entropy set point reads pre-activations: equation_type h"
+        x = states.reshape(states.size(0), -1)             # (N, T*B)
+        z = (x.mean(1) / (x.std(1) + eps)).double()
+        # log_ndtr keeps p log p finite and its gradient alive far below threshold
+        log_p, log_q = torch.special.log_ndtr(z), torch.special.log_ndtr(-z)
+        H = -(log_p.exp() * log_p + log_q.exp() * log_q) / np.log(2.0)
+        return (((H - target_bits) / target_bits) ** 2).mean()
+
+    def correlation_setpoint_penalty(self, states, input=None, output=None, target=None, mask=None,
+                                     target_corr=0.0, scale=0.4, eps=1e-6):
+        '''Per-unit pairwise-correlation set point (lambda_cor), read from PRE-activations.
+
+        c_i is unit i's mean Pearson correlation with the other N - 1 units over the T*B steps of the
+        batch. With z the z-scored pre-activations and S = sum_j z_j, sum_{j != i} corr_ij =
+        <z_i S> - <z_i^2>, so c_i costs O(N T B), not O(N^2 T B). Two-sided penalty:
+            P = mean_i ((c_i - target_corr) / scale)^2.
+        A Pearson correlation is unchanged by shifting or scaling one unit's h, so the gradient on h_i
+        has no component along h_i's own mean; a unit that is off on every step still gets a nonzero
+        gradient on its incoming weights, because its h varies. Rules: docs/project_trajectory/2026-11-20_2307_rules-entropy-correlation-setpoint.md.
+
+        Args:
+            states: (N, T, B) hidden states h (equation_type "h"); target_corr: float, set point;
+            scale: float, deviation that costs 1; eps: float added to each unit's s.d.
+        Returns:
+            scalar tensor.
+        '''
+        assert self.RNN.equation_type == "h", "correlation set point reads pre-activations: equation_type h"
+        x = states.reshape(states.size(0), -1)             # (N, T*B)
+        xc = x - x.mean(1, keepdim=True)
+        z = xc / (xc.pow(2).mean(1, keepdim=True).sqrt() + eps)
+        c = ((z * z.sum(0)).mean(1) - z.pow(2).mean(1)) / (z.size(0) - 1)
+        return (((c - target_corr) / scale) ** 2).mean()
+
     def metabolic_penalty(self, states, input=None, output=None, target=None, mask=None):
         '''Metabolic cost: mean squared firing rate.'''
         if self.RNN.equation_type == "h":
@@ -235,6 +287,10 @@ class Trainer():
                  hm_args=None,
                  lambda_met = 0.0,
                  met_args=None,
+                 lambda_ent=0.0,
+                 ent_args=None,
+                 lambda_cor=0.0,
+                 cor_args=None,
                  synaptic_scaling=False,
                  scaling_args=None,
                  prune_reinit=False,
@@ -329,6 +385,10 @@ class Trainer():
             "fr_magnitude": (self.Penalties.fr_magnitude_penalty, lambda_frm, frm_args),
             "h_magnitude": (self.Penalties.h_magnitude_penalty, lambda_hm, hm_args),
             "metabolic": (self.Penalties.metabolic_penalty, lambda_met, met_args),
+            # set points on each unit's on/off entropy and mean pairwise correlation (entropy_setpoint
+            # experiment); both read pre-activations, both off (lambda 0) by default
+            "entropy_setpoint": (self.Penalties.entropy_setpoint_penalty, lambda_ent, ent_args or {}),
+            "correlation_setpoint": (self.Penalties.correlation_setpoint_penalty, lambda_cor, cor_args or {}),
         }
         if monitor:
             self.loss_monitor = {**{k: [] for k in self.penalty_map}}

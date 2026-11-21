@@ -1,0 +1,26 @@
+# @package _global_
+# ENTROPY AND CORRELATION SET POINTS (rules: docs/project_trajectory/2026-11-20_2307_rules-entropy-correlation-setpoint.md).
+# The large-N experiment plus the two set-point terms of Trainer.Penalties. Both are
+# OFF here (lambda 0); the launcher (slurm/entropy_setpoint_della.slurm) sets one lambda per arm and
+# changes nothing else in this block. Both terms read pre-activations h, so a unit that is off on every
+# step of the batch still gets a gradient.
+defaults:
+  - silent_units_largeN
+  - _self_
+model:
+  init_draws: shared     # as the control networks (NBitFlipFlop_ff_revive*, trained before 2026-10-15) and
+                         # the rate-penalty networks were drawn; M09: a technique network has its controls'
+                         # configuration except for the technique's parameters
+trainer:
+  lambda_ent: 0          # (A) per-unit on/off entropy set point
+  ent_args:
+    target_bits: 0.75    # median H_b(Phi(mu/sd)) of the active units of the three 3BFF control networks
+                         # (N = 1,000) at 75,000 iterations: 0.751, 0.748, 0.757 bits
+    eps: 1.0e-6          # added to each unit's pre-activation s.d.
+  lambda_cor: 0          # (B) per-unit mean pairwise correlation set point
+  cor_args:
+    target_corr: 0.0     # the value at initialisation (median over units -0.0001 to 0.0002 in the
+                         # three control networks); trained controls end at 0.27-0.32
+    scale: 0.4           # a deviation of 0.4 costs 1: the median inactive unit of those controls sits
+                         # at 0.42-0.47, so it contributes about 1, as a silent unit does in the rate penalty
+    eps: 1.0e-6          # added to each unit's pre-activation s.d.
