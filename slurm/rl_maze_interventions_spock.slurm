@@ -99,6 +99,13 @@
 #                             incoming rows of W_rec and W_inp redrawn from N(0, 1/sqrt(N)); zeroout
 #                             also zeroes its outgoing columns (Dohare et al. 2024). The counts are
 #                             in optimizer steps, as for the duplicate arm
+#   127-138 ent0.01, ent0.1, cor0.01, cor0.1   trainer.lambda_ent=0.01 / 0.1 and trainer.lambda_cor=0.01 / 0.1:
+#                             the activity-entropy and pairwise-correlation set points
+#                             (TrainerPPO.entropy_setpoint_penalty, correlation_setpoint_penalty), with
+#                             ent_args and cor_args from trainer_ppo.yaml, at the two values each term ran on
+#                             3BFF (Stage 2 of the entropy-setpoint test, 21 Nov 2026; rules in
+#                             docs/project_trajectory/*_rules-entropy-correlation-setpoint-maze.md). At
+#                             N = 2,000 submit with --constraint="nomig&gpu80" (a default run peaks at 36 GB)
 #
 # SUBMIT:  sbatch slurm/rl_maze_interventions_spock.slurm
 #
@@ -125,7 +132,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=48G
 #SBATCH --time=12:00:00
-#SBATCH --array=1-126%126
+#SBATCH --array=1-138%138
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/usr/people/pt1290/trainRNNbrain_logs/%x.%A_%a.out
@@ -172,7 +179,7 @@ ARM_TAG=(control frm0.03 frm0.1 frm0.3 frm0.1_rws0.05 sigmaw1.0 dropout0.2_beta4
          wd0 wd1e-5 wd1e-4 inorm0.5 inorm2 inorm5 inorm20 duplicate
          srec0 srec0.01 srec0.1 srad0.5 srad1.5 rws0.05
          cap0.3 rwm0.05 rwm0.2 met0.01 met0.1 met1 met10 adamw sgd0.03 sgd0.1 sgd0.3 sgd1 redraw zeroout
-         sigmaw0.1 sigmaw0.3 dropout0.05_beta4 rescale_tgt4)
+         sigmaw0.1 sigmaw0.3 dropout0.05_beta4 rescale_tgt4 ent0.01 ent0.1 cor0.01 cor0.1)
 ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.lambda_frm=0.3"
                "trainer.lambda_frm=0.1 trainer.lambda_rws=0.05" "model.sigma_w=1.0" "trainer.dropout=true"
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=10.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
@@ -192,7 +199,8 @@ ARM_OVERRIDES=("" "trainer.lambda_frm=0.03" "trainer.lambda_frm=0.1" "trainer.la
                "trainer.prune_reinit=true trainer.prune_args.reinit_mode=zero_out trainer.prune_args.max_replace_frac=0.025 trainer.prune_args.maturity=1000 trainer.prune_args.utility=contribution trainer.prune_args.check_every=100 trainer.prune_args.patience=3"
                "model.sigma_w=0.1" "model.sigma_w=0.3"
                "trainer.dropout=true trainer.dropout_args.drop_rate=0.05 trainer.dropout_args.dropout_beta=4.0"
-               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=4.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1")
+               "trainer.prune_reinit=true trainer.prune_args.reinit_mode=rescale trainer.prune_args.rescale_norm_mode=self trainer.prune_args.rescale_target_frac=4.0 trainer.prune_args.rescale_active_only=true trainer.prune_args.rescale_normalize=true trainer.prune_args.rescale_alpha=1.002 trainer.prune_args.rescale_cap=64.0 trainer.prune_args.rescale_protect_frac=0.20 trainer.prune_args.check_every=1 trainer.prune_args.patience=1"
+               "trainer.lambda_ent=0.01" "trainer.lambda_ent=0.1" "trainer.lambda_cor=0.01" "trainer.lambda_cor=0.1")
 
 i=$SLURM_ARRAY_TASK_ID
 a=$(( (i - 1) / 3 )); SEED=$(( (i - 1) % 3 + 1 ))

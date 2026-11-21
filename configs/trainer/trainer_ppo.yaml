@@ -135,6 +135,22 @@ lambda_met: 0               # METABOLIC PENALTY (TrainerPPO.metabolic_penalty): 
                             # firing rate over every unit, step and episode of the recompute's
                             # states; loss += lambda_met x P. CDDM's ladder 0.01, 0.1, 1, 10
 met_args: {}                # the supervised key; the penalty takes no argument
+# THE SET-POINT TERMS (21 Nov 2026), each OFF here; the maze launcher's arms set the lambda. The
+# definitions are the supervised Penalties' (TrainerPPO quotes the lines); the args are the 3BFF
+# test's values, configs/experiment/entropy_setpoint.yaml, which says why each was chosen.
+lambda_ent: 0               # ACTIVITY-ENTROPY SET POINT (TrainerPPO.entropy_setpoint_penalty): per unit,
+                            # the binary entropy H_i of Phi(mean/std of its pre-activation); loss +=
+                            # lambda_ent x mean_i ((H_i - target_bits) / target_bits)^2
+ent_args:
+  target_bits: 0.75
+  eps: 1.0e-6
+lambda_cor: 0               # PAIRWISE-CORRELATION SET POINT (TrainerPPO.correlation_setpoint_penalty): per
+                            # unit, the mean correlation c_i of its pre-activation with every other unit's;
+                            # loss += lambda_cor x mean_i ((c_i - target_corr) / scale)^2
+cor_args:
+  target_corr: 0.0
+  scale: 0.4
+  eps: 1.0e-6
 # THE INPUT-WEIGHT CAP is the model's key, model.inp_weight_cap (null in every model config; CDDM's
 # arm 0.3): after every optimizer step |W_inp| is clamped to it (TrainerPPO.enforce_inp_cap, the
 # supervised Trainer.enforce_inp_cap_).
