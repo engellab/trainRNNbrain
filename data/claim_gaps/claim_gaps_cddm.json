@@ -1,0 +1,801 @@
+{
+ "arm": {
+  "500": {
+   "n_folders": 3,
+   "nan_folders": 0,
+   "1.05": [
+    {
+     "seed": 2784942107,
+     "t_star": 15664.0,
+     "active": 500,
+     "r2": 0.8239634732405344,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 3907653330,
+     "t_star": 17372.0,
+     "active": 500,
+     "r2": 0.8181996544202169,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 1885387082,
+     "t_star": 17856.0,
+     "active": 500,
+     "r2": 0.8201892541514503,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    }
+   ],
+   "1.10": [
+    {
+     "seed": 2784942107,
+     "t_star": 7767.0,
+     "active": 500,
+     "r2": 0.8076534734831916,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 3907653330,
+     "t_star": 8215.0,
+     "active": 500,
+     "r2": 0.8142037259207832,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 1885387082,
+     "t_star": 8687.0,
+     "active": 500,
+     "r2": 0.8188988533284929,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    }
+   ],
+   "1.20": [
+    {
+     "seed": 2784942107,
+     "t_star": 2958.0,
+     "active": 500,
+     "r2": 0.7923507574531767,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 3907653330,
+     "t_star": 3183.0,
+     "active": 500,
+     "r2": 0.7913145936197705,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 1885387082,
+     "t_star": 3331.0,
+     "active": 500,
+     "r2": 0.8093246867259344,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    }
+   ]
+  },
+  "1000": {
+   "n_folders": 3,
+   "nan_folders": 0,
+   "1.05": [
+    {
+     "seed": 3986057758,
+     "t_star": 19075.0,
+     "active": 1000,
+     "r2": 0.8218405610985227,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 3681082541,
+     "t_star": 19717.0,
+     "active": 1000,
+     "r2": 0.82500093181928,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 1954623883,
+     "t_star": 18747.0,
+     "active": 1000,
+     "r2": 0.8179540518257353,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    }
+   ],
+   "1.10": [
+    {
+     "seed": 3986057758,
+     "t_star": 8879.0,
+     "active": 1000,
+     "r2": 0.8150057428412967,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 3681082541,
+     "t_star": 9295.0,
+     "active": 1000,
+     "r2": 0.819722776611646,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 1954623883,
+     "t_star": 8892.0,
+     "active": 1000,
+     "r2": 0.8195659965276718,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    }
+   ],
+   "1.20": [
+    {
+     "seed": 3986057758,
+     "t_star": 3516.0,
+     "active": 1000,
+     "r2": 0.7998179147640864,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 3681082541,
+     "t_star": 3411.0,
+     "active": 1000,
+     "r2": 0.8028260982698865,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 1954623883,
+     "t_star": 3490.0,
+     "active": 1000,
+     "r2": 0.7912596546941333,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    }
+   ]
+  },
+  "2000": {
+   "n_folders": 3,
+   "nan_folders": 0,
+   "1.05": [
+    {
+     "seed": 1091721975,
+     "t_star": 20640.0,
+     "active": 2000,
+     "r2": 0.8259869913260142,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 1503474172,
+     "t_star": 19831.0,
+     "active": 1997,
+     "r2": 0.8087470100985633,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 3230350039,
+     "t_star": 32521.0,
+     "active": 2000,
+     "r2": 0.8077284726831648,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.006653333333333333,
+     "stable": true
+    }
+   ],
+   "1.10": [
+    {
+     "seed": 1091721975,
+     "t_star": 9669.0,
+     "active": 2000,
+     "r2": 0.8170757873190774,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 1503474172,
+     "t_star": 10770.0,
+     "active": 1987,
+     "r2": 0.8236911247173945,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 3230350039,
+     "t_star": 10865.0,
+     "active": 2000,
+     "r2": 0.8154183642731773,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.006653333333333333,
+     "stable": true
+    }
+   ],
+   "1.20": [
+    {
+     "seed": 1091721975,
+     "t_star": 3337.0,
+     "active": 2000,
+     "r2": 0.8082206232680215,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 1503474172,
+     "t_star": 2721.0,
+     "active": 2000,
+     "r2": 0.8078240553538004,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.0,
+     "stable": true
+    },
+    {
+     "seed": 3230350039,
+     "t_star": 4083.0,
+     "active": 2000,
+     "r2": 0.814444437623024,
+     "measured": true,
+     "reason": null,
+     "skip_share": 0.006653333333333333,
+     "stable": true
+    }
+   ]
+  }
+ },
+ "ctrl": {
+  "500": {
+   "n_folders": 3,
+   "nan_folders": 0,
+   "1.05": [
+    {
+     "seed": 3291291930,
+     "t_star": 26935.0,
+     "active": 291,
+     "r2": 0.8274178100779761,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 2251851164,
+     "t_star": 27463.0,
+     "active": 302,
+     "r2": 0.8276169130170207,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 3565681970,
+     "t_star": 25772.0,
+     "active": 302,
+     "r2": 0.8276701171207508,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    }
+   ],
+   "1.10": [
+    {
+     "seed": 3291291930,
+     "t_star": 11484.0,
+     "active": 312,
+     "r2": 0.8191996341043445,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 2251851164,
+     "t_star": 11887.0,
+     "active": 317,
+     "r2": 0.8194083423777704,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 3565681970,
+     "t_star": 11351.0,
+     "active": 321,
+     "r2": 0.8194648339676031,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    }
+   ],
+   "1.20": [
+    {
+     "seed": 3291291930,
+     "t_star": 3780.0,
+     "active": 382,
+     "r2": 0.8027763777481939,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 2251851164,
+     "t_star": 4174.0,
+     "active": 377,
+     "r2": 0.8029961573428984,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 3565681970,
+     "t_star": 4234.0,
+     "active": 390,
+     "r2": 0.8030638707654041,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    }
+   ]
+  },
+  "1000": {
+   "n_folders": 3,
+   "nan_folders": 0,
+   "1.05": [
+    {
+     "seed": 3833537590,
+     "t_star": 27259.0,
+     "active": 436,
+     "r2": 0.8267681121131847,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 1272763220,
+     "t_star": 26535.0,
+     "active": 420,
+     "r2": 0.8290343131463493,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 457853,
+     "t_star": 23929.0,
+     "active": 437,
+     "r2": 0.8283094993076895,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    }
+   ],
+   "1.10": [
+    {
+     "seed": 3833537590,
+     "t_star": 12965.0,
+     "active": 484,
+     "r2": 0.8185195073564577,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 1272763220,
+     "t_star": 12516.0,
+     "active": 485,
+     "r2": 0.8208930160697134,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 457853,
+     "t_star": 11290.0,
+     "active": 481,
+     "r2": 0.8201365491055662,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    }
+   ],
+   "1.20": [
+    {
+     "seed": 3833537590,
+     "t_star": 4367.0,
+     "active": 620,
+     "r2": 0.8020213313695945,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 1272763220,
+     "t_star": 4671.0,
+     "active": 593,
+     "r2": 0.8046151194881429,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 457853,
+     "t_star": 4479.0,
+     "active": 597,
+     "r2": 0.803784521069658,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    }
+   ]
+  },
+  "2000": {
+   "n_folders": 3,
+   "nan_folders": 0,
+   "1.05": [
+    {
+     "seed": 3640167262,
+     "t_star": 26933.0,
+     "active": 543,
+     "r2": 0.8316247988800707,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 575781518,
+     "t_star": 31147.0,
+     "active": 522,
+     "r2": 0.8314939228935007,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 4259132547,
+     "t_star": 26511.0,
+     "active": 580,
+     "r2": 0.8260773257472009,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    }
+   ],
+   "1.10": [
+    {
+     "seed": 3640167262,
+     "t_star": 12795.0,
+     "active": 657,
+     "r2": 0.8236075599573873,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 575781518,
+     "t_star": 13877.0,
+     "active": 635,
+     "r2": 0.8234696321554098,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 4259132547,
+     "t_star": 12184.0,
+     "active": 716,
+     "r2": 0.8177953122749981,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    }
+   ],
+   "1.20": [
+    {
+     "seed": 3640167262,
+     "t_star": 4934.0,
+     "active": 858,
+     "r2": 0.8075764703348751,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 575781518,
+     "t_star": 5171.0,
+     "active": 877,
+     "r2": 0.8074279434897524,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    },
+    {
+     "seed": 4259132547,
+     "t_star": 5046.0,
+     "active": 873,
+     "r2": 0.8012315514795647,
+     "measured": false,
+     "reason": null,
+     "skip_share": null,
+     "stable": false
+    }
+   ]
+  }
+ },
+ "sigma": {
+  "n_folders": 3,
+  "nan_folders": 0,
+  "1.05": [
+   {
+    "seed": 3139128930,
+    "t_star": 28026.0,
+    "active": 478,
+    "r2": 0.8144826104037635,
+    "measured": false,
+    "reason": null,
+    "skip_share": null,
+    "stable": false
+   },
+   {
+    "seed": 145705583,
+    "t_star": 30337.0,
+    "active": 471,
+    "r2": 0.8236760970558256,
+    "measured": false,
+    "reason": null,
+    "skip_share": null,
+    "stable": false
+   },
+   {
+    "seed": 2925113920,
+    "t_star": 27453.0,
+    "active": 480,
+    "r2": 0.8018673620963954,
+    "measured": false,
+    "reason": null,
+    "skip_share": null,
+    "stable": false
+   }
+  ],
+  "1.10": [
+   {
+    "seed": 3139128930,
+    "t_star": 13905.0,
+    "active": 460,
+    "r2": 0.8056481891000548,
+    "measured": false,
+    "reason": null,
+    "skip_share": null,
+    "stable": false
+   },
+   {
+    "seed": 145705583,
+    "t_star": 15009.0,
+    "active": 455,
+    "r2": 0.8152814943687796,
+    "measured": false,
+    "reason": null,
+    "skip_share": null,
+    "stable": false
+   },
+   {
+    "seed": 2925113920,
+    "t_star": 13629.0,
+    "active": 506,
+    "r2": 0.7924353052666255,
+    "measured": false,
+    "reason": null,
+    "skip_share": null,
+    "stable": false
+   }
+  ],
+  "1.20": [
+   {
+    "seed": 3139128930,
+    "t_star": 5682.0,
+    "active": 514,
+    "r2": 0.7879797210886046,
+    "measured": false,
+    "reason": null,
+    "skip_share": null,
+    "stable": false
+   },
+   {
+    "seed": 145705583,
+    "t_star": 5960.0,
+    "active": 513,
+    "r2": 0.7984881828548641,
+    "measured": false,
+    "reason": null,
+    "skip_share": null,
+    "stable": false
+   },
+   {
+    "seed": 2925113920,
+    "t_star": 5300.0,
+    "active": 542,
+    "r2": 0.7735622698281037,
+    "measured": false,
+    "reason": null,
+    "skip_share": null,
+    "stable": false
+   }
+  ]
+ },
+ "paths": {
+  "arm": {
+   "500": "/home/pt1290/trainRNNbrain/data/trained_RNNs_cg/CDDM_std_g0_penalties_bias0/EqType=h_N=500_pen=frm0.1_iters=75000",
+   "1000": "/home/pt1290/trainRNNbrain/data/trained_RNNs/CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_iters=75000",
+   "2000": "/home/pt1290/trainRNNbrain/data/trained_RNNs_cg/CDDM_std_g0_penalties_bias0/EqType=h_N=2000_pen=frm0.1_iters=75000"
+  },
+  "ctrl": {
+   "500": "/home/pt1290/trainRNNbrain/data/trained_RNNs/CDDM_paper_grid/EqType=h_N=500_arm=control",
+   "1000": "/home/pt1290/trainRNNbrain/data/trained_RNNs/CDDM_paper_grid/EqType=h_N=1000_arm=control",
+   "2000": "/home/pt1290/trainRNNbrain/data/trained_RNNs/CDDM_paper_grid/EqType=h_N=2000_arm=control"
+  },
+  "sigma": "/home/pt1290/claim_gaps_read/inputs/CDDM_synnoise_ext/EqType=h_N=1000_sw=1.0_iters=100000"
+ },
+ "skips": {
+  "2784942107": 0,
+  "1503474172": 0,
+  "1091721975": 0,
+  "3230350039": 499,
+  "3907653330": 0,
+  "1885387082": 0,
+  "1954623883": 0,
+  "3681082541": 0,
+  "1077378740": 0,
+  "1037007987": 0,
+  "3986057758": 0,
+  "3331603136": 0
+ },
+ "verdicts": {
+  "1.05": {
+   "sigma_mult_1000": 1.1051817478731631,
+   "500": {
+    "n_stable": 3,
+    "mult": 1.675977653631285,
+    "dr2": -0.006784152801182053,
+    "supports_here": true
+   },
+   "1000": {
+    "n_stable": 3,
+    "mult": 2.320185614849188,
+    "dr2": -0.0064387932745618714,
+    "supports_here": true
+   },
+   "2000": {
+    "n_stable": 3,
+    "mult": 3.645592705167173,
+    "dr2": -0.015577857804343398,
+    "supports_here": true
+   },
+   "verdict": "supports"
+  },
+  "1.10": {
+   "sigma_mult_1000": 0.9800000000000001,
+   "500": {
+    "n_stable": 3,
+    "mult": 1.5789473684210524,
+    "dr2": -0.005772252572416869,
+    "supports_here": true
+   },
+   "1000": {
+    "n_stable": 3,
+    "mult": 2.0689655172413794,
+    "dr2": -0.0017515188503742785,
+    "supports_here": true
+   },
+   "2000": {
+    "n_stable": 3,
+    "mult": 2.981573705179283,
+    "dr2": -0.0028957426927154195,
+    "supports_here": true
+   },
+   "verdict": "supports"
+  },
+  "1.20": {
+   "sigma_mult_1000": 0.8668508287292818,
+   "500": {
+    "n_stable": 3,
+    "mult": 1.3054830287206267,
+    "dr2": -0.005282122685871582,
+    "supports_here": false
+   },
+   "1000": {
+    "n_stable": 3,
+    "mult": 1.6574585635359116,
+    "dr2": -0.005505768066429773,
+    "supports_here": true
+   },
+   "2000": {
+    "n_stable": 3,
+    "mult": 2.3006134969325154,
+    "dr2": 0.004751050313551164,
+    "supports_here": true
+   },
+   "verdict": "neither"
+  }
+ }
+}

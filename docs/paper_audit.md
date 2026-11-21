@@ -534,11 +534,11 @@ read at 1.05× each run's own floor (RMtop200, entry 2026-10-31_1732), at N = 10
 
 | Remedy | Class | What it does | Active units | Status |
 |---|---|---|---|---|
-| Rate penalty | Bio-inspired | Two-sided penalty around a target rate | CDDM: all 1000; flip-flop 4.8× at N = 2000, 5.6× at 4000 | Flip-flop alone (B2): unstable at N ≤ 1000, −0.024 R² at N = 2000; its multiplier is above synaptic noise's |
+| Rate penalty | Bio-inspired | Two-sided penalty around a target rate | CDDM: all 1000; flip-flop 4.8× at N = 2000, 5.6× at 4000 | Flip-flop alone (B2): unstable at N ≤ 1000, −0.024 R² at N = 2000; its multiplier is above synaptic noise's. B2 passes on CDDM and fails on Maze at N = 2000, with 2 of 3 networks unlearned by update 4,000 (claim gaps, 20 Nov) |
 | Noisy synapses | Bio-inspired | Each weight × (1 + σ_w·noise), every step | 2.03×; 1.60× at N = 4000 (read in 14 of 14 runs, N = 500-4000) | −0.021 to −0.025 R² at N ≥ 1000 |
 | Rescaling incoming weights | Bio-inspired | Tilts a silent unit's input row toward its positive weights, at fixed length, until a release target | 1.51× (1 of 4 runs read); 1.95× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000: loss still falling at 200k (dead-relu-paper#16); 1.23-1.81× at 1.20× the floor (Extended Data, per-unit rules across sizes) |
 | Threshold lift | Bio-inspired | Raises a silent unit's bias once | 1.36× | Screen only; DROPPED on Pavel's instruction (5 Nov): not run on CDDM or the maze, not in the cross-task comparison |
-| Prune-and-duplicate | Engineering | Overwrites a silent unit with a jittered copy of a working one | 2.77×; 3.59× at N = 4000 | −0.005 R² at N = 1000, −0.018 at 4000; fails on DMTS above N = 500 |
+| Prune-and-duplicate | Engineering | Overwrites a silent unit with a jittered copy of a working one | 2.77×; 3.59× at N = 4000 | −0.005 R² at N = 1000, −0.018 at 4000; fails on DMTS above N = 500; on Maze more active units than every control at N = 500-2000 (claim gaps, 20 Nov) |
 | Read-out dropout | Engineering | Randomly hides busy units from the read-out | 1.81× (1 of 3 runs read); 2.01× at N = 4000 at 75k, no floor read | No floor read at N ≥ 2000 (dead-relu-paper#16); 1.60-1.90× at 1.20× the floor (Extended Data, per-unit rules across sizes); fails on DMTS |
 | Full dropout | Engineering | Randomly removes busy units from the dynamics | 904/1000 | Parked: costs 12-17 R² points |
 | Redraw silent units | Engineering (≈ continual backprop / ReDo) | Re-initialises a silent unit | 0.84-0.96× | Negative (Fig. 3e) |
@@ -576,6 +576,34 @@ reading Maze does not test the claim, since its return has not stopped rising at
 update 34,000. The general claim ("continues to decrease after the task is learned") gains a restart-free Maze
 observation: 8 of 9 networks lose units over updates 24,001-34,000.
 
+**Claim gaps (20 Nov; rules 2026-11-19_1749_rules-*-sizes, ranking 2026-11-19_1749, result 2026-11-20_1600; Della
+17958685-17958691, 252 GPU-h).** Three task-scoped claims were tested on the main tasks they lacked, by rules fixed
+before the runs (N = 500, 1,000 and 2,000; 3 networks per size; N = 4,000 not run, as its jobs would have ended
+after the deadline). The two remaining gaps were not run. Transfer stays 3BFF-only: G18 is between the bars, and more
+seeds cannot change that; G17's gate fails by construction. DMTS continued decrease stays as it is, since DMTS is not a main task.
+- *Prune-and-duplicate across sizes, Maze (gap A): increases the number of active units at every size.* In all 6
+  size-and-read cells every network has more active units than every same-size control. Fewest active units in
+  a prune-and-duplicate network compared with the most in a control, at N = 500, 1,000 and 2,000: 401 vs 281,
+  648 vs 517 and 1,279 vs 557 at the learned point; 406 vs 240, 750 vs 404 and 1,357 vs 506 at update 4,000. Fold
+  change 1.45-2.84 at the learned point and 1.85-3.27 at update 4,000. Success at
+  update 4,000 is within 0.016 of the controls, and no network ends below 0.9. The claim now holds on all three
+  main tasks: Maze over N = 500-2,000, 3BFF and CDDM over N = 500-4,000.
+- *B2 on CDDM (gap B): supports at the binding margin, 1.05× the floor.* All 9 networks are stable, with 0-499 of
+  75,000 updates skipped. They have 1.7, 2.3 and 3.6 times the controls' active count (500 of 500, 1,000 of 1,000
+  and 1,997-2,000 of 2,000 units active). Mean R² is 0.007, 0.006 and 0.016 below the controls (limit 0.02). The
+  verdict also supports at 1.10×. At 1.20× it is "neither", because the N = 500 multiplier is 1.31.
+- *B2 on Maze (gap C): falsifies, at N = 2,000.* At N = 500 and 1,000, 3 of 3 networks are stable, with
+  multipliers 1.83 and 2.14 and mean success within 0.013 of the controls. At N = 2,000, 2 of 3 networks had no learned point by update
+  4,000: seed 2 peaked at 0.72 probe success, and seed 1's last probe is 0.898. No update was skipped or restored,
+  so the failure is a failure to learn within the budget. Mean success at update 4,000 is 0.84, compared with 0.99
+  for the controls. That success clause alone falsifies, and it rests on seed 2.
+- *Consequence.* "The rate penalty alone fails the stable-training test across sizes" holds on 3BFF and Maze,
+  with a different failure on each: 3BFF has no floor read at N ≤ 1,000 and an R² cost of 0.024 at N = 2,000;
+  Maze does not learn at N = 2,000 by update 4,000. The claim does not hold on CDDM, which passes B2 at
+  N = 500-2,000. The claim therefore stays task-scoped ("on 3BFF and Maze"), and the paper can state that CDDM
+  passes the same test. "Prune-and-duplicate increases the number of active units across sizes" can be stated
+  on all three tasks.
+
 ## Parked (do not restart without a `decision` issue on dead-relu-paper; PROTOCOL.md, 31 Oct)
 
 - The selective/modular solution under rate + sparsity: burst units, assemblies, penalty switching.
@@ -609,7 +637,7 @@ observation: 8 of 9 networks lose units over updates 24,001-34,000.
 
 **Training**
 - **B2.** Done, read 31 Oct: fails its rule (entry 2026-10-31_1532). Third test (against synaptic
-  noise) does not falsify.
+  noise) does not falsify. On CDDM it supports and on Maze it falsifies at N = 2,000 (entry 2026-11-20_1600).
 - **B3.** Read 31 Oct (entry 2026-10-31_1750, Della job 16553903). At the floor: literal "supports",
   through the stability clause only. At 75k: between the bars. Rate+rescale skips 44-67% of updates
   and the triple 8-11%. Under today's read-out the λ = 0.03 pilot rung reads at 0 of 3 runs (2 of 3
