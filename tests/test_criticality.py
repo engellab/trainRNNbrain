@@ -60,6 +60,45 @@ def test_backward_gain_matches_autograd():
     assert torch.allclose(got[0 * B + 1], want), (got, want)
 
 
+def test_lengths_option():
+    """The maze option `lengths` (each trial's valid states): identical results when every length is T;
+    an episode cut to L gives the unmasked result on its first L states; states after L are ignored."""
+    N, T, B = 15, 90, 3
+    g0 = torch.Generator().manual_seed(3)
+    W = torch.randn(N, N, generator=g0, dtype=torch.float64) * 1.5 / np.sqrt(N)
+    W_out = torch.randn(2, N, generator=g0, dtype=torch.float64)
+    gates = (torch.rand(N, T, B, generator=g0, dtype=torch.float64) > 0.5).to(torch.float64)
+    full = torch.full((B,), T)
+    gen = lambda: torch.Generator().manual_seed(0)
+    assert torch.equal(C.lyapunov_max(W, gates, A, 10, gen()), C.lyapunov_max(W, gates, A, 10, gen(), lengths=full))
+    a, b = C.backward_gain(W, gates, A, W_out, (5, 40)), C.backward_gain(W, gates, A, W_out, (5, 40), lengths=full)
+    assert all(torch.equal(a[k], b[k]) for k in (5, 40))
+    # the same length L for every trial: the same initial tangent vectors as the call on gates[:, :L]
+    L = 60
+    cut = torch.full((B,), L)
+    assert torch.allclose(C.lyapunov_max(W, gates, A, 10, gen(), lengths=cut),
+                          C.lyapunov_max(W, gates[:, :L], A, 10, gen()))
+    # different lengths: each trial's backward gain equals the unmasked call on its own first L_b states
+    lens = torch.tensor([90, 50, 30])
+    got = C.backward_gain(W, gates, A, W_out, (5, 40), lengths=lens)
+    for bb, Lb in enumerate(lens.tolist()):
+        want = C.backward_gain(W, gates[:, :Lb, bb:bb + 1], A, W_out, (5, 29))
+        assert torch.allclose(got[5][[bb, B + bb]], want[5])
+        if Lb > 40:
+            assert torch.allclose(got[40][[bb, B + bb]], C.backward_gain(W, gates[:, :Lb, bb:bb + 1], A, W_out, (40,))[40])
+        else:
+            assert torch.isnan(got[40][[bb, B + bb]]).all()
+    # known answer with garbage after L: W = c I, gates on before L, off after
+    c, Lk = 1.3, 70
+    on = torch.zeros(N, T, B, dtype=torch.float64)
+    on[:, :Lk] = 1.0
+    m = 1 - A + A * c
+    lam = C.lyapunov_max(c * torch.eye(N, dtype=torch.float64), on, A, 10, gen(), lengths=torch.full((B,), Lk))
+    assert torch.allclose(lam, torch.full((B,), np.log(m), dtype=torch.float64)), lam
+    short = C.lyapunov_max(W, gates, A, 10, gen(), lengths=torch.tensor([90, 11, 5]))
+    assert torch.isfinite(short[0]) and torch.isnan(short[1:]).all()
+
+
 def test_projections_hit_their_targets():
     """Each projection lands on its target at eta = 1, checked with numpy; eta = 0.5 goes halfway (in log)."""
     N = 60

@@ -41,7 +41,7 @@ def relu_gates(states):
     return (states > 0).to(states.dtype)
 
 
-def lyapunov_max(W, gates, alpha, burn_in=50, generator=None):
+def lyapunov_max(W, gates, alpha, burn_in=50, generator=None, lengths=None):
     """Largest finite-time Lyapunov exponent of the leaky update along given trajectories, per trial.
 
     A unit-norm tangent vector v is pushed through v <- (1 - alpha) v + alpha W (g_t * v) for every
@@ -55,6 +55,9 @@ def lyapunov_max(W, gates, alpha, burn_in=50, generator=None):
         burn_in: int, transitions skipped before averaging (the start of a trial sits at y_init = 0,
             where every gate is 0).
         generator: torch.Generator for the initial tangent vectors, or None.
+        lengths: None (every trial has T valid states), or int tensor (B,) of each trial's number of
+            valid states L_b <= T (a maze episode's live states): only transitions t -> t + 1 with
+            t + 1 < L_b are averaged, and a trial with no transition after the burn-in gives nan.
     Returns:
         tensor (B,) of exponents in units of 1 / step.
     """
@@ -66,12 +69,16 @@ def lyapunov_max(W, gates, alpha, burn_in=50, generator=None):
         v = (1.0 - alpha) * v + alpha * (W @ (gates[:, t, :] * v))
         n = v.norm(dim=0)
         if t >= burn_in:
-            acc = acc + torch.log(n)
+            step = torch.log(n)
+            acc = acc + (step if lengths is None else torch.where(t + 1 < lengths, step, torch.zeros_like(step)))
         v = v / n
-    return acc / max(1, T - 1 - burn_in)
+    if lengths is None:
+        return acc / max(1, T - 1 - burn_in)
+    count = (lengths.to(acc.device) - 1 - burn_in).to(acc.dtype)
+    return torch.where(count >= 1, acc / count.clamp_min(1), torch.full_like(acc, float("nan")))
 
 
-def backward_gain(W, gates, alpha, W_out, lags=(10, 50, 100, 200)):
+def backward_gain(W, gates, alpha, W_out, lags=(10, 50, 100, 200), lengths=None):
     """Gradient-norm propagation through time: how much of the read-out's sensitivity at the last
     step reaches the hidden state k steps earlier.
 
@@ -82,20 +89,29 @@ def backward_gain(W, gates, alpha, W_out, lags=(10, 50, 100, 200)):
     Args:
         W: tensor (N, N); gates: tensor (N, T, B); alpha: float; W_out: tensor (n_out, N);
         lags: iterable of int steps back from the last state, each < T.
+        lengths: None (every trial's last state is T - 1), or int tensor (B,) of each trial's number
+            of valid states L_b <= T: the seed sits at the trial's own last valid state L_b - 1 (a maze
+            episode's last live state), and a lag k >= L_b gives nan for that trial.
     Returns:
-        dict lag -> tensor (n_out * B,) of log10(||g_{T-1-lag}|| / ||g_{T-1}||).
+        dict lag -> tensor (n_out * B,) of log10(||g_{last-lag}|| / ||g_{last}||), column o * B + b.
     """
     N, T, B = gates.shape
-    g = (W_out[:, :, None] * gates[None, :, T - 1, :]).permute(1, 0, 2).reshape(N, -1)  # (N, n_out*B)
-    n0 = g.norm(dim=0)
     reps = W_out.shape[0]
+    cols = torch.arange(B, device=gates.device)
+    last = torch.full((B,), T - 1, device=gates.device) if lengths is None else lengths.to(gates.device) - 1
+    g = (W_out[:, :, None] * gates[:, last, cols][None]).permute(1, 0, 2).reshape(N, -1)  # (N, n_out*B)
+    n0 = g.norm(dim=0)
     out = {}
     lags = sorted(int(k) for k in lags)
     for k in range(1, lags[-1] + 1):
-        gt = gates[:, T - 1 - k, :].repeat(1, reps)        # column order matches g: (o, b) -> o*B + b
+        idx = (last - k).clamp_min(0)
+        gt = gates[:, idx, cols].repeat(1, reps)            # column order matches g: (o, b) -> o*B + b
         g = (1.0 - alpha) * g + alpha * gt * (W.T @ g)
         if k in lags:
-            out[k] = torch.log10(g.norm(dim=0) / n0)       # n0 = 0 gives nan (0/0) or -inf; see caller
+            val = torch.log10(g.norm(dim=0) / n0)          # n0 = 0 gives nan (0/0) or -inf; see caller
+            if lengths is not None:
+                val = torch.where((last - k >= 0).repeat(reps), val, torch.full_like(val, float("nan")))
+            out[k] = val
     return out
 
 
