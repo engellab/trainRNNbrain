@@ -153,7 +153,7 @@ class Penalties:
             P = mean_i ((H_i - target_bits) / target_bits)^2,
         so a unit that is off on every step (H_i ~ 0) contributes about 1, as in the rate penalty. It
         reads h, not r = relu(h): such a unit still has p_i > 0 and a nonzero gradient on its incoming
-        weights. Rules and target: docs/project_trajectory/*_rules-entropy-correlation-setpoint.md.
+        weights. Rules and target: docs/project_trajectory/2026-11-20_2307_rules-entropy-correlation-setpoint.md.
 
         Args:
             states: (N, T, B) hidden states h (equation_type "h"); target_bits: float, set point in bits;
@@ -179,7 +179,7 @@ class Penalties:
             P = mean_i ((c_i - target_corr) / scale)^2.
         A Pearson correlation is unchanged by shifting or scaling one unit's h, so the gradient on h_i
         has no component along h_i's own mean; a unit that is off on every step still gets a nonzero
-        gradient on its incoming weights, because its h varies. Rules: ..._rules-entropy-correlation-setpoint.md.
+        gradient on its incoming weights, because its h varies. Rules: docs/project_trajectory/2026-11-20_2307_rules-entropy-correlation-setpoint.md.
 
         Args:
             states: (N, T, B) hidden states h (equation_type "h"); target_corr: float, set point;

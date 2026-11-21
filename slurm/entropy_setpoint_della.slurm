@@ -1,7 +1,7 @@
 #!/bin/bash
 # ENTROPY AND CORRELATION SET POINTS ON THE 3-BIT FLIP-FLOP, N = 1,000 (DELLA)
 #
-# Rules: docs/project_trajectory/*_rules-entropy-correlation-setpoint.md, committed before
+# Rules: docs/project_trajectory/2026-11-20_2307_rules-entropy-correlation-setpoint.md, committed before
 # any run. The command is that of SilentReLU_remedy_grid_della.slurm (the 3BFF rate-penalty networks
 # NBitFlipFlop_remedy_grid/..._arm=frm0.1, whose config matches the default control networks'), with
 # +experiment=entropy_setpoint instead of silent_units_largeN (the same block plus the two set-point
