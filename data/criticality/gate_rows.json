@@ -1,0 +1,8 @@
+{
+ "0.8843372_CDDM_relu;N=1000;seed=1423687489;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0": 25500,
+ "0.9521582_NBitFlipFlop_relu;N=1000;seed=2461724787;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0": 50500,
+ "0.9529842_NBitFlipFlop_relu;N=1000;seed=1258717025;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0": 67500,
+ "0.9525244_NBitFlipFlop_relu;N=1000;seed=4113307577;L=0.001;MI=125000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0": 58500,
+ "0.8643665_CDDM_relu;N=1000;seed=2657899762;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0": 26500,
+ "0.8903258_CDDM_relu;N=1000;seed=2670295995;L=0.001;MI=100000;D=0;WD=1e-06;Lfrm=0;Lmet=0;Lorth=0;Lrws=0": 24500
+}

@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 import time
 from trainRNNbrain.training.training_utils import multi_iqr_scale
+from trainRNNbrain.trainer import criticality
 from dataclasses import dataclass
 from collections import defaultdict, deque
 
@@ -214,6 +215,10 @@ class Penalties:
 
 
 class Trainer():
+    # W_rec projections of the criticality_proj experiment (wrec_projection_): (a) spectral radius,
+    # (b) singular-value spectrum, (c) per-unit incoming row norm, (d) largest Lyapunov exponent
+    PROJECTIONS = ("spectral", "singular", "rownorm", "lyapunov")
+
     def __init__(self,
                  RNN, Task, optimizer,
                  max_iter=1000,
@@ -253,7 +258,9 @@ class Trainer():
                  gnorm_window=1000,
                  gnorm_min_samples=100,
                  snapshot_every=1000,
-                 restore_after=500):
+                 restore_after=500,
+                 wrec_projection=None,
+                 wrec_projection_args=None):
         self.RNN = RNN
         self.Penalties = Penalties(RNN=self.RNN) # dataclass containing all the penalty methods
         self.max_sigma_rec = self.RNN.sigma_rec
@@ -370,6 +377,24 @@ class Trainer():
         self.scaling_args = scaling_args if scaling_args is not None else {
             "every": 100, "eta": 0.05, "scale_q": 0.5}
         self.iter_n = 0
+
+        # --- W_rec projection toward the initial dynamical regime (criticality_proj) ---
+        # None / "none" = off, every run before this option. Otherwise one of PROJECTIONS, applied
+        # every `period` iterations after the optimiser step (see wrec_projection_). The references
+        # of "singular" and "rownorm" are read from W_rec here, i.e. at the start of THIS run.
+        # ponytail: the references are not saved, so a warm start takes its parent's final W_rec as
+        # the reference, like the rescale rule's state; save them in the checkpoint if runs are resumed.
+        self.wrec_projection = None if wrec_projection in (None, "none") else str(wrec_projection)
+        assert self.wrec_projection in (None,) + self.PROJECTIONS, wrec_projection
+        self.wrec_projection_args = dict(wrec_projection_args or {})
+        self._proj_last = (float("nan"), float("nan"))     # (measure before, change) of the last event
+        if self.wrec_projection is not None:
+            with torch.no_grad():
+                W0 = self.RNN.W_rec.detach()
+                self._proj_s0 = torch.linalg.svdvals(W0.double())    # descending, float64
+                self._proj_n0 = W0.norm(dim=1).clone()
+            # own generator for the "lyapunov" tangent vectors, so no shared random stream is consumed
+            self._proj_gen = torch.Generator(device=W0.device).manual_seed(20261120)
 
         # per-unit participation logged every `track_every` iterations during training
         self.track_participation = track_participation
@@ -1447,6 +1472,55 @@ class Trainer():
             self.RNN.W_inp.clamp_(min=-cap, max=cap)
         return None
 
+    def wrec_projection_(self, input):
+        """Move W_rec back toward its initial dynamical regime, every `period` iterations.
+
+        The four rules (trainRNNbrain/trainer/criticality.py; rules entry
+        docs/project_trajectory/*_rules-criticality-projection.md):
+          spectral  rescale W_rec to the model's initial spectral radius (model.spectral_rad);
+          singular  W_rec = U S V^T -> U S0 V^T, S0 the singular values W_rec had at the start;
+          rownorm   rescale each unit's incoming row W_rec[i, :] to the norm it had at the start;
+          lyapunov  rescale W_rec by one scalar that moves the largest Lyapunov exponent, measured on
+                    a noise-free pass over the first `lyap_trials` trials of the current batch,
+                    toward 0 (criticality.lyapunov_gain_factor).
+        Each is applied with strength eta (wrec_projection_args.eta; 1 lands on the target). The event
+        runs after the step that completes iteration k * period (counted in this run), so a kept
+        snapshot at a multiple of the period holds projected weights.
+
+        Args:
+            input: (n_inputs, T, B) tensor, the current training batch (used by "lyapunov" only).
+        Returns:
+            None; rescales self.RNN.W_rec in place and records (measure before, change) in _proj_last.
+        """
+        a = self.wrec_projection_args
+        if (self.iter_n + 1) % int(a.get("period", 50)) != 0:
+            return None
+        eta = float(a.get("eta", 1.0))
+        kind = self.wrec_projection
+        with torch.no_grad():
+            W = self.RNN.W_rec.data
+            if not bool(torch.isfinite(W).all()):     # the spike guard's rollback owns this case
+                return None
+            if kind == "spectral":
+                W_new, before, change = criticality.project_spectral_radius(W, float(self.RNN.spectral_rad), eta)
+            elif kind == "singular":
+                W_new, before, change = criticality.project_singular_values(W, self._proj_s0, eta)
+            elif kind == "rownorm":
+                W_new, before, change = criticality.project_row_norms(W, self._proj_n0, eta)
+            else:
+                k = int(a.get("lyap_trials", 128))
+                states, _ = self.RNN(input[..., :k], w_noise=False, dropout=False, dropout_args=None)
+                lam = criticality.lyapunov_max(W, criticality.relu_gates(states), float(self.RNN.alpha),
+                                               burn_in=int(a.get("lyap_burn_in", 50)),
+                                               generator=self._proj_gen)
+                before = float(lam.mean())
+                change = criticality.lyapunov_gain_factor(before, float(self.RNN.alpha), eta,
+                                                          float(a.get("lyap_max_step", 0.05)))
+                W_new = W * change
+            W.copy_(W_new)
+            self._proj_last = (float(before), float(change))
+        return None
+
     def enforce_bias_range_(self):
         if not getattr(self.RNN, "bias_trainable", False):
             return None
@@ -1640,6 +1714,9 @@ class Trainer():
         if self.prune_reinit:
             met["reinit_events"].append(float(self._n_reinit_events))
             met["reinit_units_ever"].append(float(self._reinit_ever.sum()))
+        if self.wrec_projection is not None:
+            met["proj_measure"].append(self._proj_last[0])
+            met["proj_change"].append(self._proj_last[1])
         if self.log_silent_every and iter % self.log_silent_every == 0:
             q95 = torch.quantile(p, 0.95)
             print(f"[silence] iter {iter}: hard(p<1e-6) {int((p < 1e-6).sum())}/{p.numel()}  "
@@ -1866,6 +1943,8 @@ class Trainer():
                 self.enforce_dale_()
         self.enforce_bias_range_()
         self.enforce_inp_cap_()
+        if self.wrec_projection is not None:
+            self.wrec_projection_(input)
 
         # --- 5) compute total loss and r2 for reporting ---
         loss_val = Trainer.zero_(self.RNN.device)

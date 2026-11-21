@@ -1,0 +1,18 @@
+# @package _global_
+# CRITICALITY PROJECTION (rules: docs/project_trajectory/2026-11-20_1643_rules-criticality-projection.md).
+# The large-N experiment plus the W_rec projection block of Trainer.wrec_projection_. OFF here: the
+# launcher (slurm/criticality_proj_della.slurm) sweeps trainer.wrec_projection over spectral, singular,
+# rownorm and lyapunov, and changes nothing else in this block.
+defaults:
+  - silent_units_largeN
+  - _self_
+trainer:
+  wrec_projection: none   # none | spectral (a) | singular (b) | rownorm (c) | lyapunov (d)
+  wrec_projection_args:
+    period: 50            # iterations between projection events; a divisor of checkpoint_every (1000),
+                          # so every kept snapshot holds projected weights
+    eta: 1.0              # strength: the eta-th power of the multiplicative change that reaches the
+                          # target; 1 lands on it (a hard projection)
+    lyap_trials: 128      # lyapunov: trials of the current batch the exponent is measured on
+    lyap_burn_in: 50      # lyapunov: steps skipped at the start of each trial
+    lyap_max_step: 0.05   # lyapunov: largest |log factor| per event
