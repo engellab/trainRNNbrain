@@ -82,7 +82,8 @@ training run, tell him what it runs and what it costs (GPU-hours); large runs ne
   work add `--gres=gpu:1 --constraint=nomig --mem-per-gpu=32G`. A 20-30-iteration launcher check on
   the login node with `srun` stubbed is fine.
 - **Omit `--partition`;** GPU routing is automatic. The QOS (queue tier) follows `--time` alone: up
-  to 1,441 min is gpu-short (44 GPUs per user), up to 4,321 min gpu-medium (20 GPUs, 24 jobs), up to
+  to 1,441 min is gpu-short (24 GPUs and 24 jobs per user, `sacctmgr show qos gpu-short` on 19 Nov 2026),
+  up to 4,321 min gpu-medium (20 GPUs, 24 jobs), up to
   8,641 min gpu-long (16 GPUs, 10 jobs).
 - **`--constraint=nomig`** keeps a job off the MIG slices (partial A100s), which run three times
   slower. **`--constraint=gpu80`** (A100 80 GB) is required at N = 4000; a 40 GB card runs out of

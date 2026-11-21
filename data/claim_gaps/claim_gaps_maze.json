@@ -1,0 +1,812 @@
+{
+ "controls": {
+  "500": [
+   {
+    "N": 500,
+    "seed": 1,
+    "chain": [
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont3/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont4/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont5/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont6/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont7/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont8/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont9/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont10/s1"
+    ],
+    "last_update": 4000,
+    "complete": true,
+    "learned_update": 1350,
+    "r1": 281,
+    "r2": 226,
+    "success_end": 1.0,
+    "flagged_share": 0.0015,
+    "skipped_sum": 21.0,
+    "restored_sum": 7.0
+   },
+   {
+    "N": 500,
+    "seed": 2,
+    "chain": [
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu/s2",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont/s2",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont3/s2",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont4/s2",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont5/s2",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont6/s2"
+    ],
+    "last_update": 4000,
+    "complete": true,
+    "learned_update": 1280,
+    "r1": 259,
+    "r2": 226,
+    "success_end": 0.9921875,
+    "flagged_share": 0.0,
+    "skipped_sum": 0.0,
+    "restored_sum": 0.0
+   },
+   {
+    "N": 500,
+    "seed": 3,
+    "chain": [
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont3/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont4/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont5/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont6/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=500_act=relu_cont7/s3"
+    ],
+    "last_update": 4000,
+    "complete": true,
+    "learned_update": 1750,
+    "r1": 279,
+    "r2": 240,
+    "success_end": 1.0,
+    "flagged_share": 0.001,
+    "skipped_sum": 7.0,
+    "restored_sum": 8.0
+   }
+  ],
+  "1000": [
+   {
+    "N": 1000,
+    "seed": 1,
+    "chain": [
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont3/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont4/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont5/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont6/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont7/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont8/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont9/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont10/s1"
+    ],
+    "last_update": 4000,
+    "complete": true,
+    "learned_update": 1050,
+    "r1": 451,
+    "r2": 360,
+    "success_end": 1.0,
+    "flagged_share": 0.00125,
+    "skipped_sum": 12.0,
+    "restored_sum": 8.0
+   },
+   {
+    "N": 1000,
+    "seed": 2,
+    "chain": [
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s2",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont/s2",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont3/s2"
+    ],
+    "last_update": 4000,
+    "complete": true,
+    "learned_update": 760,
+    "r1": 517,
+    "r2": 404,
+    "success_end": 1.0,
+    "flagged_share": 0.0,
+    "skipped_sum": 0.0,
+    "restored_sum": 0.0
+   },
+   {
+    "N": 1000,
+    "seed": 3,
+    "chain": [
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont3/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont4/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont5/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont6/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont7/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont8/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont9/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont10/s3"
+    ],
+    "last_update": 4000,
+    "complete": true,
+    "learned_update": 1750,
+    "r1": 428,
+    "r2": 317,
+    "success_end": 1.0,
+    "flagged_share": 0.0,
+    "skipped_sum": 0.0,
+    "restored_sum": 0.0
+   }
+  ],
+  "2000": [
+   {
+    "N": 2000,
+    "seed": 1,
+    "chain": [
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=2000_act=relu/s1",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=2000_act=relu_cont/s1"
+    ],
+    "last_update": 4000,
+    "complete": true,
+    "learned_update": 3000,
+    "r1": 393,
+    "r2": 400,
+    "success_end": 0.984375,
+    "flagged_share": 0.0,
+    "skipped_sum": 0.0,
+    "restored_sum": 0.0
+   },
+   {
+    "N": 2000,
+    "seed": 2,
+    "chain": [
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=2000_act=relu/s2",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=2000_act=relu_cont/s2"
+    ],
+    "last_update": 4000,
+    "complete": true,
+    "learned_update": 2480,
+    "r1": 557,
+    "r2": 506,
+    "success_end": 0.9765625,
+    "flagged_share": 0.003,
+    "skipped_sum": 29.0,
+    "restored_sum": 18.0
+   },
+   {
+    "N": 2000,
+    "seed": 3,
+    "chain": [
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=2000_act=relu/s3",
+     "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=2000_act=relu_cont/s3"
+    ],
+    "last_update": 4000,
+    "complete": true,
+    "learned_update": 2840,
+    "r1": 414,
+    "r2": 388,
+    "success_end": 1.0,
+    "flagged_share": 0.00075,
+    "skipped_sum": 10.0,
+    "restored_sum": 5.0
+   }
+  ]
+ },
+ "controls_1000_s4_6": [
+  {
+   "N": 1000,
+   "seed": 4,
+   "chain": [
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s4",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont/s4",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont3/s4",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont4/s4",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont5/s4",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont6/s4",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont7/s4",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont8/s4",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont9/s4",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont10/s4"
+   ],
+   "last_update": 4000,
+   "complete": true,
+   "learned_update": 1530,
+   "r1": 427,
+   "r2": 373,
+   "success_end": 1.0,
+   "flagged_share": 0.0035,
+   "skipped_sum": 16.0,
+   "restored_sum": 12.0
+  },
+  {
+   "N": 1000,
+   "seed": 5,
+   "chain": [
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s5",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont/s5",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont3/s5",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont4/s5",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont5/s5",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont6/s5",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont7/s5",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont8/s5",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont9/s5",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont10/s5"
+   ],
+   "last_update": 4000,
+   "complete": true,
+   "learned_update": 1180,
+   "r1": 412,
+   "r2": 336,
+   "success_end": 1.0,
+   "flagged_share": 0.00275,
+   "skipped_sum": 17.0,
+   "restored_sum": 12.0
+  },
+  {
+   "N": 1000,
+   "seed": 6,
+   "chain": [
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu/s6",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont/s6",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont3/s6",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont4/s6",
+    "/Users/pt1290/Documents/GitHub/trainRNNbrain/data/trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu_cont5/s6"
+   ],
+   "last_update": 4000,
+   "complete": true,
+   "learned_update": 1330,
+   "r1": 406,
+   "r2": 314,
+   "success_end": 1.0,
+   "flagged_share": 0.00075,
+   "skipped_sum": 3.0,
+   "restored_sum": 1.0
+  }
+ ],
+ "runs": {
+  "duplicate": {
+   "500": [
+    {
+     "N": 500,
+     "seed": 1,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/duplicate/s1",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/duplicate_cont/s1"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 1710,
+     "r1": 416,
+     "r2": 440,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 500,
+     "seed": 2,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/duplicate/s2",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/duplicate_cont/s2"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 1430,
+     "r1": 401,
+     "r2": 406,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 500,
+     "seed": 3,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/duplicate/s3",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/duplicate_cont/s3"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 1460,
+     "r1": 409,
+     "r2": 436,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    }
+   ],
+   "1000": [
+    {
+     "N": 1000,
+     "seed": 1,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/duplicate/s1",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/duplicate_cont/s1"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 760,
+     "r1": 699,
+     "r2": 750,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 1000,
+     "seed": 2,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/duplicate/s2",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/duplicate_cont/s2"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 950,
+     "r1": 683,
+     "r2": 800,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 1000,
+     "seed": 3,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/duplicate/s3",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/duplicate_cont/s3"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 710,
+     "r1": 648,
+     "r2": 765,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    }
+   ],
+   "2000": [
+    {
+     "N": 2000,
+     "seed": 1,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/duplicate/s1",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/duplicate_cont/s1"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 2550,
+     "r1": 1285,
+     "r2": 1380,
+     "success_end": 1.0,
+     "flagged_share": 0.003,
+     "skipped_sum": 19.0,
+     "restored_sum": 5.0
+    },
+    {
+     "N": 2000,
+     "seed": 2,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/duplicate/s2",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/duplicate_cont/s2"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 1480,
+     "r1": 1279,
+     "r2": 1495,
+     "success_end": 0.9921875,
+     "flagged_share": 0.00075,
+     "skipped_sum": 7.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 2000,
+     "seed": 3,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/duplicate/s3",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/duplicate_cont/s3"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 2490,
+     "r1": 1311,
+     "r2": 1357,
+     "success_end": 0.921875,
+     "flagged_share": 0.003,
+     "skipped_sum": 22.0,
+     "restored_sum": 10.0
+    }
+   ]
+  },
+  "frm0.1": {
+   "500": [
+    {
+     "N": 500,
+     "seed": 1,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/frm0.1/s1",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/frm0.1_cont/s1"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 1900,
+     "r1": 500,
+     "r2": 500,
+     "success_end": 0.984375,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 500,
+     "seed": 2,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/frm0.1/s2",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/frm0.1_cont/s2"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 1190,
+     "r1": 500,
+     "r2": 500,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 500,
+     "seed": 3,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/frm0.1/s3",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N500/Maze_interventions/frm0.1_cont/s3"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 2710,
+     "r1": 500,
+     "r2": 500,
+     "success_end": 0.96875,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    }
+   ],
+   "1000": [
+    {
+     "N": 1000,
+     "seed": 1,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/frm0.1/s1",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/frm0.1_cont/s1"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 560,
+     "r1": 1000,
+     "r2": 1000,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 1000,
+     "seed": 2,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/frm0.1/s2",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/frm0.1_cont/s2"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 760,
+     "r1": 1000,
+     "r2": 954,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 1000,
+     "seed": 3,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/frm0.1/s3",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N1000/Maze_interventions/frm0.1_cont/s3"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 1390,
+     "r1": 994,
+     "r2": 997,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    }
+   ],
+   "2000": [
+    {
+     "N": 2000,
+     "seed": 1,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/frm0.1/s1",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/frm0.1_cont/s1"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": null,
+     "r1": null,
+     "r2": 2000,
+     "success_end": 0.8984375,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 2000,
+     "seed": 2,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/frm0.1/s2",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/frm0.1_cont/s2"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": null,
+     "r1": null,
+     "r2": 1686,
+     "success_end": 0.6171875,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    },
+    {
+     "N": 2000,
+     "seed": 3,
+     "chain": [
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/frm0.1/s3",
+      "/Users/pt1290/firstmate/data/claim-gaps/local/cg_N2000/Maze_interventions/frm0.1_cont/s3"
+     ],
+     "last_update": 4000,
+     "complete": true,
+     "learned_update": 2430,
+     "r1": 1999,
+     "r2": 1332,
+     "success_end": 1.0,
+     "flagged_share": 0.0,
+     "skipped_sum": 0.0,
+     "restored_sum": 0.0
+    }
+   ]
+  }
+ },
+ "sigmaw1000": [
+  {
+   "N": 1000,
+   "seed": 1,
+   "chain": [
+    "/Users/pt1290/firstmate/data/claim-gaps/local/sigmaw/sigmaw1.0/s1",
+    "/Users/pt1290/firstmate/data/claim-gaps/local/sigmaw/sigmaw1.0_cont/s1"
+   ],
+   "last_update": 4000,
+   "complete": true,
+   "learned_update": 1950,
+   "r1": 456,
+   "r2": 409,
+   "success_end": 1.0,
+   "flagged_share": 0.00125,
+   "skipped_sum": 13.0,
+   "restored_sum": 5.0
+  },
+  {
+   "N": 1000,
+   "seed": 2,
+   "chain": [
+    "/Users/pt1290/firstmate/data/claim-gaps/local/sigmaw/sigmaw1.0/s2",
+    "/Users/pt1290/firstmate/data/claim-gaps/local/sigmaw/sigmaw1.0_cont/s2"
+   ],
+   "last_update": 4000,
+   "complete": true,
+   "learned_update": 1230,
+   "r1": 458,
+   "r2": 455,
+   "success_end": 0.96875,
+   "flagged_share": 0.00075,
+   "skipped_sum": 5.0,
+   "restored_sum": 2.0
+  },
+  {
+   "N": 1000,
+   "seed": 3,
+   "chain": [
+    "/Users/pt1290/firstmate/data/claim-gaps/local/sigmaw/sigmaw1.0/s3",
+    "/Users/pt1290/firstmate/data/claim-gaps/local/sigmaw/sigmaw1.0_cont/s3"
+   ],
+   "last_update": 4000,
+   "complete": true,
+   "learned_update": 1950,
+   "r1": 448,
+   "r2": 425,
+   "success_end": 0.9609375,
+   "flagged_share": 0.00125,
+   "skipped_sum": 5.0,
+   "restored_sum": 3.0
+  }
+ ],
+ "gap_a": {
+  "500": {
+   "r1": {
+    "holds": true,
+    "arm": [
+     416,
+     401,
+     409
+    ],
+    "ctrl": [
+     281,
+     259,
+     279
+    ],
+    "fold": 1.496947496947497
+   },
+   "r2": {
+    "holds": true,
+    "arm": [
+     440,
+     406,
+     436
+    ],
+    "ctrl": [
+     226,
+     226,
+     240
+    ],
+    "fold": 1.8526011560693643
+   },
+   "success_diff": 0.0026041666666666297,
+   "below_0p9": []
+  },
+  "1000": {
+   "r1": {
+    "holds": true,
+    "arm": [
+     699,
+     683,
+     648
+    ],
+    "ctrl": [
+     451,
+     517,
+     428
+    ],
+    "fold": 1.4541547277936961
+   },
+   "r2": {
+    "holds": true,
+    "arm": [
+     750,
+     800,
+     765
+    ],
+    "ctrl": [
+     360,
+     404,
+     317
+    ],
+    "fold": 2.1415356151711378
+   },
+   "success_diff": 0.0,
+   "below_0p9": []
+  },
+  "2000": {
+   "r1": {
+    "holds": true,
+    "arm": [
+     1285,
+     1279,
+     1311
+    ],
+    "ctrl": [
+     393,
+     557,
+     414
+    ],
+    "fold": 2.840909090909091
+   },
+   "r2": {
+    "holds": true,
+    "arm": [
+     1380,
+     1495,
+     1357
+    ],
+    "ctrl": [
+     400,
+     506,
+     388
+    ],
+    "fold": 3.27047913446677
+   },
+   "success_diff": -0.015625,
+   "below_0p9": []
+  },
+  "n1000_vs_seeds4_6": {
+   "r1": {
+    "holds": true,
+    "arm": [
+     699,
+     683,
+     648
+    ],
+    "ctrl": [
+     427,
+     412,
+     406
+    ],
+    "fold": 1.6305220883534135
+   },
+   "r2": {
+    "holds": true,
+    "arm": [
+     750,
+     800,
+     765
+    ],
+    "ctrl": [
+     373,
+     336,
+     314
+    ],
+    "fold": 2.262952101661779
+   }
+  },
+  "verdict": "increases at every size"
+ },
+ "gap_c": {
+  "500": {
+   "stable": [
+    true,
+    true,
+    true
+   ],
+   "n_stable": 3,
+   "mult": 1.8315018315018314,
+   "success_cost": -0.01302083333333337,
+   "supports_here": true
+  },
+  "1000": {
+   "stable": [
+    true,
+    true,
+    true
+   ],
+   "n_stable": 3,
+   "mult": 2.1446991404011464,
+   "success_cost": 0.0,
+   "supports_here": true
+  },
+  "2000": {
+   "stable": [
+    false,
+    false,
+    true
+   ],
+   "n_stable": 1,
+   "mult": 4.396627565982405,
+   "success_cost": -0.1484375,
+   "supports_here": false
+  },
+  "sigma_mult_1000": 0.9756446991404012,
+  "verdict": "falsifies: N=2000: 1 of 3 stable; N=2000: success -0.148"
+ }
+}
