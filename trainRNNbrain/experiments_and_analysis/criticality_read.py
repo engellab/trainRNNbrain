@@ -119,11 +119,13 @@ def snapshot_dirs(run_dir, snap_root):
     """Kept snapshots of one run: <snap_root>/<sweep>/<cell>/s<seed>/it<iteration>, sorted by iteration.
 
     Args:
-        run_dir: a run folder whose name carries seed=<n>; snap_root: the c1_snapshots root.
+        run_dir: a run folder whose name carries seed=<n> (a local `parent_*` link to it is resolved);
+        snap_root: the c1_snapshots root.
     Returns:
         list of (iteration, folder).
     """
-    cell = os.path.dirname(run_dir.rstrip("/"))
+    run_dir = os.path.realpath(run_dir.rstrip("/"))
+    cell = os.path.dirname(run_dir)
     seed = re.search(r"seed=(\d+)", os.path.basename(run_dir.rstrip("/"))).group(1)
     pat = os.path.join(snap_root, os.path.basename(os.path.dirname(cell)), os.path.basename(cell),
                        f"s{seed}", "it*")
