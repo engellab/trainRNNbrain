@@ -32,7 +32,20 @@ MODE `maze-verdict` (Mac). Per size and arm, the M09 Maze criterion (fig_paper_F
 0.05, floor 0.9) against the same-size controls; per term and size the one-value rule; the figure of active units
 against updates (--fig).
 
+MODE `cddm-read` (Della CPU node; rules docs/project_trajectory/2026-11-22_1831_rules-entropy-setpoint-cddm.md). Every
+network of CDDM_entropy_setpoint/EqType=h_N=1000_arm={ent0.01,ent0.1} and the three CDDM controls (CDDM_CTRL), read
+at 75,000 iterations by fig_paper_F2_fails.read_fixed (M09's CDDM read: R^2 of the weights saved at 75,000, 36 draws,
+or the loss-ratio estimate where none were saved, as for the controls); the active count at every stored vector;
+revival; the manipulation check (|H_i - 0.75|, on the 75,000-iteration weights for the arms and the final weights for
+the controls); skipped updates from the EntCDDM logs; each run's flattened config differences from control seed
+3833537590. Writes the JSON named by the positional argument (the R^2 cache beside it).
+
+MODE `cddm-verdict` (Mac). The gate on the controls' recorded values, the criterion per arm, the one-value and
+matched-values rules, whether active units still fall from 50,000 to 75,000, the figure (--fig).
+
 Usage:
+  python entropy_setpoint_read.py cddm-read OUT_JSON [--logs DIR]  (Della, repository root on PYTHONPATH)
+  python entropy_setpoint_read.py cddm-verdict OUT_JSON --fig PATH_STEM
   python entropy_setpoint_read.py read OUT_DIR [--logs DIR]     (Della, repository root on PYTHONPATH)
   python entropy_setpoint_read.py verdict READS_JSON --fig PATH_STEM
   python entropy_setpoint_read.py maze-read OUT_JSON --suite DIR --arms1000 DIR --arms2000 DIR
@@ -58,8 +71,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import heldout_r2 as H  # noqa: E402
 import fig_paper_F5_tasks as F5T  # noqa: E402
-from common import active_mask, maze_learned_index, maze_load_runs, warm_start_chain  # noqa: E402
+from common import DATA_DIR, active_mask, maze_learned_index, maze_load_runs, runs_with_loss, warm_start_chain  # noqa: E402
 from criticality_read import build_rnn, load_params  # noqa: E402
+from fig_paper_F2_fails import read_fixed  # noqa: E402
 from read_remedies import SHARED_FIELDS, cfg_of, sel  # noqa: E402
 from round18_g1g2 import CTRL_CELL, FIXED_ITER, FRM_CELL, read_run, run_dirs, state_at  # noqa: E402
 
@@ -74,6 +88,14 @@ TOL = 0.01
 MAZE_END = {1000: 2000, 2000: 4000}
 MAZE_SIZES = (1000, 2000)
 MAZE_TOL, MAZE_FLOOR = 0.05, 0.9   # M09's Maze success tolerance and the level no network may end below
+# CDDM (rules 2026-11-22_1831): the arms, the controls M09 uses and the values the read must reproduce
+CDDM_ARMS = ("ent0.01", "ent0.1")
+CDDM_CELL = "CDDM_entropy_setpoint/EqType=h_N=1000_arm={arm}"
+CDDM_CTRL = "CDDM_paper_grid/EqType=h_N=1000_arm=control"
+CDDM_CTRL_REF_SEED = "3833537590"      # the control whose saved config each arm's is compared with
+CDDM_CTRL_RECORDED = {"3833537590": (342, 0.8312), "1272763220": (334, 0.8350), "457853": (333, 0.8349)}
+# the term's M09 verdicts on the other two tasks at N = 1,000 (entries 2026-11-21_0755 and 2026-11-22_1808)
+OTHER_TASKS = {"ent0.01": {"3BFF": True, "Maze": True}, "ent0.1": {"3BFF": True, "Maze": True}}
 COLORS = {"control": "0.45", "frm0.1": "#9b59b6", "ent0.01": "#7fb3e6", "ent0.1": "#2a78d6",
           "cor0.01": "#f2a07b", "cor0.1": "#eb6834"}
 
@@ -146,16 +168,17 @@ def revived(its, masks, probe):
     return int((ever_off & masks[j]).sum())
 
 
-def skipped(run_dir, logs):
+def skipped(run_dir, logs, job="EntSP"):
     """Skipped updates of one run from its Slurm log, or None when no log names its seed.
 
     Args:
-        run_dir: run folder (its name holds seed=<seed>); logs: folder of *.out files.
+        run_dir: run folder (its name holds seed=<seed>); logs: folder of *.out files; job: str, the job name
+            the logs start with.
     Returns:
         int (0 when the log prints no `gradient spikes` line) or None.
     """
     seed = re.search(r"seed=(\d+)", os.path.basename(run_dir)).group(1)
-    for f in glob.glob(os.path.join(logs, "EntSP.*.out")):
+    for f in glob.glob(os.path.join(logs, f"{job}.*.out")):
         txt = open(f, errors="replace").read()
         if f"'seed': {seed}," in txt:
             m = re.search(r"gradient spikes: (\d+) updates skipped", txt)
@@ -387,10 +410,146 @@ def do_maze_verdict(out_json, fig_stem):
     return verdicts
 
 
+def flat_cfg(run_dir):
+    """A run's saved config flattened to dotted keys.
+
+    Args:
+        run_dir: str, folder holding *_config.yaml.
+    Returns:
+        dict dotted key -> value (as saved).
+    """
+    def walk(d, pre):
+        """Flatten nested dict d under prefix pre."""
+        out = {}
+        for k, v in d.items():
+            out.update(walk(v, f"{pre}{k}.") if isinstance(v, dict) else {f"{pre}{k}": v})
+        return out
+    cfg = OmegaConf.load(sorted(glob.glob(os.path.join(run_dir, "*_config.yaml")))[0])
+    return walk(OmegaConf.to_container(cfg), "")
+
+
+def do_cddm_read(out_json, logs):
+    """Mode `cddm-read`: every network of the two CDDM arms and the three controls at 75,000 iterations.
+
+    Args:
+        out_json: str, output file; logs: folder of the Slurm logs (EntCDDM.*.out).
+    Returns:
+        None.
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(out_json)), exist_ok=True)
+    cache_path = os.path.join(os.path.dirname(os.path.abspath(out_json)), "r2cache_cddm.json")
+    cache = json.load(open(cache_path)) if os.path.exists(cache_path) else {}
+    ref = [d for d in run_dirs(CDDM_CTRL) if f"seed={CDDM_CTRL_REF_SEED};" in d]
+    ref_cfg = flat_cfg(ref[0])
+    out = {}
+    for name, cell in [("control", CDDM_CTRL)] + [(a, CDDM_CELL.format(arm=a)) for a in CDDM_ARMS]:
+        out[name] = []
+        for r in runs_with_loss(os.path.join(DATA_DIR, cell)):
+            d = r["run_dir"]
+            f = read_fixed(r, FIXED_ITER, cache)
+            its, acts, masks = chain_trace(d)
+            st = state_at(d) or d          # the arms: the kept 75,000 snapshot; the controls: their final weights
+            c = flat_cfg(d)
+            differs = {k: [str(c.get(k, "<absent>")), str(ref_cfg.get(k, "<absent>"))]
+                       for k in sorted(set(c) | set(ref_cfg)) if c.get(k, "<absent>") != ref_cfg.get(k, "<absent>")}
+            rec = dict(run_dir=d, seed=re.search(r"seed=(\d+)", os.path.basename(d)).group(1),
+                       active_75k=int(f["active"]), probe_75k=f["probe"], r2_75k=float(f["r2"]), r2_how=f["r2_how"],
+                       it_end=float(np.asarray(r["it_loss"])[-1]), trace_it=its, trace_active=acts,
+                       revived=revived(its, masks, f["probe"]) if its else None, stats_state=st, stats=unit_stats(st),
+                       skipped=skipped(d, logs, "EntCDDM") if name != "control" else None, config_differs=differs,
+                       cell=cell)
+            out[name].append(rec)
+            print(f"{name} seed {rec['seed']} active {rec['active_75k']} (probe {rec['probe_75k']:.0f}) R2 "
+                  f"{rec['r2_75k']:.4f} ({rec['r2_how']}) revived {rec['revived']} |H-0.75| "
+                  f"{rec['stats']['med_dev_H']:.3f} skipped {rec['skipped']} differs {sorted(differs)}", flush=True)
+            json.dump(cache, open(cache_path, "w"))
+            json.dump(out, open(out_json, "w"), indent=1)
+
+
+def window_median(its, acts, end, width=2000):
+    """Median active count over the stored vectors in (end - width, end].
+
+    Args:
+        its, acts: iterations and active counts; end: float; width: float.
+    Returns:
+        float, or nan if no vector falls in the window.
+    """
+    its, acts = np.asarray(its), np.asarray(acts)
+    m = (its > end - width) & (its <= end)
+    return float(np.median(acts[m])) if m.any() else float("nan")
+
+
+def do_cddm_verdict(reads_json, fig_stem):
+    """Mode `cddm-verdict`: the gate, the criterion per arm, both M09 rules, the 50,000-75,000 change, the figure.
+
+    Args:
+        reads_json: str, the file `cddm-read` wrote; fig_stem: str, figure path without extension.
+    Returns:
+        dict arm -> fig_paper_F5_tasks.rule result.
+    Raises:
+        SystemExit if the controls do not reproduce their recorded values.
+    """
+    R = json.load(open(reads_json))
+    for r in R["control"]:
+        a, r2 = CDDM_CTRL_RECORDED[r["seed"]]
+        if r["active_75k"] != a or round(r["r2_75k"], 4) != r2:
+            raise SystemExit(f"GATE FAILS: control {r['seed']} reads {r['active_75k']}, {r['r2_75k']:.4f}; "
+                             f"recorded {a}, {r2}")
+    ca = [r["active_75k"] for r in R["control"]]
+    cr = [r["r2_75k"] for r in R["control"]]
+    print(f"gate passes. controls: active {ca} (largest {max(ca)}, mean {np.mean(ca):.0f}), R2 "
+          f"{np.round(cr, 4).tolist()} ({R['control'][0]['r2_how']}) mean {np.mean(cr):.4f}; bar {np.mean(cr) - TOL:.4f}")
+    verdicts = {}
+    for name in CDDM_ARMS:
+        recs = [r for r in R.get(name, []) if r["it_end"] >= FIXED_ITER - 100]
+        act, r2 = [r["active_75k"] for r in recs], [r["r2_75k"] for r in recs]
+        v = F5T.rule(act, r2, ca, cr, TOL) if recs else dict(works=False, text="no finished network",
+                                                               fold=float("nan"), dperf=float("nan"))
+        verdicts[name] = v
+        print(f"\n{name}: {v['text']}; {len(recs)} of {len(R.get(name, []))} finished; fold {v['fold']:.2f}, "
+              f"dR2 {v['dperf']:+.4f}")
+    print("\nper network: seed, active, R2 (how), revived, skipped, |H-0.75|, median active before 50k -> before 75k")
+    for name in ("control",) + CDDM_ARMS:
+        for r in R.get(name, []):
+            m50, m75 = (window_median(r["trace_it"], r["trace_active"], e) for e in (50000, 75000))
+            print(f"  {name:8s} {r['seed']:>10s}  {r['active_75k']:4d}  {r['r2_75k']:.4f} ({r['r2_how']})  "
+                  f"{r['revived']}  {r['skipped']}  {r['stats']['med_dev_H']:.3f}  {m50:.0f} -> {m75:.0f} "
+                  f"({m75 - m50:+.0f}{', still falling' if m75 < m50 else ''})  differs {sorted(r['config_differs'])}")
+    ok = {a: verdicts[a]["works"] for a in CDDM_ARMS}
+    print(f"\none-value rule: the entropy term {'MEETS' if any(ok.values()) else 'does not meet'} the criterion on "
+          f"CDDM ({', '.join(f'{a}: ' + ('passes' if ok[a] else 'fails') for a in CDDM_ARMS)})")
+    for a in CDDM_ARMS:
+        tasks = dict(OTHER_TASKS[a], CDDM=ok[a])
+        print(f"matched-values rule, lambda = {a[3:]}: " + ", ".join(f"{t} {'passes' if v else 'fails'}"
+                                                                      for t, v in tasks.items())
+              + f" -> {'meets the criterion on all three tasks' if all(tasks.values()) else 'not on all three'}")
+
+    fig, ax = plt.subplots(figsize=(6.5, 4.2), constrained_layout=True)
+    for name in ("control",) + CDDM_ARMS:
+        for k, r in enumerate(R.get(name, [])):
+            lab = "default (controls)" if name == "control" else f"entropy set point, λ = {name[3:]}"
+            ax.plot(np.asarray(r["trace_it"]) / 1000, r["trace_active"], color=COLORS[name],
+                    lw=1.2 if name == "control" else 1.6, alpha=0.9, label=lab if k == 0 else None)
+    ax.axhline(max(ca), color="0.45", lw=0.8, ls=":", label=f"largest control count ({max(ca)})")
+    for x in (50, 75):
+        ax.axvline(x, color="0.7", lw=0.6)
+    ax.set_xlim(0, 75)
+    ax.set_ylim(0, 1000)
+    ax.set_title("CDDM, N = 1,000: active units against iterations", fontsize=10)
+    ax.set_xlabel("iteration (thousands)")
+    ax.set_ylabel("active units (of 1,000)")
+    ax.grid(alpha=0.25, lw=0.5)
+    ax.legend(fontsize=8, frameon=False, loc="upper right")
+    fig.savefig(fig_stem + ".pdf")
+    fig.savefig(fig_stem + ".png", dpi=150)
+    print(f"figure: {fig_stem}.pdf, .png")
+    return verdicts
+
+
 def main():
     """Parse the command line and run the selected mode."""
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=("read", "verdict", "maze-read", "maze-verdict"))
+    ap.add_argument("mode", choices=("read", "verdict", "maze-read", "maze-verdict", "cddm-read", "cddm-verdict"))
     ap.add_argument("path")
     ap.add_argument("--logs", default=os.path.expanduser("~/trainRNNbrain_logs"))
     ap.add_argument("--fig", default=None)
@@ -402,6 +561,10 @@ def main():
         do_read(a.path, a.logs)
     elif a.mode == "verdict":
         do_verdict(a.path, a.fig)
+    elif a.mode == "cddm-read":
+        do_cddm_read(a.path, a.logs)
+    elif a.mode == "cddm-verdict":
+        do_cddm_verdict(a.path, a.fig)
     elif a.mode == "maze-read":
         do_maze_read(a.path, a.suite, {1000: a.arms1000, 2000: a.arms2000})
     else:
