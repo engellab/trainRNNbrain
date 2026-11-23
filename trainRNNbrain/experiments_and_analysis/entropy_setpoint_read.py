@@ -377,7 +377,7 @@ def do_maze_verdict(out_json, fig_stem):
                 ax.set_ylim(0, N)
                 ax.set_title(f"{title}, N = {N:,}", fontsize=10)
                 ax.grid(alpha=0.25, lw=0.5)
-                ax.legend(fontsize=8, frameon=False, loc="upper right")
+                ax.legend(fontsize=8, frameon=False, loc="lower left")
                 ax.set_xlabel("PPO update")
                 if j == 0:
                     ax.set_ylabel(f"active units (of {N:,})")
