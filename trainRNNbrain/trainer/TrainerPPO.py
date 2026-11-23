@@ -84,6 +84,15 @@ adamw or sgd, the switch of run_experiment.py): this trainer reads its base rate
 optimizer it is given, ramps it the same way, and zeroes moments only where they exist (SGD without
 momentum keeps none).
 
+THE SET-POINT TERMS (21 Nov 2026; docs/project_trajectory/*_rules-entropy-correlation-setpoint*.md) are two
+more mirrors, off by default: the per-unit activity-entropy set point `lambda_ent` and `ent_args`
+(`entropy_setpoint_penalty`) and the pairwise-correlation set point `lambda_cor` and `cor_args`
+(`correlation_setpoint_penalty`), the supervised Trainer.Penalties terms of the same names. Both are computed on
+the pre-activations h of this minibatch's recompute, over the RNN steps before each episode's end when
+freeze_after_end is on (`live_steps`), and added to the loss of every minibatch as the metabolic penalty is. They
+read h, not the rate, so a unit that is off on every step still has a nonzero gradient on its incoming weights;
+an RNN whose equation is not "h" is refused when either is on.
+
 A CONTINUATION (paths.init_from, since 5 Nov 2026) is a run built by run_rl.py from a finished maze
 run's weights and, with paths.init_adam, its Adam moments; this trainer takes two facts about it,
 `iter_offset` (the parent's last recorded update, added to every update index it records, so the
@@ -176,6 +185,7 @@ class TrainerPPO:
                  store_participation_every=5, checkpoint_every=100,
                  lambda_frm=0.0, frm_args=None, lambda_rws=0.0, rws_args=None,
                  lambda_rwm=0.0, rwm_args=None, lambda_met=0.0, met_args=None,
+                 lambda_ent=0.0, ent_args=None, lambda_cor=0.0, cor_args=None,
                  dropout=False, dropout_args=None, prune_reinit=False, prune_args=None,
                  iter_offset=0, adam_restored=False, freeze_after_end=False):
         """Args:
@@ -218,6 +228,14 @@ class TrainerPPO:
             lambda_met: float >= 0, weight of the metabolic penalty (`metabolic_penalty`); 0 leaves
                 it out. met_args: dict, the supervised key; the penalty takes no argument, so None
                 or {}.
+            lambda_ent: float >= 0, weight of the activity-entropy set point
+                (`entropy_setpoint_penalty`); 0 leaves it out. ent_args: dict with target_bits and
+                eps, the keyword arguments of the supervised Penalties.entropy_setpoint_penalty; None
+                for its defaults (0.75, 1e-6).
+            lambda_cor: float >= 0, weight of the pairwise-correlation set point
+                (`correlation_setpoint_penalty`); 0 leaves it out. cor_args: dict with target_corr,
+                scale and eps, the keyword arguments of the supervised
+                Penalties.correlation_setpoint_penalty; None for its defaults (0.0, 0.4, 1e-6).
             dropout: bool, read-out dropout on every training rollout (`draw_dropout_mask`);
                 dropout_args: dict with the keys of the supervised dropout_args block (dropout_kind,
                 which must be "mute"; sampling_method; drop_rate; dropout_beta; eta; active_rel;
@@ -258,7 +276,9 @@ class TrainerPPO:
                 (prune_and_reinit, the dropout EMA) still take every step.
         Raises:
             ValueError if RNN.n_outputs is not 2 + critic; if lambda_rwm is above 0 on an RNN with
-            Dale's law (RNN.dale_mask set: the penalty's two-cap branch is not mirrored); if dropout
+            Dale's law (RNN.dale_mask set: the penalty's two-cap branch is not mirrored); if
+            lambda_ent or lambda_cor is above 0 on an RNN whose equation_type is not "h" (both terms
+            read pre-activations, as the supervised ones assert); if dropout
             is on without dropout_args or with a dropout_kind other than "mute" ("dead" also
             removes the unit from the recurrent dynamics through the RNN's rhs; its replay in the
             recompute is not mirrored yet); if prune_reinit is on without prune_args, with a
@@ -283,6 +303,12 @@ class TrainerPPO:
         if self.lambda_rwm > 0 and getattr(RNN, "dale_mask", None) is not None:
             raise ValueError("TrainerPPO mirrors rec_weights_magnitude_penalty without Dale's law only (one cap for "
                              "every entry); this RNN has a dale_mask")
+        self.lambda_ent, self.lambda_cor = float(lambda_ent), float(lambda_cor)
+        self.ent_args = {} if ent_args is None else dict(ent_args)
+        self.cor_args = {} if cor_args is None else dict(cor_args)
+        if (self.lambda_ent > 0 or self.lambda_cor > 0) and RNN.equation_type != "h":
+            raise ValueError(f"the set-point terms read pre-activations and need equation_type 'h'; this RNN has "
+                             f"{RNN.equation_type!r}")
         self.sigma_w = float(RNN.sigma_w)
         # the cap on |W_inp|, the model's inp_weight_cap, read as the supervised Trainer reads it
         # (Trainer.enforce_inp_cap_: getattr(self.RNN, "inp_weight_cap", None)); None for no cap
@@ -731,6 +757,64 @@ class TrainerPPO:
         if mask is not None:
             fr = fr[:, mask]
         return torch.mean(fr ** 2)
+
+    def entropy_setpoint_penalty(self, states, mask=None):
+        """The activity-entropy set point of the supervised trainer
+        (Trainer.Penalties.entropy_setpoint_penalty), re-typed line for line. Per unit, the
+        Gaussian on-fraction p_i = Phi(mu_i / s_i) of its pre-activation over every kept step and
+        episode, its binary entropy H_i in bits, and the penalty mean_i ((H_i - t) / t)^2 with t =
+        target_bits. The supervised lines:
+            x = states.reshape(states.size(0), -1)
+            z = (x.mean(1) / (x.std(1) + eps)).double()
+            log_p, log_q = torch.special.log_ndtr(z), torch.special.log_ndtr(-z)
+            H = -(log_p.exp() * log_p + log_q.exp() * log_q) / np.log(2.0)
+            return (((H - target_bits) / target_bits) ** 2).mean()
+
+        Args:
+            states: (N, T, B) pre-activations; in ppo_update the states `sequence` returns for the
+                minibatch, every RNN step of every decision.
+            mask: (T, B) bool or None, the steps to keep (`live_steps`, with freeze_after_end on);
+                None keeps every step.
+        Returns:
+            scalar float64 tensor P >= 0; the loss adds lambda_ent x P.
+        """
+        target_bits, eps = float(self.ent_args.get("target_bits", 0.75)), float(self.ent_args.get("eps", 1e-6))
+        x = states.reshape(states.size(0), -1)
+        if mask is not None:
+            x = x[:, mask.reshape(-1)]
+        z = (x.mean(1) / (x.std(1) + eps)).double()
+        log_p, log_q = torch.special.log_ndtr(z), torch.special.log_ndtr(-z)
+        H = -(log_p.exp() * log_p + log_q.exp() * log_q) / np.log(2.0)
+        return (((H - target_bits) / target_bits) ** 2).mean()
+
+    def correlation_setpoint_penalty(self, states, mask=None):
+        """The pairwise-correlation set point of the supervised trainer
+        (Trainer.Penalties.correlation_setpoint_penalty), re-typed line for line. Per unit, c_i, the
+        mean over j != i of the Pearson correlation of the pre-activations of units i and j over
+        every kept step and episode, computed in O(N x steps) from the z-scored states as
+        (<z_i S> - <z_i^2>) / (N - 1) with S = sum_j z_j; the penalty is mean_i ((c_i - c0) / scale)^2
+        with c0 = target_corr. The supervised lines:
+            x = states.reshape(states.size(0), -1)
+            xc = x - x.mean(1, keepdim=True)
+            z = xc / (xc.pow(2).mean(1, keepdim=True).sqrt() + eps)
+            c = ((z * z.sum(0)).mean(1) - z.pow(2).mean(1)) / (z.size(0) - 1)
+            return (((c - target_corr) / scale) ** 2).mean()
+
+        Args:
+            states: (N, T, B) pre-activations, as for `entropy_setpoint_penalty`.
+            mask: (T, B) bool or None, the steps to keep (`live_steps`); None keeps every step.
+        Returns:
+            scalar tensor P >= 0 in the states' dtype; the loss adds lambda_cor x P.
+        """
+        target_corr = float(self.cor_args.get("target_corr", 0.0))
+        scale, eps = float(self.cor_args.get("scale", 0.4)), float(self.cor_args.get("eps", 1e-6))
+        x = states.reshape(states.size(0), -1)
+        if mask is not None:
+            x = x[:, mask.reshape(-1)]
+        xc = x - x.mean(1, keepdim=True)
+        z = xc / (xc.pow(2).mean(1, keepdim=True).sqrt() + eps)
+        c = ((z * z.sum(0)).mean(1) - z.pow(2).mean(1)) / (z.size(0) - 1)
+        return (((c - target_corr) / scale) ** 2).mean()
 
     # ------------------------------------------------------------------ the per-unit rule (prune_reinit)
 
@@ -1336,8 +1420,9 @@ class TrainerPPO:
             ratio outside the clip range), skipped, the number of minibatch steps whose loss was
             not finite and which were therefore not applied, and, only when the option is on, the
             raw penalty values fr_magnitude (lambda_frm > 0), rec_weights_sparsity
-            (lambda_rws > 0), rec_weights_magnitude (lambda_rwm > 0) and metabolic
-            (lambda_met > 0), before their lambda; with the rescale rule on, four ints:
+            (lambda_rws > 0), rec_weights_magnitude (lambda_rwm > 0), metabolic
+            (lambda_met > 0), entropy_setpoint (lambda_ent > 0) and correlation_setpoint
+            (lambda_cor > 0), before their lambda; with the rescale rule on, four ints:
             rescale_opened, rescale_graduated and rescale_spent summed over this update's checks
             (one per optimizer step) and rescale_growing, the number growing after the last check;
             with the copy rule on, two ints: copy_replaced summed over the update's checks and
@@ -1346,8 +1431,8 @@ class TrainerPPO:
 
         THE PENALTIES are added to the loss of every minibatch as the supervised train_step adds
         them, loss += lambda_frm x P_frm + lambda_rws x P_rws + lambda_rwm x P_rwm + lambda_met x
-        P_met, with P_frm and P_met on the states of this minibatch's recompute (the noisy rollout
-        states) and P_rws and P_rwm on W_rec. The recompute replays the rollout's synaptic noise
+        P_met + lambda_ent x P_ent + lambda_cor x P_cor, with P_frm, P_met, P_ent and P_cor on the
+        states of this minibatch's recompute (the noisy rollout states) and P_rws and P_rwm on W_rec. The recompute replays the rollout's synaptic noise
         (batch["w_seed"]) and read-out mask (batch["outgoing"]). With the rescale rule on, every
         minibatch's gradient is blanked on the incoming rows of the units growing at that time
         (zero_protected_grads) after the clip and before the step, and after the step the rule
@@ -1375,6 +1460,10 @@ class TrainerPPO:
             sums["rec_weights_magnitude"] = 0.0
         if self.lambda_met:
             sums["metabolic"] = 0.0
+        if self.lambda_ent:
+            sums["entropy_setpoint"] = 0.0
+        if self.lambda_cor:
+            sums["correlation_setpoint"] = 0.0
         n = 0
         skipped = 0
         rule = {}
@@ -1408,6 +1497,12 @@ class TrainerPPO:
                 if self.lambda_met:
                     penalties["metabolic"] = self.metabolic_penalty(states, live)
                     loss = loss + self.lambda_met * penalties["metabolic"]
+                if self.lambda_ent:
+                    penalties["entropy_setpoint"] = self.entropy_setpoint_penalty(states, live)
+                    loss = loss + self.lambda_ent * penalties["entropy_setpoint"]
+                if self.lambda_cor:
+                    penalties["correlation_setpoint"] = self.correlation_setpoint_penalty(states, live)
+                    loss = loss + self.lambda_cor * penalties["correlation_setpoint"]
                 if not torch.isfinite(loss):
                     skipped += 1
                     continue

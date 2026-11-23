@@ -19,9 +19,24 @@ MODE `verdict` (Mac). Prints each arm's networks, the criterion (fig_paper_F5_ta
 against the controls, the rate penalty beside it, the manipulation check and revival; draws the figure
 (active units against iterations, every network, with the controls) to --fig (PDF and PNG).
 
+MODE `maze-read` (Stage 2; rules docs/project_trajectory/*_rules-entropy-correlation-setpoint-maze.md). Every
+Maze run of the four arms at N = 1,000 and 2,000 (Maze_interventions/<arm>/s<seed> under --arms1000 and --arms2000)
+and the default controls (Maze_suite/N=<N>_act=relu, seeds 1-3, under --suite), joined along the warm-start chain
+(common.maze_load_runs) and cut at MAZE_END[N] (update 2,000 at N = 1,000, 4,000 at N = 2,000): active units and
+probe success at the probe of that update; the learned update and the count there (common.maze_learned_index); the summed skipped minibatch steps and
+restored rollouts; the active count at every probe; the arm's raw set-point penalty at update 1 and averaged over
+its last 50 updates (the PPO statistics in Progress.json). The arm is derived from the saved config and must match
+the folder. Writes the JSON named by the positional argument.
+
+MODE `maze-verdict` (Mac). Per size and arm, the M09 Maze criterion (fig_paper_F5_tasks.rule, success tolerance
+0.05, floor 0.9) against the same-size controls; per term and size the one-value rule; the figure of active units
+against updates (--fig).
+
 Usage:
   python entropy_setpoint_read.py read OUT_DIR [--logs DIR]     (Della, repository root on PYTHONPATH)
   python entropy_setpoint_read.py verdict READS_JSON --fig PATH_STEM
+  python entropy_setpoint_read.py maze-read OUT_JSON --suite DIR --arms1000 DIR --arms2000 DIR
+  python entropy_setpoint_read.py maze-verdict OUT_JSON --fig PATH_STEM
 """
 
 import argparse
@@ -43,7 +58,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import heldout_r2 as H  # noqa: E402
 import fig_paper_F5_tasks as F5T  # noqa: E402
-from common import active_mask, warm_start_chain  # noqa: E402
+from common import active_mask, maze_learned_index, maze_load_runs, warm_start_chain  # noqa: E402
 from criticality_read import build_rnn, load_params  # noqa: E402
 from read_remedies import SHARED_FIELDS, cfg_of, sel  # noqa: E402
 from round18_g1g2 import CTRL_CELL, FIXED_ITER, FRM_CELL, read_run, run_dirs, state_at  # noqa: E402
@@ -54,6 +69,11 @@ TARGET_BITS = 0.75          # configs/experiment/entropy_setpoint.yaml, ent_args
 TARGET_CORR = 0.0           # cor_args.target_corr
 STAT_NOISE_SEED = 20261121  # noise draw of the manipulation-check pass
 TOL = 0.01
+# the Maze read-out point per size, the end of each size's budget: update 2,000 at N = 1,000 (M09's cell) and
+# 4,000 at N = 2,000 (the equal budget of the Maze size series; at 2,000 none of its three controls has learned)
+MAZE_END = {1000: 2000, 2000: 4000}
+MAZE_SIZES = (1000, 2000)
+MAZE_TOL, MAZE_FLOOR = 0.05, 0.9   # M09's Maze success tolerance and the level no network may end below
 COLORS = {"control": "0.45", "frm0.1": "#9b59b6", "ent0.01": "#7fb3e6", "ent0.1": "#2a78d6",
           "cor0.01": "#f2a07b", "cor0.1": "#eb6834"}
 
@@ -231,18 +251,161 @@ def do_verdict(reads_json, fig_stem):
     return verdicts
 
 
+def maze_arm_of(folder):
+    """The set-point arm a Maze run's saved config switches on: "ent<lambda>", "cor<lambda>" or "control".
+
+    Args:
+        folder: str, a run folder holding *config.yaml.
+    Returns:
+        str.
+    Raises:
+        ValueError if both terms are on.
+    """
+    tr = OmegaConf.load(sorted(glob.glob(os.path.join(folder, "*config.yaml")))[0]).trainer
+    ent, cor = float(tr.get("lambda_ent", 0) or 0), float(tr.get("lambda_cor", 0) or 0)
+    if ent > 0 and cor > 0:
+        raise ValueError(f"{folder}: both set-point terms are on")
+    return f"ent{ent:g}" if ent > 0 else f"cor{cor:g}" if cor > 0 else "control"
+
+
+def maze_point(r, end):
+    """The read-out of one joined Maze run, cut at update `end`.
+
+    Args:
+        r: dict from common.maze_load_runs; end: int, the read-out update (MAZE_END[N]).
+    Returns:
+        dict: N, seed, folder, chain, last_update, complete (reached `end` with a probe there), active_end and
+        success_end (at the probe of update `end`, None if incomplete), learned_update and active_learned (None
+        if the run did not learn), skipped_sum, restored_sum, trace_u and trace_active (every probe), penalty
+        (dict term -> [value at the first update, mean over the last 50 updates], for the set-point keys present).
+    """
+    P = r["probes"]
+    u = np.asarray(P["update"])
+    m = u <= end
+    u, act, succ = u[m], np.asarray(P["active"])[m], np.asarray(P["probe_success"])[m]
+    prog = [p for p in r["progress"] if p["update"] <= end]
+    last = int(prog[-1]["update"]) if prog else 0
+    complete = bool(last >= end and len(u) and int(u[-1]) == end)
+    li = maze_learned_index(succ)
+    pen = {k: [float(prog[0][k]), float(np.mean([p[k] for p in prog[-50:]]))]
+           for k in ("entropy_setpoint", "correlation_setpoint") if prog and k in prog[0]}
+    return dict(N=int(r["N"]), seed=int(r["seed"]), folder=r["folder"], chain=list(r["chain"]), last_update=last,
+                complete=complete, active_end=int(act[-1]) if complete else None,
+                success_end=float(succ[-1]) if complete else None,
+                learned_update=None if li is None else int(u[li]), active_learned=None if li is None else int(act[li]),
+                skipped_sum=float(sum(p.get("skipped", 0) for p in prog)),
+                restored_sum=float(sum(p.get("restored", 0) for p in prog)),
+                trace_u=u.tolist(), trace_active=act.tolist(), penalty=pen)
+
+
+def do_maze_read(out_json, suite, arm_roots):
+    """Mode `maze-read`: the controls and the four arms at both sizes, written to out_json.
+
+    Args:
+        out_json: str; suite: str, the Maze_suite folder; arm_roots: dict N -> folder holding <arm>/s<seed>.
+    Returns:
+        dict N -> {"control": [...], arm: [...]} of maze_point dicts.
+    """
+    out = {}
+    for N in MAZE_SIZES:
+        cell = f"N={N}_act=relu"
+        ctrl = [maze_point(r, MAZE_END[N]) for r in maze_load_runs(suite)
+                if os.path.basename(os.path.dirname(r["chain"][0])) == cell and int(r["seed"]) in (1, 2, 3)]
+        out[N] = {"control": ctrl}
+        for r in maze_load_runs(arm_roots[N]):
+            arm = maze_arm_of(r["folder"])
+            folder_arm = os.path.basename(os.path.dirname(r["chain"][0]))
+            if arm != folder_arm or int(r["N"]) != N:
+                raise ValueError(f"{r['folder']}: config arm {arm} N {r['N']}, folder arm {folder_arm} root N {N}")
+            out[N].setdefault(arm, []).append(maze_point(r, MAZE_END[N]))
+        for name, rows in out[N].items():
+            for x in rows:
+                print(f"N={N} {name:8s} s{x['seed']} last {x['last_update']} active {x['active_end']} "
+                      f"success {x['success_end']} learned {x['learned_update']} skipped {x['skipped_sum']:g} "
+                      f"restored {x['restored_sum']:g} penalty {x['penalty']}", flush=True)
+    json.dump(out, open(out_json, "w"), indent=1)
+    return out
+
+
+def do_maze_verdict(out_json, fig_stem):
+    """Mode `maze-verdict`: the M09 Maze criterion per size and arm, the one-value rule per term, the figure.
+
+    Args:
+        out_json: str, the file `maze-read` wrote; fig_stem: str or None, figure path without extension.
+    Returns:
+        dict (N, arm) -> fig_paper_F5_tasks.rule result, or a dict with works False and text "incomplete".
+    """
+    R = {int(k): v for k, v in json.load(open(out_json)).items()}
+    verdicts = {}
+    for N in MAZE_SIZES:
+        ctrl = [x for x in R[N]["control"] if x["complete"]]
+        ca, cs = [x["active_end"] for x in ctrl], [x["success_end"] for x in ctrl]
+        print(f"\nN = {N}, update {MAZE_END[N]:,}: controls active {ca} (largest {max(ca)}), success {np.round(cs, 3).tolist()} "
+              f"(mean {np.mean(cs):.3f}; bar {np.mean(cs) - MAZE_TOL:.3f}, floor {MAZE_FLOOR})")
+        for arm in ARMS:
+            rows = R[N].get(arm, [])
+            fin = [x for x in rows if x["complete"]]
+            if len(fin) < 3:
+                v = dict(works=False, text=f"incomplete ({len(fin)} of 3 finished)", fold=float("nan"),
+                         dperf=float("nan"))
+            else:
+                v = F5T.rule([x["active_end"] for x in fin], [x["success_end"] for x in fin], ca, cs, MAZE_TOL,
+                             floor=MAZE_FLOOR)
+            verdicts[(N, arm)] = v
+            print(f"  {arm}: {v['text']}; fold {v['fold']:.2f}, dsuccess {v['dperf']:+.3f}")
+            for x in rows:
+                print(f"     s{x['seed']} last {x['last_update']} active {x['active_end']} success {x['success_end']} "
+                      f"learned {x['learned_update']} (active {x['active_learned']}) skipped {x['skipped_sum']:g} "
+                      f"restored {x['restored_sum']:g} penalty first/last50 {x['penalty']}")
+    for term, arms in (("entropy (A)", ARMS[:2]), ("correlation (B)", ARMS[2:])):
+        per_n = {N: any(verdicts[(N, a)]["works"] for a in arms) for N in MAZE_SIZES}
+        print(f"{term}: {'PASSES' if all(per_n.values()) else 'fails'} on Maze "
+              f"({', '.join(f'N = {N}: ' + ('passes' if ok else 'fails') for N, ok in per_n.items())})")
+    if fig_stem:
+        fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)
+        for i, N in enumerate(MAZE_SIZES):
+            ca = [x["active_end"] for x in R[N]["control"] if x["complete"]]
+            for j, (arms, title) in enumerate(((ARMS[:2], "(A) entropy set point"), (ARMS[2:], "(B) correlation set point"))):
+                ax = axes[i, j]
+                for name in ("control",) + arms:
+                    for k, x in enumerate(R[N].get(name, [])):
+                        lab = "default (controls)" if name == "control" else f"λ = {name[3:]}"
+                        ax.plot(x["trace_u"], x["trace_active"], color=COLORS[name], lw=1.2 if name == "control" else 1.6,
+                                alpha=0.9, label=lab if k == 0 else None)
+                ax.axhline(max(ca), color="0.45", lw=0.8, ls=":", label=f"largest control count ({max(ca)})")
+                ax.set_xlim(0, MAZE_END[N])
+                ax.set_ylim(0, N)
+                ax.set_title(f"{title}, N = {N:,}", fontsize=10)
+                ax.grid(alpha=0.25, lw=0.5)
+                ax.legend(fontsize=8, frameon=False, loc="lower left")
+                ax.set_xlabel("PPO update")
+                if j == 0:
+                    ax.set_ylabel(f"active units (of {N:,})")
+        fig.savefig(fig_stem + ".pdf")
+        fig.savefig(fig_stem + ".png", dpi=150)
+        print(f"figure: {fig_stem}.pdf, .png")
+    return verdicts
+
+
 def main():
     """Parse the command line and run the selected mode."""
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=("read", "verdict"))
+    ap.add_argument("mode", choices=("read", "verdict", "maze-read", "maze-verdict"))
     ap.add_argument("path")
     ap.add_argument("--logs", default=os.path.expanduser("~/trainRNNbrain_logs"))
     ap.add_argument("--fig", default=None)
+    ap.add_argument("--suite", default=None, help="maze-read: the Maze_suite folder (the controls)")
+    ap.add_argument("--arms1000", default=None, help="maze-read: Maze_interventions folder of the N = 1,000 arms")
+    ap.add_argument("--arms2000", default=None, help="maze-read: Maze_interventions folder of the N = 2,000 arms")
     a = ap.parse_args()
     if a.mode == "read":
         do_read(a.path, a.logs)
-    else:
+    elif a.mode == "verdict":
         do_verdict(a.path, a.fig)
+    elif a.mode == "maze-read":
+        do_maze_read(a.path, a.suite, {1000: a.arms1000, 2000: a.arms2000})
+    else:
+        do_maze_verdict(a.path, a.fig)
 
 
 if __name__ == "__main__":
