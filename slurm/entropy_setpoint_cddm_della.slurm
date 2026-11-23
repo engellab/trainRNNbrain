@@ -1,7 +1,7 @@
 #!/bin/bash
 # ENTROPY SET POINT ON CDDM, N = 1,000 (DELLA)
 #
-# Rules: docs/project_trajectory/2026-11-22_*_rules-entropy-setpoint-cddm.md, committed before any run.
+# Rules: docs/project_trajectory/2026-11-22_1831_rules-entropy-setpoint-cddm.md, committed before any run.
 # The command is the CDDM command of SilentReLU_paper_grid_della.slurm (TASK=cddm, which trained the
 # control networks CDDM_paper_grid/EqType=h_N=1000_arm=control), with +experiment=entropy_setpoint in place
 # of silent_units_largeN (the same block plus the two set-point terms, off, and model.init_draws: shared),
