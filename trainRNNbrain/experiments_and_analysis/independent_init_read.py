@@ -36,7 +36,7 @@ from scipy import stats  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from common import DATA_DIR, maze_learned_index, maze_load_runs, read_run, runs_with_loss  # noqa: E402
+from common import DATA_DIR, maze_learned_index, maze_load_runs, read_run, runs_with_loss, warm_start_chain  # noqa: E402
 from entropy_setpoint_read import chain_trace, flat_cfg, skipped  # noqa: E402
 from fig_paper_F2_fails import FIXED_IT, read_fixed  # noqa: E402
 
@@ -61,6 +61,7 @@ REFERENCE = {"3BFF": [SERIES["3BFF"], "NBitFlipFlop_std_dropfix_c200000/EqType=h
 BOUNDS = {("3BFF", "75k"): (236, 309, 274, 14), ("3BFF", "floor"): (240, 344, 285, 14),
           ("CDDM", "75k"): (311, 354, 333, 17), ("CDDM", "floor"): (390, 468, 423, 21),
           ("Maze", "u2000"): (394, 449, 417, 21), ("Maze", "learned"): (406, 517, 440, 22)}
+FF_FLOOR_BUDGET = 200000     # the rules read the 3BFF floor crossing only at the paper's 200,000 iterations
 MAZE_END = 2000
 SUITE_LEARNED_END = 4000
 R2_TOL, SUCCESS_FLOOR = 0.01, 0.9
@@ -101,16 +102,20 @@ def do_read(out_json, logs):
     cache = json.load(open(cache_path)) if os.path.exists(cache_path) else {}
     out = {"new": {}, "reference": {}}
     for task in ("3BFF", "CDDM"):
-        cells = [NEW[task].format(suffix=s) for s in ("_c200000", "")]
-        cell = next((c for c in cells if os.path.isdir(os.path.join(DATA_DIR, c))), cells[-1])
-        runs = runs_with_loss(os.path.join(DATA_DIR, cell))
+        # a network continued to 200,000 is read from its continuation (the chain is joined), any other from its own run
+        runs = [r for suf in ("_c200000", "") for r in runs_with_loss(os.path.join(DATA_DIR, NEW[task].format(suffix=suf)))]
+        runs = list({r["run_dir"]: r for r in runs}.values())                    # CDDM's cell has no suffix
+        parents = {os.path.basename(p) for r in runs for p in warm_start_chain(r["run_dir"])[:-1]}
+        runs = [r for r in runs if os.path.basename(r["run_dir"]) not in parents]
         ref_cfg = flat_cfg(runs_with_loss(os.path.join(DATA_DIR, SERIES[task]))[0]["run_dir"])
         out["new"][task] = []
         for r in runs:
             rec = read_network(r, True, cache)
+            if task == "3BFF" and rec["it_end"] < FF_FLOOR_BUDGET - 1:
+                rec.update(active_floor=None, probe_floor=None, floor_reason="not trained to 200,000")
             its, acts, _ = chain_trace(r["run_dir"], until=1e12)
             c = flat_cfg(r["run_dir"])
-            rec.update(trace_it=its, trace_active=acts, skipped=skipped(r["run_dir"], logs, "IndInit"),
+            rec.update(trace_it=its, trace_active=acts, skipped=[skipped(d, logs, j) for d, j in zip(warm_start_chain(r["run_dir"]), ("IndInit", "IndInitTop"))],
                        differs={k: [str(c.get(k, "<absent>")), str(ref_cfg.get(k, "<absent>"))]
                                 for k in sorted(set(c) | set(ref_cfg)) if c.get(k, "<absent>") != ref_cfg.get(k, "<absent>")})
             out["new"][task].append(rec)
