@@ -180,8 +180,8 @@ def build_optimizer(rnn, trainer_cfg, lr):
     applies weight decay as COUPLED L2: wd*w is added to the gradient and then divided by sqrt(v),
     so a unit with no task gradient has its weights pulled to zero at ~lr per step whatever wd is.
     `adamw` decouples it (w -= lr*wd*w); `sgd` adds the same wd*w to the gradient with no
-    normalisation, with trainer.momentum. Configs written before the key existed ran Adam, hence
-    the default.
+    normalisation, with trainer.momentum; `amsgrad` is adam (coupled L2) dividing by the largest v
+    so far. Configs written before the key existed ran Adam, hence the default.
 
     Args:
         rnn: RNN_torch, whose parameters the optimizer holds.
@@ -190,7 +190,7 @@ def build_optimizer(rnn, trainer_cfg, lr):
     Returns:
         torch.optim.Adam, AdamW or SGD.
     Raises:
-        ValueError: trainer.optimizer is none of adam, adamw, sgd.
+        ValueError: trainer.optimizer is none of adam, adamw, amsgrad, sgd.
     """
     opt_name = trainer_cfg.get("optimizer", "adam")
     wd = float(trainer_cfg.weight_decay)
@@ -198,9 +198,11 @@ def build_optimizer(rnn, trainer_cfg, lr):
         return torch.optim.Adam(rnn.parameters(), lr=lr, weight_decay=wd)
     if opt_name == "adamw":
         return torch.optim.AdamW(rnn.parameters(), lr=lr, weight_decay=wd)
+    if opt_name == "amsgrad":
+        return torch.optim.Adam(rnn.parameters(), lr=lr, weight_decay=wd, amsgrad=True)
     if opt_name == "sgd":
         return torch.optim.SGD(rnn.parameters(), lr=lr, weight_decay=wd, momentum=float(trainer_cfg.momentum))
-    raise ValueError(f"trainer.optimizer must be adam, adamw or sgd; got {opt_name!r}")
+    raise ValueError(f"trainer.optimizer must be adam, adamw, amsgrad or sgd; got {opt_name!r}")
 
 
 def load_warm_start(rnn, folder, keep_fresh=()):

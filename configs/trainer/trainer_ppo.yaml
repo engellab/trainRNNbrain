@@ -71,7 +71,7 @@ weight_decay: 1.0e-6        # Adam's coupled L2, as in the supervised trainer
 # gradient with no normalisation. The size rule, the warm-up ramp and the AdamState file (which keeps
 # its name whichever optimiser wrote it) apply to all three; a continuation that restores the state
 # (paths.init_adam) must name its parent's optimiser. Runs saved without this key ran adam.
-optimizer: adam             # adam (coupled L2) | adamw (decoupled) | sgd
+optimizer: adam             # adam (coupled L2) | adamw (decoupled) | amsgrad (coupled L2) | sgd
 momentum: 0.0               # sgd only
 max_grad_norm: 0.5
 probe_every: 10             # updates between clean probes (noise-free, mean action, fixed drops)
