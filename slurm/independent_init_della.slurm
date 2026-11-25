@@ -18,8 +18,8 @@
 # Usage (from a clean clone pinned to the submission commit; --chdir is required by the import check):
 #   C=--chdir=$HOME/trainRNNbrain_indinit; L=slurm/independent_init_della.slurm
 #   sbatch $C --array=1-3 --time=10:00:00 $L
-#   sbatch $C --array=4-6 --time=11:00:00 $L
-#   sbatch $C --array=7-9 --time=12:00:00 --mem-per-gpu=48G $L
+#   sbatch $C --array=4-6 --time=09:00:00 $L
+#   sbatch $C --array=7-9 --time=11:00:00 --mem-per-gpu=48G $L
 # 3BFF to 200,000 (the floor crossing), only if the GPU-hour rule of the rules entry allows it:
 #   REPO=$HOME/trainRNNbrain_indinit KEEP=1 \
 #     PARENTS="/scratch/gpfs/TENGEL/pt1290/trainRNNbrain/data/trained_RNNs/NBitFlipFlop_independent_init/EqType=h_N=1000_draws=independent/*/" \
@@ -32,7 +32,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=gpu80
 #SBATCH --mem-per-gpu=32G
-#SBATCH --time=11:00:00
+#SBATCH --time=10:00:00
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=pt1290@princeton.edu
 #SBATCH --output=/home/pt1290/trainRNNbrain_logs/%x.%A_%a.out
