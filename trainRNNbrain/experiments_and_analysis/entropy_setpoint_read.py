@@ -487,9 +487,12 @@ def do_cddm_verdict(reads_json, fig_stem):
     Returns:
         dict arm -> fig_paper_F5_tasks.rule result.
     Raises:
-        SystemExit if the controls do not reproduce their recorded values.
+        SystemExit if a control or an arm network is missing, or the controls do not reproduce their recorded values.
     """
     R = json.load(open(reads_json))
+    n = {g: sorted(r["seed"] for r in R.get(g, [])) for g in ("control",) + CDDM_ARMS}
+    if n["control"] != sorted(CDDM_CTRL_RECORDED) or any(len(n[a]) != 3 for a in CDDM_ARMS):
+        raise SystemExit(f"GATE FAILS: incomplete read, seeds per group {n}")
     for r in R["control"]:
         a, r2 = CDDM_CTRL_RECORDED[r["seed"]]
         if r["active_75k"] != a or round(r["r2_75k"], 4) != r2:
