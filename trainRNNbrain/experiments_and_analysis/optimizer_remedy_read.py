@@ -16,6 +16,10 @@ MODE `maze-read OUT_JSON` (Della CPU node). The Maze networks of the candidates 
 4,000 (entropy_setpoint_read.maze_point), with the first update's rollout (before any optimizer step) and the config
 differences from the same-seed control.
 
+MODE `units OUT_JSON --arms A [B ...]` (Della GPU node). For the 3BFF and CDDM controls and the named candidates, on the
+weights at 75,000: the M09 removal (a3_remedy_ablation.ablate_net, k against the controls' mean) and the near-copy
+shares (copy_stats). The Maze removal is rl_maze_ablate.py --added.
+
 MODE `verdict READS_JSON MAZE_JSON [--fig STEM]` (Mac). Read gate, config gate, the M09 rule
 (fig_paper_F5_tasks.rule) per candidate and task against the matched controls and against M09's own, the three
 size-test numbers, the late-decline numbers to 75,000 (Maze: 2,000 and 4,000), the outcome of the rules entry.
@@ -33,12 +37,14 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
+import torch  # noqa: E402
 from omegaconf import OmegaConf  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import a3_remedy_ablation as A3  # noqa: E402
 import fig_paper_F5_tasks as F5T  # noqa: E402
-from common import DATA_DIR, maze_load_runs, runs_with_loss  # noqa: E402
+from common import DATA_DIR, active_mask, maze_load_runs, runs_with_loss  # noqa: E402
 from entropy_setpoint_read import chain_trace, flat_cfg, maze_point, skipped, window_median  # noqa: E402
 from fig_paper_F2_fails import read_fixed  # noqa: E402
 
@@ -56,6 +62,7 @@ MAZE_HOME = os.path.expanduser("~/trainRNNbrain/data")
 MAZE_ARMS = os.path.join(MAZE_HOME, "trained_RNNs_rl_maze_optrem", "Maze_optimizer_remedy")
 MAZE_CTRL = os.path.join(MAZE_HOME, "trained_RNNs_rl_maze_mctrl_N1000", "Maze_interventions")
 FIXED_IT, MAZE_ENDS = 75000, (2000, 4000)
+COPY_COS = 0.9                   # a near copy: incoming-weight cosine with another active unit above this
 TOL, MAZE_TOL, MAZE_FLOOR = 0.01, 0.05, 0.9
 # M09's own control networks (shared draws on 3BFF and CDDM; three Maze networks of the first trainer version): active
 # units and mean performance (ST_verdicts, M09; 3BFF mean R^2 of the three with weights at 75,000: data/round18/g1g2.json)
@@ -180,6 +187,67 @@ def do_maze_read(out_json):
         print("Maze", name, seed, {e: {k: p[e][k] for k in ("last_update", "complete", "active_end", "success_end", "learned_update",
               "active_learned", "skipped_sum", "restored_sum")} for e in MAZE_ENDS}, rec["update1"], bad, flush=True)
     json.dump(out, open(out_json, "w"), indent=1)
+
+
+def copy_stats(W_rec, W_inp, p, k):
+    """Near-copy shares of a network's active units, by incoming-weight cosine with the nearest other active unit.
+
+    Args:
+        W_rec: (N, N) array, row i holds the weights onto unit i; W_inp: (N, n_inputs) array; p: (N,) participation;
+        k: int, the number of least participating active units to report on their own (<= 0: none).
+    Returns:
+        dict: n_active, k, share_all and share_k (rows restricted to active sources and the inputs), full_all and
+        full_k (full rows), median_cos (restricted, over active units); the _k values are None when k <= 0.
+    """
+    act = np.flatnonzero(active_mask(p))
+    least = np.argsort(np.asarray(p)[act], kind="stable")[:max(k, 0)]
+    out = dict(n_active=int(len(act)), k=int(k))
+    for key, X in (("share", np.hstack([W_rec[np.ix_(act, act)], W_inp[act]])), ("full", np.hstack([W_rec[act], W_inp[act]]))):
+        X = np.asarray(X, float)
+        X /= np.maximum(np.linalg.norm(X, axis=1, keepdims=True), 1e-30)
+        C = X @ X.T
+        np.fill_diagonal(C, -np.inf)
+        near = C.max(1)
+        out[f"{key}_all"] = float((near > COPY_COS).mean())
+        out[f"{key}_k"] = float((near[least] > COPY_COS).mean()) if k > 0 else None
+        if key == "share":
+            out["median_cos"] = float(np.median(near))
+    return out
+
+
+def do_units(out_json, arms):
+    """Mode `units` (module docstring).
+
+    Args:
+        out_json: str, output file; arms: list of str, candidates.
+    Returns:
+        None.
+    """
+    out = {}
+    for task, prefix in TASKS.items():
+        out[task] = {}
+        n_ctrl = None
+        for name in ["control"] + list(arms):
+            cell = CTRL_CELL if name == "control" else ARM_CELL
+            out[task][name] = []
+            for d in sorted(glob.glob(os.path.join(DATA_DIR, cell.format(prefix=prefix, arm=name), "*/"))):
+                d = d.rstrip("/")
+                r = A3.ablate_net(d, None if name == "control" else n_ctrl)
+                if r is None:
+                    print(f"{task} {name} {d}: no weights at {FIXED_IT}", flush=True)
+                    continue
+                w = A3.A.load_params(r["params_file"])
+                cfg, rnn = A3.A.build(d, w)
+                with torch.no_grad():
+                    p = A3.A.participation(rnn(A3.A.seeded_batches(cfg, rnn.device)["tr"][0], w_noise=False)[0]).cpu().numpy()
+                # the controls have no k: their least participating third stands in (rules entry)
+                k = r["n_active"] // 3 if name == "control" else r["surplus"]
+                r.update(seed=str(cfg.seed), copies=copy_stats(np.asarray(w["W_rec"], float), np.asarray(w["W_inp"], float), p, k))
+                out[task][name].append(r)
+                print(task, name, {x: v for x, v in r.items() if x not in ("run_dir", "params_file")}, flush=True)
+                json.dump(out, open(out_json, "w"), indent=1)
+            if name == "control":
+                n_ctrl = float(np.mean([r["n_active"] for r in out[task][name]]))
 
 
 def rule(a_act, a_perf, c_act, c_perf, tol, floor=None, n_expected=3):
@@ -315,15 +383,18 @@ def draw(R, M, stem):
 def main():
     """Parse the mode and run it."""
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("mode", choices=("read", "maze-read", "verdict"))
+    ap.add_argument("mode", choices=("read", "maze-read", "units", "verdict"))
     ap.add_argument("paths", nargs="+")
     ap.add_argument("--logs", default=os.path.expanduser("~/trainRNNbrain_logs"))
     ap.add_argument("--fig", default=None)
+    ap.add_argument("--arms", nargs="+", default=["nodecay"])
     a = ap.parse_args()
     if a.mode == "read":
         do_read(a.paths[0], a.logs)
     elif a.mode == "maze-read":
         do_maze_read(a.paths[0])
+    elif a.mode == "units":
+        do_units(a.paths[0], a.arms)
     else:
         do_verdict(a.paths[0], a.paths[1], a.fig)
 
