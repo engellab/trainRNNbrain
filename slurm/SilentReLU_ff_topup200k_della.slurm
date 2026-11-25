@@ -77,7 +77,7 @@ SRC="${ALL[$((SLURM_ARRAY_TASK_ID - 1))]%/}"
 CFG=$(ls "$SRC"/*_config.yaml | head -1)
 
 # iterations already trained by the parent's chain, and the root/tag of the continuation
-read -r TASKNAME DONE TAG < <(python - "$CFG" "$SRC" "$TARGET" <<'EOF'
+read -r TASKNAME DONE TAG SEEDED < <(python - "$CFG" "$SRC" "$TARGET" <<'EOF'
 import os, re, sys
 from omegaconf import OmegaConf
 cfg = OmegaConf.load(sys.argv[1])
@@ -87,9 +87,13 @@ cell_dir = os.path.dirname(sys.argv[2].rstrip("/"))
 root, cell = os.path.basename(os.path.dirname(cell_dir)), os.path.basename(cell_dir)
 task = str(cfg.task.taskname)
 base = re.sub(r"_c\d+$", "", root[len(task) + 1:] if root.startswith(task + "_") else root)
-print(task, done, f"{base}_c{sys.argv[3]}/{cell}")
+print(task, done, f"{base}_c{sys.argv[3]}/{cell}", cfg.task.get("seed") is not None)
 EOF
 )
+# A parent whose trial generator was seeded (task.seed: ${seed}, saved as a number since 2026-10-15) would replay
+# its own trials from iteration 0: the continuation's generator takes the continuation's seed instead.
+TASK_SEED=()
+[ "$SEEDED" = True ] && TASK_SEED=('task.seed=${seed}')
 TOPUP=$((TARGET - DONE))
 [ "$TOPUP" -gt 0 ] || { echo "nothing to do: parent already at $DONE >= $TARGET"; exit 0; }
 ADAM=false
@@ -109,6 +113,7 @@ srun python "$REPO/trainRNNbrain/training/run_experiment.py" \
   seed="random" \
   trainer.max_iter="$TOPUP" \
   ++trainer.iter_offset=auto \
+  "${TASK_SEED[@]}" \
   "++paths.init_from='$SRC'" ++paths.init_adam=$ADAM \
   "${CKPT[@]}" \
   paths.save_to="$SAVE_TO" \
