@@ -20,10 +20,19 @@ Mode `weights` (one network with kept snapshots). For base iterations t and lags
   the norm of the task-loss gradient on the same rows (rms over GRAD_BATCHES training batches under the training noise).
 The forward pass and the noise are mech_removal's, not RNN_torch's.
 
+Mode `bins` (POST HOC, added 25 Nov after the first `weights` results were read; no bar in the rules). The `weights` slope
+weights each weight by its square, so a few large weights dominate it, and in a noise-free network most weights onto inactive
+units have already vanished. This mode compares predicted and measured decay weight by weight: the IA weights (post inactive
+at both times, pre active at both) are grouped by their own predicted decay time, from the Adam state at the end of training,
+and the slope of w(T) on w(T - D) is taken within each group (D = 500 and 1,000; T the last iteration). Also the share of the
+summed squared IA weight held by the largest 5% of weights, the slope in bins of |w(T - D)|, and the share of IA weights that
+are exactly 0.
+
 Mode `summary`: the part C verdicts of the rules (entry 2026-11-25_1311) from a folder of the JSON files above.
 
 Usage:  python mech_optimizer.py adam OUT_JSON RUN_DIR [RUN_DIR ...]
         python mech_optimizer.py weights OUT_JSON RUN_DIR SNAP_DIR --base 25000 50000 --lags 500 1000 2000 5000 5500
+        python mech_optimizer.py bins OUT_JSON RUN_DIR SNAP_DIR
         python mech_optimizer.py summary OUT_JSON JSON_DIR
 """
 import argparse
@@ -198,6 +207,60 @@ def do_weights(run_dir, snap_dir, bases, lags):
     return out
 
 
+def do_bins(run_dir, snap_dir):
+    """Mode `bins`, one network (post hoc).
+
+    Args:
+        run_dir: run folder with final weights, Adam state, trace; snap_dir: its it<iteration>/ snapshots.
+    Returns:
+        dict of the measured slopes per group.
+    """
+    cfg = OmegaConf.load(only(run_dir, "*_config.yaml"))
+    T, N = int(cfg.trainer.max_iter) + int(cfg.trainer.get("iter_offset", 0) or 0), int(cfg.model.N)
+    st = torch.load(only(run_dir, "*AdamState*.pt"), map_location="cpu", weights_only=True)
+    g = st["param_groups"][0]
+    x = [q for q in st["state"].values() if tuple(q["exp_avg"].shape) == (N, N)][0]
+    tau = (np.sqrt(x["exp_avg_sq"].double().numpy() / (1 - g["betas"][1] ** float(x["step"]))) + g["eps"]) / (g["lr"] * LAM)
+    W1 = load(run_dir)[0][0].double().numpy()
+    tr = trace(run_dir)
+    last = active_mask(tr[max(tr)])
+    out = dict(run_dir=run_dir, T=T, weight_decay=float(g["weight_decay"]), sigma_rec=float(cfg.model.sigma_rec), lags={})
+    edges = [0, 30, 100, 300, 1000, 3000, 10000, np.inf]
+    for D in (500, 1000):
+        W0 = load(os.path.join(snap_dir, f"it{T - D:07d}"))[0][0].double().numpy()
+        p0 = tr[T - D]
+        A, I = last & active_mask(p0), ~last & ~active_mask(p0)
+        w0, w1, t = (q[np.ix_(I, A)].ravel() for q in (W0, W1, tau))
+
+        def grp(m):
+            """Count, pooled slope and measured decay time of the weights selected by mask m."""
+            n, ss = int(m.sum()), float((w0[m] ** 2).sum())
+            b = float((w0[m] * w1[m]).sum() / ss) if ss > 0 else None
+            return dict(n=n, slope=b, tau=(float(-D / np.log(b)) if b is not None and 0 < b < 1 else None),
+                        median_abs=float(np.median(np.abs(w0[m]))) if n else None)
+
+        groups = {f"{lo:g}-{hi:g}": grp((t >= lo) & (t < hi)) for lo, hi in zip(edges[:-1], edges[1:])}
+        q = np.quantile(np.abs(w0), [0, .2, .4, .6, .8, .95, 1])
+        sizes = {f"|w| pct {a}-{b}": grp((np.abs(w0) >= lo) & (np.abs(w0) < hi if b < 100 else np.abs(w0) <= hi))
+                 for (a, b), lo, hi in zip(((0, 20), (20, 40), (40, 60), (60, 80), (80, 95), (95, 100)), q[:-1], q[1:])}
+        silent = np.ones(len(p0), bool) & I & (p0 < SILENT) & (tr[max(tr)] < SILENT)
+        low = I & (p0 >= SILENT) & (tr[max(tr)] >= SILENT)
+        sub = {}
+        for nm, rows in (("silent", silent), ("low", low)):
+            a0, a1 = W0[np.ix_(rows, A)].ravel(), W1[np.ix_(rows, A)].ravel()
+            ss = float((a0 ** 2).sum())
+            b = float((a0 * a1).sum() / ss) if ss > 0 else None
+            sub[nm] = dict(units=int(rows.sum()), slope=b, tau=(float(-D / np.log(b)) if b and 0 < b < 1 else None))
+        o = np.sort(w0 ** 2)
+        out["lags"][D] = dict(n=len(w0), median_tau=float(np.median(t)), by_tau=groups, by_size=sizes, post=sub,
+                              zero_share=float((w0 == 0).mean()), top5_share=float(o[int(.95 * len(o)):].sum() / max(o.sum(), 1e-300)))
+        print(f"{os.path.basename(os.path.dirname(run_dir))} {os.path.basename(snap_dir)} D={D}: IA weights {len(w0)}, exactly 0: {out['lags'][D]['zero_share']:.3f}, "
+              f"largest 5% hold {out['lags'][D]['top5_share']:.2f} of the squared weight", flush=True)
+        for k, v in list(groups.items()) + list(sizes.items()) + [("post " + k, dict(n=v["units"], **v)) for k, v in sub.items()]:
+            print(f"   {k:>16s}: n {v['n']:>7d} slope {v['slope']} measured decay time {v['tau']}")
+    return out
+
+
 def within(x, lo, hi, slack=0.1):
     """Is x inside [lo, hi] widened by `slack` on each side?"""
     return lo * (1 - slack) <= x <= hi * (1 + slack)
@@ -269,7 +332,7 @@ def summarise(folder):
 def main():
     """Command line: see the module docstring."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("mode", choices=("adam", "weights", "summary"))
+    ap.add_argument("mode", choices=("adam", "weights", "bins", "summary"))
     ap.add_argument("out_json")
     ap.add_argument("dirs", nargs="+")
     ap.add_argument("--base", type=int, nargs="+", default=[25000, 50000, 69000])
@@ -277,6 +340,7 @@ def main():
     a = ap.parse_args()
     torch.set_num_threads(int(os.environ.get("SLURM_CPUS_PER_TASK", "8")))
     res = (do_adam(a.dirs) if a.mode == "adam" else summarise(a.dirs[0]) if a.mode == "summary"
+           else do_bins(a.dirs[0], a.dirs[1]) if a.mode == "bins"
            else do_weights(a.dirs[0], a.dirs[1], a.base, a.lags))
     with open(a.out_json, "w") as fh:
         json.dump(res, fh, indent=1)
