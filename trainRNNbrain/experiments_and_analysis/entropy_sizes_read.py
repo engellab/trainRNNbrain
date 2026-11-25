@@ -504,11 +504,20 @@ def do_verdict(out_dir, data_dir, stem):
     """
     rec = recorded(data_dir)
     cells = {k: json.load(open(os.path.join(out_dir, f"{k}.json"))) for k in CELLS if os.path.exists(os.path.join(out_dir, f"{k}.json"))}
-    V = {k: judge(c, rec) for k, c in cells.items()}
+    V = {}
+    for k, c in cells.items():
+        try:
+            V[k] = judge(c, rec)
+        except SystemExit as e:                  # an incomplete cell or a failed gate gives no verdict, and says so
+            print(f"  NO VERDICT: {e}")
+    cells = {k: c for k, c in cells.items() if k in V}
     mp = os.path.join(out_dir, "maze500.json")
     maze = json.load(open(mp)) if os.path.exists(mp) else None
     if maze:
-        V["maze500"] = judge_maze(maze)
+        try:
+            V["maze500"] = judge_maze(maze)
+        except SystemExit as e:
+            print(f"  NO VERDICT: {e}")
     print("\n=== statements")
     for task, pre in (("3BFF", "ff"), ("CDDM", "cddm"), ("Maze", "maze")):
         ks = [k for k in V if re.match(pre + r"\d", k) and "S" in V[k]]

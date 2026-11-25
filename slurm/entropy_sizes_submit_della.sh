@@ -5,7 +5,7 @@
 #   ssh della 'bash -s pilot <PIN>' < slurm/entropy_sizes_submit_della.sh
 #   ssh della 'bash -s run <PIN> <cell>...' < slurm/entropy_sizes_submit_della.sh
 #   ssh della 'bash -s finish <PIN>' < ...   (after run: oracle and verdict once every read job has ended)
-#       cells: ff500 ff2000 cddm500 cddm2000 cddm4000 cddm4000_75k maze500
+#       cells: ff500 ff2000 cddm500 cddm2000 cddm4000 cddm4000_75k maze500; ff1000 cddm1000 (existing, read only)
 # <PIN> is the short commit of the clone ~/trainRNNbrain_entsizes. Every job is 23 h or less (gpu-short).
 # Every training job runs behind the GPU-hour guard of entropy_sizes_job.slurm. After each cell's last job, a CPU job reads
 # the cell (entropy_sizes_read.py) into $READS, next to the networks; `finish` adds the independent check and the verdict.
@@ -108,6 +108,8 @@ for CELL in "$@"; do
            sbatch --parsable --chdir="$REPO" --export=ALL --time=15:00:00 --constraint=nomig $EX --job-name=EntSizeMz500c \
            --dependency="aftercorr:$J1" --kill-on-invalid-dep=yes --array=130-132 $JOB)
       echo "$CELL: $J1 (updates 1-2,000), $J2 (to 4,000) -> $OUT, read $(cpu EntSizeRead_maze500 "afterany:$J2" "$R maze $READS --arm $OUT/Maze_interventions --suite $CTRL")" ;;
+    ff1000|cddm1000)                             # existing networks, read for description only
+      echo "$CELL: read $(cpu "EntSizeRead_$CELL" singleton "$R read $READS --cell $CELL")" ;;
     *) echo "FATAL: unknown cell $CELL" >&2; exit 1 ;;
   esac
 done
