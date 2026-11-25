@@ -2,7 +2,8 @@
 """The entropy set point (lambda_ent = 0.1) across network sizes: reads, verdicts and figures.
 
 RULES. docs/project_trajectory/2026-11-25_1241_rules-entropy-setpoint-sizes.md, committed before any run. The size test
-(S) and the M09 criterion at a size (M) are defined there; names below follow it.
+(S) and the M09 criterion at a size (M) are defined there; names below follow it. The rate-penalty size test (B) is added
+by docs/project_trajectory/2026-11-25_1259_rules-entropy-sizes-rate-penalty-test.md.
 
 MODE `read` (Della CPU node). One cell (--cell, a key of CELLS, e.g. ff500) with its controls: per network the floor
 crossing (read_remedies.read_one: active units at 1.05x, 1.10x and 1.20x, held-out R^2 at the crossing), the 75,000
@@ -68,7 +69,25 @@ MAZE_CTRL_RECORDED = [(281, 226, 1.000), (259, 226, 0.992), (279, 240, 1.000)]
 MAZE_DUP_RECORDED = [(416, 440, 1.000), (401, 406, 1.000), (409, 436, 1.000)]
 POINTS = (("active", "r2", "crossing 1.05x"), ("active_d10", None, "crossing 1.10x"),
           ("active_d20", None, "crossing 1.20x"), ("active_75k", "r2_75k", "75,000"))
+# (B) bars, and noisy synapses' fold change at the crossing (Maze: learned point), from Supplementary Table 4 and gaps B, C
+B_FOLD, B_R2, B_SKIP = 1.5, 0.02, 0.05
+SYN_FOLD = {("3BFF", 1000): 2.03, ("3BFF", 2000): 1.54, ("3BFF", 4000): 1.60, ("CDDM", 1000): 1.11, ("Maze", 1000): 0.98}
 COL = {"control": "#898781", "ent": "#2a78d6", "dup": "#eb6834"}     # dataviz reference palette, slots 1 and 6
+
+
+def nonfinite(chain):
+    """Number of non-finite values in the saved training loss of a warm-start chain.
+
+    Args:
+        chain: list of run folders.
+    Returns:
+        int.
+    """
+    n = 0
+    for d in chain:
+        L = json.load(open(glob.glob(os.path.join(glob.escape(d), "*TrainLosses.json"))[0]))["train_losses"]
+        n += int(np.sum(~np.isfinite(np.asarray(L, float))))
+    return n
 
 
 def read_network(run_dir, cache, ref_cfg, logs):
@@ -79,7 +98,7 @@ def read_network(run_dir, cache, ref_cfg, logs):
         ref_cfg: dict, a control's flattened config, or None for a control; logs: folder of Slurm logs.
     Returns:
         JSON-ready dict: read_remedies.read_one's keys, r2_75k_fixed / how / probe, r2_end, trace_it, trace_active,
-        it_end, stats (unit_stats), skipped (sum over segments, None if a log is missing), config_differs (one
+        it_end, stats (unit_stats), nonfinite (non-finite saved losses), skipped (sum over segments, None if a log is missing), config_differs (one
         dict per segment, oldest first) and chain (folders, oldest first).
     """
     rec = read_one(run_dir, cache)
@@ -89,7 +108,7 @@ def read_network(run_dir, cache, ref_cfg, logs):
     rec.update(active_75k=int(fx["active"]), probe_75k=fx["probe"], r2_75k_fixed=float(fx["r2"]), r2_75k_how=fx["r2_how"],
                short=fx["short"], r2_end=float(H.heldout_r2(run_dir, draws=H.R2_DRAWS, cache=cache)),
                loss_end=float(np.asarray(r["it_loss"])[-1]), trace_it=[float(x) for x in r["it_act"]],
-               trace_active=[int(x) for x in r["active"]], stats=unit_stats(run_dir), chain=chain)
+               trace_active=[int(x) for x in r["active"]], stats=unit_stats(run_dir), chain=chain, nonfinite=nonfinite(chain))
     if ref_cfg is not None:
         sk = [skipped(d, logs, "Ent*") for d in chain]
         rec["skipped"] = None if None in sk else int(sum(sk))
@@ -233,6 +252,55 @@ def slope_per_100k(rec, frm, to):
     return float(-np.polyfit(t[m], a[m], 1)[0] * 1e5) if m.sum() >= 10 else float("nan")
 
 
+def b_outcome(task, n, n_stable, fold, dperf, tol):
+    """The rate-penalty size test (B) at one size.
+
+    Args:
+        task, n: the cell; n_stable: stable networks of three; fold: fold change at the read point (nan if none);
+        dperf: mean performance minus the controls' (nan if none); tol: 0.02 in R^2, 0.05 in success.
+    Returns:
+        dict: holds (the pass conditions at this size), fails (list of fail conditions met; only N >= 1,000), text.
+    """
+    holds = bool(n_stable >= 2 and fold >= B_FOLD and dperf >= -tol)
+    fails = []
+    if n >= 1000:
+        if n_stable < 2:
+            fails.append(f"{n_stable} of 3 stable")
+        if dperf < -tol:
+            fails.append(f"performance {dperf:+.4f}")
+        if (task, n) in SYN_FOLD and fold < SYN_FOLD[(task, n)]:
+            fails.append(f"fold {fold:.2f} below noisy synapses' {SYN_FOLD[(task, n)]}")
+    return dict(holds=holds, fails=fails, n_stable=n_stable, fold=fold, dperf=dperf,
+                text="fail: " + "; ".join(fails) if fails else "pass conditions hold" if holds else "inconclusive")
+
+
+def judge_b(c):
+    """(B) for a 3BFF or CDDM cell at 1.05x (binds), 1.10x and 1.20x, strict and lenient finite loss; printed.
+
+    Args:
+        c: the cell's reads.
+    Returns:
+        b_outcome dict at 1.05x under the strict reading.
+    """
+    arm, ctrl, out = c["ent_runs"], c["control_runs"], None
+    for strict in (True, False):
+        for akey, lab in (("active", "1.05x"), ("active_d10", "1.10x"), ("active_d20", "1.20x")):
+            a, k = ([r[akey] for r in rs if r.get(akey) is not None] for rs in (arm, ctrl))
+            ns = sum(r.get(akey) is not None and r["skipped"] is not None and r["skipped"] < B_SKIP * r["loss_end"]
+                     and (not strict or r["nonfinite"] == 0) for r in arm)
+            ra, rk = ([r["r2"] for r in rs if r.get("r2") is not None] for rs in (arm, ctrl))
+            b = b_outcome(c["task"], c["N"], ns, float(np.mean(a) / np.mean(k)) if a else float("nan"),
+                          float(np.mean(ra) - np.mean(rk)) if ra else float("nan"), B_R2)
+            if strict or lab == "1.05x":
+                print(f"  B at {lab}{'' if strict else ' (lenient finite loss)'}: {b['n_stable']} of 3 stable, fold "
+                      f"{b['fold']:.2f}, dR2 at 1.05x {b['dperf']:+.4f}: {b['text']}")
+            if strict and lab == "1.05x":
+                out = b
+    print(f"    skipped {[r['skipped'] for r in arm]}, non-finite losses {[r['nonfinite'] for r in arm]} "
+          f"(controls {[r['nonfinite'] for r in ctrl]}), bursts {[r.get('n_bursts') for r in arm]} (controls {[r.get('n_bursts') for r in ctrl]})")
+    return out
+
+
 def judge(c, rec):
     """Print and return the verdicts of one 3BFF or CDDM cell.
 
@@ -271,6 +339,7 @@ def judge(c, rec):
               f"{r['active_end']} R2 {r['r2_end']:.4f}; |H-0.75| {r['stats']['med_dev_H']:.3f}; skipped {r['skipped']}; "
               f"segments {len(r['chain'])}")
     print(f"    controls' |H-0.75| {[round(r['stats']['med_dev_H'], 3) for r in ctrl]}")
+    out["B"] = judge_b(c)
     if not c["judged"]:
         return out
     out["S"] = out["points"]["crossing 1.05x"]["count_ok"] and out["points"]["75,000"]["count_ok"]
@@ -334,12 +403,17 @@ def judge_maze(m):
     md = criterion([x[1] for x in MAZE_DUP_RECORDED], [x[2] for x in MAZE_DUP_RECORDED], [x["r2"] for x in ctrl],
                    [x["success_end"] for x in ctrl], MAZE_TOL, MAZE_FLOOR)
     S = pts["learned point"]["count_ok"] and pts["update 4,000"]["count_ok"]
+    ok = [x for x in arm if x["r1"] is not None and x["flagged_share"] < B_SKIP]
+    B = b_outcome("Maze", 500, len(ok), pts["learned point"]["fold"],
+                  float(np.mean([x["success_end"] for x in arm]) - np.mean([x["success_end"] for x in ctrl])), MAZE_TOL)
+    print(f"  B: {B['n_stable']} of 3 stable (flagged shares {[round(x['flagged_share'], 4) for x in arm]}), fold "
+          f"{B['fold']:.2f}, dsuccess {B['dperf']:+.3f}: {B['text']}")
     for x in arm:
         print(f"    s{x['seed']}: learned {x['learned_update']}, {x['r1']} and {x['r2']} active, success {x['success_end']}, "
               f"skipped {x['skipped_sum']:g}, restored {x['restored_sum']:g}, term {x['penalty']}")
     print(f"  S: {'PASSES' if S else 'FAILS'}\n  M at update 4,000: {ma['text']}; fold {ma['fold']:.2f}, dsuccess "
           f"{ma['dperf']:+.3f} | prune-and-duplicate: {md['text']}; fold {md['fold']:.2f}, dsuccess {md['dperf']:+.3f}")
-    return dict(S=S, M=ma, dup_M=md, points=pts)
+    return dict(S=S, M=ma, dup_M=md, points=pts, B=B)
 
 
 def draw_traces(cells, stem):
@@ -440,7 +514,7 @@ def do_verdict(out_dir, data_dir, stem):
         ks = [k for k in V if re.match(pre + r"\d", k) and "S" in V[k]]
         print(f"  {task}: cells {ks}; S fails at {[k for k in ks if not V[k]['S']] or 'none'}; "
               f"M fails at {[k for k in ks if not V[k]['M']['works']] or 'none'}; prune-and-duplicate's M fails at "
-              f"{[k for k in ks if not V[k]['dup_M']['works']] or 'none'}")
+              f"{[k for k in ks if not V[k]['dup_M']['works']] or 'none'}; B: { {k: V[k]['B']['text'] for k in ks} }")
     if stem:
         draw_traces(cells, stem)
         draw_folds(cells, maze, rec, stem)
