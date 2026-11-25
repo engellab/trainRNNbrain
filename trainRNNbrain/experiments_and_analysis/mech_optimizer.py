@@ -20,8 +20,11 @@ Mode `weights` (one network with kept snapshots). For base iterations t and lags
   the norm of the task-loss gradient on the same rows (rms over GRAD_BATCHES training batches under the training noise).
 The forward pass and the noise are mech_removal's, not RNN_torch's.
 
+Mode `summary`: the part C verdicts of the rules (entry 2026-11-25_1311) from a folder of the JSON files above.
+
 Usage:  python mech_optimizer.py adam OUT_JSON RUN_DIR [RUN_DIR ...]
         python mech_optimizer.py weights OUT_JSON RUN_DIR SNAP_DIR --base 25000 50000 --lags 500 1000 2000 5000 5500
+        python mech_optimizer.py summary OUT_JSON JSON_DIR
 """
 import argparse
 import glob
@@ -195,17 +198,86 @@ def do_weights(run_dir, snap_dir, bases, lags):
     return out
 
 
+def within(x, lo, hi, slack=0.1):
+    """Is x inside [lo, hi] widened by `slack` on each side?"""
+    return lo * (1 - slack) <= x <= hi * (1 + slack)
+
+
+def summarise(folder):
+    """The part C verdicts, with the bars of the rules entry.
+
+    Args:
+        folder: directory holding adam_*.json and weights_*.json.
+    Returns:
+        dict of the verdicts' numbers and texts.
+    """
+    def js(pattern):
+        """All JSON files of `folder` matching `pattern`, as name -> content."""
+        return {os.path.basename(f): json.load(open(f)) for f in sorted(glob.glob(os.path.join(folder, pattern)))}
+
+    out = {}
+    adam = [r for v in js("adam_*.json").values() for r in (v if isinstance(v, list) else [v])]
+    ctrl = [r for r in adam if "CDDM_paper_grid" in r["run_dir"]]
+    ctrl1 = [r for r in ctrl if r["N"] == 1000]
+    row = lambda q, rs: [q(r) for r in rs]
+    out["C1"] = {
+        "gradient ratio AA/IA": (row(lambda r: r["grad_ratio"], ctrl1), 28, 52),
+        "step ratio IA/AA (nine controls)": (row(lambda r: 1 / r["step_ratio"], ctrl), 0.15, 0.34),
+        "decay time AA": (row(lambda r: r["tau"]["AA"], ctrl1), 13000, 18500),
+        "decay time IA": (row(lambda r: r["tau"]["IA"], ctrl1), 345, 496),
+        "decay time II": (row(lambda r: r["tau"]["II"], ctrl1), 31, 54),
+        "row ratio": (row(lambda r: r["row_ratio"], ctrl1), 0.17, 0.20)}
+    for k, (v, lo, hi) in out["C1"].items():
+        out["C1"][k] = dict(values=[round(float(x), 4) for x in v], range=[lo, hi], replicated=bool(v) and all(within(x, lo, hi) for x in v))
+
+    def tau_of(pattern, lags=(500, 1000)):
+        """Measured IA decay times of every (network, base, lag); None entries (slope not in (0, 1)) are kept as None."""
+        return {n: {(r["base"], r["lag"]): r["tau"]["IA"] for r in w["records"] if r["lag"] in lags} for n, w in js(pattern).items()}
+
+    for name, pat in (("C2 absorb default", "weights_absorb_default_*.json"), ("C2 c1 control", "weights_c1control_*.json"),
+                      ("absorb zero", "weights_absorb_zero_*.json"), ("new default/1e-6", "weights_noise=default_wd=1e-6_*.json"),
+                      ("new default/0", "weights_noise=default_wd=0_*.json"), ("new zero/1e-6", "weights_noise=zero_wd=1e-6_*.json"),
+                      ("new zero/0", "weights_noise=zero_wd=0_*.json"), ("3BFF", "weights_3bff_*.json")):
+        t = tau_of(pat)
+        v = [x for d in t.values() for x in d.values() if x is not None]
+        out[name] = dict(n=sum(len(d) for d in t.values()), n_decay=len(v), median=float(np.median(v)) if v else None,
+                         lag500=float(np.median([x for d in t.values() for (b, L), x in d.items() if L == 500 and x is not None])) if v else None,
+                         per_network={n: {f"{b}+{L}": (None if x is None else round(x, 1)) for (b, L), x in d.items()} for n, d in t.items()})
+    m = out["C2 absorb default"]["median"]
+    out["C2"] = None if m is None else ("SUPPORTED" if 115 <= m <= 1500 else "REFUTED" if m > 5000 else "RIGHT DIRECTION, WRONG SIZE")
+    pd = [r["tau"]["IA"] for r in adam if "CDDM_absorb_noise" in r["run_dir"] and r["sigma_rec"] > 0]
+    pz = [r["tau"]["IA"] for r in adam if "CDDM_absorb_noise" in r["run_dir"] and r["sigma_rec"] == 0]
+    mz, md = out["absorb zero"]["median"], out["C2 absorb default"]["median"]
+    out["C3"] = dict(predicted_default=pd, predicted_zero=pz, predicted_ratio=float(np.median(pz) / np.median(pd)) if pd and pz else None,
+                     measured_ratio=None if not (mz and md) else mz / md)
+    rr = [out["C3"]["predicted_ratio"], out["C3"]["measured_ratio"]]
+    out["C3"]["text"] = None if None in rr else ("REFUTED" if max(rr) >= 1 else "SUPPORTED" if max(rr) < 0.5 else "PARTIAL")
+    out["C4"] = {}
+    for pat in ("weights_c1control_*.json", "weights_3bff_*.json"):
+        for n, w in js(pat).items():
+            g = w["gradient"]
+            ch = {r["lag"]: r["change"]["active"] / r["change_inactive"] for r in w["records"] if r["base"] == g["base"] and r["lag"] in (500, 5500)}
+            out["C4"][n] = dict(gradient_ratio=g["active"] / g["inactive"], change_ratio=ch)
+    cd = [v for n, v in out["C4"].items() if "c1control" in n]
+    sup = [all(x <= 10 and x <= v["gradient_ratio"] / 3 for x in v["change_ratio"].values()) for v in cd]
+    ref = [all(x >= v["gradient_ratio"] / 2 for x in v["change_ratio"].values()) for v in cd]
+    out["C4 verdict"] = None if len(cd) < 3 else "SUPPORTED" if all(sup) else "REFUTED" if all(ref) else "INCONCLUSIVE"
+    print(json.dumps(out, indent=1))
+    return out
+
+
 def main():
     """Command line: see the module docstring."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("mode", choices=("adam", "weights"))
+    ap.add_argument("mode", choices=("adam", "weights", "summary"))
     ap.add_argument("out_json")
     ap.add_argument("dirs", nargs="+")
     ap.add_argument("--base", type=int, nargs="+", default=[25000, 50000, 69000])
     ap.add_argument("--lags", type=int, nargs="+", default=[500, 1000, 2000, 5000, 5500])
     a = ap.parse_args()
     torch.set_num_threads(int(os.environ.get("SLURM_CPUS_PER_TASK", "8")))
-    res = do_adam(a.dirs) if a.mode == "adam" else do_weights(a.dirs[0], a.dirs[1], a.base, a.lags)
+    res = (do_adam(a.dirs) if a.mode == "adam" else summarise(a.dirs[0]) if a.mode == "summary"
+           else do_weights(a.dirs[0], a.dirs[1], a.base, a.lags))
     with open(a.out_json, "w") as fh:
         json.dump(res, fh, indent=1)
 
