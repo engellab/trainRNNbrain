@@ -36,7 +36,18 @@ job names every incomplete cell and gives it no verdict. The figures of the entr
 2 × 10⁻⁹. The independent script agrees with the reader on every network read so far (controls of all sizes, the N = 1,000
 `ent0.1` networks, and on Maze the N = 500 controls and the N = 2,000 `ent0.1` networks).
 
-**Submission** (from the Mac; job ids in the next commit of this file):
+**Submission** (25 Nov, after commit c27403c was pushed; both clones, `~/trainRNNbrain_entsizes` and `~/trainRNNbrain_entsizes_ana`, at c27403c):
 
-    ssh della 'bash -s run <PIN> ff500 ff2000 cddm500 cddm2000 maze500 ff1000 cddm1000' < slurm/entropy_sizes_submit_della.sh
-    ssh della 'bash -s finish <PIN>' < slurm/entropy_sizes_submit_della.sh
+    ssh della 'bash -s run c27403c ff500 ff2000 cddm500 cddm2000 maze500 ff1000 cddm1000' < slurm/entropy_sizes_submit_della.sh
+    ssh della 'bash -s finish c27403c' < slurm/entropy_sizes_submit_della.sh
+
+| Cell | Training jobs (segment end) | Read job |
+|---|---|---|
+| 3BFF N = 500 | 18377530 (75,000), 18377531 (200,000) | 18377532 |
+| 3BFF N = 2,000 | 18377533 (40,000), 18377534 (75,000), 18377535 (137,500), 18377536 (200,000) | 18377537 |
+| CDDM N = 500 | 18377538 (100,000) | 18377539 |
+| CDDM N = 2,000 | 18377540 (100,000) | 18377541 |
+| Maze N = 500 | 18377542 (update 2,000), 18377543 (update 4,000) | 18377544 |
+| 3BFF and CDDM N = 1,000 (existing networks, description) | | 18377545, 18377546 |
+
+Independent check: 18377547 (3BFF, CDDM) and 18377548 (Maze). Verdict: 18377549. Logs: `~/trainRNNbrain_logs/EntSize*`.
