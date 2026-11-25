@@ -152,9 +152,12 @@ def skipped_updates(logs, tag, seed):
     Returns:
         int, or None when no log names this folder and seed.
     """
-    for f in glob.glob(os.path.join(logs, "Ent*.out")):
-        txt = open(f, errors="replace").read()
-        if re.search(re.escape(tag) + r"\s*$", txt, re.M) and f"'seed': {seed}," in txt:
+    files = [f for job in ("EntPrune", "EntSP", "EntCDDM") for f in glob.glob(os.path.join(logs, job + ".*.out"))]
+    for f in files:
+        with open(f, errors="replace") as fh:
+            head = fh.read(20000)                                # the launcher's lines and the printed config
+            txt = head + fh.read() if re.search(re.escape(tag) + r"\s*$", head, re.M) else ""
+        if f"'seed': {seed}," in head and txt:
             m = re.search(r"gradient spikes: (\d+) updates skipped", txt)
             return int(m.group(1)) if m else 0
     return None
