@@ -10,6 +10,9 @@ R^2 within R2_TOL = 0.01 on the supervised tasks; the clean probe's success with
 0.05 on the maze); otherwise it FAILS, with the condition that failed. Every cell is read at the
 same-size read-out point: 75,000 iterations on 3BFF and CDDM, update 2,000 on the maze (the end of
 its budget), so every marker is OPEN (paperstyle, dead-relu-paper#83).
+Since 25 Nov 2026 the entropy set point (lambda_ent = 0.1) is the seventh technique (rules and result entries
+2026-11-25_1235 and 2026-11-26_0222): its cells are data/entropy_fig5/cells.json and its removal rows
+data/entropy_fig5/removal.json (entropy_fig5.py). lambda_ent = 0.01 is in the printout and the rule tables only.
 
 PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
   (a) fold change in the number of active units over the task's own control (the control's mean
@@ -22,9 +25,9 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       under the column); the band behind a group is the control's own range of seeds. A run the maze's rollback guard stopped
       is a cross at 0; a maze run that did not learn the task (common.maze_learned_index) is
       inside its group's mean and also a cross at its value (the crosses mid grey, smaller than the
-      markers and behind them); a group with no finished run says "unfinished". The column of
-      prune-and-duplicate, the technique that works on all three tasks, has a pale grey-yellow
-      background across panels a and b. The task labels are the paper's ("Maze"). The columns are ORDERED by the number of tasks on which the technique works (ties: by
+      markers and behind them); a group with no finished run says "unfinished". The columns of the
+      techniques that work on all three tasks (HIGHLIGHT_TECHS: the entropy set point and
+      prune-and-duplicate) have a pale grey-yellow background across panels a and b. The task labels are the paper's ("Maze"). The columns are ORDERED by the number of tasks on which the technique works (ties: by
       the number of tasks on which the count condition passes, then the name).
       Round 19 (dead-relu-paper#201, r19-text): every value run on all three tasks is drawn, so the round 18
       parity values join (noisy synapses sigma_w 0.1 and 0.3, read-out dropout rate 0.05 with beta 4, rescaling
@@ -35,8 +38,8 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       rescaling values on Maze are their freeze_after_end=true reruns too (entries 2026-11-09_1513 rules,
       2026-11-10_2014 read at update 2,000), which replace the runs made before the trainer correction; noisy
       synapses keeps its original runs (sigma_w 1.0) and parity runs (0.1, 0.3). The printout adds the
-      verdicts under the one-value and the matched-values rules and the tolerance range over which
-      prune-and-duplicate alone passes on all three tasks (rule_tables).
+      verdicts under the one-value and the matched-values rules and the tolerance from which each technique
+      passes on all three tasks (rule_tables).
   (b) the performance difference from the controls' mean: top, held-out R^2 (3BFF and CDDM), the
       tolerance 0.01 dashed; bottom, the maze's success at the end, the tolerance 0.05 dashed.
   (c) the techniques across network sizes, two sub-columns. 3BFF, the current Figure 5c:
@@ -72,7 +75,10 @@ PANELS (165.1 x FIG_H_MM mm, bold letters, a key row on top).
       round19_fz_removal.py over rl_maze_ablate.py --added 430: success under the training noise, 256
       drops x 4 draws, k from all three controls' mean of 430; prune-and-duplicate and the rate penalty
       at 0.03, 0.1 and 0.3, 12 networks). Round 18's G4 on the runs before the fix
-      (data/round18/g4_maze_added_summary.json) is no longer drawn.
+      (data/round18/g4_maze_added_summary.json) is no longer drawn. Since 25 Nov the three entropy set point
+      networks of each task join their sub-panel (data/entropy_fig5/removal.json, the same procedures: ablate_net
+      on 3BFF and CDDM, k against the A3 and Figure 3a controls; rl_maze_ablate.py --added 430 on Maze), so
+      the sub-panels hold 22, 17 and 15 networks.
 
 READ-OUT FILES ONLY. Nothing is recomputed here. 3BFF: the remedies catalogue
 (data/remedy_reads_31oct/remedies_catalogue.json, read_remedies.py; the Figure 5 size series,
@@ -133,6 +139,8 @@ R19 = os.path.join(REPO, "data", "round19")
 FZ_JSON = os.path.join(R19, "fz_reruns.json")                # Maze freeze_after_end=true reruns (round 19)
 FZ_REMOVAL_JSON = os.path.join(R19, "fz_maze_added_summary.json")   # G4's removal on the rerun networks (round19_fz_removal.py)
 G6_READS = os.path.join(R18, "g6_reads.json")                # CDDM techniques across sizes (G6)
+ENT_CELLS = os.path.join(REPO, "data", "entropy_fig5", "cells.json")        # entropy set point (entropy_fig5.py export)
+ENT_REMOVAL = os.path.join(REPO, "data", "entropy_fig5", "removal.json")    # its unit removal (entropy_fig5.py summary)
 G1G2_JSON = os.path.join(R18, "g1g2.json")                   # 3BFF rate penalty at 0.01 and 0.03 at 75,000 (G1; #204)
 CDDM_SIZE_ARMS = (("duplicate", "duplication"), ("dropout", "mute"))   # panel c, CDDM: (technique, arm)
 G3_TECH = {"prune-and-duplicate": "duplicate", "read-out dropout": "dropout",
@@ -143,6 +151,7 @@ TASK_COL = {"3BFF": ps.TASK_3BFF, "CDDM": ps.TASK_CDDM, "maze": ps.TASK_MAZE}
 TASK_NAME = {"3BFF": "3BFF", "CDDM": "CDDM", "maze": "Maze"}       # the tasks as the paper names them
 # technique key -> (column title, marker; the shapes are Figure 5's, fig_paper_F5_drive.MARK)
 TECH = {
+    "entropy": ("entropy\nset point", "p"),   # open pentagon: every triangle is taken, and a ">" nests its tip in its neighbour's inside in panel d
     "duplicate": ("prune-and-\nduplicate", F5.MARK["duplicate"]),
     "frm": ("rate penalty\n$\\lambda_{\\mathrm{frm}}$", F5.MARK["frm"]),
     "dropout": ("read-out\ndropout", F5.MARK["dropout"]),
@@ -153,7 +162,7 @@ TECH = {
 # rate + sparsity takes a left triangle: Figure 5's filled plus ("P") has no white inside left once
 # it is drawn open with the coloured ring and the ink rim (tests/scan_open_markers.py, rule 1)
 TRIANGLES = ("^", "v", "<")       # drawn TRI_SCALE larger: a triangle has 64% of a circle's area
-TECH_NAME = {"duplicate": "prune-and-duplicate", "frm": "rate penalty", "dropout": "read-out dropout",
+TECH_NAME = {"entropy": "entropy set point", "duplicate": "prune-and-duplicate", "frm": "rate penalty", "dropout": "read-out dropout",
              "frm+rws": "rate + sparsity", "rescale": "rescaling", "synnoise": "noisy synapses"}
 # the maze arms per technique: (value label, arm key, source). Sources: "arms" read_maze_arms.json (the
 # original runs); "fz" data/round19/fz_reruns.json (the freeze_after_end=true reruns, which replace the
@@ -194,8 +203,8 @@ MAZE_RESCALE_NOTE = {"rescale": "the paper's values (target 10x, alpha 1.002, ca
 # layout, mm from the canvas' top-left: one slot per (technique, task, value) group
 FIG_H_MM = 130.0                  # 136 -> 128 mm (round 15) -> 112.5 (round 17) -> 130 (round 20: printed at 100%, caption cut to 350 words, panel c enlarged)
 LEFT_MM = 16.0
-PITCH_MM = 3.1                    # one group's slot (3.6 until round 21; 5.4 until #204; 5.1 until the parity values joined in round 19)
-GAP_MM = 2.0                      # between two techniques (3.2 until #204; 2.8 until round 19)
+PITCH_MM = 2.7                   # one group's slot (3.1 until the entropy set point joined, 25 Nov; 3.6 until round 21; 5.4 until #204; 5.1 until the parity values joined in round 19)
+GAP_MM = 2.4                      # between two techniques (2.0 until 25 Nov; 3.2 until #204; 2.8 until round 19)
 SEED_DX_MM = 1.15                 # a cell's crosses sit this far apart (0.85 until round 21, when three crosses ran together)
 # Round 21 (dead-relu-paper #217, Reviewer S figures 5 and Reviewer R): the Maze crosses of rate + sparsity and of
 # the rescaling values were drawn over the mean markers and over the neighbouring slots' crosses (1.3 mm from the
@@ -208,13 +217,13 @@ CROSS_HALF_MM = 0.6               # half the width of a drawn cross (MARKER_PT a
 SLOT_PAD_MM = 0.35                # between a slot's outermost cross and the slot's edge
 # Final review (Pavel, 11 Nov: every plot understandable at a glance): the crosses of single networks are
 # grey, smaller and behind the group markers, so the means carry the panel; no network counts beside markers;
-# the column of the technique that passes on all three tasks has a pale background in panels a and b
+# the columns of the techniques that pass on all three tasks have a pale background in panels a and b
 CROSS_COL = "#8f8f8f"             # a network without a learned point, or a stopped one (the task colour until 11 Nov; #bbbbbb,
                                   # hard to see on the grey control bands, in the first draft of 11 Nov)
 CROSS_PT = 2.2                    # its marker size in pt (ps.MARKER_PT, 3.0, until 11 Nov)
 CROSS_EW = 0.7                    # its stroke width in pt
 CROSS_Z = 3                       # above the control bands (1) and guide lines (2), behind range bars (4) and markers (5)
-HIGHLIGHT_TECH = "duplicate"      # the technique whose column is shaded in panels a and b
+HIGHLIGHT_TECHS = ("entropy", "duplicate")   # the techniques that work on all three tasks: columns shaded in panels a and b
 HIGHLIGHT_COL = "#c8b040"         # a neutral grey-yellow, no task's or rule's hue
 HIGHLIGHT_ALPHA = 0.15
 KEY_TOP_MM = 0.5
@@ -338,7 +347,7 @@ def load_3bff():
     a3_ctrl_r2 = [r["r2_full"] for r in a3 if r["family"] == "control"]
     labels = {"frm": "0.1", "frm+rws": "0.1", "rescale": "10\u00d7", "synnoise": "1.0", "dropout": "0.2"}
     out, floor = [], []
-    for fam in TECH:
+    for fam in (t for t in TECH if t != "entropy"):
         c = series[fam][N]
         perf, ctrl_perf, note = c["r2_75k"], ctrl["r2_75k"], "R^2: catalogue, 36 draws"
         if not perf:
@@ -554,6 +563,28 @@ def load_maze():
     return out, d["success_tol"], ref
 
 
+def load_entropy(label):
+    """The entropy set point's cells at one value of lambda_ent on the three tasks (3BFF, CDDM, maze).
+
+    Reads data/entropy_fig5/cells.json, which entropy_fig5.py export wrote from the stored reads behind entries
+    2026-11-21_0755 (3BFF), 2026-11-24_1848 (CDDM) and 2026-11-21_2238 (Maze, update 2,000).
+
+    Args:
+        label: str, "0.1" (drawn) or "0.01" (exported to the printout and the rule tables only).
+    Returns:
+        list of three `cell` dicts.
+    """
+    with open(ENT_CELLS) as fh:
+        d = json.load(fh)["cells"]
+    out = []
+    for task in TASKS:
+        c = d[f"{task}|{label}"]
+        out.append(cell("entropy", task, label, c["active"], c["perf"], c["ctrl_active"], c["ctrl_perf"],
+                        c["n_expected"], f"entropy_fig5/cells.json lambda_ent = {label}",
+                        learned=c["learned"] if task == "maze" else None))
+    return out
+
+
 def value_key(c):
     """Sort key placing a technique's values in increasing order inside its slots (LABEL_ORDER for words)."""
     lab = c["label"]
@@ -681,11 +712,9 @@ def rule_tables(cells, extra_3bff, maze_tol, r2_tols=(0.005, 0.01, 0.02)):
         print(f"  {name}-value rule: techniques on all three tasks at R^2 tolerance " + "; ".join(
             f"{t}: " + (", ".join(TECH_NAME[x] for x in TECH if out[name][x]["from_tol"] is not None
                                   and out[name][x]["from_tol"] <= t) or "none") for t in r2_tols))
-        dup = out[name]["duplicate"]["from_tol"]
-        others = sorted((v["from_tol"], TECH_NAME[x]) for x, v in out[name].items()
-                        if x != "duplicate" and v["from_tol"] is not None)
-        print(f"  {name}-value rule: prune-and-duplicate alone passes on all three tasks from {dup:.4f}"
-              + (f" up to {others[0][0]:.4f} (exclusive), where {others[0][1]} joins it" if others else ", with no upper limit"))
+        passing = sorted((v["from_tol"], TECH_NAME[x]) for x, v in out[name].items() if v["from_tol"] is not None)
+        print(f"  {name}-value rule: a technique passes on all three tasks from the tolerance: "
+              + "; ".join(f"{t} {v:.4f}" for v, t in passing))
     return out
 
 
@@ -984,7 +1013,7 @@ def panel_ab(fig, slots, columns, width, tol):
                        transform=ax_b2.get_xaxis_transform(), fontsize=ps.TICK_PT, color=ps.INK, ha="center",
                        va="top")
     for tech, x0, x1 in columns:
-        if tech == HIGHLIGHT_TECH:
+        if tech in HIGHLIGHT_TECHS:
             # one pale span from panel a's top to the Maze row's bottom: each axes shades its own height and the
             # gap down to the next axes (an axes' white face would hide a span drawn by the axes above it)
             for ax, top, h, nxt in ((ax_a, A_TOP_MM, A_H_MM, B1_TOP_MM), (ax_b1, B1_TOP_MM, B1_H_MM, B2_TOP_MM),
@@ -1222,6 +1251,11 @@ def removal_rows():
         tech = "duplicate" if r["cell"] == "duplicate" else "frm"
         rows.append(dict(task="maze", tech=tech, name=r["file"].replace(".json", ""), x=float(r["random_active"]),
                          y=float(r["added"]), intact=float(r["intact"]), k=int(r["k"]), where="calm"))
+    with open(ENT_REMOVAL) as fh:          # the entropy set point at lambda_ent = 0.1 (entropy_fig5.py)
+        ent = json.load(fh)
+    for r in ent["rows"]:
+        rows.append(dict(task=r["task"], tech="entropy", name=r["name"], x=float(r["random"]), y=float(r["least"]),
+                         intact=float(r["intact"]), k=int(r["k"]), where="bursts not checked"))
     return rows
 
 
@@ -1382,19 +1416,22 @@ def maze_marks_check(cells):
     return bad
 
 
-def report(cells, vs, order, table, floor, rows_c, rows_d, drawn_d, tol):
+def report(cells, vs, order, table, floor, rows_c, rows_d, drawn_d, tol, exported=()):
     """Print every number drawn and the verdict table.
 
     Args:
         cells: the `cell` dicts; vs: `verdicts` output; order, table: `column_order` output;
         floor: load_3bff's floor list; rows_c, rows_d: the panel c and d rows; drawn_d: panel_removal's
-        dict of what it drew (clipped values, closest markers); tol: dict task -> tolerance.
+        dict of what it drew (clipped values, closest markers); tol: dict task -> tolerance; exported: `cell`
+        dicts printed after the drawn ones and not drawn (the entropy set point at lambda_ent = 0.01).
     Returns:
         None.
     """
     print("\n--- panels a, b: one row per (technique, task, value) cell; fold = count / control mean; "
           "dperf = performance - control mean ---")
-    for c, v in zip(cells, vs):
+    for i, (c, v) in enumerate(zip(list(cells) + list(exported), list(vs) + verdicts(exported, tol))):
+        if i == len(cells):
+            print("  exported, not drawn:")
         r = v["rule"]
         print(f"  {TECH_NAME[c['tech']]:>20} {c['task']:>5} {c['label'] or '-':>8} [{c['status']}] "
               f"active {', '.join(map(str, c['active'])) or '-'} (fold {fmt(c['fold'], 2)}; mean "
@@ -1458,11 +1495,13 @@ def main():
     cells_cddm, r2_tol = load_cddm()
     cells_maze, success_tol, _ = load_maze()
     tol = {"3BFF": r2_tol, "CDDM": r2_tol, "maze": success_tol}
-    cells = sorted(cells_ff + cells_cddm + cells_maze, key=value_key)    # stable: values in order within a slot group
+    exported = load_entropy("0.01")
+    cells = sorted(cells_ff + cells_cddm + cells_maze + load_entropy("0.1"), key=value_key)    # stable: values in order within a slot group
     vs = verdicts(cells, tol)
     order, table = column_order(vs)
-    assert order[0] == HIGHLIGHT_TECH and all(table[(HIGHLIGHT_TECH, k)][0] for k in TASKS), \
-        "the shaded column is no longer the first one or no longer works on all three tasks"
+    on_all = {t for t in TECH if all(table[(t, k)][0] for k in TASKS)}
+    assert on_all == set(HIGHLIGHT_TECHS) == set(order[:len(HIGHLIGHT_TECHS)]), \
+        f"the shaded columns {HIGHLIGHT_TECHS} are not the techniques that work on all three tasks ({on_all}) or not first"
     ps.setup()
     fig = ps.figure(FIG_H_MM)
     panel_key(fig)
@@ -1471,11 +1510,11 @@ def main():
     panel_ab(fig, slots, columns, width, tol)
     _, rows_c = panel_sizes(fig)
     _, rows_d, drawn_d = panel_removal(fig)
-    report(cells, vs, order, table, floor, rows_c, rows_d, drawn_d, tol)
+    report(cells, vs, order, table, floor, rows_c, rows_d, drawn_d, tol, exported)
     maze_marks_check(cells)
     learned_control_sensitivity(cells, tol)
-    tolerance_sensitivity(cells, tol)
-    rule_tables(cells, load_3bff_all_values(), tol["maze"])
+    tolerance_sensitivity(cells + exported, tol)
+    rule_tables(cells + exported, load_3bff_all_values(), tol["maze"])
     check_overlaps(fig)
     ps.save(fig, "fig_paper_F5_tasks")
 
