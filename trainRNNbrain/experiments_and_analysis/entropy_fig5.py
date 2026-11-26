@@ -59,6 +59,7 @@ CDDM_CTRL_75K = "CDDM_std_g0_bias0_c75000/EqType=h_N=1000_LmbdRWS=0_LmbdFR=0"   
 CDDM_CTRL_CRIT = "CDDM_paper_grid/EqType=h_N=1000_arm=control"                     # the criterion's controls (100,000)
 CDDM_GATE = "CDDM_std_g0_penalties_bias0/EqType=h_N=1000_pen=frm0.1_iters=75000"   # G3 network reproduced by the gate
 MAZE_CTRL_MEAN = 430.0                  # M09: the mean of the three Maze controls
+MAZE_CTRL_ACTIVE = (426, 449, 415)      # the criterion's Maze controls, seeds 1-3 (fig_paper_F5_tasks.load_maze)
 MAZE_INDEPENDENT = 0.05                 # the criterion's Maze tolerance (round 18, G4)
 GATE_R2, GATE_MAZE, GATE_MAZE_ACTIVE = 0.002, 0.03, 2   # the rules' environment gates
 NOISE_SEED = 20261121                   # the noisy pass of entropy_setpoint_read.unit_stats
@@ -193,9 +194,12 @@ def do_preact(out_dir, maze_root):
     """Mode `preact`: the pre-activation statistics of the nine entropy networks and their controls.
 
     Args:
-        out_dir: str; maze_root: str, folder that holds trained_RNNs_rl_maze* trees.
+        out_dir: str; maze_root: str, folder that holds trained_RNNs_rl_maze* trees; its Maze_suite must be the
+            Mac copy of the controls (426, 449 and 415 active units), not Della's own (455, 423 and 404).
     Returns:
         None.
+    Raises:
+        SystemExit if a Maze control is not the criterion's network.
     """
     os.makedirs(out_dir, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -238,6 +242,10 @@ def do_preact(out_dir, maze_root):
             noisy, clean, succ = maze_passes(folder, device)
             z = np.load(sorted(glob.glob(os.path.join(folder, "*Participation.npz")))[0])
             j = int(np.argmin(np.abs(z["p_update"] - 2000)))
+            n = int(active_mask(z["p"][j]).sum())
+            # Della's trained_RNNs_rl_maze/Maze_suite/N=1000_act=relu holds another training run of the same seeds
+            if group == "control" and n != MAZE_CTRL_ACTIVE[s - 1]:
+                raise SystemExit(f"{folder}: {n} active units, the criterion's control has {MAZE_CTRL_ACTIVE[s - 1]}")
             one("maze", group, f"s{s}", noisy, clean, active_mask(z["p"][j]), float(z["p_update"][j]), folder,
                 dict(success_noisy_rollout=succ))
     with open(os.path.join(out_dir, "preactivation.json"), "w") as fh:
