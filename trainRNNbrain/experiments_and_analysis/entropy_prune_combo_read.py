@@ -450,8 +450,9 @@ def draw(R, fig_stem):
         for c in CELLS:
             for k, r in enumerate([r for r in R[task][c] if "t" in r]):
                 t, a = np.asarray(r["t"]) / s, np.asarray(r["act"])
-                w = 1 if task == "Maze" else 5                    # 3BFF, CDDM: every fifth stored vector
-                ax.plot(t[::w], a[::w], color=COLORS[c], lw=1.0, alpha=0.9, label=NAMES[c] if k == 0 else None)
+                w = 1 if task == "Maze" else 5                    # 3BFF, CDDM: every fifth stored vector, and the last
+                i = np.unique(np.r_[np.arange(0, len(t), w), len(t) - 1])
+                ax.plot(t[i], a[i], color=COLORS[c], lw=1.0, alpha=0.9, label=NAMES[c] if k == 0 else None)
         ax.axvline(READ[task] / s, color="0.7", lw=0.8)
         ax.set_title(f"{task}, N = 1,000", fontsize=10)
         ax.set_xlabel("PPO update" if task == "Maze" else "iteration (thousands)")
@@ -459,7 +460,7 @@ def draw(R, fig_stem):
         ax.set_ylim(0, 1000)
         ax.grid(alpha=0.25, lw=0.5)
     axes[0][0].set_ylabel("active units (of 1,000)")
-    axes[0][0].legend(fontsize=8, frameon=False, loc="upper right")
+    axes[0][-1].legend(fontsize=8, frameon=False, loc="lower right")
     fig.savefig(fig_stem + ".pdf")
     fig.savefig(fig_stem + ".png", dpi=150)
     print(f"figure: {fig_stem}.pdf, .png")
