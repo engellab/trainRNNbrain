@@ -1,0 +1,19 @@
+# @package _global_
+# MECHANISM TESTS, PART B: a penalty switched on in a trained default CDDM network (resurrect or prevent).
+# Rules: docs/project_trajectory/ (entry "rules-mechanism-noise-decay-and-switch", 25 Nov 2026).
+# The part A block, continued for 25,000 iterations from a part A default network (paths.init_from, set per network by
+# slurm/mech_switch_della.slurm) with its Adam moments, so the arm with no penalty is the same run trained on.
+# The launcher sets one penalty weight per arm and changes nothing else in this block.
+# Select with  +experiment=mech_switch
+defaults:
+  - mech_noise_decay
+  - _self_
+
+trainer:
+  max_iter: 25000
+  lambda_ent: 0          # entropy set point; args as in configs/experiment/entropy_setpoint.yaml
+  ent_args:
+    target_bits: 0.75
+    eps: 1.0e-6
+paths:
+  init_adam: true

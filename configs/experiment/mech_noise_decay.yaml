@@ -1,0 +1,30 @@
+# @package _global_
+# MECHANISM TESTS, PART A: training noise x weight decay on CDDM, N = 1,000.
+# Rules: docs/project_trajectory/ (entry "rules-mechanism-noise-decay-and-switch", 25 Nov 2026).
+# The standard CDDM network and trainer. The launcher (slurm/mech_noise_decay_della.slurm) sets only the swept
+# values: the seed, the three noise levels (config values or 0) and trainer.weight_decay (1e-6 or 0).
+# Select with  +experiment=mech_noise_decay
+defaults:
+  - override /task: CDDM
+  - override /model: rnn_relu_standard
+  - override /trainer: trainer_ptrack_freshbatch
+
+light_outputs: true
+model:
+  equation_type: h
+  N: 1000
+trainer:
+  trainer_tag: ""
+  max_iter: 75000
+  track_drift: true
+  track_every: 10
+  store_participation_every: 100
+  track_valid: false
+  # every 500, not 1,000: the predicted decay time of the weights onto inactive units is 345 to 496 iterations
+  checkpoint_every: 500
+  checkpoint_keep: true
+  lambda_rws: 0
+  lambda_frm: 0
+  prune_reinit: false
+  synaptic_scaling: false
+  dropout: false
