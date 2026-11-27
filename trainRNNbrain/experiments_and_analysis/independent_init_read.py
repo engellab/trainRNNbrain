@@ -217,8 +217,9 @@ def summary(values, refs, key):
     lo, hi, mean, m = BOUNDS[key]
     v = np.array([x for x in values if x is not None], float)
     r = np.array([x for x in refs if x is not None], float)
-    got = (int(r.min()), int(r.max()), int(round(r.mean())))
-    if got != (lo, hi, mean):
+    got = (int(r.min()), int(r.max()), round(float(r.mean()), 1))
+    # the rules record the mean rounded half up (Maze 416.5 -> 417), so the mean may differ from it by up to 0.5
+    if got[:2] != (lo, hi) or abs(got[2] - mean) > 0.5:
         raise ValueError(f"{key}: the reference networks read {got}, the rules record {(lo, hi, mean)}")
     verdict, side = classify(values, key)
     line = f"{key[0]} {key[1]}: new {[int(x) for x in v]} | reference n={len(r)} {lo}-{hi} mean {r.mean():.1f}"
