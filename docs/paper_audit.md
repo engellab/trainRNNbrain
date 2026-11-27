@@ -675,6 +675,14 @@ dead-relu-paper and recorded in a notebook entry.
   flip-flop, independent draws against the current controls (~45 GPU-h); entry 2026-10-15_2206.
   Not scheduled in round 2; the Discussion states the shared initial draw as a limitation ("the
   counts hold for this initialisation").
+  **Answered for 3BFF and CDDM (27 Nov; entries 2026-11-25_1303 rules, 2026-11-27_0804 result;
+  trainRNNbrain wp/independent-init).** Three networks per task at N = 1,000 with independent draws lie
+  inside the shared-draw networks' bounds at 75,000 iterations and at the floor crossing: 3BFF 248, 273, 302
+  active units against 236-309 (n = 13); CDDM 338, 349, 328 against 311-354 (n = 29); dependence not detected.
+  The bounds accept shifts up to about 18% (3BFF) and 11% (CDDM). Maze, trained with shared draws because its
+  networks already have independent ones: unresolved (418, 492, 447 against 394-449; one above the bound of 470).
+  The paper's statement that only 27 networks have independent draws is wrong: all 431 saved Maze configs and 104
+  supervised networks trained after 15 Oct have them.
 - **C4 wording** settled: the glossary terms silent and low-active (decision dead-relu-paper#36),
   defined in Methods (activity) and Results 4 and used in the Introduction.
 - **Redo with snapshots** (above). It should start after the initialisation question, so the redo
