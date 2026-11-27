@@ -31,6 +31,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 
 import matplotlib
@@ -45,7 +46,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import a3_remedy_ablation as A3  # noqa: E402
 import fig_paper_F5_tasks as F5T  # noqa: E402
 from common import DATA_DIR, active_mask, maze_load_runs, runs_with_loss  # noqa: E402
-from entropy_setpoint_read import chain_trace, flat_cfg, maze_point, skipped, window_median  # noqa: E402
+from entropy_setpoint_read import chain_trace, flat_cfg, maze_point, window_median  # noqa: E402
 from fig_paper_F2_fails import read_fixed  # noqa: E402
 
 ARMS = ("nodecay", "adamw1e-2", "amsgrad", "sgdm0.03", "sgdm0.1")
@@ -96,6 +97,28 @@ def arm_of(run_dir):
     return hit[0]
 
 
+def skipped_of(run_dir, logs, job):
+    """Skipped updates of one run from the Slurm log that names both its experiment tag and its seed.
+
+    entropy_setpoint_read.skipped matches the seed alone; here the five candidates share their seeds, so that match
+    returns one candidate's log for all five.
+
+    Args:
+        run_dir: str, run folder (its saved config holds experiment_tag and seed); logs: str, folder of *.out files;
+        job: str, the job name the logs start with.
+    Returns:
+        int (0 when the log prints no `gradient spikes` line) or None when no log names this tag and seed.
+    """
+    c = flat_cfg(run_dir)
+    key = f"{c['experiment_tag']}/s{c['seed']}/"
+    for f in glob.glob(os.path.join(logs, f"{job}.*.out")):
+        txt = open(f, errors="replace").read()
+        if key in txt:
+            m = re.search(r"gradient spikes: (\d+) updates skipped", txt)
+            return int(m.group(1)) if m else 0
+    return None
+
+
 def differs(run_dir, ref_cfg):
     """Config keys in which a run differs from a reference, outside the allowed ones.
 
@@ -144,7 +167,7 @@ def do_read(out_json, logs):
                 rec = dict(run_dir=d, seed=seed, active=int(f["active"]), probe=f["probe"], r2=float(f["r2"]),
                            r2_how=f["r2_how"], it_end=float(np.asarray(r["it_loss"])[-1]),
                            finite_loss=bool(np.isfinite(r["loss"]).all()), first_probe=[float(r["it_act"][0]), int(r["active"][0])],
-                           skipped=skipped(d, logs, JOB[task] if name != "control" else "IndInit"),
+                           skipped=skipped_of(d, logs, JOB[task] if name != "control" else "IndInit"),
                            draws=str(cfg.get("model.init_draws")), differs_bad=bad, differs_ok=ok, trace_it=its, trace_active=acts)
                 out[task][name].append(rec)
                 print(task, name, {k: v for k, v in rec.items() if not k.startswith("trace")}, flush=True)
