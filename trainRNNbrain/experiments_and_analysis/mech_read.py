@@ -378,6 +378,9 @@ def do_verdict(read_json, removal, fig):
 def draw(R, stem):
     """Figure: active units over training in the four cells (a), and share of the inactive units active after the switch (b).
 
+    In (b) a run whose final training loss is not finite or above 1 (diverged after the switch) is dashed; added 27 Nov after
+    the results were read, presentation only.
+
     Args:
         R: the read; stem: path without extension.
     """
@@ -391,10 +394,11 @@ def draw(R, stem):
     cb = {"none": "#333333", "ent0.1": "#2a78d6", "rate0.1": "#eb6834"}
     for arm, nets in R["B"].items():
         for k, r in enumerate(nets.values()):
+            ok = r["loss_end"] is not None and np.isfinite(r["loss_end"]) and r["loss_end"] < 1
             ax[1].plot((np.asarray(r["course_it"]) - SWITCH_IT) / 1000, r["course_share"], color=cb[arm], lw=1.2,
-                       label={"none": "no penalty", "ent0.1": "entropy set point 0.1", "rate0.1": "rate penalty 0.1"}[arm] if k == 0 else None)
-    ax[1].set(xlabel="iterations after the switch (thousands)", ylabel="share active, of units inactive at the switch", ylim=(0, 1),
-              title="b  penalty switched on at 75,000")
+                       ls="-" if ok else "--", label={"none": "no penalty", "ent0.1": "entropy set point 0.1", "rate0.1": "rate penalty 0.1"}[arm] if k == 0 else None)
+    ax[1].set(xlabel="iterations after the switch (thousands)", ylabel="share active, of units inactive at the switch", ylim=(0, 1.02),
+              title="b  penalty switched on at 75,000 (dashed: diverged)")
     for x in ax:
         x.grid(alpha=0.25, lw=0.5)
         x.legend(fontsize=8, frameon=False)

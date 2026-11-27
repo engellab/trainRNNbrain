@@ -633,6 +633,15 @@ seeds cannot change that; G17's gate fails by construction. DMTS continued decre
   146-159 active at 75k, against 329-358 with the default noise, same seeds); the drift-diffusion
   curve loses to a stretched exponential. No claim changes; the mechanism does not go into the
   Discussion.
+- **Coupled weight decay inside Adam (the reviewers' mechanism).** Refuted on CDDM as the explanation of
+  inactivity (27 Nov, entries 2026-11-25_1311 rules, 2026-11-27_0815 result; branch wp/mechanism-tests,
+  52.2 GPU-h, 21 new networks, recount 0 disagreements). Without decay, noise-free networks still have
+  fewer active units than noisy ones (163 against 456; with decay 151 against 343), and decay accounts
+  for 17% of the inactive units (S = 0.17). The decay does zero the incoming weights of inactive units,
+  but noise-free networks without it have 711-732 silent units. The decay time measured from saved
+  weights is 11-260 times the one predicted from Adam's state. A penalty switched on at 75k diverged
+  in 3 of 6 networks; in the stable ones the rate penalty made every inactive unit active (2 of 2) and
+  the entropy set point did not (1 of 1). No claim changes.
 - **DMTS setting sweeps (C5 on DMTS).** Fails its rule (2 Nov, entries 2026-11-01_2124 plan and 2026-11-02_1822 result; Della jobs 16628171, 16697623; branch wp/dmts-readout): of 9 networks that learned and have a floor crossing, 8 end with fewer active units, 1 (σ_rec 0.1, s4098854564) ends with more (288 → 308); weight decay 0, metabolic penalty 1 and recurrent-weight penalty 0.2 are untested. C5 stays scoped to CDDM and 3BFF.
 
 **Training**
