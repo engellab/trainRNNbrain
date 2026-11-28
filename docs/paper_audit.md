@@ -239,6 +239,8 @@ N = 250 to 4,000, learned runs: N^0.52 (bootstrap 0.49-0.55 with the one seed bo
 
 **When the rules were written (entry 2026-11-06_2259).** "Only stronger weight decay on all three tasks" holds for networks that learned, a restriction chosen after the data: 18 values, 2 the same; counting every finished network, among values all of whose networks finished, 25 values, 4 the same (SGD 0.03 and 0.1 too). **Corrected (entry 2026-11-09_1509):** the 4 used the two learned Maze controls as the range; with all three controls, as the every-network rule counts them, it is 3. Since G12 the tallies are 17 and 1 (learned networks) and 24 and 3 (every finished network). Prune-and-duplicate alone passes on all three tasks at R^2 tolerances from 0.0046 to about 0.0213, SE of the upper limit 0.0015 (entry 2026-11-06_2317); the abstract says no "only". The Maze technique conditions predate every Maze technique network; the R^2 tolerance postdates every 3BFF and most CDDM networks; the at-one-value rule and the 75,000-iteration 3BFF read postdate the data.
 
+**Entropy set point in Figure 5 (26 Nov; entries 2026-11-25_1235 rules, 2026-11-26_0222 result; trainRNNbrain wp/entropy-fig5).** The per-unit activity-entropy set point at λ_ent = 0.1 works on 3BFF, CDDM and Maze, so prune-and-duplicate is no longer the only technique on all three tasks: under the one-value rule the entropy set point passes on all three from an R² tolerance of 0.0002 (via λ_ent = 0.01; λ_ent = 0.1 alone from 0.0020), prune-and-duplicate from 0.0032. Removing its k least participating active units (M09's bar of a 0.10 drop): mixed on 3BFF (drops 0.030, 0.013, 0.033) and CDDM (0.095, 0.111, 0.096), depends on Maze (0.367, 0.191, 0.287). In its inactive units the actual on/off entropy is 0.09-0.37 bits, not the 0.75 target (the term sets only the ratio of mean to s.d. of h there); in its active units it is within 0.15 bits of 0.75 but no nearer to 0.75 than in the controls on CDDM and Maze. Figure 5 (internal) has seven techniques; the paper's text is not yet changed.
+
 **C6 across the three tasks (5 Nov; Pavel's instruction, trainRNNbrain issue #6, dead-relu-paper#183:
 report the rules that work on every task first).** Criterion per cell at N = 1,000: more active
 units than every control in all seeds at a performance within the tolerance (held-out R^2 within
@@ -633,6 +635,15 @@ seeds cannot change that; G17's gate fails by construction. DMTS continued decre
   146-159 active at 75k, against 329-358 with the default noise, same seeds); the drift-diffusion
   curve loses to a stretched exponential. No claim changes; the mechanism does not go into the
   Discussion.
+- **Coupled weight decay inside Adam (the reviewers' mechanism).** Refuted on CDDM as the explanation of
+  inactivity (27 Nov, entries 2026-11-25_1311 rules, 2026-11-27_0815 result; branch wp/mechanism-tests,
+  52.2 GPU-h, 21 new networks, recount 0 disagreements). Without decay, noise-free networks still have
+  fewer active units than noisy ones (163 against 456; with decay 151 against 343), and decay accounts
+  for 17% of the inactive units (S = 0.17). The decay does zero the incoming weights of inactive units,
+  but noise-free networks without it have 711-732 silent units. The decay time measured from saved
+  weights is 11-260 times the one predicted from Adam's state. A penalty switched on at 75k diverged
+  in 3 of 6 networks; in the stable ones the rate penalty made every inactive unit active (2 of 2) and
+  the entropy set point did not (1 of 1). No claim changes.
 - **DMTS setting sweeps (C5 on DMTS).** Fails its rule (2 Nov, entries 2026-11-01_2124 plan and 2026-11-02_1822 result; Della jobs 16628171, 16697623; branch wp/dmts-readout): of 9 networks that learned and have a floor crossing, 8 end with fewer active units, 1 (σ_rec 0.1, s4098854564) ends with more (288 → 308); weight decay 0, metabolic penalty 1 and recurrent-weight penalty 0.2 are untested. C5 stays scoped to CDDM and 3BFF.
 
 **Training**
@@ -673,6 +684,14 @@ dead-relu-paper and recorded in a notebook entry.
   flip-flop, independent draws against the current controls (~45 GPU-h); entry 2026-10-15_2206.
   Not scheduled in round 2; the Discussion states the shared initial draw as a limitation ("the
   counts hold for this initialisation").
+  **Answered for 3BFF and CDDM (27 Nov; entries 2026-11-25_1303 rules, 2026-11-27_0804 result;
+  trainRNNbrain wp/independent-init).** Three networks per task at N = 1,000 with independent draws lie
+  inside the shared-draw networks' bounds at 75,000 iterations and at the floor crossing: 3BFF 248, 273, 302
+  active units against 236-309 (n = 13); CDDM 338, 349, 328 against 311-354 (n = 29); dependence not detected.
+  The bounds accept shifts up to about 18% (3BFF) and 11% (CDDM). Maze, trained with shared draws because its
+  networks already have independent ones: unresolved (418, 492, 447 against 394-449; one above the bound of 470).
+  The paper's statement that only 27 networks have independent draws is wrong: all 431 saved Maze configs and 104
+  supervised networks trained after 15 Oct have them.
 - **C4 wording** settled: the glossary terms silent and low-active (decision dead-relu-paper#36),
   defined in Methods (activity) and Results 4 and used in the Introduction.
 - **Redo with snapshots** (above). It should start after the initialisation question, so the redo
