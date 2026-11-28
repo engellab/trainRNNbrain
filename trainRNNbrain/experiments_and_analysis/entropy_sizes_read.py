@@ -470,18 +470,21 @@ def draw_folds(cells, maze, rec, stem):
             base = np.mean([r[key] for r in c["control_runs"] if r.get(key) is not None])
             vals = {"ent": [r[key] for r in c["ent_runs"] if r.get(key) is not None],
                     "dup": rec[(task, n, "dup")][key] if (task, n, "dup") in rec else []}
-            if not c["judged"] and key == "active":
-                vals["ent"] = []                     # N = 1,000: a 75,000-iteration record, no crossing verdict
             for g, dx in (("ent", 0.96), ("dup", 1.04)):
-                if len(vals[g]):
-                    ax.plot([n * dx] * len(vals[g]), np.asarray(vals[g]) / base, "o", ms=5, color=COL[g], alpha=0.7, mec="white", mew=0.6)
-                    mean[g].append((n * dx, float(np.mean(vals[g]) / base)))
+                if not len(vals[g]):
+                    continue
+                y = np.asarray(vals[g]) / base
+                if g == "ent" and not c["judged"]:   # N = 1,000: seen before the rules, description only: hollow, off the line
+                    ax.plot([n * dx] * len(y), y, "o", ms=5, mfc="white", mec=COL[g], mew=1.0)
+                    continue
+                ax.plot([n * dx] * len(y), y, "o", ms=5, color=COL[g], alpha=0.7, mec="white", mew=0.6)
+                mean[g].append((n * dx, float(np.mean(y))))
         for g, lab in (("ent", "entropy set point, λ = 0.1"), ("dup", "prune-and-duplicate")):
             if mean[g]:
                 ax.plot(*zip(*sorted(mean[g])), color=COL[g], lw=1.8, label=lab)
         ax.axhline(1, color="0.6", lw=0.8)
         ax.set_xscale("log")
-        ax.set_xticks([500, 1000, 2000, 4000], ["500", "1,000", "2,000", "4,000"])
+        ax.set_xticks([500, 1000, 2000], ["500", "1,000", "2,000"])
         ax.minorticks_off()
         ax.set_title(title, fontsize=10)
         ax.set_xlabel("network size N")
